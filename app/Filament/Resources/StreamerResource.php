@@ -10,7 +10,6 @@ use App\Models\ShippingSurcharge;
 use App\Models\Streamer;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
-use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -18,7 +17,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -30,7 +28,6 @@ use Filament\Actions\EditAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Notifications\Notification;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -41,93 +38,40 @@ class StreamerResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug  = 'operations';
-
+    protected static string $moduleSlug = 'operations';
     protected static ?string $model = Streamer::class;
-
-    /**
-     * "Team", not "Streamers": the roster holds fulfillment staff too, on the
-     * same record and the same pay terms.
-     *
-     * The slug stays /admin/streamers deliberately — every existing link,
-     * bookmark and saved filter points there, and renaming a URL to match a
-     * label is a cost with no benefit.
-     */
     protected static ?string $slug = 'streamers';
 
-    public static function getNavigationLabel(): string
-    {
-        return 'Team';
-    }
-
-    public static function getModelLabel(): string
-    {
-        return 'team member';
-    }
-
-    public static function getPluralModelLabel(): string
-    {
-        return 'Team';
-    }
-
-    public static function getNavigationIcon(): string|\BackedEnum|null
-    {
-        return 'heroicon-o-user-group';
-    }
-
-    public static function getNavigationGroup(): string|\UnitEnum|null
-    {
-        return AdminModules::navigationGroupFor('operations');
-    }
-
-    public static function getNavigationSort(): ?int
-    {
-        return 1;
-    }
+    public static function getNavigationLabel(): string { return 'Team'; }
+    public static function getModelLabel(): string { return 'team member'; }
+    public static function getPluralModelLabel(): string { return 'Team'; }
+    public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-user-group'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('operations'); }
+    public static function getNavigationSort(): ?int { return 1; }
 
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'legal_name', 'email'];
     }
 
-    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    public static function getGlobalSearchResultTitle(Model $record): string
     {
         return $record->name;
     }
 
-    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    public static function getGlobalSearchResultDetails(Model $record): array
     {
-        // Lowercase keys are slots in the global-search override, not labels:
-        // subtitle / status / tone / figure. See that view for the contract.
         return array_filter([
             'subtitle' => $record->email,
-            'status'   => Streamer::statusLabels()[$record->status] ?? $record->status,
-            'tone'     => match ($record->status) {
-                'active'   => 'success',
+            'status' => Streamer::statusLabels()[$record->status] ?? $record->status,
+            'tone' => match ($record->status) {
+                'active' => 'success',
                 'on_leave' => 'warning',
                 'inactive' => 'danger',
-                default    => 'neutral',
+                default => 'neutral',
             },
-            // The terms, not the type name: "35%" answers what you came to
-            // look up, where "Profit Share" only names the scheme.
-            'figure' => static::termsSummary($record),
+            'figure' => 'Weekly payroll',
         ]);
-    }
-
-    /**
-     * The headline number for a streamer's payout terms, which live in a
-     * different column per type.
-     */
-    protected static function termsSummary(Streamer $record): ?string
-    {
-        return match ($record->payout_type) {
-            'profit_share'   => $record->payout_percentage > 0 ? rtrim(rtrim(number_format((float) $record->payout_percentage, 2), '0'), '.') . '%' : null,
-            'hourly'         => $record->hourly_rate > 0 ? '$' . number_format((float) $record->hourly_rate, 2) . '/hr' : null,
-            'package'        => $record->package_rate > 0 ? '$' . number_format((float) $record->package_rate, 2) . '/pkg' : null,
-            'flat_rate'      => $record->flat_rate > 0 ? '$' . number_format((float) $record->flat_rate, 2) : null,
-            'hybrid'         => $record->hourly_rate > 0 ? '$' . number_format((float) $record->hourly_rate, 2) . '/hr +' : null,
-            default          => Streamer::payoutTypeLabels()[$record->payout_type] ?? null,
-        };
     }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
@@ -141,19 +85,10 @@ class StreamerResource extends Resource
         return $query;
     }
 
-    // Streamers cannot manage other streamers
-    public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
-    public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
+    public static function canCreate(): bool { return auth()->user()?->isAdmin() ?? false; }
+    public static function canEdit($r): bool { return auth()->user()?->isAdmin() ?? false; }
     public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
 
-    /**
-     * Payouts and deduction_requests have no delete rule on streamer_id
-     * (defaults to restrict) — deleting a streamer with either would 500.
-     * show_streamer, streamer_loans, shipping_surcharges, and
-     * streamer_log_entries all cascade on delete — allowing it there would
-     * silently wipe show attribution, loan, surcharge, and log history
-     * instead of erroring. Block delete whenever any of that exists.
-     */
     public static function canDelete(Model $record): bool
     {
         if (! auth()->user()?->isAdmin()) {
@@ -168,53 +103,6 @@ class StreamerResource extends Resource
             && ! ShippingSurcharge::where('streamer_id', $record->id)->exists();
     }
 
-    /** Formula term each builder checkbox contributes, in the order they're joined. */
-    private static function formulaComponents(): array
-    {
-        return [
-            'component_package'      => 'package_rate',
-            'component_profit_share' => '(payout_percentage / 100) * streamer_share_net',
-            'component_hourly'       => 'hourly_rate * show_duration_hours',
-            'component_tips'         => 'tip_share',
-            'component_pwe'          => 'pwe_rate',
-            'component_labels'       => 'label_rate',
-        ];
-    }
-
-    /** Pre-check a builder checkbox on edit if its term already appears in the saved formula. */
-    private static function formulaHasTerm(?Streamer $record, string $term): bool
-    {
-        return $record && str_contains((string) $record->custom_payout_formula, $term);
-    }
-
-    private static function rebuildFormula(Get $get, Set $set): void
-    {
-        $terms = [];
-
-        foreach (static::formulaComponents() as $checkbox => $term) {
-            if ($get($checkbox)) {
-                $terms[] = $term;
-            }
-        }
-
-        $set('custom_payout_formula', implode(' + ', $terms));
-    }
-
-    /**
-     * Pre-checks a builder checkbox from the saved formula on edit. Deliberately
-     * afterStateHydrated(), not default(): default() is silently skipped once a
-     * field's state path already exists in the hydrated array, which it always
-     * does here since none of these checkboxes are real model attributes —
-     * Filament's blanket "fill unmapped fields with null" pass runs first and
-     * already puts a null/false entry in the array under this checkbox's key.
-     */
-    private static function precheckFromFormula(string $term): \Closure
-    {
-        return function (Checkbox $component, ?Streamer $record) use ($term) {
-            $component->state(static::formulaHasTerm($record, $term));
-        };
-    }
-
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -225,52 +113,36 @@ class StreamerResource extends Resource
                 ->columnSpanFull()
                 ->schema([
                     Grid::make(4)->schema([
-                        Placeholder::make('sc_shows')
-                            ->label('Shows')
-                            ->content(fn ($record) => number_format($record->scorecard()['shows'])),
-                        Placeholder::make('sc_gross')
-                            ->label('Gross Driven')
-                            ->content(fn ($record) => '$' . number_format($record->scorecard()['gross'], 2)),
-                        Placeholder::make('sc_margin')
-                            ->label('Margin Contributed')
-                            ->content(fn ($record) => '$' . number_format($record->scorecard()['margin'], 2)),
-                        Placeholder::make('sc_rating')
-                            ->label('Avg Rating')
-                            ->content(function ($record) {
-                                $c = $record->scorecard();
-                                return $c['avg_rating'] !== null
-                                    ? number_format($c['avg_rating'], 2) . " ⭐ ({$c['rated_shows']} rated)"
-                                    : '—';
-                            }),
+                        Placeholder::make('sc_shows')->label('Shows')->content(fn ($record) => number_format($record->scorecard()['shows'])),
+                        Placeholder::make('sc_gross')->label('Gross Driven')->content(fn ($record) => '$' . number_format($record->scorecard()['gross'], 2)),
+                        Placeholder::make('sc_margin')->label('Margin Contributed')->content(fn ($record) => '$' . number_format($record->scorecard()['margin'], 2)),
+                        Placeholder::make('sc_rating')->label('Avg Rating')->content(function ($record) {
+                            $c = $record->scorecard();
+                            return $c['avg_rating'] !== null
+                                ? number_format($c['avg_rating'], 2) . " ⭐ ({$c['rated_shows']} rated)"
+                                : '—';
+                        }),
                     ]),
                 ]),
 
             Section::make('Basic Information')
                 ->description('Name, contact info, and assigned channel.')
-                ->columnSpanFull()->schema([
-                Grid::make(3)->schema([
-                    TextInput::make('name')
-                        ->required()
-                        ->maxLength(255),
-                    TextInput::make('legal_name')
-                        ->maxLength(255),
-                    TextInput::make('email')
-                        ->email()
-                        ->maxLength(255),
-                    TextInput::make('phone')
-                        ->tel()
-                        ->maxLength(50),
-                    Select::make('whatnot_channel_id')
-                        ->label('Channel')
-                        ->relationship('channel', 'name')
-                        ->searchable()
-                        ->preload()
-                        ->helperText('Primary channel this team member is attributed to for stats and analytics.'),
+                ->columnSpanFull()
+                ->schema([
+                    Grid::make(3)->schema([
+                        TextInput::make('name')->required()->maxLength(255),
+                        TextInput::make('legal_name')->maxLength(255),
+                        TextInput::make('email')->email()->maxLength(255),
+                        TextInput::make('phone')->tel()->maxLength(50),
+                        Select::make('whatnot_channel_id')
+                            ->label('Channel')
+                            ->relationship('channel', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Primary channel this team member is attributed to for stats and analytics.'),
+                    ]),
                 ]),
-            ]),
 
-            // Not model attributes — CreateStreamer pulls these out before the
-            // Streamer row is saved and creates the linked User in afterCreate.
             Section::make('Login Account')
                 ->description('Optionally create a login so this person can sign in and see their own shows, payouts, and inventory.')
                 ->columnSpanFull()
@@ -300,163 +172,16 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Payout Configuration')
-                ->description('Set how this team member is paid — payout type, rates, and payment cadence.')
-                ->columnSpanFull()->schema([
-                Grid::make(3)->schema([
-                    Select::make('payout_type')
-                        ->options(Streamer::payoutTypeLabels())
-                        ->required()
-                        ->live(),
-                    Select::make('payout_cadence')
-                        ->label('Pay Run Cadence')
-                        ->options(Streamer::payoutCadenceLabels())
-                        ->default('weekly')
-                        ->required()
-                        ->helperText('Regular payout types run weekly; profit share and tips are usually batched monthly instead.'),
-                    // PWE + Labels fields (native type)
-                    TextInput::make('pwe_rate')
-                        ->label('PWE Rate ($ per package)')
-                        ->helperText('PWE = Plain White Envelope — the pay per single-card envelope shipped.')
-                        ->numeric()
-                        ->prefix('$')
-                        ->minValue(0)
-                        ->visible(fn (Get $get) => $get('payout_type') === 'pwe_labels'
-                            || ($get('payout_type') === 'custom_formula' && $get('component_pwe'))),
-                    TextInput::make('label_rate')
-                        ->label('Label Rate ($ per label)')
-                        ->numeric()
-                        ->prefix('$')
-                        ->minValue(0)
-                        ->visible(fn (Get $get) => $get('payout_type') === 'pwe_labels'
-                            || ($get('payout_type') === 'custom_formula' && $get('component_labels'))),
-
-                    // Hybrid fields (also uses hourly_rate and payout_percentage)
-                    TextInput::make('hourly_rate')
-                        ->numeric()
-                        ->prefix('$')
-                        ->suffix('/hr')
-                        ->visible(fn (Get $get) => in_array($get('payout_type'), ['hourly', 'hybrid', 'pwe_labels'])
-                            || ($get('payout_type') === 'custom_formula' && $get('component_hourly'))),
-                    TextInput::make('payout_percentage')
-                        ->numeric()
-                        ->suffix('%')
-                        ->label(fn (Get $get) => $get('payout_type') === 'hybrid' ? 'Profit Share %' : 'Payout %')
-                        ->visible(fn (Get $get) => in_array($get('payout_type'), ['profit_share', 'hybrid'])
-                            || ($get('payout_type') === 'custom_formula' && $get('component_profit_share'))),
-                    TextInput::make('package_rate')
-                        ->numeric()
-                        ->prefix('$')
-                        ->required(fn (Get $get) => in_array($get('payout_type'), ['package', 'flat_rate']))
-                        ->visible(fn (Get $get) => in_array($get('payout_type'), ['package', 'flat_rate'])
-                            || ($get('payout_type') === 'custom_formula' && $get('component_package'))),
-                    Toggle::make('include_tips')
-                        ->default(true)
-                        ->helperText(fn (Get $get) => $get('payout_type') === 'custom_formula'
-                            ? 'Has no effect on Custom Formula — check "Tips" in the formula builder below instead.'
-                            : null),
-                ]),
-
-                // ── Formula builder: tick the components that make up this streamer's
-                // pay (e.g. Package + Profit Share, or PWE + Labels + Profit Share)
-                // and the formula below is assembled for you. Still a plain editable
-                // textarea underneath — nothing stops hand-editing it directly.
-                Section::make('Formula Builder')
-                    ->description('Tick the pieces that make up this person\'s pay — the formula below fills in automatically. You can still edit it by hand after.')
-                    ->visible(fn (Get $get) => $get('payout_type') === 'custom_formula')
-                    ->schema([
-                        Grid::make(3)->schema([
-                            Checkbox::make('component_package')
-                                ->label('Package rate')
-                                ->dehydrated(false)
-                                ->live()
-                                ->afterStateHydrated(static::precheckFromFormula('package_rate'))
-                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
-                            Checkbox::make('component_profit_share')
-                                ->label('Profit share %')
-                                ->dehydrated(false)
-                                ->live()
-                                ->afterStateHydrated(static::precheckFromFormula('payout_percentage'))
-                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
-                            Checkbox::make('component_hourly')
-                                ->label('Hourly rate')
-                                ->dehydrated(false)
-                                ->live()
-                                ->afterStateHydrated(static::precheckFromFormula('hourly_rate'))
-                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
-                            Checkbox::make('component_tips')
-                                ->label('Tips')
-                                ->dehydrated(false)
-                                ->live()
-                                ->afterStateHydrated(static::precheckFromFormula('tip_share'))
-                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
-                            Checkbox::make('component_pwe')
-                                ->label('PWE rate')
-                                ->helperText('Flat, once — not multiplied by envelope count.')
-                                ->dehydrated(false)
-                                ->live()
-                                ->afterStateHydrated(static::precheckFromFormula('pwe_rate'))
-                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
-                            Checkbox::make('component_labels')
-                                ->label('Label rate')
-                                ->helperText('Flat, once — not multiplied by label count.')
-                                ->dehydrated(false)
-                                ->live()
-                                ->afterStateHydrated(static::precheckFromFormula('label_rate'))
-                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
-                        ]),
-
-                        Textarea::make('custom_payout_formula')
-                            ->label('Formula')
-                            ->rows(3)
-                            ->placeholder('streamer_share_net * 0.35 + tip_share')
-                            ->helperText('Auto-filled from the checkboxes above, or write your own. Supported variables: gross_revenue, whatnot_net, streamer_share_net, units_sold, show_duration_hours, show_duration_minutes, tips, tip_share, payout_percentage, package_rate, hourly_rate, pwe_rate, label_rate. Operators: + - * / and parentheses.')
-                            ->columnSpanFull(),
-                    ]),
-            ]),
-
-            Section::make('Burden Rate')
-                ->description('Applied to base pay before tips/profit share in Hybrid model. Optional on all models.')
-                ->collapsed()
+            Section::make('Payroll')
+                ->description('All team members are paid through the weekly Pay Run. Any one-off pay adjustment is handled as an override in the Pay Run, not on the team profile.')
+                ->icon('heroicon-o-banknotes')
                 ->columnSpanFull()
                 ->schema([
-                    Grid::make(2)->schema([
-                        Select::make('burden_rate_type')
-                            ->label('Burden Rate Type')
-                            ->options(['percentage' => 'Percentage (%)', 'flat' => 'Flat Amount ($)'])
-                            ->placeholder('No burden rate')
-                            ->nullable()
-                            ->live(),
-                        TextInput::make('burden_rate_value')
-                            ->label(fn ($get) => $get('burden_rate_type') === 'flat' ? 'Burden Amount ($)' : 'Burden Percentage (%)')
-                            ->numeric()
-                            ->minValue(0)
-                            ->visible(fn ($get) => ! empty($get('burden_rate_type'))),
-                    ]),
+                    Placeholder::make('weekly_payroll')
+                        ->label('Pay Run Cadence')
+                        ->content('Weekly')
+                        ->helperText('Compensation calculations and overrides are reviewed in Payroll before the weekly Pay Run is finalized.'),
                 ]),
-
-            Section::make('Vortex Fee')
-                ->description('Leave blank to use the global default set in Settings → Vortex Fee. Set a type here to override it for just this person.')
-                ->columnSpanFull()->schema([
-                Grid::make(3)->schema([
-                    Select::make('owner_fee_type')
-                        ->label('Fee Type')
-                        ->options(Streamer::ownerFeeTypeLabels())
-                        ->placeholder('Use global default')
-                        ->nullable()
-                        ->live(),
-                    TextInput::make('owner_fee_value')
-                        ->label(fn ($get) => $get('owner_fee_type') === 'flat' ? 'Fee Amount ($)' : 'Fee Percentage (%)')
-                        ->numeric()
-                        ->minValue(0)
-                        ->nullable()
-                        ->visible(fn ($get) => ! empty($get('owner_fee_type'))),
-                    Toggle::make('owner_fee_deduct_from_payout')
-                        ->label('Deduct from payout')
-                        ->helperText('On: reduces calculated payout. Off: tracked separately.')
-                        ->visible(fn ($get) => ! empty($get('owner_fee_type'))),
-                ]),
-            ]),
 
             Section::make('Channel Routing')
                 ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
@@ -466,26 +191,16 @@ class StreamerResource extends Resource
                     Repeater::make('channel_routing_rules')
                         ->label('')
                         ->schema([
-                            TextInput::make('channel')
-                                ->label('Channel Name')
-                                ->placeholder('e.g. Breaks')
-                                ->required()
-                                ->maxLength(100),
-                            TextInput::make('bank_label')
-                                ->label('Bank / Account Label')
-                                ->placeholder('e.g. Chase Business x1234')
-                                ->required()
-                                ->maxLength(255),
+                            TextInput::make('channel')->label('Channel Name')->placeholder('e.g. Breaks')->required()->maxLength(100),
+                            TextInput::make('bank_label')->label('Bank / Account Label')->placeholder('e.g. Chase Business x1234')->required()->maxLength(255),
                         ])
                         ->columns(2)
                         ->reorderable()
                         ->cloneable()
                         ->addActionLabel('Add routing rule')
-                        ->itemLabel(fn (array $state): ?string =>
-                            ($state['channel'] ?? null)
-                                ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
-                                : null
-                        )
+                        ->itemLabel(fn (array $state): ?string => ($state['channel'] ?? null)
+                            ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
+                            : null)
                         ->collapsible()
                         ->columnSpanFull()
                         ->defaultItems(0),
@@ -510,11 +225,6 @@ class StreamerResource extends Resource
                                 ->required(),
                         ])
                         ->columns(1)
-                        // A repeater starts with one blank row by default, and
-                        // the Location select is required — so an admin who
-                        // never opened this section still failed validation and
-                        // could not create a streamer at all. Locations are
-                        // optional, so start empty.
                         ->defaultItems(0)
                         ->addActionLabel('Add Location')
                         ->reorderable()
@@ -527,11 +237,7 @@ class StreamerResource extends Resource
                 Grid::make(2)->schema([
                     Select::make('member_type')
                         ->label('Role')
-                        // Fulfillment staff are paid off exactly the same terms
-                        // as streamers — every rate column is on this record and
-                        // the payout pipeline already runs off it — so the only
-                        // thing this changes is where they are listed.
-                        ->helperText('Pay terms are the same either way. This decides which list they appear in.')
+                        ->helperText('This controls where the team member appears in the operations workflow.')
                         ->options(Streamer::memberTypeLabels())
                         ->required()
                         ->default('streamer')
@@ -541,9 +247,7 @@ class StreamerResource extends Resource
                         ->required()
                         ->default('active'),
                 ]),
-                Textarea::make('notes')
-                    ->rows(3)
-                    ->columnSpanFull(),
+                Textarea::make('notes')->rows(3)->columnSpanFull(),
             ]),
         ]);
     }
@@ -557,29 +261,9 @@ class StreamerResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('semibold')
-                    // Email drops out of the column list and rides under the
-                    // name — it identifies the person rather than being data
-                    // you sort or compare across rows.
                     ->description(fn (Streamer $record) => $record->email)
                     ->extraCellAttributes(['class' => 'vx-col-title'])
                     ->extraHeaderAttributes(['class' => 'vx-col-title']),
-                TextColumn::make('payout_type')
-                    ->label('Terms')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => Streamer::payoutTypeLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'profit_share'   => 'success',
-                        'package'        => 'info',
-                        'hourly'         => 'warning',
-                        'flat_rate'      => 'gray',
-                        'pwe_labels'     => 'info',
-                        'hybrid'         => 'primary',
-                        'custom_formula' => 'primary',
-                        default          => 'gray',
-                    })
-                    // The rate is the part you actually want to see; the type
-                    // alone only names the scheme.
-                    ->description(fn (Streamer $record) => static::termsSummary($record)),
                 TextColumn::make('member_type')
                     ->label('Role')
                     ->badge()
@@ -601,66 +285,33 @@ class StreamerResource extends Resource
                     ->extraHeaderAttributes(['class' => 'vx-col-tight']),
                 TextColumn::make('inventoryLocations_count')
                     ->counts('inventoryLocations')
-                    // "Location Count" rather than "Locations" so the phone
-                    // card promotes it into the stat row — that layout picks
-                    // stats by label, and "count" is the term it looks for.
                     ->label('Location Count')
                     ->extraCellAttributes(['class' => 'vx-col-tight'])
                     ->extraHeaderAttributes(['class' => 'vx-col-tight']),
-                TextColumn::make('email')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('payout_cadence')
-                    ->label('Cadence')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => Streamer::payoutCadenceLabels()[$state] ?? $state)
-                    ->color(fn ($state) => $state === 'monthly' ? 'primary' : 'gray')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('total_earnings_due')
-                    ->label('Due')
-                    ->money('USD')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('total_earnings_paid')
-                    ->label('Paid')
-                    ->money('USD')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                IconColumn::make('include_tips')
-                    ->boolean()
-                    ->label('Tips')
-                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('channel.name')
                     ->label('Channel')
                     ->badge()
                     ->color('gray')
-                    ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->placeholder('—'),
+                TextColumn::make('email')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_due')->label('Due')->money('USD')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_paid')->label('Paid')->money('USD')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->emptyStateIcon('heroicon-o-user-group')
             ->emptyStateHeading('No team members yet')
-            ->emptyStateDescription('Add the people you run breaks with — their payout terms, channel routing, and inventory location.')
+            ->emptyStateDescription('Add the people who work your shows and fulfillment workflow. Payroll is handled in the weekly Pay Run.')
             ->emptyStateActions([
                 \Filament\Actions\CreateAction::make()->label('Add your first team member'),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->options(Streamer::statusLabels()),
-                SelectFilter::make('payout_type')
-                    ->options(Streamer::payoutTypeLabels()),
-                SelectFilter::make('whatnot_channel_id')
-                    ->label('Channel')
-                    ->relationship('channel', 'name'),
+                SelectFilter::make('status')->options(Streamer::statusLabels()),
+                SelectFilter::make('member_type')->label('Role')->options(Streamer::memberTypeLabels()),
+                SelectFilter::make('whatnot_channel_id')->label('Channel')->relationship('channel', 'name'),
             ])
             ->actions([
-                ViewAction::make()
-                    ->size('sm')
-                    ->iconButton(),
-                EditAction::make()
-                    ->size('sm')
-                    ->iconButton(),
+                ViewAction::make()->size('sm')->iconButton(),
+                EditAction::make()->size('sm')->iconButton(),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (Streamer $record) => static::canDelete($record))
@@ -674,18 +325,17 @@ class StreamerResource extends Resource
                     DeleteBulkAction::make()
                         ->action(function (Collection $records): void {
                             $deletable = $records->filter(fn (Streamer $record) => static::canDelete($record));
-                            $blocked   = $records->count() - $deletable->count();
-
+                            $blocked = $records->count() - $deletable->count();
                             $deletable->each->delete();
 
                             if ($blocked > 0) {
                                 Notification::make()
-                                    ->title($deletable->count() . ' streamer(s) deleted')
+                                    ->title($deletable->count() . ' team member(s) deleted')
                                     ->body("{$blocked} skipped — still have shows, payouts, loans, surcharges, or log entries.")
                                     ->warning()
                                     ->send();
                             } else {
-                                Notification::make()->title($deletable->count() . ' streamer(s) deleted')->success()->send();
+                                Notification::make()->title($deletable->count() . ' team member(s) deleted')->success()->send();
                             }
                         })
                         ->deselectRecordsAfterCompletion(),
@@ -700,9 +350,7 @@ class StreamerResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            LoansRelationManager::class,
-        ];
+        return [LoansRelationManager::class];
     }
 
     public static function getPages(): array

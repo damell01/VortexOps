@@ -22,7 +22,7 @@ class FulfillmentManual
                         'The Fulfillment Workspace is card-first. Shows are grouped by what needs attention, what is ready, what is actively being packed and what is complete.',
                         'Use the stage and primary action on the card rather than opening the advanced table first.',
                     ],
-                    'shot' => null,
+                    'shot' => 'ops-fulfillment-center.png',
                     'fields' => [
                         ['Needs Attention', 'Shows with a fulfillment blocker or issue.'],
                         ['Ready to Pack', 'Approved shows that can begin packing.'],
@@ -41,7 +41,7 @@ class FulfillmentManual
                         'Scan or pack the correct line, build boxes from Whatnot shipment data, verify the box, print the internal 4×6 label, then seal it.',
                         'The show cannot be completed while units remain, issues are open, physical items have no package, or a package is unsealed.',
                     ],
-                    'shot' => null,
+                    'shot' => 'ops-packing-workstation.png',
                     'fields' => [
                         ['Units Left', 'Units still requiring packing.'],
                         ['Lines Done', 'Packing lines fully satisfied.'],

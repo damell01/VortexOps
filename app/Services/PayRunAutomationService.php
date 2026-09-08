@@ -75,6 +75,7 @@ class PayRunAutomationService
             $eligibleShowIds = collect();
 
             $shows = Show::query()
+                ->where('is_operational', true)
                 ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
                 ->whereNotIn('status', ['cancelled'])
                 ->with([
@@ -119,10 +120,8 @@ class PayRunAutomationService
 
             $eligibleShowIds = $eligibleShowIds->unique()->values();
 
-            // If a show became blocked after it was already placed in this draft,
-            // remove it from the run instead of silently carrying an old payout
-            // forward. The payout row remains draft/unbatched and can re-enter
-            // after the source show is corrected and recalculated.
+            // Anything that is no longer an operational/payroll-ready show is
+            // detached from a Draft run. The payout itself remains for history.
             $detached = Payout::query()
                 ->where('weekly_payout_batch_id', $batch->id)
                 ->where('status', 'draft')
@@ -184,21 +183,20 @@ class PayRunAutomationService
                 ->orderBy('id')->first();
 
             $memberFilter = function ($q) use ($memberType) {
-                if (! $memberType) {
-                    return;
-                }
+                if (! $memberType) return;
                 $q->whereHas('streamer', fn ($m) => $memberType === 'fulfillment'
                     ? $m->where('member_type', 'fulfillment')
                     : $m->where(fn ($x) => $x->where('member_type', 'streamer')->orWhereNull('member_type')));
             };
 
             $existingQuery = $batch?->payouts();
-            if ($existingQuery && $memberType) {
-                $memberFilter($existingQuery);
-            }
-            $existing = $existingQuery?->sum('calculated_payout') ?? 0;
+            if ($existingQuery && $memberType) $memberFilter($existingQuery);
+            $existing = $existingQuery?->where(function ($q) {
+                $q->whereNull('show_id')->orWhereHas('show', fn ($show) => $show->where('is_operational', true));
+            })->sum('calculated_payout') ?? 0;
 
             $shows = Show::query()
+                ->where('is_operational', true)
                 ->whereBetween('show_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
                 ->whereNotIn('status', ['cancelled'])
                 ->when($memberType, fn ($q) => $q->whereHas('streamers', fn ($m) => $memberType === 'fulfillment'
@@ -232,12 +230,8 @@ class PayRunAutomationService
                     $eligible++;
                     try {
                         foreach ($this->payouts->calculateForShow($show) as $payout) {
-                            if ($memberType === 'fulfillment' && ! $payout->streamer?->isFulfillment()) {
-                                continue;
-                            }
-                            if ($memberType === 'streamer' && $payout->streamer?->isFulfillment()) {
-                                continue;
-                            }
+                            if ($memberType === 'fulfillment' && ! $payout->streamer?->isFulfillment()) continue;
+                            if ($memberType === 'streamer' && $payout->streamer?->isFulfillment()) continue;
                             $calculated += (float) $payout->calculated_payout;
                         }
                     } catch (\Throwable $e) {

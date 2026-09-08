@@ -98,12 +98,12 @@ function runScraplingStealthy() {
   const lockFile=String(env.WHATNOT_BROWSER_LOCK_FILE||path.join(projectRoot,'storage','whatnot-browser.lock')).trim();
   const lockWait=Math.max(1,parseInt(String(env.WHATNOT_BROWSER_LOCK_WAIT||'1200'),10)||1200);
   const scraperScript = mode === 'shipments-batch'
-    ? path.join(__dirname, 'whatnot-shipments-hardened.py')
+    ? path.join(__dirname, 'whatnot-shipments-progress.py')
     : path.join(__dirname, 'whatnot-scrapling-stealthy.py');
   fs.mkdirSync(path.dirname(lockFile),{recursive:true});
   process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, effective_mode=${effectiveMode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, python=${python}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
   if (mode === 'orders-batch') process.stderr.write(`[whatnot] ORDER_DETAIL_ENRICH=${env.WHATNOT_ORDER_DETAIL_ENRICH}\n`);
-  if (mode === 'shipments-batch') process.stderr.write('[whatnot] SHIPMENT_EXTRACTOR=hardened\n');
+  if (mode === 'shipments-batch') process.stderr.write('[whatnot] SHIPMENT_EXTRACTOR=hardened+progress\n');
   process.stderr.write(`[whatnot] BROWSER_LOCK_WAIT file=${lockFile} timeout=${lockWait}s\n`);
   const result=spawnSync('flock',['-w',String(lockWait),lockFile,python,scraperScript],{env,cwd:projectRoot,stdio:'inherit'});
   if(result.status===0) process.stderr.write('[whatnot] BROWSER_LOCK_RELEASED\n');

@@ -65,7 +65,8 @@ test.describe('Current operational handbook screenshots', () => {
         await expect(page.getByText('Show Workspace', { exact: true })).toBeVisible({ timeout: 10000 });
         await shot(page, 'ops-show-workspace');
 
-        await visit(page, `/admin/streamer-logs/${data.review_log_id}/edit`);
+        // StreamerLogResource registers its edit workspace at /{record}, not /{record}/edit.
+        await visit(page, `/admin/streamer-logs/${data.review_log_id}`);
         await expect(page.getByText(/Admin Review Workspace|Streamer Report/).first()).toBeVisible({ timeout: 10000 });
         await shot(page, 'ops-admin-review');
     });

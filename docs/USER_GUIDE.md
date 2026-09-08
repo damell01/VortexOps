@@ -1,223 +1,219 @@
 # VortexOps User Guide
 
-Easy-to-follow workflows and clear step-by-step guidance for every task.
+_Last reviewed: September 7, 2026_
 
-## Dashboard Overview
+VortexOps is organized around one operating flow:
 
-**What to do:** Start here to see your business at a glance.
+**Shows → Streamer Report → Admin Review → Fulfillment → Payroll Ready → Pay Run → Paid**
 
-- **Total Shows** — All live and past shows
-- **Active Streamers** — Team members with recent activity
-- **Pending Payouts** — Amounts owed to streamers this month
-- **Low Stock Alerts** — Items below reorder level
-- **Recent Orders** — Latest shipments and receipts
+The main screens are designed around the same rule: read the current stage, read the blocker or next action, then use the primary action instead of hunting through tables.
 
-**Quick Actions:**
-- Press **Cmd+E** to open Quick Actions menu
-- Press **Cmd+K** to search anything
-- Press **?** to see all keyboard shortcuts
+## Handbook
+
+Open **Handbook** at the top of the sidebar for module-by-module instructions. The handbook now includes:
+
+- Inventory
+- Shows & Streams
+- Fulfillment
+- Payroll & Pay Runs
+
+Inventory includes the detailed photographed walkthroughs and printable handbook. The operational handbooks for Shows, Fulfillment, and Payroll now describe the current command-center and workspace flows so the instructions match the UI introduced in September 2026.
+
+---
+
+## Shows
+
+### Shows Command Center
+
+Use **Shows** to find the next show that needs work. The card layout is the main workflow surface; the advanced table remains available below it for admin filtering and bulk work.
+
+Each show card emphasizes:
+
+- Current workflow stage
+- Show and streamer/channel
+- Current blocker or state
+- Progress
+- Primary next action
+
+### Show Workspace
+
+Open a show to see its full workflow in one place:
+
+**Show → Streamer Report → Admin Review → Fulfillment → Payroll Review → Payroll Ready → Pay Run → Paid**
+
+The top **Next Action** panel is the safest place to start. The workspace keeps the four main handoffs together:
+
+- Streamer Report
+- Fulfillment
+- Inventory / COGS
+- Payroll
+
+Show financials summarize gross sales, Whatnot net, tips, COGS, payroll, and show net. Secondary sync/show metadata is collapsed so it does not compete with the workflow.
+
+---
+
+## Streamer Report & Admin Review
+
+The report uses a three-step flow:
+
+1. **Items** — confirm products and quantities sold.
+2. **Details** — complete required stream and financial information.
+3. **Review & Submit** — verify the summary and send it to admin review.
+
+The report status is intentionally simple:
+
+- Draft
+- Awaiting Review
+- Changes Requested
+- Approved
+
+Admins use the same workspace. The final step becomes **Review & Approve**. Verify the item list, product cost, hours, and stream details before approving.
+
+Use **Reject & Return** only when something is actually wrong. Use **Reopen for Editing** when a correct report simply needs its edit window restored.
+
+---
+
+## Fulfillment
+
+### Fulfillment Workspace
+
+The Fulfillment page is card-first and organized around operational stages:
+
+- Needs Attention
+- Ready to Pack
+- Packing
+- Seal Boxes
+- Completed
+
+Use the primary action on a show card to enter the packing flow.
+
+### Packing Workstation
+
+The packing screen keeps the active box and scanner at the top while the packing list stays directly underneath.
+
+Normal flow:
+
+1. Open the assigned show.
+2. Pack or scan each line.
+3. Build boxes from Whatnot shipment data.
+4. Verify box contents.
+5. Print the internal 4×6 label and verification QR.
+6. Seal the box.
+7. Use **Show Complete** only after all completion checks pass.
+
+A show cannot complete while units remain, fulfillment issues are open, physical items have no package, or a package is still unsealed.
+
+---
+
+## Payroll
+
+### Payroll Command Center
+
+Payroll is organized into four workflow buckets:
+
+- Needs Attention
+- Payroll Ready
+- In Pay Run
+- Paid
+
+Each show card includes its key financial inputs, show net, blocker/current state, and next action. Fix source issues before trying to move a blocked show forward.
+
+The top-level KPIs focus on:
+
+- Payroll Total
+- People
+- Ready / In Run / Paid
+- Blocked
+
+The **Run Readiness** panel shows what must be fixed before a draft can be finalized.
+
+### Pay Run Workspace
+
+A Pay Run follows:
+
+**Review → Finalized → Submitted → Paid**
+
+The workspace shows team-member totals first. Expand a person only when you need to inspect the payout lines that built their total.
+
+Normal lifecycle:
+
+1. Recalculate the draft when source shows change.
+2. Resolve all readiness blockers.
+3. **Finalize Pay Run** to lock payout amounts.
+4. **Export ADP CSV**.
+5. **Mark Submitted to ADP** after submission.
+6. **Mark Paid** when payment is confirmed.
+
+The Mock Pay Run simulator is secondary and writes no payroll data.
 
 ---
 
 ## Inventory
 
-The inventory module has its own handbook, in the app and on paper: **Handbook**
-at the top of the sidebar, and the **Printable PDF** button on it. Every screen,
-every button and every field, with a picture of the real thing.
+Inventory remains the most detailed handbook section and includes photographed walkthroughs of the real installed screens.
 
-It is generated from one source and tested, so it does not drift. This page
-keeps only the shape of the work; the handbook has the detail.
-
-### Scanning — three modes, and the mode is the difference
+### Scanning modes
 
 | Mode | What a scan does |
-|------|------------------|
-| **Look Up** | Reads only. Tells you what the code is, what it costs and where it is. Nothing changes. |
-| **Add Stock** | Books units into a location. Asks for location and quantity before it commits. |
-| **Receive** | Works a delivery against a pallet you pick first. Each scan books one unit against its line. |
+|---|---|
+| **Look Up** | Reads only. Shows the item, cost, and location without changing stock. |
+| **Add Stock** | Adds units to a selected location after quantity/location confirmation. |
+| **Receive** | Receives units against a selected pallet/manifest line. |
 
-A gun scanner types into the code box and submits itself. For a phone, press
-**Camera** and fill the frame with the barcode — it confirms a code across
-several frames before accepting it, so a blurred read is refused rather than
-guessed.
+A hardware scanner types into the code field and submits automatically. On mobile, use **Camera** and fill the frame with the barcode.
 
-If a scan seems to do nothing, check the mode first. Look Up is doing exactly
-what it promises.
+### Receiving a delivery
 
----
+1. Create/stage the pallet with vendor and PO reference.
+2. Add or import manifest lines.
+3. Link every line to an inventory item.
+4. Receive by scan or **Receive All** after a physical count.
+5. Use **Mark Short** for missing product.
+6. Complete receiving only when counts reconcile.
 
-## Shows Management
+Receiving updates weighted average cost so downstream show COGS and profitability use what was actually paid.
 
-### View Shows
-**Purpose:** Manage your live show schedule and metadata.
+### Product sheet import
 
-**Quick Filters:**
-- **Status** — Active, Upcoming, Archived
-- **Streamer** — Filter by specific person
-- **Date Range** — This week, this month, all time
-
-**In Each Show:**
-- Show title and date
-- Assigned streamer
-- Break type (Pokemon, Sports, etc.)
-- View/Edit details
-- See related orders
+**Inventory → Import Sheet** accepts `.xlsx`, `.xls`, and `.csv`. It previews creates, updates, matches, and questionable rows before writing anything. Existing costs are left alone unless overwrite is explicitly selected.
 
 ---
 
-## Streamers Management
+## Common Problems
 
-### View Streamers
-**Purpose:** Manage team members and their payouts.
+### A show looks stuck
+Open the **Show Workspace** and read the **Next Action** / blocker. The workflow state tells you which module owns the next step.
 
-**Key Info:**
-- Name and email
-- Active shows count
-- Total earnings YTD
-- Payout status
-- Contact info
+### A streamer cannot edit a report
+The edit window may be closed. Admins can use **Reopen for Editing** without rejecting a correct report.
 
-**Common Actions:**
-- Click row to edit profile
-- View payout history
-- Adjust payment method
-- See performance stats
+### Fulfillment will not complete
+Check pending units, open issues, missing packages, and unsealed boxes.
 
----
+### Finalize Pay Run is unavailable
+Open **Readiness**. Draft runs cannot finalize until all blockers are cleared.
 
-## Payouts Workflow
-
-### View Payouts
-**Purpose:** Track money owed to streamers.
-
-**Filter & Sort:**
-- **Status** — Pending, Paid, Overdue
-- **Streamer** — See individual earnings
-- **Date** — This week/month/all time
-- **Sort by:** Amount, date, streamer name
-
-### How Payouts Work
-1. **Calculate** — System calculates based on payout rules
-   - Profit share (%)
-   - Hourly rate ($)
-   - Flat fee ($)
-   - Tips & bonuses
-2. **Review** — Check breakdown for accuracy
-3. **Approve** — Mark as approved
-4. **Pay** — Send via payment method on file
-5. **Confirm** — Update status to "Paid"
-
----
-
-## Receiving a delivery
-
-1. **Stage the pallet** — vendor and PO reference are enough to start.
-2. **Add the lines** — the Manifest Lines grid, one row per product: Tab moves
-   across, Enter starts a new row. Or photograph the packing slip and let
-   **Import Packing Slip** read it, then check it at the Verify step.
-3. **Link each line to an item** — a line that is not linked cannot be received.
-   Do it on the manifest, or scan the box at the station and it links and
-   receives in one step.
-4. **Receive** — scan box by box, or **Receive All** on a line once you have
-   physically counted it. **Mark Short** records what did not arrive.
-5. **Complete Receiving** when the counts match. **Pause — keep it open** is
-   safe at any point; the next person picks it up and the session log says who
-   did which part.
-
-Receiving is where real cost enters the system: each receipt recalculates the
-item's weighted average, so everything downstream follows what you actually
-paid.
-
-### Importing a product sheet
-
-**Inventory → Import Sheet** reads an .xlsx, .xls or .csv into the catalogue —
-and shows you every row it would touch before it writes anything: what would be
-created, what would be updated and which field changes from what, what already
-matches, and what needs a look. Costs already set are left alone unless you tick
-the overwrite box.
-
----
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| **Cmd+K** or **/** | Global search |
-| **Cmd+E** | Quick actions menu |
-| **Esc** | Close modals/dropdowns |
-| **?** | Show this help |
-
----
-
-## Common Issues & Solutions
-
-### "Item not found" when scanning
-- **Reason:** That code is on no item yet — a scan matches a barcode, not a SKU.
-- **Fix:** Find the item by name, then **Replace Barcode** on its row menu and
-  scan the box. It scans everywhere after that.
-- **At the receiving station:** tap the line's **Scan** button instead — the code
-  becomes that line's mapping and the box is received in the same step.
-
-### Camera not working on mobile
-- **iOS:** Use Safari (Firefox/Chrome don't have camera API)
-- **Android:** Any browser with camera permission
-- **Check:** Settings → Allow camera access
-
-### Pallet won't receive
-- **Reason:** A line is not linked to an inventory item yet.
-- **Fix:** Open the pallet → **Review Manifest** → link the line. Or scan the box
-  at the station, which links and receives in one step.
+### An item is not found when scanning
+The barcode is not attached to an inventory item. Find the item and attach/replace its barcode, or link it from the receiving flow.
 
 ### A location dropdown is empty
-- **Reason:** No active location of the type that screen needs. Mark Damaged only
-  offers **Damaged** locations, Move to Returns only **Returned**, and a
-  streamer's own stock needs a **Streamer Inventory** location tied to them.
-- **Fix:** Inventory → Locations, and check the location's **Type**. A location
-  with the wrong type looks exactly like a missing feature.
+Check the location type. Different operations intentionally expose only compatible location types.
 
 ---
 
-## Tips for Fast Operations
+## Screenshots and documentation freshness
 
-1. **Use Bluetooth scanner** — Faster than typing
-2. **Use camera on mobile** — Hands-free, no scanner needed
-3. **Batch operations** — Receive multiple items at once
-4. **Keyboard shortcuts** — Cmd+E for quick access
-5. **Save filters** — Inventory Search saves named search profiles; most other
-   tables remember the filters you last applied
+Inventory handbook screenshots are stored in `public/guide/manual/` and are referenced directly from `App\Support\InventoryManual`. Tests verify that Inventory handbook steps do not reference missing images and that screenshots are not left orphaned.
 
----
+Shows, Fulfillment, and Payroll documentation was rewritten against the current September 2026 command-center/workspace UI. Their handbook entries intentionally do not reuse older screenshots from the pre-command-center pages; screenshots should only be added after they are captured from the current authenticated installation.
 
-## Data Entry Best Practices
-
-- **SKU:** Use vendor's SKU for consistency
-- **Barcode:** Scan directly from item label
-- **Unit Cost:** Enter per-unit wholesale cost
-- **Location:** Be specific (e.g., "Shelf A-3", "Bin 12")
-- **Notes:** Add context for future reference
-- **Sold as:** Auction, Buy It Now or Both — set it and the catalogue can be
-  filtered by it when you are planning a show
+This avoids the more dangerous failure mode of a handbook showing a screenshot of a screen that no longer exists.
 
 ---
 
 ## Getting Help
 
-- **Tooltip:** Hover **ⓘ** icons for hints
-- **Empty states:** Guidance when no data to show
-- **Error messages:** Red boxes explain what went wrong
-- **Handbook:** Top of the sidebar — every inventory screen, button and field,
-  searchable, with a printable PDF
-- **Feedback:** Raise a ticket from the sidebar when something is wrong
-
----
-
-## The handbook
-
-The **Handbook** at the top of the sidebar covers the inventory module in full:
-six sections, sixty-odd walkthroughs, every screen photographed on this
-installation, a search across every field description, a troubleshooting page
-and an index of every screen. The **Printable PDF** button on it produces the
-same thing as a document.
-
-Handbooks for Shows, Payouts and Fulfillment are listed there as coming.
-
+- **Handbook** — module-by-module operating instructions at the top of the sidebar.
+- **Next Action panels** — use these first on Show, Fulfillment, Payroll, and Pay Run workspaces.
+- **Empty/error states** — follow the specific explanation on the screen instead of forcing the workflow forward.
+- **Feedback / ticket** — use the app feedback path when a screen does not match the handbook.

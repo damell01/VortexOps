@@ -5,19 +5,72 @@ use App\Jobs\WorkerHeartbeat;
 use App\Models\Setting;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Storage;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('storage:prune-runtime {--days=14} {--imports-hours=48} {--max-log-mb=25}', function () {
+    $days = max(1, (int) $this->option('days'));
+    $importsHours = max(1, (int) $this->option('imports-hours'));
+    $maxLogBytes = max(1, (int) $this->option('max-log-mb')) * 1024 * 1024;
+    $deletedLogs = 0;
+    $deletedImports = 0;
+    $rotated = 0;
+
+    $logDir = storage_path('logs');
+    File::ensureDirectoryExists($logDir);
+
+    foreach (['laravel.log', 'whatnot-scheduler.log'] as $name) {
+        $path = $logDir . DIRECTORY_SEPARATOR . $name;
+        if (File::exists($path) && File::size($path) > $maxLogBytes) {
+            $rotatedPath = $logDir . DIRECTORY_SEPARATOR
+                . pathinfo($name, PATHINFO_FILENAME) . '-' . now()->format('Ymd-His') . '.log';
+            File::move($path, $rotatedPath);
+            File::put($path, '');
+            $rotated++;
+        }
+    }
+
+    $logCutoff = now()->subDays($days)->timestamp;
+    foreach (File::allFiles($logDir) as $file) {
+        if (in_array($file->getFilename(), ['laravel.log', 'whatnot-scheduler.log'], true)) {
+            continue;
+        }
+        if ($file->getMTime() < $logCutoff) {
+            File::delete($file->getPathname());
+            $deletedLogs++;
+        }
+    }
+
+    $disk = Storage::disk('local');
+    $importCutoff = now()->subHours($importsHours)->timestamp;
+    foreach ($disk->files('imports') as $path) {
+        try {
+            if ($disk->lastModified($path) < $importCutoff) {
+                $disk->delete($path);
+                $deletedImports++;
+            }
+        } catch (\Throwable) {
+            // A file disappearing between list and stat is harmless cleanup race.
+        }
+    }
+
+    $this->info("Runtime cleanup complete: {$rotated} log(s) rotated, {$deletedLogs} old log/diagnostic file(s) removed, {$deletedImports} stale import file(s) removed.");
+})->purpose('Rotate oversized runtime logs and prune stale logs, diagnostics, and uploaded import files');
+
 Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOString()))->everyFiveMinutes()->name('scheduler-heartbeat')->withoutOverlapping();
 Schedule::job(new WorkerHeartbeat)->everyFiveMinutes()->name('worker-heartbeat')->withoutOverlapping();
-Schedule::command('db:backup')->dailyAt('02:00');
+Schedule::command('db:backup --prune=14')->dailyAt('02:00')->name('daily-db-backup')->withoutOverlapping();
 
-// Keep health checks available for the System Health page, but do not send
-// owner alerts and do not emit scheduler output that server cron/MAILTO can
-// convert into email. Stale failed_jobs rows should not generate inbox noise.
+Schedule::command('storage:prune-runtime --days=14 --imports-hours=48 --max-log-mb=25')
+    ->dailyAt('03:15')
+    ->name('prune-runtime-storage')
+    ->withoutOverlapping();
+
 Schedule::command('health:check')
     ->everyThirtyMinutes()
     ->sendOutputTo('/dev/null');
@@ -48,19 +101,12 @@ Schedule::job(new ProcessWhatnotChannelsJob())
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-// Fill missing Gross / Estimated Net one UUID at a time for recently completed shows.
-// This is intentionally separate from the fast hourly show pull so one stubborn
-// historical show cannot hold up current show discovery.
 Schedule::command('whatnot:backfill-missing-analytics --days=14 --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(15)
     ->name('whatnot-missing-analytics-backfill')
     ->withoutOverlapping(45);
-
-// Order-count polling is intentionally not scheduled. Operational views use
-// Whatnot analytics plus shipment records; the legacy order table is retained
-// for historical/reconciliation use without spending browser time refreshing it.
 
 Schedule::command('whatnot:refresh-recent --shipments --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
@@ -83,9 +129,6 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-// Long maintenance jobs use the same coordinator too. They record their own
-// ingestion outcome inside the wrapper; a busy schedule is a clean skip rather
-// than a false red failure.
 Schedule::command('whatnot:run-maintenance nightly --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)

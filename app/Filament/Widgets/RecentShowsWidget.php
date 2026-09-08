@@ -13,7 +13,7 @@ class RecentShowsWidget extends BaseWidget
 {
     protected static bool $isLazy = true;
     protected static ?int $sort = 3;
-    protected static ?string $heading = 'Recent Shows';
+    protected static ?string $heading = 'Recent Shows · Past 7 Days';
     protected int | string | array $columnSpan = 'full';
 
     public static function canView(): bool
@@ -35,7 +35,13 @@ class RecentShowsWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $query = Show::query()->with('channel')->inChannelContext();
+        $query = Show::query()
+            ->with('channel')
+            ->inChannelContext()
+            ->where('is_operational', true)
+            ->whereNotIn('status', ['cancelled'])
+            ->whereDate('show_date', '>=', today()->subDays(7))
+            ->whereDate('show_date', '<=', today());
 
         $streamerId = $this->streamerScopeId();
         if ($streamerId !== null) {
@@ -43,7 +49,7 @@ class RecentShowsWidget extends BaseWidget
         }
 
         return $table
-            ->query($query->orderByDesc('show_date')->limit(10))
+            ->query($query->orderByDesc('show_date')->orderByDesc('start_time')->limit(20))
             ->columns([
                 TextColumn::make('show_date')
                     ->label('Date')

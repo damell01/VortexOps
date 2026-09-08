@@ -28,8 +28,6 @@ class NeedsAttentionWidget extends Widget
 {
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
-    // Deferred so the dashboard HTML returns instantly; the widget's queries
-    // run in a follow-up request rather than blocking the initial page load.
     protected static bool $isLazy = true;
     protected static ?string $heading = 'Needs Attention';
     protected string $view = 'filament.widgets.needs-attention';
@@ -67,7 +65,7 @@ class NeedsAttentionWidget extends Widget
 
             $add(
                 AdminModules::isEnabled('streams') && Schema::hasColumn('shows', 'channel_attribution_suspect'),
-                Show::where('channel_attribution_suspect', true)->inChannelContext()->count(),
+                Show::where('channel_attribution_suspect', true)->where('is_operational', true)->whereDate('show_date', '>=', now()->startOfMonth())->inChannelContext()->count(),
                 'shows need a channel confirmed',
                 'heroicon-o-check-badge',
                 'warning',
@@ -76,8 +74,8 @@ class NeedsAttentionWidget extends Widget
 
             $add(
                 AdminModules::isEnabled('streams') && Schema::hasColumn('shows', 'financials_revised_after_lock'),
-                Show::where('financials_revised_after_lock', true)->inChannelContext()->count(),
-                'shows had financials change after being locked in — review before payout',
+                Show::where('financials_revised_after_lock', true)->where('is_operational', true)->whereDate('show_date', '>=', now()->startOfMonth())->inChannelContext()->count(),
+                'shows had financials change after being locked in — review before payroll',
                 'heroicon-o-exclamation-triangle',
                 'danger',
                 ShowResource::getUrl('index', ['tableFilters[financials_revised_after_lock][value]' => '1']),
@@ -119,16 +117,10 @@ class NeedsAttentionWidget extends Widget
                 InventoryItemResource::getUrl(),
             );
 
-            $staleHours = $this->importStaleHours();
-            $add(
-                $staleHours !== null,
-                $staleHours ?? 0,
-                'hours since Whatnot last imported — the scraper may be failing',
-                'heroicon-o-cloud-arrow-down',
-                'danger',
-                SystemHealth::getUrl(),
-            );
-
+            // Scraper age is operational telemetry, not an action item. The
+            // pipeline can be healthy even when there simply has not been a
+            // new show to import. Real failed jobs still surface below and the
+            // detailed scraper health remains available on System Health.
             $add(
                 Schema::hasTable('failed_jobs'),
                 (int) DB::table('failed_jobs')->count(),
@@ -153,32 +145,6 @@ class NeedsAttentionWidget extends Widget
         return $items;
     }
 
-    /**
-     * Hours since the scheduled Whatnot import last succeeded, but only when
-     * import is actually configured and the gap is meaningful (> 2h; imports
-     * run every 15 min). Null means healthy or not-in-use — no alert.
-     */
-    private function importStaleHours(): ?int
-    {
-        try {
-            if (! Schema::hasTable('whatnot_channels')
-                || ! \App\Models\WhatnotChannel::where('include_in_import', true)->exists()) {
-                return null;
-            }
-
-            $last = \App\Models\Setting::get('whatnot_last_import_success_at');
-            if (! $last) {
-                return null;
-            }
-
-            $hours = (int) \Illuminate\Support\Carbon::parse($last)->diffInHours(now());
-
-            return $hours >= 2 ? $hours : null;
-        } catch (\Throwable) {
-            return null;
-        }
-    }
-
     /** Active products holding stock that hasn't sold within the dead-stock window. */
     private function deadStockCount(): int
     {
@@ -187,7 +153,6 @@ class NeedsAttentionWidget extends Widget
 
             return InventoryItem::query()
                 ->where('is_active', true)
-                // Has stock on hand.
                 ->whereExists(function ($query) {
                     $query->selectRaw('1')
                         ->from('inventory_stock')
@@ -198,7 +163,6 @@ class NeedsAttentionWidget extends Widget
                         ->groupBy('inventory_stock.inventory_item_id')
                         ->havingRaw('SUM(inventory_stock.quantity) > 0');
                 })
-                // No sale inside the window (covers never-sold too).
                 ->whereNotExists(function ($query) use ($cutoff) {
                     $query->selectRaw('1')
                         ->from('whatnot_show_orders')
@@ -214,12 +178,6 @@ class NeedsAttentionWidget extends Widget
         }
     }
 
-    /**
-     * Distinct products mapped to a recent sold-item line while showing zero
-     * stock everywhere and no restock in 14+ days — the same "can't have sold
-     * something with no stock" nudge shown inline when a streamer maps an
-     * item, aggregated here so ops sees the system-wide picture too.
-     */
     private function zeroStockMappedSalesCount(): int
     {
         try {
@@ -256,7 +214,6 @@ class NeedsAttentionWidget extends Widget
         }
     }
 
-    /** Active streamers whose most recently completed week is down 30%+ vs. their trailing 3-week average. */
     private function trendingDownStreamerCount(): int
     {
         try {

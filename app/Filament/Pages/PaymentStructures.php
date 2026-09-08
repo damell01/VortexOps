@@ -25,6 +25,7 @@ class PaymentStructures extends Page
     public bool $payroll_auto_setup_enabled = false;
     public bool $payroll_auto_recalculate_drafts = true;
     public bool $payroll_include_zero_activity = false;
+    public string $member_filter = 'streamer';
     public ?int $editing_member_id = null;
     public array $member_override_enabled = [];
     public array $member_override_values = [];
@@ -55,6 +56,12 @@ class PaymentStructures extends Page
     public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner()) ?? false; }
     public function getView(): string { return 'filament.pages.payment-structures'; }
 
+    public function setMemberFilter(string $filter): void
+    {
+        $this->member_filter = in_array($filter, ['streamer', 'fulfillment'], true) ? $filter : 'streamer';
+        $this->closeMemberEditor();
+    }
+
     public function save(): void
     {
         $this->validate([
@@ -75,6 +82,7 @@ class PaymentStructures extends Page
 
         $this->streamer['payout_type'] = empty(trim((string)($this->streamer['custom_payout_formula'] ?? ''))) ? 'profit_share' : 'custom_formula';
         $this->streamer['payout_cadence'] = 'weekly';
+        $this->fulfillment['payout_cadence'] = 'weekly';
         PaymentStructure::saveDefaults('streamer', $this->streamer);
         PaymentStructure::saveDefaults('fulfillment', $this->fulfillment);
         Setting::set('payroll_burden_per_shipment', (string)$this->streamer_burden_per_shipment);
@@ -85,7 +93,17 @@ class PaymentStructures extends Page
         Notification::make()->title('Payment structures saved')->success()->send();
     }
 
-    public function getMembersProperty() { return Streamer::query()->orderBy('member_type')->orderBy('name')->get(); }
+    public function getMembersProperty()
+    {
+        return Streamer::query()->orderBy('member_type')->orderBy('name')->get();
+    }
+
+    public function getFilteredMembersProperty()
+    {
+        return $this->members->filter(fn (Streamer $member) => $this->member_filter === 'fulfillment'
+            ? $member->isFulfillment()
+            : ! $member->isFulfillment());
+    }
 
     public function editMember(int $id): void
     {
@@ -105,6 +123,7 @@ class PaymentStructures extends Page
 
     public function closeMemberEditor(): void { $this->editing_member_id = null; $this->member_override_enabled = []; $this->member_override_values = []; }
     public function adoptDefaults(int $id): void { $m=Streamer::findOrFail($id); PaymentStructure::adoptDefaults($m); Notification::make()->title($m->name.' now inherits team defaults')->success()->send(); }
+
     public function saveMemberOverrides(): void
     {
         $member = Streamer::findOrFail($this->editing_member_id);
@@ -113,10 +132,13 @@ class PaymentStructures extends Page
         if (! $member->isFulfillment()) {
             $overrides['payout_type'] = !empty(trim((string)($overrides['custom_payout_formula'] ?? ''))) ? 'custom_formula' : 'profit_share';
             $overrides['payout_cadence'] = 'weekly';
+        } else {
+            $overrides['payout_cadence'] = 'weekly';
         }
         PaymentStructure::saveOverrides($member, $overrides);
         $this->closeMemberEditor();
         Notification::make()->title('Individual compensation saved')->success()->send();
     }
+
     public function resetMemberOverrides(int $id): void { $m=Streamer::findOrFail($id); PaymentStructure::resetOverrides($m); Notification::make()->title('Overrides removed; team defaults restored')->success()->send(); }
 }

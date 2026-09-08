@@ -9,6 +9,7 @@ on:
       - 'resources/**'
       - 'database/**'
       - 'routes/**'
+      - 'scripts/update-handbook-readme.py'
       - 'tests/Browser/handbook-screenshot.spec.ts'
       - 'playwright.config.ts'
       - '.github/workflows/handbook-screenshots.yml'
@@ -108,6 +109,9 @@ jobs:
             exit 1
           fi
 
+      - name: Refresh README current UI gallery
+        run: python3 scripts/update-handbook-readme.py
+
       - name: Upload screenshots artifact
         uses: actions/upload-artifact@v4
         with:
@@ -115,14 +119,14 @@ jobs:
           path: public/guide/manual/ops-*.png
           if-no-files-found: error
 
-      - name: Commit refreshed screenshots to PR branch
+      - name: Commit refreshed screenshots and README to PR branch
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/guide/manual/ops-*.png
+          git add public/guide/manual/ops-*.png README.md
           if git diff --cached --quiet; then
-            echo "Handbook screenshots are already current."
+            echo "Handbook screenshots and README gallery are already current."
             exit 0
           fi
           git commit -m "Refresh current handbook screenshots [handbook screenshots]"

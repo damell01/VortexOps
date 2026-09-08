@@ -1,6 +1,5 @@
 <?php
 
-use App\Jobs\ProcessWhatnotChannelsJob;
 use App\Jobs\WorkerHeartbeat;
 use App\Models\Setting;
 use Illuminate\Foundation\Inspiring;
@@ -73,48 +72,11 @@ Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activi
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// Fast hourly show discovery. ProcessWhatnotChannelsJob already holds the shared
-// pipeline coordinator and walks active channels sequentially.
-Schedule::job(new ProcessWhatnotChannelsJob())
-    ->skip($whatnotPaused)
-    ->hourlyAt(5)
-    ->name('whatnot-hourly-show-analytics-pull')
-    ->withoutOverlapping(55);
-
-// Small hourly gap-fill jobs remain useful between full reconciliations and
-// skip cleanly whenever another Whatnot pipeline owns the browser/profile.
-Schedule::command('whatnot:backfill-missing-analytics --days=90 --limit=25 --skip-if-busy')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->hourlyAt(15)
-    ->name('whatnot-missing-analytics-backfill')
-    ->withoutOverlapping(45);
-
-Schedule::command('whatnot:refresh-recent --shipments --limit=25 --skip-if-busy')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->hourlyAt(35)
-    ->name('whatnot-unresolved-shipments-refresh')
-    ->withoutOverlapping(25);
-
-Schedule::command('whatnot:refresh-recent --ledger --ledger-days=90 --skip-if-busy')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->cron('10 */6 * * *')
-    ->name('whatnot-rolling-ledger-refresh')
-    ->withoutOverlapping(90);
-
-Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->cron('1,11,21,31,41,51 * * * *')
-    ->name('whatnot-show-alias-cleanup')
-    ->withoutOverlapping(10);
-
-// Nightly authoritative reconciliation is the source-of-truth pass from the
-// hard reporting boundary. It owns one pipeline lock for the entire run,
-// finishes each channel before moving to the next, rebuilds per-show orders,
-// fills analytics, refreshes shipments, and imports ledger adjustments.
+// One authoritative Whatnot browser pipeline. Do not schedule independent show,
+// analytics, order, shipment, or ledger jobs around it: those jobs all share
+// the same seller browser/profile and were creating lock queues and stale work.
+// The coordinated command owns one pipeline lock, finishes each channel fully,
+// and only then moves to the next channel.
 Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=25 --order-batch=25 --analytics-limit=25 --shipment-batch=25 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -122,12 +84,13 @@ Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=25 --o
     ->name('whatnot-nightly-reporting-reconciliation')
     ->withoutOverlapping(480);
 
-Schedule::command('whatnot:run-maintenance deep --skip-if-busy')
+// Alias cleanup is database-only and does not use the Whatnot browser.
+Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('0 1 * * 0')
-    ->name('whatnot-ledger-backfill-annual')
-    ->withoutOverlapping(480);
+    ->cron('1,11,21,31,41,51 * * * *')
+    ->name('whatnot-show-alias-cleanup')
+    ->withoutOverlapping(10);
 
 Schedule::command('ai:ops operations')->cron('25 */6 * * *')->name('ai-ops-background-summary')->withoutOverlapping(10);
 Schedule::command('ai:ops cleanup')->dailyAt('04:15')->name('ai-ops-data-cleanup')->withoutOverlapping(10);

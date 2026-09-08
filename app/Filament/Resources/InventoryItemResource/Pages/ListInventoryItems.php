@@ -197,6 +197,29 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
+    /**
+     * Stable entry point for the card UI.
+     *
+     * Calling Filament's internal mountAction() directly from injected browser
+     * JavaScript proved unreliable on this custom catalog page. Route the click
+     * through a normal Livewire method, then let the page mount its own action.
+     */
+    public function openQuickAddStock(int $productId): void
+    {
+        $record = InventoryItem::find($productId);
+
+        if (! $record || ! InventoryItemResource::canEdit($record)) {
+            Notification::make()
+                ->title('Unable to add stock')
+                ->body('This item is unavailable or you do not have permission to edit it.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $this->mountAction('quickAddStock', ['product' => $record->getKey()]);
+    }
+
     public function startQuickStockBarcodeScan(): void
     {
         if (! $this->quickStockScanTargetId) return;

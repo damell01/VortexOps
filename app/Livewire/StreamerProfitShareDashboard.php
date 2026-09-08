@@ -21,17 +21,28 @@ class StreamerProfitShareDashboard extends Component
 
     public function mount(Streamer $streamer): void
     {
-        $this->streamer = $streamer->load('profitSharePackets');
+        $mine = auth()->user()?->streamer;
+        abort_unless($mine && (int) $mine->id === (int) $streamer->id, 403);
+
+        $this->streamer = $mine->load('profitSharePackets');
         $this->calculationService = app(ProfitShareCalculationService::class);
+    }
+
+    private function ownPacket(ProfitSharePacket $packet): ProfitSharePacket
+    {
+        abort_unless((int) $packet->streamer_id === (int) $this->streamer->id, 403);
+        return $packet;
     }
 
     public function selectPacket(ProfitSharePacket $packet): void
     {
-        $this->selectedPacket = $packet;
+        $this->selectedPacket = $this->ownPacket($packet);
     }
 
     public function submitPacket(ProfitSharePacket $packet): void
     {
+        $packet = $this->ownPacket($packet);
+
         if ($packet->status !== 'pending_review') {
             session()->flash('error', 'Only finalized packets can be submitted for approval');
             return;
@@ -45,6 +56,7 @@ class StreamerProfitShareDashboard extends Component
 
     public function addNotes(ProfitSharePacket $packet): void
     {
+        $packet = $this->ownPacket($packet);
         $this->validate(['notes' => 'nullable|string|max:1000']);
 
         $packet->update(['notes' => $this->notes]);
@@ -61,7 +73,6 @@ class StreamerProfitShareDashboard extends Component
             $now->month
         );
 
-        // Always update calculations based on logs
         $this->calculationService->updatePacketWithCalculations($packet);
 
         return $packet;

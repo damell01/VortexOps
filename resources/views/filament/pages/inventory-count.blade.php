@@ -5,7 +5,9 @@
         x-on:barcode-scanned.window="$wire.scan($event.detail.value)"
         x-on:inventory-count-focus.window="setTimeout(() => { const el = document.getElementById('count-' + $event.detail.itemId); if (el) { el.focus(); el.select(); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 120)"
     >
-        @php($progress = $this->progress)
+        @php
+            $progress = $this->progress;
+        @endphp
 
         <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -55,23 +57,46 @@
             </div>
 
             <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60"><div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Items Counted</div><div class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($progress['counted']) }}</div></div>
-                <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60"><div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Remaining</div><div class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($progress['remaining']) }}</div></div>
-                <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60"><div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Differences</div><div class="mt-1 text-2xl font-bold {{ $progress['changed'] > 0 ? 'text-amber-600' : 'text-gray-950 dark:text-white' }}">{{ number_format($progress['changed']) }}</div></div>
                 <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60">
-                    <div class="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-gray-500"><span>Progress</span><span>{{ $progress['percent'] }}%</span></div>
-                    <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800"><div class="h-full rounded-full bg-primary-600" style="width: {{ min(100, max(0, $progress['percent'])) }}%"></div></div>
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Items Counted</div>
+                    <div class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($progress['counted']) }}</div>
+                </div>
+                <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Remaining</div>
+                    <div class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($progress['remaining']) }}</div>
+                </div>
+                <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Differences</div>
+                    <div class="mt-1 text-2xl font-bold {{ $progress['changed'] > 0 ? 'text-amber-600' : 'text-gray-950 dark:text-white' }}">{{ number_format($progress['changed']) }}</div>
+                </div>
+                <div class="rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-950/60">
+                    <div class="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        <span>Progress</span>
+                        <span>{{ $progress['percent'] }}%</span>
+                    </div>
+                    <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
+                        <div class="h-full rounded-full bg-primary-600" style="width: {{ min(100, max(0, $progress['percent'])) }}%"></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="mt-3 rounded-xl bg-primary-50 px-3 py-2 text-sm text-primary-800 dark:bg-primary-950/30 dark:text-primary-200"><strong>How to count:</strong> scan a box to jump straight to that product, or search/filter the list. Then enter the <strong>total physical quantity</strong> you counted. A scan never assumes the quantity is 1.</div>
+            <div class="mt-3 rounded-xl bg-primary-50 px-3 py-2 text-sm text-primary-800 dark:bg-primary-950/30 dark:text-primary-200">
+                <strong>How to count:</strong> scan a box to jump straight to that product, or search/filter the list. Then enter the <strong>total physical quantity</strong> you counted. A scan never assumes the quantity is 1.
+            </div>
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="max-h-[68vh] overflow-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
                     <thead class="sticky top-0 z-10 bg-gray-50/95 backdrop-blur dark:bg-gray-950/95">
-                        <tr><th class="px-4 py-3 text-left font-semibold">Item</th><th class="px-4 py-3 text-left font-semibold">SKU / Barcode</th><th class="px-4 py-3 text-right font-semibold">System Qty</th><th class="px-4 py-3 text-right font-semibold">Physical Count</th><th class="px-4 py-3 text-right font-semibold">Difference</th><th class="px-4 py-3"></th></tr>
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold">Item</th>
+                            <th class="px-4 py-3 text-left font-semibold">SKU / Barcode</th>
+                            <th class="px-4 py-3 text-right font-semibold">System Qty</th>
+                            <th class="px-4 py-3 text-right font-semibold">Physical Count</th>
+                            <th class="px-4 py-3 text-right font-semibold">Difference</th>
+                            <th class="px-4 py-3"></th>
+                        </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse($this->items as $item)
@@ -95,10 +120,20 @@
                                 }
                             @endphp
                             <tr wire:key="count-row-{{ $item->id }}" class="align-middle {{ $selected ? 'bg-primary-50/70 dark:bg-primary-950/20' : '' }}">
-                                <td class="px-4 py-3"><div class="font-semibold text-gray-950 dark:text-white">{{ $item->name }}</div>@if($item->category)<div class="mt-0.5 text-xs text-gray-500">{{ $item->category }}</div>@endif</td>
-                                <td class="px-4 py-3 text-xs text-gray-500"><div>{{ $item->sku ?: 'No SKU' }}</div><div class="font-mono">{{ $item->barcode ?: $item->upc ?: 'No barcode' }}</div></td>
+                                <td class="px-4 py-3">
+                                    <div class="font-semibold text-gray-950 dark:text-white">{{ $item->name }}</div>
+                                    @if($item->category)
+                                        <div class="mt-0.5 text-xs text-gray-500">{{ $item->category }}</div>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-xs text-gray-500">
+                                    <div>{{ $item->sku ?: 'No SKU' }}</div>
+                                    <div class="font-mono">{{ $item->barcode ?: $item->upc ?: 'No barcode' }}</div>
+                                </td>
                                 <td class="px-4 py-3 text-right font-medium">{{ number_format($system) }}</td>
-                                <td class="px-4 py-3 text-right"><input id="count-{{ $item->id }}" wire:model.live.debounce.300ms="counts.{{ $item->id }}" type="number" min="0" step="1" inputmode="numeric" placeholder="Count" class="ml-auto w-28 rounded-lg border-gray-300 text-right text-base font-bold dark:border-gray-700 dark:bg-gray-950" /></td>
+                                <td class="px-4 py-3 text-right">
+                                    <input id="count-{{ $item->id }}" wire:model.live.debounce.300ms="counts.{{ $item->id }}" type="number" min="0" step="1" inputmode="numeric" placeholder="Count" class="ml-auto w-28 rounded-lg border-gray-300 text-right text-base font-bold dark:border-gray-700 dark:bg-gray-950" />
+                                </td>
                                 <td class="px-4 py-3 text-right font-semibold {{ $differenceClass }}">{{ $differenceText }}</td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex justify-end gap-2">
@@ -110,7 +145,9 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-4 py-12 text-center text-gray-500">No inventory items match these filters.</td></tr>
+                            <tr>
+                                <td colspan="6" class="px-4 py-12 text-center text-gray-500">No inventory items match these filters.</td>
+                            </tr>
                         @endforelse
                     </tbody>
                 </table>

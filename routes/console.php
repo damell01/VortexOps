@@ -73,15 +73,16 @@ Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activi
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// Fast hourly walk: one channel at a time so each seller account is verified,
-// refreshed, and finished before the browser moves to the next channel.
+// Fast hourly show discovery. ProcessWhatnotChannelsJob already holds the shared
+// pipeline coordinator and walks active channels sequentially.
 Schedule::job(new ProcessWhatnotChannelsJob())
     ->skip($whatnotPaused)
     ->hourlyAt(5)
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-// Work in useful 20-30 show chunks rather than the old 8-show batches.
+// Small hourly gap-fill jobs remain useful between full reconciliations and
+// skip cleanly whenever another Whatnot pipeline owns the browser/profile.
 Schedule::command('whatnot:backfill-missing-analytics --days=90 --limit=25 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -96,8 +97,6 @@ Schedule::command('whatnot:refresh-recent --shipments --limit=25 --skip-if-busy'
     ->name('whatnot-unresolved-shipments-refresh')
     ->withoutOverlapping(25);
 
-// Keep a wider rolling ledger so cancellations, refunds, fees, and other
-// post-show adjustments continue to update reporting after the original show.
 Schedule::command('whatnot:refresh-recent --ledger --ledger-days=90 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -112,12 +111,16 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-Schedule::command('whatnot:run-maintenance nightly --skip-if-busy')
+// Nightly authoritative reconciliation is the source-of-truth pass from the
+// hard reporting boundary. It owns one pipeline lock for the entire run,
+// finishes each channel before moving to the next, rebuilds per-show orders,
+// fills analytics, refreshes shipments, and imports ledger adjustments.
+Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=25 --order-batch=25 --analytics-limit=25 --shipment-batch=25 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->dailyAt('00:30')
-    ->name('whatnot-nightly-30-day-reconciliation')
-    ->withoutOverlapping(240);
+    ->name('whatnot-nightly-reporting-reconciliation')
+    ->withoutOverlapping(480);
 
 Schedule::command('whatnot:run-maintenance deep --skip-if-busy')
     ->appendOutputTo($whatnotLog)

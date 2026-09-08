@@ -41,6 +41,7 @@ class ListInventoryItems extends ListRecords
     public ?string $barcodeScanTargetName = null;
     public ?int $quickStockScanTargetId = null;
     public ?string $quickStockScanTargetName = null;
+    public ?int $selectedStockProductId = null;
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
@@ -197,13 +198,6 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
-    /**
-     * Stable entry point for the card UI.
-     *
-     * Calling Filament's internal mountAction() directly from injected browser
-     * JavaScript proved unreliable on this custom catalog page. Route the click
-     * through a normal Livewire method, then let the page mount its own action.
-     */
     public function openQuickAddStock(int $productId): void
     {
         $record = InventoryItem::find($productId);
@@ -217,7 +211,10 @@ class ListInventoryItems extends ListRecords
             return;
         }
 
-        $this->mountAction('quickAddStock', ['product' => $record->getKey()]);
+        $this->selectedStockProductId = $record->getKey();
+        $this->quickStockScanTargetId = $record->getKey();
+        $this->quickStockScanTargetName = $record->name;
+        $this->mountAction('add_stock');
     }
 
     public function startQuickStockBarcodeScan(): void
@@ -266,20 +263,19 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
-    /** Quick stock receipt/count from a catalog card. */
-    public function quickAddStockAction(): Action
+    public function addStockAction(): Action
     {
-        return Action::make('quickAddStock')
+        return Action::make('add_stock')
             ->label('Add Stock')
             ->icon('heroicon-o-plus-circle')
             ->color('success')
             ->modalWidth('lg')
-            ->modalHeading(function (array $arguments): string {
-                $record = InventoryItem::find($arguments['product'] ?? null);
+            ->modalHeading(function (): string {
+                $record = $this->selectedStockProductId ? InventoryItem::find($this->selectedStockProductId) : null;
                 return 'Add Stock' . ($record ? ' — ' . $record->name : '');
             })
-            ->mountUsing(function ($form, array $arguments): void {
-                $record = InventoryItem::find($arguments['product'] ?? null);
+            ->mountUsing(function ($form): void {
+                $record = $this->selectedStockProductId ? InventoryItem::find($this->selectedStockProductId) : null;
                 $this->quickStockScanTargetId = $record?->getKey();
                 $this->quickStockScanTargetName = $record?->name;
 
@@ -344,8 +340,8 @@ class ListInventoryItems extends ListRecords
                     ->rows(2)
                     ->placeholder('Optional note'),
             ])
-            ->action(function (array $data, array $arguments): void {
-                $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
+            ->action(function (array $data): void {
+                $record = InventoryItem::findOrFail((int) $this->selectedStockProductId);
                 abort_unless(InventoryItemResource::canEdit($record), 403);
 
                 $location = InventoryLocation::findOrFail((int) $data['location_id']);
@@ -367,6 +363,7 @@ class ListInventoryItems extends ListRecords
                         : null,
                 );
 
+                $this->selectedStockProductId = null;
                 $this->quickStockScanTargetId = null;
                 $this->quickStockScanTargetName = null;
                 $this->statsMemo = null;

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PalletResource\Pages;
 
 use App\Filament\Resources\PalletResource;
+use App\Filament\Widgets\PalletReceivingOverviewWidget;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 
@@ -17,7 +18,7 @@ class ListPallets extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Each pallet is one vendor delivery. Open the shipment you are unloading, then scan boxes until the received count matches what actually arrived.';
+        return 'Track each vendor delivery from staged manifest → active receiving → received → processed. Open the pallet you are unloading and work from its expected cases.';
     }
 
     protected function getHeaderActions(): array
@@ -28,6 +29,19 @@ class ListPallets extends ListRecords
                 ->icon('heroicon-o-plus')
                 ->color('primary')
                 ->url(fn () => PalletResource::getUrl('create')),
+
+            Action::make('history')
+                ->label('Receiving History')
+                ->icon('heroicon-o-clock')
+                ->color('gray')
+                ->url('/admin/pallet-receiving-history'),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            PalletReceivingOverviewWidget::class,
         ];
     }
 }

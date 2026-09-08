@@ -40,7 +40,7 @@ class ImportInventorySheet extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Read a product sheet, see exactly what it would do, then decide. Completely empty rows are ignored.';
+        return 'Read a product sheet, preview cost, target and margin, then decide. Completely empty rows are ignored.';
     }
 
     protected static function passesModuleAccessCheck(): bool
@@ -86,27 +86,42 @@ class ImportInventorySheet extends Page
         }
 
         try {
-            $rows = app(ProductSheetImporter::class)->read($path, $this->sheet);
+            $sourceRows = app(ProductSheetImporter::class)->read($path, $this->sheet);
         } catch (\Throwable $e) {
             $this->error = $e->getMessage();
             return;
         }
 
-        if ($rows === []) {
+        if ($sourceRows === []) {
             $this->error = 'That worksheet has no rows with a product name on them.';
             return;
         }
 
-        $plan = app(ProductSheetImporter::class)->plan($rows, $this->overwrite);
-        $this->rows = $plan['rows'];
+        $plan = app(ProductSheetImporter::class)->plan($sourceRows, $this->overwrite);
+        $sourceByLine = collect($sourceRows)->keyBy('line');
+
+        $this->rows = collect($plan['rows'])->map(function (array $planned) use ($sourceByLine): array {
+            $source = $sourceByLine->get($planned['line'], []);
+            $cost = isset($source['cost']) && $source['cost'] !== null ? (float) $source['cost'] : null;
+            $target = isset($source['sale_price']) && $source['sale_price'] !== null ? (float) $source['sale_price'] : null;
+            $margin = $cost !== null && $target !== null ? round($target - $cost, 2) : null;
+            $marginPct = $margin !== null && $target > 0 ? round(($margin / $target) * 100, 1) : null;
+
+            return $planned + [
+                'sheet_cost' => $cost,
+                'sheet_target' => $target,
+                'sheet_margin' => $margin,
+                'sheet_margin_pct' => $marginPct,
+            ];
+        })->values()->all();
+
         $this->summary = $plan['summary'];
     }
 
     #[Computed]
     public function visibleRows(): array
     {
-        $rows = $this->filteredRows();
-        return array_slice($rows, 0, ProductSheetImporter::PREVIEW_LIMIT);
+        return array_slice($this->filteredRows(), 0, ProductSheetImporter::PREVIEW_LIMIT);
     }
 
     #[Computed]

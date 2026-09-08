@@ -19,7 +19,7 @@ permissions:
 jobs:
   screenshots:
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: macos-14
 
     steps:
       - name: Checkout PR branch
@@ -48,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Prepare application
         shell: bash

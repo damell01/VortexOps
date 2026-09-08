@@ -15,8 +15,8 @@ class BackfillMissingWhatnotAnalytics extends Command
 {
     protected $signature = 'whatnot:backfill-missing-analytics
         {--channel= : Channel name, username, or ID}
-        {--days=14 : How far back to look for completed shows}
-        {--limit=8 : Maximum shows to backfill per run}
+        {--days=90 : How far back to look for completed shows}
+        {--limit=25 : Maximum shows to backfill per run}
         {--skip-if-busy : Skip cleanly if another Whatnot pipeline is active}';
 
     protected $description = 'Backfill Gross Revenue and Estimated Net Earnings for completed shows by seeding Whatnot analytics with each show UUID individually.';
@@ -52,7 +52,7 @@ class BackfillMissingWhatnotAnalytics extends Command
 
     private function runBackfill(WhatnotScraper $scraper, WhatnotDataNormalizer $normalizer): int
     {
-        $days = max(1, min(90, (int) $this->option('days')));
+        $days = max(1, min(3650, (int) $this->option('days')));
         $limit = max(1, min(25, (int) $this->option('limit')));
 
         $query = Show::query()

@@ -73,27 +73,32 @@ Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activi
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
+// Fast hourly walk: one channel at a time so each seller account is verified,
+// refreshed, and finished before the browser moves to the next channel.
 Schedule::job(new ProcessWhatnotChannelsJob())
     ->skip($whatnotPaused)
     ->hourlyAt(5)
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-Schedule::command('whatnot:backfill-missing-analytics --days=14 --limit=20 --skip-if-busy')
+// Work in useful 20-30 show chunks rather than the old 8-show batches.
+Schedule::command('whatnot:backfill-missing-analytics --days=90 --limit=25 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(15)
     ->name('whatnot-missing-analytics-backfill')
     ->withoutOverlapping(45);
 
-Schedule::command('whatnot:refresh-recent --shipments --limit=20 --skip-if-busy')
+Schedule::command('whatnot:refresh-recent --shipments --limit=25 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(35)
     ->name('whatnot-unresolved-shipments-refresh')
     ->withoutOverlapping(25);
 
-Schedule::command('whatnot:refresh-recent --ledger --ledger-days=30 --skip-if-busy')
+// Keep a wider rolling ledger so cancellations, refunds, fees, and other
+// post-show adjustments continue to update reporting after the original show.
+Schedule::command('whatnot:refresh-recent --ledger --ledger-days=90 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('10 */6 * * *')

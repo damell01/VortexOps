@@ -18,51 +18,69 @@ class EditStreamer extends EditRecord
     {
         return [
             Action::make('compensation_overrides')
-                ->label('Streamer Pay Overrides')
+                ->label('Pay Adjustments')
                 ->icon('heroicon-o-adjustments-horizontal')
                 ->color('gray')
                 ->form([
                     CheckboxList::make('fields')
                         ->label('Only override what is different for this person')
-                        ->options([
-                            'payout_type' => 'Calculation type',
-                            'payout_cadence' => 'Pay Run cadence',
-                            'payout_percentage' => 'Streamer pay %',
-                            'package_rate' => 'Package / flat rate',
-                            'hourly_rate' => 'Hourly rate',
-                            'pwe_rate' => 'PWE rate',
-                            'label_rate' => 'Label rate',
-                            'include_tips' => 'Include tips',
-                            'custom_payout_formula' => 'Custom calculation formula',
-                            'burden_rate_type' => 'Burden type',
-                            'burden_rate_value' => 'Burden value',
-                        ])
+                        ->options(fn (): array => $this->record->isFulfillment()
+                            ? [
+                                'payout_type' => 'Fulfillment pay method',
+                                'payout_percentage' => 'Pay %',
+                                'package_rate' => 'Package / flat rate',
+                                'hourly_rate' => 'Hourly rate',
+                                'pwe_rate' => 'PWE rate',
+                                'label_rate' => 'Label rate',
+                                'include_tips' => 'Include tips',
+                                'custom_payout_formula' => 'Custom formula',
+                                'burden_rate_type' => 'Burden type',
+                                'burden_rate_value' => 'Burden value',
+                            ]
+                            : [
+                                'payout_percentage' => 'Streamer pay %',
+                                'include_tips' => 'Include tips',
+                                'custom_payout_formula' => 'Custom calculation formula',
+                            ])
                         ->columns(2)
-                        ->helperText('Streamers use the standard spreadsheet-based team calculation by default. Check a field only when this person needs a different value or formula. Fulfillment members continue to inherit the fulfillment structure.'),
+                        ->helperText(fn (): string => $this->record->isFulfillment()
+                            ? 'Unchecked values inherit the Fulfillment team structure.'
+                            : 'Every streamer uses the same weekly team calculation. Select only the values that should be different for this person.'),
                 ])
                 ->fillForm(function (): array {
-                    $fields = $this->record->compensation_override_fields;
+                    $resolved = PaymentStructure::resolve($this->record);
+                    $allowed = $this->record->isFulfillment()
+                        ? ['payout_type','payout_percentage','package_rate','hourly_rate','pwe_rate','label_rate','include_tips','custom_payout_formula','burden_rate_type','burden_rate_value']
+                        : ['payout_percentage','include_tips','custom_payout_formula'];
 
-                    return ['fields' => $fields ?? PaymentStructure::FIELDS];
+                    return ['fields' => array_values(array_intersect($allowed, array_keys($resolved['overrides'] ?? [])))];
                 })
                 ->action(function (array $data): void {
-                    $this->record->update([
-                        'compensation_override_fields' => array_values($data['fields'] ?? []),
-                    ]);
+                    $allowed = $this->record->isFulfillment()
+                        ? ['payout_type','payout_percentage','package_rate','hourly_rate','pwe_rate','label_rate','include_tips','custom_payout_formula','burden_rate_type','burden_rate_value']
+                        : ['payout_percentage','include_tips','custom_payout_formula'];
+                    $fields = array_values(array_intersect($allowed, $data['fields'] ?? []));
+
+                    $values = ['compensation_override_fields' => $fields];
+                    if (! $this->record->isFulfillment()) {
+                        $values['payout_type'] = 'profit_share';
+                        $values['payout_cadence'] = 'weekly';
+                    }
+                    $this->record->update($values);
 
                     $effective = PaymentStructure::resolve($this->record->fresh());
                     activity('payment_structure')
                         ->causedBy(auth()->user())
                         ->performedOn($this->record)
                         ->withProperties([
-                            'override_fields' => $data['fields'] ?? [],
+                            'override_fields' => $fields,
                             'effective' => $effective['effective'],
                         ])
-                        ->log('Team member compensation overrides changed');
+                        ->log('Team member pay adjustments changed');
 
                     Notification::make()
-                        ->title('Streamer pay inheritance updated')
-                        ->body(empty($data['fields']) ? 'This team member now inherits the full team calculation.' : 'Only the selected fields now override the team calculation.')
+                        ->title('Pay adjustments updated')
+                        ->body(empty($fields) ? 'This person now uses the full team default.' : 'Only the selected values differ from the team default.')
                         ->success()
                         ->send();
                 }),
@@ -72,9 +90,14 @@ class EditStreamer extends EditRecord
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('info')
                 ->requiresConfirmation()
-                ->modalDescription('Remove every individual override and use the standard team calculation. Historical finalized payouts will not change.')
+                ->modalDescription('Remove every individual pay adjustment and use the standard team calculation. Historical finalized payouts will not change.')
                 ->action(function (): void {
-                    $this->record->update(['compensation_override_fields' => []]);
+                    $values = ['compensation_override_fields' => []];
+                    if (! $this->record->isFulfillment()) {
+                        $values['payout_type'] = 'profit_share';
+                        $values['payout_cadence'] = 'weekly';
+                    }
+                    $this->record->update($values);
                     Notification::make()->title('Using team calculation')->success()->send();
                 }),
 

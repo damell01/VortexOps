@@ -54,6 +54,35 @@ class ShipmentResource extends Resource
         return is_numeric($show) && (int) $show > 0 ? (int) $show : null;
     }
 
+    /**
+     * Filament Select options may never have a null label. A few historical
+     * Whatnot rows predate show titles, so using relationship('show', 'title')
+     * could feed null into Select::isOptionDisabled() and crash the shipments
+     * page. Always give every show a useful human-readable fallback.
+     */
+    private static function showFilterOptions(): array
+    {
+        return Show::query()
+            ->inChannelContext()
+            ->whereHas('shipments')
+            ->orderByDesc('show_date')
+            ->orderByDesc('id')
+            ->limit(250)
+            ->get(['id', 'title', 'show_date'])
+            ->mapWithKeys(function (Show $show): array {
+                $title = trim((string) $show->title);
+                $date = $show->show_date?->format('M j, Y');
+                $label = $title !== '' ? $title : 'Show #' . $show->id;
+
+                if ($date) {
+                    $label .= ' · ' . $date;
+                }
+
+                return [$show->id => $label];
+            })
+            ->all();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
@@ -77,9 +106,12 @@ class ShipmentResource extends Resource
     {
         $showId = static::selectedShowId();
         $show = $showId ? Show::query()->select(['id', 'title'])->find($showId) : null;
+        $showHeading = $show
+            ? (filled($show->title) ? (string) $show->title : 'Show #' . $show->id)
+            : null;
 
         return $table
-            ->heading($show ? 'Shipments · ' . $show->title : 'Shipments')
+            ->heading($show ? 'Shipments · ' . $showHeading : 'Shipments')
             ->description($show ? 'Locked to show #' . $show->id . '. Only shipment records attached to this show are displayed.' : 'Filter shipments by show, status, or carrier.')
             ->deferLoading()
             ->persistFiltersInSession(false)
@@ -152,7 +184,7 @@ class ShipmentResource extends Resource
             ->filters([
                 SelectFilter::make('show_id')
                     ->label('Show')
-                    ->relationship('show', 'title')
+                    ->options(fn (): array => static::showFilterOptions())
                     ->searchable()
                     ->preload()
                     ->visible(fn () => ! static::selectedShowId()),

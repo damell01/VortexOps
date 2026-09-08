@@ -31,7 +31,7 @@
                                 : 'The streamer report is the packing list. Buyer names and Whatnot shipment grouping stay out of the primary queue; admins can still see assignment and completion status.' }}
                         </p>
                     </div>
-                    <div class="grid grid-cols-4 gap-2 text-center text-[10px] sm:text-xs">
+                    <div class="grid grid-cols-3 gap-2 text-center text-[10px] sm:grid-cols-4 sm:text-xs">
                         @unless($isFulfillmentOnly)
                             <div class="rounded-xl bg-amber-50 px-3 py-2 dark:bg-amber-950/30"><div class="font-bold text-amber-700 dark:text-amber-200">{{ $cards->where('stage','Needs Assignment')->count() }}</div><div class="text-amber-600/80 dark:text-amber-300">assign</div></div>
                         @endunless
@@ -101,10 +101,5 @@
                 </div>
             @endforelse
         </section>
-
-        <details class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-200 sm:px-5">Table view & filters</summary>
-            <div class="border-t border-gray-100 p-3 dark:border-gray-800 sm:p-4">{{ $this->table }}</div>
-        </details>
     </div>
 </x-filament-panels::page>

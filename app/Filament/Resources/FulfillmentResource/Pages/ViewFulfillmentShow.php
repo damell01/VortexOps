@@ -28,7 +28,6 @@ class ViewFulfillmentShow extends ViewRecord
             'channel',
             'streamerLogEntry.streamer',
             'streamerLogEntry.items.inventoryItem',
-            'shipments',
             'fulfillmentUsers',
             'payouts.batch',
         ])->findOrFail($key);
@@ -86,7 +85,7 @@ class ViewFulfillmentShow extends ViewRecord
                             ->pluck('name', 'id')
                             ->all())
                         ->default(fn () => $show->fulfillmentUsers->pluck('id')->all())
-                        ->helperText('Assign one or more people responsible for reviewing the streamer-logged items and fulfillment closeout for this show.'),
+                        ->helperText('Assign one or more people responsible for packing the streamer-logged items and completing fulfillment for this show.'),
                 ])
                 ->action(function (array $data) use ($show): void {
                     $show->fulfillmentUsers()->sync($data['user_ids'] ?? []);

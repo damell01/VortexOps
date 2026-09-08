@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PalletResource\Pages;
 
+use App\Filament\Pages\PalletReceivingHistory;
 use App\Filament\Resources\PalletResource;
 use App\Filament\Widgets\PalletReceivingOverviewWidget;
 use Filament\Actions\Action;
@@ -34,7 +35,7 @@ class ListPallets extends ListRecords
                 ->label('Receiving History')
                 ->icon('heroicon-o-clock')
                 ->color('gray')
-                ->url('/admin/pallet-receiving-history'),
+                ->url(fn () => PalletReceivingHistory::getUrl()),
         ];
     }
 

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Shipment;
 use App\Models\Show;
+use App\Models\WhatnotBuyer;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
 use Carbon\Carbon;
@@ -105,7 +106,10 @@ class WhatnotReportingReconciler
             }
         }
 
-        return compact('checked', 'replaced', 'created', 'rejected', 'skipped');
+        $buyers = $this->rebuildBuyers($channel, $since);
+        $progress && $progress("buyers: {$buyers['created']} created, {$buyers['updated']} updated");
+
+        return compact('checked', 'replaced', 'created', 'rejected', 'skipped', 'buyers');
     }
 
     public function backfillAnalytics(
@@ -213,6 +217,55 @@ class WhatnotReportingReconciler
         }
 
         return compact('checked', 'created', 'updated', 'skipped');
+    }
+
+    private function rebuildBuyers(WhatnotChannel $channel, Carbon $since): array
+    {
+        $usernames = WhatnotShowOrder::query()
+            ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+            ->where('shows.whatnot_channel_id', $channel->id)
+            ->whereDate('shows.show_date', '>=', $since->toDateString())
+            ->whereNotNull('whatnot_show_orders.buyer_username')
+            ->where('whatnot_show_orders.buyer_username', '<>', '')
+            ->distinct()
+            ->pluck('whatnot_show_orders.buyer_username');
+
+        $created = $updated = 0;
+        foreach ($usernames as $username) {
+            $agg = WhatnotShowOrder::query()
+                ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+                ->where('shows.whatnot_channel_id', $channel->id)
+                ->whereDate('shows.show_date', '>=', $since->toDateString())
+                ->where('whatnot_show_orders.buyer_username', $username)
+                ->selectRaw('COUNT(*) as total_orders, SUM(whatnot_show_orders.total_price) as lifetime_spend, MIN(whatnot_show_orders.show_date) as first_purchase_date, MAX(whatnot_show_orders.show_date) as last_purchase_date, MAX(whatnot_show_orders.buyer_display_name) as display_name')
+                ->first();
+
+            $totalOrders = (int) ($agg->total_orders ?? 0);
+            $lifetimeSpend = (float) ($agg->lifetime_spend ?? 0);
+            $attrs = [
+                'total_orders' => $totalOrders,
+                'lifetime_spend' => $lifetimeSpend,
+                'avg_order_value' => $totalOrders > 0 ? round($lifetimeSpend / $totalOrders, 2) : null,
+                'first_purchase_date' => $agg->first_purchase_date ?? null,
+                'last_purchase_date' => $agg->last_purchase_date ?? null,
+                'display_name' => ($agg->display_name ?? null) ?: null,
+            ];
+
+            $buyer = WhatnotBuyer::where('username', $username)->first();
+            if ($buyer) {
+                $buyer->update($attrs);
+                $updated++;
+            } else {
+                WhatnotBuyer::create(['username' => $username] + $attrs);
+                $created++;
+            }
+        }
+
+        if ($usernames->isNotEmpty()) {
+            DB::statement('UPDATE whatnot_show_orders o JOIN whatnot_buyers b ON b.username = o.buyer_username SET o.whatnot_buyer_id = b.id WHERE o.whatnot_buyer_id IS NULL AND o.buyer_username IS NOT NULL');
+        }
+
+        return compact('created', 'updated');
     }
 
     private function orderBatchLooksPlausible(Show $show, array $rows): bool

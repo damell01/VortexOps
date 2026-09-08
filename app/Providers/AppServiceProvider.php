@@ -18,9 +18,11 @@ use App\Observers\ShowObserver;
 use App\Services\AI\OllamaClient;
 use App\Services\AI\Mapping\MappingEngine;
 use App\Services\EmbeddingService;
+use App\Services\FlexibleProductSheetImporter;
 use App\Services\InventoryVelocityService;
 use App\Services\PackingSlipAnalyzerService;
 use App\Services\ProductMatchingService;
+use App\Services\ProductSheetImporter;
 use App\Services\ReceivingReportService;
 use App\Support\TableFilterPresentation;
 use Filament\Support\Facades\FilamentView;
@@ -41,27 +43,17 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(OllamaClient::class, fn () => OllamaClient::fromSettings());
-
-        $this->app->singleton(EmbeddingService::class, fn ($app) => new EmbeddingService(
-            $app->make(OllamaClient::class),
-        ));
-
-        $this->app->singleton(ProductMatchingService::class, fn ($app) => new ProductMatchingService(
-            $app->make(EmbeddingService::class),
-        ));
-
-        $this->app->singleton(MappingEngine::class, fn ($app) => new MappingEngine(
-            $app->make(ProductMatchingService::class),
-            $app->make(OllamaClient::class),
-            $app->make(EmbeddingService::class),
-        ));
-
-        $this->app->singleton(PackingSlipAnalyzerService::class, fn ($app) => new PackingSlipAnalyzerService(
-            $app->make(OllamaClient::class),
-        ));
-
+        $this->app->singleton(EmbeddingService::class, fn ($app) => new EmbeddingService($app->make(OllamaClient::class)));
+        $this->app->singleton(ProductMatchingService::class, fn ($app) => new ProductMatchingService($app->make(EmbeddingService::class)));
+        $this->app->singleton(MappingEngine::class, fn ($app) => new MappingEngine($app->make(ProductMatchingService::class), $app->make(OllamaClient::class), $app->make(EmbeddingService::class)));
+        $this->app->singleton(PackingSlipAnalyzerService::class, fn ($app) => new PackingSlipAnalyzerService($app->make(OllamaClient::class)));
         $this->app->singleton(ReceivingReportService::class);
         $this->app->singleton(InventoryVelocityService::class);
+
+        // The operations workbook intentionally leaves A1 blank while column A
+        // contains product names. Keep the core importer strict, but make every
+        // app-resolved product-sheet import understand that real sheet format.
+        $this->app->bind(ProductSheetImporter::class, FlexibleProductSheetImporter::class);
     }
 
     public function boot(): void
@@ -80,26 +72,15 @@ class AppServiceProvider extends ServiceProvider
         Shipment::observe(ShipmentObserver::class);
         Product::observe(ProductObserver::class);
 
-        // Apply the account-level notification preference to every Laravel
-        // notification, including older database-only notifications that do not
-        // use the shared EmailsWhenEnabled concern yet.
         Event::listen(NotificationSending::class, function (NotificationSending $event): ?bool {
-            if ($event->notifiable instanceof User
-                && ! $event->notifiable->wantsNotificationChannel($event->channel)) {
+            if ($event->notifiable instanceof User && ! $event->notifiable->wantsNotificationChannel($event->channel)) {
                 return false;
             }
-
             return null;
         });
 
-        // Every table in the panel, not just the resources — relation managers
-        // and the custom pages that build their own tables go through the same
-        // Table::make(), so they pick this up as well.
         Table::configureUsing(fn (Table $table) => TableFilterPresentation::apply($table));
 
-        // Scanner-only helper endpoints. They intentionally live behind the web
-        // auth/session middleware and the controller also verifies admin/owner
-        // access before reading or changing product identities.
         Route::middleware('web')->prefix('inventory-scanner-api')->group(function (): void {
             Route::get('/items', [InventoryScannerBarcodeController::class, 'search']);
             Route::post('/barcodes/attach', [InventoryScannerBarcodeController::class, 'attach']);
@@ -108,25 +89,14 @@ class AppServiceProvider extends ServiceProvider
             Route::delete('/barcodes/{identity}', [InventoryScannerBarcodeController::class, 'remove']);
         });
 
-        FilamentView::registerRenderHook(
-            'panels::body.start',
-            fn (): \Illuminate\Contracts\View\View => view('filament.demo-overlay'),
-        );
-
-        FilamentView::registerRenderHook(
-            'panels::body.end',
-            fn (): \Illuminate\Contracts\View\View => view('filament.mobile-polish'),
-        );
-
-        FilamentView::registerRenderHook(
-            'panels::body.end',
-            fn (): \Illuminate\Contracts\View\View => view('filament.inventory-scanner-mobile'),
-        );
+        FilamentView::registerRenderHook('panels::body.start', fn (): \Illuminate\Contracts\View\View => view('filament.demo-overlay'));
+        FilamentView::registerRenderHook('panels::body.end', fn (): \Illuminate\Contracts\View\View => view('filament.mobile-polish'));
+        FilamentView::registerRenderHook('panels::body.end', fn (): \Illuminate\Contracts\View\View => view('filament.inventory-scanner-mobile'));
 
         $listener = new LogAuthActivity();
-        Event::listen(Login::class,         [$listener, 'handleLogin']);
-        Event::listen(Logout::class,        [$listener, 'handleLogout']);
-        Event::listen(Failed::class,        [$listener, 'handleFailed']);
+        Event::listen(Login::class, [$listener, 'handleLogin']);
+        Event::listen(Logout::class, [$listener, 'handleLogout']);
+        Event::listen(Failed::class, [$listener, 'handleFailed']);
         Event::listen(PasswordReset::class, [$listener, 'handlePasswordReset']);
     }
 }

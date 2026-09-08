@@ -15,6 +15,12 @@
     people get wrong — they follow the words onto the wrong page and conclude
     the guide is out of date.
 --}}
+@php
+    // The original step-6 capture points at a page that was later renamed and
+    // now literally shows the app's 404 screen. Keep old guide references
+    // working, but transparently serve the current Stock Levels capture.
+    $resolvedShot = $shot === '06-stock.png' ? 'manual/stock-levels.png' : $shot;
+@endphp
 <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
     <div class="flex items-start gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800">
         @if($number)
@@ -39,11 +45,11 @@
             {{ $slot }}
         </div>
 
-        @if($shot)
+        @if($resolvedShot)
             <figure class="min-w-0">
                 {{-- loading="lazy": the walkthrough carries eight of these and
                      they are all below the fold but the first. --}}
-                <img src="{{ asset('guide/' . $shot) }}"
+                <img src="{{ asset('guide/' . $resolvedShot) }}"
                      alt="{{ $title }}"
                      loading="lazy"
                      class="w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700" />

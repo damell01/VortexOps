@@ -47,6 +47,7 @@ class AuditWhatnotReporting extends Command
 
         $this->info('WHATNOT REPORTING AUDIT');
         $this->line('Reporting window: ' . $since->toDateString() . ' through ' . today()->toDateString());
+        $this->line('Gross = Whatnot reported show sales. Whatnot Payout = Whatnot estimated net/settlement. Business Net = Whatnot payout + tips - product cost - show payouts/profit share.');
         $this->newLine();
 
         foreach ($channels as $channel) {
@@ -65,6 +66,9 @@ class AuditWhatnotReporting extends Command
             $units = (int) (clone $completed)->sum('units_sold');
             $giveaways = (int) (clone $completed)->sum('giveaways_count');
             $buyers = (int) (clone $completed)->sum('buyers_count');
+            $businessNet = (float) (clone $completed)->get()->sum(
+                fn (Show $show) => (float) ($show->profitAndLoss()['margin'] ?? 0),
+            );
 
             $missingAnalytics = (clone $completed)
                 ->where(function ($q) {
@@ -77,12 +81,13 @@ class AuditWhatnotReporting extends Command
 
             $this->info($channel->name . ' (@' . $channel->whatnot_username . ')');
             $this->table(
-                ['Shows', 'Cancelled', 'Gross', 'Whatnot Net', 'Completed Earn.', 'Tips', 'Units', 'Giveaways', 'Buyers'],
+                ['Shows', 'Cancelled', 'Gross', 'Whatnot Payout', 'Business Net', 'Completed Earn.', 'Tips', 'Units', 'Giveaways', 'Buyers'],
                 [[
                     $totalShows,
                     $cancelled,
                     '$' . number_format($gross, 2),
                     '$' . number_format($whatnotNet, 2),
+                    '$' . number_format($businessNet, 2),
                     '$' . number_format($completedEarnings, 2),
                     '$' . number_format($tips, 2),
                     $units,
@@ -138,6 +143,8 @@ class AuditWhatnotReporting extends Command
                     if ((int) $show->orders_count === 0) $issues[] = 'orders';
                 }
 
+                $pnl = $show->profitAndLoss();
+
                 return [
                     $show->id,
                     $show->show_date?->format('Y-m-d') ?? '—',
@@ -145,6 +152,7 @@ class AuditWhatnotReporting extends Command
                     $show->status,
                     '$' . number_format((float) ($show->gross_revenue ?? 0), 2),
                     '$' . number_format((float) ($show->whatnot_net ?? 0), 2),
+                    '$' . number_format((float) ($pnl['margin'] ?? 0), 2),
                     (int) $show->orders_count,
                     (int) $show->shipments_count,
                     $issues ? implode(', ', $issues) : 'complete',
@@ -153,13 +161,13 @@ class AuditWhatnotReporting extends Command
             })->all();
 
             if ($rows !== []) {
-                $this->table(['ID', 'Date', 'Show', 'Status', 'Gross', 'Net', 'Orders', 'Ships', 'Missing', 'Last Sync'], $rows);
+                $this->table(['ID', 'Date', 'Show', 'Status', 'Gross', 'Whatnot Payout', 'Business Net', 'Orders', 'Ships', 'Missing', 'Last Sync'], $rows);
             }
 
             $this->newLine();
         }
 
-        $this->line('Totals are read directly from the shows table. The source table above shows which Whatnot pipeline most recently refreshed each data family. Ledger refreshes are the path used for later post-show adjustments such as refunds/cancellations when Whatnot exposes them there.');
+        $this->line('Gross and Whatnot Payout come from imported Whatnot show analytics. Business Net is VortexOps-calculated after product cost and show payouts/profit share. Ledger refreshes remain the source for later refunds/cancellations/adjustments when Whatnot exposes them.');
 
         return self::SUCCESS;
     }

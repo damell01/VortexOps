@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\InventoryItemResource\Pages;
 
 use App\Filament\Pages\ImportInventorySheet;
-use App\Filament\Pages\InventoryCount;
 use App\Filament\Pages\InventoryScanner;
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\PalletResource;
@@ -40,10 +39,12 @@ class ListInventoryItems extends ListRecords
 
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
+    public ?int $quickStockScanTargetId = null;
+    public ?string $quickStockScanTargetName = null;
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
-    public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or run a full physical count without opening each item.'; }
+    public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or receive inventory without opening each item.'; }
     public function getBreadcrumbs(): array { return []; }
 
     protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder
@@ -196,55 +197,132 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
-    /**
-     * Card-catalog Add Stock action.
-     *
-     * The catalog's green Add Stock button used to call mountTableAction(),
-     * even though the custom card view does not render the Filament table.
-     * Keep this as a normal page action so it can be mounted from either view.
-     */
+    public function startQuickStockBarcodeScan(): void
+    {
+        if (! $this->quickStockScanTargetId) return;
+
+        $this->dispatch(
+            'open-camera-scanner',
+            title: 'Scan item barcode',
+            helper: $this->quickStockScanTargetName ?: 'Verify the item before adding stock',
+        );
+    }
+
+    public function verifyQuickStockBarcode(string $barcode): void
+    {
+        $barcode = trim($barcode);
+        $product = $this->quickStockScanTargetId ? Product::find($this->quickStockScanTargetId) : null;
+
+        if ($barcode === '' || ! $product) return;
+
+        $matches = in_array($barcode, array_filter([
+            trim((string) $product->barcode),
+            trim((string) $product->upc),
+            trim((string) $product->sku),
+        ]), true) || $product->identities()->where('value', $barcode)->exists();
+
+        if (! $matches) {
+            $other = Product::query()
+                ->where('barcode', $barcode)
+                ->orWhere('upc', $barcode)
+                ->orWhere('sku', $barcode)
+                ->first();
+
+            Notification::make()
+                ->title('Barcode does not match this item')
+                ->body($other ? 'That scan belongs to "' . $other->name . '".' : 'Scanned ' . $barcode . ', but it is not assigned to ' . $product->name . '.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        Notification::make()
+            ->title('Item verified')
+            ->body($product->name . ' — enter the quantity counted and save.')
+            ->success()
+            ->send();
+    }
+
+    /** Quick stock receipt/count from a catalog card. */
     public function quickAddStockAction(): Action
     {
         return Action::make('quickAddStock')
             ->label('Add Stock')
             ->icon('heroicon-o-plus-circle')
             ->color('success')
+            ->modalWidth('lg')
             ->modalHeading(function (array $arguments): string {
                 $record = InventoryItem::find($arguments['product'] ?? null);
                 return 'Add Stock' . ($record ? ' — ' . $record->name : '');
             })
+            ->mountUsing(function ($form, array $arguments): void {
+                $record = InventoryItem::find($arguments['product'] ?? null);
+                $this->quickStockScanTargetId = $record?->getKey();
+                $this->quickStockScanTargetName = $record?->name;
+
+                $mainLocationId = InventoryLocation::query()
+                    ->where('status', 'active')
+                    ->where('type', 'main_storage')
+                    ->orderBy('id')
+                    ->value('id');
+
+                $mainLocationId ??= InventoryLocation::query()
+                    ->where('status', 'active')
+                    ->where('name', 'Main Warehouse')
+                    ->value('id');
+
+                $mainLocationId ??= InventoryLocation::defaultReceivingId();
+
+                $form->fill([
+                    'location_id' => $mainLocationId,
+                    'quantity' => 1,
+                ]);
+            })
             ->form([
+                Select::make('location_id')
+                    ->label('Location')
+                    ->options(fn () => InventoryLocation::activeOptions())
+                    ->required()
+                    ->searchable()
+                    ->helperText('Defaults to Main Warehouse.'),
+                TextInput::make('quantity')
+                    ->label('Quantity Counted / Added')
+                    ->numeric()
+                    ->required()
+                    ->minValue(0.01)
+                    ->default(1)
+                    ->autofocus(),
+                TextInput::make('barcode_check')
+                    ->label('Barcode Check')
+                    ->placeholder('Tap the scan icon to verify this item')
+                    ->readOnly()
+                    ->dehydrated(false)
+                    ->suffixAction(
+                        Action::make('scan_quick_stock')
+                            ->label('Scan')
+                            ->icon('heroicon-o-qr-code')
+                            ->color('primary')
+                            ->action(fn () => $this->startQuickStockBarcodeScan())
+                    ),
                 Grid::make(2)->schema([
-                    Select::make('location_id')
-                        ->label('Location')
-                        ->options(fn () => InventoryLocation::activeOptions())
-                        ->required()
-                        ->searchable(),
                     Select::make('vendor_id')
                         ->label('Vendor')
                         ->options(fn () => Vendor::activeOptions())
                         ->searchable()
-                        ->helperText('Optional — tracks where this stock came from.'),
+                        ->helperText('Optional'),
+                    TextInput::make('unit_cost')
+                        ->label('Unit Cost ($)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->helperText('Optional'),
                 ]),
-                TextInput::make('quantity')
-                    ->label('Quantity to Add')
-                    ->numeric()
-                    ->required()
-                    ->minValue(0.01)
-                    ->default(1),
-                TextInput::make('unit_cost')
-                    ->label('Unit Cost ($)')
-                    ->numeric()
-                    ->minValue(0)
-                    ->helperText('Optional. If entered, this blends into the weighted average cost.'),
                 Textarea::make('reason')
                     ->label('Note / Reason')
                     ->rows(2)
-                    ->placeholder('e.g. Vendor restock, replacement stock, manual receipt'),
+                    ->placeholder('Optional note'),
             ])
             ->action(function (array $data, array $arguments): void {
                 $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
-
                 abort_unless(InventoryItemResource::canEdit($record), 403);
 
                 $location = InventoryLocation::findOrFail((int) $data['location_id']);
@@ -266,6 +344,8 @@ class ListInventoryItems extends ListRecords
                         : null,
                 );
 
+                $this->quickStockScanTargetId = null;
+                $this->quickStockScanTargetName = null;
                 $this->statsMemo = null;
                 unset($this->catalogItems, $this->catalogTotal);
 
@@ -285,7 +365,6 @@ class ListInventoryItems extends ListRecords
         $canCreate = fn () => ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
 
         return [
-            Action::make('count-inventory')->label('Inventory Count')->icon('heroicon-o-clipboard-document-check')->color('success')->url(fn () => InventoryCount::getUrl())->visible($canReceive),
             Action::make('scan')->label('Quick Scan')->icon('heroicon-o-qr-code')->color('primary')->url(fn () => InventoryScanner::getUrl())->visible($canReceive),
             Action::make('import-sheet')->label('Import Sheet')->icon('heroicon-o-arrow-up-tray')->color('info')->url(fn () => ImportInventorySheet::getUrl())->visible($canReceive),
             Action::make('receive')->label('Receive Shipment')->icon('heroicon-o-inbox-arrow-down')->color('success')->url(fn () => PalletResource::getUrl('index'))->visible($canReceive),

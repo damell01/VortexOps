@@ -47,8 +47,12 @@ class BackupDatabase extends Command
         chmod($cnfFile, 0600);
 
         try {
+            // MySQL/MariaDB require --defaults-extra-file to be the first
+            // command-line option after mysqldump. When it appears later,
+            // some client versions parse it as a server variable and fail
+            // with "unknown variable 'defaults-extra-file=...'".
             $cmd = sprintf(
-                'set -o pipefail; mysqldump --single-transaction --quick --routines --triggers --defaults-extra-file=%s -h %s -P %s -u %s %s | gzip -1 > %s',
+                'set -o pipefail; mysqldump --defaults-extra-file=%s --single-transaction --quick --routines --triggers -h %s -P %s -u %s %s | gzip -1 > %s',
                 escapeshellarg($cnfFile),
                 escapeshellarg($host),
                 escapeshellarg($port),

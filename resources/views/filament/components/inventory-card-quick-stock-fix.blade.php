@@ -1,15 +1,14 @@
 {{--
-    Reliable bridge for the custom All Inventory card catalog.
+    Legacy fallback for older inventory card markup.
 
-    The visible Add Stock button is injected by mobile-inventory-hotfixes, but
-    mounting a Filament action directly from browser JavaScript has proven
-    unreliable on this custom ListRecords page. Capture the click first, call a
-    normal public Livewire method, and let the PHP page mount its own action.
+    The catalog now renders its own native Livewire Add Stock button. Never
+    intercept that button: letting Livewire process wire:click is the reliable
+    path and mirrors the working Filament buttons elsewhere in VortexOps.
 --}}
 <script>
 (() => {
-    if (window.__vxInventoryCardQuickStockFixV2) return;
-    window.__vxInventoryCardQuickStockFixV2 = true;
+    if (window.__vxInventoryCardQuickStockFixV3) return;
+    window.__vxInventoryCardQuickStockFixV3 = true;
 
     const recordIdFromCard = (card) => {
         const viewLink = card?.querySelector('a[href*="/admin/inventory-items/"]');
@@ -27,12 +26,18 @@
         const button = event.target.closest?.('.vx-product-card .vx-card-action.add-stock');
         if (!button) return;
 
+        // Native card buttons are rendered by Blade with wire:click. Leave
+        // those entirely to Livewire; this listener only supports any stale
+        // legacy button that may have been injected into an old DOM snapshot.
+        if (button.hasAttribute('wire:click') || button.hasAttribute('wire:click.stop')) {
+            return;
+        }
+
         const card = button.closest('.vx-product-card');
         const recordId = recordIdFromCard(card);
         const component = inventoryComponentFor(card);
         if (!recordId || !component) return;
 
-        // Stop the legacy injected-button handler before it reaches Filament.
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -51,9 +56,6 @@
         }
     }, true);
 
-    // The shared camera scanner emits barcode-scanned. When the quick-stock
-    // modal owns the scan target, verify the code against that item rather than
-    // treating it like the normal "assign/replace barcode" card action.
     window.addEventListener('barcode-scanned', async (event) => {
         const value = String(event.detail?.value || '').trim();
         if (!value || !window.Livewire) return;

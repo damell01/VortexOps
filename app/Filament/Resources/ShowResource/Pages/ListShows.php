@@ -38,15 +38,16 @@ class ListShows extends ListRecords
     {
         return auth()->user()?->isStreamer()
             ? 'Your Whatnot schedule, recent shows, and show reports in one place.'
-            : 'Shows Command Center — live operational work first; historical scraper data stays available in the table without creating tasks.';
+            : 'Shows Command Center — current operational work first; older scraper history stays available without creating action items.';
     }
 
     public function getOperations(): array
     {
         if ($this->operationsMemo !== null) return $this->operationsMemo;
 
-        // Command-center cards are work, not an archive. Historical imports stay
-        // accessible in the table/History tab but never appear as fake actions.
+        // Command-center cards are current work, not an archive. Historical imports
+        // and older operational records remain searchable in the table but never
+        // spill into Recent Shows or Needs Attention simply because the queue is quiet.
         $base = fn () => ShowResource::getEloquentQuery()
             ->where('is_operational', true)
             ->with([
@@ -63,6 +64,7 @@ class ListShows extends ListRecords
             ->whereNotIn('status', ['cancelled']);
 
         $nowTime = now()->format('H:i:s');
+        $currentMonthStart = now()->startOfMonth()->toDateString();
 
         $upcoming = $base()
             ->where(function ($q) use ($nowTime) {
@@ -80,6 +82,7 @@ class ListShows extends ListRecords
             ->get();
 
         $recent = $base()
+            ->whereDate('show_date', '>=', $currentMonthStart)
             ->where(function ($q) use ($nowTime) {
                 $q->whereDate('show_date', '<', today())
                     ->orWhere(function ($today) use ($nowTime) {
@@ -117,7 +120,10 @@ class ListShows extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        $base = fn () => ShowResource::getEloquentQuery()->where('is_operational', true)->whereNotIn('status', ['cancelled']);
+        $base = fn () => ShowResource::getEloquentQuery()
+            ->where('is_operational', true)
+            ->whereDate('show_date', '>=', now()->startOfMonth()->toDateString())
+            ->whereNotIn('status', ['cancelled']);
 
         $active    = $base()->whereIn('status', ['draft', 'mapping'])->count();
         $completed = $base()->whereIn('status', ['reconciled', 'closed'])->count();
@@ -127,11 +133,11 @@ class ListShows extends ListRecords
         $money = fn (float $v) => '$' . number_format($v, 2);
 
         return $this->statsMemo = [
-            ['label' => 'Active Shows', 'value' => number_format($active), 'sub' => 'Live workflow', 'icon' => 'heroicon-o-signal', 'tone' => 'purple'],
-            ['label' => 'Completed Shows', 'value' => number_format($completed), 'sub' => 'Operational history', 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
-            ['label' => 'Pending Submission', 'value' => number_format($pending), 'sub' => 'Awaiting review', 'icon' => 'heroicon-o-clock', 'tone' => 'amber'],
-            ['label' => 'Operational Revenue', 'value' => $money($revenue), 'sub' => 'Live-workflow shows', 'icon' => 'heroicon-o-banknotes', 'tone' => 'blue'],
-            ['label' => 'Avg Revenue', 'value' => $money($counted > 0 ? $revenue / $counted : 0), 'sub' => 'Operational show', 'icon' => 'heroicon-o-chart-bar', 'tone' => 'orange'],
+            ['label' => 'Active Shows', 'value' => number_format($active), 'sub' => 'This month', 'icon' => 'heroicon-o-signal', 'tone' => 'purple'],
+            ['label' => 'Completed Shows', 'value' => number_format($completed), 'sub' => 'This month', 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
+            ['label' => 'Pending Submission', 'value' => number_format($pending), 'sub' => 'This month', 'icon' => 'heroicon-o-clock', 'tone' => 'amber'],
+            ['label' => 'Operational Revenue', 'value' => $money($revenue), 'sub' => 'This month', 'icon' => 'heroicon-o-banknotes', 'tone' => 'blue'],
+            ['label' => 'Avg Revenue', 'value' => $money($counted > 0 ? $revenue / $counted : 0), 'sub' => 'This month', 'icon' => 'heroicon-o-chart-bar', 'tone' => 'orange'],
         ];
     }
 
@@ -144,19 +150,23 @@ class ListShows extends ListRecords
     {
         $weekStart = now()->startOfWeek()->toDateString();
         $weekEnd   = now()->endOfWeek()->toDateString();
+        $monthStart = now()->startOfMonth()->toDateString();
+        $monthEnd = now()->endOfMonth()->toDateString();
 
         $tabs = [
             'past_7_days' => Tab::make('Past 7 Days')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [now()->subDays(7)->toDateString(), now()->endOfDay()->toDateTimeString()])),
-            'all' => Tab::make('All'),
+            'this_month' => Tab::make('This Month')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [$monthStart, $monthEnd])),
             'needs_review' => Tab::make('Needs Review')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereIn('status', ['pending_review', 'pending_approval']))
-                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () => Show::where('is_operational', true)->whereIn('status', ['pending_review', 'pending_approval'])->count()))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->whereIn('status', ['pending_review', 'pending_approval']))
+                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () => Show::where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->whereIn('status', ['pending_review', 'pending_approval'])->count()))
                 ->badgeColor('warning'),
             'this_week' => Tab::make('This Week')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [$weekStart, $weekEnd])),
             'unreconciled' => Tab::make('Unreconciled')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+            'all' => Tab::make('All'),
         ];
 
         if (auth()->user()?->isAdmin()) {
@@ -168,17 +178,17 @@ class ListShows extends ListRecords
                     ->badgeColor('gray');
             }
 
-            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () => Show::where('is_operational', true)->where('channel_attribution_suspect', true)->count());
+            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () => Show::where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->where('channel_attribution_suspect', true)->count());
             if ($flagged > 0) {
                 $tabs['flagged'] = Tab::make('Channel Review')
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->where('channel_attribution_suspect', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->where('channel_attribution_suspect', true))
                     ->badge($flagged)->badgeColor('danger');
             }
 
-            $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () => Show::where('is_operational', true)->where('financials_revised_after_lock', true)->count());
+            $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () => Show::where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->where('financials_revised_after_lock', true)->count());
             if ($revised > 0) {
                 $tabs['revised'] = Tab::make('Financials Revised')
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->where('financials_revised_after_lock', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date', '>=', $monthStart)->where('financials_revised_after_lock', true))
                     ->badge($revised)->badgeColor('danger');
             }
         }

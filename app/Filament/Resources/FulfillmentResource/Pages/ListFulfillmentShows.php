@@ -8,6 +8,7 @@ use App\Models\StreamerLogItem;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class ListFulfillmentShows extends ListRecords
 {
@@ -35,8 +36,10 @@ class ListFulfillmentShows extends ListRecords
     /** @return \Illuminate\Support\Collection<int, array<string,mixed>> */
     public function getQueueCards()
     {
+        // Do not sort in SQL by fulfillment_reviewed_at. Some older production
+        // databases were created before that optional signoff column existed,
+        // which made the whole Fulfillment Center 500 before a user could pack.
         return FulfillmentResource::getEloquentQuery()
-            ->orderByRaw('CASE WHEN EXISTS (SELECT 1 FROM streamer_log_entries sle WHERE sle.show_id = shows.id AND sle.fulfillment_reviewed_at IS NOT NULL) THEN 1 ELSE 0 END')
             ->orderByDesc('show_date')
             ->limit(24)
             ->get()
@@ -47,7 +50,7 @@ class ListFulfillmentShows extends ListRecords
                 $packedUnits = min($totalUnits, (int) $items->sum('packed_quantity'));
                 $remainingUnits = max(0, $totalUnits - $packedUnits);
                 $issues = $items->filter(fn (StreamerLogItem $item) => $item->fulfillmentStatus() === StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
-                $completed = $show->streamerLogEntry?->fulfillment_reviewed_at !== null;
+                $completed = $this->isCompleted($show, $remainingUnits, $issues);
                 $assigned = $show->fulfillmentUsers->isNotEmpty();
 
                 if ($completed) {
@@ -110,48 +113,72 @@ class ListFulfillmentShows extends ListRecords
     {
         $user = auth()->user();
         $isFulfillmentOnly = $user?->isFulfillment() && ! $user?->isAdmin() && ! $user?->isFulfillmentAdmin();
+        $hasSignoff = $this->hasSignoffColumn();
+
+        $activeScope = function (Builder $query) use ($hasSignoff): Builder {
+            if ($hasSignoff) {
+                return $query->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNull('fulfillment_reviewed_at'));
+            }
+
+            // Legacy fallback: unfinished means at least one logged line still
+            // has quantity remaining or is explicitly marked as an issue.
+            return $query->where(function (Builder $work) {
+                $work->whereHas('streamerLogEntry.items', fn (Builder $items) => $items->whereColumn('packed_quantity', '<', 'quantity'))
+                    ->orWhereHas('streamerLogEntry.items', fn (Builder $items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED));
+            });
+        };
+
+        $completedScope = function (Builder $query) use ($hasSignoff): Builder {
+            if ($hasSignoff) {
+                return $query->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNotNull('fulfillment_reviewed_at'));
+            }
+
+            return $query
+                ->whereDoesntHave('streamerLogEntry.items', fn (Builder $items) => $items->whereColumn('packed_quantity', '<', 'quantity'))
+                ->whereDoesntHave('streamerLogEntry.items', fn (Builder $items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED));
+        };
 
         if ($isFulfillmentOnly) {
             return [
                 'my_work' => Tab::make('My Active Work')
                     ->icon('heroicon-m-user')
-                    ->modifyQueryUsing(fn (Builder $query) => $query
-                        ->whereHas('fulfillmentUsers', fn (Builder $users) => $users->where('users.id', $user->id))
-                        ->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNull('fulfillment_reviewed_at'))),
+                    ->modifyQueryUsing(function (Builder $query) use ($user, $activeScope): Builder {
+                        $query->whereHas('fulfillmentUsers', fn (Builder $users) => $users->where('users.id', $user->id));
+                        return $activeScope($query);
+                    }),
                 'issues' => Tab::make('Issues')
                     ->icon('heroicon-m-exclamation-triangle')
                     ->modifyQueryUsing(fn (Builder $query) => $query
                         ->whereHas('streamerLogEntry.items', fn (Builder $items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED))),
                 'completed' => Tab::make('Completed')
                     ->icon('heroicon-m-check-circle')
-                    ->modifyQueryUsing(fn (Builder $query) => $query
-                        ->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNotNull('fulfillment_reviewed_at'))),
+                    ->modifyQueryUsing($completedScope),
             ];
         }
 
         return [
             'active' => Tab::make('Active Fulfillment')
                 ->icon('heroicon-m-inbox-stack')
-                ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNull('fulfillment_reviewed_at'))),
+                ->modifyQueryUsing($activeScope),
             'needs_assignment' => Tab::make('Needs Assignment')
                 ->icon('heroicon-m-user-plus')
-                ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->whereDoesntHave('fulfillmentUsers')
-                    ->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNull('fulfillment_reviewed_at'))),
+                ->modifyQueryUsing(function (Builder $query) use ($activeScope): Builder {
+                    $query->whereDoesntHave('fulfillmentUsers');
+                    return $activeScope($query);
+                }),
             'packing' => Tab::make('Packing')
                 ->icon('heroicon-m-cube')
-                ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->whereHas('fulfillmentUsers')
-                    ->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNull('fulfillment_reviewed_at'))),
+                ->modifyQueryUsing(function (Builder $query) use ($activeScope): Builder {
+                    $query->whereHas('fulfillmentUsers');
+                    return $activeScope($query);
+                }),
             'issues' => Tab::make('Issues')
                 ->icon('heroicon-m-exclamation-triangle')
                 ->modifyQueryUsing(fn (Builder $query) => $query
                     ->whereHas('streamerLogEntry.items', fn (Builder $items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED))),
             'completed' => Tab::make('Completed')
                 ->icon('heroicon-m-check-circle')
-                ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNotNull('fulfillment_reviewed_at'))),
+                ->modifyQueryUsing($completedScope),
         ];
     }
 
@@ -162,9 +189,22 @@ class ListFulfillmentShows extends ListRecords
 
     protected function getHeaderWidgets(): array
     {
-        // The old shipment/sync widgets made the packing queue feel like a
-        // scraper dashboard. Those systems remain available elsewhere; this
-        // screen is now intentionally about physical fulfillment work only.
         return [];
+    }
+
+    private function hasSignoffColumn(): bool
+    {
+        return Schema::hasColumn('streamer_log_entries', 'fulfillment_reviewed_at');
+    }
+
+    private function isCompleted(Show $show, int $remainingUnits, int $issues): bool
+    {
+        if ($this->hasSignoffColumn()) {
+            return $show->streamerLogEntry?->fulfillment_reviewed_at !== null;
+        }
+
+        return ($show->streamerLogEntry?->items->isNotEmpty() ?? false)
+            && $remainingUnits === 0
+            && $issues === 0;
     }
 }

@@ -5,56 +5,57 @@ namespace App\Support;
 class FulfillmentManual
 {
     public static function title(): string { return 'Fulfillment Handbook'; }
-    public static function subtitle(): string { return 'From a reviewed show to packed, sealed, labeled and complete.'; }
+    public static function subtitle(): string { return 'From an approved streamer report to assigned, packed and complete.'; }
 
     public static function sections(): array
     {
         return [[
             'title' => 'Fulfillment workflow',
             'icon' => 'heroicon-o-truck',
-            'blurb' => 'Work one show from ready-to-pack through completed fulfillment.',
+            'blurb' => 'The streamer report becomes the packing list, then the assigned fulfillment member owns the physical work.',
             'steps' => [
                 [
-                    'title' => 'Pick the next show',
+                    'title' => 'Receive assigned fulfillment work',
                     'where' => 'Fulfillment',
                     'screen' => \App\Filament\Resources\FulfillmentResource::class,
                     'body' => [
-                        'The Fulfillment Workspace is card-first. Shows are grouped by what needs attention, what is ready, what is actively being packed and what is complete.',
-                        'Use the stage and primary action on the card rather than opening the advanced table first.',
+                        'A show enters Fulfillment only after the streamer report is approved and contains logged items. Imported shipment rows by themselves never create fulfillment work.',
+                        'Admins, owners and fulfillment admins can see all active fulfillment. A regular fulfillment member sees the approved shows assigned to them.',
+                        'The primary cards are based on streamer-log lines and units: item lines, total units, units remaining and issues. Buyer names and Whatnot shipment grouping are not part of the main packing queue.',
                     ],
                     'shot' => 'ops-fulfillment-center.png',
                     'fields' => [
-                        ['Needs Attention', 'Shows with a fulfillment blocker or issue.'],
-                        ['Ready to Pack', 'Approved shows that can begin packing.'],
-                        ['Packing', 'Shows with active packing work.'],
-                        ['Seal Boxes', 'Packing is done but one or more boxes still need verification/sealing.'],
-                        ['Completed', 'Fulfillment signoff is complete.'],
+                        ['Needs Assignment', 'Approved streamer report that still needs a fulfillment team member.'],
+                        ['Ready to Pack', 'Assigned show with streamer-logged units ready to be packed.'],
+                        ['Packing', 'Assigned show where some logged units have already been accounted for.'],
+                        ['Issues', 'Streamer-logged items with a packing exception that must be resolved.'],
+                        ['Ready to Complete', 'All logged units are accounted for and no tracked box is open.'],
+                        ['Completed', 'Fulfillment signoff is complete and the show can move toward payroll.'],
                     ],
-                    'note' => 'The advanced table is still available below the operational cards for admin filtering and bulk work.',
+                    'note' => 'Historical scraper/backfill shows are kept for reporting but do not create fulfillment work unless an admin restores them to the operational workflow.',
                 ],
                 [
-                    'title' => 'Pack the show',
+                    'title' => 'Pack the streamer log',
                     'where' => 'Fulfillment → Open Show',
                     'screen' => \App\Filament\Resources\FulfillmentResource::class,
                     'body' => [
-                        'The Packing Workstation keeps the active box and scanner at the top while the packing list stays directly underneath.',
-                        'Scan or pack the correct line, build boxes from Whatnot shipment data, verify the box, print the internal 4×6 label, then seal it.',
-                        'The show cannot be completed while units remain, issues are open, physical items have no package, or a package is unsealed.',
+                        'The Streamer Packing List is the physical source of truth. Pack the item and quantity the streamer logged using the scanner, +1, or Pack Remaining.',
+                        'A VortexOps box is optional. You can pack directly from the streamer log without creating a box or knowing which buyer bought items together.',
+                        'If the team chooses to track a physical box in VortexOps, future scans can be linked to that box and the box must be sealed before the show can be completed.',
+                        'Complete Fulfillment becomes available when all logged units are packed, no item issues remain, and any boxes that were deliberately tracked are sealed.',
                     ],
                     'shot' => 'ops-packing-workstation.png',
                     'fields' => [
-                        ['Units Left', 'Units still requiring packing.'],
-                        ['Lines Done', 'Packing lines fully satisfied.'],
-                        ['Issues', 'Open fulfillment exceptions that block completion.'],
-                        ['Boxes', 'Packages created for the show.'],
-                        ['+1 / Pack remaining', 'Incremental or remainder packing controls for a line.'],
-                        ['Flag Issue', 'Records an exception instead of forcing a bad pack.'],
-                        ['Use Box', 'Sets the package you are currently packing into.'],
-                        ['Verify + Seal', 'Confirms box contents and closes the package.'],
-                        ['Print Label', 'Prints the internal 4×6 box label and verification QR.'],
-                        ['Show Complete', 'Final fulfillment signoff after all completion guards pass.'],
+                        ['Units Left', 'Streamer-logged units still requiring packing.'],
+                        ['Lines Done', 'Streamer-log lines whose full quantity is accounted for.'],
+                        ['Issues', 'Open packing exceptions that block completion.'],
+                        ['Boxes Tracked', 'Optional VortexOps box records; zero is valid.'],
+                        ['+1 / Pack remaining', 'Incremental or remainder packing controls for a streamer-log line.'],
+                        ['Flag Issue', 'Records an exception instead of forcing an incorrect pack count.'],
+                        ['Optional Box Tracking', 'Links future scans to a physical box only when that tracking is useful.'],
+                        ['Complete Fulfillment', 'Final signoff after every logged unit is accounted for and any tracked boxes are closed.'],
                     ],
-                    'note' => 'Do not use Show Complete as a shortcut. The completion guard is there to keep incomplete boxes out of payroll-ready shows.',
+                    'note' => 'Whatnot shipment and buyer information remains available as an optional reference, but it does not determine what the fulfillment member needs to pack.',
                 ],
             ],
         ]];
@@ -63,17 +64,18 @@ class FulfillmentManual
     public static function troubleshooting(): array
     {
         return [
-            ['Show Complete is unavailable', 'Check pending units, open issues, missing packages and unsealed boxes. Every physical item must be packed into a sealed package.'],
-            ['Wrong box is active', 'Use the package/box selector before scanning more items. The sticky workstation shows the current active box.'],
-            ['A packed line is wrong', 'Reset the line or flag an issue rather than continuing with a bad count.'],
+            ['A show is missing from my queue', 'Confirm its streamer report is approved, it has logged items, and you are assigned to the show. Admins can see the full active fulfillment queue.'],
+            ['Complete Fulfillment is unavailable', 'Check units remaining, open item issues, and any optional VortexOps boxes that were created but not sealed. A box is not required when none was created.'],
+            ['An old scraper show is asking for work', 'Admins can mark the show Historical. Historical shows stay available for reporting without creating streamer, fulfillment or payroll tasks.'],
+            ['A packed line is wrong', 'Reset the line or flag an issue rather than continuing with an incorrect count.'],
         ];
     }
 
     public static function screenIndex(): array
     {
         return [
-            ['Fulfillment Workspace', 'Queue of shows organized by operational stage.', \App\Filament\Resources\FulfillmentResource::class],
-            ['Packing Workstation', 'Scanner, packing list, box building, verification, labels and completion.', \App\Filament\Resources\FulfillmentResource::class],
+            ['Fulfillment Center', 'Assigned and active shows organized around streamer-log lines, units remaining and issues.', \App\Filament\Resources\FulfillmentResource::class],
+            ['Packing Workstation', 'Streamer packing list, scanner, optional box tracking and final fulfillment signoff.', \App\Filament\Resources\FulfillmentResource::class],
         ];
     }
 }

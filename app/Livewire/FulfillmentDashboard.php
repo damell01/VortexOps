@@ -34,9 +34,7 @@ class FulfillmentDashboard extends Component
     public function createPackage(): void
     {
         $this->authorizeShow();
-        $this->makePackage(
-            filled($this->newPackageBuyer) ? ltrim(trim($this->newPackageBuyer), '@') : null
-        );
+        $this->makePackage(filled($this->newPackageBuyer) ? ltrim(trim($this->newPackageBuyer), '@') : null);
         $this->newPackageBuyer = null;
     }
 
@@ -92,8 +90,7 @@ class FulfillmentDashboard extends Component
             $group->whereNull('shipment_id')->whereNull('buyer_username');
         }
 
-        $next = (int) $group->max('box_number') + 1;
-        $next = max(1, $next);
+        $next = max(1, (int) $group->max('box_number') + 1);
 
         $package = FulfillmentPackage::create([
             'show_id' => $this->show->id,
@@ -133,6 +130,12 @@ class FulfillmentDashboard extends Component
         $this->activePackageId = $package->id;
     }
 
+    public function clearActivePackage(): void
+    {
+        $this->authorizeShow();
+        $this->activePackageId = null;
+    }
+
     public function packOne(StreamerLogItem $line): void
     {
         $this->authorizeLine($line);
@@ -147,23 +150,26 @@ class FulfillmentDashboard extends Component
         $remaining = $line->remainingToPack();
         if ($remaining <= 0) return;
         $this->packQuantity($line, $remaining);
-        $this->dispatch('notify', message: 'Item line fully packaged');
+        $this->dispatch('notify', message: 'Item line fully packed');
     }
 
     protected function packQuantity(StreamerLogItem $line, int $quantity): void
     {
-        $package = $this->activePackage();
-        abort_unless($package, 422, 'Create or select a box before packing items.');
-
-        $packageItem = FulfillmentPackageItem::firstOrNew([
-            'fulfillment_package_id' => $package->id,
-            'streamer_log_item_id' => $line->id,
-        ]);
-        $packageItem->product_id = $line->inventory_item_id;
-        $packageItem->quantity = (int) ($packageItem->quantity ?: 0) + $quantity;
-        $packageItem->packed_by = auth()->id();
-        $packageItem->packed_at = now();
-        $packageItem->save();
+        // The streamer log is the packing source of truth. A VortexOps package
+        // is optional metadata: when one is active we link the packed quantity
+        // to it, but a fulfillment member never has to know a buyer grouping or
+        // build a box before they can account for the physical item.
+        if ($package = $this->activePackage()) {
+            $packageItem = FulfillmentPackageItem::firstOrNew([
+                'fulfillment_package_id' => $package->id,
+                'streamer_log_item_id' => $line->id,
+            ]);
+            $packageItem->product_id = $line->inventory_item_id;
+            $packageItem->quantity = (int) ($packageItem->quantity ?: 0) + $quantity;
+            $packageItem->packed_by = auth()->id();
+            $packageItem->packed_at = now();
+            $packageItem->save();
+        }
 
         $newPacked = min((int) $line->quantity, (int) $line->packed_quantity + $quantity);
         $line->update([
@@ -253,8 +259,9 @@ class FulfillmentDashboard extends Component
 
         abort_if($pendingUnits > 0, 422, "{$pendingUnits} unit(s) still need to be packed.");
         abort_if($issues > 0, 422, "Resolve {$issues} fulfillment issue(s) before completing the show.");
-        abort_if($report->items->isNotEmpty() && $packages->isEmpty(), 422, 'Build and seal at least one box before completing fulfillment.');
-        abort_if($openBoxes > 0, 422, "Seal {$openBoxes} open box(es) before completing fulfillment.");
+        // Boxes are optional. If the team used VortexOps box tracking, however,
+        // leaving a tracked box open still means the physical work is unfinished.
+        abort_if($openBoxes > 0, 422, "Seal {$openBoxes} open tracked box(es) before completing fulfillment.");
 
         $report->update([
             'fulfillment_reviewed_at' => now(),
@@ -352,7 +359,6 @@ class FulfillmentDashboard extends Component
         $canCompleteFulfillment = (bool) $report
             && $pendingCount === 0
             && $notFulfilledCount === 0
-            && ($allLines->isEmpty() || $packages->isNotEmpty())
             && $openPackageCount === 0;
 
         return view('livewire.fulfillment-dashboard', [

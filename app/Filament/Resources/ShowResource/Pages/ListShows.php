@@ -38,20 +38,17 @@ class ListShows extends ListRecords
     {
         return auth()->user()?->isStreamer()
             ? 'Your Whatnot schedule, recent shows, and show reports in one place.'
-            : 'Shows Command Center — the next operational action for every show, from streamer report through fulfillment and payroll.';
+            : 'Shows Command Center — live operational work first; historical scraper data stays available in the table without creating tasks.';
     }
 
-    /**
-     * Operations-center data shared by the role-aware Blade layout.
-     * ShowResource::getEloquentQuery() already scopes streamers to their own
-     * shows and respects the active Whatnot channel, so this stays consistent
-     * with the table below.
-     */
     public function getOperations(): array
     {
         if ($this->operationsMemo !== null) return $this->operationsMemo;
 
+        // Command-center cards are work, not an archive. Historical imports stay
+        // accessible in the table/History tab but never appear as fake actions.
         $base = fn () => ShowResource::getEloquentQuery()
+            ->where('is_operational', true)
             ->with([
                 'streamerLogEntry.items.inventoryItem',
                 'fulfillmentUsers',
@@ -120,7 +117,7 @@ class ListShows extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        $base = fn () => ShowResource::getEloquentQuery()->whereNotIn('status', ['cancelled']);
+        $base = fn () => ShowResource::getEloquentQuery()->where('is_operational', true)->whereNotIn('status', ['cancelled']);
 
         $active    = $base()->whereIn('status', ['draft', 'mapping'])->count();
         $completed = $base()->whereIn('status', ['reconciled', 'closed'])->count();
@@ -130,11 +127,11 @@ class ListShows extends ListRecords
         $money = fn (float $v) => '$' . number_format($v, 2);
 
         return $this->statsMemo = [
-            ['label' => 'Active Shows', 'value' => number_format($active), 'sub' => 'Draft or mapping', 'icon' => 'heroicon-o-signal', 'tone' => 'purple'],
-            ['label' => 'Completed Shows', 'value' => number_format($completed), 'sub' => 'Reconciled or closed', 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
+            ['label' => 'Active Shows', 'value' => number_format($active), 'sub' => 'Live workflow', 'icon' => 'heroicon-o-signal', 'tone' => 'purple'],
+            ['label' => 'Completed Shows', 'value' => number_format($completed), 'sub' => 'Operational history', 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
             ['label' => 'Pending Submission', 'value' => number_format($pending), 'sub' => 'Awaiting review', 'icon' => 'heroicon-o-clock', 'tone' => 'amber'],
-            ['label' => 'Total Revenue', 'value' => $money($revenue), 'sub' => 'All shows', 'icon' => 'heroicon-o-banknotes', 'tone' => 'blue'],
-            ['label' => 'Avg Revenue', 'value' => $money($counted > 0 ? $revenue / $counted : 0), 'sub' => 'Per show', 'icon' => 'heroicon-o-chart-bar', 'tone' => 'orange'],
+            ['label' => 'Operational Revenue', 'value' => $money($revenue), 'sub' => 'Live-workflow shows', 'icon' => 'heroicon-o-banknotes', 'tone' => 'blue'],
+            ['label' => 'Avg Revenue', 'value' => $money($counted > 0 ? $revenue / $counted : 0), 'sub' => 'Operational show', 'icon' => 'heroicon-o-chart-bar', 'tone' => 'orange'],
         ];
     }
 
@@ -150,30 +147,38 @@ class ListShows extends ListRecords
 
         $tabs = [
             'past_7_days' => Tab::make('Past 7 Days')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('show_date', [now()->subDays(7)->toDateString(), now()->endOfDay()->toDateTimeString()])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [now()->subDays(7)->toDateString(), now()->endOfDay()->toDateTimeString()])),
             'all' => Tab::make('All'),
             'needs_review' => Tab::make('Needs Review')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['pending_review', 'pending_approval']))
-                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () => Show::whereIn('status', ['pending_review', 'pending_approval'])->count()))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereIn('status', ['pending_review', 'pending_approval']))
+                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () => Show::where('is_operational', true)->whereIn('status', ['pending_review', 'pending_approval'])->count()))
                 ->badgeColor('warning'),
             'this_week' => Tab::make('This Week')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('show_date', [$weekStart, $weekEnd])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [$weekStart, $weekEnd])),
             'unreconciled' => Tab::make('Unreconciled')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
         ];
 
         if (auth()->user()?->isAdmin()) {
-            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () => Show::where('channel_attribution_suspect', true)->count());
+            $historical = Cache::remember('tab_badge:shows_historical', 30, fn () => Show::where('is_operational', false)->count());
+            if ($historical > 0) {
+                $tabs['historical'] = Tab::make('Historical')
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', false))
+                    ->badge($historical)
+                    ->badgeColor('gray');
+            }
+
+            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () => Show::where('is_operational', true)->where('channel_attribution_suspect', true)->count());
             if ($flagged > 0) {
                 $tabs['flagged'] = Tab::make('Channel Review')
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('channel_attribution_suspect', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->where('channel_attribution_suspect', true))
                     ->badge($flagged)->badgeColor('danger');
             }
 
-            $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () => Show::where('financials_revised_after_lock', true)->count());
+            $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () => Show::where('is_operational', true)->where('financials_revised_after_lock', true)->count());
             if ($revised > 0) {
                 $tabs['revised'] = Tab::make('Financials Revised')
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('financials_revised_after_lock', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->where('financials_revised_after_lock', true))
                     ->badge($revised)->badgeColor('danger');
             }
         }
@@ -230,7 +235,7 @@ class ListShows extends ListRecords
                 ->visible(fn () => auth()->user()?->isAdmin() && FeatureFlagService::enabled('whatnot_import') && ! empty(config('vortex.whatnot.email')) && ! empty(config('vortex.whatnot.password')))
                 ->requiresConfirmation()
                 ->modalHeading('Import Shows from Whatnot')
-                ->modalDescription('This runs the Whatnot scraper. Existing shows are matched by Whatnot show ID and updated, not duplicated.')
+                ->modalDescription('This runs the Whatnot scraper. Existing shows are matched by Whatnot show ID and updated, not duplicated. Older newly discovered shows are retained as Historical instead of being added to the live work queue.')
                 ->modalSubmitActionLabel('Run Import')
                 ->action(function () {
                     try {
@@ -245,16 +250,16 @@ class ListShows extends ListRecords
             Action::make('detect_streamers_all')
                 ->label('Detect Streamers')->icon('heroicon-o-user-circle')->color('gray')->visible(fn () => auth()->user()?->isAdmin())
                 ->requiresConfirmation()->modalHeading('Detect Streamers')
-                ->modalDescription('Matches shows with no streamer against the active streamer roster. This also runs automatically on Whatnot import.')
+                ->modalDescription('Matches active operational shows with no streamer against the active streamer roster. Historical scraper rows are ignored.')
                 ->modalSubmitActionLabel('Run Detection')
                 ->action(function () {
-                    $shows = Show::whereDoesntHave('streamers')->get();
+                    $shows = Show::where('is_operational', true)->whereDoesntHave('streamers')->get();
                     $matched = 0;
                     foreach ($shows as $show) {
                         $suggestions = $show->detectStreamers();
                         if (collect($suggestions)->contains('confidence', 'high')) $matched++;
                     }
-                    Notification::make()->title('Streamer detection complete')->body("{$matched} of {$shows->count()} unmapped show(s) matched.")->success()->send();
+                    Notification::make()->title('Streamer detection complete')->body("{$matched} of {$shows->count()} unmapped operational show(s) matched.")->success()->send();
                 }),
 
             Action::make('export_excel')->label('Export Excel')->icon('heroicon-o-arrow-down-tray')->color('gray')->visible(fn () => auth()->user()?->isAdmin())->url(fn () => route('export.shows'))->openUrlInNewTab(),

@@ -78,6 +78,16 @@ class ImportInventorySheet extends Page
         return 46;
     }
 
+    /**
+     * Keep Inventory navigation condensed. The importer remains a normal page,
+     * but users enter it from the Import Sheet action on All Inventory instead
+     * of hunting for a second inventory destination in the sidebar.
+     */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function getView(): string
     {
         return 'filament.pages.import-inventory-sheet';
@@ -85,7 +95,7 @@ class ImportInventorySheet extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Read a product sheet, see exactly what it would do, then decide.';
+        return 'Read a product sheet, see exactly what it would do, then decide. Completely empty rows are ignored.';
     }
 
     /**

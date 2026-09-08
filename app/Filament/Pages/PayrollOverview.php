@@ -84,11 +84,11 @@ class PayrollOverview extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('mock_pay_run')
-                ->label('Mock Pay Run')
+            Action::make('payroll_simulator')
+                ->label('Payroll Simulator')
                 ->icon('heroicon-o-beaker')
                 ->color('gray')
-                ->url(static::getUrl() . '#mock-pay-run'),
+                ->url(PayrollSimulator::getUrl()),
         ];
     }
 
@@ -184,7 +184,6 @@ class PayrollOverview extends Page
         $tips = max(0, (float) $this->mockTips);
 
         $working = ProfitShareFormula::forShow($grossRevenue, $productCost, $hours, $shipments, $percentage);
-
         $projectedPayout = round($working['earnings'] + $tips, 2);
         $businessAfterPayroll = round($grossRevenue - $productCost - $working['burden'] - $projectedPayout, 2);
 

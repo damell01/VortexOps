@@ -27,9 +27,14 @@ class CreateStreamer extends CreateRecord
 
         unset($data['create_login'], $data['login_email'], $data['login_password']);
 
-        // New people inherit their role Payment Structure. Existing rows stay
-        // legacy-safe until an admin deliberately opts them into inheritance.
+        // New people inherit their role Payment Structure. Streamers always
+        // start on the standard weekly team calculation; individual differences
+        // are stored later as explicit overrides instead of separate pay types.
         $data['compensation_override_fields'] = [];
+        if (($data['member_type'] ?? 'streamer') !== 'fulfillment') {
+            $data['payout_type'] = 'profit_share';
+            $data['payout_cadence'] = 'weekly';
+        }
 
         return $data;
     }

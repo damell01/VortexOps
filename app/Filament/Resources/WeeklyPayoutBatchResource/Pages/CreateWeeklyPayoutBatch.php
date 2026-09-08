@@ -46,18 +46,12 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             Section::make('Team Members to Include')->schema([
                 CheckboxList::make('streamer_ids')
                     ->label('Active Team Members')
-                    ->helperText('Monthly-cadence members are unchecked by default. Show-based payouts still have to pass the show/admin/fulfillment readiness gates before finalization.')
+                    ->helperText('All active team members are included by default. Every Pay Run is weekly; show-based payouts still have to pass the show/admin/fulfillment readiness gates before finalization.')
                     ->options(fn () => Streamer::where('status', 'active')
-                        ->orderBy('payout_cadence')
                         ->orderBy('name')
-                        ->get()
-                        ->mapWithKeys(fn ($s) => [
-                            $s->id => $s->name . ' — ' . (Streamer::payoutTypeLabels()[$s->payout_type] ?? $s->payout_type)
-                                . ' (' . (Streamer::payoutCadenceLabels()[$s->payout_cadence] ?? $s->payout_cadence) . ')',
-                        ])
+                        ->pluck('name', 'id')
                         ->toArray())
                     ->default(fn () => Streamer::where('status', 'active')
-                        ->where('payout_cadence', 'weekly')
                         ->pluck('id')
                         ->toArray())
                     ->columns(2)

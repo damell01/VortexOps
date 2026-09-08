@@ -12,17 +12,17 @@ use Illuminate\Support\Collection;
 class RecoverWhatnotHistory extends Command
 {
     protected $signature = 'whatnot:recover-history
-                            {--limit=500 : Maximum historical shows to discover per channel}
+                            {--limit=500 : Maximum historical shows to recover per channel}
                             {--channel= : Only recover one channel name or Whatnot username}
                             {--dry-run : Scan Whatnot and compare remote show ids with VortexOps without changing data}
                             {--verify : Verify one channel and one missing shipment before a full recovery}
                             {--debug : Stream scraper diagnostics}';
 
-    protected $description = 'Discover missing historical Whatnot shows and recover analytics and shipments with channel-safe scraping';
+    protected $description = 'Recover historical Whatnot analytics and shipments with channel-safe scraping';
 
     public function handle(WhatnotScraper $scraper): int
     {
-        $limit = max(1, (int) $this->option('limit'));
+        $limit = max(1, min(500, (int) $this->option('limit')));
         $debug = (bool) $this->option('debug');
         $channels = $this->channels();
 
@@ -34,7 +34,8 @@ class RecoverWhatnotHistory extends Command
         $this->newLine();
         $this->info('Unified Whatnot historical recovery');
         $this->line('  Channels: ' . $channels->pluck('name')->join(', '));
-        $this->line('  Discovery limit: ' . $limit . ' per channel');
+        $this->line('  Recovery limit: ' . $limit . ' per channel');
+        $this->line('  Analytics: direct per-show UUID recovery');
         $this->line('  Shipments: all missing shows for each channel in one scraper run');
         $this->newLine();
         $this->printSnapshot('Before recovery', $channels);
@@ -59,46 +60,34 @@ class RecoverWhatnotHistory extends Command
                 $channel->whatnot_username,
             ));
 
-            $seed = $this->seedForChannel($channel);
+            $this->line('  <fg=gray>Phase 1: recover missing analytics by show UUID</>');
+            $missingBefore = $this->pastShows($channel)->missingAnalytics()->count();
 
-            $this->line('  <fg=gray>Phase 1: discover missing shows + refresh analytics</>');
-            if ($seed) {
-                $this->line("    Analytics seed: {$seed}");
+            if ($missingBefore === 0) {
+                $this->line('    No missing analytics for this channel.');
+            } else {
+                $this->line("    Analytics: {$missingBefore} missing show(s); seeding each UUID directly");
                 try {
-                    $result = $scraper->importShows(
-                        channel: $channel,
-                        limit: $limit,
-                        debug: $debug,
-                        withOrders: false,
-                        onProgress: fn (string $line) => $this->line('    ' . $line),
-                        seedLiveId: $seed,
-                    );
+                    $status = $this->call('whatnot:backfill-missing-analytics', [
+                        '--channel' => (string) $channel->id,
+                        '--days' => 3650,
+                        '--limit' => min($limit, $missingBefore),
+                    ]);
 
-                    $this->line(sprintf(
-                        '  <fg=green>Discovery complete:</> %d created, %d updated, %d unchanged/invalid skipped',
-                        (int) ($result['created'] ?? 0),
-                        (int) ($result['updated'] ?? 0),
-                        (int) ($result['skipped'] ?? 0),
-                    ));
-
-                    $seen = (int) ($result['created'] ?? 0)
-                        + (int) ($result['updated'] ?? 0)
-                        + (int) ($result['skipped'] ?? 0);
-                    if ($seen >= $limit) {
-                        $this->warn("  Discovery reached --limit={$limit}. Increase it before treating discovery as exhaustive.");
+                    if ($status !== self::SUCCESS) {
+                        $failed[] = $channel->name . ' analytics';
+                        $this->warn("  Analytics backfill returned exit code {$status}; shipment recovery will still continue.");
                     }
                 } catch (\Throwable $e) {
                     $failed[] = $channel->name . ' analytics';
                     $this->error("  Analytics failed: {$e->getMessage()}");
                     $this->warn('  Continuing to shipment recovery using the show UUIDs already stored in VortexOps.');
                 }
-            } else {
-                $this->warn('    No known show UUID exists for this channel, so analytics discovery cannot be seeded.');
-                $this->line('    Continuing to shipment recovery from any existing DB shows.');
             }
 
             $missingAnalytics = $this->pastShows($channel)->missingAnalytics()->count();
-            $this->line("  Analytics still missing: {$missingAnalytics}");
+            $recoveredAnalytics = max(0, $missingBefore - $missingAnalytics);
+            $this->line("  Analytics recovered this pass: {$recoveredAnalytics}; still missing: {$missingAnalytics}");
 
             $this->line('  <fg=gray>Phase 2: recover all missing shipments in one run</>');
             try {
@@ -348,7 +337,7 @@ class RecoverWhatnotHistory extends Command
             }
         }
 
-        return $scraperSeed = app(WhatnotScraper::class)->seedLiveIdFor($channel);
+        return app(WhatnotScraper::class)->seedLiveIdFor($channel);
     }
 
     private function channels(): Collection

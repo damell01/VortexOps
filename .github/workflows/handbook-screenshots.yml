@@ -103,6 +103,8 @@ jobs:
           if ! npx playwright test tests/Browser/handbook-screenshot.spec.ts --project=desktop; then
             echo "--- Laravel server log ---"
             cat /tmp/vortexops-handbook-screenshots.log
+            echo "--- Laravel application log ---"
+            tail -n 250 storage/logs/laravel.log 2>/dev/null || true
             exit 1
           fi
 

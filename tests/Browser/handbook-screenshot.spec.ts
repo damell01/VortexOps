@@ -43,8 +43,8 @@ async function login(page: Page) {
 }
 
 async function ready(page: Page) {
-    await expect(page.locator('main')).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(500);
+    await expect(page.locator('body')).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(800);
 }
 
 async function shot(page: Page, name: string) {
@@ -66,7 +66,7 @@ test.describe('Current operational handbook screenshots', () => {
         await shot(page, 'ops-show-workspace');
 
         await visit(page, `/admin/streamer-logs/${data.review_log_id}/edit`);
-        await expect(page.getByText(/Admin Review Workspace|Streamer Report/).filter({ visible: true }).first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByText(/Admin Review Workspace|Streamer Report/).first()).toBeVisible({ timeout: 10000 });
         await shot(page, 'ops-admin-review');
     });
 
@@ -78,7 +78,7 @@ test.describe('Current operational handbook screenshots', () => {
         await shot(page, 'ops-fulfillment-center');
 
         await visit(page, `/admin/fulfillment-center/${data.fulfillment_show_id}`);
-        await expect(page.getByText(/Packing Workstation|Pack Show/).filter({ visible: true }).first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByText(/Packing Workstation|Pack Show/).first()).toBeVisible({ timeout: 10000 });
         await shot(page, 'ops-packing-workstation');
     });
 
@@ -90,7 +90,7 @@ test.describe('Current operational handbook screenshots', () => {
         await shot(page, 'ops-payroll-command-center');
 
         await visit(page, `/admin/weekly-payout-batches/${data.pay_run_id}`);
-        await expect(page.getByText(/Pay Run Workspace|Run Total|Total Payroll/).filter({ visible: true }).first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByText(/Pay Run Workspace|Run Total|Total Payroll/).first()).toBeVisible({ timeout: 10000 });
         await shot(page, 'ops-pay-run-workspace');
     });
 });

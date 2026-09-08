@@ -31,14 +31,14 @@ class ListShows extends ListRecords
 
     public function getView(): string
     {
-        return 'filament.resources.show-resource.pages.list-shows';
+        return 'filament.resources.show-resource.pages.list-shows-command-center';
     }
 
     public function getSubheading(): ?string
     {
         return auth()->user()?->isStreamer()
             ? 'Your Whatnot schedule, recent shows, and show reports in one place.'
-            : 'Shows Operations Center — schedule, streamer reports, fulfillment, shipments, and show health.';
+            : 'Shows Command Center — the next operational action for every show, from streamer report through fulfillment and payroll.';
     }
 
     /**
@@ -53,8 +53,10 @@ class ListShows extends ListRecords
 
         $base = fn () => ShowResource::getEloquentQuery()
             ->with([
-                'streamerLogEntry.items',
+                'streamerLogEntry.items.inventoryItem',
                 'fulfillmentUsers',
+                'payouts.batch',
+                'latestDeductionRequest.lines.inventoryItem',
             ])
             ->withCount('shipments')
             ->withCount([
@@ -97,17 +99,12 @@ class ListShows extends ListRecords
 
         $needsAttention = collect();
         if (! auth()->user()?->isStreamer()) {
-            $needsAttention = $recent->filter(function (Show $show) {
-                $log = $show->streamerLogEntry;
-                $unmatched = $log ? $log->items->whereNull('inventory_item_id')->count() : 0;
-
-                return $show->channel_attribution_suspect
-                    || $show->financials_revised_after_lock
-                    || in_array($show->status, ['pending_review', 'pending_approval'], true)
-                    || ($log && in_array($log->status, ['streamer_reviewed', 'changes_requested'], true))
-                    || $unmatched > 0
-                    || ((int) $show->shipments_count > 0 && $show->fulfillmentUsers->isEmpty())
-                    || (int) $show->open_shipments_count > 0;
+            $workflow = app(\App\Services\ShowWorkflowService::class);
+            $needsAttention = $recent->filter(function (Show $show) use ($workflow) {
+                $state = $workflow->stateFor($show);
+                return ! in_array($state['key'], ['paid', 'payroll', 'payroll_ready'], true)
+                    || $show->channel_attribution_suspect
+                    || $show->financials_revised_after_lock;
             })->take(10)->values();
         }
 
@@ -215,9 +212,6 @@ class ListShows extends ListRecords
                         'show_date' => $data['show_date'],
                         'start_time' => $data['start_time'] ?? null,
                         'end_time' => $data['end_time'] ?? null,
-                        // The field is optional, and a show saved without one
-                        // lists as a blank row and reads as "'' is set for …"
-                        // in the notification below.
                         'title' => filled($data['title'] ?? null)
                             ? $data['title']
                             : 'Show on ' . \Illuminate\Support\Carbon::parse($data['show_date'])->format('M d, Y'),

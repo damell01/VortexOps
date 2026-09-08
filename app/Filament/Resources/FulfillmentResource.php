@@ -40,26 +40,24 @@ class FulfillmentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        // Fulfillment begins only after the streamer report is approved. Imported
+        // shipment/buyer data never puts a show into the packing queue by itself.
         $query = parent::getEloquentQuery()
             ->with(['streamers', 'channel', 'fulfillmentUsers', 'streamerLogEntry.items'])
-            ->withCount('shipments')
-            ->withCount([
-                'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
-                'shipments as open_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
-            ])
-            ->whereNotIn('status', ['draft', 'cancelled'])
-            ->where(function ($q) {
-                $q->whereHas('shipments')
-                    ->orWhereHas('streamerLogEntry', fn ($log) => $log
-                        ->where(function ($approved) {
-                            $approved->where('status', 'admin_approved')
-                                ->orWhere('approval_status', 'approved');
-                        }));
-            });
+            ->where('is_operational', true)
+            ->whereNotIn('status', ['cancelled'])
+            ->whereHas('streamerLogEntry', fn (Builder $log) => $log
+                ->where(function (Builder $approved) {
+                    $approved->where('status', 'admin_approved')
+                        ->orWhere('approval_status', 'approved');
+                })
+                ->whereHas('items'));
 
         $user = auth()->user();
         $seesAllRows = $user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin());
 
+        // A fulfillment member's queue is literally their assigned work. Admins
+        // retain the full view so they can reassign or help when needed.
         if (! $seesAllRows && $user && $user->isFulfillment()) {
             $query->whereHas('fulfillmentUsers', fn (Builder $q) => $q->where('users.id', $user->id));
         }
@@ -75,7 +73,10 @@ class FulfillmentResource extends Resource
     {
         if (\App\Support\RoleAccess::grants(static::class)) return true;
         $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
+        if (! $user) return false;
+        if ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin()) return true;
+        if ($user->isFulfillment()) return $record->fulfillmentUsers()->where('users.id', $user->id)->exists();
+        return false;
     }
 
     public static function canCreate(): bool { return false; }
@@ -108,19 +109,19 @@ class FulfillmentResource extends Resource
                     ->limit(48)
                     ->description(function (Show $record): string {
                         $streamer = $record->streamers->pluck('name')->join(', ') ?: 'No streamer';
-                        $assigned = $record->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned';
-                        return ($record->show_date?->format('M j') ?? 'No date') . " · {$streamer} · Fulfillment: {$assigned}";
+                        $assigned = $record->fulfillmentUsers->pluck('name')->join(', ') ?: 'Needs assignment';
+                        return ($record->show_date?->format('M j') ?? 'No date') . " · {$streamer} · {$assigned}";
                     }),
                 TextColumn::make('fulfillment_next_action')
                     ->label('Next Step')
                     ->state(function (Show $record): string {
                         if ($record->fulfillmentUsers->isEmpty()) return 'Assign fulfillment';
                         $items = $record->streamerLogEntry?->items ?? collect();
-                        $pending = $items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
+                        $remaining = (int) $items->sum(fn (StreamerLogItem $item) => max(0, (int) $item->quantity - (int) $item->packed_quantity));
                         $issues = $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
                         if ($issues > 0) return "Resolve {$issues} issue" . ($issues === 1 ? '' : 's');
-                        if ($pending > 0) return "Review {$pending} item" . ($pending === 1 ? '' : 's');
-                        if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'Verify counts';
+                        if ($remaining > 0) return "Pack {$remaining} unit" . ($remaining === 1 ? '' : 's');
+                        if (! $record->streamerLogEntry?->fulfillment_reviewed_at) return 'Complete fulfillment';
                         return 'Complete ✓';
                     })
                     ->badge()
@@ -128,17 +129,19 @@ class FulfillmentResource extends Resource
                         if ($record->fulfillmentUsers->isEmpty()) return 'warning';
                         $items = $record->streamerLogEntry?->items ?? collect();
                         if ($items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->isNotEmpty()) return 'danger';
-                        if ($items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->isNotEmpty()) return 'primary';
-                        if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'warning';
-                        return 'success';
+                        $remaining = (int) $items->sum(fn (StreamerLogItem $item) => max(0, (int) $item->quantity - (int) $item->packed_quantity));
+                        if ($remaining > 0) return 'primary';
+                        return $record->streamerLogEntry?->fulfillment_reviewed_at ? 'success' : 'warning';
                     }),
                 TextColumn::make('fulfillment_summary')
-                    ->label('Work')
+                    ->label('Streamer Log')
                     ->state(function (Show $record): string {
                         $items = $record->streamerLogEntry?->items ?? collect();
-                        $pending = $items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
-                        $issues = $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
-                        return "{$pending} review · {$issues} issues · " . (int) $record->open_shipments_count . ' open';
+                        $lines = $items->count();
+                        $units = (int) $items->sum('quantity');
+                        $packed = (int) $items->sum('packed_quantity');
+                        $remaining = max(0, $units - $packed);
+                        return "{$lines} lines · {$units} units · {$remaining} left";
                     })
                     ->wrap()
                     ->visibleFrom('md'),
@@ -148,29 +151,27 @@ class FulfillmentResource extends Resource
                     ->label('Work Queue')
                     ->options([
                         'unassigned' => 'Needs Assignment',
-                        'review' => 'Review Logged Items',
-                        'issues' => 'Item Issues',
-                        'verify' => 'Verify Counts',
-                        'complete' => 'Fulfillment Complete',
+                        'packing' => 'Packing',
+                        'issues' => 'Issues',
+                        'complete' => 'Completed',
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? null) {
                             'unassigned' => $query->whereDoesntHave('fulfillmentUsers'),
-                            'review' => $query->whereHas('streamerLogEntry.items', fn ($items) => $items->whereNull('fulfillment_status')->orWhere('fulfillment_status', StreamerLogItem::FULFILLMENT_PENDING)),
-                            'issues' => $query->whereHas('streamerLogEntry.items', fn ($items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)),
-                            'verify' => $query->whereHas('streamerLogEntry', fn ($log) => $log->where(function ($approved) {$approved->where('status', 'admin_approved')->orWhere('approval_status', 'approved');})->whereNull('fulfillment_reviewed_at')->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
-                            'complete' => $query->whereHas('streamerLogEntry', fn ($log) => $log->where(function ($approved) {$approved->where('status', 'admin_approved')->orWhere('approval_status', 'approved');}))->whereDoesntHave('streamerLogEntry.items', fn ($items) => $items->whereNull('fulfillment_status')->orWhereIn('fulfillment_status', [StreamerLogItem::FULFILLMENT_PENDING, StreamerLogItem::FULFILLMENT_NOT_FULFILLED]))->whereDoesntHave('streamerLogEntry', fn ($log) => $log->whereNull('fulfillment_reviewed_at')->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
+                            'packing' => $query->whereHas('fulfillmentUsers')->whereHas('streamerLogEntry.items', fn (Builder $items) => $items->whereColumn('packed_quantity', '<', 'quantity')),
+                            'issues' => $query->whereHas('streamerLogEntry.items', fn (Builder $items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)),
+                            'complete' => $query->whereHas('streamerLogEntry', fn (Builder $log) => $log->whereNotNull('fulfillment_reviewed_at')),
                             default => $query,
                         };
                     }),
                 SelectFilter::make('fulfillment_user')->label('Assigned To')->relationship('fulfillmentUsers', 'name')->searchable()->preload(),
-                Filter::make('unassigned_only')->label('Unassigned only')->query(fn (Builder $query) => $query->whereDoesntHave('fulfillmentUsers')),
+                Filter::make('unassigned_only')->label('Needs assignment')->query(fn (Builder $query) => $query->whereDoesntHave('fulfillmentUsers')),
             ])
             ->paginationPageOptions([15, 25, 50])
             ->defaultPaginationPageOption(15)
             ->emptyStateIcon('heroicon-o-truck')
             ->emptyStateHeading('No fulfillment work')
-            ->emptyStateDescription('Shows that are ready for fulfillment appear here automatically.');
+            ->emptyStateDescription('Approved streamer reports assigned to fulfillment appear here automatically.');
     }
 
     public static function getRelations(): array { return []; }

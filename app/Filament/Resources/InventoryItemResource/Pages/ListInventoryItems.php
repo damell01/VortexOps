@@ -7,11 +7,19 @@ use App\Filament\Pages\InventoryCount;
 use App\Filament\Pages\InventoryScanner;
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\PalletResource;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Models\Product;
+use App\Models\Vendor;
+use App\Services\InventoryService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Grid;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
@@ -188,6 +196,87 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
+    /**
+     * Card-catalog Add Stock action.
+     *
+     * The catalog's green Add Stock button used to call mountTableAction(),
+     * even though the custom card view does not render the Filament table.
+     * Keep this as a normal page action so it can be mounted from either view.
+     */
+    public function quickAddStockAction(): Action
+    {
+        return Action::make('quickAddStock')
+            ->label('Add Stock')
+            ->icon('heroicon-o-plus-circle')
+            ->color('success')
+            ->modalHeading(function (array $arguments): string {
+                $record = InventoryItem::find($arguments['product'] ?? null);
+                return 'Add Stock' . ($record ? ' — ' . $record->name : '');
+            })
+            ->form([
+                Grid::make(2)->schema([
+                    Select::make('location_id')
+                        ->label('Location')
+                        ->options(fn () => InventoryLocation::activeOptions())
+                        ->required()
+                        ->searchable(),
+                    Select::make('vendor_id')
+                        ->label('Vendor')
+                        ->options(fn () => Vendor::activeOptions())
+                        ->searchable()
+                        ->helperText('Optional — tracks where this stock came from.'),
+                ]),
+                TextInput::make('quantity')
+                    ->label('Quantity to Add')
+                    ->numeric()
+                    ->required()
+                    ->minValue(0.01)
+                    ->default(1),
+                TextInput::make('unit_cost')
+                    ->label('Unit Cost ($)')
+                    ->numeric()
+                    ->minValue(0)
+                    ->helperText('Optional. If entered, this blends into the weighted average cost.'),
+                Textarea::make('reason')
+                    ->label('Note / Reason')
+                    ->rows(2)
+                    ->placeholder('e.g. Vendor restock, replacement stock, manual receipt'),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
+
+                abort_unless(InventoryItemResource::canEdit($record), 403);
+
+                $location = InventoryLocation::findOrFail((int) $data['location_id']);
+                $reason = trim((string) ($data['reason'] ?? ''));
+
+                if (! empty($data['vendor_id'])) {
+                    $vendor = Vendor::find($data['vendor_id']);
+                    $reason = ($reason !== '' ? $reason . ' — ' : '') . 'From ' . ($vendor?->name ?? 'Unknown Vendor');
+                }
+
+                app(InventoryService::class)->addStock(
+                    $record,
+                    $location,
+                    (float) $data['quantity'],
+                    'opening',
+                    $reason !== '' ? $reason : null,
+                    isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== ''
+                        ? (float) $data['unit_cost']
+                        : null,
+                );
+
+                $this->statsMemo = null;
+                unset($this->catalogItems, $this->catalogTotal);
+
+                Notification::make()
+                    ->title('Stock added successfully')
+                    ->body(number_format((float) $data['quantity']) . ' added to ' . $record->name . ' at ' . $location->name . '.')
+                    ->success()
+                    ->send();
+            });
+    }
+
     protected function getHeaderActions(): array
     {
         $user = auth()->user();
@@ -201,9 +290,6 @@ class ListInventoryItems extends ListRecords
             Action::make('import-sheet')->label('Import Sheet')->icon('heroicon-o-arrow-up-tray')->color('info')->url(fn () => ImportInventorySheet::getUrl())->visible($canReceive),
             Action::make('receive')->label('Receive Shipment')->icon('heroicon-o-inbox-arrow-down')->color('success')->url(fn () => PalletResource::getUrl('index'))->visible($canReceive),
             Action::make('quick-add')->label('Quick Add')->icon('heroicon-o-bolt')->color('gray')->url(fn () => InventoryItemResource::getUrl('quick-add'))->visible($canCreate),
-            // Use the resource's dedicated create page directly. The previous
-            // CreateAction relied on the Livewire action lifecycle and was not
-            // navigating reliably from this custom list page.
             Action::make('add-item')
                 ->label('Add Item')
                 ->icon('heroicon-m-plus')

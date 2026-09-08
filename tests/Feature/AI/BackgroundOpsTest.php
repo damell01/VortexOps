@@ -52,4 +52,47 @@ class BackgroundOpsTest extends TestCase
         $this->assertContains($result['stage'], ['alias', 'fuzzy', 'none']);
         $this->assertNotSame('embedding', $result['stage']);
     }
+
+    public function test_booster_description_never_selects_jumbo_box(): void
+    {
+        $jumbo = InventoryItem::create([
+            'name' => '2026 Pokemon Ascended Heroes Jumbo Box',
+            'sku' => 'ASC-JUMBO',
+            'configuration' => 'Jumbo Box',
+            'is_active' => true,
+        ]);
+
+        $result = app(ProductMatchingService::class)->match(
+            '2026 Pokemon Ascended Heroes Booster Box 6 count',
+            skipEmbedding: true,
+        );
+
+        $this->assertNull($result['product']);
+        $this->assertNotContains($jumbo->id, collect($result['candidates'])->pluck('product.id')->all());
+    }
+
+    public function test_booster_description_can_match_booster_when_jumbo_also_exists(): void
+    {
+        InventoryItem::create([
+            'name' => '2026 Pokemon Ascended Heroes Jumbo Box',
+            'sku' => 'ASC-JUMBO',
+            'configuration' => 'Jumbo Box',
+            'is_active' => true,
+        ]);
+
+        $booster = InventoryItem::create([
+            'name' => '2026 Pokemon Ascended Heroes Booster Box',
+            'sku' => 'ASC-BOOSTER',
+            'configuration' => 'Booster Box',
+            'is_active' => true,
+        ]);
+
+        $result = app(ProductMatchingService::class)->match(
+            '2026 Pokemon Ascended Heroes Booster Box 6 count',
+            skipEmbedding: true,
+        );
+
+        $this->assertNotNull($result['product']);
+        $this->assertSame($booster->id, $result['product']->id);
+    }
 }

@@ -2,112 +2,53 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [Dev, Production]
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE: ghcr.io/${{ github.repository_owner }}/vortexops
-
 jobs:
-  build-push:
-    name: Build & push Docker image
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    name: Deploy to VPS
+    name: Deploy ${{ github.ref_name }} bare-metal
+    if: github.ref_name == 'Dev' || github.ref_name == 'Production'
     runs-on: ubuntu-24.04
-    needs: build-push
-    environment: production
+    environment: ${{ github.ref_name == 'Production' && 'production' || 'development' }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Push docker-compose.yml so the VPS never needs a repo clone.
-      # This is the only file the server needs — the image comes from GHCR.
-      - name: Copy docker-compose.yml to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.yml"
-          target: "/opt/vortexops/"
-
-      - name: Deploy via SSH
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 20m
           script: |
-            set -e
-            cd /opt/vortexops
+            set -euo pipefail
 
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            BRANCH='${{ github.ref_name }}'
+            if [ "$BRANCH" = 'Production' ]; then
+              APP_DIR='/var/www/vortexops'
+            else
+              APP_DIR='/var/www/vortexops-dev'
+            fi
 
-            # Pull new image
-            docker pull ${{ env.IMAGE }}:latest
+            if [ ! -d "$APP_DIR/.git" ]; then
+              if [ "$BRANCH" = 'Dev' ]; then
+                echo "Dev checkout not created yet at $APP_DIR; skipping automatic Dev deploy."
+                echo "Run deploy/setup-dev-baremetal.sh once after the dev subdomain points here."
+                exit 0
+              fi
 
-            # Restart services.
-            # --env-file is required so ${VAR} substitutions in docker-compose.yml
-            # resolve from .env.docker rather than falling back to hard-coded defaults,
-            # which would override env_file values (environment: takes precedence).
-            docker compose --env-file .env.docker pull
-            docker compose --env-file .env.docker up -d --remove-orphans
+              echo "Production checkout is missing at $APP_DIR"
+              exit 1
+            fi
 
-            # Run migrations inside the app container
-            docker compose --env-file .env.docker exec -T app php artisan migrate --force
+            cd "$APP_DIR"
+            export DEPLOY_BRANCH="$BRANCH"
+            export DEPLOY_ENVIRONMENT="$([ "$BRANCH" = 'Production' ] && echo production || echo development)"
 
-            # storage/ is a persisted named volume (survives container recreation),
-            # so compiled views/config/routes from a previous deploy can outlive the
-            # source files that produced them. Clear before re-optimizing so every
-            # deploy rebuilds caches from the code that's actually in this image.
-            docker compose --env-file .env.docker exec -T app php artisan optimize:clear
-            docker compose --env-file .env.docker exec -T app php artisan filament:clear-cached-components
+            # Back up the currently-running database before replacing tracked code.
+            php artisan db:backup --prune=30
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "origin/$BRANCH"
 
-            # Optimize caches
-            docker compose --env-file .env.docker exec -T app php artisan optimize
-            docker compose --env-file .env.docker exec -T app php artisan filament:optimize
-
-            echo "Deployment complete — $(date -u)"
+            bash scripts/baremetal-deploy.sh "$BRANCH"

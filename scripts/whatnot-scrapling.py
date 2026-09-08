@@ -466,6 +466,77 @@ def extract_shipments(page):
     return page.evaluate(r"""() => { const out=[];for(const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')){const main=tr.innerText||'',detail=tr.nextElementSibling?.tagName==='TR'?(tr.nextElementSibling.innerText||''):'',text=main+'\n'+detail,oid=text.match(/Order\s*#\s*(\d+)/i);if(!oid)continue;const buyer=tr.querySelector('a[href*="/dashboard/inbox"]'),weight=text.match(/(\d+(?:\.\d+)?)\s*oz\b/i),dims=text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i),carrier=text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i),tracking=text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);let st=null;if(/ready\s*to\s*ship/i.test(text))st='ready_to_ship';else if(/label\s*created/i.test(text))st='label_created';else if(/delivered/i.test(text))st='delivered';else if(/returned/i.test(text))st='returned';else if(/packed/i.test(text))st='packed';else if(/shipped/i.test(text))st='shipped';else if(/in\s*transit/i.test(text))st='in_transit';out.push({order_id:oid[1],buyer:buyer?(buyer.textContent||'').trim():null,item_name:null,lot_number:null,quantity:1,unit_price:null,total_price:null,status:'completed',raw_text:main.replace(/\s+/g,' ').trim().substring(0,400),weight_oz:weight?parseFloat(weight[1]):null,box_length_in:dims?parseFloat(dims[1]):null,box_width_in:dims?parseFloat(dims[2]):null,box_height_in:dims?parseFloat(dims[3]):null,shipping_carrier:carrier?carrier[1].toUpperCase():null,shipping_service:carrier&&carrier[2]?carrier[2].trim():null,shipping_status_scraped:st,tracking_number:tracking?tracking[1]:null});}return out;}""")
 
 
+def page_signature(page, shipments: bool) -> str:
+    try:
+        rows = extract_shipments(page) if shipments else extract_orders(page)
+    except Exception:
+        rows = []
+    if rows:
+        first = rows[0]
+        last = rows[-1]
+        return "|".join([
+            str(first.get("order_id") or first.get("raw_text") or "")[:120],
+            str(last.get("order_id") or last.get("raw_text") or "")[:120],
+            str(len(rows)),
+        ])
+    try:
+        return str(page.evaluate(r"""() => (document.querySelector('tbody[data-testid="orders-table-body"], table tbody')?.innerText || '').replace(/\s+/g,' ').trim().substring(0,500)"""))
+    except Exception:
+        return ""
+
+
+def advance_next_page(page, previous_signature: str, shipments: bool) -> tuple[bool, str]:
+    try:
+        state = page.evaluate(r"""
+        () => {
+          const svg = document.querySelector('svg[aria-label="Next page"], svg[aria-label="Next Page"]');
+          const direct = document.querySelector('button[aria-label="Next page"], button[aria-label="Next Page"]');
+          const button = svg ? svg.closest('button') : direct;
+          if (!button) return {found:false, disabled:true};
+          const disabled = Boolean(button.disabled)
+            || button.getAttribute('aria-disabled') === 'true'
+            || button.matches('[disabled]')
+            || button.classList.contains('cursor-not-allowed');
+          return {found:true, disabled};
+        }
+        """)
+    except Exception as exc:
+        info(f"pagination: could not inspect Next button: {exc}")
+        return False, previous_signature
+
+    if not state or not state.get("found") or state.get("disabled"):
+        return False, previous_signature
+
+    next_button = page.locator('button[aria-label="Next page"], button[aria-label="Next Page"], button:has(svg[aria-label="Next page"]), button:has(svg[aria-label="Next Page"])').first
+    try:
+        next_button.click(timeout=5000, force=True)
+    except Exception:
+        try:
+            clicked = page.evaluate(r"""
+            () => {
+              const svg = document.querySelector('svg[aria-label="Next page"], svg[aria-label="Next Page"]');
+              const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"], button[aria-label="Next Page"]');
+              if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
+              button.click();
+              return true;
+            }
+            """)
+            if not clicked:
+                return False, previous_signature
+        except Exception:
+            return False, previous_signature
+
+    for _ in range(20):
+        page.wait_for_timeout(250)
+        check_login(page)
+        current_signature = page_signature(page, shipments)
+        if current_signature and current_signature != previous_signature:
+            return True, current_signature
+
+    info("pagination: Next was clickable but the table did not change; stopping to avoid repeating one page")
+    return False, previous_signature
+
+
 def batch(session: DynamicSession, shipments=False):
     source_file = os.getenv("WHATNOT_ORDER_SOURCES_FILE", "").strip()
     if not source_file or not Path(source_file).exists():
@@ -484,21 +555,53 @@ def batch(session: DynamicSession, shipments=False):
             page.goto(f"{BASE}/dashboard/{'shipments' if shipments else 'orders'}?source={lid}", wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(900)
             found = {}
-            for _ in range(40):
+            visited_signatures: set[str] = set()
+            page_number = 1
+
+            while True:
+                check_login(page)
                 if shipments:
                     try:
                         page.locator('button[aria-label="Expand All"]').first.click(timeout=1000)
                         page.wait_for_timeout(300)
                     except Exception:
                         pass
-                for row in (extract_shipments(page) if shipments else extract_orders(page)):
-                    found[str(row.get("order_id") or len(found))] = row
-                advanced = page.evaluate(r"""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
+
+                current_rows = extract_shipments(page) if shipments else extract_orders(page)
+                signature = page_signature(page, shipments)
+                if signature and signature in visited_signatures:
+                    info(f"pagination: repeated page signature on page {page_number}; stopping")
+                    break
+                if signature:
+                    visited_signatures.add(signature)
+
+                before_count = len(found)
+                for row in current_rows:
+                    dedupe_key = str(row.get("order_id") or f"{row.get('buyer')}|{row.get('item_name')}|{row.get('raw_text')}")
+                    found[dedupe_key] = row
+                info(
+                    f"{'shipments' if shipments else 'orders'}-batch: [{idx}/{len(sources)}] "
+                    f"{key} page={page_number} page_rows={len(current_rows)} total_unique={len(found)}"
+                )
+
+                advanced, next_signature = advance_next_page(page, signature, shipments)
                 if not advanced:
                     break
-                page.wait_for_timeout(700)
+                if next_signature and next_signature in visited_signatures:
+                    info("pagination: Next resolved to a page already visited; stopping")
+                    break
+                page_number += 1
+
+                # If Whatnot rendered an empty page but still left Next enabled,
+                # require actual table progress on the following iteration.
+                if len(found) == before_count and not current_rows:
+                    page.wait_for_timeout(250)
+
             rows = list(found.values())
-            info(f"{'shipments' if shipments else 'orders'}-batch: [{idx}/{len(sources)}] {key} -> {len(rows)} row(s)")
+            info(
+                f"{'shipments' if shipments else 'orders'}-batch: [{idx}/{len(sources)}] "
+                f"{key} completed pages={page_number} -> {len(rows)} row(s)"
+            )
             output.append({"show_key": key, "live_id": lid, "order_count": len(rows), "orders": rows})
 
     session.fetch(f"{BASE}/dashboard/home", page_action=action, timeout=60000, network_idle=False, google_search=False)

@@ -4,6 +4,7 @@ use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HealthController;
 use App\Models\AiTask;
+use App\Models\FulfillmentPackage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -11,12 +12,10 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
-// Offline fallback page — served by the service worker when the network is unavailable
 Route::get('/offline', function () {
     return response()->file(public_path('offline.html'));
 })->name('offline');
 
-// Public health endpoint — no auth, used by UptimeRobot / BetterUptime / Docker
 Route::get('/health', HealthController::class)->name('health');
 
 Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(function () {
@@ -41,6 +40,30 @@ Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(funct
             'Cache-Control' => 'private, no-store, max-age=0',
         ]);
     })->name('manifest-source');
+
+    Route::get('fulfillment-box/{packageCode}', function (string $packageCode) {
+        $package = FulfillmentPackage::query()
+            ->where('package_code', $packageCode)
+            ->with([
+                'show.streamers',
+                'shipment',
+                'packedBy',
+                'items.streamerLogItem.inventoryItem',
+            ])
+            ->firstOrFail();
+
+        $user = auth()->user();
+        $show = $package->show;
+        $allowed = $user && $show && (
+            $user->isAdmin()
+            || $user->isOwner()
+            || $user->isFulfillmentAdmin()
+            || ($user->isFulfillment() && $show->fulfillmentUsers()->where('users.id', $user->id)->exists())
+        );
+        abort_unless($allowed, 403);
+
+        return view('fulfillment.box-verification', compact('package'));
+    })->name('fulfillment-box.verify');
 });
 
 Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name('export.')->group(function () {

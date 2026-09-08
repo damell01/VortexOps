@@ -7,11 +7,13 @@ use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\StreamerLogResource;
 use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Models\Payout;
+use App\Models\Product;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayRunReadinessService;
 use App\Services\ShowWorkflowService;
+use App\Support\ProfitShareFormula;
 use BackedEnum;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -24,6 +26,44 @@ class PayrollOverview extends Page
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
     protected static string|UnitEnum|null $navigationGroup = 'Payouts';
     protected static ?int $navigationSort = 1;
+
+    public array $mockProducts = [];
+    public float $mockGrossRevenue = 5000.00;
+    public float $mockHours = 4.00;
+    public int $mockShipments = 60;
+    public float $mockPercentage = 8.00;
+    public float $mockTips = 0.00;
+
+    public function mount(): void
+    {
+        if ($this->mockProducts === []) {
+            $this->mockProducts = $this->catalogProductsForSimulation(2);
+        }
+    }
+
+    public function addMockProduct(): void
+    {
+        $usedIds = collect($this->mockProducts)->pluck('product_id')->filter()->all();
+        $product = Product::query()
+            ->where('is_active', true)
+            ->whereNotIn('id', $usedIds)
+            ->orderByRaw('CASE WHEN average_cost > 0 THEN 0 WHEN unit_cost > 0 THEN 1 ELSE 2 END')
+            ->orderBy('name')
+            ->first();
+
+        if (! $product) {
+            $this->dispatch('notify', message: 'No additional active catalog products are available.');
+            return;
+        }
+
+        $this->mockProducts[] = $this->simulationProductRow($product);
+    }
+
+    public function removeMockProduct(int $index): void
+    {
+        unset($this->mockProducts[$index]);
+        $this->mockProducts = array_values($this->mockProducts);
+    }
 
     public function getView(): string
     {
@@ -51,6 +91,152 @@ class PayrollOverview extends Page
             ->whereDate('week_end', '>=', $weekStart)
             ->latest('week_start')
             ->first();
+    }
+
+    /**
+     * Read-only payroll preview using current calculated payout records.
+     * This never creates, updates, batches, finalizes, exports or marks paid.
+     */
+    public function mockPayRun(): array
+    {
+        $start = now()->startOfWeek();
+        $end = now()->endOfWeek();
+
+        $payouts = Payout::query()
+            ->whereHas('show', fn ($q) => $q
+                ->inChannelContext()
+                ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                ->whereNotIn('status', ['cancelled']))
+            ->with(['show:id,title,show_date', 'streamer:id,name,member_type,payout_type'])
+            ->get();
+
+        $rows = $payouts
+            ->groupBy('streamer_id')
+            ->map(function (Collection $group) {
+                $streamer = $group->first()?->streamer;
+                return [
+                    'name' => $streamer?->name ?: 'Unknown',
+                    'member_type' => $streamer?->member_type ?: 'streamer',
+                    'payout_type' => $streamer?->payout_type ?: '—',
+                    'shows' => $group->pluck('show_id')->filter()->unique()->count(),
+                    'amount' => round((float) $group->sum('calculated_payout'), 2),
+                    'entries' => $group->count(),
+                ];
+            })
+            ->sortByDesc('amount')
+            ->values();
+
+        $streamerTotal = (float) $payouts
+            ->filter(fn (Payout $p) => ! $p->streamer?->isFulfillment())
+            ->sum('calculated_payout');
+        $fulfillmentTotal = (float) $payouts
+            ->filter(fn (Payout $p) => $p->streamer?->isFulfillment())
+            ->sum('calculated_payout');
+
+        return [
+            'week_start' => $start,
+            'week_end' => $end,
+            'rows' => $rows,
+            'people' => $rows->count(),
+            'entries' => $payouts->count(),
+            'streamer_total' => round($streamerTotal, 2),
+            'fulfillment_total' => round($fulfillmentTotal, 2),
+            'total' => round($streamerTotal + $fulfillmentTotal, 2),
+            'real_run_exists' => $this->currentPayRun() !== null,
+        ];
+    }
+
+    /**
+     * In-memory show calculator backed by real products from the catalog. The
+     * quantities and show inputs are simulated, but product identity and cost
+     * basis are always re-read from the database so this mirrors production
+     * costing instead of relying on invented products or editable fake costs.
+     */
+    public function mockShowCalculation(): array
+    {
+        $ids = collect($this->mockProducts)->pluck('product_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
+        $catalog = Product::query()->whereIn('id', $ids)->get()->keyBy('id');
+
+        $products = collect($this->mockProducts)
+            ->map(function (array $row) use ($catalog): ?array {
+                $product = $catalog->get((int) ($row['product_id'] ?? 0));
+                if (! $product) return null;
+
+                $quantity = max(0, (float) ($row['quantity'] ?? 0));
+                $unitCost = max(0, (float) ($product->costBasis() ?? 0));
+
+                return [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'quantity' => $quantity,
+                    'unit_cost' => $unitCost,
+                    'line_total' => round($quantity * $unitCost, 2),
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $productCost = round((float) $products->sum('line_total'), 2);
+        $grossRevenue = max(0, (float) $this->mockGrossRevenue);
+        $hours = max(0, (float) $this->mockHours);
+        $shipments = max(0, (float) $this->mockShipments);
+        $percentage = max(0, (float) $this->mockPercentage);
+        $tips = max(0, (float) $this->mockTips);
+
+        $working = ProfitShareFormula::forShow(
+            $grossRevenue,
+            $productCost,
+            $hours,
+            $shipments,
+            $percentage,
+        );
+
+        $projectedPayout = round($working['earnings'] + $tips, 2);
+        $businessAfterPayroll = round($grossRevenue - $productCost - $working['burden'] - $projectedPayout, 2);
+
+        return [
+            'products' => $products,
+            'product_cost' => $productCost,
+            'gross_revenue' => $grossRevenue,
+            'hours' => $hours,
+            'shipments' => $shipments,
+            'percentage' => $percentage,
+            'tips' => $tips,
+            'burden' => $working['burden'],
+            'rate_per_shipment' => $working['rate_per_shipment'],
+            'rate_per_hour' => $working['rate_per_hour'],
+            'net_revenue' => $working['net_revenue'],
+            'base_share' => $working['earnings'],
+            'projected_payout' => $projectedPayout,
+            'business_after_payroll' => $businessAfterPayroll,
+            'explanation' => ProfitShareFormula::explain($working),
+        ];
+    }
+
+    private function catalogProductsForSimulation(int $limit): array
+    {
+        return Product::query()
+            ->where('is_active', true)
+            ->orderByRaw('CASE WHEN average_cost > 0 THEN 0 WHEN unit_cost > 0 THEN 1 ELSE 2 END')
+            ->orderByDesc('total_units_received')
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Product $product) => $this->simulationProductRow($product))
+            ->values()
+            ->all();
+    }
+
+    private function simulationProductRow(Product $product): array
+    {
+        return [
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'quantity' => 1,
+            'unit_cost' => (float) ($product->costBasis() ?? 0),
+        ];
     }
 
     public function needsAttention(): array
@@ -174,51 +360,27 @@ class PayrollOverview extends Page
         $payRunProblems = $show->getAttribute('payrun_problems') ?? [];
 
         if ($payRunProblems !== [] && $this->currentPayRun()) {
-            return [
-                'label' => 'Recalculate Run',
-                'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]),
-                'tone' => 'warning',
-            ];
+            return ['label' => 'Recalculate Run', 'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]), 'tone' => 'warning'];
         }
 
         if (in_array($key, ['streamer_log', 'admin_review'], true) && $log) {
-            return [
-                'label' => $key === 'admin_review' ? 'Review Log' : 'Open Log',
-                'url' => StreamerLogResource::getUrl('edit', ['record' => $log]),
-                'tone' => 'warning',
-            ];
+            return ['label' => $key === 'admin_review' ? 'Review Log' : 'Open Log', 'url' => StreamerLogResource::getUrl('edit', ['record' => $log]), 'tone' => 'warning'];
         }
 
         if ($key === 'fulfillment') {
-            return [
-                'label' => 'Resolve Fulfillment',
-                'url' => FulfillmentResource::getUrl('view', ['record' => $show]),
-                'tone' => 'primary',
-            ];
+            return ['label' => 'Resolve Fulfillment', 'url' => FulfillmentResource::getUrl('view', ['record' => $show]), 'tone' => 'primary'];
         }
 
         if ($key === 'payroll' && $show->payouts->first(fn (Payout $p) => $p->batch)?->batch) {
             $batch = $show->payouts->first(fn (Payout $p) => $p->batch)?->batch;
-            return [
-                'label' => 'Open Pay Run',
-                'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $batch]),
-                'tone' => 'primary',
-            ];
+            return ['label' => 'Open Pay Run', 'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $batch]), 'tone' => 'primary'];
         }
 
         if ($key === 'payroll_ready' && $this->currentPayRun()) {
-            return [
-                'label' => 'Review Pay Run',
-                'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]),
-                'tone' => 'success',
-            ];
+            return ['label' => 'Review Pay Run', 'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]), 'tone' => 'success'];
         }
 
-        return [
-            'label' => in_array($key, ['payroll_review'], true) ? 'Fix Show Inputs' : 'Open Show',
-            'url' => ShowResource::getUrl('view', ['record' => $show]),
-            'tone' => $key === 'payroll_review' ? 'warning' : 'gray',
-        ];
+        return ['label' => in_array($key, ['payroll_review'], true) ? 'Fix Show Inputs' : 'Open Show', 'url' => ShowResource::getUrl('view', ['record' => $show]), 'tone' => $key === 'payroll_review' ? 'warning' : 'gray'];
     }
 
     public function readinessSummary(): array
@@ -228,13 +390,11 @@ class PayrollOverview extends Page
             'shows' => $shows->count(),
             'ready' => $shows->filter(function (Show $show): bool {
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
-                return ($show->getAttribute('payrun_problems') ?? []) === []
-                    && in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
+                return ($show->getAttribute('payrun_problems') ?? []) === [] && in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
             'review' => $shows->filter(function (Show $show): bool {
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
-                return ($show->getAttribute('payrun_problems') ?? []) !== []
-                    || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
+                return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
             'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
         ];
@@ -242,11 +402,7 @@ class PayrollOverview extends Page
 
     public function recentPayRuns(): Collection
     {
-        return WeeklyPayoutBatch::query()
-            ->withCount('payouts')
-            ->latest('week_start')
-            ->limit(6)
-            ->get();
+        return WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->limit(6)->get();
     }
 
     private function allCurrentWeekShows(): Collection
@@ -255,35 +411,21 @@ class PayrollOverview extends Page
         $start = $run?->week_start ?? now()->startOfWeek();
         $end = $run?->week_end ?? now()->endOfWeek();
         $workflow = app(ShowWorkflowService::class);
-        $payRunProblems = $run && $run->status === 'draft'
-            ? app(PayRunReadinessService::class)->problems($run)
-            : [];
+        $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
 
         return Show::query()
             ->inChannelContext()
             ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
             ->whereNotIn('status', ['cancelled'])
-            ->with([
-                'streamers',
-                'streamerLogEntry.streamer',
-                'streamerLogEntry.items.inventoryItem',
-                'fulfillmentUsers',
-                'payouts.batch',
-                'latestDeductionRequest.lines.inventoryItem',
-            ])
+            ->with(['streamers','streamerLogEntry.streamer','streamerLogEntry.items.inventoryItem','fulfillmentUsers','payouts.batch','latestDeductionRequest.lines.inventoryItem'])
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()
             ->map(function (Show $show) use ($workflow, $payRunProblems) {
                 $show->setAttribute('workflow_state', $workflow->stateFor($show));
                 $show->setAttribute('pnl_summary', $show->profitAndLoss());
-
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
-                $show->setAttribute('payrun_problems', array_values(array_filter(
-                    $payRunProblems,
-                    fn (string $problem) => str_starts_with($problem, $prefix)
-                )));
-
+                $show->setAttribute('payrun_problems', array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix))));
                 return $show;
             });
     }

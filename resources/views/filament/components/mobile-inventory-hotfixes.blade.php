@@ -356,7 +356,7 @@ body.vx-pallet-view-screen [data-vx-pallet-action="scan"] button {
                 if (!id || !window.Livewire) return;
                 const component = window.Livewire.find(id);
                 if (!component) return;
-                await component.call('mountTableAction', 'add_stock', recordId);
+                await component.call('mountAction', 'quickAddStock', { product: recordId });
             });
 
             actions.prepend(btn);

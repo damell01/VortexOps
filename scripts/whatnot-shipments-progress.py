@@ -7,10 +7,12 @@ import re
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
 HARDENED_SCRIPT = HERE / "whatnot-shipments-hardened.py"
 SOURCE_FILE = os.getenv("WHATNOT_ORDER_SOURCES_FILE", "").strip()
+BASE = "https://www.whatnot.com"
 
 
 def load_hardened():
@@ -52,7 +54,25 @@ def main() -> None:
     total = source_count()
     completed = 0
 
+    # Historical shipment recovery already has the show UUIDs in VortexOps.
+    # Do not rediscover the same shows from /dashboard/lives and do not build
+    # the newer base64 filters= payload. The established shipment batch path in
+    # this project is /dashboard/shipments?source=<live_id>; use it directly.
+    def proven_show_actions(_page, live_id: str):
+        return {
+            "live_id": live_id,
+            "title": None,
+            "open_show_url": None,
+            "shipment_url": f"{BASE}/dashboard/shipments?source={quote(str(live_id), safe='')}",
+            "analytics_url": None,
+            "row_preview": None,
+            "route_source": "direct-source",
+        }
+
+    hardened.find_show_actions = proven_show_actions
+
     original_info(f"SHIPMENT_PROGRESS queued={total}")
+    original_info("SHIPMENT_ROUTE_MODE=direct-source (?source=<live_id>)")
 
     completion_pattern = re.compile(
         r"^shipments-batch:\s*\[(\d+)/(\d+)\]\s+(.+?)\s+->\s+(\d+)\s+row\(s\)\s+across\s+(\d+)\s+page\(s\)$"
@@ -60,6 +80,13 @@ def main() -> None:
 
     def progress_info(message: str) -> None:
         nonlocal completed, total
+
+        # The hardened parser labels a discovered shipment URL as show-row.
+        # In recovery mode we deliberately supplied that URL directly from the
+        # stored live UUID, so make the diagnostic say what actually happened.
+        if message.startswith("SHIPMENT_ROUTE ") and "source=show-row" in message and "/dashboard/shipments?source=" in message:
+            message = message.replace("source=show-row", "source=direct-source", 1)
+
         original_info(message)
 
         match = completion_pattern.match(message.strip())

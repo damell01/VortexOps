@@ -34,7 +34,7 @@ class SyncWhatnotReporting extends Command
             return self::FAILURE;
         }
 
-        $days = max(1, $since->diffInDays(today()) + 2);
+        $days = max(1, (int) $since->diffInDays(today()) + 2);
         $showLimit = max(20, min(30, (int) $this->option('show-limit')));
         $analyticsLimit = max(20, min(25, (int) $this->option('analytics-limit')));
         $shipmentBatch = max(1, min(10, (int) $this->option('shipment-batch')));
@@ -76,7 +76,6 @@ class SyncWhatnotReporting extends Command
             $position = $index + 1;
             $this->info("[{$position}/{$channels->count()}] {$channel->name} (@{$channel->whatnot_username})");
 
-            // 1) Pull the current show index plus the normal show-level fields.
             $this->line("  1. Shows / normal analytics (up to {$showLimit})");
             try {
                 $result = $scraper->importShows(
@@ -90,7 +89,6 @@ class SyncWhatnotReporting extends Command
                 $this->warn('     show pull failed: ' . $e->getMessage());
             }
 
-            // 2) Pull orders / buyer data using the original full sync path.
             $this->line('  2. Orders / buyers / show data');
             $syncExit = $this->call('whatnot:sync', [
                 '--channel' => $channel->name,
@@ -100,8 +98,6 @@ class SyncWhatnotReporting extends Command
                 $this->warn("     full sync returned exit code {$syncExit}; continuing with the remaining sources.");
             }
 
-            // 3) Fill missing show analytics repeatedly, 20-25 shows at a time,
-            // until the channel is complete or Whatnot stops yielding progress.
             $this->line('  3. Missing show analytics');
             while (true) {
                 $before = $this->missingAnalyticsCount($channel->id, $since);
@@ -112,7 +108,7 @@ class SyncWhatnotReporting extends Command
 
                 $exit = $this->call('whatnot:backfill-missing-analytics', [
                     '--channel' => $channel->name,
-                    '--days' => min(90, $days),
+                    '--days' => $days,
                     '--limit' => $analyticsLimit,
                 ]);
 
@@ -132,7 +128,6 @@ class SyncWhatnotReporting extends Command
                 }
             }
 
-            // 4) Reconcile shipment rows for this channel across the reporting window.
             $this->line('  4. Shipments / tracking / fulfillment data');
             $shipmentExit = $this->call('whatnot:reconcile-shipments', [
                 '--channel' => $channel->name,
@@ -144,8 +139,6 @@ class SyncWhatnotReporting extends Command
                 $this->warn("     shipment reconciliation returned exit code {$shipmentExit}.");
             }
 
-            // 5) Ledger is useful for cancellations/refunds/adjustments and other
-            // reporting changes that can arrive after the original show import.
             $this->line('  5. Ledger / post-show adjustments');
             try {
                 $ledger = $scraper->importLedger(

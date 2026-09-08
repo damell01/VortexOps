@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\FulfillmentResource;
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
 use App\Support\AdminModules;
@@ -124,14 +125,19 @@ class StreamsOverview extends Page
         ])->get();
         $shipments = (int) $shipmentRows->sum('shipments_count');
         $delivered = (int) $shipmentRows->sum('delivered_shipments_count');
-        $needsSubmission = (clone $base)->whereDate('show_date', '<=', today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status', ['closed','cancelled'])->count();
+        $needsSubmission = (clone $base)
+            ->where('is_operational', true)
+            ->whereDate('show_date', '<=', today())
+            ->whereDoesntHave('streamerLogEntry')
+            ->whereNotIn('status', ['closed','cancelled'])
+            ->count();
         return compact('shows','grossRevenue','netRevenue','shipments','delivered','needsSubmission');
     }
 
     #[Computed]
     public function upcomingShows(): Collection
     {
-        return $this->scopedShowsQuery()->whereDate('show_date','>',today())->with('streamers')->orderBy('show_date')->orderBy('start_time')->limit(5)->get();
+        return $this->scopedShowsQuery()->where('is_operational', true)->whereDate('show_date','>',today())->with('streamers')->orderBy('show_date')->orderBy('start_time')->limit(5)->get();
     }
 
     #[Computed]
@@ -149,7 +155,15 @@ class StreamsOverview extends Page
     #[Computed]
     public function attentionShows(): Collection
     {
-        return $this->periodQuery()->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status',['closed','cancelled'])->with('streamers')->orderByDesc('show_date')->limit(5)->get();
+        return $this->periodQuery()
+            ->where('is_operational', true)
+            ->whereDate('show_date','<=',today())
+            ->whereDoesntHave('streamerLogEntry')
+            ->whereNotIn('status',['closed','cancelled'])
+            ->with('streamers')
+            ->orderByDesc('show_date')
+            ->limit(5)
+            ->get();
     }
 
     #[Computed]
@@ -161,7 +175,7 @@ class StreamsOverview extends Page
     public function showUrl(int $id): string { return ShowResource::getUrl('view',['record'=>$id]); }
     public function showsUrl(): string { return Shows::getUrl(['range'=>$this->datePreset,'from'=>$this->dateFrom,'to'=>$this->dateTo]); }
     public function shipmentsUrl(): string { return ShowShipments::getUrl(); }
-    public function fulfillmentUrl(): string { return FulfillmentCenter::getUrl(); }
+    public function fulfillmentUrl(): string { return FulfillmentResource::getUrl('index'); }
     public function importerUrl(): string { return WhatnotScraperPage::getUrl(); }
     public function syncUrl(): string { return WhatnotSyncPage::getUrl(); }
     public function statusUrl(): string { return ShowStatusBoard::getUrl(); }

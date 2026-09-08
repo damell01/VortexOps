@@ -14,13 +14,6 @@ class PayRunReadinessService
         private readonly ShowWorkflowService $workflow,
     ) {}
 
-    /**
-     * Return every condition that should stop a weekly pay run from being
-     * finalized. This layers the existing payout sign-off checks with the
-     * cross-module show workflow and source-freshness checks.
-     *
-     * @return array<int,string>
-     */
     public function problems(WeeklyPayoutBatch $batch): array
     {
         $problems = $this->payouts->signOffProblems($batch);
@@ -35,10 +28,7 @@ class PayRunReadinessService
                 . ' (' . $overlap->week_start->format('M j') . '–' . $overlap->week_end->format('M j, Y') . ').';
         }
 
-        $payouts = $batch->payouts()
-            ->with('streamer')
-            ->get();
-
+        $payouts = $batch->payouts()->with('streamer')->get();
         $showIds = $payouts->pluck('show_id')->filter()->unique()->values();
 
         $shows = Show::query()
@@ -63,6 +53,13 @@ class PayRunReadinessService
                 continue;
             }
 
+            // Historical rows can remain attached to an older audit trail, but
+            // they must never manufacture new readiness blockers. Draft sync
+            // detaches them automatically from the current run.
+            if (! (bool) $show->is_operational) {
+                continue;
+            }
+
             if ($show->show_date?->lt($batch->week_start) || $show->show_date?->gt($batch->week_end)) {
                 $problems[] = $show->title . ' — show date is outside this Pay Run period.';
             }
@@ -77,6 +74,10 @@ class PayRunReadinessService
             $person = $payout->streamer?->name ?? "Team member #{$payout->streamer_id}";
             $show = $payout->show_id ? $shows->get($payout->show_id) : null;
             $showTitle = $payout->show_id ? ($show?->title ?? "Show #{$payout->show_id}") : 'Manual payout';
+
+            if ($show && ! (bool) $show->is_operational) {
+                continue;
+            }
 
             if ($payout->calculated_payout === null) {
                 $problems[] = "{$showTitle} — {$person} does not have a calculated payout amount.";
@@ -110,9 +111,7 @@ class PayRunReadinessService
 
     private function sourceChangedAfterPayout(Show $show, Payout $payout): bool
     {
-        if (! $payout->updated_at) {
-            return true;
-        }
+        if (! $payout->updated_at) return true;
 
         $timestamps = collect([
             $show->updated_at,
@@ -120,13 +119,8 @@ class PayRunReadinessService
             $show->latestDeductionRequest?->updated_at,
         ]);
 
-        foreach ($show->streamerLogEntry?->items ?? collect() as $item) {
-            $timestamps->push($item->updated_at);
-        }
-
-        foreach ($show->latestDeductionRequest?->lines ?? collect() as $line) {
-            $timestamps->push($line->updated_at);
-        }
+        foreach ($show->streamerLogEntry?->items ?? collect() as $item) $timestamps->push($item->updated_at);
+        foreach ($show->latestDeductionRequest?->lines ?? collect() as $line) $timestamps->push($line->updated_at);
 
         $latestSourceUpdate = $timestamps
             ->filter()

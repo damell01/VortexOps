@@ -48,7 +48,7 @@ class ViewShow extends ViewRecord
                     return 'Start Show Report';
                 })
                 ->icon('heroicon-o-clipboard-document-list')->color('primary')
-                ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled'], true) && ($isAdmin || $isAssignedStreamer))
+                ->visible(fn (): bool => (bool) $this->record->is_operational && ! in_array($this->record->status, ['cancelled'], true) && ($isAdmin || $isAssignedStreamer))
                 ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id])),
 
             $shipments->visible(fn (): bool => $isAssignedStreamer && ! $isAdmin),
@@ -61,8 +61,25 @@ class ViewShow extends ViewRecord
                 Action::make('review_approval')->label('Review Approval')->icon('heroicon-o-clipboard-document-check')
                     ->visible(fn (): bool => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed'], true))
                     ->url(fn () => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
+                Action::make('workflow_mode')
+                    ->label(fn (): string => (bool) $this->record->is_operational ? 'Mark as Historical' : 'Restore to Workflow')
+                    ->icon(fn (): string => (bool) $this->record->is_operational ? 'heroicon-o-archive-box' : 'heroicon-o-arrow-path')
+                    ->color(fn (): string => (bool) $this->record->is_operational ? 'gray' : 'success')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (): string => (bool) $this->record->is_operational ? 'Remove this show from operational work?' : 'Restore this show to the live workflow?')
+                    ->modalDescription(fn (): string => (bool) $this->record->is_operational
+                        ? 'The show and imported data stay available for reporting, but it will stop creating streamer-report, fulfillment, and payroll work.'
+                        : 'The show will again participate in streamer-report, fulfillment, and payroll workflow checks.')
+                    ->action(function (): void {
+                        $this->record->is_operational = ! (bool) $this->record->is_operational;
+                        $this->record->save();
+                        Notification::make()
+                            ->title($this->record->is_operational ? 'Show restored to workflow' : 'Show marked historical')
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('detect_streamer')->label(fn () => $this->record->streamers->isEmpty() ? 'Detect Streamer' : 'Re-detect Streamer')->icon('heroicon-o-user-circle')
-                    ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled', 'closed'], true))
+                    ->visible(fn (): bool => (bool) $this->record->is_operational && ! in_array($this->record->status, ['cancelled', 'closed'], true))
                     ->action(function (): void {
                         $suggestions = $this->record->detectStreamers();
                         $notice = Notification::make()->title(empty($suggestions) ? 'No streamer detected' : 'Streamer detected');

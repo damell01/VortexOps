@@ -16,6 +16,14 @@ class FulfillmentCenter extends Page
 {
     use \App\Filament\Concerns\HasAdminNavVisibility;
 
+    /**
+     * The active Fulfillment Center now lives on FulfillmentResource at the same
+     * /admin/fulfillment-center slug. Keep this legacy page discoverable for
+     * backwards compatibility, but never ask Filament to build a sidebar URL for
+     * it: the page route is intentionally shadowed by the resource route.
+     */
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string $moduleSlug = 'fulfillment';
     protected static ?string $title = 'Fulfillment Center';
     protected static ?string $navigationLabel = 'Fulfillment Center';

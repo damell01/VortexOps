@@ -19,6 +19,10 @@ trait HasAdminNavVisibility
             'WhatnotSyncPage',
             'StreamWorkflow',
             'ShowStatusBoard',
+            // Fulfillment is now owned by FulfillmentResource at the same slug.
+            // Keeping the legacy Page out of navigation prevents Filament from
+            // generating the old page route, which is intentionally not registered.
+            'FulfillmentCenter',
         ], true);
     }
 

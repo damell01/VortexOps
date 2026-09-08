@@ -23,7 +23,7 @@ class ShowsManual
                             'The Shows page is the command center. Priority work is shown before the advanced table.',
                             'Read the workflow stage first, then the blocker/current state, then use the primary action on the card. The page is intentionally ordered around what needs to happen next.',
                         ],
-                        'shot' => null,
+                        'shot' => 'ops-shows-command-center.png',
                         'fields' => [
                             ['Workflow stage', 'Where the show currently sits from Show through Paid.'],
                             ['Blocker / current state', 'Why it cannot move forward, or what is currently happening.'],
@@ -42,7 +42,7 @@ class ShowsManual
                             'At the top, the workflow strip shows Show → Streamer Report → Admin Review → Fulfillment → Payroll Review → Payroll Ready → Pay Run → Paid.',
                             'The Next Action panel is the first thing to follow. The four handoffs below it keep Streamer Report, Fulfillment, Inventory/COGS and Payroll together.',
                         ],
-                        'shot' => null,
+                        'shot' => 'ops-show-workspace.png',
                         'fields' => [
                             ['Next action', 'The action that moves this show forward from its current workflow state.'],
                             ['Streamer Report', 'Draft, submitted, changes requested or approved.'],
@@ -68,7 +68,7 @@ class ShowsManual
                             'The report is a three-step workspace: Items → Details → Review & Submit.',
                             'Add the products sold first, complete the stream details second, and submit only after the review summary matches what happened on the show.',
                         ],
-                        'shot' => null,
+                        'shot' => 'ops-admin-review.png',
                         'fields' => [
                             ['Items', 'Inventory items and quantities sold in the show.'],
                             ['Details', 'Required stream and financial inputs.'],
@@ -86,7 +86,7 @@ class ShowsManual
                             'Verify the item list, product cost, hours and stream details. Approve when correct or Reject & Return with a clear reason when the streamer needs to fix something.',
                             'Reopen for Editing grants an edit window without falsely rejecting a report or un-posting stock.',
                         ],
-                        'shot' => null,
+                        'shot' => 'ops-admin-review.png',
                         'fields' => [
                             ['Approve Report', 'Approves the report and lets the show advance.'],
                             ['Reject & Return', 'Sends the report back with required correction notes.'],

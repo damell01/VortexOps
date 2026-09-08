@@ -30,9 +30,6 @@ class ShowObserver
     /**
      * Whatnot usernames/handles that should resolve to a known streamer even
      * when the show title does not contain their display name verbatim.
-     *
-     * Keep this mapping deliberately explicit: aliases are high-confidence
-     * attribution rules and should never be inferred from partial usernames.
      */
     private const STREAMER_ALIASES = [
         'dennis_vortexcollects' => 'Dennis',
@@ -59,6 +56,15 @@ class ShowObserver
 
     public function created(Show $show): void
     {
+        // Scraper/backfill history should remain useful reporting data without
+        // becoming fake operational work. A newly discovered historical Whatnot
+        // show is archived from the workflow automatically; recent imports and
+        // anything manually created remain live by default.
+        if ($show->import_source === 'auto_whatnot' && $show->show_date?->lt(now()->subDays(14)->startOfDay())) {
+            $show->is_operational = false;
+            $show->saveQuietly();
+        }
+
         $this->detectImportedShowStreamer($show, true);
     }
 
@@ -83,9 +89,6 @@ class ShowObserver
                 ]);
             }
 
-            // This only writes an AiTask row and dispatches to the dedicated AI
-            // queue. No Ollama health check/model call happens in this request.
-            // The completed summary is read later from the database.
             app(AiOpsDispatcher::class)->dispatch(
                 scope: 'show',
                 sourceId: $show->id,
@@ -137,11 +140,6 @@ class ShowObserver
         }
     }
 
-    /**
-     * Attach an explicitly configured Whatnot-handle alias to its streamer.
-     * Matching uses the complete alias token, never a substring, so an alias
-     * cannot accidentally claim another streamer's similarly named show.
-     */
     private function attachKnownStreamerAlias(Show $show): bool
     {
         $title = strtolower((string) $show->title);

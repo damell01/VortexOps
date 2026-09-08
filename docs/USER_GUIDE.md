@@ -1,6 +1,6 @@
 # VortexOps User Guide
 
-_Last reviewed: September 7, 2026_
+_Last reviewed: September 8, 2026_
 
 VortexOps is organized around one operating flow:
 
@@ -10,14 +10,14 @@ The main screens are designed around the same rule: read the current stage, read
 
 ## Handbook
 
-Open **Handbook** at the top of the sidebar for module-by-module instructions. The handbook now includes:
+Open **Handbook** at the top of the sidebar for module-by-module instructions. The handbook includes:
 
 - Inventory
 - Shows & Streams
 - Fulfillment
 - Payroll & Pay Runs
 
-Inventory includes the detailed photographed walkthroughs and printable handbook. The operational handbooks for Shows, Fulfillment, and Payroll now describe the current command-center and workspace flows so the instructions match the UI introduced in September 2026.
+The operational handbook screenshots are generated from the current application so the screenshots and instructions stay aligned as the UI changes.
 
 ---
 
@@ -34,6 +34,16 @@ Each show card emphasizes:
 - Current blocker or state
 - Progress
 - Primary next action
+
+### Operational vs. Historical shows
+
+Not every Whatnot show in the database is active work. Older scraper/backfill records are useful for analytics and scraper history but should not create fake streamer-report, fulfillment, or payroll tasks.
+
+- **Operational** shows participate in the live workflow.
+- **Historical** shows remain searchable/reportable but create no operational blockers.
+- Older Whatnot imports with no streamer report are automatically classified as historical during the September 2026 migration.
+- New Whatnot shows discovered more than 14 days in the past are treated as historical by default.
+- An admin can open a show and use **More → Mark as Historical** or **Restore to Workflow** when an exception needs to be changed manually.
 
 ### Show Workspace
 
@@ -71,37 +81,57 @@ Admins use the same workspace. The final step becomes **Review & Approve**. Veri
 
 Use **Reject & Return** only when something is actually wrong. Use **Reopen for Editing** when a correct report simply needs its edit window restored.
 
+### Handoff to Fulfillment
+
+Approval makes the streamer-logged item list eligible for fulfillment. The show is then assigned to one or more fulfillment team members.
+
+- Admins, owners, and fulfillment admins can see all active fulfillment work and change assignments.
+- A regular fulfillment team member sees only the approved shows assigned to them.
+- A show with an approved report but no fulfillment assignment appears to admins as **Needs Assignment**.
+
 ---
 
 ## Fulfillment
 
-### Fulfillment Workspace
+### Fulfillment Center
 
-The Fulfillment page is card-first and organized around operational stages:
+The Fulfillment Center is based on the **streamer report**, not Whatnot buyer or shipment grouping. The streamer has already recorded the products and quantities that physically need to be accounted for.
 
-- Needs Attention
+The main stages are:
+
+- Needs Assignment
 - Ready to Pack
 - Packing
-- Seal Boxes
+- Issues
+- Ready to Complete
 - Completed
 
-Use the primary action on a show card to enter the packing flow.
+The primary cards show the information a fulfillment member can act on immediately:
+
+- Streamer
+- Assigned fulfillment member
+- Item-line count
+- Total streamer-logged units
+- Units remaining
+- Packing progress
+- Issues
+
+Buyer names and Whatnot shipment counts are intentionally removed from the primary queue.
 
 ### Packing Workstation
-
-The packing screen keeps the active box and scanner at the top while the packing list stays directly underneath.
 
 Normal flow:
 
 1. Open the assigned show.
-2. Pack or scan each line.
-3. Build boxes from Whatnot shipment data.
-4. Verify box contents.
-5. Print the internal 4×6 label and verification QR.
-6. Seal the box.
-7. Use **Show Complete** only after all completion checks pass.
+2. Work from the **Streamer Packing List**.
+3. Scan a barcode/SKU or use **+1** / **Pack Remaining** for each streamer-logged item line.
+4. Use **Flag Issue** when a physical item cannot be accounted for.
+5. Optionally track physical boxes in VortexOps when box labels or verification are useful.
+6. Use **Complete Fulfillment** after every logged unit is accounted for and issues are resolved.
 
-A show cannot complete while units remain, fulfillment issues are open, physical items have no package, or a package is still unsealed.
+A VortexOps box is **not required** to pack an item or complete a show. If someone deliberately creates a tracked box, that box must be sealed before fulfillment can be completed.
+
+Whatnot shipment references remain available in a collapsed optional section. They are reference data only; buyer grouping and Whatnot's item grouping do not change the streamer packing list.
 
 ---
 
@@ -116,6 +146,8 @@ Payroll is organized into four workflow buckets:
 - In Pay Run
 - Paid
 
+Historical/non-operational shows are excluded from current payroll blockers and current-week operational calculations.
+
 Each show card includes its key financial inputs, show net, blocker/current state, and next action. Fix source issues before trying to move a blocked show forward.
 
 The top-level KPIs focus on:
@@ -126,6 +158,12 @@ The top-level KPIs focus on:
 - Blocked
 
 The **Run Readiness** panel shows what must be fixed before a draft can be finalized.
+
+### Mock Pay Run
+
+**Mock Pay Run** is available directly in the Payroll page header. It jumps to the read-only Payroll Simulator on the same page.
+
+The simulator uses current catalog/product costs but does not create, modify, finalize, export, or pay a real payroll run.
 
 ### Pay Run Workspace
 
@@ -143,8 +181,6 @@ Normal lifecycle:
 4. **Export ADP CSV**.
 5. **Mark Submitted to ADP** after submission.
 6. **Mark Paid** when payment is confirmed.
-
-The Mock Pay Run simulator is secondary and writes no payroll data.
 
 ---
 
@@ -181,6 +217,12 @@ Receiving updates weighted average cost so downstream show COGS and profitabilit
 
 ## Common Problems
 
+### An old show says a report or fulfillment work is required
+Open the show as an admin and use **More → Mark as Historical**. Historical shows keep their imported analytics and scraper data without participating in the live workflow.
+
+### A show is missing from a fulfillment member's queue
+Confirm the streamer report is approved, it contains logged items, and that fulfillment member is assigned to the show. Admins can still see the complete active fulfillment queue.
+
 ### A show looks stuck
 Open the **Show Workspace** and read the **Next Action** / blocker. The workflow state tells you which module owns the next step.
 
@@ -188,7 +230,7 @@ Open the **Show Workspace** and read the **Next Action** / blocker. The workflow
 The edit window may be closed. Admins can use **Reopen for Editing** without rejecting a correct report.
 
 ### Fulfillment will not complete
-Check pending units, open issues, missing packages, and unsealed boxes.
+Check units remaining, open packing issues, and any optional tracked boxes that were created but not sealed. A box is not required when no box was created.
 
 ### Finalize Pay Run is unavailable
 Open **Readiness**. Draft runs cannot finalize until all blockers are cleared.
@@ -203,11 +245,9 @@ Check the location type. Different operations intentionally expose only compatib
 
 ## Screenshots and documentation freshness
 
-Inventory handbook screenshots are stored in `public/guide/manual/` and are referenced directly from `App\Support\InventoryManual`. Tests verify that Inventory handbook steps do not reference missing images and that screenshots are not left orphaned.
+Operational screenshots are stored in `public/guide/manual/`. Shows, Fulfillment, Admin Review, Payroll, and Pay Run screenshots are regenerated by the handbook Playwright workflow when these screens change. The same images are referenced by the in-app Handbook and README current-operations gallery.
 
-Shows, Fulfillment, and Payroll documentation was rewritten against the current September 2026 command-center/workspace UI. Their handbook entries intentionally do not reuse older screenshots from the pre-command-center pages; screenshots should only be added after they are captured from the current authenticated installation.
-
-This avoids the more dangerous failure mode of a handbook showing a screenshot of a screen that no longer exists.
+This prevents the handbook from quietly drifting back to screenshots of old versions of the application.
 
 ---
 

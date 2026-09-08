@@ -13,6 +13,9 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -61,6 +64,80 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 Notification::make()->title('Pay run finalized.')->success()->send();
             });
 
+        $override = Action::make('override_payout')
+            ->label('Custom Override')
+            ->icon('heroicon-o-pencil-square')
+            ->color('gray')
+            ->visible(fn () => $this->record->status === 'draft' && $this->record->payouts()->exists())
+            ->modalHeading('Override a payout')
+            ->modalDescription('Use this only for a one-off adjustment. Recalculate the Pay Run first, then apply the override so the recalculation does not replace it.')
+            ->modalSubmitActionLabel('Apply Override')
+            ->schema([
+                Select::make('payout_id')
+                    ->label('Team Member / Show')
+                    ->options(fn () => $this->record->payouts()
+                        ->with(['streamer', 'show'])
+                        ->get()
+                        ->mapWithKeys(fn ($payout) => [
+                            $payout->id => ($payout->streamer?->name ?? 'Unknown')
+                                . ' — ' . ($payout->show?->title ?? 'No show')
+                                . ' — $' . number_format((float) $payout->calculated_payout, 2),
+                        ])
+                        ->toArray())
+                    ->searchable()
+                    ->required(),
+                TextInput::make('amount')
+                    ->label('Override Amount')
+                    ->prefix('$')
+                    ->numeric()
+                    ->minValue(0)
+                    ->required(),
+                Textarea::make('reason')
+                    ->label('Reason')
+                    ->rows(3)
+                    ->placeholder('Why is this payout being adjusted?')
+                    ->required()
+                    ->maxLength(1000),
+            ])
+            ->action(function (array $data): void {
+                $payout = $this->record->payouts()->findOrFail($data['payout_id']);
+                $before = (float) $payout->calculated_payout;
+                $after = round((float) $data['amount'], 2);
+                $reason = trim((string) $data['reason']);
+                $auditLine = sprintf(
+                    'Manual Pay Run override by %s: $%0.2f → $%0.2f. Reason: %s',
+                    auth()->user()?->name ?? 'Admin',
+                    $before,
+                    $after,
+                    $reason
+                );
+
+                $payout->update([
+                    'calculated_payout' => $after,
+                    'calculation_notes' => trim(($payout->calculation_notes ? $payout->calculation_notes . "\n\n" : '') . $auditLine),
+                ]);
+
+                activity('pay_run')
+                    ->causedBy(auth()->user())
+                    ->performedOn($payout)
+                    ->withProperties([
+                        'pay_run_id' => $this->record->id,
+                        'previous_amount' => $before,
+                        'override_amount' => $after,
+                        'reason' => $reason,
+                    ])
+                    ->log('Payout manually overridden in Pay Run');
+
+                $this->record->recalculateTotal();
+                $this->record->refresh();
+
+                Notification::make()
+                    ->title('Payout override applied')
+                    ->body('$' . number_format($before, 2) . ' → $' . number_format($after, 2) . ' · ' . $reason)
+                    ->success()
+                    ->send();
+            });
+
         $markSubmitted = Action::make('mark_submitted')->label('Mark Submitted to ADP')->icon('heroicon-o-arrow-up-tray')->color('info')
             ->visible(fn () => $this->record->status === 'finalized')->requiresConfirmation()->action(function () {
                 $this->record->update(['status' => 'submitted_to_adp']); $this->record->refresh();
@@ -83,10 +160,10 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             });
 
         return [
-            $resolveBlockers, $finalize, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
-                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates every show in this week. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed.')
+                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates every show in this week. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
                     ->action(function () {
                         $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start); $this->record->refresh();
                         $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];

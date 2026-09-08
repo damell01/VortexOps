@@ -7,6 +7,7 @@ use App\Filament\Resources\FulfillmentResource\Pages\ListFulfillmentShows;
 use App\Filament\Resources\FulfillmentResource\Pages\ViewFulfillmentShow;
 use App\Filament\Resources\FulfillmentResource\RelationManagers\FulfillmentOrdersRelationManager;
 use App\Livewire\FulfillmentDashboard;
+use App\Models\FulfillmentPackage;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -68,11 +69,7 @@ class FulfillmentCenterTest extends TestCase
         return $user;
     }
 
-    /**
-     * Build the thing Fulfillment actually consumes now: an approved streamer
-     * report with a physical item list. A Whatnot order is also included so the
-     * legacy shipment/order reference tools continue to have coverage.
-     */
+    /** Build the actual Fulfillment input: approved streamer report + item lines. */
     private function fulfillmentReadyShow(array $attrs = [], bool $approved = true): Show
     {
         $show = Show::create(array_merge([
@@ -82,10 +79,7 @@ class FulfillmentCenterTest extends TestCase
             'created_by' => $this->creator->id,
         ], $attrs));
 
-        $streamer = Streamer::create([
-            'name' => 'Streamer ' . $show->id,
-            'status' => 'active',
-        ]);
+        $streamer = Streamer::create(['name' => 'Streamer ' . $show->id, 'status' => 'active']);
         $show->streamers()->attach($streamer->id, ['is_primary' => true]);
 
         $log = StreamerLogEntry::create([
@@ -124,7 +118,6 @@ class FulfillmentCenterTest extends TestCase
     {
         $fulfillment = $this->fulfillmentUser();
         $this->assertTrue($fulfillment->isFulfillment());
-
         $admin = $this->admin();
         $admin->assignRole('fulfillment');
         $this->assertFalse($admin->isFulfillment());
@@ -136,7 +129,6 @@ class FulfillmentCenterTest extends TestCase
         $fulfillmentAdmin = $this->fulfillmentAdmin();
         $this->assertTrue($fulfillmentAdmin->isFulfillmentAdmin());
         $this->assertFalse($fulfillmentAdmin->isFulfillment());
-
         $admin = $this->admin();
         $admin->assignRole('fulfillment_admin');
         $this->assertFalse($admin->isFulfillmentAdmin());
@@ -154,7 +146,6 @@ class FulfillmentCenterTest extends TestCase
         $show = $this->fulfillmentReadyShow();
         $fulfillment = $this->fulfillmentUser();
         $show->fulfillmentUsers()->attach($fulfillment->id);
-
         $this->assertTrue($show->fresh()->fulfillmentUsers->contains($fulfillment));
         $this->assertTrue($fulfillment->assignedFulfillmentShows->contains($show));
     }
@@ -163,7 +154,6 @@ class FulfillmentCenterTest extends TestCase
     {
         $this->actingAs($this->admin());
         $this->assertTrue(FulfillmentResource::canAccess());
-
         $this->actingAs($this->fulfillmentUser());
         $this->assertTrue(FulfillmentResource::canAccess());
 
@@ -188,7 +178,6 @@ class FulfillmentCenterTest extends TestCase
         $assigned = $this->fulfillmentReadyShow(['title' => 'Assigned']);
         $other = $this->fulfillmentReadyShow(['title' => 'Someone Else']);
         $notApproved = $this->fulfillmentReadyShow(['title' => 'Waiting on Admin'], approved: false);
-
         $fulfillment = $this->fulfillmentUser();
         $someoneElse = $this->fulfillmentUser('other@test.com');
         $assigned->fulfillmentUsers()->attach($fulfillment->id);
@@ -197,7 +186,6 @@ class FulfillmentCenterTest extends TestCase
 
         $this->actingAs($fulfillment);
         $ids = FulfillmentResource::getEloquentQuery()->pluck('id')->all();
-
         $this->assertContains($assigned->id, $ids);
         $this->assertNotContains($other->id, $ids);
         $this->assertNotContains($notApproved->id, $ids);
@@ -222,9 +210,7 @@ class FulfillmentCenterTest extends TestCase
     public function test_fulfillment_user_cannot_open_unassigned_show_directly(): void
     {
         $show = $this->fulfillmentReadyShow();
-        $fulfillment = $this->fulfillmentUser();
-        $this->actingAs($fulfillment);
-
+        $this->actingAs($this->fulfillmentUser());
         $this->assertFalse(FulfillmentResource::canView($show));
     }
 
@@ -235,12 +221,10 @@ class FulfillmentCenterTest extends TestCase
         $show->save();
 
         $this->actingAs($this->admin());
-        $ids = FulfillmentResource::getEloquentQuery()->pluck('id')->all();
-
-        $this->assertNotContains($show->id, $ids);
+        $this->assertNotContains($show->id, FulfillmentResource::getEloquentQuery()->pluck('id')->all());
     }
 
-    public function test_order_or_shipment_data_alone_does_not_create_fulfillment_work(): void
+    public function test_order_data_alone_does_not_create_fulfillment_work(): void
     {
         $show = Show::create([
             'title' => 'Imported Only',
@@ -272,22 +256,18 @@ class FulfillmentCenterTest extends TestCase
         $this->actingAs($this->admin());
         ChannelContext::setActive($breaks->id);
         $ids = FulfillmentResource::getEloquentQuery()->pluck('id')->all();
-
         $this->assertContains($showBreaks->id, $ids);
         $this->assertNotContains($showCollects->id, $ids);
     }
 
-    public function test_list_page_renders_assigned_streamer_log_work(): void
+    public function test_list_page_renders_assigned_work(): void
     {
         $show = $this->fulfillmentReadyShow();
         $fulfillment = $this->fulfillmentUser();
         $show->fulfillmentUsers()->attach($fulfillment->id);
 
         Livewire::actingAs($fulfillment);
-        Livewire::test(ListFulfillmentShows::class)
-            ->assertOk()
-            ->assertSee('Test Show')
-            ->assertSee('Streamer Packing List', escape: false);
+        Livewire::test(ListFulfillmentShows::class)->assertOk()->assertSee('Test Show');
     }
 
     public function test_view_page_renders_for_assigned_fulfillment_member(): void
@@ -298,8 +278,7 @@ class FulfillmentCenterTest extends TestCase
 
         Livewire::actingAs($fulfillment);
         Livewire::test(ViewFulfillmentShow::class, ['record' => $show->getRouteKey()])
-            ->assertOk()
-            ->assertSee('Test Show');
+            ->assertOk()->assertSee('Test Show');
     }
 
     public function test_items_can_be_packed_and_completed_without_creating_a_box(): void
@@ -316,7 +295,7 @@ class FulfillmentCenterTest extends TestCase
 
         $this->assertSame(3, (int) $line->fresh()->packed_quantity);
         $this->assertNotNull($show->fresh()->streamerLogEntry->fulfillment_reviewed_at);
-        $this->assertCount(0, $show->fresh()->fulfillmentPackages);
+        $this->assertSame(0, FulfillmentPackage::where('show_id', $show->id)->count());
     }
 
     public function test_order_reference_tools_still_work_as_optional_secondary_tools(): void

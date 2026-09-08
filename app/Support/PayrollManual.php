@@ -23,7 +23,7 @@ class PayrollManual
                         'Each show card includes the show net, key financial inputs, its current blocker or next step, and the action that resolves it.',
                         'Use the readiness panel before finalizing a run. The simulator is a secondary tool and does not write payroll data.',
                     ],
-                    'shot' => null,
+                    'shot' => 'ops-payroll-command-center.png',
                     'fields' => [
                         ['Payroll Total', 'Calculated payroll total for the current period.'],
                         ['People', 'Team members represented in current payroll.'],
@@ -44,7 +44,7 @@ class PayrollManual
                         'The Next Action panel explains what moves the run forward. People are summarized first; expand a person only when you need to inspect the payout lines that built their total.',
                         'Readiness blockers must be zero before Finalize Pay Run is available. Finalizing locks payout amounts.',
                     ],
-                    'shot' => null,
+                    'shot' => 'ops-pay-run-workspace.png',
                     'fields' => [
                         ['Total Payroll', 'Total amount in the weekly batch.'],
                         ['Streamer Pay', 'Streamer portion of the batch.'],

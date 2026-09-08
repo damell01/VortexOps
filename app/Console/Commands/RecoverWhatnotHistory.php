@@ -20,7 +20,7 @@ use Illuminate\Support\Collection;
  *
  * Recovery has two phases for every enabled channel:
  *   1. discover/import the channel's historical shows and analytics;
- *   2. fill missing shipments in small, paced batches.
+ *   2. fill every missing shipment sync for that channel in one scraper run.
  *
  * A successful shipment page with zero rows still counts as checked. Shows can
  * legitimately have no shipments, so last_shipments_synced_at is stamped only
@@ -30,9 +30,6 @@ class RecoverWhatnotHistory extends Command
 {
     protected $signature = 'whatnot:recover-history
                             {--limit=500 : Maximum historical shows to discover per channel}
-                            {--batch=20 : Shipment shows per browser batch}
-                            {--sleep=20 : Seconds to pause between shipment batches}
-                            {--max-batches=0 : Stop after this many shipment batches per channel; 0 means no cap}
                             {--channel= : Only recover one channel name or Whatnot username}
                             {--dry-run : Scan Whatnot and compare remote show ids with VortexOps without changing data}
                             {--verify : Verify one channel and one missing shipment before a full recovery}
@@ -43,9 +40,6 @@ class RecoverWhatnotHistory extends Command
     public function handle(WhatnotScraper $scraper): int
     {
         $limit = max(1, (int) $this->option('limit'));
-        $batchSize = max(1, min(50, (int) $this->option('batch')));
-        $sleep = max(0, (int) $this->option('sleep'));
-        $maxBatches = max(0, (int) $this->option('max-batches'));
         $debug = (bool) $this->option('debug');
 
         $channels = $this->channels();
@@ -59,6 +53,7 @@ class RecoverWhatnotHistory extends Command
         $this->line('  Main scraper: scripts/whatnot-scraper.cjs');
         $this->line('  Channels: ' . $channels->pluck('name')->join(', '));
         $this->line('  Discovery limit: ' . $limit . ' per channel');
+        $this->line('  Shipments: all missing shows for each channel in one scraper run');
         $this->newLine();
 
         $this->printSnapshot('Before recovery', $channels);
@@ -86,11 +81,6 @@ class RecoverWhatnotHistory extends Command
             try {
                 $this->line('  <fg=gray>Phase 1: discover missing shows + refresh analytics</>');
 
-                // seedLiveId:'' deliberately means "do not trust the local index as
-                // the starting point". The scraper first discovers what Whatnot
-                // currently exposes for this verified channel, then walks history.
-                // That is what lets this phase find an entirely missing show rather
-                // than only enrich rows we already know about.
                 $result = $scraper->importShows(
                     channel: $channel,
                     limit: $limit,
@@ -103,7 +93,7 @@ class RecoverWhatnotHistory extends Command
                 );
 
                 $this->line(sprintf(
-                    '  <fg=green>Discovery complete:</> %d created, %d updated, %d skipped',
+                    '  <fg=green>Discovery complete:</> %d created, %d updated, %d unchanged/invalid skipped',
                     (int) ($result['created'] ?? 0),
                     (int) ($result['updated'] ?? 0),
                     (int) ($result['skipped'] ?? 0),
@@ -119,15 +109,8 @@ class RecoverWhatnotHistory extends Command
                 $missingAnalytics = $this->pastShows($channel)->missingAnalytics()->count();
                 $this->line("  Analytics still missing after discovery: {$missingAnalytics}");
 
-                $this->line('  <fg=gray>Phase 2: recover missing shipments</>');
-                $shipmentResult = $this->recoverShipments(
-                    $scraper,
-                    $channel,
-                    $batchSize,
-                    $sleep,
-                    $maxBatches,
-                    $debug,
-                );
+                $this->line('  <fg=gray>Phase 2: recover all missing shipments in one run</>');
+                $shipmentResult = $this->recoverShipments($scraper, $channel, $debug);
 
                 $this->line(sprintf(
                     '  <fg=green>Shipment recovery:</> %d show(s) checked, %d shipment(s) created, %d updated, %d unresolved',
@@ -160,7 +143,7 @@ class RecoverWhatnotHistory extends Command
             $this->info('Historical recovery complete: no known past show is missing analytics or an unchecked shipment sync.');
         } else {
             $this->warn("Recovery pass complete: {$remainingAnalytics} still missing analytics; {$remainingShipments} still missing shipments.");
-            $this->line('  <fg=gray>Run this command again to continue. If discovery hit its limit, increase --limit first.</>');
+            $this->line('  <fg=gray>If discovery hit its limit, increase --limit. Any remaining shipment rows are unresolved rather than deferred to another batch.</>');
         }
 
         return self::SUCCESS;
@@ -308,88 +291,64 @@ class RecoverWhatnotHistory extends Command
     }
 
     /**
-     * @return array{checked:int,created:int,updated:int,unresolved:int,batches:int}
+     * @return array{checked:int,created:int,updated:int,unresolved:int}
      */
     private function recoverShipments(
         WhatnotScraper $scraper,
         WhatnotChannel $channel,
-        int $batchSize,
-        int $sleep,
-        int $maxBatches,
         bool $debug,
     ): array {
-        $totals = ['checked' => 0, 'created' => 0, 'updated' => 0, 'unresolved' => 0, 'batches' => 0];
+        $totals = ['checked' => 0, 'created' => 0, 'updated' => 0, 'unresolved' => 0];
 
-        while (true) {
-            if ($maxBatches > 0 && $totals['batches'] >= $maxBatches) {
-                break;
+        $shows = $this->pastShows($channel)
+            ->missingShipments()
+            ->orderByDesc('show_date')
+            ->get();
+
+        if ($shows->isEmpty()) {
+            $this->line('    No missing shipment syncs for this channel.');
+            return $totals;
+        }
+
+        $sources = [];
+        $byId = [];
+        foreach ($shows as $show) {
+            $liveId = $this->showLiveId($show);
+            if (! $liveId) {
+                $totals['unresolved']++;
+                $this->warn("    Show #{$show->id} has no usable livestream id; skipped as unresolved.");
+                continue;
+            }
+            $sources[] = ['live_id' => $liveId, 'show_key' => $show->id];
+            $byId[$show->id] = $show;
+        }
+
+        if ($sources === []) {
+            return $totals;
+        }
+
+        $this->line(sprintf('    Shipments: scraping %d show(s) in one run', count($sources)));
+
+        $map = $scraper->fetchShipmentsForShows(
+            $sources,
+            $channel->whatnot_username,
+            $debug,
+            $debug ? fn (string $line) => $this->line('      ' . $line) : null,
+        );
+
+        foreach ($byId as $showId => $show) {
+            $hasKey = array_key_exists($showId, $map) || array_key_exists((string) $showId, $map);
+            if (! $hasKey) {
+                $totals['unresolved']++;
+                $this->warn("    Show #{$showId} was requested but not returned by the shipment scraper.");
+                continue;
             }
 
-            $shows = $this->pastShows($channel)
-                ->missingShipments()
-                ->orderByDesc('show_date')
-                ->limit($batchSize)
-                ->get();
-
-            if ($shows->isEmpty()) {
-                break;
-            }
-
-            $sources = [];
-            $byId = [];
-            foreach ($shows as $show) {
-                $liveId = $this->showLiveId($show);
-                if (! $liveId) {
-                    $totals['unresolved']++;
-                    $this->warn("    Show #{$show->id} has no usable livestream id; skipped.");
-                    continue;
-                }
-                $sources[] = ['live_id' => $liveId, 'show_key' => $show->id];
-                $byId[$show->id] = $show;
-            }
-
-            if ($sources === []) {
-                break;
-            }
-
-            $totals['batches']++;
-            $this->line(sprintf(
-                '    Batch %d: %d show(s), %d missing shipments before batch',
-                $totals['batches'],
-                count($sources),
-                $this->pastShows($channel)->missingShipments()->count(),
-            ));
-
-            $map = $scraper->fetchShipmentsForShows(
-                $sources,
-                $channel->whatnot_username,
-                $debug,
-                $debug ? fn (string $line) => $this->line('      ' . $line) : null,
-            );
-
-            $progress = 0;
-            foreach ($byId as $showId => $show) {
-                $hasKey = array_key_exists($showId, $map) || array_key_exists((string) $showId, $map);
-                if (! $hasKey) {
-                    $totals['unresolved']++;
-                    continue;
-                }
-
-                $rows = $map[$showId] ?? $map[(string) $showId] ?? [];
-                $persisted = $this->persistShipmentResult($scraper, $show, is_array($rows) ? $rows : []);
-                $totals['checked']++;
-                $totals['created'] += $persisted['created'];
-                $totals['updated'] += $persisted['updated'];
-                $progress++;
-            }
-
-            if ($progress === 0) {
-                throw new \RuntimeException('Shipment batch returned no matching show keys. Stopping instead of looping on the same rows.');
-            }
-
-            if ($sleep > 0) {
-                sleep($sleep);
-            }
+            $rows = $map[$showId] ?? $map[(string) $showId] ?? [];
+            $persisted = $this->persistShipmentResult($scraper, $show, is_array($rows) ? $rows : []);
+            $totals['checked']++;
+            $totals['created'] += $persisted['created'];
+            $totals['updated'] += $persisted['updated'];
         }
 
         return $totals;
@@ -398,9 +357,6 @@ class RecoverWhatnotHistory extends Command
     /** @return array{created:int,updated:int} */
     private function persistShipmentResult(WhatnotScraper $scraper, Show $show, array $rows): array
     {
-        // The shipments scrape can also carry weight/carrier/status for existing
-        // order rows. Mirror WhatnotScraper::refreshShipmentsForShows so those
-        // fields are not discarded while creating Shipment records.
         $orderResult = $scraper->persistShowOrders($show, $rows);
         $shipmentResult = $scraper->persistShipments($show, $rows);
 
@@ -518,33 +474,19 @@ class RecoverWhatnotHistory extends Command
         return null;
     }
 
-    /** @return array<int,array<string,mixed>> */
-    private function showRows(array $data): array
-    {
-        if (array_is_list($data)) {
-            return array_values(array_filter($data, 'is_array'));
-        }
-
-        foreach (['shows', 'results', 'data'] as $key) {
-            if (isset($data[$key]) && is_array($data[$key]) && array_is_list($data[$key])) {
-                return array_values(array_filter($data[$key], 'is_array'));
-            }
-        }
-
-        $rows = [];
-        foreach (['current', 'upcoming', 'past'] as $key) {
-            foreach (($data[$key] ?? []) as $row) {
-                if (is_array($row)) {
-                    $rows[] = $row;
-                }
-            }
-        }
-
-        return $rows;
-    }
-
     private function isUuid(string $value): bool
     {
         return (bool) preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $value);
+    }
+
+    private function showRows(array $payload): array
+    {
+        if (array_is_list($payload)) return array_values(array_filter($payload, 'is_array'));
+        foreach (['shows', 'data', 'results'] as $key) {
+            if (isset($payload[$key]) && is_array($payload[$key])) {
+                return array_values(array_filter($payload[$key], 'is_array'));
+            }
+        }
+        return [];
     }
 }

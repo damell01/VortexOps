@@ -5,280 +5,79 @@
     /** @var StreamerLogEntry $record */
     $record = $this->record;
     $show = $record->show;
-    $isStreamer = auth()->user()?->isStreamer() && !auth()->user()?->isAdmin();
-
-    $orders = $record->show?->orders()
-        ->with(['inventoryItem'])
-        ->whereNotNull('inventory_item_id')
-        ->get() ?? collect();
+    $user = auth()->user();
+    $isStreamer = $user?->isStreamer() && !$user?->isAdmin();
+    $isAdmin = $user?->isAdmin() || $user?->isOwner();
+    $orders = $show?->orders()->with(['inventoryItem'])->whereNotNull('inventory_item_id')->get() ?? collect();
     $totalItems = $orders->count();
-    $totalQuantity = $orders->sum('quantity');
-    $totalCost = $orders->sum('total_cost');
+    $totalQuantity = (int)$orders->sum('quantity');
+    $totalCost = (float)$orders->sum('total_cost');
     $canEdit = !$isStreamer || !StreamerLogResource::isLockedForCurrentUser($record);
+    $approved = $record->approval_status === 'approved' || $record->status === 'admin_approved';
+    $changesRequested = $record->approval_status === 'rejected' || $record->status === 'changes_requested';
+    $submitted = $record->isSubmitted();
+    $statusLabel = $approved ? 'Approved' : ($changesRequested ? 'Changes Requested' : ($submitted ? 'Awaiting Review' : 'Draft'));
+    $statusTone = $approved ? 'good' : ($changesRequested ? 'bad' : ($submitted ? 'run' : 'warn'));
+    $nextLabel = $isAdmin ? ($approved ? 'Review Complete' : ($submitted ? 'Approve or Return Report' : 'Waiting on Streamer')) : ($changesRequested ? 'Fix Requested Changes' : ($submitted ? 'Waiting for Admin Review' : 'Complete & Submit Report'));
 @endphp
 
-<x-filament-panels::page
-    x-data="wizardData()"
-    @items-added.window="itemsAdded(); showItemsModal = false"
->
+<x-filament-panels::page x-data="wizardData()" @items-added.window="itemsAdded(); showItemsModal = false">
+<style>
+.vx-log{max-width:1380px;margin:0 auto;display:grid;gap:14px}.vx-card{border:1px solid #e5e7eb;background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04);overflow:hidden}.dark .vx-card{border-color:#263248;background:#101827}.vx-pad{padding:18px}.vx-chip{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:10px;font-weight:800;background:#f3f4f6;color:#4b5563}.dark .vx-chip{background:#1f2937;color:#d1d5db}.vx-chip.good{background:#ecfdf5;color:#047857}.vx-chip.bad{background:#fef2f2;color:#b91c1c}.vx-chip.run{background:#eff6ff;color:#1d4ed8}.vx-chip.warn{background:#fff7ed;color:#c2410c}.vx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}.vx-kpi{border-radius:14px;background:#f8fafc;padding:11px}.dark .vx-kpi{background:#1f2937}.vx-kpi label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:#94a3b8}.vx-kpi strong{display:block;margin-top:3px;font-size:19px;color:#111827}.dark .vx-kpi strong{color:#fff}.vx-next{border-radius:14px;padding:12px 13px;background:#f8fafc}.dark .vx-next{background:#1f2937}.vx-tabs{display:flex;gap:6px;overflow-x:auto;padding:10px}.vx-tab{display:inline-flex;align-items:center;gap:6px;min-height:40px;border-radius:11px;padding:8px 12px;font-size:11px;font-weight:800;white-space:nowrap;color:#64748b}.vx-tab.active{background:#2563eb;color:#fff}.vx-item{border:1px solid #e5e7eb;border-radius:13px;padding:11px}.dark .vx-item{border-color:#374151}.vx-actions{display:flex;flex-wrap:wrap;gap:8px}.vx-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;border-radius:11px;border:1px solid #d1d5db;padding:8px 12px;font-size:11px;font-weight:800;color:#374151}.dark .vx-btn{border-color:#475569;color:#e5e7eb}.vx-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}.vx-review-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.vx-review-stat{border-radius:13px;background:#f8fafc;padding:11px}.dark .vx-review-stat{background:#1f2937}.vx-review-stat label{display:block;font-size:9px;text-transform:uppercase;font-weight:800;color:#94a3b8}.vx-review-stat strong{display:block;margin-top:3px;font-size:18px}.vx-modal{position:fixed;inset:0;z-index:50;background:white;display:flex;flex-direction:column}.dark .vx-modal{background:#0f172a}
+@media(max-width:760px){.vx-pad{padding:14px}.vx-kpis{grid-template-columns:1fr 1fr}.vx-review-grid{grid-template-columns:1fr 1fr}.vx-actions{display:grid;grid-template-columns:1fr 1fr}.vx-actions>*{width:100%}.vx-item-grid{grid-template-columns:1fr!important}.vx-modal-head{padding:14px!important}.vx-modal-head h1{font-size:18px!important}}
+</style>
+
+<div class="vx-log">
     @if($show)
-    <!-- Compact Header Row -->
-    <div class="mb-4 bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <div class="flex-1 min-w-0">
-                <h2 class="text-lg font-bold text-gray-900 dark:text-white truncate">{{ $show->title ?? 'Untitled Show' }}</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $show->show_date?->format('M d, Y g:i A') ?? 'Date not set' }} • {{ $show->channel?->name ?? 'Unknown' }}</p>
+    <section class="vx-card vx-pad">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="min-w-0">
+                <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">{{ $isAdmin ? 'Admin Review Workspace' : 'Streamer Report' }}</div>
+                <h2 class="mt-1 truncate text-xl font-bold text-gray-950 dark:text-white">{{ $show->title ?? 'Untitled Show' }}</h2>
+                <div class="mt-1 text-[10px] text-gray-500">{{ $show->show_date?->format('M j, Y g:i A') ?? 'Date not set' }} · {{ $show->channel?->name ?? 'Unknown channel' }} · {{ $record->streamer?->name ?? 'No streamer' }}</div>
+                <div class="mt-3 flex flex-wrap gap-2"><span class="vx-chip {{ $statusTone }}">{{ $statusLabel }}</span>@if(!$canEdit)<span class="vx-chip">Locked</span>@endif</div>
             </div>
-            <div class="flex items-center gap-4 text-sm">
-                <div class="text-right">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
-                    <p class="font-semibold text-gray-900 dark:text-white">{{ $show->gross_revenue ? '$' . number_format($show->gross_revenue, 2) : 'N/A' }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                        @switch($record->status)
-                            @case('pending')
-                                bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300
-                                @break
-                            @case('streamer_reviewed')
-                                bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300
-                                @break
-                            @case('admin_approved')
-                                bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300
-                                @break
-                            @default
-                                bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
-                        @endswitch
-                    ">{{ str_replace('_', ' ', $record->status) }}</span>
-                </div>
-            </div>
+            <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view',['record'=>$show]) }}" class="vx-btn">← Show Workspace</a>
         </div>
-    </div>
+        <div class="vx-kpis"><div class="vx-kpi"><label>Revenue</label><strong>${{ number_format((float)$record->gross_revenue,2) }}</strong></div><div class="vx-kpi"><label>Items</label><strong>{{ $totalItems }}</strong></div><div class="vx-kpi"><label>Units</label><strong>{{ $totalQuantity }}</strong></div><div class="vx-kpi"><label>Product Cost</label><strong>${{ number_format($totalCost,2) }}</strong></div></div>
+        <div class="vx-next mt-4"><div class="text-[9px] font-bold uppercase tracking-[.12em] text-gray-400">Next action</div><div class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $nextLabel }}</div><div class="mt-1 text-[11px] text-gray-500">@if($isAdmin){{ $approved ? 'The report is approved and can move into fulfillment.' : ($submitted ? 'Verify the item list, costs, and stream details, then approve or return it.' : 'The streamer has not submitted this report yet.') }}@else{{ $changesRequested ? ($record->approval_notes ?: 'Review the admin notes, make corrections, and resubmit.') : ($submitted ? 'Your report is with admin review. Edit availability depends on the submission window.' : 'Confirm items and details, then submit for admin review.') }}@endif</div></div>
+    </section>
 
-    <!-- Tabbed Interface - Items First -->
     @if($canEdit)
-    <div class="mb-6">
-        <!-- Tabs -->
-        <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-0">
-            <div class="flex gap-1 px-6">
-                <button
-                    @click="activeTab = 'items'"
-                    :class="{
-                        'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400': activeTab === 'items',
-                        'border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300': activeTab !== 'items',
-                    }"
-                    class="py-3 px-3 font-medium text-sm transition"
-                >
-                    📦 Items
-                </button>
-                <button
-                    @click="activeTab = 'details'"
-                    :class="{
-                        'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400': activeTab === 'details',
-                        'border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300': activeTab !== 'details',
-                    }"
-                    class="py-3 px-3 font-medium text-sm transition"
-                >
-                    📋 Details
-                </button>
-                <button
-                    @click="activeTab = 'review'"
-                    :class="{
-                        'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400': activeTab === 'review',
-                        'border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300': activeTab !== 'review',
-                    }"
-                    class="py-3 px-3 font-medium text-sm transition"
-                >
-                    ✓ Review
-                </button>
-            </div>
+    <section class="vx-card">
+        <div class="vx-tabs" role="tablist">
+            <button @click="activeTab='items'" :class="activeTab==='items'?'active':''" class="vx-tab">1 · Items</button>
+            <button @click="activeTab='details'" :class="activeTab==='details'?'active':''" class="vx-tab">2 · Details</button>
+            <button @click="activeTab='review'" :class="activeTab==='review'?'active':''" class="vx-tab">3 · {{ $isAdmin ? 'Review & Approve' : 'Review & Submit' }}</button>
         </div>
 
-        <!-- Tab Content -->
-        <div class="bg-white dark:bg-gray-800 rounded-b-lg border-x border-b border-gray-200 dark:border-gray-700 p-4">
-            <!-- Tab 1: Items & Summary -->
-            <div x-show="activeTab === 'items'" x-transition>
-                <!-- Quick Stats -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                    <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Revenue</p>
-                        <p class="text-lg font-bold text-blue-600 dark:text-blue-400 mt-0.5">${{ number_format((float) $record->gross_revenue, 2) }}</p>
-                    </div>
-                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Product Cost</p>
-                        <p class="text-lg font-bold text-purple-600 dark:text-purple-400 mt-0.5">${{ number_format((float) $record->product_cost, 2) }}</p>
-                    </div>
-                    <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Items Logged</p>
-                        <p class="text-lg font-bold text-amber-600 dark:text-amber-400 mt-0.5">{{ $totalItems }}</p>
-                    </div>
-                </div>
-
-                <!-- Items Section -->
-                <div>
-                    <div class="flex items-center justify-between mb-4">
-                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Items Sold</h4>
-                        @if($totalItems > 0)
-                            <div class="flex gap-3">
-                                <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
-                                    {{ $totalItems }} item{{ $totalItems !== 1 ? 's' : '' }}
-                                </span>
-                                <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm font-medium">
-                                    {{ $totalQuantity }} unit{{ $totalQuantity !== 1 ? 's' : '' }}
-                                </span>
-                            </div>
-                        @endif
-                    </div>
-
-                    @if($totalItems > 0)
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                            @foreach($orders as $order)
-                                @php $item = $order->inventoryItem; @endphp
-                                <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                                    <h5 class="font-semibold text-gray-900 dark:text-white text-sm mb-2">{{ $item?->name ?? 'Unknown' }}</h5>
-                                    @if($item?->sku)
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mb-2">{{ $item->sku }}</p>
-                                    @endif
-                                    <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                                        <span>Qty: <span class="font-bold">{{ $order->quantity }}</span></span>
-                                        <span>Total: <span class="font-bold">${{ number_format($order->total_cost, 2) }}</span></span>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                            <p class="text-gray-600 dark:text-gray-400">No items logged yet</p>
-                        </div>
-                    @endif
-
-                    <!-- Add Items Button -->
-                    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <button
-                            @click="showItemsModal = true"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            {{ $totalItems > 0 ? 'Add More Items' : 'Add Items' }}
-                        </button>
-                    </div>
-                </div>
+        <div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5">
+            <div x-show="activeTab==='items'" x-transition>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 class="text-sm font-bold text-gray-950 dark:text-white">Items Sold</h3><p class="mt-1 text-[11px] text-gray-500">Confirm the physical products and quantities before moving on.</p></div><button @click="showItemsModal=true" class="vx-btn primary">{{ $totalItems>0?'Add / Update Items':'Add Items' }}</button></div>
+                @if($totalItems>0)<div class="vx-item-grid mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">@foreach($orders as $order)@php $item=$order->inventoryItem; @endphp<div class="vx-item"><div class="text-sm font-bold text-gray-900 dark:text-white">{{ $item?->name ?? 'Unknown item' }}</div>@if($item?->sku)<div class="mt-1 text-[10px] font-mono text-gray-500">{{ $item->sku }}</div>@endif<div class="mt-3 flex items-center justify-between text-xs"><span>Qty <strong>{{ $order->quantity }}</strong></span><span>Cost <strong>${{ number_format((float)$order->total_cost,2) }}</strong></span></div></div>@endforeach</div>@else<div class="mt-4 rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">No items logged yet. Add the products sold in this show.</div>@endif
             </div>
 
-            <!-- Tab 2: Details -->
-            <div x-show="activeTab === 'details'" x-transition>
-                <div class="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <p class="text-xs text-blue-800 dark:text-blue-200">
-                        Fill in the details about your stream. All required fields must be completed before you can submit.
-                    </p>
-                </div>
+            <div x-show="activeTab==='details'" x-transition style="display:none"><div class="mb-4 rounded-xl bg-blue-50 p-3 text-[11px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">Complete the stream details and financial inputs. Required fields must be complete before submission or approval.</div>{{ $this->form }}</div>
 
-                {{ $this->form }}
-            </div>
-
-            <!-- Tab 3: Review -->
-            <div x-show="activeTab === 'review'" x-transition>
-
-                <!-- Summary -->
-                <div class="space-y-3 mb-4">
-                    <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-0.5">Show</p>
-                        <p class="text-base font-bold text-gray-900 dark:text-white">{{ $show->title }}</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
-                            <p class="text-xs text-gray-600 dark:text-gray-400 mb-0.5">Items Logged</p>
-                            <p class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ $totalItems }}</p>
-                        </div>
-                        <div class="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/10 rounded-lg p-3 border border-green-200 dark:border-green-800">
-                            <p class="text-xs text-gray-600 dark:text-gray-400 mb-0.5">Total Item Cost</p>
-                            <p class="text-lg font-bold text-green-600 dark:text-green-400">${{ number_format($totalCost, 2) }}</p>
-                        </div>
-                        <div class="bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
-                            <p class="text-xs text-gray-600 dark:text-gray-400 mb-0.5">Hours Streamed</p>
-                            <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{{ number_format((float) $record->hours_streamed, 2) }} hrs</p>
-                        </div>
-                    </div>
-
-                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                        <p class="text-xs font-semibold text-green-800 dark:text-green-200 mb-0.5">✓ Ready to Submit</p>
-                        <p class="text-xs text-green-700 dark:text-green-300">All information looks correct. Click submit to send for admin review.</p>
-                    </div>
-                </div>
-
-                <!-- Form Actions -->
-                <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="flex justify-end gap-3">
-                        @foreach($this->getFormActions() as $action)
-                            {{ $action }}
-                        @endforeach
-                    </div>
-                </div>
+            <div x-show="activeTab==='review'" x-transition style="display:none">
+                <div class="vx-review-grid"><div class="vx-review-stat"><label>Items Logged</label><strong>{{ $totalItems }}</strong></div><div class="vx-review-stat"><label>Total Item Cost</label><strong>${{ number_format($totalCost,2) }}</strong></div><div class="vx-review-stat"><label>Hours Streamed</label><strong>{{ number_format((float)$record->hours_streamed,2) }}</strong></div></div>
+                <div class="mt-4 rounded-xl {{ $approved?'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300':($changesRequested?'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300':'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200') }} p-4"><div class="text-xs font-bold">{{ $approved?'Approved':($changesRequested?'Changes requested':($isAdmin?'Admin decision':'Ready to submit')) }}</div><div class="mt-1 text-[11px]">{{ $approved?'This report is approved and ready for the next workflow stage.':($changesRequested?($record->approval_notes ?: 'Admin returned this report for corrections.'):($isAdmin?'Use the page actions above to approve or reject after verifying this summary.':'Use Submit for Review when everything is correct.')) }}</div></div>
+                <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800"><div class="vx-actions justify-end">@foreach($this->getFormActions() as $action){{ $action }}@endforeach</div></div>
             </div>
         </div>
-    </div>
+    </section>
     @else
-    <!-- View Only Mode -->
-    <div class="mb-8">
-        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-            <p class="text-sm text-blue-800 dark:text-blue-300">
-                <strong>View Only Mode:</strong> This log entry is locked for editing. Use the "Add Items" button to add new items, or request edit permission if you need to make changes.
-            </p>
-        </div>
-    </div>
+    <section class="vx-card vx-pad"><div class="rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-300"><strong>View only.</strong> This report is locked for editing. Use the available page actions to request or grant edit access when appropriate.</div></section>
     @endif
     @endif
+</div>
 
-    <!-- Full-Screen Items Modal Overlay -->
-    <div x-show="showItemsModal" class="fixed inset-0 z-50 overflow-hidden" style="display: none;">
-        <!-- Backdrop -->
-        <div x-show="showItemsModal" @click="showItemsModal = false" class="absolute inset-0 bg-black/50"></div>
+<div x-show="showItemsModal" class="vx-modal" style="display:none">
+    <div class="vx-modal-head flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700 dark:bg-gray-900"><div><h1 class="text-2xl font-bold text-gray-950 dark:text-white">Select Items Sold</h1><p class="mt-1 text-sm text-gray-500">Search inventory, set quantity, and attach products to this show.</p></div><button @click="showItemsModal=false" class="min-h-11 rounded-xl border border-gray-300 px-4 text-sm font-bold dark:border-gray-600">Close</button></div>
+    <div class="flex-1 overflow-hidden">@livewire('streamer-log-items-modal',['recordId'=>$record->id,'title'=>'Select Items Sold','description'=>'Search and select inventory items for this show','multiSelect'=>true,'allowQuantityInput'=>true,'allowCostInput'=>true,'allowCreateItem'=>true,'successEvent'=>'items-added'],key('items-modal-'.$record->id))</div>
+</div>
 
-        <!-- Modal Content -->
-        <div class="relative h-full flex flex-col bg-white dark:bg-slate-900">
-            <!-- Header -->
-            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Select Items Sold</h1>
-                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Search and select inventory items for this show</p>
-                    </div>
-                    <button @click="showItemsModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 ml-4">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Livewire Component Content Area -->
-            <div class="flex-1 overflow-hidden flex flex-col">
-                @livewire('streamer-log-items-modal', [
-                    'recordId' => $record->id,
-                    'title' => 'Select Items Sold',
-                    'description' => 'Search and select inventory items for this show',
-                    'multiSelect' => true,
-                    'allowQuantityInput' => true,
-                    'allowCostInput' => true,
-                    'allowCreateItem' => true,
-                    'successEvent' => 'items-added',
-                ], key('items-modal-' . $record->id))
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function wizardData() {
-            return {
-                activeTab: 'items',
-                showItemsModal: false,
-                itemsAdded() {
-                    window.location.reload();
-                }
-            }
-        }
-    </script>
+<script>
+function wizardData(){return{activeTab:'items',showItemsModal:false,itemsAdded(){window.location.reload()}}}
+</script>
 </x-filament-panels::page>

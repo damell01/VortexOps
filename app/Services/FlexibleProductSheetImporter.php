@@ -23,20 +23,18 @@ class FlexibleProductSheetImporter extends ProductSheetImporter
             : $spreadsheet->getSheet(0);
 
         if ($worksheet && trim((string) $worksheet->getCell('A1')->getValue()) === '') {
-            // In the Streamer Log / Product cost ref sheet, column A is the
-            // product-name column even though its header cell is intentionally
-            // blank. Normalize only that one known omission.
+            // The real Product cost ref sheet leaves A1 blank. Column A is
+            // nevertheless the product-name column, so normalize that one
+            // known omission before the normal importer validates headers.
             $worksheet->setCellValue('A1', 'PRODUCT NAME');
-            IOFactory::createWriter($spreadsheet, $reader->getSpreadsheetVersion() ? 'Xlsx' : 'Xlsx');
 
-            // Save with a writer selected from the original file extension so
-            // XLSX/XLS/CSV uploads remain readable by the parent importer.
             $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
             $writerType = match ($extension) {
                 'xls' => 'Xls',
                 'csv', 'txt' => 'Csv',
                 default => 'Xlsx',
             };
+
             IOFactory::createWriter($spreadsheet, $writerType)->save($path);
         }
 

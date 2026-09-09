@@ -1,14 +1,16 @@
-{{--
-    Legacy fallback for older inventory card markup.
+{{-- Dedicated catalog Add Stock bridge.
 
-    The catalog now renders its own native Livewire Add Stock button. Never
-    intercept that button: letting Livewire process wire:click is the reliable
-    path and mirrors the working Filament buttons elsewhere in VortexOps.
+    The custom inventory catalog has repeatedly proven unreliable when it tries
+    to mount Filament page actions from card markup. This bridge deliberately
+    bypasses the list page action layer entirely: it intercepts the card click,
+    extracts the product id, and opens a standalone Livewire modal component.
 --}}
+<livewire:inventory-quick-stock-modal />
+
 <script>
 (() => {
-    if (window.__vxInventoryCardQuickStockFixV3) return;
-    window.__vxInventoryCardQuickStockFixV3 = true;
+    if (window.__vxInventoryCardQuickStockFixV4) return;
+    window.__vxInventoryCardQuickStockFixV4 = true;
 
     const recordIdFromCard = (card) => {
         const viewLink = card?.querySelector('a[href*="/admin/inventory-items/"]');
@@ -16,63 +18,26 @@
         return match ? Number(match[1]) : null;
     };
 
-    const inventoryComponentFor = (element) => {
-        const root = element?.closest?.('[wire\\:id]');
-        const componentId = root?.getAttribute('wire:id');
-        return componentId && window.Livewire ? window.Livewire.find(componentId) : null;
-    };
-
-    document.addEventListener('click', async (event) => {
+    document.addEventListener('click', (event) => {
         const button = event.target.closest?.('.vx-product-card .vx-card-action.add-stock');
         if (!button) return;
 
-        // Native card buttons are rendered by Blade with wire:click. Leave
-        // those entirely to Livewire; this listener only supports any stale
-        // legacy button that may have been injected into an old DOM snapshot.
-        if (button.hasAttribute('wire:click') || button.hasAttribute('wire:click.stop')) {
+        const card = button.closest('.vx-product-card');
+        const recordId = recordIdFromCard(card);
+        if (!recordId) {
+            console.error('[VortexOps] Add Stock card is missing a record id');
             return;
         }
 
-        const card = button.closest('.vx-product-card');
-        const recordId = recordIdFromCard(card);
-        const component = inventoryComponentFor(card);
-        if (!recordId || !component) return;
-
+        // Stop every older wire:click / mountAction / injected handler. The
+        // standalone modal component owns the entire flow now.
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
 
-        button.disabled = true;
-        button.setAttribute('aria-busy', 'true');
-
-        try {
-            await component.call('openQuickAddStock', recordId);
-        } catch (error) {
-            console.error('[VortexOps] Could not open quick Add Stock action', error);
-            window.toast?.error?.('Could not open Add Stock. Refresh the page and try again.');
-        } finally {
-            button.disabled = false;
-            button.removeAttribute('aria-busy');
-        }
+        window.dispatchEvent(new CustomEvent('inventory-quick-stock', {
+            detail: { productId: recordId },
+        }));
     }, true);
-
-    window.addEventListener('barcode-scanned', async (event) => {
-        const value = String(event.detail?.value || '').trim();
-        if (!value || !window.Livewire) return;
-
-        const inventoryRoot = document.querySelector('[data-vx-page="inventory-center"]')?.closest('[wire\\:id]');
-        const componentId = inventoryRoot?.getAttribute('wire:id');
-        const component = componentId ? window.Livewire.find(componentId) : null;
-        if (!component) return;
-
-        try {
-            const quickTarget = component.$wire?.quickStockScanTargetId ?? component.quickStockScanTargetId;
-            if (quickTarget) {
-                await component.call('verifyQuickStockBarcode', value);
-            }
-        } catch (error) {
-            console.error('[VortexOps] Could not verify quick-stock barcode', error);
-        }
-    });
 })();
 </script>

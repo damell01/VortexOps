@@ -7,6 +7,17 @@
 --}}
 <livewire:inventory-quick-stock-modal />
 
+{{-- The global camera scanner normally sits at z-100. Quick Stock intentionally
+     uses a very high modal layer, so without this override the scanner opens
+     behind the Add Stock dialog and looks like it did nothing. Keep the scanner
+     above Quick Stock so users can see the live camera, scan, then return to the
+     still-open stock modal with the barcode populated. --}}
+<style>
+    [x-data="cameraScanner()"] > [x-show="isOpen"] {
+        z-index: 10050 !important;
+    }
+</style>
+
 <script>
 (() => {
     if (window.__vxInventoryCardQuickStockFixV4) return;

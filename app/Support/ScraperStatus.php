@@ -126,14 +126,33 @@ class ScraperStatus
 
     public static function session(): array
     {
-        $path = config('vortex.whatnot.cookies_file')
-            ?: app(\App\Services\WhatnotScraper::class)->cookiesFilePath();
+        $path = static::sessionPath();
 
         return [
             'exists' => file_exists($path),
             'path' => $path,
             'saved_at' => file_exists($path) ? Carbon::createFromTimestamp(filemtime($path)) : null,
         ];
+    }
+
+    /**
+     * Resolve the same session file used by the scraper without depending on a
+     * legacy WhatnotScraper::cookiesFilePath() method. An explicitly configured
+     * cookie file always wins; otherwise prefer whichever of the live/bootstrap
+     * session files was updated most recently.
+     */
+    private static function sessionPath(): string
+    {
+        if ($configured = config('vortex.whatnot.cookies_file')) {
+            return $configured;
+        }
+
+        $bootstrap = storage_path('whatnot-cookies.json');
+        $live = storage_path('whatnot-live-cookies.json');
+        $bootstrapMtime = file_exists($bootstrap) ? (filemtime($bootstrap) ?: 0) : 0;
+        $liveMtime = file_exists($live) ? (filemtime($live) ?: 0) : 0;
+
+        return $liveMtime > $bootstrapMtime ? $live : $bootstrap;
     }
 
     public static function byChannel(): array

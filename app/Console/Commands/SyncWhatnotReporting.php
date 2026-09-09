@@ -39,10 +39,13 @@ class SyncWhatnotReporting extends Command
             return self::FAILURE;
         }
 
-        $showLimit = max(20, min(30, (int) $this->option('show-limit')));
-        $orderBatch = max(20, min(30, (int) $this->option('order-batch')));
-        $analyticsLimit = max(20, min(25, (int) $this->option('analytics-limit')));
-        $shipmentBatch = max(20, min(30, (int) $this->option('shipment-batch')));
+        // Scheduled operational passes intentionally use smaller batches than the
+        // nightly reconciliation. Keep the upper safety caps, but do not force
+        // every invocation back up to 20+ shows.
+        $showLimit = max(1, min(30, (int) $this->option('show-limit')));
+        $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
+        $analyticsLimit = max(1, min(25, (int) $this->option('analytics-limit')));
+        $shipmentBatch = max(1, min(30, (int) $this->option('shipment-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
 
         $channels = WhatnotChannel::query()
@@ -66,9 +69,6 @@ class SyncWhatnotReporting extends Command
             return self::SUCCESS;
         }
 
-        // Manual reporting runs should never appear to hang silently behind a
-        // scheduler-owned pipeline. Recover a dead local owner, then either get
-        // the coordinator immediately or print the live holder and exit.
         WhatnotPipelineLock::recoverIfStale();
         $lock = WhatnotPipelineLock::acquire(
             'Coordinated reporting sync from '.$since->toDateString(),

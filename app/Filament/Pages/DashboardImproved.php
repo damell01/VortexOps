@@ -24,6 +24,15 @@ use Filament\Pages\Dashboard;
 
 class DashboardImproved extends Dashboard
 {
+    public function mount(): void
+    {
+        $user = auth()->user();
+
+        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            $this->redirect(StreamerShows::getUrl(), navigate: true);
+        }
+    }
+
     public function getView(): string
     {
         return 'filament.pages.dashboard-improved';
@@ -77,7 +86,7 @@ class DashboardImproved extends Dashboard
         $user = auth()->user();
         $data = ['roleMode' => 'user'];
 
-        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $streamerId = $user->streamer?->id ?? 0;
             $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();
 

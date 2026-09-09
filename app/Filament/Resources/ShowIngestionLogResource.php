@@ -86,7 +86,7 @@ class ShowIngestionLogResource extends Resource
                 ]),
 
             Section::make('Show History')
-                ->description('Every ingestion/sync event and tracked field change for this same show, oldest to newest.')
+                ->description('A useful summary of what changed on this show. Raw sync runs stay available underneath when you need the audit trail.')
                 ->visible(fn ($record) => (bool) $record?->show_id)
                 ->columnSpanFull()
                 ->schema([
@@ -127,13 +127,13 @@ class ShowIngestionLogResource extends Resource
         }
 
         $cells = collect($fields)->map(function ($value, $label) {
-            return '<div style="border:1px solid rgb(229 231 235);border-radius:10px;padding:10px 12px;min-width:0">'
-                . '<div style="font-size:11px;color:#6b7280;margin-bottom:3px">' . e($label) . '</div>'
-                . '<div style="font-size:14px;font-weight:650;overflow-wrap:anywhere">' . e((string) $value) . '</div>'
+            return '<div style="border:1px solid rgb(229 231 235);border-radius:12px;padding:11px 13px;min-width:0;background:rgba(249,250,251,.5)">'
+                . '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;margin-bottom:4px;font-weight:700">' . e($label) . '</div>'
+                . '<div style="font-size:14px;font-weight:700;overflow-wrap:anywhere">' . e((string) $value) . '</div>'
                 . '</div>';
         })->implode('');
 
-        return new HtmlString('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' . $cells . '</div>');
+        return new HtmlString('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px">' . $cells . '</div>');
     }
 
     private static function showHistory(?ShowIngestionLog $record): HtmlString
@@ -152,66 +152,187 @@ class ShowIngestionLogResource extends Resource
         $changes = ShowChangeLog::query()
             ->where('show_id', $record->show_id)
             ->orderBy('created_at')
-            ->limit(100)
-            ->get();
+            ->limit(200)
+            ->get()
+            ->filter(fn ($change) => static::historyValuesDiffer($change->old_value, $change->new_value));
 
-        $firstId = $ingestions->first()?->id;
-        $events = collect();
-
-        foreach ($ingestions as $log) {
-            $captured = $log->capturedFields();
-            $detail = $captured !== []
-                ? collect($captured)->take(6)->map(fn ($value, $label) => e($label) . ': ' . e($value))->implode(' · ')
-                : e($log->summary());
-
-            $events->push([
-                'at' => $log->created_at,
-                'title' => ($log->id === $firstId ? 'First recorded ingestion' : $log->sourceLabel()) . ($log->id === $record->id ? ' · Viewing now' : ''),
-                'detail' => $detail,
-                'meta' => ($log->channel?->name ?? 'All channels') . ' · ' . (ShowIngestionLog::statusLabels()[$log->status] ?? $log->status) . ' · Log #' . $log->id,
-                'tone' => '#7c3aed',
-                'url' => static::getUrl('view', ['record' => $log]),
-            ]);
-        }
-
-        foreach ($changes as $change) {
-            $old = $change->old_value === null || $change->old_value === '' ? '—' : $change->old_value;
-            $new = $change->new_value === null || $change->new_value === '' ? '—' : $change->new_value;
-            $events->push([
-                'at' => $change->created_at,
-                'title' => ucwords(str_replace('_', ' ', (string) $change->field_name)) . ' changed',
-                'detail' => e($old) . ' → ' . e($new),
-                'meta' => ucfirst((string) ($change->source ?: 'system')) . ($change->changed_by ? ' · ' . e($change->changed_by) : ''),
-                'tone' => '#2563eb',
-                'url' => null,
-            ]);
-        }
-
-        $events = $events->sortBy(fn ($event) => $event['at']?->timestamp ?? 0)->values();
         $showUrl = ShowResource::getUrl('view', ['record' => $record->show_id]);
+        $first = $ingestions->first();
+        $latest = $ingestions->last();
 
-        $html = '<div style="margin-bottom:12px"><a href="' . e($showUrl) . '" style="display:inline-flex;align-items:center;min-height:36px;padding:7px 11px;border:1px solid #d1d5db;border-radius:9px;color:inherit;font-size:12px;font-weight:700;text-decoration:none">Open current show</a></div>';
+        $html = '<div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">'
+            . '<div><div style="font-size:15px;font-weight:800">What changed on this show?</div><div style="font-size:11px;color:#6b7280;margin-top:2px">Previous values are grouped by field so repeated sync noise does not take over the page.</div></div>'
+            . '<a href="' . e($showUrl) . '" style="display:inline-flex;align-items:center;min-height:36px;padding:7px 11px;border:1px solid #d1d5db;border-radius:9px;color:inherit;font-size:12px;font-weight:700;text-decoration:none">Open current show</a>'
+            . '</div>';
 
-        if ($events->isEmpty()) {
-            return new HtmlString($html . '<div class="text-sm text-gray-500">No history has been recorded for this show yet.</div>');
+        if ($first) {
+            $firstFields = $first->capturedFields();
+            $latestFields = $latest?->capturedFields() ?? [];
+            $html .= '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:14px">';
+            $html .= static::snapshotCard('First recorded snapshot', $firstFields, $first->created_at?->format('M j, Y g:i A'), '#7c3aed');
+            if ($latest && $latest->id !== $first->id) {
+                $html .= static::snapshotCard('Latest ingestion snapshot', $latestFields, $latest->created_at?->format('M j, Y g:i A'), '#0891b2');
+            }
+            $html .= '</div>';
         }
 
-        foreach ($events as $event) {
-            $title = e($event['title']);
-            if ($event['url']) {
-                $title = '<a href="' . e($event['url']) . '" style="color:inherit;text-decoration:none">' . $title . '</a>';
+        $groups = $changes->groupBy('field_name')->map(function ($items, $field) {
+            $firstChange = $items->first();
+            $lastChange = $items->last();
+            return [
+                'field' => (string) $field,
+                'old' => $firstChange?->old_value,
+                'new' => $lastChange?->new_value,
+                'count' => $items->count(),
+                'at' => $lastChange?->created_at,
+                'source' => $lastChange?->source,
+            ];
+        })->sortByDesc(fn ($group) => $group['at']?->timestamp ?? 0)->values();
+
+        if ($groups->isNotEmpty()) {
+            $html .= '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:2px 0 8px">Meaningful field changes</div>';
+            $html .= '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px">';
+
+            foreach ($groups->take(16) as $group) {
+                $label = static::historyFieldLabel($group['field']);
+                $old = static::historyDisplayValue($group['field'], $group['old']);
+                $new = static::historyDisplayValue($group['field'], $group['new']);
+                $count = (int) $group['count'];
+                $html .= '<div style="border:1px solid #dbeafe;background:#eff6ff55;border-radius:13px;padding:12px;min-width:0">'
+                    . '<div style="display:flex;justify-content:space-between;gap:8px;align-items:start">'
+                    . '<div style="font-size:12px;font-weight:800;color:#1d4ed8">' . e($label) . '</div>'
+                    . '<div style="font-size:10px;color:#9ca3af;white-space:nowrap">' . e($group['at']?->format('M j, g:i A') ?? '—') . '</div>'
+                    . '</div>'
+                    . '<div style="display:grid;grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);gap:7px;align-items:stretch;margin-top:9px">'
+                    . '<div style="border:1px solid #e5e7eb;background:#fff;border-radius:9px;padding:9px;min-width:0"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#9ca3af">Previous</div><div style="margin-top:3px;font-size:12px;font-weight:650;overflow-wrap:anywhere">' . e($old) . '</div></div>'
+                    . '<div style="display:flex;align-items:center;justify-content:center;color:#9ca3af">→</div>'
+                    . '<div style="border:1px solid #bfdbfe;background:#fff;border-radius:9px;padding:9px;min-width:0"><div style="font-size:9px;font-weight:800;text-transform:uppercase;color:#3b82f6">Current</div><div style="margin-top:3px;font-size:12px;font-weight:800;overflow-wrap:anywhere">' . e($new) . '</div></div>'
+                    . '</div>'
+                    . '<div style="margin-top:7px;font-size:10px;color:#6b7280">' . ($count > 1 ? e($count . ' recorded updates · ') : '') . e(static::historySourceLabel((string) ($group['source'] ?: 'system'))) . '</div>'
+                    . '</div>';
             }
 
-            $html .= '<div style="display:grid;grid-template-columns:16px minmax(0,1fr);gap:10px;padding:10px 4px;border-bottom:1px solid #e5e7eb">'
-                . '<div style="padding-top:5px"><span style="display:block;width:9px;height:9px;border-radius:999px;background:' . $event['tone'] . '"></span></div>'
-                . '<div style="min-width:0">'
-                . '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px"><strong style="font-size:13px">' . $title . '</strong><span style="font-size:11px;color:#9ca3af">' . e($event['at']?->format('M j, Y g:i A') ?? '—') . '</span></div>'
-                . '<div style="margin-top:3px;font-size:12px;line-height:1.55;color:#4b5563;overflow-wrap:anywhere">' . $event['detail'] . '</div>'
-                . '<div style="margin-top:3px;font-size:10px;color:#9ca3af">' . $event['meta'] . '</div>'
-                . '</div></div>';
+            $html .= '</div>';
+            if ($groups->count() > 16) {
+                $html .= '<div style="margin-top:8px;font-size:11px;color:#6b7280">Showing the 16 most recently changed fields.</div>';
+            }
+        } else {
+            $html .= '<div style="border:1px dashed #d1d5db;border-radius:12px;padding:18px;text-align:center;color:#6b7280;font-size:12px">No meaningful field changes were recorded for this show.</div>';
+        }
+
+        if ($ingestions->isNotEmpty()) {
+            $html .= '<details style="margin-top:14px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">'
+                . '<summary style="cursor:pointer;padding:11px 13px;background:#f9fafb;font-size:12px;font-weight:750;display:flex;justify-content:space-between;gap:8px"><span>Technical ingestion runs</span><span style="color:#6b7280;font-size:10px">' . e((string) $ingestions->count()) . ' runs</span></summary>'
+                . '<div style="padding:4px 12px">';
+
+            foreach ($ingestions->sortByDesc('created_at')->take(20) as $log) {
+                $url = static::getUrl('view', ['record' => $log]);
+                $html .= '<a href="' . e($url) . '" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:9px 2px;border-bottom:1px solid #f3f4f6;color:inherit;text-decoration:none">'
+                    . '<div style="min-width:0"><div style="font-size:12px;font-weight:700">' . e($log->sourceLabel()) . '</div><div style="font-size:10px;color:#6b7280;margin-top:2px;overflow-wrap:anywhere">' . e($log->summary()) . ' · ' . e($log->channel?->name ?? 'All channels') . '</div></div>'
+                    . '<div style="font-size:10px;color:#9ca3af;white-space:nowrap">' . e($log->created_at?->format('M j, g:i A') ?? '—') . '</div>'
+                    . '</a>';
+            }
+
+            $html .= '</div></details>';
         }
 
         return new HtmlString($html);
+    }
+
+    private static function snapshotCard(string $title, array $fields, ?string $when, string $accent): string
+    {
+        $items = collect($fields)->take(6)->map(fn ($value, $label) => '<div style="min-width:0"><div style="font-size:9px;text-transform:uppercase;font-weight:800;color:#9ca3af">' . e($label) . '</div><div style="font-size:11px;font-weight:700;margin-top:2px;overflow-wrap:anywhere">' . e((string) $value) . '</div></div>')->implode('');
+        if ($items === '') $items = '<div style="font-size:11px;color:#6b7280">No readable show fields captured in this run.</div>';
+
+        return '<div style="border:1px solid #e5e7eb;border-radius:13px;padding:12px;min-width:0">'
+            . '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:999px;background:' . e($accent) . '"></span><strong style="font-size:12px">' . e($title) . '</strong></div><span style="font-size:10px;color:#9ca3af">' . e($when ?? '—') . '</span></div>'
+            . '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:10px">' . $items . '</div>'
+            . '</div>';
+    }
+
+    private static function historyFieldLabel(string $field): string
+    {
+        return match ($field) {
+            'gross_revenue' => 'Gross Revenue',
+            'whatnot_net' => 'Estimated Net',
+            'completed_earnings' => 'Completed Earnings',
+            'avg_order_value' => 'Average Order Value',
+            'giveaway_spend' => 'Giveaway Spend',
+            'giveaways_count' => 'Giveaways',
+            'buyers_count' => 'Buyers',
+            'first_time_buyers' => 'First-time Buyers',
+            'returning_buyers' => 'Returning Buyers',
+            'shares_count' => 'Shares',
+            'show_duration' => 'Show Duration',
+            'max_concurrent_viewers' => 'Peak Viewers',
+            'total_views' => 'Total Views',
+            'avg_order_rating' => 'Average Order Rating',
+            'show_date' => 'Show Date',
+            'start_time' => 'Start Time',
+            'shipment_dimensions_json' => 'Shipment Package Dimensions',
+            default => ucwords(str_replace('_', ' ', $field)),
+        };
+    }
+
+    private static function historyDisplayValue(string $field, mixed $value): string
+    {
+        if ($value === null || $value === '') return '—';
+
+        if (in_array($field, ['gross_revenue', 'whatnot_net', 'completed_earnings', 'avg_order_value', 'giveaway_spend'], true) && is_numeric($value)) {
+            return '$' . number_format((float) $value, 2);
+        }
+
+        $decoded = static::decodeHistoryJson($value);
+        if (is_array($decoded)) {
+            $count = count($decoded);
+            return $count . ' ' . str('record')->plural($count);
+        }
+
+        try {
+            if ($field === 'show_date') return \Carbon\Carbon::parse((string) $value)->format('M j, Y');
+            if ($field === 'start_time') return \Carbon\Carbon::parse((string) $value)->format('M j, Y g:i A');
+        } catch (\Throwable) {
+        }
+
+        return (string) $value;
+    }
+
+    private static function historyValuesDiffer(mixed $old, mixed $new): bool
+    {
+        $oldJson = static::decodeHistoryJson($old);
+        $newJson = static::decodeHistoryJson($new);
+
+        if (is_array($oldJson) && is_array($newJson)) {
+            return static::normalizeHistoryArray($oldJson) !== static::normalizeHistoryArray($newJson);
+        }
+
+        return (string) ($old ?? '') !== (string) ($new ?? '');
+    }
+
+    private static function decodeHistoryJson(mixed $value): ?array
+    {
+        if (! is_string($value) || trim($value) === '') return null;
+        $decoded = json_decode($value, true);
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded) ? $decoded : null;
+    }
+
+    private static function normalizeHistoryArray(array $value): array
+    {
+        foreach ($value as $key => $item) {
+            if (is_array($item)) $value[$key] = static::normalizeHistoryArray($item);
+        }
+        ksort($value);
+        return $value;
+    }
+
+    private static function historySourceLabel(string $source): string
+    {
+        return match ($source) {
+            'whatnot_import' => 'Whatnot import',
+            'whatnot_shipment_import' => 'Whatnot shipment sync',
+            'manual' => 'Manual change',
+            default => ucwords(str_replace('_', ' ', $source)),
+        };
     }
 
     public static function table(Table $table): Table
@@ -262,7 +383,6 @@ class ShowIngestionLogResource extends Resource
                     ->formatStateUsing(fn ($state) => ShowIngestionLog::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
             ])
-            // Keep the normal log as a live activity feed: newest import/refresh first.
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([15, 25, 50])

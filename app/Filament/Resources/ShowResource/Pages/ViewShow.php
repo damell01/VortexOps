@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Resources\DeductionRequestResource;
 use App\Filament\Resources\ShipmentResource;
 use App\Filament\Resources\ShowResource;
+use App\Filament\Widgets\ShowActivityWidget;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
@@ -25,7 +26,15 @@ class ViewShow extends ViewRecord
     }
 
     protected function getHeaderWidgets(): array { return []; }
-    protected function getFooterWidgets(): array { return []; }
+
+    protected function getFooterWidgets(): array
+    {
+        $user = auth()->user();
+
+        return ($user?->isAdmin() || $user?->isOwner())
+            ? [ShowActivityWidget::class]
+            : [];
+    }
 
     protected function getHeaderActions(): array
     {

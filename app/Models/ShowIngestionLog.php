@@ -43,6 +43,7 @@ class ShowIngestionLog extends Model
     {
         return [
             'whatnot'                         => 'Manual import',
+            'whatnot_desktop'                 => 'Desktop ingest',
             'whatnot_show_index'              => 'Legacy show index',
             'whatnot_spa_enrichment'          => 'Legacy analytics enrichment',
             'whatnot_recent_refresh'          => 'Legacy recent refresh',
@@ -141,8 +142,88 @@ class ShowIngestionLog extends Model
             'whatnot_deep_backfill' => 'Deep historical backfill completed',
             'whatnot_spa_enrichment', 'whatnot_recent_refresh' => $this->enrichmentSummary($payload),
             'whatnot_show_index' => 'Show details refreshed from the index',
-            default => $this->show_id ? 'Show imported' : 'Import ran',
+            default => $this->show_id ? 'Show imported / refreshed' : 'Import ran',
         };
+    }
+
+    /**
+     * Human-readable fields captured by this particular ingestion event.
+     * The payload shapes vary by pipeline, so flatten the common show/analytics
+     * containers and surface only useful scalar values. Raw JSON remains
+     * available for diagnostics below the clean summary.
+     *
+     * @return array<string,string>
+     */
+    public function capturedFields(): array
+    {
+        $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
+        $sources = [$payload];
+
+        foreach (['show', 'analytics', 'data', 'result'] as $key) {
+            if (isset($payload[$key]) && is_array($payload[$key])) {
+                $sources[] = $payload[$key];
+            }
+        }
+
+        $aliases = [
+            'title' => 'Title',
+            'show_title' => 'Title',
+            'show_date' => 'Show Date',
+            'start_time' => 'Start Time',
+            'whatnot_show_id' => 'Whatnot Show ID',
+            'live_id' => 'Whatnot Show ID',
+            'gross_revenue' => 'Gross Revenue',
+            'gross_sales' => 'Gross Revenue',
+            'sales' => 'Gross Revenue',
+            'whatnot_net' => 'Estimated Net',
+            'completed_earnings' => 'Completed Earnings',
+            'orders' => 'Orders',
+            'units_sold' => 'Units Sold',
+            'buyers_count' => 'Buyers',
+            'buyers' => 'Buyers',
+            'giveaways_count' => 'Giveaways',
+            'giveaways' => 'Giveaways',
+            'shipment_count' => 'Shipments',
+            'shipments' => 'Shipments',
+            'show_duration' => 'Duration',
+            'status' => 'Status',
+        ];
+
+        $fields = [];
+        foreach ($sources as $source) {
+            foreach ($aliases as $key => $label) {
+                if (! array_key_exists($key, $source) || $source[$key] === null || $source[$key] === '') continue;
+                $value = $source[$key];
+                if (is_array($value) || is_object($value)) continue;
+                if (isset($fields[$label])) continue;
+
+                $fields[$label] = match ($label) {
+                    'Gross Revenue', 'Estimated Net', 'Completed Earnings' => is_numeric($value) ? '$' . number_format((float) $value, 2) : (string) $value,
+                    'Orders', 'Units Sold', 'Buyers', 'Giveaways', 'Shipments' => is_numeric($value) ? number_format((float) $value) : (string) $value,
+                    default => (string) $value,
+                };
+            }
+        }
+
+        return $fields;
+    }
+
+    public function currentShowFields(): array
+    {
+        $show = $this->show;
+        if (! $show) return [];
+
+        return [
+            'Title' => $show->title ?: '—',
+            'Show Date' => $show->show_date?->format('M j, Y') ?: '—',
+            'Whatnot Show ID' => $show->whatnot_show_id ?: '—',
+            'Gross Revenue' => '$' . number_format((float) $show->gross_revenue, 2),
+            'Estimated Net' => '$' . number_format((float) $show->whatnot_net, 2),
+            'Units Sold' => number_format((int) ($show->units_sold ?? 0)),
+            'Buyers' => number_format((int) ($show->buyers_count ?? 0)),
+            'Giveaways' => number_format((int) ($show->giveaways_count ?? 0)),
+            'Last Analytics Sync' => $show->last_analytics_synced_at?->format('M j, Y g:i A') ?: '—',
+        ];
     }
 
     private function enrichmentSummary(array $payload): string

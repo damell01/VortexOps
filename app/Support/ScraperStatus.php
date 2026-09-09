@@ -13,42 +13,42 @@ class ScraperStatus
         'whatnot_show_analytics' => [
             'label' => 'Shows + Analytics',
             'detail' => 'Discovers shows and refreshes top-level analytics for every enabled channel.',
-            'every' => 'Hourly at :05',
-            'stale_after_minutes' => 150,
+            'every' => 'Every 2 hours',
+            'stale_after_minutes' => 180,
             'channel_scoped' => true,
         ],
         'whatnot_orders' => [
             'label' => 'Recent Orders',
             'detail' => 'Refreshes recent shows that may still be missing order rows.',
-            'every' => 'Every 30 minutes at :20 / :50',
-            'stale_after_minutes' => 90,
+            'every' => 'Every 2 hours',
+            'stale_after_minutes' => 180,
             'channel_scoped' => true,
         ],
         'whatnot_shipments' => [
             'label' => 'Shipments',
             'detail' => 'Refreshes unresolved shipment status, tracking, package and carrier data.',
-            'every' => 'Hourly at :35',
-            'stale_after_minutes' => 150,
+            'every' => 'Every 2 hours',
+            'stale_after_minutes' => 180,
             'channel_scoped' => true,
         ],
         'whatnot_ledger' => [
             'label' => 'Rolling Ledger',
-            'detail' => 'Reconciles the rolling 30-day Whatnot ledger window.',
-            'every' => 'Every 6 hours at :10',
+            'detail' => 'Reconciles ledger/post-show adjustments inside the coordinated reporting pipeline.',
+            'every' => 'Coordinated reporting',
             'stale_after_minutes' => 480,
             'channel_scoped' => true,
         ],
         'whatnot_nightly_reconciliation' => [
             'label' => 'Nightly Reconciliation',
-            'detail' => 'Repairs gaps across the last 30 days without blocking hourly ingestion.',
-            'every' => 'Daily at 12:30 AM',
+            'detail' => 'Runs a wider reconciliation pass to catch older reporting gaps.',
+            'every' => 'Nightly',
             'stale_after_minutes' => 1800,
             'channel_scoped' => false,
         ],
         'whatnot_deep_backfill' => [
             'label' => 'Deep Backfill',
-            'detail' => 'Runs the expensive historical ledger backfill.',
-            'every' => 'Sunday at 1:00 AM',
+            'detail' => 'Historical repair work that runs only when needed.',
+            'every' => 'On demand',
             'stale_after_minutes' => 11520,
             'channel_scoped' => false,
         ],
@@ -135,12 +135,6 @@ class ScraperStatus
         ];
     }
 
-    /**
-     * Resolve the same session file used by the scraper without depending on a
-     * legacy WhatnotScraper::cookiesFilePath() method. An explicitly configured
-     * cookie file always wins; otherwise prefer whichever of the live/bootstrap
-     * session files was updated most recently.
-     */
     private static function sessionPath(): string
     {
         if ($configured = config('vortex.whatnot.cookies_file')) {
@@ -188,9 +182,6 @@ class ScraperStatus
                 ->sortByDesc(fn (ShowIngestionLog $record) => $record->created_at)
                 ->first();
 
-            // Count only pipelines whose CURRENT state is bad. Historical/legacy
-            // failures stay in the detailed log, but they must not make a healthy
-            // channel look like it currently has 10+ broken jobs.
             $currentProblems = $pipelineRecords
                 ->filter(fn (?ShowIngestionLog $record) => $record && in_array($record->status, ['failed', 'partial'], true))
                 ->count();

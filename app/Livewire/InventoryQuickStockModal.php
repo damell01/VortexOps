@@ -20,6 +20,8 @@ class InventoryQuickStockModal extends Component
     public ?int $vendorId = null;
     public string $unitCost = '';
     public string $reason = '';
+    public string $currentBarcode = '';
+    public string $barcode = '';
 
     public function openForProduct(int $productId): void
     {
@@ -42,6 +44,8 @@ class InventoryQuickStockModal extends Component
         $this->vendorId = null;
         $this->unitCost = '';
         $this->reason = '';
+        $this->currentBarcode = trim((string) $record->barcode);
+        $this->barcode = $this->currentBarcode;
         $this->open = true;
     }
 
@@ -49,6 +53,58 @@ class InventoryQuickStockModal extends Component
     {
         $this->open = false;
         $this->resetValidation();
+    }
+
+    public function startBarcodeScan(): void
+    {
+        if (! $this->open || ! $this->productId) return;
+
+        $this->dispatch(
+            'open-camera-scanner',
+            title: filled($this->currentBarcode) ? 'Replace item barcode' : 'Attach item barcode',
+            helper: $this->productName,
+        );
+    }
+
+    public function captureBarcode(string $value): void
+    {
+        if (! $this->open || ! $this->productId) return;
+
+        $value = trim($value);
+        if ($value === '') return;
+
+        $clash = InventoryItem::query()
+            ->whereKeyNot($this->productId)
+            ->where(function ($query) use ($value) {
+                $query->where('barcode', $value)
+                    ->orWhere('upc', $value)
+                    ->orWhere('sku', $value);
+            })
+            ->first();
+
+        if ($clash) {
+            Notification::make()
+                ->title('Barcode already in use')
+                ->body($value . ' is already assigned to "' . $clash->name . '". Nothing was changed.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $this->barcode = $value;
+        $this->resetValidation('barcode');
+
+        Notification::make()
+            ->title(filled($this->currentBarcode) ? 'Replacement barcode scanned' : 'Barcode scanned')
+            ->body($value . ' will be saved with this stock update.')
+            ->success()
+            ->send();
+    }
+
+    public function clearBarcode(): void
+    {
+        $this->barcode = '';
+        $this->resetValidation('barcode');
     }
 
     public function save(): void
@@ -60,10 +116,28 @@ class InventoryQuickStockModal extends Component
             'vendorId' => ['nullable', 'integer'],
             'unitCost' => ['nullable', 'numeric', 'min:0'],
             'reason' => ['nullable', 'string', 'max:500'],
+            'barcode' => ['nullable', 'string', 'max:255'],
         ]);
 
         $record = InventoryItem::findOrFail((int) $data['productId']);
         abort_unless(InventoryItemResource::canEdit($record), 403);
+
+        $barcode = trim((string) ($data['barcode'] ?? ''));
+        if ($barcode !== '') {
+            $clash = InventoryItem::query()
+                ->whereKeyNot($record->getKey())
+                ->where(function ($query) use ($barcode) {
+                    $query->where('barcode', $barcode)
+                        ->orWhere('upc', $barcode)
+                        ->orWhere('sku', $barcode);
+                })
+                ->first();
+
+            if ($clash) {
+                $this->addError('barcode', $barcode . ' is already assigned to ' . $clash->name . '.');
+                return;
+            }
+        }
 
         $location = InventoryLocation::findOrFail((int) $data['locationId']);
         $reason = trim((string) ($data['reason'] ?? ''));
@@ -82,12 +156,16 @@ class InventoryQuickStockModal extends Component
             $data['unitCost'] !== null && $data['unitCost'] !== '' ? (float) $data['unitCost'] : null,
         );
 
+        if ($barcode !== '' && $barcode !== trim((string) $record->barcode)) {
+            $record->forceFill(['barcode' => $barcode])->save();
+        }
+
         $qty = (float) $data['quantity'];
         $this->open = false;
 
         Notification::make()
             ->title('Stock added successfully')
-            ->body(number_format($qty) . ' added to ' . $record->name . ' at ' . $location->name . '.')
+            ->body(number_format($qty) . ' added to ' . $record->name . ' at ' . $location->name . ($barcode !== '' ? ' · Barcode ' . $barcode : '') . '.')
             ->success()
             ->send();
 

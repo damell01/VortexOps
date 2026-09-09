@@ -4,9 +4,11 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShowIngestionLogResource\Pages;
+use App\Models\ShowChangeLog;
 use App\Models\ShowIngestionLog;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -74,7 +76,7 @@ class ShowIngestionLogResource extends Resource
             ]),
 
             Section::make('Data Captured In This Run')
-                ->description('The useful show/analytics fields saved in this ingestion record. This is the historical snapshot for this run.')
+                ->description('The historical snapshot from this particular Whatnot/import run.')
                 ->columnSpanFull()
                 ->schema([
                     \Filament\Forms\Components\Placeholder::make('captured_fields')
@@ -83,8 +85,19 @@ class ShowIngestionLogResource extends Resource
                         ->columnSpanFull(),
                 ]),
 
+            Section::make('Show History')
+                ->description('Every ingestion/sync event and tracked field change for this same show, oldest to newest.')
+                ->visible(fn ($record) => (bool) $record?->show_id)
+                ->columnSpanFull()
+                ->schema([
+                    \Filament\Forms\Components\Placeholder::make('show_history')
+                        ->label('History')
+                        ->content(fn ($record) => static::showHistory($record))
+                        ->columnSpanFull(),
+                ]),
+
             Section::make('Current Linked Show')
-                ->description('Current values on the show now, after later refreshes may have updated it.')
+                ->description('What VortexOps stores on the show now, after later refreshes may have updated it.')
                 ->visible(fn ($record) => (bool) $record?->show)
                 ->columnSpanFull()
                 ->schema([
@@ -123,6 +136,84 @@ class ShowIngestionLogResource extends Resource
         return new HtmlString('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' . $cells . '</div>');
     }
 
+    private static function showHistory(?ShowIngestionLog $record): HtmlString
+    {
+        if (! $record?->show_id) {
+            return new HtmlString('<div class="text-sm text-gray-500">No show is linked to this record.</div>');
+        }
+
+        $ingestions = ShowIngestionLog::query()
+            ->with('channel')
+            ->where('show_id', $record->show_id)
+            ->orderBy('created_at')
+            ->limit(100)
+            ->get();
+
+        $changes = ShowChangeLog::query()
+            ->where('show_id', $record->show_id)
+            ->orderBy('created_at')
+            ->limit(100)
+            ->get();
+
+        $firstId = $ingestions->first()?->id;
+        $events = collect();
+
+        foreach ($ingestions as $log) {
+            $captured = $log->capturedFields();
+            $detail = $captured !== []
+                ? collect($captured)->take(6)->map(fn ($value, $label) => e($label) . ': ' . e($value))->implode(' · ')
+                : e($log->summary());
+
+            $events->push([
+                'at' => $log->created_at,
+                'title' => ($log->id === $firstId ? 'First recorded ingestion' : $log->sourceLabel()) . ($log->id === $record->id ? ' · Viewing now' : ''),
+                'detail' => $detail,
+                'meta' => ($log->channel?->name ?? 'All channels') . ' · ' . (ShowIngestionLog::statusLabels()[$log->status] ?? $log->status) . ' · Log #' . $log->id,
+                'tone' => '#7c3aed',
+                'url' => static::getUrl('view', ['record' => $log]),
+            ]);
+        }
+
+        foreach ($changes as $change) {
+            $old = $change->old_value === null || $change->old_value === '' ? '—' : $change->old_value;
+            $new = $change->new_value === null || $change->new_value === '' ? '—' : $change->new_value;
+            $events->push([
+                'at' => $change->created_at,
+                'title' => ucwords(str_replace('_', ' ', (string) $change->field_name)) . ' changed',
+                'detail' => e($old) . ' → ' . e($new),
+                'meta' => ucfirst((string) ($change->source ?: 'system')) . ($change->changed_by ? ' · ' . e($change->changed_by) : ''),
+                'tone' => '#2563eb',
+                'url' => null,
+            ]);
+        }
+
+        $events = $events->sortBy(fn ($event) => $event['at']?->timestamp ?? 0)->values();
+        $showUrl = ShowResource::getUrl('view', ['record' => $record->show_id]);
+
+        $html = '<div style="margin-bottom:12px"><a href="' . e($showUrl) . '" style="display:inline-flex;align-items:center;min-height:36px;padding:7px 11px;border:1px solid #d1d5db;border-radius:9px;color:inherit;font-size:12px;font-weight:700;text-decoration:none">Open current show</a></div>';
+
+        if ($events->isEmpty()) {
+            return new HtmlString($html . '<div class="text-sm text-gray-500">No history has been recorded for this show yet.</div>');
+        }
+
+        foreach ($events as $event) {
+            $title = e($event['title']);
+            if ($event['url']) {
+                $title = '<a href="' . e($event['url']) . '" style="color:inherit;text-decoration:none">' . $title . '</a>';
+            }
+
+            $html .= '<div style="display:grid;grid-template-columns:16px minmax(0,1fr);gap:10px;padding:10px 4px;border-bottom:1px solid #e5e7eb">'
+                . '<div style="padding-top:5px"><span style="display:block;width:9px;height:9px;border-radius:999px;background:' . $event['tone'] . '"></span></div>'
+                . '<div style="min-width:0">'
+                . '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px"><strong style="font-size:13px">' . $title . '</strong><span style="font-size:11px;color:#9ca3af">' . e($event['at']?->format('M j, Y g:i A') ?? '—') . '</span></div>'
+                . '<div style="margin-top:3px;font-size:12px;line-height:1.55;color:#4b5563;overflow-wrap:anywhere">' . $event['detail'] . '</div>'
+                . '<div style="margin-top:3px;font-size:10px;color:#9ca3af">' . $event['meta'] . '</div>'
+                . '</div></div>';
+        }
+
+        return new HtmlString($html);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -132,20 +223,46 @@ class ShowIngestionLogResource extends Resource
             ->emptyStateDescription('Whatnot jobs are logged here with their results.')
             ->emptyStateIcon('heroicon-o-arrow-down-tray')
             ->columns([
-                TextColumn::make('created_at')->label('When')->since()->description(fn ($record) => $record->created_at?->format('M j, Y g:i A'))->tooltip(fn ($record) => $record->created_at?->toDayDateTimeString())->sortable(),
-                TextColumn::make('source')->label('Job / Pipeline')->badge()->formatStateUsing(fn ($state) => ShowIngestionLog::sourceLabels()[$state] ?? $state)->color('primary')->sortable(),
-                TextColumn::make('channel.name')->label('Channel')->badge()->color('gray')->placeholder('All channels')->sortable(),
-                TextColumn::make('summary')->label('What happened')->getStateUsing(fn (ShowIngestionLog $record) => $record->summary())->description(function (ShowIngestionLog $record): string {
-                    $captured = $record->capturedFields();
-                    if ($captured !== []) {
-                        return collect($captured)->take(3)->map(fn ($v, $k) => $k . ': ' . $v)->implode(' · ');
-                    }
-                    $error = trim((string) $record->error_message);
-                    return $error !== '' ? \Illuminate\Support\Str::limit($error, 100) : $record->sourceLabel();
-                })->color(fn (ShowIngestionLog $record) => $record->status === 'failed' ? 'danger' : ($record->status === 'partial' ? 'warning' : null))->tooltip(fn (ShowIngestionLog $record) => $record->error_message)->wrap(),
-                TextColumn::make('show.title')->label('Show')->placeholder('Job summary')->searchable()->limit(40)->description(fn ($record) => $record->show ? 'Show #' . $record->show_id . ' · ' . ($record->show->show_date?->format('M j, Y') ?? 'date unknown') : 'No individual show linked')->url(fn ($record) => $record->show ? ShowResource::getUrl('view', ['record' => $record->show_id]) : null),
-                TextColumn::make('status')->label('Outcome')->badge()->formatStateUsing(fn ($state) => ShowIngestionLog::statusLabels()[$state] ?? $state)->color(fn ($state) => StatusColor::for($state)),
+                TextColumn::make('created_at')
+                    ->label('When')->since()
+                    ->description(fn ($record) => $record->created_at?->format('M j, Y g:i A'))
+                    ->tooltip(fn ($record) => $record->created_at?->toDayDateTimeString())
+                    ->sortable(),
+                TextColumn::make('source')
+                    ->label('Job / Pipeline')->badge()
+                    ->formatStateUsing(fn ($state) => ShowIngestionLog::sourceLabels()[$state] ?? $state)
+                    ->color('primary')->sortable(),
+                TextColumn::make('channel.name')
+                    ->label('Channel')->badge()->color('gray')->placeholder('All channels')->sortable(),
+                TextColumn::make('summary')
+                    ->label('What happened')
+                    ->getStateUsing(fn (ShowIngestionLog $record) => $record->summary())
+                    ->description(function (ShowIngestionLog $record): string {
+                        $captured = $record->capturedFields();
+                        if ($captured !== []) {
+                            return collect($captured)->take(3)->map(fn ($v, $k) => $k . ': ' . $v)->implode(' · ');
+                        }
+                        $error = trim((string) $record->error_message);
+                        return $error !== '' ? \Illuminate\Support\Str::limit($error, 100) : $record->sourceLabel();
+                    })
+                    ->color(fn (ShowIngestionLog $record) => $record->status === 'failed' ? 'danger' : ($record->status === 'partial' ? 'warning' : null))
+                    ->tooltip(fn (ShowIngestionLog $record) => $record->error_message)
+                    ->wrap(),
+                TextColumn::make('show.title')
+                    ->label('Show')
+                    ->placeholder('Job summary')
+                    ->searchable()
+                    ->limit(40)
+                    ->description(fn ($record) => $record->show ? 'Show #' . $record->show_id . ' · click for full ingestion history' : 'No individual show linked')
+                    ->url(fn ($record) => $record->show ? static::getUrl('index', [
+                        'tableFilters' => ['show_id' => ['value' => (string) $record->show_id]],
+                    ]) : null),
+                TextColumn::make('status')
+                    ->label('Outcome')->badge()
+                    ->formatStateUsing(fn ($state) => ShowIngestionLog::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => StatusColor::for($state)),
             ])
+            // Keep the normal log as a live activity feed: newest import/refresh first.
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([15, 25, 50])
@@ -156,18 +273,43 @@ class ShowIngestionLogResource extends Resource
                 Group::make('created_at')->label('Day')->date(),
             ])
             ->filters([
+                SelectFilter::make('show_id')
+                    ->label('Show')
+                    ->relationship('show', 'title')
+                    ->searchable(),
                 SelectFilter::make('source')->label('Job / Pipeline')->options(ShowIngestionLog::sourceLabels())->multiple(),
                 SelectFilter::make('whatnot_channel_id')->label('Channel')->relationship('channel', 'name')->multiple()->preload(),
                 SelectFilter::make('status')->label('Outcome')->options(ShowIngestionLog::statusLabels()),
                 Filter::make('problems_only')->label('Problems only')->query(fn (Builder $query) => $query->where('status', '!=', 'success')),
-                Filter::make('hide_old_failures')->label('Hide problems older than 24h')->query(fn (Builder $query) => $query->where(function (Builder $query): void { $query->where('status', 'success')->orWhere('created_at', '>=', now()->subDay()); })),
-                Filter::make('created_at')->label('Date range')->form([DatePicker::make('from')->label('From'), DatePicker::make('until')->label('Until')])->query(fn (Builder $query, array $data) => $query->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d)))->indicateUsing(function (array $data): ?string {
-                    $from = $data['from'] ?? null; $until = $data['until'] ?? null;
-                    return match (true) { $from && $until => "From {$from} to {$until}", (bool) $from => "From {$from}", (bool) $until => "Until {$until}", default => null };
-                }),
+                Filter::make('hide_old_failures')->label('Hide problems older than 24h')->query(fn (Builder $query) => $query->where(function (Builder $query): void {
+                    $query->where('status', 'success')->orWhere('created_at', '>=', now()->subDay());
+                })),
+                Filter::make('created_at')
+                    ->label('Date range')
+                    ->form([DatePicker::make('from')->label('From'), DatePicker::make('until')->label('Until')])
+                    ->query(fn (Builder $query, array $data) => $query
+                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d)))
+                    ->indicateUsing(function (array $data): ?string {
+                        $from = $data['from'] ?? null;
+                        $until = $data['until'] ?? null;
+                        return match (true) {
+                            $from && $until => "From {$from} to {$until}",
+                            (bool) $from => "From {$from}",
+                            (bool) $until => "Until {$until}",
+                            default => null,
+                        };
+                    }),
             ])
             ->actions([
-                ViewAction::make()->iconButton(),
+                ViewAction::make()->tooltip('View this ingestion snapshot')->iconButton(),
+                Action::make('open_show')
+                    ->label('Open Show')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->tooltip('Open current show workspace')
+                    ->iconButton()
+                    ->visible(fn (ShowIngestionLog $record) => (bool) $record->show_id)
+                    ->url(fn (ShowIngestionLog $record) => ShowResource::getUrl('view', ['record' => $record->show_id])),
                 \Filament\Actions\DeleteAction::make()->iconButton()->visible(fn (ShowIngestionLog $record) => static::canDelete($record)),
             ]);
     }

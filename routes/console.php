@@ -72,11 +72,20 @@ Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activi
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// One authoritative Whatnot browser pipeline. Do not schedule independent show,
-// analytics, order, shipment, or ledger jobs around it: those jobs all share
-// the same seller browser/profile and were creating lock queues and stale work.
-// The coordinated command owns one pipeline lock, finishes each channel fully,
-// and only then moves to the next channel.
+// One authoritative Whatnot browser pipeline. A smaller operational pass runs
+// every two hours so shows, analytics, orders and shipments stay useful during
+// the day without bringing back competing browser jobs. The command itself
+// still owns the shared browser/profile lock and skips cleanly when busy.
+Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=8 --order-batch=10 --analytics-limit=8 --shipment-batch=10 --skip-if-busy')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->cron('15 */2 * * *')
+    ->name('whatnot-operational-reporting-refresh')
+    ->withoutOverlapping(180);
+
+// Heavier nightly reconciliation catches older gaps with wider batches. Times
+// are intentionally stored/scheduled in UTC; the UI renders them in the
+// browser's detected timezone so operators see local clock time automatically.
 Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=25 --order-batch=25 --analytics-limit=25 --shipment-batch=25 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)

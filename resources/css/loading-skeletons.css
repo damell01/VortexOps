@@ -14,260 +14,146 @@
 }
 
 @keyframes loading {
-    0% {
-        background-position: 200% 0;
-    }
-    100% {
-        background-position: -200% 0;
-    }
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 @keyframes loading-dark {
-    0% {
-        background-position: 200% 0;
-    }
-    100% {
-        background-position: -200% 0;
-    }
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
-/* Skeleton variants */
-
-.skeleton-text {
-    height: 1rem;
-    margin-bottom: 0.5rem;
-    width: 100%;
-}
-
-.skeleton-title {
-    height: 1.5rem;
-    margin-bottom: 1rem;
-    width: 60%;
-}
-
-.skeleton-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.skeleton-button {
-    height: 44px;
-    width: 100%;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-}
-
-.skeleton-card {
-    padding: 16px;
-    border-radius: 12px;
-    margin-bottom: 12px;
-}
-
-.skeleton-table-row {
-    display: flex;
-    gap: 12px;
-    padding: 12px 8px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.skeleton-table-cell {
-    flex: 1;
-    height: 20px;
-    border-radius: 4px;
-}
-
-/* Pulse animation for subtle effect */
-.skeleton-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
+.skeleton-text { height: 1rem; margin-bottom: 0.5rem; width: 100%; }
+.skeleton-title { height: 1.5rem; margin-bottom: 1rem; width: 60%; }
+.skeleton-avatar { width: 40px; height: 40px; border-radius: 50%; display: inline-block; }
+.skeleton-button { height: 44px; width: 100%; border-radius: 8px; margin-bottom: 1rem; }
+.skeleton-card { padding: 16px; border-radius: 12px; margin-bottom: 12px; }
+.skeleton-table-row { display: flex; gap: 12px; padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
+.skeleton-table-cell { flex: 1; height: 20px; border-radius: 4px; }
+.skeleton-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
 @keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
 }
 
-/* Grid of skeletons */
-.skeleton-grid {
-    display: grid;
-    gap: 12px;
-}
-
-.skeleton-grid-2 {
-    grid-template-columns: repeat(2, 1fr);
-}
-
-.skeleton-grid-3 {
-    grid-template-columns: repeat(3, 1fr);
-}
+.skeleton-grid { display: grid; gap: 12px; }
+.skeleton-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.skeleton-grid-3 { grid-template-columns: repeat(3, 1fr); }
 
 @media (max-width: 768px) {
     .skeleton-grid-2,
-    .skeleton-grid-3 {
-        grid-template-columns: 1fr;
-    }
+    .skeleton-grid-3 { grid-template-columns: 1fr; }
 }
 
-/* Shimmer effect (alternative to pulse) */
-.skeleton-shimmer {
-    position: relative;
-    overflow: hidden;
-}
-
+.skeleton-shimmer { position: relative; overflow: hidden; }
 .skeleton-shimmer::after {
     content: '';
     position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
+    inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0),
-        rgba(255, 255, 255, 0.2),
-        rgba(255, 255, 255, 0)
-    );
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.2), rgba(255,255,255,0));
     animation: shimmer 2s infinite;
 }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
 
-@keyframes shimmer {
-    100% {
-        transform: translateX(100%);
-    }
-}
+.skeleton-table { width: 100%; }
+.skeleton-table-header { display: flex; gap: 8px; padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
+.skeleton-table-header-cell { flex: 1; height: 16px; }
+.skeleton-list-item { padding: 12px; border-radius: 8px; margin-bottom: 8px; }
+.skeleton-list-item-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.skeleton-list-item-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+.skeleton-list-item-text { flex: 1; }
+.skeleton-list-item-title { height: 16px; width: 70%; margin-bottom: 6px; }
+.skeleton-list-item-subtitle { height: 12px; width: 50%; }
+.skeleton-form { padding: 16px; }
+.skeleton-form-group { margin-bottom: 16px; }
+.skeleton-form-label { height: 14px; width: 25%; margin-bottom: 8px; }
+.skeleton-form-input { height: 44px; width: 100%; border-radius: 8px; }
+.skeleton-modal-header { height: 24px; width: 40%; margin-bottom: 16px; }
+.skeleton-modal-content { margin-bottom: 16px; }
+.skeleton-modal-content > div { height: 16px; width: 100%; margin-bottom: 8px; }
+.skeleton-modal-footer { display: flex; gap: 8px; }
+.skeleton-modal-footer-button { height: 44px; flex: 1; border-radius: 8px; }
+.skeleton-dashboard-card { padding: 16px; border-radius: 12px; }
+.skeleton-dashboard-card-title { height: 16px; width: 40%; margin-bottom: 12px; }
+.skeleton-dashboard-card-value { height: 32px; width: 60%; margin-bottom: 8px; }
+.skeleton-dashboard-card-footer { height: 12px; width: 50%; }
 
-/* Table skeleton */
-.skeleton-table {
-    width: 100%;
-}
-
-.skeleton-table-header {
-    display: flex;
-    gap: 8px;
-    padding: 12px 8px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.skeleton-table-header-cell {
-    flex: 1;
-    height: 16px;
-}
-
-/* List skeleton */
-.skeleton-list-item {
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-}
-
-.skeleton-list-item-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-}
-
-.skeleton-list-item-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.skeleton-list-item-text {
-    flex: 1;
-}
-
-.skeleton-list-item-title {
-    height: 16px;
-    width: 70%;
-    margin-bottom: 6px;
-}
-
-.skeleton-list-item-subtitle {
-    height: 12px;
-    width: 50%;
-}
-
-/* Form skeleton */
-.skeleton-form {
-    padding: 16px;
-}
-
-.skeleton-form-group {
-    margin-bottom: 16px;
-}
-
-.skeleton-form-label {
-    height: 14px;
-    width: 25%;
-    margin-bottom: 8px;
-}
-
-.skeleton-form-input {
-    height: 44px;
-    width: 100%;
-    border-radius: 8px;
-}
-
-/* Modal skeleton */
-.skeleton-modal-header {
-    height: 24px;
-    width: 40%;
-    margin-bottom: 16px;
-}
-
-.skeleton-modal-content {
-    margin-bottom: 16px;
-}
-
-.skeleton-modal-content > div {
-    height: 16px;
-    width: 100%;
-    margin-bottom: 8px;
-}
-
-.skeleton-modal-footer {
-    display: flex;
-    gap: 8px;
-}
-
-.skeleton-modal-footer-button {
-    height: 44px;
-    flex: 1;
-    border-radius: 8px;
-}
-
-/* Dashboard card skeleton */
-.skeleton-dashboard-card {
-    padding: 16px;
-    border-radius: 12px;
-}
-
-.skeleton-dashboard-card-title {
-    height: 16px;
-    width: 40%;
-    margin-bottom: 12px;
-}
-
-.skeleton-dashboard-card-value {
-    height: 32px;
-    width: 60%;
-    margin-bottom: 8px;
-}
-
-.skeleton-dashboard-card-footer {
-    height: 12px;
-    width: 50%;
-}
-
-/* Dark mode support */
 html.dark .skeleton {
     background: linear-gradient(90deg, #3a3a3a 25%, #4a4a4a 50%, #3a3a3a 75%);
+}
+
+/* Streamer shell ---------------------------------------------------------
+   My Shows is the streamer application hub. Once a streamer is inside the
+   End-of-Stream flow, keep that same distraction-free shell instead of
+   dropping them back into the admin sidebar. */
+body:has([data-vx-eos-report]) .fi-sidebar,
+body:has([data-vx-page="streamer-shows"]) .fi-sidebar,
+body:has([data-vx-page="streamer-dashboard"]) .fi-sidebar {
+    display: none !important;
+}
+
+body:has([data-vx-eos-report]) .fi-topbar-open-sidebar-btn,
+body:has([data-vx-eos-report]) .fi-topbar-close-sidebar-btn,
+body:has([data-vx-page="streamer-shows"]) .fi-topbar-open-sidebar-btn,
+body:has([data-vx-page="streamer-shows"]) .fi-topbar-close-sidebar-btn,
+body:has([data-vx-page="streamer-dashboard"]) .fi-topbar-open-sidebar-btn,
+body:has([data-vx-page="streamer-dashboard"]) .fi-topbar-close-sidebar-btn {
+    display: none !important;
+}
+
+body:has([data-vx-eos-report]) .fi-main-ctn,
+body:has([data-vx-page="streamer-shows"]) .fi-main-ctn,
+body:has([data-vx-page="streamer-dashboard"]) .fi-main-ctn {
+    margin-inline-start: 0 !important;
+}
+
+body:has([data-vx-eos-report]) .fi-main,
+body:has([data-vx-page="streamer-shows"]) .fi-main,
+body:has([data-vx-page="streamer-dashboard"]) .fi-main {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+/* End-of-stream actions: never let a button borrow width from the copy next
+   to it. The action group can wrap and every Filament button gets a real
+   minimum content width instead of overlapping its neighbor. */
+[data-vx-eos-report] .fi-btn {
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+[data-vx-eos-report] .fi-btn-label {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+[data-vx-eos-report] section > .flex > div:last-child:has(.fi-btn) {
+    flex-wrap: wrap !important;
+    min-width: 0 !important;
+}
+
+/* Sticky/save footers must remain tappable on phones with browser chrome and
+   safe-area insets. */
+@media (max-width: 640px) {
+    [data-vx-eos-report] {
+        padding-bottom: calc(7rem + env(safe-area-inset-bottom)) !important;
+    }
+
+    [data-vx-eos-report] .fi-btn {
+        min-height: 44px !important;
+    }
+
+    [data-vx-eos-report] section > .flex > div:last-child:has(.fi-btn) {
+        width: 100% !important;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: .5rem !important;
+    }
+
+    [data-vx-eos-report] section > .flex > div:last-child:has(.fi-btn) .fi-btn {
+        width: 100% !important;
+    }
 }

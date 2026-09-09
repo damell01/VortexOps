@@ -4,7 +4,6 @@
 /* TABLE ACTION BUTTONS - PREVENT OVERFLOW */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Action cell container - ensure it doesn't overflow */
 .fi-ta-cell-action,
 .fi-ta-actions {
     display: flex !important;
@@ -15,7 +14,6 @@
     min-width: 0 !important;
 }
 
-/* Action cell must handle overflow gracefully */
 td[class*="action"],
 .fi-ta-cell-action {
     overflow: visible !important;
@@ -23,7 +21,6 @@ td[class*="action"],
     padding-right: 0.75rem !important;
 }
 
-/* Icon buttons should be consistently sized */
 .fi-ta-actions .fi-icon-btn,
 .fi-ta-actions button[class*="icon"],
 .fi-ta-actions a[class*="icon"] {
@@ -36,7 +33,6 @@ td[class*="action"],
     flex-shrink: 0 !important;
 }
 
-/* Label buttons (like "+ Add Stock") should be properly spaced */
 .fi-ta-actions .fi-btn:not(.fi-icon-btn),
 .fi-ta-actions button:not([class*="icon"]) {
     padding: 0.5rem 0.75rem !important;
@@ -46,7 +42,6 @@ td[class*="action"],
     min-height: 36px !important;
 }
 
-/* ActionGroup dropdown trigger button */
 .fi-ta-actions .fi-dropdown-trigger,
 .fi-ta-actions [role="button"].fi-dropdown-list-trigger {
     min-height: 36px !important;
@@ -55,15 +50,8 @@ td[class*="action"],
     flex-shrink: 0 !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* TABLE ACTIONS ON MOBILE - COMPACT LAYOUT */
-/* ═══════════════════════════════════════════════════════════════════ */
-
 @media (max-width: 1024px) {
-    .fi-ta-actions {
-        gap: 0.125rem !important;
-    }
-
+    .fi-ta-actions { gap: 0.125rem !important; }
     .fi-ta-actions .fi-btn:not(.fi-icon-btn) {
         font-size: 0.8125rem !important;
         padding: 0.5rem 0.625rem !important;
@@ -98,9 +86,7 @@ td[class*="action"],
         border-radius: 0.25rem !important;
     }
 
-    .fi-ta-actions .fi-btn-label {
-        display: none !important;
-    }
+    .fi-ta-actions .fi-btn-label { display: none !important; }
 
     .fi-ta-actions .fi-dropdown-list-trigger,
     .fi-ta-actions [role="button"].fi-dropdown-list-trigger {
@@ -119,22 +105,9 @@ td[class*="action"],
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* ENSURE ACTIONS DON'T GET CLIPPED BY PARENT CONTAINER */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-.fi-table tbody tr {
-    overflow: visible !important;
-}
-
-.fi-ta-ctn {
-    overflow-x: auto !important;
-    overflow-y: visible !important;
-}
-
-.fi-table {
-    overflow: visible !important;
-}
+.fi-table tbody tr { overflow: visible !important; }
+.fi-ta-ctn { overflow-x: auto !important; overflow-y: visible !important; }
+.fi-table { overflow: visible !important; }
 
 .fi-dropdown-list,
 [role="dialog"][class*="dropdown"],
@@ -143,14 +116,8 @@ td[class*="action"],
     position: relative !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* RESPONSIVE ACTION LAYOUT REFINEMENTS */
-/* ═══════════════════════════════════════════════════════════════════ */
-
 @media (max-width: 500px) {
-    .fi-ta-actions .fi-btn:not(.fi-icon-btn) {
-        display: none !important;
-    }
+    .fi-ta-actions .fi-btn:not(.fi-icon-btn) { display: none !important; }
 
     .fi-ta-actions .fi-dropdown-list-trigger,
     .fi-ta-actions [role="button"][class*="dropdown"] {
@@ -165,18 +132,9 @@ td[class*="action"],
         padding: 0.5rem !important;
     }
 
-    .fi-ta-cell-action {
-        max-width: 100% !important;
-    }
-
-    td:has(.fi-ta-actions) {
-        padding: 0.5rem 0.375rem !important;
-    }
+    .fi-ta-cell-action { max-width: 100% !important; }
+    td:has(.fi-ta-actions) { padding: 0.5rem 0.375rem !important; }
 }
-
-/* ═══════════════════════════════════════════════════════════════════ */
-/* ACTION BUTTON STATES AND INTERACTIONS */
-/* ═══════════════════════════════════════════════════════════════════ */
 
 .fi-ta-actions button:hover,
 .fi-ta-actions a:hover {
@@ -191,9 +149,7 @@ td[class*="action"],
 }
 
 .fi-ta-actions button:active,
-.fi-ta-actions a:active {
-    transform: translateY(0) !important;
-}
+.fi-ta-actions a:active { transform: translateY(0) !important; }
 
 .fi-ta-actions button:disabled,
 .fi-ta-actions a[aria-disabled="true"] {
@@ -201,10 +157,6 @@ td[class*="action"],
     cursor: not-allowed !important;
     pointer-events: none !important;
 }
-
-/* ═══════════════════════════════════════════════════════════════════ */
-/* DROPDOWN MENU FOR GROUPED ACTIONS */
-/* ═══════════════════════════════════════════════════════════════════ */
 
 .fi-dropdown-list {
     background-color: #ffffff !important;
@@ -233,15 +185,11 @@ html.dark .fi-dropdown-list {
 
 .fi-dropdown-list button:hover,
 .fi-dropdown-list a:hover,
-.fi-dropdown-list [role="menuitem"]:hover {
-    background-color: #f3f4f6 !important;
-}
+.fi-dropdown-list [role="menuitem"]:hover { background-color: #f3f4f6 !important; }
 
 html.dark .fi-dropdown-list button:hover,
 html.dark .fi-dropdown-list a:hover,
-html.dark .fi-dropdown-list [role="menuitem"]:hover {
-    background-color: #374151 !important;
-}
+html.dark .fi-dropdown-list [role="menuitem"]:hover { background-color: #374151 !important; }
 
 .fi-dropdown-list hr {
     margin: 0.25rem 0 !important;
@@ -249,17 +197,12 @@ html.dark .fi-dropdown-list [role="menuitem"]:hover {
     border-top: 1px solid #e5e7eb !important;
 }
 
-html.dark .fi-dropdown-list hr {
-    border-top-color: #374151 !important;
-}
+html.dark .fi-dropdown-list hr { border-top-color: #374151 !important; }
 
 /* ═══════════════════════════════════════════════════════════════════ */
 /* VORTEXOPS COMPACT ROW-ACTION POLICY */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Row actions are utilities, not a second toolbar. Any action that already has
-   an icon becomes an icon-only control visually. Its text stays in the DOM for
-   assistive technology while the button itself is held to a predictable size. */
 .fi-ta-actions .fi-btn:has(svg),
 .fi-ta-actions a.fi-btn:has(svg),
 .fi-ta-actions button.fi-btn:has(svg) {
@@ -293,8 +236,6 @@ html.dark .fi-dropdown-list hr {
     flex: none !important;
 }
 
-/* Label-only actions are allowed, but they stay compact and never grow the
-   actions column into a wall of pills. */
 .fi-ta-actions .fi-btn:not(:has(svg)) {
     width: auto !important;
     max-width: 8.5rem !important;
@@ -310,8 +251,6 @@ html.dark .fi-dropdown-list hr {
     white-space: nowrap !important;
 }
 
-/* A row with many controls should scroll inside its own action cell rather than
-   pushing the whole table wider than the viewport. */
 .fi-ta-cell-action .fi-ta-actions {
     max-width: 12rem !important;
     overflow-x: auto !important;
@@ -319,9 +258,7 @@ html.dark .fi-dropdown-list hr {
     scrollbar-width: none !important;
 }
 
-.fi-ta-cell-action .fi-ta-actions::-webkit-scrollbar {
-    display: none !important;
-}
+.fi-ta-cell-action .fi-ta-actions::-webkit-scrollbar { display: none !important; }
 
 @media (max-width: 768px) {
     .fi-ta-actions .fi-btn:has(svg),
@@ -334,14 +271,10 @@ html.dark .fi-dropdown-list hr {
         flex-basis: 2.5rem !important;
     }
 
-    .fi-ta-cell-action .fi-ta-actions {
-        max-width: 8rem !important;
-    }
+    .fi-ta-cell-action .fi-ta-actions { max-width: 8rem !important; }
 }
 
-/* End-of-stream inventory picker quantity controls were inheriting broad button
-   sizing from app-wide button rules. Pin these three controls so minus/plus
-   never spill into the next product card. */
+/* End-of-stream picker quantity controls: never inherit app-wide button width. */
 [data-vx-eos-report] button[aria-label^="One fewer"],
 [data-vx-eos-report] button[aria-label^="One more"] {
     width: 2.25rem !important;
@@ -358,4 +291,62 @@ html.dark .fi-dropdown-list hr {
     min-width: 3.5rem !important;
     max-width: 3.5rem !important;
     flex: 0 0 3.5rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE MODAL + GENERAL BUTTON SAFETY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Long labels can shrink/wrap inside their own button instead of pushing into
+   the next control. Icon buttons are excluded because they have fixed geometry. */
+.fi-btn:not(.fi-icon-btn) {
+    max-width: 100%;
+    min-width: 0;
+}
+
+.fi-btn:not(.fi-icon-btn) .fi-btn-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+    .fi-btn:not(.fi-icon-btn) .fi-btn-label {
+        white-space: normal !important;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    /* Standard Filament dialogs must fit the dynamic viewport (browser chrome
+       included). Header/footer stay put; only the content scrolls. This keeps
+       Save/Add/Confirm reachable on iOS and Android even with the keyboard or
+       mobile browser bars visible. */
+    .fi-modal-window:not(.fi-modal-slide-over) {
+        display: flex !important;
+        flex-direction: column !important;
+        max-height: calc(100dvh - max(1rem, env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px))) !important;
+        margin-top: max(.5rem, env(safe-area-inset-top, 0px)) !important;
+        margin-bottom: max(.5rem, env(safe-area-inset-bottom, 0px)) !important;
+        overflow: hidden !important;
+    }
+
+    .fi-modal-window:not(.fi-modal-slide-over) > .fi-modal-header,
+    .fi-modal-window:not(.fi-modal-slide-over) > .fi-modal-footer {
+        flex: 0 0 auto !important;
+    }
+
+    .fi-modal-window:not(.fi-modal-slide-over) > .fi-modal-content {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+    }
+
+    .fi-modal-window:not(.fi-modal-slide-over) > .fi-modal-footer {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 2 !important;
+        padding-bottom: max(.75rem, env(safe-area-inset-bottom, 0px)) !important;
+        background: var(--vx-card-bg, #fff) !important;
+        border-top: 1px solid var(--vx-divider, rgb(0 0 0 / .08)) !important;
+    }
 }

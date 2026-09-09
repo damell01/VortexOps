@@ -60,7 +60,6 @@ td[class*="action"],
 /* ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 1024px) {
-    /* On tablets, be more aggressive about space */
     .fi-ta-actions {
         gap: 0.125rem !important;
     }
@@ -72,20 +71,17 @@ td[class*="action"],
 }
 
 @media (max-width: 768px) {
-    /* On mobile, convert label buttons to icons or hide non-critical actions */
     .fi-ta-cell-action {
         position: relative !important;
         min-width: unset !important;
         max-width: 100% !important;
     }
 
-    /* Reduce gap between action buttons on mobile */
     .fi-ta-actions {
         gap: 0 !important;
         max-width: 100% !important;
     }
 
-    /* Icon buttons stay small and compact */
     .fi-ta-actions .fi-icon-btn,
     .fi-ta-actions button[class*="icon"] {
         min-height: 34px !important;
@@ -94,7 +90,6 @@ td[class*="action"],
         font-size: 0.875rem !important;
     }
 
-    /* Label buttons (Add Stock, etc.) - reduce size more aggressively */
     .fi-ta-actions .fi-btn:not(.fi-icon-btn),
     .fi-ta-actions button:not([class*="icon"]):not([role="button"]) {
         font-size: 0.75rem !important;
@@ -103,29 +98,22 @@ td[class*="action"],
         border-radius: 0.25rem !important;
     }
 
-    /* Hide non-critical text labels if needed - show only icons */
     .fi-ta-actions .fi-btn-label {
         display: none !important;
     }
 
-    /* But keep action group dropdown visible */
     .fi-ta-actions .fi-dropdown-list-trigger,
     .fi-ta-actions [role="button"].fi-dropdown-list-trigger {
         display: inline-flex !important;
     }
 
-    /* Ensure table cell with actions has overflow handling */
     td:has(.fi-ta-actions),
     .fi-table td[class*="action"] {
         padding: 0.5rem !important;
         overflow: visible !important;
     }
 
-    /* Dark mode table header */
-    html.dark .fi-table thead {
-        background-color: #1f2937 !important;
-    }
-
+    html.dark .fi-table thead,
     html.dark .fi-table thead th {
         background-color: #1f2937 !important;
     }
@@ -135,12 +123,10 @@ td[class*="action"],
 /* ENSURE ACTIONS DON'T GET CLIPPED BY PARENT CONTAINER */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Table row should not clip actions */
 .fi-table tbody tr {
     overflow: visible !important;
 }
 
-/* Table container should allow scrolling to see actions */
 .fi-ta-ctn {
     overflow-x: auto !important;
     overflow-y: visible !important;
@@ -150,7 +136,6 @@ td[class*="action"],
     overflow: visible !important;
 }
 
-/* Action dropdown menu should appear above table */
 .fi-dropdown-list,
 [role="dialog"][class*="dropdown"],
 .fi-popover {
@@ -162,14 +147,11 @@ td[class*="action"],
 /* RESPONSIVE ACTION LAYOUT REFINEMENTS */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* For very small screens, collapse to dropdown only */
 @media (max-width: 500px) {
-    /* Hide individual label action buttons on very small screens */
     .fi-ta-actions .fi-btn:not(.fi-icon-btn) {
         display: none !important;
     }
 
-    /* Show only the action group dropdown */
     .fi-ta-actions .fi-dropdown-list-trigger,
     .fi-ta-actions [role="button"][class*="dropdown"] {
         display: inline-flex !important;
@@ -177,19 +159,16 @@ td[class*="action"],
         min-width: 40px !important;
     }
 
-    /* Keep icon buttons visible */
     .fi-ta-actions .fi-icon-btn {
         min-height: 40px !important;
         min-width: 40px !important;
         padding: 0.5rem !important;
     }
 
-    /* Ensure the action cell doesn't overflow */
     .fi-ta-cell-action {
         max-width: 100% !important;
     }
 
-    /* Table cell padding for actions */
     td:has(.fi-ta-actions) {
         padding: 0.5rem 0.375rem !important;
     }
@@ -199,27 +178,23 @@ td[class*="action"],
 /* ACTION BUTTON STATES AND INTERACTIONS */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Hover state for action buttons */
 .fi-ta-actions button:hover,
 .fi-ta-actions a:hover {
     transform: translateY(-1px) !important;
     transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-/* Focus state for accessibility */
 .fi-ta-actions button:focus-visible,
 .fi-ta-actions a:focus-visible {
     outline: 2px solid #7c3aed !important;
     outline-offset: 2px !important;
 }
 
-/* Active/pressed state */
 .fi-ta-actions button:active,
 .fi-ta-actions a:active {
     transform: translateY(0) !important;
 }
 
-/* Disabled state */
 .fi-ta-actions button:disabled,
 .fi-ta-actions a[aria-disabled="true"] {
     opacity: 0.5 !important;
@@ -231,7 +206,6 @@ td[class*="action"],
 /* DROPDOWN MENU FOR GROUPED ACTIONS */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Ensure dropdown menus appear correctly */
 .fi-dropdown-list {
     background-color: #ffffff !important;
     border: 1px solid #e5e7eb !important;
@@ -247,7 +221,6 @@ html.dark .fi-dropdown-list {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Dropdown menu items */
 .fi-dropdown-list button,
 .fi-dropdown-list a,
 .fi-dropdown-list [role="menuitem"] {
@@ -270,7 +243,6 @@ html.dark .fi-dropdown-list [role="menuitem"]:hover {
     background-color: #374151 !important;
 }
 
-/* Divider in dropdown */
 .fi-dropdown-list hr {
     margin: 0.25rem 0 !important;
     border: none !important;
@@ -279,4 +251,111 @@ html.dark .fi-dropdown-list [role="menuitem"]:hover {
 
 html.dark .fi-dropdown-list hr {
     border-top-color: #374151 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* VORTEXOPS COMPACT ROW-ACTION POLICY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Row actions are utilities, not a second toolbar. Any action that already has
+   an icon becomes an icon-only control visually. Its text stays in the DOM for
+   assistive technology while the button itself is held to a predictable size. */
+.fi-ta-actions .fi-btn:has(svg),
+.fi-ta-actions a.fi-btn:has(svg),
+.fi-ta-actions button.fi-btn:has(svg) {
+    width: 2.25rem !important;
+    min-width: 2.25rem !important;
+    max-width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+    padding: 0 !important;
+    justify-content: center !important;
+    flex: 0 0 2.25rem !important;
+    border-radius: 0.5rem !important;
+}
+
+.fi-ta-actions .fi-btn:has(svg) .fi-btn-label {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.fi-ta-actions .fi-btn:has(svg) svg,
+.fi-ta-actions .fi-icon-btn svg {
+    width: 1.05rem !important;
+    height: 1.05rem !important;
+    flex: none !important;
+}
+
+/* Label-only actions are allowed, but they stay compact and never grow the
+   actions column into a wall of pills. */
+.fi-ta-actions .fi-btn:not(:has(svg)) {
+    width: auto !important;
+    max-width: 8.5rem !important;
+    min-width: 0 !important;
+    padding-inline: 0.65rem !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.fi-ta-actions .fi-btn:not(:has(svg)) .fi-btn-label {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+/* A row with many controls should scroll inside its own action cell rather than
+   pushing the whole table wider than the viewport. */
+.fi-ta-cell-action .fi-ta-actions {
+    max-width: 12rem !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    scrollbar-width: none !important;
+}
+
+.fi-ta-cell-action .fi-ta-actions::-webkit-scrollbar {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .fi-ta-actions .fi-btn:has(svg),
+    .fi-ta-actions .fi-icon-btn {
+        width: 2.5rem !important;
+        min-width: 2.5rem !important;
+        max-width: 2.5rem !important;
+        height: 2.5rem !important;
+        min-height: 2.5rem !important;
+        flex-basis: 2.5rem !important;
+    }
+
+    .fi-ta-cell-action .fi-ta-actions {
+        max-width: 8rem !important;
+    }
+}
+
+/* End-of-stream inventory picker quantity controls were inheriting broad button
+   sizing from app-wide button rules. Pin these three controls so minus/plus
+   never spill into the next product card. */
+[data-vx-eos-report] button[aria-label^="One fewer"],
+[data-vx-eos-report] button[aria-label^="One more"] {
+    width: 2.25rem !important;
+    min-width: 2.25rem !important;
+    max-width: 2.25rem !important;
+    height: 2.25rem !important;
+    min-height: 2.25rem !important;
+    padding: 0 !important;
+    flex: 0 0 2.25rem !important;
+}
+
+[data-vx-eos-report] input[aria-label^="Quantity of"] {
+    width: 3.5rem !important;
+    min-width: 3.5rem !important;
+    max-width: 3.5rem !important;
+    flex: 0 0 3.5rem !important;
 }

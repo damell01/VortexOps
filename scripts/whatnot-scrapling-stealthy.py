@@ -23,6 +23,7 @@ from scrapling.fetchers import StealthySession
 HERE = Path(__file__).resolve().parent
 BASE_SCRIPT = HERE / "whatnot-scrapling.py"
 ANALYTICS_HELPER = HERE / "whatnot-analytics-hardened.py"
+ORDERS_HELPER = HERE / "whatnot-orders-hardened.py"
 CDP_URL = os.getenv(
     "WHATNOT_SCRAPLING_CDP_URL",
     os.getenv("WHATNOT_ATTACH_CDP_URL", "http://127.0.0.1:9222"),
@@ -388,10 +389,14 @@ def main() -> None:
     module.check_login = ensure_authenticated
 
     # Keep the common Scrapling channel/auth/browser code untouched while using
-    # the hardened analytics parser for the one surface Whatnot changed.
+    # hardened extractors for surfaces Whatnot has changed.
     analytics_helper = load_module(ANALYTICS_HELPER, "vortexops_whatnot_analytics_hardened")
     analytics_helper.install(module)
     log("analytics extractor=hardened")
+
+    orders_helper = load_module(ORDERS_HELPER, "vortexops_whatnot_orders_hardened")
+    orders_helper.install(module)
+    log("orders pagination=hardened")
 
     module.main()
 

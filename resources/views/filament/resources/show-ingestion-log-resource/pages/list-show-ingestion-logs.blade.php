@@ -34,7 +34,11 @@
 @endphp
 
 <x-filament-panels::page>
-    <div class="space-y-3 sm:space-y-5" data-vx-page="ingestion">
+    <div
+        class="space-y-3 sm:space-y-5"
+        data-vx-page="ingestion"
+        x-data="{ timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local browser time' }"
+    >
         <section class="overflow-hidden rounded-xl border {{ $overallBorder }} {{ $overallBg }} sm:rounded-2xl">
             <div class="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
                 <div>
@@ -54,6 +58,9 @@
                     @if ($status['scheduler_at'])
                         <div>Last heartbeat {{ $status['scheduler_at']->diffForHumans() }}</div>
                     @endif
+                    <div class="mt-1" title="Detected from this browser">
+                        Timezone: <span class="font-medium text-gray-700 dark:text-gray-300" x-text="timezone"></span>
+                    </div>
                 </div>
             </div>
 
@@ -82,10 +89,10 @@
                         <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
                             <span>{{ $job['every'] }}</span>
                             @if ($job['success_at'])
-                                <span title="{{ $job['success_at']->toDayDateTimeString() }}">Last OK {{ $job['success_at']->diffForHumans() }}</span>
+                                <span title="{{ $job['success_at']->toIso8601String() }}">Last OK {{ $job['success_at']->diffForHumans() }}</span>
                             @endif
                             @if ($job['failure_at'])
-                                <span title="{{ $job['failure_at']->toDayDateTimeString() }}">Last problem {{ $job['failure_at']->diffForHumans() }}</span>
+                                <span title="{{ $job['failure_at']->toIso8601String() }}">Last problem {{ $job['failure_at']->diffForHumans() }}</span>
                             @endif
                         </div>
                     </div>
@@ -96,7 +103,7 @@
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-600 dark:text-gray-400">
                     <span class="font-semibold text-gray-700 dark:text-gray-300">Whatnot session</span>
                     @if ($session['exists'])
-                        <span title="{{ $session['saved_at']->toDayDateTimeString() }}">Saved {{ $session['saved_at']->diffForHumans() }}</span>
+                        <span title="{{ $session['saved_at']->toIso8601String() }}">Saved {{ $session['saved_at']->diffForHumans() }}</span>
                     @else
                         <span class="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-400">No stored session</span>
                     @endif

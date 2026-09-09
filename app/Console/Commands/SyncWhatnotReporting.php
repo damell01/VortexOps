@@ -18,6 +18,7 @@ class SyncWhatnotReporting extends Command
         {--show-limit=25 : Number of shows to pull/update per channel pass}
         {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
+        {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
         {--with-orders : Also run order/buyer reconciliation (disabled by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
@@ -43,7 +44,8 @@ class SyncWhatnotReporting extends Command
         $showLimit = max(1, min(30, (int) $this->option('show-limit')));
         $analyticsLimit = max(1, min(25, (int) $this->option('analytics-limit')));
         $shipmentBatch = max(1, min(30, (int) $this->option('shipment-batch')));
-        $withOrders = (bool) $this->option('with-orders');
+        $shipmentsOnly = (bool) $this->option('shipments-only');
+        $withOrders = ! $shipmentsOnly && (bool) $this->option('with-orders');
         $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
 
@@ -58,12 +60,16 @@ class SyncWhatnotReporting extends Command
             return self::FAILURE;
         }
 
-        $this->info('COORDINATED WHATNOT REPORTING SYNC');
+        $this->info($shipmentsOnly ? 'WHATNOT HISTORICAL SHIPMENT BACKFILL' : 'COORDINATED WHATNOT REPORTING SYNC');
         $this->line('Reporting start: '.$since->toDateString());
-        $this->line(
-            "Channels: {$channels->count()} · show {$showLimit} · analytics {$analyticsLimit} · shipment {$shipmentBatch}".
-            ($withOrders ? " · orders {$orderBatch}" : ' · orders OFF')
-        );
+        if ($shipmentsOnly) {
+            $this->line("Channels: {$channels->count()} · shipment batch {$shipmentBatch} · SHIPMENTS ONLY · orders OFF");
+        } else {
+            $this->line(
+                "Channels: {$channels->count()} · show {$showLimit} · analytics {$analyticsLimit} · shipment {$shipmentBatch}".
+                ($withOrders ? " · orders {$orderBatch}" : ' · orders OFF')
+            );
+        }
         $this->newLine();
         $this->reportCoverage($channels->pluck('id')->all(), $since);
 
@@ -73,7 +79,7 @@ class SyncWhatnotReporting extends Command
 
         WhatnotPipelineLock::recoverIfStale();
         $lock = WhatnotPipelineLock::acquire(
-            'Coordinated reporting sync from '.$since->toDateString(),
+            ($shipmentsOnly ? 'Historical shipment backfill from ' : 'Coordinated reporting sync from ').$since->toDateString(),
             $this->option('skip-if-busy') ? 0 : $waitSeconds,
         );
 
@@ -96,6 +102,20 @@ class SyncWhatnotReporting extends Command
                 $position = $index + 1;
                 $step = 1;
                 $this->info("[{$position}/{$channels->count()}] {$channel->name} (@{$channel->whatnot_username})");
+
+                if ($shipmentsOnly) {
+                    $this->line("  {$step}. Historical shipments / fulfillment ({$shipmentBatch}-show batches)");
+                    try {
+                        $shipments = $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress);
+                        $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
+                    } catch (\Throwable $e) {
+                        $this->warn('     shipment reconciliation failed: '.$e->getMessage());
+                    }
+
+                    $this->reportChannelCoverage($channel->id, $since);
+                    $this->newLine();
+                    continue;
+                }
 
                 $this->line("  {$step}. Refresh latest show index / analytics ({$showLimit} shows)");
                 $step++;
@@ -150,7 +170,7 @@ class SyncWhatnotReporting extends Command
             WhatnotPipelineLock::release($lock);
         }
 
-        $this->info('Reporting sync finished.');
+        $this->info($shipmentsOnly ? 'Historical shipment backfill finished.' : 'Reporting sync finished.');
         $this->reportCoverage($channels->pluck('id')->all(), $since);
         return self::SUCCESS;
     }

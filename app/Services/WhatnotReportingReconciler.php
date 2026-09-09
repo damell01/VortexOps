@@ -18,11 +18,6 @@ class WhatnotReportingReconciler
         private readonly WhatnotDataNormalizer $normalizer,
     ) {}
 
-    /**
-     * Rebuild a channel's orders from authoritative per-show Seller Hub results.
-     * Existing rows are only replaced after a successful batch response and
-     * sanity validation, so a scraper failure cannot wipe known order data.
-     */
     public function reconcileOrders(
         WhatnotChannel $channel,
         Carbon $since,
@@ -58,25 +53,15 @@ class WhatnotReportingReconciler
                 $byKey[(string) $show->id] = $show;
             }
 
-            if ($sources === []) {
-                continue;
-            }
+            if ($sources === []) continue;
 
             $progress && $progress('orders: scraping '.count($sources).' show(s) as one verified channel batch');
-            $rowsByShow = $this->scraper->fetchOrdersForShows(
-                $sources,
-                $channel->whatnot_username,
-                false,
-                $progress,
-            );
+            $rowsByShow = $this->scraper->fetchOrdersForShows($sources, $channel->whatnot_username, false, $progress);
 
             foreach ($sources as $source) {
                 $key = (string) $source['show_key'];
-                /** @var Show|null $show */
                 $show = $byKey[$key] ?? null;
-                if (! $show) {
-                    continue;
-                }
+                if (! $show) continue;
                 $checked++;
 
                 if (! array_key_exists($key, $rowsByShow) && ! array_key_exists((int) $key, $rowsByShow)) {
@@ -119,7 +104,8 @@ class WhatnotReportingReconciler
         ?callable $progress = null,
     ): array {
         $limit = max(1, min(25, $limit));
-        $shows = Show::query()
+
+        $missing = fn () => Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
             ->whereDate('show_date', '<=', today())
@@ -127,21 +113,42 @@ class WhatnotReportingReconciler
             ->where(function ($q) {
                 $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
                   ->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0);
-            })
-            ->orderBy('show_date')
-            ->orderBy('id')
-            ->limit($limit)
+            });
+
+        // Do not let recently completed shows sit blank behind a July/August
+        // backlog. Reserve roughly half of every run for the newest missing
+        // shows, then use the rest on the oldest gaps so history still converges.
+        $recentSlots = min($limit, max(1, (int) ceil($limit / 2)));
+        $recent = $missing()
+            ->orderByDesc('show_date')
+            ->orderByDesc('id')
+            ->limit($recentSlots)
             ->get();
+
+        $remaining = $limit - $recent->count();
+        $older = collect();
+        if ($remaining > 0) {
+            $older = $missing()
+                ->when($recent->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $recent->pluck('id')))
+                ->orderBy('show_date')
+                ->orderBy('id')
+                ->limit($remaining)
+                ->get();
+        }
+
+        $shows = $recent->concat($older)->values();
 
         $updated = $failed = $skipped = 0;
         foreach ($shows as $show) {
             $liveId = $this->liveId($show);
             if (! $liveId) {
                 $skipped++;
+                $progress && $progress("analytics: show #{$show->id} skipped — no Whatnot UUID");
                 continue;
             }
 
             try {
+                $progress && $progress("analytics: refreshing show #{$show->id} ({$show->show_date})");
                 $rawRows = $this->scraper->fetchShows(
                     limit: 1,
                     debug: false,
@@ -154,9 +161,7 @@ class WhatnotReportingReconciler
                     $candidate = strtolower((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? ''));
                     return $candidate === '' || $candidate === strtolower($liveId);
                 });
-                if (! is_array($raw)) {
-                    throw new \RuntimeException('No analytics row returned for show UUID.');
-                }
+                if (! is_array($raw)) throw new \RuntimeException('No analytics row returned for show UUID.');
 
                 $normalized = $this->normalizer->normalizeShow($raw);
                 $fields = [];
@@ -167,15 +172,17 @@ class WhatnotReportingReconciler
                 ] as $field) {
                     if (($normalized[$field] ?? null) !== null) $fields[$field] = $normalized[$field];
                 }
-                if ($fields === []) {
-                    throw new \RuntimeException('Analytics loaded but contained no usable metrics.');
-                }
+                if ($fields === []) throw new \RuntimeException('Analytics loaded but contained no usable metrics.');
+
                 $fields['last_synced_at'] = now();
+                $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
                 $updated++;
+                $progress && $progress("analytics: show #{$show->id} updated");
             } catch (\Throwable $e) {
                 $failed++;
+                $progress && $progress("analytics: show #{$show->id} failed — {$e->getMessage()}");
                 Log::warning('Coordinated Whatnot analytics backfill failed', [
                     'show_id' => $show->id,
                     'channel' => $channel->whatnot_username,

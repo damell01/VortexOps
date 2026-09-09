@@ -18,9 +18,16 @@ class StreamerStatement extends Page
 
     protected static ?string $title = 'Streamer Statement';
 
+    public static function getNavigationLabel(): string
+    {
+        $user = auth()->user();
+        return ($user?->isStreamer() && ! $user?->isAdmin()) ? 'My Pay & Reports' : 'Streamer Statement';
+    }
+
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Reports';
+        $user = auth()->user();
+        return ($user?->isStreamer() && ! $user?->isAdmin()) ? 'Streamer' : 'Reports';
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -35,8 +42,6 @@ class StreamerStatement extends Page
 
     public static function canAccess(): bool
     {
-        // An explicit grant on Roles & Permissions is the answer; the rules
-        // below are the fallback for roles that have no explicit list.
         if (\App\Support\RoleAccess::grants(static::class)) {
             return true;
         }
@@ -59,7 +64,7 @@ class StreamerStatement extends Page
 
         return (($user?->isAdmin()) ?? false)
             ? 'Pick a streamer and date range for a printable payout breakdown, show by show.'
-            : 'Your payout breakdown, show by show — pick a date range and print it if you need a copy.';
+            : 'Your show reporting and payout history in one place.';
     }
 
     public ?int $streamerId = null;
@@ -77,7 +82,6 @@ class StreamerStatement extends Page
         }
     }
 
-    /** True when the viewer is locked to their own streamer profile (can't browse others). */
     public function getIsSelfServiceProperty(): bool
     {
         $user = auth()->user();
@@ -96,11 +100,6 @@ class StreamerStatement extends Page
         return Streamer::where('status', 'active')->orderBy('name')->get(['id', 'name']);
     }
 
-    /**
-     * The streamer id actually used for querying — for self-service viewers this
-     * ignores whatever $this->streamerId holds (a public Livewire property can be
-     * tampered with client-side) and always forces their own linked profile.
-     */
     private function effectiveStreamerId(): ?int
     {
         if ($this->isSelfService) {
@@ -110,9 +109,6 @@ class StreamerStatement extends Page
         return $this->streamerId;
     }
 
-    /**
-     * @return array<string,mixed>
-     */
     public function getStatementDataProperty(): array
     {
         $streamerId = $this->effectiveStreamerId();
@@ -123,10 +119,6 @@ class StreamerStatement extends Page
 
         $from = $this->dateFrom ?: now()->startOfMonth()->toDateString();
         $to   = $this->dateTo   ?: now()->toDateString();
-
-        // Upper bound needs a time component: show_date rows are stored with a
-        // midnight timestamp, which a bare date-string upper bound would exclude
-        // via lexical comparison (same gotcha documented in Show::weekPacing()).
         $toDateTime = \Illuminate\Support\Carbon::parse($to)->endOfDay()->toDateTimeString();
 
         $shows = Show::with([

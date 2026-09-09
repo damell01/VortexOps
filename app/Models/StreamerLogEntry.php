@@ -226,7 +226,6 @@ class StreamerLogEntry extends Model
             'reviewed_at' => now(),
             'locked_at' => now(),
             'approval_notes' => $combinedNote ?: null,
-            // Approving answers a pending "can I change this?" — with a no.
             'revision_requested_at' => null,
             'revision_reason' => null,
         ]);
@@ -278,9 +277,6 @@ class StreamerLogEntry extends Model
             'approval_notes' => $postingProblems === []
                 ? $this->approval_notes
                 : trim(($this->approval_notes ? $this->approval_notes . "\n" : '') . 'Inventory exceptions: ' . implode(' | ', $postingProblems)),
-            // Approving answers a pending "can I change this?" — with a no.
-            // Without this the request stayed up after it had been decided and
-            // the report sat in the reopen queue for good.
             'revision_requested_at' => null,
             'revision_reason' => null,
         ]);
@@ -289,27 +285,11 @@ class StreamerLogEntry extends Model
         return $postingProblems;
     }
 
-    /**
-     * Send a filed report back so the streamer can change it.
-     *
-     * The one way back to editable, whether an admin spotted something or the
-     * streamer asked for it. This used to be five copies — two row actions, two
-     * bulk actions and a show page — each doing a slightly different subset,
-     * and the differences were the bugs: the bulk version left the report
-     * locked and still flagged as requested, so "Request changes" told the
-     * streamer to fix it and left them unable to.
-     *
-     * rejectByAdmin() is what returns the stock that was deducted on submission
-     * and tells the streamer; everything after it is the report becoming a
-     * draft again.
-     */
     public function sendBackToStreamer(string $notes = ''): void
     {
         $this->rejectByAdmin($notes);
 
         $this->update([
-            // 'pending' was indistinguishable from "never started", so the
-            // Changes Requested tab and tile were always empty.
             'status'                  => 'changes_requested',
             'streamer_reviewed_at'    => null,
             'reviewed_by'             => null,
@@ -318,21 +298,11 @@ class StreamerLogEntry extends Model
             'fulfillment_reviewed_at' => null,
             'submitted_at'            => null,
             'locked_at'               => null,
-            // If the streamer asked for this, they have their answer.
             'revision_requested_at'   => null,
             'revision_reason'         => null,
         ]);
     }
 
-    /**
-     * Grant a reopen request without calling it a correction.
-     *
-     * "Request Changes" is an admin telling a streamer something is wrong, and
-     * it returns the stock. A streamer asking for their own report back is a
-     * different thing: the report stands, the stock stays posted, and they get
-     * the edit window they had at submission. Answering one with the other put
-     * a rejection on a report nobody had faulted and un-posted its inventory.
-     */
     public function reopenForEditing(?string $note = null): void
     {
         $this->update([
@@ -375,13 +345,46 @@ class StreamerLogEntry extends Model
         $notification->sendToDatabase($user);
     }
 
+    /**
+     * Locations a streamer may use while filing a show report.
+     *
+     * Streamer-owned inventory remains first priority, but Main Storage and the
+     * configured receiving location are shared show inventory as well. Keeping
+     * this in the model makes validation, posting and reversals match the picker.
+     */
+    private function inventoryPostingLocations()
+    {
+        $locations = $this->streamer
+            ? $this->streamer->inventoryLocations()->where('status', 'active')->get()
+            : collect();
+
+        $mainLocations = InventoryLocation::query()
+            ->where('status', 'active')
+            ->where('type', 'main_storage')
+            ->get();
+
+        $locations = $locations->concat($mainLocations)->unique('id')->values();
+
+        $defaultReceivingId = InventoryLocation::defaultReceivingId();
+        if ($defaultReceivingId && ! $locations->contains('id', $defaultReceivingId)) {
+            $defaultReceiving = InventoryLocation::query()
+                ->whereKey($defaultReceivingId)
+                ->where('status', 'active')
+                ->first();
+            if ($defaultReceiving) $locations->push($defaultReceiving);
+        }
+
+        return $locations->unique('id')->values();
+    }
+
     public function inventoryPostingProblems(): array
     {
         if (! $this->show) return ['No show attached to this report.'];
         if (! $this->streamer) return ['No streamer attached to this report.'];
 
         $problems = [];
-        $locationIds = $this->streamer->inventoryLocations()->pluck('inventory_locations.id');
+        $locations = $this->inventoryPostingLocations();
+        $locationIds = $locations->pluck('id');
 
         foreach ($this->items()->with('inventoryItem')->get() as $line) {
             if (! $line->inventoryItem) {
@@ -397,7 +400,7 @@ class StreamerLogEntry extends Model
                 ->sum('quantity');
 
             if ((float) $onHand < $quantity) {
-                $problems[] = "\"{$line->item_name}\" needs {$quantity} more but only " . (float) $onHand . ' is in streamer inventory.';
+                $problems[] = "\"{$line->item_name}\" needs {$quantity} more but only " . (float) $onHand . ' is in streamer / Main Warehouse inventory.';
             }
         }
 
@@ -411,7 +414,7 @@ class StreamerLogEntry extends Model
         if (! $this->streamer) return ['No streamer attached to this report.'];
 
         $inventoryService = app(\App\Services\InventoryService::class);
-        $locations = $this->streamer->inventoryLocations()->get();
+        $locations = $this->inventoryPostingLocations();
 
         foreach ($this->items()->with('inventoryItem')->get() as $line) {
             $alreadyPosted = max(0, (int) $line->deducted_quantity);
@@ -467,7 +470,7 @@ class StreamerLogEntry extends Model
                 $onHand = InventoryStock::where('inventory_item_id', $item->id)
                     ->whereIn('inventory_location_id', $locations->pluck('id'))
                     ->sum('quantity');
-                $problems[] = "\"{$item->name}\" needed {$quantity} but only " . (float) $onHand . ' was available.';
+                $problems[] = "\"{$item->name}\" needed {$quantity} but only " . (float) $onHand . ' was available in streamer / Main Warehouse inventory.';
             }
         }
 
@@ -484,7 +487,7 @@ class StreamerLogEntry extends Model
         if (! $this->show || ! $this->streamer) return;
 
         $inventoryService = app(\App\Services\InventoryService::class);
-        $locations = $this->streamer->inventoryLocations()->get();
+        $locations = $this->inventoryPostingLocations();
 
         foreach ($this->items()->with('inventoryItem')->where('deducted_quantity', '>', 0)->get() as $line) {
             if (! $line->inventoryItem) continue;

@@ -12,19 +12,52 @@
 @endphp
 
 <x-filament-panels::page>
+    <style>
+        /* Pure streamer accounts use this page as their app shell. The admin
+           sidebar is intentionally removed here: everything they need is in
+           the hub and the report flow is one click away. */
+        .fi-sidebar { display: none !important; }
+        .fi-topbar-open-sidebar-btn,
+        .fi-topbar-close-sidebar-btn { display: none !important; }
+        .fi-main-ctn { margin-inline-start: 0 !important; }
+        .fi-main { width: 100% !important; max-width: none !important; }
+        @media (max-width: 640px) {
+            .fi-page-header { margin-bottom: .75rem !important; }
+        }
+    </style>
+
     <div class="space-y-4 sm:space-y-5" data-vx-page="streamer-shows">
         <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <div class="text-xs font-bold uppercase tracking-[.12em] text-primary-600 dark:text-primary-400">Quick start</div>
-                    <h2 class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">What do you need to do?</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Your shows, submitted reports and pay history are all reachable from here.</p>
+                <div class="min-w-0">
+                    <div class="text-xs font-bold uppercase tracking-[.12em] text-primary-600 dark:text-primary-400">Streamer Hub</div>
+                    <h2 class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">Your shows. Your reports. That’s it.</h2>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Open a show, log what left inventory, submit it, and move on. Upcoming shows and completed reports stay here too.</p>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <a href="#needs-you" class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary-600 px-3.5 text-sm font-semibold text-white hover:bg-primary-500">
+                            <x-heroicon-m-clipboard-document-list class="h-4 w-4" />
+                            Log a show
+                        </a>
+                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                            <x-heroicon-m-archive-box class="h-4 w-4" />
+                            Inventory
+                        </a>
+                        <a href="{{ \App\Filament\Pages\StreamerStatement::getUrl() }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+                            <x-heroicon-m-banknotes class="h-4 w-4" />
+                            Pay & reports
+                        </a>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
                     <a href="#needs-you" class="rounded-xl border border-amber-200 bg-amber-50 p-3 transition hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:hover:bg-amber-950/50">
                         <div class="text-xl font-semibold text-amber-800 dark:text-amber-300">{{ $summary['needs_you'] }}</div>
                         <div class="mt-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">Need a report</div>
+                    </a>
+                    <a href="#upcoming" class="rounded-xl border border-gray-200 bg-gray-50 p-3 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700">
+                        <div class="text-xl font-semibold text-gray-800 dark:text-gray-200">{{ $summary['upcoming'] }}</div>
+                        <div class="mt-0.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300">Upcoming</div>
                     </a>
                     <a href="#submitted" class="rounded-xl border border-blue-200 bg-blue-50 p-3 transition hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/30 dark:hover:bg-blue-950/50">
                         <div class="text-xl font-semibold text-blue-800 dark:text-blue-300">{{ $summary['submitted'] }}</div>
@@ -33,10 +66,6 @@
                     <a href="#approved" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50">
                         <div class="text-xl font-semibold text-emerald-800 dark:text-emerald-300">{{ $summary['approved'] }}</div>
                         <div class="mt-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">Approved</div>
-                    </a>
-                    <a href="{{ \App\Filament\Pages\StreamerStatement::getUrl() }}" class="rounded-xl border border-gray-200 bg-gray-50 p-3 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700">
-                        <x-heroicon-o-banknotes class="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                        <div class="mt-1 text-[11px] font-semibold text-gray-700 dark:text-gray-200">Pay & reports</div>
                     </a>
                 </div>
             </div>

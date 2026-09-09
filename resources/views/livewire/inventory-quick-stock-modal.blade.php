@@ -1,6 +1,7 @@
 <div
     x-data
     x-on:inventory-quick-stock.window="$wire.openForProduct($event.detail.productId)"
+    x-on:barcode-scanned.window="if ($wire.open) $wire.captureBarcode($event.detail.value)"
     x-on:keydown.escape.window="if ($wire.open) $wire.close()"
 >
     @if($open)
@@ -35,6 +36,36 @@
                         <input wire:model="quantity" type="number" min="0.01" step="0.01" inputmode="decimal" autofocus class="min-h-11 w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         @error('quantity')<div class="mt-1 text-xs text-red-600">{{ $message }}</div>@enderror
                     </label>
+
+                    <div class="rounded-xl border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/30">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="text-sm font-semibold text-gray-900 dark:text-white">Barcode</div>
+                                <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                    @if($currentBarcode)
+                                        Current: <span class="font-mono font-semibold">{{ $currentBarcode }}</span>
+                                    @else
+                                        No barcode attached yet.
+                                    @endif
+                                </div>
+                            </div>
+                            <button type="button" wire:click="startBarcodeScan" class="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-xs font-bold text-white hover:bg-sky-700">
+                                <x-heroicon-o-qr-code class="h-4 w-4" />
+                                {{ $currentBarcode ? 'Replace Barcode' : 'Scan Barcode' }}
+                            </button>
+                        </div>
+
+                        <div class="mt-3 flex gap-2">
+                            <input wire:model="barcode" type="text" inputmode="numeric" autocomplete="off" placeholder="Scan or enter barcode" class="min-h-11 flex-1 rounded-lg border-gray-300 bg-white font-mono text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+                            @if($barcode)
+                                <button type="button" wire:click="clearBarcode" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200">Clear</button>
+                            @endif
+                        </div>
+                        @error('barcode')<div class="mt-1 text-xs text-red-600">{{ $message }}</div>@enderror
+                        @if($barcode && $barcode !== $currentBarcode)
+                            <div class="mt-2 text-xs font-semibold text-emerald-600">Scanned barcode {{ $barcode }} will be saved with this stock update.</div>
+                        @endif
+                    </div>
 
                     <div class="grid gap-4 sm:grid-cols-2">
                         <label class="block">

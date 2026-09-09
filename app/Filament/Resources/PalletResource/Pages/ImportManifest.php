@@ -76,9 +76,6 @@ class ImportManifest extends Page
             throw new \RuntimeException('Manifest upload could not be saved.');
         }
 
-        // Keep the original upload for the review screen. The parser owns and
-        // deletes only this processing copy, so reviewers can always compare
-        // extracted lines against the source document before approval.
         $processingRelativePath = 'manifest-processing/' . $filename;
         Storage::disk('local')->makeDirectory('manifest-processing');
         if (! Storage::disk('local')->copy($relativePath, $processingRelativePath)) {
@@ -113,14 +110,19 @@ class ImportManifest extends Page
         $this->stage = 'processing';
         $this->slipFile = null;
         $this->parseError = null;
+        $this->parseErrorIsTimeout = false;
 
         Notification::make()
             ->title('AI manifest job started')
-            ->body('VortexOps is extracting and staging manifest lines in the background. You can leave this page and return when the review is ready.')
+            ->body('VortexOps is extracting the document now. Keep this page open to see the result or exact failure automatically.')
             ->success()
             ->send();
 
-        return redirect()->to(PalletResource::getUrl('view', ['record' => $this->record]));
+        // Stay on the analysis page. Redirecting to the pallet hid failed-task
+        // errors and made a working queue dispatch look like the button did
+        // nothing. The processing view polls AiTask and will move to Review or
+        // show the actual error message as soon as the worker finishes.
+        return null;
     }
 
     public function checkProcessing(): void
@@ -128,7 +130,11 @@ class ImportManifest extends Page
         if (! $this->aiTaskId) return;
 
         $task = AiTask::find($this->aiTaskId);
-        if (! $task) return;
+        if (! $task) {
+            $this->parseError = 'The AI task record could not be found.';
+            $this->stage = 'upload';
+            return;
+        }
 
         $this->applyTaskState($task);
     }
@@ -143,18 +149,30 @@ class ImportManifest extends Page
             $this->parsedLines = array_values($task->output['lines'] ?? []);
             $this->stage = 'verify';
             $this->parseError = null;
+            $this->parseErrorIsTimeout = false;
             return;
         }
 
         if (in_array($task->status, ['pending', 'processing'], true)) {
             $this->stage = 'processing';
+            $this->parseError = null;
             return;
         }
 
         if ($task->status === 'failed') {
-            $this->parseError = $task->error_message ?? 'Manifest analysis failed.';
-            $this->parseErrorIsTimeout = str_contains(strtolower((string) $this->parseError), 'timeout');
+            $message = trim((string) $task->error_message);
+            $this->parseError = $message !== ''
+                ? "Task #{$task->id}: {$message}"
+                : "Task #{$task->id}: Manifest analysis failed without an error message.";
+            $this->parseErrorIsTimeout = str_contains(strtolower($this->parseError), 'timeout');
             $this->stage = 'upload';
+
+            Notification::make()
+                ->title('AI analysis failed')
+                ->body($this->parseError)
+                ->danger()
+                ->persistent()
+                ->send();
         }
     }
 

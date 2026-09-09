@@ -214,7 +214,7 @@ class ListInventoryItems extends ListRecords
         $this->selectedStockProductId = $record->getKey();
         $this->quickStockScanTargetId = $record->getKey();
         $this->quickStockScanTargetName = $record->name;
-        $this->mountAction('add_stock');
+        $this->mountAction('add_stock', ['product' => $record->getKey()]);
     }
 
     public function startQuickStockBarcodeScan(): void
@@ -270,12 +270,13 @@ class ListInventoryItems extends ListRecords
             ->icon('heroicon-o-plus-circle')
             ->color('success')
             ->modalWidth('lg')
-            ->modalHeading(function (): string {
-                $record = $this->selectedStockProductId ? InventoryItem::find($this->selectedStockProductId) : null;
+            ->modalHeading(function (array $arguments): string {
+                $record = InventoryItem::find($arguments['product'] ?? null);
                 return 'Add Stock' . ($record ? ' — ' . $record->name : '');
             })
-            ->mountUsing(function ($form): void {
-                $record = $this->selectedStockProductId ? InventoryItem::find($this->selectedStockProductId) : null;
+            ->mountUsing(function ($form, array $arguments): void {
+                $record = InventoryItem::find($arguments['product'] ?? null);
+                $this->selectedStockProductId = $record?->getKey();
                 $this->quickStockScanTargetId = $record?->getKey();
                 $this->quickStockScanTargetName = $record?->name;
 
@@ -340,8 +341,8 @@ class ListInventoryItems extends ListRecords
                     ->rows(2)
                     ->placeholder('Optional note'),
             ])
-            ->action(function (array $data): void {
-                $record = InventoryItem::findOrFail((int) $this->selectedStockProductId);
+            ->action(function (array $data, array $arguments): void {
+                $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
                 abort_unless(InventoryItemResource::canEdit($record), 403);
 
                 $location = InventoryLocation::findOrFail((int) $data['location_id']);

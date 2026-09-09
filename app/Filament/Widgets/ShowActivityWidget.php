@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\InventoryMovement;
 use App\Models\ShowChangeLog;
+use App\Models\ShowIngestionLog;
 use App\Models\StreamerLogEntry;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
@@ -31,7 +32,7 @@ class ShowActivityWidget extends Widget
         $changes = ShowChangeLog::query()
             ->where('show_id', $showId)
             ->latest('created_at')
-            ->limit(20)
+            ->limit(30)
             ->get()
             ->map(fn ($change) => [
                 'at' => $change->created_at,
@@ -40,6 +41,42 @@ class ShowActivityWidget extends Widget
                 'detail' => $this->formatChange($change->old_value, $change->new_value),
                 'meta' => ucfirst((string)($change->source ?: 'system')) . ' · ' . ($change->changed_by ?: 'system'),
             ]);
+
+        $ingestion = ShowIngestionLog::query()
+            ->with('channel')
+            ->where('show_id', $showId)
+            ->latest('created_at')
+            ->limit(30)
+            ->get()
+            ->map(function (ShowIngestionLog $log) {
+                $payload = is_array($log->raw_payload) ? $log->raw_payload : [];
+                $parts = [];
+
+                foreach ([
+                    'orders' => 'orders',
+                    'units_sold' => 'units',
+                    'shipment_count' => 'shipments',
+                    'updated' => 'updates',
+                    'created' => 'created',
+                ] as $key => $label) {
+                    if (isset($payload[$key]) && is_numeric($payload[$key])) {
+                        $parts[] = number_format((float) $payload[$key]) . ' ' . $label;
+                    }
+                }
+
+                $detail = $parts !== [] ? implode(' · ', $parts) : $log->summary();
+                if ($log->status === 'failed' && filled($log->error_message)) {
+                    $detail = $log->error_message;
+                }
+
+                return [
+                    'at' => $log->created_at,
+                    'type' => 'ingestion',
+                    'title' => $log->sourceLabel(),
+                    'detail' => $detail,
+                    'meta' => trim(($log->channel?->name ? $log->channel->name . ' · ' : '') . ucfirst($log->status)),
+                ];
+            });
 
         $movements = InventoryMovement::query()
             ->with(['item', 'createdByUser'])
@@ -80,10 +117,11 @@ class ShowActivityWidget extends Widget
         }
 
         return $changes
+            ->concat($ingestion)
             ->concat($movements)
             ->concat($reportEvents)
             ->sortByDesc(fn ($event) => $event['at']?->timestamp ?? 0)
-            ->take(40)
+            ->take(60)
             ->values();
     }
 

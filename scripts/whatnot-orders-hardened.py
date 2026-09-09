@@ -16,68 +16,171 @@ from pathlib import Path
 def install(module) -> None:
     original_batch = module.batch
 
-    def inspect_next(page) -> dict:
+    next_selectors = [
+        'button:has(svg[aria-label="Next page"])',
+        'button:has(svg[aria-label="Next Page"])',
+        'button[aria-label="Next page"]',
+        'button[aria-label="Next Page"]',
+        '[role="button"]:has(svg[aria-label="Next page"])',
+        '[role="button"]:has(svg[aria-label="Next Page"])',
+        '[role="button"][aria-label="Next page"]',
+        '[role="button"][aria-label="Next Page"]',
+    ]
+
+    def pagination_summary(page) -> str | None:
         try:
-            state = page.evaluate(r"""
+            return page.evaluate(r"""
             () => {
-              const candidates = [];
-              const add = el => { if (el && !candidates.includes(el)) candidates.push(el); };
-
-              for (const sel of [
-                'button[aria-label="Next page"]',
-                'button[aria-label="Next Page"]',
-                'button[title="Next page"]',
-                'button[title="Next Page"]',
-                '[role="button"][aria-label="Next page"]',
-                '[role="button"][aria-label="Next Page"]'
-              ]) add(document.querySelector(sel));
-
-              for (const svg of document.querySelectorAll(
-                'svg[aria-label="Next page"], svg[aria-label="Next Page"]'
-              )) add(svg.closest('button,[role="button"]'));
-
-              for (const button of document.querySelectorAll('button,[role="button"]')) {
-                const text = (button.innerText || button.textContent || '').trim();
-                if (/^next(?:\s+page)?$/i.test(text)) add(button);
-              }
-
-              const button = candidates.find(el => {
-                const rect = el.getBoundingClientRect?.();
-                const style = window.getComputedStyle?.(el);
-                return !rect || ((rect.width > 0 || rect.height > 0) && style?.visibility !== 'hidden');
-              }) || candidates[0] || null;
-
-              if (!button) {
-                return {
-                  exists: false,
-                  disabled: null,
-                  href: null,
-                  text: null,
-                  url: location.href
-                };
-              }
-
-              const disabled = Boolean(button.disabled)
-                || button.getAttribute('aria-disabled') === 'true'
-                || button.matches?.('[disabled]')
-                || button.classList?.contains('cursor-not-allowed')
-                || button.classList?.contains('disabled');
-
-              return {
-                exists: true,
-                disabled,
-                href: button.getAttribute?.('href') || null,
-                text: (button.innerText || button.textContent || '').trim().substring(0, 80),
-                aria: button.getAttribute?.('aria-label') || null,
-                title: button.getAttribute?.('title') || null,
-                url: location.href
-              };
+              const text = document.body?.innerText || '';
+              const match = text.match(/Showing\s+\d+\s*-\s*\d+\s+of\s+(?:many|\d+)/i);
+              return match ? match[0].replace(/\s+/g, ' ').trim() : null;
             }
             """)
-            return state if isinstance(state, dict) else {"exists": False, "disabled": None}
-        except Exception as exc:
-            module.info(f"orders pagination inspection failed: {exc}")
-            return {"exists": False, "disabled": None, "error": str(exc)}
+        except Exception:
+            return None
+
+    def inspect_next(page, wait_ms: int = 3500) -> dict:
+        """Find Whatnot's Next control, including aria-label on nested SVG.
+
+        Whatnot currently renders the control as:
+          <button ...><div><svg aria-label="Next page">...</svg></div></button>
+        The control can appear shortly after the 100 table rows render, so wait
+        briefly before declaring a full page ambiguous.
+        """
+        attempts = max(1, wait_ms // 250)
+        last_error = None
+
+        for attempt in range(attempts):
+            for selector in next_selectors:
+                try:
+                    locator = page.locator(selector).first
+                    if locator.count() < 1:
+                        continue
+                    if not locator.is_visible(timeout=250):
+                        continue
+
+                    state = locator.evaluate(r"""
+                    button => {
+                      const disabled = Boolean(button.disabled)
+                        || button.getAttribute('aria-disabled') === 'true'
+                        || button.matches?.('[disabled]')
+                        || button.classList?.contains('cursor-not-allowed')
+                        || button.classList?.contains('disabled');
+                      const svg = button.querySelector?.('svg[aria-label]');
+                      return {
+                        exists: true,
+                        disabled,
+                        href: button.getAttribute?.('href') || null,
+                        text: (button.innerText || button.textContent || '').trim().substring(0, 80),
+                        aria: button.getAttribute?.('aria-label') || svg?.getAttribute('aria-label') || null,
+                        title: button.getAttribute?.('title') || null,
+                        selector: null,
+                        url: location.href
+                      };
+                    }
+                    """)
+                    if isinstance(state, dict):
+                        state["selector"] = selector
+                        state["summary"] = pagination_summary(page)
+                        return state
+                except Exception as exc:
+                    last_error = str(exc)
+
+            # DOM fallback for engines where :has() locator support differs.
+            try:
+                state = page.evaluate(r"""
+                () => {
+                  const svgs = [...document.querySelectorAll('svg[aria-label]')];
+                  const svg = svgs.find(el => /^next\s+page$/i.test((el.getAttribute('aria-label') || '').trim()));
+                  const direct = [...document.querySelectorAll('button,[role="button"]')]
+                    .find(el => /^next\s+page$/i.test((el.getAttribute('aria-label') || '').trim()));
+                  const button = svg?.closest('button,[role="button"]') || direct || null;
+                  if (!button) return null;
+                  const rect = button.getBoundingClientRect?.();
+                  const style = window.getComputedStyle?.(button);
+                  if (rect && rect.width <= 0 && rect.height <= 0) return null;
+                  if (style && (style.visibility === 'hidden' || style.display === 'none')) return null;
+                  const disabled = Boolean(button.disabled)
+                    || button.getAttribute('aria-disabled') === 'true'
+                    || button.matches?.('[disabled]')
+                    || button.classList?.contains('cursor-not-allowed')
+                    || button.classList?.contains('disabled');
+                  return {
+                    exists: true,
+                    disabled,
+                    href: button.getAttribute?.('href') || null,
+                    text: (button.innerText || button.textContent || '').trim().substring(0, 80),
+                    aria: button.getAttribute?.('aria-label') || svg?.getAttribute('aria-label') || null,
+                    title: button.getAttribute?.('title') || null,
+                    selector: 'dom-svg-closest',
+                    url: location.href
+                  };
+                }
+                """)
+                if isinstance(state, dict) and state.get("exists"):
+                    state["summary"] = pagination_summary(page)
+                    return state
+            except Exception as exc:
+                last_error = str(exc)
+
+            if attempt < attempts - 1:
+                page.wait_for_timeout(250)
+
+        return {
+            "exists": False,
+            "disabled": None,
+            "href": None,
+            "text": None,
+            "aria": None,
+            "title": None,
+            "selector": None,
+            "summary": pagination_summary(page),
+            "url": page.url,
+            "error": last_error,
+        }
+
+    def click_next(page, previous_signature: str) -> tuple[bool, str]:
+        clicked = False
+
+        for selector in next_selectors:
+            try:
+                locator = page.locator(selector).first
+                if locator.count() < 1 or not locator.is_visible(timeout=250):
+                    continue
+                locator.scroll_into_view_if_needed(timeout=2000)
+                locator.click(timeout=5000, force=True)
+                clicked = True
+                break
+            except Exception:
+                continue
+
+        if not clicked:
+            try:
+                clicked = bool(page.evaluate(r"""
+                () => {
+                  const svg = [...document.querySelectorAll('svg[aria-label]')]
+                    .find(el => /^next\s+page$/i.test((el.getAttribute('aria-label') || '').trim()));
+                  const button = svg?.closest('button,[role="button"]') || null;
+                  if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
+                  button.scrollIntoView({block:'center'});
+                  button.click();
+                  return true;
+                }
+                """))
+            except Exception:
+                clicked = False
+
+        if not clicked:
+            return False, previous_signature
+
+        for _ in range(32):
+            page.wait_for_timeout(250)
+            module.check_login(page)
+            current_signature = module.page_signature(page, False)
+            if current_signature and current_signature != previous_signature:
+                return True, current_signature
+
+        return False, previous_signature
 
     def hardened_batch(session, shipments=False):
         # Shipment pagination is not destructive in the same way order
@@ -107,7 +210,7 @@ def install(module) -> None:
                     wait_until="domcontentloaded",
                     timeout=30000,
                 )
-                page.wait_for_timeout(900)
+                page.wait_for_timeout(1200)
 
                 found = {}
                 visited_signatures: set[str] = set()
@@ -133,7 +236,9 @@ def install(module) -> None:
                         )
                         found[dedupe_key] = row
 
-                    state = inspect_next(page)
+                    # Wait for pagination on a full page because Whatnot can render
+                    # the footer controls after the table itself is already ready.
+                    state = inspect_next(page, 3500 if len(current_rows) >= 100 else 750)
                     module.info(
                         f"orders-batch: [{idx}/{len(sources)}] {key} "
                         f"page={page_number} page_rows={len(current_rows)} "
@@ -145,9 +250,8 @@ def install(module) -> None:
                     if len(current_rows) < 100:
                         break
 
-                    # A real, visible disabled Next control is also affirmative
-                    # evidence that this is the final page, even when it contains
-                    # exactly 100 rows.
+                    # A real, visible disabled Next control is affirmative evidence
+                    # that this is the final page, even when it contains 100 rows.
                     if state.get("exists") and state.get("disabled") is True:
                         break
 
@@ -155,7 +259,7 @@ def install(module) -> None:
                     # Abort the entire scrape BEFORE Laravel receives any rows.
                     if not state.get("exists"):
                         module.fail(
-                            f"ORDER_PAGINATION_AMBIGUOUS: show #{key} returned exactly {len(current_rows)} rows on page {page_number}, but no Next control could be verified. Existing orders were NOT changed.",
+                            f"ORDER_PAGINATION_AMBIGUOUS: show #{key} returned exactly {len(current_rows)} rows on page {page_number}, but no Next control could be verified. summary={state.get('summary')!r}. Existing orders were NOT changed.",
                             2,
                         )
 
@@ -165,7 +269,7 @@ def install(module) -> None:
                             2,
                         )
 
-                    advanced, next_signature = module.advance_next_page(page, signature, False)
+                    advanced, next_signature = click_next(page, signature)
                     if not advanced:
                         module.fail(
                             f"ORDER_PAGINATION_INCOMPLETE: show #{key} had an enabled Next control on page {page_number}, but the table did not advance. Existing orders were NOT changed.",

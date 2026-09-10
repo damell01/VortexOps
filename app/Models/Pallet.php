@@ -84,8 +84,55 @@ class Pallet extends Model
         ];
     }
 
+    /**
+     * Reconcile line/pallet completion from the cases that were actually received.
+     *
+     * Some receiving paths update InventoryCase rows in bulk, which deliberately
+     * bypasses Eloquent model events. Keeping this reconciliation on the pallet
+     * means the scanner, Receive Some, Receive Line and Receive Entire Pallet all
+     * converge on the same final state: received is complete; processed is legacy.
+     */
+    public function syncReceivingCompletion(): bool
+    {
+        $this->loadMissing('lines.cases');
+
+        if ($this->lines->isEmpty()) {
+            return false;
+        }
+
+        $allComplete = true;
+
+        foreach ($this->lines as $line) {
+            $expected = (int) $line->case_count;
+            $received = $line->cases->where('status', '!=', 'expected')->count();
+            $complete = $expected > 0 && $received >= $expected;
+
+            if ($complete && $line->line_status !== 'received') {
+                $line->forceFill(['line_status' => 'received'])->save();
+            }
+
+            if (! $complete) {
+                $allComplete = false;
+            }
+        }
+
+        if ($allComplete && $this->status !== 'received') {
+            $this->forceFill([
+                'status' => 'received',
+                'received_date' => $this->received_date ?? today(),
+            ])->save();
+        }
+
+        return $allComplete;
+    }
+
     public function receivingProgress(): array
     {
+        $this->loadMissing('lines.cases');
+
+        // This method is called after each receiving action to refresh the UI,
+        // making it the common reconciliation point even for bulk case updates.
+        $this->syncReceivingCompletion();
         $this->loadMissing('lines.cases');
 
         $expected = (int) $this->lines->sum(fn (PalletLine $line) => (int) $line->case_count);

@@ -7,11 +7,13 @@
         .dark .vx-received-history .fi-ta-header-cell{background:rgb(30 41 59)!important}
         .vx-received-history .fi-ta-row{min-height:68px}
         .vx-received-history .fi-ta-cell{padding-top:.85rem!important;padding-bottom:.85rem!important}
+        .vx-received-history .fi-ta-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:.35rem!important;flex-wrap:nowrap!important;white-space:nowrap!important;min-width:82px!important}
+        .vx-received-history .fi-ta-actions .fi-btn,.vx-received-history .fi-ta-actions .fi-icon-btn{flex:0 0 auto!important;max-width:38px!important;min-width:34px!important;width:34px!important;height:34px!important;padding:.35rem!important;overflow:hidden!important}
         .vx-history-intro{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;padding:1rem 1.1rem;border:1px solid rgb(221 214 254);border-radius:1rem;background:linear-gradient(135deg,rgb(250 245 255),rgb(238 242 255))}
         .dark .vx-history-intro{border-color:rgb(76 29 149);background:linear-gradient(135deg,rgba(76,29,149,.25),rgba(49,46,129,.2))}
         .vx-history-intro strong{display:block;font-size:.95rem;color:rgb(76 29 149)}.dark .vx-history-intro strong{color:rgb(221 214 254)}
         .vx-history-intro span{display:block;margin-top:.2rem;font-size:.78rem;color:rgb(100 116 139)}.dark .vx-history-intro span{color:rgb(203 213 225)}
-        @media(max-width:640px){.vx-history-intro{display:block}.vx-received-history .fi-ta-ctn{border-radius:.8rem!important}}
+        @media(max-width:640px){.vx-history-intro{display:block}.vx-received-history .fi-ta-ctn{border-radius:.8rem!important}.vx-received-history .fi-ta-actions{min-width:72px!important}}
     </style>
     <div class="vx-received-history">
         <div class="vx-history-intro">

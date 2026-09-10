@@ -35,28 +35,44 @@ class ReceivingReportService
 
     public function generatePalletReport(Pallet $pallet): string
     {
-        $pallet->load(['vendor', 'lines.inventoryItem', 'packingSlips']);
-        $costService = app(InventoryCostService::class);
+        // Load only what the PDF renders. Packing slips are not used here.
+        $pallet->load(['vendor', 'lines.inventoryItem']);
 
+        $reference = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) ($pallet->reference ?: 'no-reference'));
+        $latestLineUpdate = $pallet->lines->max(fn ($line) => optional($line->updated_at)->timestamp ?? 0);
+        $version = substr(sha1(implode('|', [
+            $pallet->updated_at?->timestamp ?? 0,
+            $latestLineUpdate,
+            (string) ($pallet->shipping_cost ?? 0),
+            (string) ($pallet->payment_fees ?? 0),
+        ])), 0, 12);
+
+        $relativePath = "receiving-reports/vortexops-pallet-{$pallet->id}-{$reference}-{$version}.pdf";
+
+        // Reuse a previously rendered report until the pallet or its lines change.
+        if (Storage::disk('public')->exists($relativePath)) {
+            return $relativePath;
+        }
+
+        $generatedAt = now();
         $html = view('reports.pallet-receiving', [
             'pallet' => $pallet,
-            'lines' => $this->getPalletLineDetails($pallet, $costService),
-            'totals' => $this->calculatePalletTotals($pallet, $costService),
-            'generatedAt' => now(),
+            'lines' => $this->getPalletLineDetails($pallet),
+            'totals' => $this->calculatePalletTotals($pallet),
+            'generatedAt' => $generatedAt,
         ])->render();
 
+        // Branding is embedded, so DomPDF does not need remote fetching.
         $pdf = Pdf::loadHTML($html)->setPaper('a4')
-            ->setOption('isRemoteEnabled', true)
+            ->setOption('isRemoteEnabled', false)
             ->setOption('margin-top', 8)->setOption('margin-bottom', 8)
             ->setOption('margin-left', 8)->setOption('margin-right', 8);
 
-        $reference = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) ($pallet->reference ?: 'no-reference'));
-        $filename = "vortexops-pallet-{$pallet->id}-{$reference}-" . date('Y-m-d-His') . '.pdf';
-        $path = Storage::disk('public')->path("receiving-reports/{$filename}");
+        $path = Storage::disk('public')->path($relativePath);
         @mkdir(dirname($path), 0755, true);
         $pdf->save($path);
 
-        return "receiving-reports/{$filename}";
+        return $relativePath;
     }
 
     private function getSessionItems(ScannerReceivingSession $session): array
@@ -76,7 +92,7 @@ class ReceivingReportService
         return $items;
     }
 
-    private function getPalletLineDetails(Pallet $pallet, InventoryCostService $costService): array
+    private function getPalletLineDetails(Pallet $pallet): array
     {
         $lines = [];
         foreach ($pallet->lines as $line) {
@@ -104,7 +120,7 @@ class ReceivingReportService
         return $this->calculateTotals($session->pallet);
     }
 
-    private function calculatePalletTotals(Pallet $pallet, InventoryCostService $costService): array
+    private function calculatePalletTotals(Pallet $pallet): array
     {
         return $this->calculateTotals($pallet);
     }
@@ -112,7 +128,7 @@ class ReceivingReportService
     private function calculateTotals(Pallet $pallet): array
     {
         $totalQty = 0.0;
-        $totalCost = 0.0;
+        $merchandiseCost = 0.0;
         $packageQty = 0.0;
         $caseLines = 0;
         $singleLines = 0;
@@ -120,20 +136,28 @@ class ReceivingReportService
         foreach ($pallet->lines as $line) {
             $qty = $line->totalQuantityExpected();
             $totalQty += $qty;
-            $totalCost += $qty * (float) $line->unit_cost;
+            $merchandiseCost += $qty * (float) $line->unit_cost;
             $packageQty += (float) $line->case_count;
 
             if ((float) $line->quantity_per_case <= 1) $singleLines++;
             else $caseLines++;
         }
 
+        $shipping = (float) ($pallet->shipping_cost ?? 0);
+        $fees = (float) ($pallet->payment_fees ?? 0);
+        $landedCost = $merchandiseCost + $shipping + $fees;
+
         return [
             'package_qty' => $packageQty,
             'qty' => $totalQty,
             'case_lines' => $caseLines,
             'single_lines' => $singleLines,
-            'total_cost' => number_format($totalCost, 2),
-            'avg_cost' => $totalQty > 0 ? number_format($totalCost / $totalQty, 2) : '0.00',
+            'total_cost' => number_format($merchandiseCost, 2),
+            'merchandise_cost' => number_format($merchandiseCost, 2),
+            'shipping_cost' => number_format($shipping, 2),
+            'payment_fees' => number_format($fees, 2),
+            'landed_cost' => number_format($landedCost, 2),
+            'avg_cost' => $totalQty > 0 ? number_format($landedCost / $totalQty, 2) : '0.00',
         ];
     }
 }

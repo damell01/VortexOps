@@ -64,7 +64,7 @@ class ImportManifest extends Page
     public function parseSlip(): mixed
     {
         $this->validate([
-            'slipFile' => 'required|file|max:20480|mimes:jpeg,jpg,png,gif,webp,pdf,csv,txt,xls,xlsx',
+            'slipFile' => 'required|file|max:20480|mimes:jpeg,jpg,png,gif,webp,pdf,csv,txt,xls,xlsx,doc,docx',
         ]);
 
         $ext = strtolower($this->slipFile->getClientOriginalExtension());
@@ -118,10 +118,6 @@ class ImportManifest extends Page
             ->success()
             ->send();
 
-        // Stay on the analysis page. Redirecting to the pallet hid failed-task
-        // errors and made a working queue dispatch look like the button did
-        // nothing. The processing view polls AiTask and will move to Review or
-        // show the actual error message as soon as the worker finishes.
         return null;
     }
 

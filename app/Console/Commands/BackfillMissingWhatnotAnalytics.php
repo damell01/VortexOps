@@ -111,16 +111,16 @@ class BackfillMissingWhatnotAnalytics extends Command
                     seedLiveId: $liveId,
                 );
 
-                // Never attach an anonymous analytics payload to a show merely
-                // because it was the first row returned. That could stamp the
-                // same gross/net figures onto many different shows. The payload
-                // must contain the exact UUID somewhere in its identifiers/URLs.
-                $raw = collect($rawRows)->first(function (array $row) use ($liveId) {
-                    return $this->findLiveIdInPayload($row) === strtolower($liveId);
+                // The analytics page is a React SPA. Its URL can change to the requested
+                // live_id before the cards finish hydrating, so UUID-in-URL alone is not
+                // sufficient identity proof. Require the returned row to also agree with
+                // the stored show title or show date before accepting any financials.
+                $raw = collect($rawRows)->first(function (array $row) use ($show, $liveId) {
+                    return $this->analyticsRowMatchesShow($show, $row, $liveId);
                 });
 
                 if (! is_array($raw)) {
-                    throw new \RuntimeException('Whatnot returned analytics, but none could be verified as this show UUID; skipped to protect existing data.');
+                    throw new \RuntimeException('Whatnot returned analytics, but the rendered show title/date did not verify this show. Skipped to prevent stale SPA metrics from being copied to another UUID.');
                 }
 
                 $row = $normalizer->normalizeShow($raw);
@@ -138,6 +138,15 @@ class BackfillMissingWhatnotAnalytics extends Command
 
                 if ($fields === []) {
                     throw new \RuntimeException('Analytics page loaded but no usable metrics were extracted.');
+                }
+
+                // Exact multi-field analytics clones across different Whatnot UUIDs are
+                // almost certainly stale-card reuse. Refuse the write even if identity
+                // text happened to look plausible; a later clean scrape can still repair it.
+                if ($duplicate = $this->findSuspiciousDuplicateSignature($show, $fields)) {
+                    throw new \RuntimeException(
+                        "Analytics signature exactly matches show #{$duplicate->id} ({$duplicate->whatnot_show_id}); refusing to copy likely stale metrics."
+                    );
                 }
 
                 $fields['whatnot_show_id'] = $show->whatnot_show_id ?: $liveId;
@@ -166,6 +175,54 @@ class BackfillMissingWhatnotAnalytics extends Command
         $this->newLine();
         $this->info("Analytics backfill complete: {$updated} updated, {$failed} failed.");
         return $failed > 0 && $updated === 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function analyticsRowMatchesShow(Show $show, array $row, string $liveId): bool
+    {
+        $payloadLiveId = $this->findLiveIdInPayload($row);
+        if (! $payloadLiveId || $payloadLiveId !== strtolower($liveId)) {
+            return false;
+        }
+
+        $expectedDate = $show->show_date?->format('Y-m-d');
+        $actualDate = $this->normalizeDate($row['show_date'] ?? $row['date'] ?? null);
+        $expectedTitle = $this->normalizeTitle((string) $show->title);
+        $actualTitle = $this->normalizeTitle((string) ($row['title'] ?? $row['show_title'] ?? ''));
+
+        $dateMatches = $expectedDate !== null && $actualDate !== null && $expectedDate === $actualDate;
+        $titleMatches = $expectedTitle !== '' && $actualTitle !== '' && $expectedTitle === $actualTitle;
+
+        // A row must have one piece of rendered identity evidence in addition to
+        // the live_id encoded in the URL. This is what prevents a stale analytics
+        // card from being accepted during SPA hydration.
+        return $dateMatches || $titleMatches;
+    }
+
+    private function findSuspiciousDuplicateSignature(Show $show, array $fields): ?Show
+    {
+        $signatureFields = [
+            'gross_revenue', 'whatnot_net', 'completed_earnings',
+            'avg_order_value', 'units_sold', 'buyers_count',
+        ];
+
+        $present = array_values(array_filter($signatureFields, fn (string $field) => array_key_exists($field, $fields)));
+        if (count($present) < 4 || ! array_key_exists('gross_revenue', $fields)) {
+            return null;
+        }
+
+        $query = Show::query()
+            ->where('id', '!=', $show->id)
+            ->whereNotNull('whatnot_show_id');
+
+        if ($show->whatnot_show_id) {
+            $query->where('whatnot_show_id', '!=', $show->whatnot_show_id);
+        }
+
+        foreach ($present as $field) {
+            $query->where($field, $fields[$field]);
+        }
+
+        return $query->first();
     }
 
     private function resolveLiveId(Show $show, WhatnotScraper $scraper): ?string

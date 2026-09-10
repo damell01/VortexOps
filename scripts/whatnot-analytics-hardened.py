@@ -28,6 +28,12 @@ def clean(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def normalize_identity(value: Any) -> str:
+    value = clean(value).lower()
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
 def parse_money(value: Any) -> float | None:
     raw = re.sub(r"[^0-9.-]", "", str(value or ""))
     if raw in {"", "-", ".", "-."}:
@@ -200,19 +206,63 @@ def has_useful_data(row: dict[str, Any]) -> bool:
     )
 
 
-def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: int = 15000) -> dict[str, Any]:
+def analytics_fingerprint(row: dict[str, Any]) -> str:
+    keys = (
+        "title", "show_date", "gross_revenue", "whatnot_net", "completed_earnings",
+        "units_sold", "buyers_count", "avg_order_value", "total_views", "show_duration",
+    )
+    return json.dumps([row.get(k) for k in keys], separators=(",", ":"), ensure_ascii=False)
+
+
+def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: int = 25000) -> dict[str, Any]:
+    expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", "")).lower() or None
+    expected_title = normalize_identity(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
+    expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", "")) or None
+
     elapsed = 0
     last: dict[str, Any] | None = None
+    last_fingerprint: str | None = None
+    stable_count = 0
+
     while elapsed < timeout_ms:
         module.check_login(page)
         last = extract_show(page)
-        changed = previous_live_id is None or (
-            last.get("whatnot_live_id") and last.get("whatnot_live_id") != previous_live_id
-        )
-        if changed and has_useful_data(last):
+        live_id = clean(last.get("whatnot_live_id")).lower() or None
+
+        changed = previous_live_id is None or (live_id and live_id != previous_live_id)
+        live_matches = expected_live_id is None or live_id == expected_live_id
+
+        actual_title = normalize_identity(last.get("title"))
+        preview = normalize_identity(last.get("_preview"))
+        actual_date = clean(last.get("show_date")) or None
+
+        if expected_title:
+            title_matches = actual_title == expected_title or expected_title in preview
+        else:
+            title_matches = True
+
+        date_matches = expected_date is None or actual_date == expected_date
+
+        # When the caller supplies an expected title, title is the primary identity
+        # check. Date alone is not enough because several shows can occur on one day.
+        identity_matches = title_matches and date_matches if expected_title and expected_date else title_matches and date_matches
+
+        fingerprint = analytics_fingerprint(last)
+        if fingerprint == last_fingerprint:
+            stable_count += 1
+        else:
+            last_fingerprint = fingerprint
+            stable_count = 1
+
+        # Require three consecutive identical snapshots (about 1.5s) after the
+        # requested UUID and rendered identity agree. This avoids accepting the
+        # stale analytics cards that React leaves on screen during SPA hydration.
+        if changed and live_matches and identity_matches and has_useful_data(last) and stable_count >= 3:
             return last
+
         page.wait_for_timeout(500)
         elapsed += 500
+
     return last or extract_show(page)
 
 
@@ -227,36 +277,59 @@ def analytics(module, session):
 
     def action(page):
         module.prepare(page)
-        page.goto(target, wait_until="domcontentloaded", timeout=30000)
+        os.environ.setdefault("WHATNOT_EXPECTED_LIVE_ID", module.START_UUID)
         previous_live_id = None
-        for index in range(module.LIMIT):
+
+        # Whatnot's analytics page is a React SPA and can reuse the previous
+        # show's cards after the URL changes. Retry a fresh navigation when the
+        # requested row does not become stable and verified on the first pass.
+        for navigation_attempt in range(1, 4):
+            page.goto(target, wait_until="domcontentloaded", timeout=30000)
+            if navigation_attempt > 1:
+                page.wait_for_timeout(1000)
             row = wait_for_row(module, page, previous_live_id)
-            key = row.get("whatnot_live_id") or f"{row.get('title')}|{row.get('show_date')}"
-            if not key or key in seen:
-                break
-            seen.add(key)
+            expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", "")).lower()
+            if expected_live_id and clean(row.get("whatnot_live_id")).lower() != expected_live_id:
+                module.info(f"analytics: hydration retry {navigation_attempt}/3 live_id mismatch")
+                continue
+
+            expected_title = normalize_identity(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
+            expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
+            actual_title = normalize_identity(row.get("title"))
+            preview = normalize_identity(row.get("_preview"))
+            actual_date = clean(row.get("show_date"))
+            title_ok = not expected_title or actual_title == expected_title or expected_title in preview
+            date_ok = not expected_date or actual_date == expected_date
+
+            if expected_title and not title_ok:
+                module.info(f"analytics: hydration retry {navigation_attempt}/3 title mismatch")
+                continue
+            if expected_date and not date_ok:
+                module.info(f"analytics: hydration retry {navigation_attempt}/3 date mismatch")
+                continue
             if not has_useful_data(row):
-                module.info("ANALYTICS_DIAGNOSTIC " + json.dumps({
-                    "index": index + 1,
-                    "live_id": row.get("whatnot_live_id"),
-                    "title": row.get("title"),
-                    "show_date": row.get("show_date"),
-                    "titles": (row.get("_titles") or [])[:8],
-                    "dates": (row.get("_dates") or [])[:8],
-                    "preview": row.get("_preview"),
-                }, separators=(",", ":")))
+                module.info(f"analytics: hydration retry {navigation_attempt}/3 no usable metrics")
+                continue
+
+            rows.append(row)
+            break
+
+        if not rows:
+            row = extract_show(page)
+            module.info("ANALYTICS_DIAGNOSTIC " + json.dumps({
+                "live_id": row.get("whatnot_live_id"),
+                "title": row.get("title"),
+                "show_date": row.get("show_date"),
+                "titles": (row.get("_titles") or [])[:8],
+                "dates": (row.get("_dates") or [])[:8],
+                "preview": row.get("_preview"),
+            }, separators=(",", ":")))
+            rows.append(row)
+
+        for row in rows:
             row.pop("_preview", None)
             row.pop("_titles", None)
             row.pop("_dates", None)
-            rows.append(row)
-            previous_live_id = row.get("whatnot_live_id")
-            older = page.get_by_text(re.compile(r"see older show", re.I)).first
-            try:
-                if not older.is_visible(timeout=2000):
-                    break
-                older.click(timeout=5000)
-            except Exception:
-                break
         module.info(f"analytics: collected {len(rows)} show(s)")
 
     session.fetch(
@@ -354,8 +427,6 @@ def advance_orders_page(module, page, previous_signature: str) -> bool:
 
     module.info(f"orders-batch: pagination next state={json.dumps(state, separators=(',', ':'))}")
 
-    # Prefer a real browser click. It follows React's event path more reliably
-    # than calling element.click() from page.evaluate().
     try:
         button = page.locator('svg[aria-label="Next page"]').first.locator('xpath=ancestor::button[1]')
         if button.is_visible(timeout=1500) and not button.is_disabled():

@@ -44,13 +44,25 @@ class WhatnotScraper
         return $data;
     }
 
-    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null, ?callable $onProgress = null, ?string $seedLiveId = null): array
-    {
+    public function fetchShows(
+        int $limit = 50,
+        bool $debug = false,
+        ?string $channelUsername = null,
+        ?callable $onProgress = null,
+        ?string $seedLiveId = null,
+        ?string $expectedTitle = null,
+        ?string $expectedDate = null,
+    ): array {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE'] = 'analytics';
         $env['WHATNOT_LIMIT'] = (string) $limit;
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
-        if ($seedLiveId) $env['WHATNOT_START_UUID'] = $seedLiveId;
+        if ($seedLiveId) {
+            $env['WHATNOT_START_UUID'] = $seedLiveId;
+            $env['WHATNOT_EXPECTED_LIVE_ID'] = $seedLiveId;
+        }
+        if ($expectedTitle !== null && trim($expectedTitle) !== '') $env['WHATNOT_EXPECTED_TITLE'] = $expectedTitle;
+        if ($expectedDate !== null && trim($expectedDate) !== '') $env['WHATNOT_EXPECTED_DATE'] = $expectedDate;
         $timeoutSeconds = max(1200, (int) ceil($limit / 50) * 1200);
         $process = $this->makeProcess($env, timeout: $timeoutSeconds);
         $this->withBrowserLock(function () use ($process, $onProgress) {
@@ -166,10 +178,6 @@ class WhatnotScraper
     private function runBatchScrape(string $mode,array $sources,?string $channelUsername,bool $debug,?callable $onProgress=null):array
     {
         if(empty($sources))return[];$srcFile=tempnam(sys_get_temp_dir(),'wn-'.$mode.'-').'.json';file_put_contents($srcFile,json_encode(array_values($sources)));$env=$this->baseEnv($debug);$env['WHATNOT_MODE']=$mode;$env['WHATNOT_ORDER_SOURCES_FILE']=$srcFile;if($channelUsername)$env['WHATNOT_CHANNEL_NAME']=$channelUsername;
-        // Full-history/recovery can legitimately send hundreds of shows in one
-        // browser session. Keep the timeout proportional to the actual source
-        // count instead of capping it at one hour, otherwise "all in one run"
-        // still dies part-way through even though the scraper accepts the list.
         $timeout=max(1200,300+count($sources)*30);
         try{$process=$this->makeProcess($env,timeout:$timeout);$this->withBrowserLock(function()use($process,$onProgress){$onProgress?$this->streamProcess($process,$onProgress):$process->run();},waitSeconds:$timeout);$stderr=trim($process->getErrorOutput());$stdout=trim($process->getOutput());if($stderr){Log::channel('stack')->warning("WhatnotScraper {$mode} stderr",['output'=>$stderr]);if($debug)fwrite(STDERR,$stderr."\n");}$this->throwForExitCode((int)$process->getExitCode(),$stderr,$process->getCommandLine());if(!$process->isSuccessful())throw new \RuntimeException("Whatnot {$mode} scraper failed: ".($stderr?:"Scraper exited with code {$process->getExitCode()}"));if(empty($stdout))return[];$data=json_decode($stdout,true);if(json_last_error()!==JSON_ERROR_NONE||!is_array($data))throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: ".json_last_error_msg());$map=[];foreach($data as$entry){$key=$entry['show_key']??null;if($key===null)continue;$map[$key]=$entry['orders']??[];}return$map;}finally{@unlink($srcFile);}
     }

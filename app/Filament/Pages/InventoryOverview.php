@@ -101,24 +101,77 @@ class InventoryOverview extends Page
     #[Computed]
     public function recentMovements(): Collection
     {
-        return InventoryMovement::query()
+        $movements = InventoryMovement::query()
             ->inChannelContext()
             ->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])
             ->latest()
-            ->limit(8)
+            // Pull extra raw rows because one pallet receipt may have hundreds
+            // of one-case movement rows. The dashboard shows business actions,
+            // while the full movement history remains available for audit.
+            ->limit(120)
             ->get();
+
+        return $this->collapsePalletReceiptMovements($movements)->take(8)->values();
     }
 
     #[Computed]
     public function recentRestocks(): Collection
     {
-        return InventoryMovement::query()
+        $movements = InventoryMovement::query()
             ->inChannelContext()
             ->whereIn('movement_type', ['opening', 'return'])
             ->with(['item', 'toLocation', 'createdByUser'])
             ->latest()
-            ->limit(5)
+            ->limit(80)
             ->get();
+
+        return $this->collapsePalletReceiptMovements($movements)->take(5)->values();
+    }
+
+    /**
+     * Receiving historically wrote one `opening` movement per case. That is
+     * useful as raw audit evidence but terrible dashboard UX: receiving 200
+     * single units became 200 separate +1 rows. Collapse only movements that
+     * explicitly came from the same pallet/line, item, location and minute.
+     * Every unrelated adjustment, sale, return or manual opening remains its
+     * own row.
+     */
+    private function collapsePalletReceiptMovements(Collection $movements): Collection
+    {
+        $output = collect();
+        $groups = [];
+
+        foreach ($movements as $movement) {
+            $isPalletReceipt = $movement->movement_type === 'opening'
+                && str_starts_with((string) $movement->reason, 'Received via pallet #');
+
+            if (! $isPalletReceipt) {
+                $output->push($movement);
+                continue;
+            }
+
+            $minute = $movement->created_at?->format('Y-m-d H:i') ?? 'unknown';
+            $key = implode('|', [
+                $movement->inventory_item_id,
+                $movement->to_location_id,
+                $movement->reason,
+                $minute,
+            ]);
+
+            if (! isset($groups[$key])) {
+                $clone = clone $movement;
+                $clone->quantity_before = null;
+                $clone->quantity_after = null;
+                $clone->quantity = abs((float) $movement->quantity);
+                $groups[$key] = $clone;
+                $output->push($clone);
+                continue;
+            }
+
+            $groups[$key]->quantity = (float) $groups[$key]->quantity + abs((float) $movement->quantity);
+        }
+
+        return $output->sortByDesc(fn (InventoryMovement $movement) => $movement->created_at?->getTimestamp() ?? 0)->values();
     }
 
     public function inventoryUrl(?string $stock = null): string

@@ -15,13 +15,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ParsePalletSlipJob implements ShouldQueue
 {
     use Queueable;
 
     public int $timeout = 1800;
-    public int $tries = 1;
+    public int $tries = 3;
+    public array $backoff = [30, 120];
 
     public function __construct(
         public readonly int $palletId,
@@ -33,10 +35,16 @@ class ParsePalletSlipJob implements ShouldQueue
     {
         $task = AiTask::findOrFail($this->aiTaskId);
         $pallet = Pallet::with('vendor')->findOrFail($this->palletId);
-        $task->markProcessing();
+        $task->update([
+            'status' => 'processing',
+            'started_at' => $task->started_at ?: now(),
+            'completed_at' => null,
+            'error_message' => null,
+        ]);
 
         try {
-            $rawLines = $parser->parse($this->storedPath);
+            $parsePath = $this->processingPathForAttempt($task);
+            $rawLines = $parser->parse($parsePath);
             $reviewLines = [];
 
             foreach ($rawLines as $line) {
@@ -115,6 +123,10 @@ class ParsePalletSlipJob implements ShouldQueue
                 ];
             }
 
+            if ($reviewLines === []) {
+                throw new \RuntimeException('Manifest analysis returned no usable product lines.');
+            }
+
             DB::transaction(function () use ($pallet, $task, &$reviewLines) {
                 $nextLine = ($pallet->lines()->max('line_number') ?? 0) + 1;
 
@@ -156,17 +168,51 @@ class ParsePalletSlipJob implements ShouldQueue
                     'new_items' => count($reviewLines) - $matched,
                     'needs_review' => $needsReview,
                     'manifest_lines_created' => count($reviewLines),
+                    'attempts' => $this->attempts(),
                 ],
             ]);
 
             $this->notifyFinished($task, $pallet, count($reviewLines), $matched, $needsReview);
         } catch (\Throwable $e) {
-            Log::error('ParsePalletSlipJob failed', ['error' => $e->getMessage(), 'task' => $this->aiTaskId]);
-            $task->markFailed($e->getMessage());
-            $this->notifyFailed($task, $pallet, $e->getMessage());
-        } finally {
-            @unlink($this->storedPath);
+            Log::warning('ParsePalletSlipJob attempt failed; queue will retry when attempts remain', [
+                'error' => $e->getMessage(),
+                'task' => $this->aiTaskId,
+                'attempt' => $this->attempts(),
+                'max_attempts' => $this->tries,
+            ]);
+            throw $e;
         }
+    }
+
+    private function processingPathForAttempt(AiTask $task): string
+    {
+        if (is_file($this->storedPath)) {
+            return $this->storedPath;
+        }
+
+        $input = is_array($task->input) ? $task->input : [];
+        $sourceRelative = trim((string) ($input['stored_path'] ?? ''));
+        if ($sourceRelative === '' || ! Storage::disk('local')->exists($sourceRelative)) {
+            throw new \RuntimeException('The retained source manifest is unavailable for retry. Please upload the file again.');
+        }
+
+        $extension = strtolower((string) ($input['extension'] ?? pathinfo($sourceRelative, PATHINFO_EXTENSION)));
+        $filename = 'retry_task_' . $task->id . '_attempt_' . max(1, $this->attempts()) . '_' . uniqid() . ($extension ? '.' . $extension : '');
+        $processingRelative = 'manifest-processing/' . $filename;
+        Storage::disk('local')->makeDirectory('manifest-processing');
+
+        if (! Storage::disk('local')->copy($sourceRelative, $processingRelative)) {
+            throw new \RuntimeException('Manifest retry copy could not be created.');
+        }
+
+        Log::info('ParsePalletSlipJob restored retained manifest for retry', [
+            'task' => $task->id,
+            'attempt' => $this->attempts(),
+            'source' => $sourceRelative,
+            'processing' => $processingRelative,
+        ]);
+
+        return Storage::disk('local')->path($processingRelative);
     }
 
     private function notifyFinished(AiTask $task, Pallet $pallet, int $total, int $matched, int $needsReview): void
@@ -216,9 +262,10 @@ class ParsePalletSlipJob implements ShouldQueue
     public function failed(\Throwable $e): void
     {
         @unlink($this->storedPath);
-        Log::error('ParsePalletSlipJob timed out or failed fatally', [
+        Log::error('ParsePalletSlipJob exhausted retries or failed fatally', [
             'ai_task_id' => $this->aiTaskId,
             'error' => $e->getMessage(),
+            'attempts' => $this->attempts(),
         ]);
 
         $task = AiTask::find($this->aiTaskId);

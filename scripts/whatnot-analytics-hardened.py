@@ -214,7 +214,7 @@ def analytics_fingerprint(row: dict[str, Any]) -> str:
     return json.dumps([row.get(k) for k in keys], separators=(",", ":"), ensure_ascii=False)
 
 
-def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: int = 25000) -> dict[str, Any]:
+def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: int = 12000) -> dict[str, Any]:
     expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", "")).lower() or None
     expected_title = normalize_identity(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
     expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", "")) or None
@@ -242,10 +242,7 @@ def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: 
             title_matches = True
 
         date_matches = expected_date is None or actual_date == expected_date
-
-        # When the caller supplies an expected title, title is the primary identity
-        # check. Date alone is not enough because several shows can occur on one day.
-        identity_matches = title_matches and date_matches if expected_title and expected_date else title_matches and date_matches
+        identity_matches = title_matches and date_matches
 
         fingerprint = analytics_fingerprint(last)
         if fingerprint == last_fingerprint:
@@ -254,9 +251,6 @@ def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: 
             last_fingerprint = fingerprint
             stable_count = 1
 
-        # Require three consecutive identical snapshots (about 1.5s) after the
-        # requested UUID and rendered identity agree. This avoids accepting the
-        # stale analytics cards that React leaves on screen during SPA hydration.
         if changed and live_matches and identity_matches and has_useful_data(last) and stable_count >= 3:
             return last
 
@@ -270,7 +264,6 @@ def analytics(module, session):
     if not module.UUID_RE.fullmatch(module.START_UUID):
         module.fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
     rows: list[dict[str, Any]] = []
-    seen: set[str] = set()
     end_date = (date.today() + timedelta(days=7)).isoformat()
     target = f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}&start_dt=2019-01-01&end_dt={end_date}"
     module.info(f"analytics: range end={end_date} seed={module.START_UUID}")
@@ -286,7 +279,7 @@ def analytics(module, session):
         for navigation_attempt in range(1, 4):
             page.goto(target, wait_until="domcontentloaded", timeout=30000)
             if navigation_attempt > 1:
-                page.wait_for_timeout(1000)
+                page.wait_for_timeout(750)
             row = wait_for_row(module, page, previous_live_id)
             expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", "")).lower()
             if expected_live_id and clean(row.get("whatnot_live_id")).lower() != expected_live_id:
@@ -324,7 +317,10 @@ def analytics(module, session):
                 "dates": (row.get("_dates") or [])[:8],
                 "preview": row.get("_preview"),
             }, separators=(",", ":")))
-            rows.append(row)
+            module.info(
+                "analytics: identity never verified after 3 hydration attempts; "
+                "returning no row so stale SPA metrics cannot be persisted"
+            )
 
         for row in rows:
             row.pop("_preview", None)

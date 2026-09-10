@@ -34,6 +34,30 @@ class RepairDuplicateWhatnotAnalytics extends Command
         'avg_order_rating',
     ];
 
+    /**
+     * Some legacy show analytics columns are NOT NULL in production.  Zero is
+     * the application's established "missing analytics" sentinel for the core
+     * revenue/count columns, and BackfillMissingWhatnotAnalytics explicitly
+     * treats <= 0 as needing repair.  Optional analytics can safely be null.
+     */
+    private const CLEAR_VALUES = [
+        'gross_revenue' => 0,
+        'whatnot_net' => 0,
+        'units_sold' => 0,
+        'completed_earnings' => null,
+        'avg_order_value' => null,
+        'giveaway_spend' => null,
+        'giveaways_count' => null,
+        'buyers_count' => null,
+        'first_time_buyers' => null,
+        'returning_buyers' => null,
+        'shares_count' => null,
+        'show_duration' => null,
+        'max_concurrent_viewers' => null,
+        'total_views' => null,
+        'avg_order_rating' => null,
+    ];
+
     public function handle(): int
     {
         $days = max(1, min(3650, (int) $this->option('days')));
@@ -105,16 +129,23 @@ class RepairDuplicateWhatnotAnalytics extends Command
 
                 foreach (self::ANALYTICS_FIELDS as $field) {
                     $snapshot['values'][$field] = $show->{$field};
-                    $show->setAttribute($field, null);
                 }
 
                 $quarantine[] = $snapshot;
                 $raw['_analytics_quarantine'] = array_slice($quarantine, -5);
                 unset($raw['_analytics_metrics'], $raw['_analytics_synced_at']);
 
-                $show->raw_import_payload = $raw;
-                $show->setAttribute('last_analytics_synced_at', null);
-                $show->save();
+                // Use a direct update intentionally: this is a repair operation,
+                // and the Show observer's clone guard should not interpret the
+                // temporary zero/null sentinel values as incoming analytics.
+                DB::table('shows')->where('id', $show->id)->update(array_merge(
+                    self::CLEAR_VALUES,
+                    [
+                        'raw_import_payload' => json_encode($raw, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                        'last_analytics_synced_at' => null,
+                        'updated_at' => now(),
+                    ],
+                ));
             }
         });
 

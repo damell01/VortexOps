@@ -16,11 +16,93 @@
         return max(0, (int) ($l['case_count'] ?? 0)) * max(1, (float) ($l['quantity_per_case'] ?? 1)) * $cost;
     });
 @endphp
+
 <style>
-.vx-ai{max-width:1680px;margin:0 auto;display:grid;gap:14px}.vx-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}.dark .vx-card{background:#111827;border-color:#263248}.vx-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.vx-breadcrumb{font-size:10px;color:#64748b;margin-bottom:5px}.vx-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.vx-title{font-size:24px;font-weight:800;line-height:1.15;color:#111827}.dark .vx-title{color:#fff}.vx-beta{display:inline-flex;align-items:center;border:1px solid #c4b5fd;background:#f5f3ff;color:#6d28d9;border-radius:6px;padding:2px 7px;font-size:9px;font-weight:800}.vx-sub{margin-top:4px;font-size:11px;color:#64748b}.vx-actions{display:flex;gap:8px;flex-wrap:wrap}.vx-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;border:1px solid #d9dee7;background:#fff;color:#334155;border-radius:9px;padding:8px 12px;font-size:10px;font-weight:800;transition:.15s}.vx-btn:hover{background:#f8fafc}.vx-btn.primary{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#7c3aed;color:#fff;box-shadow:0 5px 14px rgba(124,58,237,.18)}.vx-btn.success{background:#059669;border-color:#059669;color:#fff}.dark .vx-btn{background:#111827;color:#e5e7eb;border-color:#475569}.dark .vx-btn.primary{background:#7c3aed;color:#fff}.vx-stepper{padding:10px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.vx-step{display:flex;align-items:center;gap:10px;position:relative;padding:2px 6px}.vx-step:after{content:'';position:absolute;left:48px;right:-8px;top:17px;height:1px;background:#d8dee8}.vx-step:last-child:after{display:none}.vx-step-dot{position:relative;z-index:1;flex:none;width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:#64748b;color:#fff;font-size:11px;font-weight:800;box-shadow:0 0 0 4px #fff}.dark .vx-step-dot{box-shadow:0 0 0 4px #111827}.vx-step.done .vx-step-dot{background:#1677d2}.vx-step.active .vx-step-dot{background:#7c3aed;box-shadow:0 0 0 4px #ede9fe}.vx-step-copy{position:relative;z-index:1;background:#fff;padding-right:6px}.dark .vx-step-copy{background:#111827}.vx-step-copy strong{display:block;font-size:10px;color:#334155}.dark .vx-step-copy strong{color:#e5e7eb}.vx-step-copy span{display:block;font-size:8px;color:#94a3b8;margin-top:1px}.vx-review-shell{display:grid;grid-template-columns:minmax(380px,.72fr) minmax(0,1.65fr);gap:14px;align-items:start}.vx-source{padding:10px;position:sticky;top:10px}.vx-source-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#172036;padding:3px 2px 10px}.dark .vx-source-title{color:#fff}.vx-file-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px 10px}.vx-file-meta{display:flex;align-items:center;gap:9px;min-width:0}.vx-file-icon{width:30px;height:34px;border-radius:7px;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-weight:800;font-size:9px;flex:none}.vx-file-name{font-size:10px;font-weight:800;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dark .vx-file-name{color:#f8fafc}.vx-file-sub{font-size:8px;color:#94a3b8;margin-top:1px}.vx-source-frame,.vx-source-img{width:100%;height:calc(100vh - 245px);min-height:620px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:9px}.vx-source-frame{border:1px solid #e5e7eb}.vx-source-img{display:block;object-fit:contain}.vx-source-fallback{min-height:420px;display:grid;place-items:center;text-align:center;color:#64748b;border:1px dashed #d1d5db;border-radius:9px}.vx-upload-more{margin-top:10px;border:1px dashed #c7d2fe;border-radius:10px;padding:14px;text-align:center;color:#64748b;font-size:9px;background:#fafaff}.vx-review{display:grid;gap:10px}.vx-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.vx-stat{border:1px solid #edf0f4;background:#f8fafc;border-radius:11px;padding:10px 11px;display:flex;align-items:center;gap:9px}.dark .vx-stat{background:#1f2937;border-color:#334155}.vx-stat-icon{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;font-size:13px;font-weight:900;background:#e0f2fe;color:#0369a1;flex:none}.vx-stat.green .vx-stat-icon{background:#dcfce7;color:#15803d}.vx-stat.gold .vx-stat-icon{background:#fef3c7;color:#a16207}.vx-stat.purple .vx-stat-icon{background:#f3e8ff;color:#7e22ce}.vx-stat.conf{background:#ecfdf5;border-color:#d1fae5}.vx-stat strong{display:block;font-size:17px;line-height:1;color:#0f172a}.dark .vx-stat strong{color:#fff}.vx-stat span{display:block;font-size:8px;color:#64748b;margin-top:3px}.vx-confidence-row{display:flex;justify-content:space-between;gap:6px;align-items:end}.vx-confidence-bar{height:5px;background:#d1fae5;border-radius:999px;overflow:hidden;margin-top:7px}.vx-confidence-bar>i{display:block;height:100%;background:#10b981;border-radius:999px}.vx-items-card{overflow:hidden}.vx-items-head{display:flex;align-items:end;justify-content:space-between;gap:12px;padding:12px 14px}.vx-items-head h2{font-size:14px;font-weight:800;color:#172036}.dark .vx-items-head h2{color:#fff}.vx-items-head p{margin-top:2px;font-size:8px;color:#94a3b8}.vx-mini-search{min-width:180px;border:1px solid #d8dee8;border-radius:8px;padding:7px 9px;font-size:9px;color:#94a3b8;background:#fff}.dark .vx-mini-search{background:#111827;border-color:#475569}.vx-table-head,.vx-item-row{display:grid;grid-template-columns:34px 1.7fr 68px 76px 84px 92px minmax(150px,1fr) 54px;gap:8px;align-items:center}.vx-table-head{padding:8px 12px;background:#f8fafc;border-top:1px solid #edf0f4;border-bottom:1px solid #edf0f4;font-size:8px;font-weight:800;color:#64748b}.dark .vx-table-head{background:#182130;border-color:#334155}.vx-item-row{padding:8px 12px;border-bottom:1px solid #edf0f4}.dark .vx-item-row{border-color:#2d3748}.vx-item-index{font-size:9px;color:#64748b;text-align:center}.vx-item-name{font-size:10px;font-weight:800;color:#1f2937;line-height:1.25}.dark .vx-item-name{color:#f8fafc}.vx-item-sub{font-size:8px;color:#94a3b8;margin-top:2px}.vx-input{width:100%;min-height:34px;border:1px solid #d5dbe5;border-radius:7px;padding:5px 7px;font-size:10px;background:#fff}.dark .vx-input{background:#0f172a;border-color:#475569;color:#fff}.vx-input:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 2px rgba(139,92,246,.1)}.vx-money{display:flex;align-items:center}.vx-money span{height:34px;display:grid;place-items:center;padding:0 7px;border:1px solid #d5dbe5;border-right:0;border-radius:7px 0 0 7px;background:#f8fafc;font-size:9px;color:#64748b}.vx-money .vx-input{border-radius:0 7px 7px 0}.vx-match{min-width:0}.vx-status-pill{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:4px 7px;font-size:8px;font-weight:800;background:#dcfce7;color:#15803d}.vx-status-pill.new{background:#eff6ff;color:#2563eb}.vx-status-pill.review{background:#fff7ed;color:#c2410c}.vx-match-meta{font-size:8px;color:#64748b;margin-top:3px}.vx-alt{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.vx-alt button{border:1px solid #d8dee8;border-radius:6px;padding:3px 5px;font-size:8px;background:#fff;color:#475569}.dark .vx-alt button{background:#111827;border-color:#475569;color:#e5e7eb}.vx-row-actions{display:flex;gap:4px;justify-content:flex-end}.vx-icon-btn{width:30px;height:30px;border:1px solid #d8dee8;border-radius:7px;background:#fff;display:grid;place-items:center;font-size:10px;font-weight:800}.dark .vx-icon-btn{background:#111827;border-color:#475569}.vx-row-extra{grid-column:2/-1;display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;padding-top:2px}.vx-label{display:block;font-size:7px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:#94a3b8;margin-bottom:3px}.vx-remove{font-size:8px;font-weight:800;color:#dc2626;padding-bottom:8px}.vx-items-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px}.vx-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:0;min-width:420px;border:1px solid #ddd6fe;background:#f5f3ff;border-radius:9px;padding:8px 12px}.vx-total{padding:0 14px;border-left:1px solid #ddd6fe}.vx-total:first-child{border-left:0}.vx-total span{display:block;font-size:8px;color:#64748b}.vx-total strong{display:block;font-size:15px;color:#111827;margin-top:2px}.vx-footer{position:sticky;bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.08)}.dark .vx-footer{background:rgba(17,24,39,.96);border-color:#334155}.vx-footer-note{font-size:9px;color:#64748b}.vx-error{border-radius:10px;background:#fef2f2;color:#b91c1c;padding:10px;font-size:11px}.vx-section{padding:16px}.vx-upload{border:2px dashed #d8dee8;border-radius:12px;padding:26px 16px;text-align:center;background:#fafbfc}.vx-status{display:flex;gap:12px;align-items:flex-start;border-radius:12px;background:#f5f3ff;padding:13px}.vx-spin{width:30px;height:30px;border:3px solid #ddd6fe;border-top-color:#7c3aed;border-radius:50%;animation:vxspin 1s linear infinite;flex:none}@keyframes vxspin{to{transform:rotate(360deg)}}
-@media(max-width:1300px){.vx-summary{grid-template-columns:repeat(3,1fr)}.vx-stat.conf{grid-column:span 1}.vx-table-head,.vx-item-row{grid-template-columns:28px 1.6fr 62px 70px 78px 86px minmax(130px,1fr) 46px}}
-@media(max-width:1100px){.vx-review-shell{grid-template-columns:1fr}.vx-source{position:static}.vx-source-frame,.vx-source-img{height:520px;min-height:0}.vx-table-head{display:none}.vx-item-row{grid-template-columns:40px 1fr 1fr 1fr}.vx-item-row>div:nth-child(2){grid-column:2/-1}.vx-item-row>div:nth-child(7){grid-column:2/-1}.vx-row-actions{grid-column:4}.vx-row-extra{grid-column:2/-1}.vx-items-foot{align-items:stretch;flex-direction:column}.vx-totals{min-width:0}}
-@media(max-width:640px){.vx-page-head{display:grid}.vx-actions{width:100%}.vx-actions .vx-btn{flex:1}.vx-stepper{grid-template-columns:1fr 1fr}.vx-step:nth-child(2):after{display:none}.vx-step-copy span{display:none}.vx-summary{grid-template-columns:1fr 1fr}.vx-stat.conf{grid-column:1/-1}.vx-item-row{grid-template-columns:34px 1fr 1fr}.vx-item-row>div:nth-child(2),.vx-item-row>div:nth-child(7),.vx-row-extra{grid-column:1/-1}.vx-row-actions{grid-column:auto}.vx-row-extra{grid-template-columns:1fr}.vx-items-head{display:grid}.vx-mini-search{min-width:0}.vx-totals{grid-template-columns:1fr}.vx-total{border-left:0;border-top:1px solid #ddd6fe;padding:7px 0}.vx-total:first-child{border-top:0}.vx-footer{display:grid}.vx-footer .vx-actions{display:grid;grid-template-columns:1fr 1fr}.vx-source-frame,.vx-source-img{height:390px}.vx-title{font-size:21px}}
+.vx-ai{max-width:1680px;margin:0 auto;display:grid;gap:14px;color:#18213a}
+.vx-card{background:#fff;border:1px solid #e5eaf1;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.035)}
+.dark .vx-card{background:#111827;border-color:#263248;color:#e5e7eb}
+.vx-page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:0 1px}
+.vx-breadcrumb{font-size:10px;color:#65708a;margin-bottom:5px}
+.vx-title-row{display:flex;align-items:center;gap:8px}
+.vx-title{font-size:24px;font-weight:800;line-height:1.1;color:#111936}
+.dark .vx-title{color:#fff}
+.vx-beta{font-size:9px;font-weight:800;color:#6d28d9;background:#f3e8ff;border:1px solid #c4b5fd;border-radius:6px;padding:3px 7px}
+.vx-sub{font-size:11px;color:#667085;margin-top:5px}
+.vx-actions{display:flex;gap:8px;align-items:center}
+.vx-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 13px;border:1px solid #d9e0ea;border-radius:9px;background:#fff;color:#26324a;font-size:10px;font-weight:800;line-height:1;white-space:nowrap}
+.vx-btn:hover{background:#f8fafc}
+.vx-btn.primary{background:linear-gradient(135deg,#7c3aed,#6d28d9);border-color:#7c3aed;color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.18)}
+.dark .vx-btn{background:#111827;color:#e5e7eb;border-color:#475569}
+.dark .vx-btn.primary{background:#7c3aed;color:#fff}
+.vx-stepper{padding:10px 22px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.vx-step{display:flex;align-items:center;gap:10px;position:relative;min-width:0}
+.vx-step:after{content:'';position:absolute;left:44px;right:-12px;top:16px;height:1px;background:#cfd6e2}
+.vx-step:last-child:after{display:none}
+.vx-step-dot{position:relative;z-index:2;width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;background:#778397;color:#fff;font-size:11px;font-weight:800;box-shadow:0 0 0 4px #fff}
+.vx-step.done .vx-step-dot{background:#1475d2}
+.vx-step.active .vx-step-dot{background:#7c3aed;box-shadow:0 0 0 4px #ede9fe}
+.vx-step-copy{position:relative;z-index:2;background:#fff;padding-right:8px}
+.vx-step-copy strong{display:block;font-size:10px;color:#33415d}
+.vx-step.active .vx-step-copy strong{color:#6d28d9}
+.vx-step-copy span{display:block;font-size:8px;color:#8a94a8;margin-top:2px}
+.dark .vx-step-copy{background:#111827}.dark .vx-step-copy strong{color:#e5e7eb}
+.vx-section{padding:16px}
+.vx-upload{border:2px dashed #d8dee8;border-radius:12px;padding:28px 16px;text-align:center;background:#fafbfc}
+.vx-error{border-radius:10px;background:#fef2f2;color:#b91c1c;padding:10px;font-size:11px}
+.vx-status{display:flex;gap:12px;align-items:flex-start;border-radius:12px;background:#f5f3ff;padding:13px}
+.vx-spin{width:30px;height:30px;border:3px solid #ddd6fe;border-top-color:#7c3aed;border-radius:50%;animation:vxspin 1s linear infinite;flex:none}@keyframes vxspin{to{transform:rotate(360deg)}}
+
+.vx-review-shell{display:grid;grid-template-columns:minmax(390px,.74fr) minmax(0,1.72fr);gap:14px;align-items:start}
+.vx-source{padding:10px;position:sticky;top:10px;overflow:hidden}
+.vx-source-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#18213a;padding:3px 3px 10px}
+.vx-source-title:before{content:'▤';color:#6d28d9;font-size:16px}
+.vx-file-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 3px 10px}
+.vx-file-meta{display:flex;align-items:center;gap:9px;min-width:0}
+.vx-file-icon{width:30px;height:34px;border-radius:7px;background:#fee2e2;color:#dc2626;display:grid;place-items:center;font-weight:900;font-size:9px;flex:none}
+.vx-file-name{font-size:10px;font-weight:800;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-file-sub{font-size:8px;color:#8b95a7;margin-top:1px}
+.vx-source-frame,.vx-source-img{width:100%;height:calc(100vh - 245px);min-height:620px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:9px}
+.vx-source-frame{border:1px solid #e5e7eb}.vx-source-img{display:block;object-fit:contain}
+.vx-source-fallback{min-height:420px;display:grid;place-items:center;text-align:center;color:#64748b;border:1px dashed #d1d5db;border-radius:9px}
+.vx-upload-more{margin-top:10px;border:1px dashed #c7d2fe;border-radius:10px;padding:14px;text-align:center;color:#64748b;font-size:9px;background:#fafaff}
+
+.vx-review{display:grid;gap:10px;min-width:0}
+.vx-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.vx-stat{border:1px solid #edf0f4;background:#f8fafc;border-radius:11px;padding:10px 11px;display:flex;align-items:center;gap:9px;min-width:0}
+.vx-stat-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:900;background:#e0f2fe;color:#0369a1;flex:none}
+.vx-stat.green .vx-stat-icon{background:#dcfce7;color:#15803d}.vx-stat.gold .vx-stat-icon{background:#fef3c7;color:#a16207}.vx-stat.purple .vx-stat-icon{background:#f3e8ff;color:#7e22ce}.vx-stat.conf{background:#ecfdf5;border-color:#d1fae5}
+.vx-stat strong{display:block;font-size:17px;line-height:1;color:#101828}.vx-stat span{display:block;font-size:8px;color:#667085;margin-top:3px}
+.vx-confidence-row{display:flex;justify-content:space-between;gap:6px;align-items:flex-end}.vx-confidence-bar{height:5px;background:#d1fae5;border-radius:999px;overflow:hidden;margin-top:7px}.vx-confidence-bar>i{display:block;height:100%;background:#10b981;border-radius:999px}
+
+.vx-items-card{overflow:visible}
+.vx-items-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:12px 14px}
+.vx-items-head h2{font-size:14px;font-weight:800;color:#172036}.vx-items-head p{margin-top:2px;font-size:8px;color:#8b95a7}
+.vx-toolbar{display:flex;gap:7px;align-items:center}.vx-mini-search{width:185px;height:34px;border:1px solid #d8dee8;border-radius:8px;padding:0 10px;font-size:9px;color:#94a3b8;background:#fff;display:flex;align-items:center}
+.vx-table-head,.vx-item-row{display:grid;grid-template-columns:28px minmax(240px,1.7fr) 72px 82px 90px 90px minmax(140px,.95fr) 72px;gap:8px;align-items:center}
+.vx-table-head{padding:8px 12px;background:#f8fafc;border-top:1px solid #edf0f4;border-bottom:1px solid #edf0f4;font-size:8px;font-weight:800;color:#667085}
+.vx-item-wrap{position:relative;border-bottom:1px solid #edf0f4;background:#fff}.vx-item-wrap:last-of-type{border-bottom:0}
+.vx-item-row{padding:10px 12px;min-height:66px}
+.vx-item-index{font-size:9px;color:#64748b;text-align:center}
+.vx-item-main{display:flex;align-items:center;gap:9px;min-width:0}.vx-thumb{width:42px;height:42px;flex:none;border:1px solid #e5e7eb;border-radius:8px;background:linear-gradient(145deg,#fff7ed,#eef2ff);display:grid;place-items:center;color:#7c3aed;font-size:10px;font-weight:900}
+.vx-item-copy{min-width:0}.vx-item-name{font-size:10px;font-weight:800;color:#172036;line-height:1.25}.vx-item-sub{font-size:8px;color:#8b95a7;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-input{width:100%;height:34px;border:1px solid #d5dbe5;border-radius:7px;padding:0 7px;font-size:10px;background:#fff;color:#26324a}
+.vx-input:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 2px rgba(139,92,246,.1)}
+.vx-money{display:flex;align-items:center}.vx-money span{height:34px;display:grid;place-items:center;padding:0 7px;border:1px solid #d5dbe5;border-right:0;border-radius:7px 0 0 7px;background:#f8fafc;font-size:9px;color:#64748b}.vx-money .vx-input{border-radius:0 7px 7px 0}
+.vx-total-cell{font-size:10px;font-weight:800;color:#27364f}
+.vx-match{min-width:0}.vx-status-pill{display:inline-flex!important;align-items:center!important;gap:4px!important;width:auto!important;min-width:0!important;min-height:0!important;height:22px!important;padding:0 8px!important;border:0!important;border-radius:6px!important;font-size:8px!important;font-weight:800!important;line-height:1!important;box-shadow:none!important;background:#dcfce7!important;color:#15803d!important;white-space:nowrap!important}.vx-status-pill.new{background:#eff6ff!important;color:#2563eb!important}.vx-status-pill.review{background:#fff7ed!important;color:#c2410c!important}
+.vx-match-meta{font-size:8px;color:#667085;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-row-actions{display:flex;gap:6px;justify-content:flex-end;align-items:center;position:relative}.vx-icon-btn{appearance:none;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;padding:0!important;border:1px solid #d8dee8!important;border-radius:7px!important;background:#fff!important;color:#334155!important;display:grid!important;place-items:center!important;font-size:11px!important;line-height:1!important;box-shadow:none!important}
+.vx-details{position:relative}.vx-details>summary{list-style:none;cursor:pointer}.vx-details>summary::-webkit-details-marker{display:none}.vx-details[open]>summary{border-color:#8b5cf6!important;background:#f5f3ff!important;color:#6d28d9!important}
+.vx-edit-panel{position:absolute;right:0;top:38px;z-index:40;width:430px;padding:12px;background:#fff;border:1px solid #dfe4ec;border-radius:10px;box-shadow:0 18px 45px rgba(15,23,42,.16)}
+.vx-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.vx-edit-grid .full{grid-column:1/-1}.vx-label{display:block;font-size:7px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:#8b95a7;margin-bottom:4px}
+.vx-menu{position:relative}.vx-menu>summary{list-style:none;cursor:pointer}.vx-menu>summary::-webkit-details-marker{display:none}.vx-menu-panel{position:absolute;right:0;top:38px;z-index:50;width:250px;padding:9px;background:#fff;border:1px solid #dfe4ec;border-radius:10px;box-shadow:0 18px 45px rgba(15,23,42,.16)}
+.vx-menu-title{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#8b95a7;margin:2px 2px 6px}.vx-match-options{display:grid;gap:5px}.vx-match-options .vx-match-option{appearance:none!important;width:100%!important;min-width:0!important;min-height:0!important;height:auto!important;padding:7px 8px!important;margin:0!important;border:1px solid #e1e6ee!important;border-radius:7px!important;background:#fff!important;color:#26324a!important;text-align:left!important;font-size:9px!important;font-weight:700!important;line-height:1.25!important;box-shadow:none!important;white-space:normal!important}.vx-match-options .vx-match-option:hover{background:#f8fafc!important;border-color:#cbd5e1!important}.vx-match-options .vx-match-option.create{color:#2563eb!important;background:#eff6ff!important;border-color:#dbeafe!important}.vx-match-options .vx-match-option.remove{color:#dc2626!important;background:#fff!important;border-color:#fee2e2!important}
+.vx-items-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px}.vx-totals{display:grid;grid-template-columns:repeat(3,1fr);min-width:420px;border:1px solid #ddd6fe;background:#f5f3ff;border-radius:9px;padding:8px 12px}.vx-total{padding:0 14px;border-left:1px solid #ddd6fe}.vx-total:first-child{border-left:0}.vx-total span{display:block;font-size:8px;color:#667085}.vx-total strong{display:block;font-size:15px;color:#111827;margin-top:2px}
+.vx-footer{position:sticky;bottom:8px;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.08)}.vx-footer-note{font-size:9px;color:#667085}
+.dark .vx-source-title,.dark .vx-file-name,.dark .vx-items-head h2,.dark .vx-item-name,.dark .vx-total-cell{color:#f8fafc}.dark .vx-stat,.dark .vx-table-head{background:#1f2937;border-color:#334155}.dark .vx-stat strong{color:#fff}.dark .vx-item-wrap{background:#111827;border-color:#334155}.dark .vx-input,.dark .vx-mini-search,.dark .vx-icon-btn,.dark .vx-edit-panel,.dark .vx-menu-panel,.dark .vx-match-options .vx-match-option{background:#111827!important;border-color:#475569!important;color:#e5e7eb!important}.dark .vx-step-copy{background:#111827}.dark .vx-source-frame,.dark .vx-source-img{border-color:#334155}
+@media(max-width:1300px){.vx-summary{grid-template-columns:repeat(3,1fr)}.vx-table-head,.vx-item-row{grid-template-columns:26px minmax(210px,1.5fr) 66px 74px 82px 84px minmax(125px,.9fr) 68px}}
+@media(max-width:1100px){.vx-review-shell{grid-template-columns:1fr}.vx-source{position:static}.vx-source-frame,.vx-source-img{height:520px;min-height:0}.vx-table-head{display:none}.vx-item-row{grid-template-columns:28px 1fr 76px 84px}.vx-item-main{grid-column:2/-1}.vx-match{grid-column:2/4}.vx-row-actions{grid-column:4}.vx-total-cell{grid-column:2}.vx-items-foot{flex-direction:column;align-items:stretch}.vx-totals{min-width:0}.vx-edit-panel{right:-38px}}
+@media(max-width:640px){.vx-page-head{display:grid}.vx-actions{width:100%}.vx-actions .vx-btn{flex:1}.vx-stepper{grid-template-columns:1fr 1fr;padding:10px}.vx-step:nth-child(2):after{display:none}.vx-step-copy span{display:none}.vx-summary{grid-template-columns:1fr 1fr}.vx-stat.conf{grid-column:1/-1}.vx-item-row{grid-template-columns:24px 1fr 60px}.vx-item-main{grid-column:2/-1}.vx-match{grid-column:2/-1}.vx-row-actions{grid-column:3}.vx-total-cell{grid-column:2}.vx-edit-panel,.vx-menu-panel{position:fixed;left:12px;right:12px;top:auto;bottom:76px;width:auto}.vx-toolbar{width:100%}.vx-mini-search{width:100%}.vx-items-head{display:grid}.vx-totals{grid-template-columns:1fr}.vx-total{border-left:0;border-top:1px solid #ddd6fe;padding:7px 0}.vx-total:first-child{border-top:0}.vx-footer{display:grid}.vx-source-frame,.vx-source-img{height:390px}.vx-title{font-size:21px}}
 </style>
 
 <div class="vx-ai">
@@ -31,19 +113,14 @@
             <p class="vx-sub">Upload a supplier invoice or packing list and let AI extract the items. Review, edit, and add to your pallet.</p>
         </div>
         <div class="vx-actions">
-            <a href="{{ $palletUrl }}" class="vx-btn">Back to Pallet</a>
+            <a href="{{ $palletUrl }}" class="vx-btn">Save Draft</a>
             @if($stage === 'verify')<button wire:click="import" wire:loading.attr="disabled" class="vx-btn primary"><span wire:loading.remove wire:target="import">Add Items to Pallet →</span><span wire:loading wire:target="import">Adding…</span></button>@endif
         </div>
     </div>
 
     @php $keys=['upload','processing','verify','done']; $current=array_search($stage,$keys,true); @endphp
     <section class="vx-card vx-stepper">
-        @foreach([
-            ['Upload','Add PDF or image'],
-            ['AI Processing','Extract items with AI'],
-            ['Review & Edit','Verify and adjust'],
-            ['Add to Pallet','Confirm and import']
-        ] as $i=>$step)
+        @foreach([['Upload','Add PDF or image'],['AI Processing','Extract items with AI'],['Review & Edit','Verify and adjust'],['Add to Pallet','Confirm and import']] as $i=>$step)
             <div class="vx-step {{ $i < $current ? 'done' : ($i === $current ? 'active' : '') }}">
                 <div class="vx-step-dot">{{ $i < $current ? '✓' : $i+1 }}</div>
                 <div class="vx-step-copy"><strong>{{ $step[0] }}</strong><span>{{ $step[1] }}</span></div>
@@ -67,10 +144,10 @@
     @if($stage === 'verify')
         <div class="vx-review-shell">
             <section class="vx-card vx-source">
-                <div class="vx-source-title">▣ Document Preview</div>
+                <div class="vx-source-title">Document Preview</div>
                 <div class="vx-file-row">
                     <div class="vx-file-meta"><div class="vx-file-icon">PDF</div><div class="min-w-0"><div class="vx-file-name">{{ $sourceOriginalName ?: 'Uploaded manifest' }}</div><div class="vx-file-sub">Original supplier document</div></div></div>
-                    <button wire:click="startOver" class="vx-btn">Replace File</button>
+                    <button wire:click="startOver" class="vx-btn">↻ &nbsp; Replace File</button>
                 </div>
                 @if($sourceUrl && $previewablePdf)
                     <iframe class="vx-source-frame" src="{{ $sourceUrl }}#toolbar=1&navpanes=0" title="Manifest source document"></iframe>
@@ -81,7 +158,7 @@
                 @else
                     <div class="vx-source-fallback">The original source file is unavailable for this older AI task.</div>
                 @endif
-                <div class="vx-upload-more">Drop another file here later, or use <strong>Replace File</strong> above to analyze a different document.</div>
+                <div class="vx-upload-more">⇧ &nbsp; Drop another file here or click <strong>Replace File</strong><br><span>PDF, JPG, PNG (Max 10MB)</span></div>
             </section>
 
             <section class="vx-review">
@@ -96,43 +173,72 @@
                 <section class="vx-card vx-items-card">
                     <div class="vx-items-head">
                         <div><h2>Parsed Items</h2><p>Review the items extracted from your document. Edit details or create new items as needed.</p></div>
-                        <div class="vx-mini-search">⌕ &nbsp; Search items…</div>
+                        <div class="vx-toolbar"><div class="vx-mini-search">⌕ &nbsp; Search items...</div><button type="button" class="vx-btn">Filter⌄</button><button type="button" class="vx-btn">Bulk Actions⌄</button></div>
                     </div>
                     <div class="vx-table-head"><div>#</div><div>Item Details</div><div>Cases</div><div>Units / Case</div><div>Unit Cost</div><div>Total Cost</div><div>Match Status</div><div>Actions</div></div>
+
                     @forelse($parsedLines as $i=>$line)
                         @php
                             $rowCost=(float)str_replace(['$',','],'',(string)($line['unit_cost']??0));
                             $rowTotal=max(0,(int)($line['case_count']??0))*max(1,(float)($line['quantity_per_case']??1))*$rowCost;
                             $isMatched=!empty($line['matched_item_id']) && empty($line['create_new_item']);
                             $conf=(float)($line['match_confidence_score']??0);
+                            $confLabel=$conf >= .95 ? 'High' : ($conf >= .75 ? 'Medium' : 'Low');
                         @endphp
-                        <div class="vx-item-row" wire:key="manifest-line-{{ $i }}">
-                            <div class="vx-item-index">{{ $i+1 }}</div>
-                            <div><div class="vx-item-name">{{ $line['description'] ?: 'Untitled manifest item' }}</div><div class="vx-item-sub">{{ $isMatched ? 'Matched to: '.($line['matched_item_name'] ?? 'inventory item') : 'From supplier manifest' }}</div></div>
-                            <div><input class="vx-input" type="number" min="1" wire:model="parsedLines.{{ $i }}.case_count" /></div>
-                            <div><input class="vx-input" type="number" min="1" wire:model="parsedLines.{{ $i }}.quantity_per_case" /></div>
-                            <div><div class="vx-money"><span>$</span><input class="vx-input" wire:model="parsedLines.{{ $i }}.unit_cost" /></div></div>
-                            <div class="text-[10px] font-bold text-slate-700 dark:text-slate-200">${{ number_format($rowTotal,2) }}</div>
-                            <div class="vx-match">
-                                @if($isMatched)
-                                    <span class="vx-status-pill">✓ Matched</span><div class="vx-match-meta">Confidence: {{ $conf >= .95 ? 'High' : ($conf >= .75 ? 'Medium' : 'Low') }}</div>
-                                @elseif(!empty($line['create_new_item']))
-                                    <span class="vx-status-pill new">＋ Create New</span><div class="vx-match-meta">No existing item selected</div>
-                                @else
-                                    <span class="vx-status-pill review">Review</span><div class="vx-match-meta">Needs inventory decision</div>
-                                @endif
-                                @if(!empty($line['alternatives']))<div class="vx-alt">@foreach(array_slice($line['alternatives'],0,3) as $alt)<button type="button" wire:click="chooseMatch({{ $i }}, {{ $alt['id'] }})">{{ $alt['name'] }}</button>@endforeach</div>@endif
-                            </div>
-                            <div class="vx-row-actions"><button type="button" class="vx-icon-btn" title="Create new" wire:click="chooseCreateNew({{ $i }})">＋</button><button type="button" class="vx-icon-btn" title="Remove line" wire:click="removeLine({{ $i }})">⋮</button></div>
-                            <div class="vx-row-extra">
-                                <div><label class="vx-label">Item Description</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.description" /></div>
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="vx-label">SKU</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.sku" /></div><div><label class="vx-label">Barcode</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.barcode" /></div></div>
-                                <button type="button" class="vx-remove" wire:click="removeLine({{ $i }})">Remove line</button>
+                        <div class="vx-item-wrap" wire:key="manifest-line-{{ $i }}">
+                            <div class="vx-item-row">
+                                <div class="vx-item-index">{{ $i+1 }}</div>
+                                <div class="vx-item-main">
+                                    <div class="vx-thumb">{{ strtoupper(substr(trim($line['description'] ?? 'I'),0,1)) }}</div>
+                                    <div class="vx-item-copy"><div class="vx-item-name">{{ $line['description'] ?: 'Untitled manifest item' }}</div><div class="vx-item-sub">{{ $isMatched ? 'From: '.($line['matched_item_name'] ?? 'Inventory match') : 'From: Supplier Invoice' }}</div></div>
+                                </div>
+                                <div><input class="vx-input" type="number" min="1" wire:model="parsedLines.{{ $i }}.case_count" /></div>
+                                <div><input class="vx-input" type="number" min="1" wire:model="parsedLines.{{ $i }}.quantity_per_case" /></div>
+                                <div><div class="vx-money"><span>$</span><input class="vx-input" wire:model="parsedLines.{{ $i }}.unit_cost" /></div></div>
+                                <div class="vx-total-cell">${{ number_format($rowTotal,2) }}</div>
+                                <div class="vx-match">
+                                    @if($isMatched)
+                                        <span class="vx-status-pill">✓ Matched</span><div class="vx-match-meta">Confidence: {{ $confLabel }}</div>
+                                    @elseif(!empty($line['create_new_item']))
+                                        <span class="vx-status-pill new">＋ Create New</span><div class="vx-match-meta">Suggested new inventory item</div>
+                                    @else
+                                        <span class="vx-status-pill review">Review</span><div class="vx-match-meta">Needs inventory decision</div>
+                                    @endif
+                                </div>
+                                <div class="vx-row-actions">
+                                    <details class="vx-details">
+                                        <summary class="vx-icon-btn" title="Edit item">✎</summary>
+                                        <div class="vx-edit-panel">
+                                            <div class="vx-edit-grid">
+                                                <div class="full"><label class="vx-label">Item Description</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.description" /></div>
+                                                <div><label class="vx-label">SKU</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.sku" /></div>
+                                                <div><label class="vx-label">Barcode</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.barcode" /></div>
+                                            </div>
+                                        </div>
+                                    </details>
+                                    <details class="vx-menu">
+                                        <summary class="vx-icon-btn" title="Match options">⋮</summary>
+                                        <div class="vx-menu-panel">
+                                            <div class="vx-menu-title">Inventory Match</div>
+                                            <div class="vx-match-options">
+                                                @if($isMatched)<button type="button" class="vx-match-option" disabled>✓ Current: {{ $line['matched_item_name'] }}</button>@endif
+                                                @if(!empty($line['alternatives']))
+                                                    @foreach(array_slice($line['alternatives'],0,4) as $alt)
+                                                        <button type="button" class="vx-match-option" wire:click="chooseMatch({{ $i }}, {{ $alt['id'] }})">{{ $alt['name'] }}</button>
+                                                    @endforeach
+                                                @endif
+                                                <button type="button" class="vx-match-option create" wire:click="chooseCreateNew({{ $i }})">＋ Create New Inventory Item</button>
+                                                <button type="button" class="vx-match-option remove" wire:click="removeLine({{ $i }})">Remove Line</button>
+                                            </div>
+                                        </div>
+                                    </details>
+                                </div>
                             </div>
                         </div>
                     @empty
                         <div class="p-8 text-center text-xs text-gray-500">No extracted lines were returned.</div>
                     @endforelse
+
                     <div class="vx-items-foot">
                         <button type="button" wire:click="addLine" class="vx-btn">＋ Add Manual Item</button>
                         <div class="vx-totals"><div class="vx-total"><span>Total Cases</span><strong>{{ number_format($totalCases) }}</strong></div><div class="vx-total"><span>Total Units</span><strong>{{ number_format($totalUnits) }}</strong></div><div class="vx-total"><span>Estimated Value</span><strong>${{ number_format($estimatedValue,2) }}</strong></div></div>

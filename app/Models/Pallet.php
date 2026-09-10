@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\GeneratePalletReceivingReport;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -31,6 +32,26 @@ class Pallet extends Model
         'received_date'=>'date','expected_delivery_date'=>'date','shipped_at'=>'datetime','staged_at'=>'datetime',
         'receiving_started_at'=>'datetime','total_cost'=>'decimal:2','shipping_cost'=>'decimal:2','payment_fees'=>'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(function (self $pallet): void {
+            if (! in_array($pallet->status, ['received', 'processed'], true)) {
+                return;
+            }
+
+            $reportFields = [
+                'status', 'received_date', 'vendor_id', 'name', 'reference',
+                'shipping_cost', 'payment_fees', 'total_cost',
+            ];
+
+            if (! $pallet->wasRecentlyCreated && ! $pallet->wasChanged($reportFields)) {
+                return;
+            }
+
+            GeneratePalletReceivingReport::dispatch($pallet->getKey())->afterCommit();
+        });
+    }
 
     public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll()->logOnlyDirty(); }
     public function vendor(): BelongsTo { return $this->belongsTo(Vendor::class); }

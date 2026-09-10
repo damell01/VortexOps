@@ -22,6 +22,27 @@ class InventoryCase extends Model
         'received_at'       => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // Some scanner paths receive a case directly rather than going through
+        // confirmOneCase(). Make the case itself responsible for closing its
+        // line when the final expected case is received. PalletLine then closes
+        // the pallet, so every receiving path reaches the same final state.
+        static::saved(function (self $case): void {
+            if ($case->status === 'expected' || ! $case->pallet_line_id) return;
+
+            $line = PalletLine::find($case->pallet_line_id);
+            if (! $line || $line->line_status === 'received') return;
+
+            $totalCases = $line->cases()->count();
+            if ($totalCases < (int) $line->case_count) return;
+
+            if ($line->cases()->where('status', 'expected')->exists()) return;
+
+            $line->update(['line_status' => 'received']);
+        });
+    }
+
     public function palletLine(): BelongsTo
     {
         return $this->belongsTo(PalletLine::class);

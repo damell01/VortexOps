@@ -95,7 +95,7 @@ final class FlexiblePalletSlipParser
             $out = [];
             foreach (array_slice($rows, $headerIndex + 1) as $dataRow) {
                 $description = trim((string) ($dataRow[$map['description']] ?? ''));
-                if ($description === '') continue;
+                if ($description === '' || $this->isNonMerchandiseDescription($description)) continue;
 
                 $caseCount = isset($map['case_count']) ? max(1, (int) round($this->number($dataRow[$map['case_count']] ?? 1))) : 1;
                 $unitsPerCase = isset($map['quantity_per_case']) ? max(1, (int) round($this->number($dataRow[$map['quantity_per_case']] ?? 1))) : 1;
@@ -146,7 +146,11 @@ Return JSON only in this exact shape:
 {"lines":[{"description":"...","case_count":1,"quantity_per_case":1,"unit_cost":12.34,"sku":null,"barcode":null}]}
 
 Rules:
-- Extract merchandise/product rows only. Exclude addresses, order metadata, taxes, shipping, discounts, fees, subtotals, totals, notes and terms.
+- Extract physical merchandise/product rows only: items that should actually be counted into inventory when the pallet is received.
+- NEVER return charges, services, logistics rows, summary rows, or document metadata as inventory items.
+- Explicitly exclude payment fees, processing fees, credit-card fees, merchant fees, transaction fees, service fees, handling fees, freight, shipping, delivery, local pickup, pickup charges, taxes, duties, discounts, credits, deposits, subtotals, totals, balances, notes, terms, addresses, and order metadata.
+- A row having a quantity and price does NOT make it merchandise. For example, "Payment Fees" and "Local Pickup (8AM - 4PM)" must be excluded even if they appear in the same table as products.
+- Rows named Total, Subtotal, Grand Total, Amount Due, Balance Due, Payment Fees, Local Pickup, Shipping, Freight, Tax, Discount, or similar accounting/logistics labels are never products.
 - description is required and should preserve the supplier's product name.
 - sku is a vendor SKU/item/part/product code when explicitly present; otherwise null.
 - barcode is UPC/EAN/GTIN when explicitly present; otherwise null. Never invent one.
@@ -156,7 +160,7 @@ Rules:
 - Use extended totals only to validate quantity and unit cost; do not put extended total into unit_cost.
 - Merge wrapped physical text lines that belong to the same product.
 - Do not assume every supplier uses the same ordering, headers, SKU format, or money format.
-- Include every distinct merchandise row you can support from the supplied text.
+- Include every distinct merchandise row you can support from the supplied text, but exclude anything that would not physically enter inventory.
 PROMPT;
 
         Log::info('FlexiblePalletSlipParser sending extracted content to AI', [
@@ -260,10 +264,20 @@ PROMPT;
     private function normalizeLines(array $raw): array
     {
         $out = [];
+        $rejected = [];
+
         foreach ($raw as $item) {
             if (! is_array($item)) continue;
             $description = trim((string) ($item['description'] ?? $item['name'] ?? $item['item'] ?? ''));
             if ($description === '') continue;
+
+            // The LLM is intentionally flexible about vendor layouts, but receiving
+            // must never create inventory for obvious accounting/logistics rows.
+            // Keep this deterministic safety net after both text-AI and vision parsing.
+            if ($this->isNonMerchandiseDescription($description)) {
+                $rejected[] = $description;
+                continue;
+            }
 
             $caseCount = max(1, (int) round($this->number($item['case_count'] ?? $item['cases'] ?? $item['qty'] ?? $item['quantity'] ?? 1)));
             $quantityPerCase = max(1, (int) round($this->number($item['quantity_per_case'] ?? $item['units_per_case'] ?? $item['pack_qty'] ?? 1)));
@@ -277,7 +291,49 @@ PROMPT;
                 'barcode' => $this->identifier($item['barcode'] ?? $item['upc'] ?? $item['ean'] ?? null),
             ];
         }
+
+        if ($rejected !== []) {
+            Log::info('FlexiblePalletSlipParser rejected non-merchandise rows', [
+                'count' => count($rejected),
+                'descriptions' => array_slice($rejected, 0, 20),
+            ]);
+        }
+
         return $out;
+    }
+
+    private function isNonMerchandiseDescription(string $description): bool
+    {
+        $value = Str::of($description)
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/u', ' ')
+            ->squish()
+            ->toString();
+
+        if ($value === '') return true;
+
+        // Exact/near-exact summary and logistics labels. These patterns are kept
+        // anchored so legitimate products containing words like "tax" or "shipping"
+        // elsewhere in a product name are not discarded.
+        $patterns = [
+            '/^(grand )?total(?: amount)?$/',
+            '/^sub ?total$/',
+            '/^(amount|balance) due$/',
+            '/^(payment|processing|merchant|transaction|credit card|service|handling) fees?$/',
+            '/^(shipping|freight|delivery|handling)(?: fees?| charges?| cost)?$/',
+            '/^(local )?pickup(?: fees?| charges?| cost)?(?: [0-9apm ]+)?$/',
+            '/^(sales )?tax(?:es)?$/',
+            '/^(import )?dut(?:y|ies)$/',
+            '/^discount(?:s)?$/',
+            '/^credit(?:s)?$/',
+            '/^deposit(?:s)?$/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $value) === 1) return true;
+        }
+
+        return false;
     }
 
     private function normalizeHeader(string $value): string

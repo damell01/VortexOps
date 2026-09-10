@@ -17,6 +17,7 @@ class BackfillMissingWhatnotAnalytics extends Command
         {--channel= : Channel name, username, or ID}
         {--days=90 : How far back to look for completed shows}
         {--limit=500 : Maximum shows to backfill per run}
+        {--quarantined-only : Only retry shows currently carrying _analytics_quarantine}
         {--skip-if-busy : Skip cleanly if another Whatnot pipeline is active}';
 
     protected $description = 'Backfill Gross Revenue and Estimated Net Earnings for completed shows by seeding Whatnot analytics with each show UUID individually.';
@@ -67,6 +68,10 @@ class BackfillMissingWhatnotAnalytics extends Command
             ->orderByDesc('show_date')
             ->orderByDesc('id');
 
+        if ($this->option('quarantined-only')) {
+            $query->whereRaw("JSON_EXTRACT(raw_import_payload, '$._analytics_quarantine') IS NOT NULL");
+        }
+
         if ($channelOpt = trim((string) $this->option('channel'))) {
             $channel = is_numeric($channelOpt)
                 ? WhatnotChannel::find((int) $channelOpt)
@@ -84,11 +89,14 @@ class BackfillMissingWhatnotAnalytics extends Command
 
         $shows = $query->limit($limit)->get();
         if ($shows->isEmpty()) {
-            $this->info('No completed shows with missing Whatnot analytics were found.');
+            $this->info($this->option('quarantined-only')
+                ? 'No quarantined shows needing Whatnot analytics were found.'
+                : 'No completed shows with missing Whatnot analytics were found.');
             return self::SUCCESS;
         }
 
-        $this->info("Backfilling {$shows->count()} show(s) one UUID at a time…");
+        $scope = $this->option('quarantined-only') ? 'quarantined ' : '';
+        $this->info("Backfilling {$shows->count()} {$scope}show(s) one UUID at a time…");
         $updated = 0;
         $failed = 0;
 
@@ -109,18 +117,16 @@ class BackfillMissingWhatnotAnalytics extends Command
                     debug: false,
                     channelUsername: $channelUsername,
                     seedLiveId: $liveId,
+                    expectedTitle: (string) $show->title,
+                    expectedDate: $show->show_date?->format('Y-m-d'),
                 );
 
-                // The analytics page is a React SPA. Its URL can change to the requested
-                // live_id before the cards finish hydrating, so UUID-in-URL alone is not
-                // sufficient identity proof. Require the returned row to also agree with
-                // the stored show title or show date before accepting any financials.
                 $raw = collect($rawRows)->first(function (array $row) use ($show, $liveId) {
                     return $this->analyticsRowMatchesShow($show, $row, $liveId);
                 });
 
                 if (! is_array($raw)) {
-                    throw new \RuntimeException('Whatnot returned analytics, but the rendered show title/date did not verify this show. Skipped to prevent stale SPA metrics from being copied to another UUID.');
+                    throw new \RuntimeException('Whatnot returned analytics, but the rendered show identity did not verify this exact show after hydration retries. Skipped to prevent stale SPA metrics from being copied to another UUID.');
                 }
 
                 $row = $normalizer->normalizeShow($raw);
@@ -140,18 +146,22 @@ class BackfillMissingWhatnotAnalytics extends Command
                     throw new \RuntimeException('Analytics page loaded but no usable metrics were extracted.');
                 }
 
-                // Exact multi-field analytics clones across different Whatnot UUIDs are
-                // almost certainly stale-card reuse. Refuse the write even if identity
-                // text happened to look plausible; a later clean scrape can still repair it.
                 if ($duplicate = $this->findSuspiciousDuplicateSignature($show, $fields)) {
                     throw new \RuntimeException(
                         "Analytics signature exactly matches show #{$duplicate->id} ({$duplicate->whatnot_show_id}); refusing to copy likely stale metrics."
                     );
                 }
 
+                $oldPayload = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                $newPayload = $raw;
+                if (array_key_exists('_analytics_quarantine', $oldPayload)) {
+                    $newPayload['_analytics_quarantine_history'] = $oldPayload['_analytics_quarantine'];
+                    $newPayload['_analytics_quarantine_repaired_at'] = now()->toIso8601String();
+                }
+
                 $fields['whatnot_show_id'] = $show->whatnot_show_id ?: $liveId;
                 $fields['last_synced_at'] = now();
-                $fields['raw_import_payload'] = $raw;
+                $fields['raw_import_payload'] = $newPayload;
                 $show->forceFill($fields);
                 $show->setAttribute('last_analytics_synced_at', now());
                 $show->save();
@@ -192,10 +202,18 @@ class BackfillMissingWhatnotAnalytics extends Command
         $dateMatches = $expectedDate !== null && $actualDate !== null && $expectedDate === $actualDate;
         $titleMatches = $expectedTitle !== '' && $actualTitle !== '' && $expectedTitle === $actualTitle;
 
-        // A row must have one piece of rendered identity evidence in addition to
-        // the live_id encoded in the URL. This is what prevents a stale analytics
-        // card from being accepted during SPA hydration.
-        return $dateMatches || $titleMatches;
+        // Multiple Whatnot shows can happen on the same date, so date alone is
+        // not strong enough when both sides provide a title. Require the exact
+        // normalized rendered title and reject ambiguous same-day stale cards.
+        if ($expectedTitle !== '') {
+            if ($actualTitle === '' || ! $titleMatches) {
+                return false;
+            }
+
+            return $actualDate === null || $expectedDate === null || $dateMatches;
+        }
+
+        return $dateMatches;
     }
 
     private function findSuspiciousDuplicateSignature(Show $show, array $fields): ?Show
@@ -351,8 +369,9 @@ class BackfillMissingWhatnotAnalytics extends Command
     private function normalizeTitle(string $value): string
     {
         $value = html_entity_decode(trim($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
-        return mb_strtolower($value);
+        $value = mb_strtolower($value);
+        $value = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $value) ?? $value;
+        return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
     }
 
     private function normalizeDate(mixed $value): ?string

@@ -14,7 +14,7 @@ class AuditDuplicateWhatnotAnalytics extends Command
         {--min=3 : Minimum repeats before a value/signature is reported}
         {--gross= : Inspect one exact gross-revenue value, e.g. 1201 or 3264}';
 
-    protected $description = 'Find suspicious repeated Whatnot analytics and inspect stored UUID evidence.';
+    protected $description = 'Find suspicious repeated Whatnot analytics, including full and partial financial clones, and inspect stored UUID evidence.';
 
     public function handle(): int
     {
@@ -99,6 +99,39 @@ class AuditDuplicateWhatnotAnalytics extends Command
             );
         }
 
+        // A full signature can stop matching once another importer later updates
+        // units/buyers while the stale financial cards remain cloned. Catch that
+        // partial-corruption shape by looking for an exact gross + estimated-net
+        // pair repeated across different UUIDs while operational metrics vary.
+        $partialGroups = $shows
+            ->groupBy(fn (Show $show) => $this->financialPair($show))
+            ->filter(fn (Collection $group) => $group->count() >= $min)
+            ->filter(fn (Collection $group) => $group->pluck('whatnot_show_id')->filter()->unique()->count() > 1)
+            ->filter(fn (Collection $group) => $this->operationalMetricsVary($group))
+            ->sortByDesc->count();
+
+        $this->newLine();
+        $this->comment("Suspicious partial clones: same Gross + Est Net, different operational metrics (minimum {$min})");
+        if ($partialGroups->isEmpty()) {
+            $this->line('  none');
+        } else {
+            $this->table(
+                ['Shows', 'Gross', 'Est Net', 'Unit values', 'Buyer values', 'UUIDs', 'Dates'],
+                $partialGroups->map(function (Collection $group) {
+                    $first = $group->first();
+                    return [
+                        $group->count(),
+                        '$' . number_format((float) $first->gross_revenue, 2),
+                        '$' . number_format((float) ($first->whatnot_net ?? 0), 2),
+                        $group->pluck('units_sold')->map(fn ($v) => (int) ($v ?? 0))->unique()->count(),
+                        $group->pluck('buyers_count')->map(fn ($v) => (int) ($v ?? 0))->unique()->count(),
+                        $group->pluck('whatnot_show_id')->filter()->unique()->count(),
+                        $this->formatDate($group->min('show_date')) . ' → ' . $this->formatDate($group->max('show_date')),
+                    ];
+                })->values()->all()
+            );
+        }
+
         $suspects = $shows->map(function (Show $show) {
             $stored = $this->extractUuid((string) $show->whatnot_show_id);
             $payloadUuids = $this->payloadUuids($show->raw_import_payload);
@@ -158,7 +191,7 @@ class AuditDuplicateWhatnotAnalytics extends Command
         }
 
         $this->newLine();
-        $this->info('Audit only — nothing was changed. Full-signature duplication across different UUIDs is the strongest corruption signal.');
+        $this->info('Audit only — nothing was changed. Full clones and repeated Gross + Est Net pairs with varying units/buyers are treated as corruption signals.');
 
         return self::SUCCESS;
     }
@@ -173,6 +206,21 @@ class AuditDuplicateWhatnotAnalytics extends Command
             (int) ($show->units_sold ?? 0),
             (int) ($show->buyers_count ?? 0),
         ]);
+    }
+
+    private function financialPair(Show $show): string
+    {
+        return implode('|', [
+            number_format((float) $show->gross_revenue, 2, '.', ''),
+            number_format((float) ($show->whatnot_net ?? 0), 2, '.', ''),
+        ]);
+    }
+
+    private function operationalMetricsVary(Collection $group): bool
+    {
+        $units = $group->pluck('units_sold')->map(fn ($v) => (int) ($v ?? 0))->unique()->count();
+        $buyers = $group->pluck('buyers_count')->map(fn ($v) => (int) ($v ?? 0))->unique()->count();
+        return $units > 1 || $buyers > 1;
     }
 
     private function formatDate(mixed $value): string

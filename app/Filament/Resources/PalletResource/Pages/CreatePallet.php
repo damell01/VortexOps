@@ -18,10 +18,8 @@ class CreatePallet extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        // Create the pallet record first, then let the user decide whether to
-        // launch the background AI manifest job or return to manual lines.
-        // The AI page returns immediately after dispatch and notifies the user
-        // when review is ready.
-        return $this->getResource()::getUrl('import-manifest', ['record' => $this->getRecord()]);
+        // Manual entry is the default path. From Manifest Lines the user can
+        // switch to AI import or skip the manifest entirely and come back later.
+        return $this->getResource()::getUrl('add-lines', ['record' => $this->getRecord()]);
     }
 }

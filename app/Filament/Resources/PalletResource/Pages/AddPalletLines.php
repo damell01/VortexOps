@@ -7,6 +7,7 @@ use App\Models\InventoryLocation;
 use App\Models\PalletLine;
 use App\Models\Product;
 use App\Support\ProductSearch;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -61,7 +62,7 @@ class AddPalletLines extends Page
     public function getSubheading(): ?string
     {
         return $this->record->displayName()
-            . ' — search inventory to restock something you already carry, or type a new item.';
+            . ' — enter the manifest manually, use AI import, or skip it for now and come back later.';
     }
 
     /** @return array<string, mixed> */
@@ -97,34 +98,18 @@ class AddPalletLines extends Page
         }
     }
 
-    /**
-     * Async search endpoint for the manifest combobox. Nothing is preloaded,
-     * so a catalog with thousands of products still sends only a dozen rows.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** @return array<int, array<string, mixed>> */
     public function searchProducts(string $term): array
     {
         return ProductSearch::search($term);
     }
 
-    /**
-     * Catalog picker endpoint: an empty term lists the catalog alphabetically
-     * instead of nothing, so the picker shows something to scroll the moment
-     * it opens rather than an empty box waiting for the first keystroke.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** @return array<int, array<string, mixed>> */
     public function browseProducts(string $term = ''): array
     {
         return ProductSearch::browse($term);
     }
 
-    /**
-     * Link a manifest row to an existing product and fill the fields we already
-     * know. This is the important restock path: selecting "Test 2" means the
-     * receiver should never have to type "Test 2" again in the item box.
-     */
     public function selectProduct(int $index, int $productId): void
     {
         if (! isset($this->rows[$index])) {
@@ -147,7 +132,6 @@ class AddPalletLines extends Page
         }
     }
 
-    /** Unlink without erasing the description somebody may want to keep/edit. */
     public function unlinkProduct(int $index): void
     {
         if (isset($this->rows[$index])) {
@@ -219,7 +203,7 @@ class AddPalletLines extends Page
         if ($rows === [] && $this->deletedIds === []) {
             Notification::make()
                 ->title('Nothing to save')
-                ->body('Give at least one line an item name.')
+                ->body('Give at least one line an item name, or use Skip for Now above.')
                 ->warning()
                 ->send();
             return;
@@ -291,6 +275,18 @@ class AddPalletLines extends Page
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            Action::make('ai_manifest')
+                ->label('Use AI Manifest')
+                ->icon('heroicon-o-sparkles')
+                ->color('primary')
+                ->url(fn () => PalletResource::getUrl('import-manifest', ['record' => $this->record])),
+
+            Action::make('skip_manifest')
+                ->label('Skip for Now')
+                ->icon('heroicon-o-arrow-right')
+                ->color('gray')
+                ->url(fn () => PalletResource::getUrl('view', ['record' => $this->record])),
+        ];
     }
 }

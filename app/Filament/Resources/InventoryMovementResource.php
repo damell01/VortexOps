@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryMovementResource\Pages;
 use App\Models\InventoryMovement;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -20,7 +21,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use App\Support\NavVisibility;
+use Illuminate\Support\Facades\DB;
 
 class InventoryMovementResource extends Resource
 {
@@ -28,92 +29,36 @@ class InventoryMovementResource extends Resource
         HasModuleAccess::shouldRegisterNavigation as moduleShouldRegisterNavigation;
     }
 
-    protected static string $moduleSlug  = 'inventory';
-
+    protected static string $moduleSlug = 'inventory';
     protected static ?string $model = InventoryMovement::class;
 
-    /**
-     * Was hardcoded to false, which hid the movement log from every account
-     * regardless of what the navigation-visibility settings said. Now gated on
-     * role, then deferred to the trait so module gating and the visibility
-     * settings still apply.
-     */
     public static function shouldRegisterNavigation(): bool
     {
-        // Nav visibility is configured per role in Settings; without this
-        // check an override here silently ignored that setting and the link
-        // stayed in the sidebar regardless.
-        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
-            return false;
-        }
-
-        if (! static::isVisibleToRole()) {
-            return false;
-        }
-
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) return false;
+        if (! static::isVisibleToRole()) return false;
         return static::moduleShouldRegisterNavigation();
     }
 
     public static function canAccess(): bool
     {
-        // An explicit grant on Roles & Permissions is the answer; the rules
-        // below are the fallback for roles that have no explicit list.
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
+        if (\App\Support\RoleAccess::grants(static::class)) return true;
         return static::isVisibleToRole() && parent::canAccess();
     }
 
-    /** Movement history is an operational audit trail, not streamer-facing. */
     protected static function isVisibleToRole(): bool
     {
         $user = auth()->user();
-
-        return ($user?->isOwner() ?? false)
-            || ($user?->isAdmin() ?? false)
-            || ($user?->isFulfillmentAdmin() ?? false);
+        return ($user?->isOwner() ?? false) || ($user?->isAdmin() ?? false) || ($user?->isFulfillmentAdmin() ?? false);
     }
 
-    public static function getNavigationIcon(): string|\BackedEnum|null
-    {
-        return 'heroicon-o-arrow-path';
-    }
-
-    public static function getNavigationGroup(): string|\UnitEnum|null
-    {
-        return AdminModules::navigationGroupFor('inventory');
-    }
-
-    public static function getNavigationSort(): ?int
-    {
-        return 5;
-    }
-
-    public static function getNavigationLabel(): string
-    {
-        return 'Inventory Log';
-    }
-
-    public static function getModelLabel(): string
-    {
-        return 'Inventory Log Entry';
-    }
-
-    public static function getPluralModelLabel(): string
-    {
-        return 'Inventory Log';
-    }
-
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-
-    public static function getGloballySearchableAttributes(): array
-    {
-        return ['item.name', 'item.sku', 'reason'];
-    }
+    public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-path'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('inventory'); }
+    public static function getNavigationSort(): ?int { return 5; }
+    public static function getNavigationLabel(): string { return 'Inventory Log'; }
+    public static function getModelLabel(): string { return 'Inventory Log Entry'; }
+    public static function getPluralModelLabel(): string { return 'Inventory Log'; }
+    public static function canCreate(): bool { return false; }
+    public static function getGloballySearchableAttributes(): array { return ['item.name', 'item.sku', 'reason']; }
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
     {
@@ -122,77 +67,67 @@ class InventoryMovementResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        return array_filter([
-            'Date' => $record->created_at?->format('M j, Y'),
-            'Qty' => $record->quantity,
-        ]);
+        return array_filter(['Date'=>$record->created_at?->format('M j, Y'),'Qty'=>$record->quantity]);
     }
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])->inChannelContext();
+        // Receiving a 200-unit pallet line is one business event, even when the
+        // implementation wrote one movement per case. Collapse only pallet
+        // receipt rows by pallet/line reason; every other movement keeps its own
+        // id as its group key and therefore remains one row per action.
+        $groupKey = "CASE WHEN movement_type = 'opening' AND reason LIKE 'Received via pallet #%'
+            THEN CONCAT('receipt|', COALESCE(inventory_item_id,0),'|',COALESCE(to_location_id,0),'|',COALESCE(reason,''))
+            ELSE CONCAT('row|',id) END";
+
+        return parent::getEloquentQuery()
+            ->selectRaw("MIN(id) as id,
+                inventory_item_id,
+                MIN(lot_id) as lot_id,
+                from_location_id,
+                to_location_id,
+                SUM(quantity) as quantity,
+                MIN(quantity_before) as quantity_before,
+                MAX(quantity_after) as quantity_after,
+                unit_cost,
+                movement_type,
+                reason,
+                MIN(reference_type) as reference_type,
+                MIN(reference_id) as reference_id,
+                created_by,
+                MIN(created_at) as created_at,
+                MAX(updated_at) as updated_at,
+                {$groupKey} as movement_group")
+            ->groupBy('inventory_item_id','from_location_id','to_location_id','unit_cost','movement_type','reason','created_by')
+            ->groupByRaw($groupKey)
+            ->with(['item','fromLocation','toLocation','createdByUser'])
+            ->inChannelContext();
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        // "Can Edit" on Roles & Permissions, which used to be a checkbox
-        // nothing read.
-        if (\App\Support\RoleAccess::allowsEditing(static::class)) {
-            return true;
-        }
-
-        return false;
+        return \App\Support\RoleAccess::allowsEditing(static::class);
     }
-
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return false;
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return false;
-    }
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool { return false; }
+    public static function canDeleteAny(): bool { return false; }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Movement Details')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(2)->schema([
-                        Placeholder::make('created_at')
-                            ->label('Date & Time')
-                            ->content(fn (InventoryMovement $record): string => $record->created_at?->format('M j, Y g:i A') ?? '—'),
-                        Placeholder::make('movement_type')
-                            ->label('Movement Type')
-                            ->content(fn (InventoryMovement $record): string => InventoryMovement::movementTypeLabels()[$record->movement_type] ?? $record->movement_type),
-                        Placeholder::make('item')
-                            ->label('Item')
-                            ->content(fn (InventoryMovement $record): string => $record->item?->name ?? '—'),
-                        Placeholder::make('sku')
-                            ->label('SKU')
-                            ->content(fn (InventoryMovement $record): string => $record->item?->sku ?? '—'),
-                        Placeholder::make('quantity')
-                            ->label('Quantity')
-                            ->content(fn (InventoryMovement $record): string => number_format((float) $record->quantity, 0)),
-                        Placeholder::make('created_by')
-                            ->label('Created By')
-                            ->content(fn (InventoryMovement $record): string => $record->createdByUser?->name ?? 'System'),
-                        Placeholder::make('from_location')
-                            ->label('From Location')
-                            ->content(fn (InventoryMovement $record): string => $record->fromLocation?->name ?? '—'),
-                        Placeholder::make('to_location')
-                            ->label('To Location')
-                            ->content(fn (InventoryMovement $record): string => $record->toLocation?->name ?? '—'),
-                        Placeholder::make('reference')
-                            ->label('Reference')
-                            ->content(fn (InventoryMovement $record): string => $record->reference_type && $record->reference_id ? "{$record->reference_type} #{$record->reference_id}" : 'Manual update'),
-                    ]),
-                    Placeholder::make('reason')
-                        ->label('Reason')
-                        ->content(fn (InventoryMovement $record): string => $record->reason ?: '—'),
+            Section::make('Movement Details')->columnSpanFull()->schema([
+                Grid::make(2)->schema([
+                    Placeholder::make('created_at')->label('Date & Time')->content(fn(InventoryMovement $record):string=>$record->created_at?->format('M j, Y g:i A')??'—'),
+                    Placeholder::make('movement_type')->label('Movement Type')->content(fn(InventoryMovement $record):string=>InventoryMovement::movementTypeLabels()[$record->movement_type]??$record->movement_type),
+                    Placeholder::make('item')->label('Item')->content(fn(InventoryMovement $record):string=>$record->item?->name??'—'),
+                    Placeholder::make('sku')->label('SKU')->content(fn(InventoryMovement $record):string=>$record->item?->sku??'—'),
+                    Placeholder::make('quantity')->label('Quantity')->content(fn(InventoryMovement $record):string=>$record->changeLabel()),
+                    Placeholder::make('created_by')->label('Created By')->content(fn(InventoryMovement $record):string=>$record->createdByUser?->name??'System'),
+                    Placeholder::make('from_location')->label('From Location')->content(fn(InventoryMovement $record):string=>$record->fromLocation?->name??'—'),
+                    Placeholder::make('to_location')->label('To Location')->content(fn(InventoryMovement $record):string=>$record->toLocation?->name??'—'),
+                    Placeholder::make('reference')->label('Reference')->content(fn(InventoryMovement $record):string=>$record->reference_type&&$record->reference_id?"{$record->reference_type} #{$record->reference_id}":'Manual update'),
                 ]),
+                Placeholder::make('reason')->label('Reason')->content(fn(InventoryMovement $record):string=>$record->reason?:'—'),
+            ]),
         ]);
     }
 
@@ -203,130 +138,31 @@ class InventoryMovementResource extends Resource
             ->emptyStateDescription('Receipts, transfers, and adjustments are logged here automatically.')
             ->emptyStateIcon('heroicon-o-arrows-right-left')
             ->columns([
-                TextColumn::make('created_at')
-                    ->label('Date & Time')
-                    ->dateTime('M j, Y g:i A')
-                    ->sortable(),
-                TextColumn::make('item.name')
-                    ->label('Item')
-                    ->searchable(),
-                TextColumn::make('item.sku')
-                    ->label('SKU')
-                    ->placeholder('—'),
-                TextColumn::make('movement_type')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => InventoryMovement::movementTypeLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'opening' => 'info',
-                        'transfer' => 'primary',
-                        'adjustment' => 'warning',
-                        'sale_deduction' => 'success',
-                        'return' => 'gray',
-                        'damaged' => 'danger',
-                        default => 'gray',
-                    }),
-                TextColumn::make('quantity')
-                    ->numeric(decimalPlaces: 0)
-                    ->sortable(),
-                TextColumn::make('fromLocation.name')
-                    ->label('From')
-                    ->placeholder('—'),
-                TextColumn::make('toLocation.name')
-                    ->label('To')
-                    ->placeholder('—'),
-                TextColumn::make('reason')
-                    ->limit(50)
-                    ->placeholder('—')
-                    ->toggleable(),
-                TextColumn::make('unit_cost')
-                    ->label('Unit Cost')
-                    ->money('USD')
-                    ->placeholder('—')
-                    ->sortable()
-                    ->description(fn ($record) => $record->unit_cost !== null && $record->quantity
-                        ? 'Line: $' . number_format(((float) $record->unit_cost) * ((float) $record->quantity), 2)
-                        : null),
-                // Who did it is the point of an audit trail, so it is not
-                // hidden behind a column toggle.
-                TextColumn::make('createdByUser.name')
-                    ->label('By')
-                    ->placeholder('System')
-                    ->searchable()
-                    ->sortable(),
+                TextColumn::make('created_at')->label('Date & Time')->dateTime('M j, Y g:i A')->sortable(),
+                TextColumn::make('item.name')->label('Item')->searchable(),
+                TextColumn::make('item.sku')->label('SKU')->placeholder('—'),
+                TextColumn::make('movement_type')->badge()->formatStateUsing(fn($state)=>InventoryMovement::movementTypeLabels()[$state]??$state)->color(fn($state)=>match($state){'opening'=>'info','transfer'=>'primary','adjustment'=>'warning','sale_deduction'=>'success','return'=>'gray','damaged'=>'danger',default=>'gray'}),
+                TextColumn::make('quantity')->label('Change')->state(fn(InventoryMovement $record)=>$record->changeLabel())->badge()->color(fn(InventoryMovement $record)=>$record->signedChange()>0?'success':($record->signedChange()<0?'danger':'gray'))->sortable(),
+                TextColumn::make('fromLocation.name')->label('From')->placeholder('—'),
+                TextColumn::make('toLocation.name')->label('To')->placeholder('—'),
+                TextColumn::make('reason')->limit(55)->placeholder('—')->toggleable(),
+                TextColumn::make('unit_cost')->label('Unit Cost')->money('USD')->placeholder('—')->sortable()->description(fn($record)=>$record->unit_cost!==null&&$record->quantity?'Line: $'.number_format(((float)$record->unit_cost)*((float)$record->quantity),2):null),
+                TextColumn::make('createdByUser.name')->label('By')->placeholder('System')->searchable()->sortable(),
             ])
             ->filters([
-                Filter::make('date_range')
-                    ->label('Date Range')
-                    ->schema([
-                        DatePicker::make('from')->label('From'),
-                        DatePicker::make('until')->label('Until'),
-                    ])
-                    ->query(fn (Builder $query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d)))
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['from'] ?? null) {
-                            $indicators[] = 'From ' . Carbon::parse($data['from'])->toFormattedDateString();
-                        }
-                        if ($data['until'] ?? null) {
-                            $indicators[] = 'Until ' . Carbon::parse($data['until'])->toFormattedDateString();
-                        }
-
-                        return $indicators;
-                    }),
-                SelectFilter::make('created_by')
-                    ->label('Performed By')
-                    ->relationship('createdByUser', 'name')
-                    ->searchable()
-                    ->preload(),
-                Filter::make('has_cost')
-                    ->label('Cost changes only')
-                    ->query(fn ($query) => $query->whereNotNull('unit_cost')),
-                SelectFilter::make('movement_type')
-                    ->options(InventoryMovement::movementTypeLabels()),
-                SelectFilter::make('inventory_item_id')
-                    ->label('Item')
-                    ->relationship('item', 'name')
-                    ->searchable(),
-                SelectFilter::make('from_location_id')
-                    ->label('From Location')
-                    ->relationship('fromLocation', 'name'),
-                SelectFilter::make('to_location_id')
-                    ->label('To Location')
-                    ->relationship('toLocation', 'name'),
+                Filter::make('date_range')->label('Date Range')->schema([DatePicker::make('from')->label('From'),DatePicker::make('until')->label('Until')])->query(fn(Builder $query,array $data)=>$query->when($data['from']??null,fn($q,$d)=>$q->whereDate('created_at','>=',$d))->when($data['until']??null,fn($q,$d)=>$q->whereDate('created_at','<=',$d)))->indicateUsing(function(array $data):array{$i=[];if($data['from']??null)$i[]='From '.Carbon::parse($data['from'])->toFormattedDateString();if($data['until']??null)$i[]='Until '.Carbon::parse($data['until'])->toFormattedDateString();return $i;}),
+                SelectFilter::make('created_by')->label('Performed By')->relationship('createdByUser','name')->searchable()->preload(),
+                Filter::make('has_cost')->label('Cost changes only')->query(fn($query)=>$query->whereNotNull('unit_cost')),
+                SelectFilter::make('movement_type')->options(InventoryMovement::movementTypeLabels()),
+                SelectFilter::make('inventory_item_id')->label('Item')->relationship('item','name')->searchable(),
+                SelectFilter::make('from_location_id')->label('From Location')->relationship('fromLocation','name'),
+                SelectFilter::make('to_location_id')->label('To Location')->relationship('toLocation','name'),
             ])
-            ->headerActions([
-                TableAction::make('export_csv')
-                    ->label('Export CSV')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->url(fn () => route('export.movement-log'))
-                    ->openUrlInNewTab(),
-            ])
-            ->actions([
-                ViewAction::make()
-                    ->size('sm')
-                    ->iconButton(),
-            ])
-            ->striped()
-            ->persistFiltersInSession()
-            ->paginationPageOptions([10, 25, 50])
-            ->defaultPaginationPageOption(25)
-            ->deferLoading()
-            ->defaultSort('created_at', 'desc');
+            ->headerActions([TableAction::make('export_csv')->label('Export CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')->url(fn()=>route('export.movement-log'))->openUrlInNewTab()])
+            ->actions([ViewAction::make()->size('sm')->iconButton()])
+            ->striped()->persistFiltersInSession()->paginationPageOptions([10,25,50])->defaultPaginationPageOption(25)->deferLoading()->defaultSort('created_at','desc');
     }
 
-    public static function getRelations(): array
-    {
-        return [];
-    }
-
-    public static function getPages(): array
-    {
-        return [
-            'index' => Pages\ListInventoryMovements::route('/'),
-            'view' => Pages\ViewInventoryMovement::route('/{record}'),
-        ];
-    }
+    public static function getRelations(): array { return []; }
+    public static function getPages(): array { return ['index'=>Pages\ListInventoryMovements::route('/'),'view'=>Pages\ViewInventoryMovement::route('/{record}')]; }
 }

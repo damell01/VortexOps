@@ -8,11 +8,15 @@
         .vx-barcode-title{font-size:1rem;font-weight:800;color:rgb(15 23 42)}.dark .vx-barcode-title{color:#fff}
         .vx-barcode-copy{margin-top:.25rem;font-size:.8rem;line-height:1.45;color:rgb(71 85 105)}.dark .vx-barcode-copy{color:rgb(203 213 225)}
         .vx-barcode-body{padding:1rem 1.1rem}
-        .vx-barcode-add{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:.65rem;align-items:end;margin-bottom:1rem}
+        .vx-barcode-add{display:grid;grid-template-columns:150px minmax(0,1fr) auto auto;gap:.65rem;align-items:end;margin-bottom:1rem}
         .vx-barcode-field label{display:block;margin-bottom:.35rem;font-size:.75rem;font-weight:700;color:rgb(51 65 85)}.dark .vx-barcode-field label{color:rgb(226 232 240)}
         .vx-barcode-field input,.vx-barcode-field select{width:100%;min-height:42px;border:1px solid rgb(203 213 225);border-radius:.65rem;background:#fff;padding:.55rem .7rem;color:rgb(15 23 42)}
         .dark .vx-barcode-field input,.dark .vx-barcode-field select{border-color:rgb(71 85 105);background:rgb(30 41 59);color:#fff}
-        .vx-barcode-add-btn{min-height:42px;border-radius:.65rem;background:rgb(124 58 237);padding:.55rem .95rem;font-size:.8rem;font-weight:800;color:#fff;white-space:nowrap}
+        .vx-barcode-add-btn,.vx-barcode-scan-btn{min-height:42px;border-radius:.65rem;padding:.55rem .95rem;font-size:.8rem;font-weight:800;white-space:nowrap}
+        .vx-barcode-add-btn{background:rgb(124 58 237);color:#fff}
+        .vx-barcode-scan-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border:1px solid rgb(196 181 253);background:rgb(245 243 255);color:rgb(109 40 217)}
+        .vx-barcode-scan-btn:hover{background:rgb(237 233 254)}
+        .dark .vx-barcode-scan-btn{border-color:rgb(91 33 182);background:rgba(124,58,237,.16);color:rgb(216 180 254)}
         .vx-barcode-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid rgb(226 232 240);border-radius:.75rem;overflow:hidden}
         .dark .vx-barcode-table{border-color:rgb(51 65 85)}
         .vx-barcode-table th{background:rgb(248 250 252);padding:.65rem .75rem;text-align:left;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.035em;color:rgb(71 85 105)}
@@ -39,7 +43,7 @@
             .vx-inventory-edit .vx-choice-cards{display:grid!important;grid-template-columns:1fr!important;gap:.5rem!important}.vx-inventory-edit .vx-choice-cards label{min-height:48px!important}
             body:has(.vx-inventory-edit) .fi-form-actions{position:sticky!important;bottom:0!important;z-index:30!important;margin-inline:-1rem!important;padding:.65rem 1rem max(.65rem,env(safe-area-inset-bottom))!important;border-top:1px solid rgb(229 231 235)!important;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(16px)}
             .dark body:has(.vx-inventory-edit) .fi-form-actions{border-color:rgb(55 65 81)!important;background:rgba(17,24,39,.96)!important}body:has(.vx-inventory-edit) .fi-form-actions .fi-btn{min-height:48px!important;flex:1!important}
-            .vx-barcode-head{display:block}.vx-barcode-add{grid-template-columns:1fr}.vx-barcode-add-btn{width:100%}.vx-barcode-table{font-size:.76rem}.vx-barcode-table th,.vx-barcode-table td{padding:.6rem .55rem}
+            .vx-barcode-head{display:block}.vx-barcode-add{grid-template-columns:1fr}.vx-barcode-add-btn,.vx-barcode-scan-btn{width:100%}.vx-barcode-table{font-size:.76rem}.vx-barcode-table th,.vx-barcode-table td{padding:.6rem .55rem}
         }
     </style>
     <div class="vx-inventory-edit" data-product-id="{{ $this->record->getKey() }}">
@@ -54,6 +58,10 @@
                 <div class="vx-barcode-add">
                     <div class="vx-barcode-field"><label for="vx-barcode-type">Type</label><select id="vx-barcode-type" data-code-type><option value="barcode">Barcode</option><option value="upc">UPC</option></select></div>
                     <div class="vx-barcode-field"><label for="vx-barcode-value">Additional barcode / UPC</label><input id="vx-barcode-value" data-code-value inputmode="numeric" autocomplete="off" placeholder="Scan or enter code"></div>
+                    <button type="button" class="vx-barcode-scan-btn" data-scan-code aria-label="Scan barcode with camera">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:18px;height:18px" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 7.5V5.25a1.5 1.5 0 0 1 1.5-1.5H7.5m9 0h2.25a1.5 1.5 0 0 1 1.5 1.5V7.5m0 9v2.25a1.5 1.5 0 0 1-1.5 1.5H16.5m-9 0H5.25a1.5 1.5 0 0 1-1.5-1.5V16.5M7.5 12h9"/></svg>
+                        Scan
+                    </button>
                     <button type="button" class="vx-barcode-add-btn" data-add-code>+ Add Barcode</button>
                 </div>
                 <div data-code-list class="vx-barcode-empty">Loading barcodes…</div><div data-code-status class="vx-barcode-status"></div>
@@ -69,12 +77,14 @@
     <script>
     (() => {
         const root=document.querySelector('[data-vx-barcode-manager]'),page=document.querySelector('.vx-inventory-edit');if(!root||!page||root.dataset.ready==='1')return;root.dataset.ready='1';
-        const productId=Number(page.dataset.productId),list=root.querySelector('[data-code-list]'),status=root.querySelector('[data-code-status]'),value=root.querySelector('[data-code-value]'),type=root.querySelector('[data-code-type]'),add=root.querySelector('[data-add-code]'),csrf=document.querySelector('meta[name="csrf-token"]')?.content||'';
+        const productId=Number(page.dataset.productId),list=root.querySelector('[data-code-list]'),status=root.querySelector('[data-code-status]'),value=root.querySelector('[data-code-value]'),type=root.querySelector('[data-code-type]'),add=root.querySelector('[data-add-code]'),scan=root.querySelector('[data-scan-code]'),csrf=document.querySelector('meta[name="csrf-token"]')?.content||'';
         const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
         const request=async(url,options={})=>{const response=await fetch(url,{credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':csrf,...(options.headers||{})},...options});const data=await response.json().catch(()=>({}));if(!response.ok){const message=data?.errors?Object.values(data.errors).flat()[0]:(data?.message||'Something went wrong.');throw new Error(message)}return data};
         const render=codes=>{if(!codes?.length){list.className='vx-barcode-empty';list.innerHTML='No barcodes saved yet.';return}list.className='';list.innerHTML=`<table class="vx-barcode-table"><thead><tr><th>Barcode / UPC</th><th>Type</th><th>Status</th><th></th></tr></thead><tbody>${codes.map(code=>`<tr><td class="vx-code">${esc(code.value)}</td><td><span class="vx-code-pill">${esc(String(code.type||'').toUpperCase())}</span></td><td>${code.primary?'<span class="vx-code-pill vx-code-primary">Primary</span>':'<span class="vx-code-pill">Additional</span>'}</td><td style="text-align:right">${code.id?`<button type="button" class="vx-code-delete" data-remove-code="${code.id}">Remove</button>`:''}</td></tr>`).join('')}</tbody></table>`;list.querySelectorAll('[data-remove-code]').forEach(button=>button.addEventListener('click',async()=>{if(!confirm('Remove this additional barcode from the item?'))return;button.disabled=true;status.className='vx-barcode-status';status.textContent='Removing barcode…';try{await request(`/inventory-scanner-api/barcodes/${button.dataset.removeCode}`,{method:'DELETE'});status.textContent='Barcode removed.';await load()}catch(error){button.disabled=false;status.className='vx-barcode-status error';status.textContent=error.message}}))};
         const load=async()=>{try{const data=await request(`/inventory-scanner-api/items/${productId}/barcodes`,{method:'GET',headers:{}});render(data.codes||[])}catch(error){list.className='vx-barcode-empty';list.textContent='Unable to load barcodes.';status.className='vx-barcode-status error';status.textContent=error.message}};
         add.addEventListener('click',async()=>{const code=value.value.trim();if(!code){status.className='vx-barcode-status error';status.textContent='Enter or scan a barcode first.';value.focus();return}add.disabled=true;status.className='vx-barcode-status';status.textContent='Saving barcode…';try{const data=await request('/inventory-scanner-api/barcodes/attach',{method:'POST',body:JSON.stringify({product_id:productId,barcode:code,type:type.value})});value.value='';status.textContent=data.message||'Barcode added.';await load();value.focus()}catch(error){status.className='vx-barcode-status error';status.textContent=error.message}finally{add.disabled=false}});
+        scan.addEventListener('click',()=>{status.className='vx-barcode-status';status.textContent='Waiting for camera scan…';window.dispatchEvent(new CustomEvent('open-camera-scanner',{detail:{title:'Scan additional barcode',helper:'The scanned code will be added to this inventory item.'}}))});
+        window.addEventListener('barcode-scanned',event=>{const code=String(event.detail?.value??'').trim();if(!code)return;value.value=code;status.className='vx-barcode-status';status.textContent=`Scanned ${code}. Saving…`;add.click()});
         value.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();add.click()}});load();
     })();
     </script>

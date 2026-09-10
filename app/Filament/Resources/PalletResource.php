@@ -92,32 +92,14 @@ class PalletResource extends Resource
                 ->columnSpanFull()
                 ->schema([
                     Grid::make(3)->schema([
-                        TextInput::make('name')
-                            ->label('Pallet Name')
-                            ->placeholder('e.g. Topps Chrome — August')
-                            ->helperText('What you would call it out loud. Optional.')
-                            ->maxLength(255),
-                        Select::make('vendor_id')
-                            ->label('Vendor')
-                            ->options(fn () => Vendor::activeOptions())
-                            ->searchable()
-                            ->required(),
-                        TextInput::make('reference')
-                            ->label('PO / Reference #')
-                            ->helperText("The vendor's number, so it keeps matching their paperwork.")
-                            ->maxLength(255),
+                        TextInput::make('name')->label('Pallet Name')->placeholder('e.g. Topps Chrome — August')->helperText('What you would call it out loud. Optional.')->maxLength(255),
+                        Select::make('vendor_id')->label('Vendor')->options(fn () => Vendor::activeOptions())->searchable()->required(),
+                        TextInput::make('reference')->label('PO / Reference #')->helperText("The vendor's number, so it keeps matching their paperwork.")->maxLength(255),
                         DatePicker::make('received_date')->label('Received Date'),
                         TextInput::make('total_cost')->label('Total Invoice Cost ($)')->numeric()->prefix('$')->minValue(0),
-                        TextInput::make('shipping_cost')
-                            ->label('Shipping Cost ($)')->numeric()->prefix('$')->minValue(0)
-                            ->helperText('Spread across the items by quantity when the pallet is received'),
-                        TextInput::make('payment_fees')
-                            ->label('Payment Fees ($)')->numeric()->prefix('$')->minValue(0)->default(0)
-                            ->helperText('Card, PayPal or wire charges — spread across the items the same way'),
-                        Select::make('status')
-                            ->options(Pallet::statusLabels())
-                            ->default('staged')
-                            ->required(),
+                        TextInput::make('shipping_cost')->label('Shipping Cost ($)')->numeric()->prefix('$')->minValue(0)->helperText('Spread across the items by quantity when the pallet is received'),
+                        TextInput::make('payment_fees')->label('Payment Fees ($)')->numeric()->prefix('$')->minValue(0)->default(0)->helperText('Card, PayPal or wire charges — spread across the items the same way'),
+                        Select::make('status')->options(Pallet::statusLabels())->default('staged')->required(),
                     ]),
                     Grid::make(3)->schema([
                         TextInput::make('carrier')->maxLength(255),
@@ -126,40 +108,16 @@ class PalletResource extends Resource
                     ]),
                     Textarea::make('notes')->rows(2)->columnSpanFull(),
                 ]),
-
-            Section::make('Manifest Lines')
-                ->description('One line per thing on the pallet.')
-                ->columnSpanFull()
-                ->schema([
-                    \Filament\Schemas\Components\View::make('filament.components.manifest-lines-link')->columnSpanFull(),
-                ]),
-
-            Section::make('Media & Attachments')
-                ->description('Upload photos, documents, and other evidence tied to this pallet')
-                ->columnSpanFull()
-                ->schema([
-                    FileUpload::make('new_attachments')
-                        ->label('Upload Files')
-                        ->multiple()
-                        ->disk(\App\Services\PalletAttachmentService::DISK)
-                        ->directory('pallets')
-                        ->visibility('public')
-                        ->maxSize(5120)
-                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/gif'])
-                        ->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.'),
-                    View::make('filament.components.photo-capture-button'),
-                ]),
-
-            Section::make('Receiving Details')
-                ->description('Captured during the receiving workflow')
-                ->columnSpanFull()
-                ->columns(2)
-                ->schema([
-                    TextInput::make('received_by_name')
-                        ->label('Received By (Name)')
-                        ->maxLength(255)
-                        ->columnSpan(2),
-                ]),
+            Section::make('Manifest Lines')->description('One line per thing on the pallet.')->columnSpanFull()->schema([
+                \Filament\Schemas\Components\View::make('filament.components.manifest-lines-link')->columnSpanFull(),
+            ]),
+            Section::make('Media & Attachments')->description('Upload photos, documents, and other evidence tied to this pallet')->columnSpanFull()->schema([
+                FileUpload::make('new_attachments')->label('Upload Files')->multiple()->disk(\App\Services\PalletAttachmentService::DISK)->directory('pallets')->visibility('public')->maxSize(5120)->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/gif'])->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.'),
+                View::make('filament.components.photo-capture-button'),
+            ]),
+            Section::make('Receiving Details')->description('Captured during the receiving workflow')->columnSpanFull()->columns(2)->schema([
+                TextInput::make('received_by_name')->label('Received By (Name)')->maxLength(255)->columnSpan(2),
+            ]),
         ]);
     }
 
@@ -168,59 +126,23 @@ class PalletResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('vendor.name')->label('Vendor')->searchable()->sortable(),
-                TextColumn::make('name')
-                    ->label('Pallet')
-                    ->searchable()
-                    ->weight('medium')
-                    ->description(fn (Pallet $record) => $record->reference)
-                    ->state(fn (Pallet $record) => $record->displayName()),
-                TextColumn::make('reference')
-                    ->label('Reference')->searchable()->copyable()->toggleable(isToggledHiddenByDefault: true)->placeholder('—'),
+                TextColumn::make('name')->label('Pallet')->searchable()->weight('medium')->description(fn (Pallet $record) => $record->reference)->state(fn (Pallet $record) => $record->displayName()),
+                TextColumn::make('reference')->label('Reference')->searchable()->copyable()->toggleable(isToggledHiddenByDefault: true)->placeholder('—'),
                 TextColumn::make('received_date')->label('Received')->date('M j, Y')->sortable()->placeholder('—'),
-                TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => in_array($state, ['received', 'processed'], true) ? 'Complete' : ucfirst((string) $state))
-                    ->color(fn ($state) => StatusColor::for($state)),
-                TextColumn::make('receiving_progress')
-                    ->label('Receiving Progress')
-                    ->state(function (Pallet $record): string {
-                        $total = $record->totalCasesCount();
-                        $received = $record->receivedCasesCount();
-                        $percent = $total > 0 ? intval(($received / $total) * 100) : 0;
-                        return "{$received}/{$total} ({$percent}%)";
-                    })
-                    ->visible(fn (?Pallet $record) => $record && in_array($record->status, ['receiving', 'received', 'processed'])),
-                TextColumn::make('missing_items')
-                    ->label('Missing Items')
-                    ->state(function (Pallet $record): string {
-                        $missing = (int) ($record->missing_items_count ?? 0);
-                        if ($missing === 0) return '—';
-                        return $missing . ' item(s) · $' . number_format((float) ($record->missing_items_value ?? 0), 2);
-                    })
-                    ->badge()->color('warning')
-                    ->visible(fn (?Pallet $record) => $record && (int) ($record->missing_items_count ?? 0) > 0),
-                TextColumn::make('next_action')
-                    ->label('Next Action')
-                    ->state(fn (Pallet $record): string => match ($record->status) {
-                        'pending' => 'Enter manifest lines',
-                        'shipped' => 'Receive pallet',
-                        'staged' => 'Start receiving',
-                        'receiving' => 'Continue receiving',
-                        'received', 'processed' => 'Complete',
-                        default => 'Review',
-                    })
-                    ->badge()
-                    ->color(fn (Pallet $record): string => match ($record->status) {
-                        'pending', 'shipped', 'staged' => 'warning',
-                        'receiving' => 'info',
-                        'received', 'processed' => 'success',
-                        default => 'gray',
-                    }),
-                TextColumn::make('tracking_number')
-                    ->label('Tracking')->copyable()->placeholder('—')->description(fn (Pallet $record) => $record->carrier)
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('expected_delivery_date')
-                    ->label('Expected')->date('M j, Y')->placeholder('—')->sortable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('status')->badge()->formatStateUsing(fn ($state) => in_array($state, ['received', 'processed'], true) ? 'Complete' : ucfirst((string) $state))->color(fn ($state) => StatusColor::for($state)),
+                TextColumn::make('receiving_progress')->label('Receiving Progress')->state(function (Pallet $record): string {
+                    $total = $record->totalCasesCount(); $received = $record->receivedCasesCount(); $percent = $total > 0 ? intval(($received / $total) * 100) : 0; return "{$received}/{$total} ({$percent}%)";
+                })->visible(fn (?Pallet $record) => $record && in_array($record->status, ['receiving', 'received', 'processed'])),
+                TextColumn::make('missing_items')->label('Missing Items')->state(function (Pallet $record): string {
+                    $missing = (int) ($record->missing_items_count ?? 0); if ($missing === 0) return '—'; return $missing . ' item(s) · $' . number_format((float) ($record->missing_items_value ?? 0), 2);
+                })->badge()->color('warning')->visible(fn (?Pallet $record) => $record && (int) ($record->missing_items_count ?? 0) > 0),
+                TextColumn::make('next_action')->label('Next Action')->state(fn (Pallet $record): string => match ($record->status) {
+                    'pending' => 'Enter manifest lines', 'shipped' => 'Receive pallet', 'staged' => 'Start receiving', 'receiving' => 'Continue receiving', 'received', 'processed' => 'Complete', default => 'Review',
+                })->badge()->color(fn (Pallet $record): string => match ($record->status) {
+                    'pending', 'shipped', 'staged' => 'warning', 'receiving' => 'info', 'received', 'processed' => 'success', default => 'gray',
+                }),
+                TextColumn::make('tracking_number')->label('Tracking')->copyable()->placeholder('—')->description(fn (Pallet $record) => $record->carrier)->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('expected_delivery_date')->label('Expected')->date('M j, Y')->placeholder('—')->sortable()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('lines_count')->label('Lines')->sortable(),
                 TextColumn::make('total_cost')->label('Total Cost')->money('USD')->placeholder('—'),
                 TextColumn::make('created_at')->dateTime('M j, Y')->sortable()->toggleable(isToggledHiddenByDefault: true),
@@ -238,94 +160,34 @@ class PalletResource extends Resource
                     ->label(fn (Pallet $record) => $record->status === 'staged' ? 'Stage' : 'Receive')
                     ->icon(fn (Pallet $record) => $record->status === 'staged' ? 'heroicon-o-clipboard-document-list' : 'heroicon-o-inbox-arrow-down')
                     ->color(fn (Pallet $record) => $record->status === 'staged' ? 'info' : 'success')
-                    ->button()
+                    ->iconButton()
+                    ->tooltip(fn (Pallet $record) => $record->status === 'staged' ? 'Stage pallet' : 'Receive pallet')
                     ->url(fn (Pallet $record) => static::getUrl('view', ['record' => $record]))
                     ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'staged', 'shipped', 'receiving'])),
-
-                Action::make('export_receiving_report')
-                    ->label('PDF')
-                    ->tooltip('Export receiving report')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('primary')
-                    ->iconButton()
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['received', 'processed'], true))
-                    ->action(function (Pallet $record) {
-                        try {
-                            $filePath = app(ReceivingReportService::class)->generatePalletReport($record);
-                            return response()->download(
-                                Storage::disk('public')->path($filePath),
-                                'pallet-' . ($record->reference ?: $record->id) . '.pdf'
-                            );
-                        } catch (\Throwable $e) {
-                            report($e);
-                            Notification::make()->title('Could not generate report')->body($e->getMessage())->danger()->send();
-                        }
-                    }),
-
-                DeleteAction::make()
-                    ->label('Delete Pallet')
-                    ->iconButton()
-                    ->tooltip('Delete pallet')
-                    ->visible(fn (Pallet $record) => static::canDelete($record)),
-
-                Action::make('archive_received_pallet')
-                    ->label('Delete Pallet')
-                    ->tooltip('Delete pallet and safely reverse received inventory')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->iconButton()
-                    ->visible(fn (Pallet $record) => (auth()->user()?->isAdmin() ?? false) && $record->receivedCasesCount() > 0)
-                    ->requiresConfirmation()
-                    ->modalHeading(fn (Pallet $record) => 'Delete ' . $record->displayName() . '?')
-                    ->modalDescription(fn (Pallet $record) => app(PalletArchiveService::class)->previewText($record))
-                    ->modalSubmitActionLabel('Delete & reverse inventory')
-                    ->action(function (Pallet $record) {
-                        try {
-                            $preview = app(PalletArchiveService::class)->archive($record);
-                            Notification::make()
-                                ->title('Pallet deleted')
-                                ->body(number_format(collect($preview['effects'])->sum('quantity'), 2) . ' inventory units reversed. Undo is available from Archived Pallets.')
-                                ->success()
-                                ->send();
-                        } catch (\Throwable $e) {
-                            report($e);
-                            Notification::make()
-                                ->title('Pallet was not deleted')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->persistent()
-                                ->send();
-                        }
-                    }),
-
+                Action::make('export_receiving_report')->label('PDF')->tooltip('Export receiving report')->icon('heroicon-o-document-arrow-down')->color('primary')->iconButton()->visible(fn (Pallet $record) => in_array($record->status, ['received', 'processed'], true))->action(function (Pallet $record) {
+                    try { $filePath = app(ReceivingReportService::class)->generatePalletReport($record); return response()->download(Storage::disk('public')->path($filePath), 'pallet-' . ($record->reference ?: $record->id) . '.pdf'); }
+                    catch (\Throwable $e) { report($e); Notification::make()->title('Could not generate report')->body($e->getMessage())->danger()->send(); }
+                }),
+                DeleteAction::make()->label('Delete Pallet')->iconButton()->tooltip('Delete pallet')->visible(fn (Pallet $record) => static::canDelete($record)),
+                Action::make('archive_received_pallet')->label('Delete Pallet')->tooltip('Delete pallet and safely reverse received inventory')->icon('heroicon-o-trash')->color('danger')->iconButton()->visible(fn (Pallet $record) => (auth()->user()?->isAdmin() ?? false) && $record->receivedCasesCount() > 0)->requiresConfirmation()->modalHeading(fn (Pallet $record) => 'Delete ' . $record->displayName() . '?')->modalDescription(fn (Pallet $record) => app(PalletArchiveService::class)->previewText($record))->modalSubmitActionLabel('Delete & reverse inventory')->action(function (Pallet $record) {
+                    try { $preview = app(PalletArchiveService::class)->archive($record); Notification::make()->title('Pallet deleted')->body(number_format(collect($preview['effects'])->sum('quantity'), 2) . ' inventory units reversed. Undo is available from Archived Pallets.')->success()->send(); }
+                    catch (\Throwable $e) { report($e); Notification::make()->title('Pallet was not deleted')->body($e->getMessage())->danger()->persistent()->send(); }
+                }),
                 \Filament\Actions\ActionGroup::make([
                     ViewAction::make(),
-                    Action::make('scanning_station')
-                        ->label('Scanning Station')
-                        ->icon('heroicon-o-qr-code')
-                        ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
-                        ->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
+                    Action::make('scanning_station')->label('Scanning Station')->icon('heroicon-o-qr-code')->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
                     EditAction::make(),
                 ]),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()
-                        ->action(function (Collection $records): void {
-                            $deletable = $records->filter(fn (Pallet $record) => static::canDelete($record));
-                            $blocked = $records->count() - $deletable->count();
-                            $deletable->each->delete();
-
-                            if ($blocked > 0) {
-                                Notification::make()
-                                    ->title($deletable->count() . ' pallet(s) deleted')
-                                    ->body("{$blocked} skipped — pallets with received inventory must be deleted one at a time so VortexOps can show and reverse their inventory impact safely.")
-                                    ->warning()->send();
-                            } else {
-                                Notification::make()->title($deletable->count() . ' pallet(s) deleted')->success()->send();
-                            }
-                        })
-                        ->deselectRecordsAfterCompletion(),
+                    DeleteBulkAction::make()->action(function (Collection $records): void {
+                        $deletable = $records->filter(fn (Pallet $record) => static::canDelete($record));
+                        $blocked = $records->count() - $deletable->count();
+                        $deletable->each->delete();
+                        if ($blocked > 0) Notification::make()->title($deletable->count() . ' pallet(s) deleted')->body("{$blocked} skipped — pallets with received inventory must be deleted one at a time so VortexOps can show and reverse their inventory impact safely.")->warning()->send();
+                        else Notification::make()->title($deletable->count() . ' pallet(s) deleted')->success()->send();
+                    })->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->defaultSort('received_date', 'desc')
@@ -339,15 +201,7 @@ class PalletResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPallets::route('/'),
-            'create' => Pages\CreatePallet::route('/create'),
-            'view' => Pages\ViewPallet::route('/{record}'),
-            'edit' => Pages\EditPallet::route('/{record}/edit'),
-            'stage' => Pages\StagePallet::route('/{record}/stage'),
-            'add-lines' => Pages\AddPalletLines::route('/{record}/add-lines'),
-            'items' => Pages\PalletItems::route('/{record}/items'),
-            'receive' => Pages\ReceivePallet::route('/{record}/receive'),
-            'import-manifest' => Pages\ImportManifest::route('/{record}/import-manifest'),
+            'index' => Pages\ListPallets::route('/'), 'create' => Pages\CreatePallet::route('/create'), 'view' => Pages\ViewPallet::route('/{record}'), 'edit' => Pages\EditPallet::route('/{record}/edit'), 'stage' => Pages\StagePallet::route('/{record}/stage'), 'add-lines' => Pages\AddPalletLines::route('/{record}/add-lines'), 'items' => Pages\PalletItems::route('/{record}/items'), 'receive' => Pages\ReceivePallet::route('/{record}/receive'), 'import-manifest' => Pages\ImportManifest::route('/{record}/import-manifest'),
         ];
     }
 }

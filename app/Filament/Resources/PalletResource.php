@@ -9,6 +9,8 @@ use App\Models\InventoryLocation;
 use App\Models\Pallet;
 use App\Models\PalletLine;
 use App\Models\Vendor;
+use App\Services\PalletArchiveService;
+use App\Services\ReceivingReportService;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
@@ -35,6 +37,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class PalletResource extends Resource
 {
@@ -238,6 +241,63 @@ class PalletResource extends Resource
                     ->button()
                     ->url(fn (Pallet $record) => static::getUrl('view', ['record' => $record]))
                     ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'staged', 'shipped', 'receiving'])),
+
+                Action::make('export_receiving_report')
+                    ->label('PDF')
+                    ->tooltip('Export receiving report')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('primary')
+                    ->iconButton()
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['received', 'processed'], true))
+                    ->action(function (Pallet $record) {
+                        try {
+                            $filePath = app(ReceivingReportService::class)->generatePalletReport($record);
+                            return response()->download(
+                                Storage::disk('public')->path($filePath),
+                                'pallet-' . ($record->reference ?: $record->id) . '.pdf'
+                            );
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()->title('Could not generate report')->body($e->getMessage())->danger()->send();
+                        }
+                    }),
+
+                DeleteAction::make()
+                    ->label('Delete Pallet')
+                    ->iconButton()
+                    ->tooltip('Delete pallet')
+                    ->visible(fn (Pallet $record) => static::canDelete($record)),
+
+                Action::make('archive_received_pallet')
+                    ->label('Delete Pallet')
+                    ->tooltip('Delete pallet and safely reverse received inventory')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->iconButton()
+                    ->visible(fn (Pallet $record) => (auth()->user()?->isAdmin() ?? false) && $record->receivedCasesCount() > 0)
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Pallet $record) => 'Delete ' . $record->displayName() . '?')
+                    ->modalDescription(fn (Pallet $record) => app(PalletArchiveService::class)->previewText($record))
+                    ->modalSubmitActionLabel('Delete & reverse inventory')
+                    ->action(function (Pallet $record) {
+                        try {
+                            $preview = app(PalletArchiveService::class)->archive($record);
+                            Notification::make()
+                                ->title('Pallet deleted')
+                                ->body(number_format(collect($preview['effects'])->sum('quantity'), 2) . ' inventory units reversed. Undo is available from Archived Pallets.')
+                                ->success()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title('Pallet was not deleted')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        }
+                    }),
+
                 \Filament\Actions\ActionGroup::make([
                     ViewAction::make(),
                     Action::make('scanning_station')
@@ -246,9 +306,6 @@ class PalletResource extends Resource
                         ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
                         ->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
                     EditAction::make(),
-                    DeleteAction::make()
-                        ->visible(fn (Pallet $record) => static::canDelete($record))
-                        ->tooltip(fn (Pallet $record) => static::canDelete($record) ? null : 'Received pallets are archived from Received Pallets so stock can be safely reversed.'),
                 ]),
             ])
             ->bulkActions([
@@ -262,7 +319,7 @@ class PalletResource extends Resource
                             if ($blocked > 0) {
                                 Notification::make()
                                     ->title($deletable->count() . ' pallet(s) deleted')
-                                    ->body("{$blocked} skipped — received pallets must be archived from Received Pallets so inventory can be reversed safely.")
+                                    ->body("{$blocked} skipped — pallets with received inventory must be deleted one at a time so VortexOps can show and reverse their inventory impact safely.")
                                     ->warning()->send();
                             } else {
                                 Notification::make()->title($deletable->count() . ' pallet(s) deleted')->success()->send();

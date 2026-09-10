@@ -11,10 +11,7 @@ use RuntimeException;
 
 class PalletArchiveService
 {
-    /**
-     * Preview the inventory impact before a completed pallet is archived.
-     * Nothing in this method writes to the database.
-     */
+    /** Preview the inventory impact before a completed pallet is archived. */
     public function preview(Pallet $pallet): array
     {
         $pallet->loadMissing(['lines.inventoryItem', 'lines.location', 'lines.cases']);
@@ -25,14 +22,10 @@ class PalletArchiveService
         $retained = [];
 
         foreach ($pallet->lines as $line) {
-            if (! $line->inventory_item_id) {
-                continue;
-            }
+            if (! $line->inventory_item_id) continue;
 
             $qty = $this->receivedQuantityForLine($line);
-            if ($qty <= 0) {
-                continue;
-            }
+            if ($qty <= 0) continue;
 
             $locationId = $line->inventory_location_id;
             if (! $locationId) {
@@ -90,24 +83,32 @@ class PalletArchiveService
         $preview = $this->preview($pallet);
         $qty = collect($preview['effects'])->sum('quantity');
         $lines = count($preview['effects']);
-        $deleted = count($preview['delete_candidates']);
-        $kept = count($preview['retained_products']);
 
         $text = "This will archive {$pallet->displayName()} and reverse "
-            . number_format($qty, 2) . " inventory units across {$lines} received line(s). ";
-        $text .= "{$deleted} product(s) created only for this pallet are safe to archive; {$kept} linked/existing product(s) will be kept.";
+            . number_format($qty, 2) . " inventory units across {$lines} received line(s).";
+
+        if ($preview['delete_candidates'] !== []) {
+            $names = collect($preview['delete_candidates'])->pluck('name')->join(', ');
+            $text .= " Items created only for this pallet that will also be archived: {$names}.";
+        } else {
+            $text .= ' No inventory products will be deleted; linked/existing products will remain.';
+        }
+
+        if ($preview['retained_products'] !== []) {
+            $names = collect($preview['retained_products'])->pluck('name')->join(', ');
+            $text .= " Existing/shared products kept: {$names}.";
+        }
 
         if ($preview['blockers'] !== []) {
             $text .= " Cannot archive yet: " . implode(' ', $preview['blockers']);
+        } else {
+            $text .= ' This is undoable from Archived Pallets.';
         }
 
         return $text;
     }
 
-    /**
-     * Archive a pallet and reverse only inventory that can still be traced to it.
-     * The pallet itself is soft-deleted, so restore remains possible.
-     */
+    /** Archive a pallet and reverse only inventory that can still be traced to it. */
     public function archive(Pallet $pallet): array
     {
         $preview = $this->preview($pallet);
@@ -163,16 +164,13 @@ class PalletArchiveService
 
     public function restore(Pallet $pallet): void
     {
-        if (! $pallet->trashed()) {
-            return;
-        }
+        if (! $pallet->trashed()) return;
 
         DB::transaction(function () use ($pallet) {
             $pallet->restore();
             $pallet->load(['lines.inventoryItem' => fn ($q) => $q->withTrashed(), 'lines.location', 'lines.cases']);
 
             $productIds = [];
-
             foreach ($pallet->lines as $line) {
                 if (! $line->inventory_item_id || ! $line->inventory_location_id) continue;
 
@@ -201,7 +199,6 @@ class PalletArchiveService
                     'reference_id' => $pallet->id,
                     'created_by' => auth()->id(),
                 ]);
-
                 $productIds[] = $product->id;
             }
 
@@ -217,19 +214,12 @@ class PalletArchiveService
         if ($received->isEmpty()) return 0.0;
 
         $explicit = (float) $received->sum(fn ($case) => (float) ($case->quantity_received ?? 0));
-        return $explicit > 0
-            ? $explicit
-            : (float) $received->count() * (float) $line->quantity_per_case;
+        return $explicit > 0 ? $explicit : (float) $received->count() * (float) $line->quantity_per_case;
     }
 
     private function productCanBeArchivedWithPallet(Product $product, Pallet $pallet, float $qtyFromPallet): bool
     {
-        $usedByAnotherPallet = $product->palletLines()
-            ->where('pallet_id', '!=', $pallet->id)
-            ->whereHas('pallet')
-            ->exists();
-        if ($usedByAnotherPallet) return false;
-
+        if ($product->palletLines()->where('pallet_id', '!=', $pallet->id)->whereHas('pallet')->exists()) return false;
         if ($product->orders()->exists()) return false;
 
         $onHand = (float) $product->stock()->sum('quantity');
@@ -237,8 +227,7 @@ class PalletArchiveService
 
         $hasOtherOperationalMovement = $product->movements()
             ->where(function ($q) use ($pallet) {
-                $q->where('reason', 'not like', "Received via pallet #{$pallet->id}%")
-                    ->orWhereNull('reason');
+                $q->where('reason', 'not like', "Received via pallet #{$pallet->id}%")->orWhereNull('reason');
             })
             ->exists();
 

@@ -1,9 +1,6 @@
 /* VortexOps Table Actions Responsive Fix */
 
-/* ═══════════════════════════════════════════════════════════════════ */
 /* TABLE ACTION BUTTONS - PREVENT OVERFLOW */
-/* ═══════════════════════════════════════════════════════════════════ */
-
 .fi-ta-cell-action,
 .fi-ta-actions {
     display: flex !important;
@@ -50,6 +47,47 @@ td[class*="action"],
     flex-shrink: 0 !important;
 }
 
+/* Header actions may wrap instead of running off the right side of the page. */
+.fi-header-actions,
+.fi-header-actions-ctn,
+.fi-ac {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    min-width: 0 !important;
+}
+
+.fi-header-actions .fi-btn,
+.fi-header-actions-ctn .fi-btn,
+.fi-ac > .fi-btn {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+.fi-header-actions .fi-btn-label,
+.fi-header-actions-ctn .fi-btn-label,
+.fi-ac > .fi-btn .fi-btn-label {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+}
+
+/* Brand/primary buttons must use high-contrast text. This prevents the old
+   purple-on-purple state when custom theme rules override Filament colors. */
+.fi-btn-color-primary,
+.fi-btn-primary,
+button.fi-btn-color-primary,
+a.fi-btn-color-primary {
+    color: #ffffff !important;
+}
+
+.fi-btn-color-primary .fi-btn-label,
+.fi-btn-color-primary svg,
+.fi-btn-primary .fi-btn-label,
+.fi-btn-primary svg {
+    color: #ffffff !important;
+}
+
 @media (max-width: 1024px) {
     .fi-ta-actions { gap: 0.125rem !important; }
     .fi-ta-actions .fi-btn:not(.fi-icon-btn) {
@@ -91,6 +129,20 @@ td[class*="action"],
     .fi-ta-actions .fi-dropdown-list-trigger,
     .fi-ta-actions [role="button"].fi-dropdown-list-trigger {
         display: inline-flex !important;
+    }
+
+    .fi-header-actions .fi-btn,
+    .fi-header-actions-ctn .fi-btn,
+    .fi-ac > .fi-btn {
+        flex: 1 1 auto !important;
+    }
+
+    .fi-header-actions .fi-btn-label,
+    .fi-header-actions-ctn .fi-btn-label,
+    .fi-ac > .fi-btn .fi-btn-label {
+        white-space: normal !important;
+        text-align: center !important;
+        line-height: 1.2 !important;
     }
 
     td:has(.fi-ta-actions),
@@ -199,10 +251,7 @@ html.dark .fi-dropdown-list [role="menuitem"]:hover { background-color: #374151 
 
 html.dark .fi-dropdown-list hr { border-top-color: #374151 !important; }
 
-/* ═══════════════════════════════════════════════════════════════════ */
 /* VORTEXOPS COMPACT ROW-ACTION POLICY */
-/* ═══════════════════════════════════════════════════════════════════ */
-
 .fi-ta-actions .fi-btn:has(svg),
 .fi-ta-actions a.fi-btn:has(svg),
 .fi-ta-actions button.fi-btn:has(svg) {
@@ -274,7 +323,6 @@ html.dark .fi-dropdown-list hr { border-top-color: #374151 !important; }
     .fi-ta-cell-action .fi-ta-actions { max-width: 8rem !important; }
 }
 
-/* End-of-stream picker quantity controls: never inherit app-wide button width. */
 [data-vx-eos-report] button[aria-label^="One fewer"],
 [data-vx-eos-report] button[aria-label^="One more"] {
     width: 2.25rem !important;
@@ -293,12 +341,7 @@ html.dark .fi-dropdown-list hr { border-top-color: #374151 !important; }
     flex: 0 0 3.5rem !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
 /* MOBILE MODAL + GENERAL BUTTON SAFETY */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-/* Long labels can shrink/wrap inside their own button instead of pushing into
-   the next control. Icon buttons are excluded because they have fixed geometry. */
 .fi-btn:not(.fi-icon-btn) {
     max-width: 100%;
     min-width: 0;
@@ -316,10 +359,6 @@ html.dark .fi-dropdown-list hr { border-top-color: #374151 !important; }
         line-height: 1.2;
     }
 
-    /* Standard Filament dialogs must fit the dynamic viewport (browser chrome
-       included). Header/footer stay put; only the content scrolls. This keeps
-       Save/Add/Confirm reachable on iOS and Android even with the keyboard or
-       mobile browser bars visible. */
     .fi-modal-window:not(.fi-modal-slide-over) {
         display: flex !important;
         flex-direction: column !important;

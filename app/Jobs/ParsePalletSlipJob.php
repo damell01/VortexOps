@@ -7,7 +7,7 @@ use App\Models\AiTask;
 use App\Models\Pallet;
 use App\Models\PalletLine;
 use App\Models\User;
-use App\Services\AI\Documents\PalletSlipParser;
+use App\Services\AI\Documents\FlexiblePalletSlipParser;
 use App\Services\AI\Mapping\MappingEngine;
 use Filament\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
@@ -31,7 +31,7 @@ class ParsePalletSlipJob implements ShouldQueue
         public readonly string $storedPath,
     ) {}
 
-    public function handle(PalletSlipParser $parser, MappingEngine $mapping): void
+    public function handle(FlexiblePalletSlipParser $parser, MappingEngine $mapping): void
     {
         $task = AiTask::findOrFail($this->aiTaskId);
         $pallet = Pallet::with('vendor')->findOrFail($this->palletId);
@@ -226,13 +226,8 @@ class ParsePalletSlipJob implements ShouldQueue
             ->success()
             ->icon('heroicon-o-sparkles')
             ->actions([
-                NotificationAction::make('review')
-                    ->label('Open AI Review')
-                    ->button()
-                    ->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
-                NotificationAction::make('pallet')
-                    ->label('Open Pallet')
-                    ->url(PalletResource::getUrl('view', ['record' => $pallet])),
+                NotificationAction::make('review')->label('Open AI Review')->button()->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
+                NotificationAction::make('pallet')->label('Open Pallet')->url(PalletResource::getUrl('view', ['record' => $pallet])),
             ])
             ->sendToDatabase($user);
     }
@@ -248,13 +243,8 @@ class ParsePalletSlipJob implements ShouldQueue
             ->danger()
             ->icon('heroicon-o-exclamation-triangle')
             ->actions([
-                NotificationAction::make('retry')
-                    ->label('Open AI Manifest')
-                    ->button()
-                    ->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
-                NotificationAction::make('pallet')
-                    ->label('Open Pallet')
-                    ->url(PalletResource::getUrl('view', ['record' => $pallet])),
+                NotificationAction::make('retry')->label('Open AI Manifest')->button()->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
+                NotificationAction::make('pallet')->label('Open Pallet')->url(PalletResource::getUrl('view', ['record' => $pallet])),
             ])
             ->sendToDatabase($user);
     }

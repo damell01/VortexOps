@@ -17,8 +17,7 @@ class PalletReceivingOverviewWidget extends BaseWidget
         $stats = Cache::remember('widget:pallet_receiving_overview', 60, function (): array {
             $staged = Pallet::query()->where('status', 'staged')->count();
             $receiving = Pallet::query()->where('status', 'receiving')->count();
-            $received = Pallet::query()->where('status', 'received')->count();
-            $processed = Pallet::query()->where('status', 'processed')->count();
+            $complete = Pallet::query()->whereIn('status', ['received', 'processed'])->count();
 
             $activeExpected = (int) Pallet::query()
                 ->whereIn('status', ['staged', 'receiving'])
@@ -32,7 +31,12 @@ class PalletReceivingOverviewWidget extends BaseWidget
                 ->get()
                 ->sum(fn (Pallet $pallet) => (int) ($pallet->received_cases_count ?? 0));
 
-            return compact('staged', 'receiving', 'received', 'processed', 'activeExpected', 'activeReceived');
+            $receivedThisMonth = Pallet::query()
+                ->whereIn('status', ['received', 'processed'])
+                ->whereBetween('received_date', [now()->startOfMonth()->toDateString(), now()->endOfMonth()->toDateString()])
+                ->count();
+
+            return compact('staged', 'receiving', 'complete', 'activeExpected', 'activeReceived', 'receivedThisMonth');
         });
 
         $progress = $stats['activeExpected'] > 0
@@ -40,8 +44,8 @@ class PalletReceivingOverviewWidget extends BaseWidget
             : 0;
 
         return [
-            Stat::make('Waiting to Arrive', number_format($stats['staged']))
-                ->description('Staged vendor shipments')
+            Stat::make('Waiting to Receive', number_format($stats['staged']))
+                ->description('Staged vendor pallets')
                 ->icon('heroicon-o-clock')
                 ->color($stats['staged'] > 0 ? 'warning' : 'gray'),
 
@@ -50,15 +54,15 @@ class PalletReceivingOverviewWidget extends BaseWidget
                 ->icon('heroicon-o-inbox-arrow-down')
                 ->color($stats['receiving'] > 0 ? 'primary' : 'gray'),
 
-            Stat::make('Active Case Progress', $stats['activeReceived'] . ' / ' . $stats['activeExpected'])
-                ->description($progress . '% of active expected cases received')
+            Stat::make('Active Receipt Progress', $stats['activeReceived'] . ' / ' . $stats['activeExpected'])
+                ->description($progress . '% of active expected packages received')
                 ->icon('heroicon-o-archive-box')
                 ->color($progress >= 100 && $stats['activeExpected'] > 0 ? 'success' : 'info'),
 
-            Stat::make('Ready to Process', number_format($stats['received']))
-                ->description($stats['processed'] . ' pallet(s) already completed')
+            Stat::make('Received / Complete', number_format($stats['complete']))
+                ->description(number_format($stats['receivedThisMonth']) . ' completed this month')
                 ->icon('heroicon-o-check-badge')
-                ->color($stats['received'] > 0 ? 'success' : 'gray'),
+                ->color($stats['complete'] > 0 ? 'success' : 'gray'),
         ];
     }
 }

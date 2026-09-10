@@ -111,13 +111,16 @@ class BackfillMissingWhatnotAnalytics extends Command
                     seedLiveId: $liveId,
                 );
 
+                // Never attach an anonymous analytics payload to a show merely
+                // because it was the first row returned. That could stamp the
+                // same gross/net figures onto many different shows. The payload
+                // must contain the exact UUID somewhere in its identifiers/URLs.
                 $raw = collect($rawRows)->first(function (array $row) use ($liveId) {
-                    $candidate = strtolower((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? ''));
-                    return $candidate === '' || $candidate === strtolower($liveId);
+                    return $this->findLiveIdInPayload($row) === strtolower($liveId);
                 });
 
                 if (! is_array($raw)) {
-                    throw new \RuntimeException('Whatnot returned no analytics row for this UUID.');
+                    throw new \RuntimeException('Whatnot returned analytics, but none could be verified as this show UUID; skipped to protect existing data.');
                 }
 
                 $row = $normalizer->normalizeShow($raw);
@@ -140,7 +143,9 @@ class BackfillMissingWhatnotAnalytics extends Command
                 $fields['whatnot_show_id'] = $show->whatnot_show_id ?: $liveId;
                 $fields['last_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
-                $show->forceFill($fields)->save();
+                $show->forceFill($fields);
+                $show->setAttribute('last_analytics_synced_at', now());
+                $show->save();
                 $updated++;
 
                 $gross = $fields['gross_revenue'] ?? $show->gross_revenue;
@@ -308,7 +313,7 @@ class BackfillMissingWhatnotAnalytics extends Command
 
     private function extractLiveId(string $value): ?string
     {
-        return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $value, $m)
+        return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $value, $m)
             ? strtolower($m[0])
             : null;
     }

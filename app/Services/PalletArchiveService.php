@@ -7,7 +7,6 @@ use App\Models\InventoryStock;
 use App\Models\Pallet;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 class PalletArchiveService
 {
@@ -17,7 +16,6 @@ class PalletArchiveService
         $pallet->loadMissing(['lines.inventoryItem', 'lines.location', 'lines.cases']);
 
         $effects = [];
-        $blockers = [];
         $deleteCandidates = [];
         $retained = [];
 
@@ -28,24 +26,18 @@ class PalletArchiveService
             if ($qty <= 0) continue;
 
             $locationId = $line->inventory_location_id;
-            if (! $locationId) {
-                $blockers[] = "{$line->description}: received stock has no inventory location.";
-                continue;
+            $available = 0.0;
+
+            if ($locationId) {
+                $stock = InventoryStock::query()
+                    ->where('inventory_item_id', $line->inventory_item_id)
+                    ->where('inventory_location_id', $locationId)
+                    ->first();
+                $available = max(0.0, (float) ($stock?->quantity ?? 0));
             }
 
-            $stock = InventoryStock::query()
-                ->where('inventory_item_id', $line->inventory_item_id)
-                ->where('inventory_location_id', $locationId)
-                ->first();
-            $available = (float) ($stock?->quantity ?? 0);
-
-            if ($available + 0.00001 < $qty) {
-                $blockers[] = ($line->inventoryItem?->name ?? $line->description)
-                    . ': only ' . number_format($available, 2)
-                    . ' remains at ' . ($line->location?->name ?? 'the receiving location')
-                    . ', but this pallet added ' . number_format($qty, 2)
-                    . '. Some of that stock has already moved or been used.';
-            }
+            $reverseQty = min($qty, $available);
+            $alreadyMovedQty = max(0.0, $qty - $reverseQty);
 
             $effects[] = [
                 'line_id' => $line->id,
@@ -54,6 +46,8 @@ class PalletArchiveService
                 'location_id' => $locationId,
                 'location' => $line->location?->name ?? 'Unknown location',
                 'quantity' => $qty,
+                'reverse_quantity' => $reverseQty,
+                'already_moved_quantity' => $alreadyMovedQty,
             ];
         }
 
@@ -71,79 +65,87 @@ class PalletArchiveService
 
         return [
             'effects' => $effects,
-            'blockers' => array_values(array_unique($blockers)),
+            'blockers' => [],
             'delete_candidates' => $deleteCandidates,
             'retained_products' => $retained,
-            'can_archive' => $blockers === [],
+            'can_archive' => true,
         ];
     }
 
     public function previewText(Pallet $pallet): string
     {
         $preview = $this->preview($pallet);
-        $qty = collect($preview['effects'])->sum('quantity');
+        $receivedQty = (float) collect($preview['effects'])->sum('quantity');
+        $reverseQty = (float) collect($preview['effects'])->sum('reverse_quantity');
+        $movedQty = (float) collect($preview['effects'])->sum('already_moved_quantity');
         $lines = count($preview['effects']);
 
-        $text = "This will archive {$pallet->displayName()} and reverse "
-            . number_format($qty, 2) . " inventory units across {$lines} received line(s).";
+        $text = "This will delete {$pallet->displayName()}. "
+            . number_format($reverseQty, 2) . " inventory units still at the receiving location will be reversed across {$lines} line(s).";
+
+        if ($movedQty > 0) {
+            $text .= ' ' . number_format($movedQty, 2)
+                . ' unit(s) from this receipt have already moved, sold, or been used. Those downstream inventory changes will be left untouched so deleting the pallet does not corrupt current stock.';
+        }
+
+        if ($receivedQty <= 0) {
+            $text .= ' This pallet did not add any traceable inventory.';
+        }
 
         if ($preview['delete_candidates'] !== []) {
             $names = collect($preview['delete_candidates'])->pluck('name')->join(', ');
-            $text .= " Items created only for this pallet that will also be archived: {$names}.";
+            $text .= " Items created only for this pallet that are still safe to remove will also be archived: {$names}.";
         } else {
-            $text .= ' No inventory products will be deleted; linked/existing products will remain.';
+            $text .= ' Linked/existing inventory products will remain.';
         }
 
-        if ($preview['retained_products'] !== []) {
-            $names = collect($preview['retained_products'])->pluck('name')->join(', ');
-            $text .= " Existing/shared products kept: {$names}.";
-        }
-
-        if ($preview['blockers'] !== []) {
-            $text .= " Cannot archive yet: " . implode(' ', $preview['blockers']);
-        } else {
-            $text .= ' This is undoable from Archived Pallets.';
-        }
+        $text .= ' This is undoable from Archived Pallets.';
 
         return $text;
     }
 
-    /** Archive a pallet and reverse only inventory that can still be traced to it. */
+    /**
+     * Archive a pallet even when part of the received stock has already moved.
+     * Only stock that is still physically available at the original receiving
+     * location is reversed. Downstream moves/sales are intentionally preserved.
+     */
     public function archive(Pallet $pallet): array
     {
         $preview = $this->preview($pallet);
-        if (! $preview['can_archive']) {
-            throw new RuntimeException(implode(' ', $preview['blockers']));
-        }
 
         return DB::transaction(function () use ($pallet, $preview) {
             foreach ($preview['effects'] as $effect) {
-                $stock = InventoryStock::query()
-                    ->where('inventory_item_id', $effect['product_id'])
-                    ->where('inventory_location_id', $effect['location_id'])
-                    ->lockForUpdate()
-                    ->first();
+                $reverseQty = (float) ($effect['reverse_quantity'] ?? 0);
 
-                if (! $stock || (float) $stock->quantity + 0.00001 < (float) $effect['quantity']) {
-                    throw new RuntimeException("Inventory changed while archiving {$effect['item']}. Refresh and try again.");
+                if ($reverseQty > 0 && $effect['location_id']) {
+                    $stock = InventoryStock::query()
+                        ->where('inventory_item_id', $effect['product_id'])
+                        ->where('inventory_location_id', $effect['location_id'])
+                        ->lockForUpdate()
+                        ->first();
+
+                    $availableNow = max(0.0, (float) ($stock?->quantity ?? 0));
+                    $actualReverse = min($reverseQty, $availableNow);
+
+                    if ($actualReverse > 0 && $stock) {
+                        $stock->decrement('quantity', $actualReverse);
+
+                        InventoryMovement::create([
+                            'inventory_item_id' => $effect['product_id'],
+                            'from_location_id' => $effect['location_id'],
+                            'to_location_id' => null,
+                            'quantity' => $actualReverse,
+                            'movement_type' => 'adjustment',
+                            'reason' => "Deleted pallet #{$pallet->id} ({$pallet->displayName()}) — remaining receipt stock reversed",
+                            'reference_type' => 'pallet_archive',
+                            'reference_id' => $pallet->id,
+                            'created_by' => auth()->id(),
+                        ]);
+                    }
                 }
-
-                $stock->decrement('quantity', (float) $effect['quantity']);
 
                 Product::query()->whereKey($effect['product_id'])->update([
                     'total_units_received' => DB::raw('GREATEST(0, total_units_received - ' . (float) $effect['quantity'] . ')'),
-                ]);
-
-                InventoryMovement::create([
-                    'inventory_item_id' => $effect['product_id'],
-                    'from_location_id' => $effect['location_id'],
-                    'to_location_id' => null,
-                    'quantity' => (float) $effect['quantity'],
-                    'movement_type' => 'adjustment',
-                    'reason' => "Archived pallet #{$pallet->id} ({$pallet->displayName()}) — receipt reversed",
-                    'reference_type' => 'pallet_archive',
-                    'reference_id' => $pallet->id,
-                    'created_by' => auth()->id(),
                 ]);
             }
 
@@ -170,35 +172,50 @@ class PalletArchiveService
             $pallet->restore();
             $pallet->load(['lines.inventoryItem' => fn ($q) => $q->withTrashed(), 'lines.location', 'lines.cases']);
 
+            $archiveReversals = InventoryMovement::query()
+                ->where('reference_type', 'pallet_archive')
+                ->where('reference_id', $pallet->id)
+                ->get()
+                ->groupBy(fn ($movement) => $movement->inventory_item_id . ':' . ($movement->from_location_id ?? 0));
+
             $productIds = [];
             foreach ($pallet->lines as $line) {
-                if (! $line->inventory_item_id || ! $line->inventory_location_id) continue;
+                if (! $line->inventory_item_id) continue;
 
                 $product = Product::withTrashed()->find($line->inventory_item_id);
                 if (! $product) continue;
                 if ($product->trashed()) $product->restore();
 
-                $qty = $this->receivedQuantityForLine($line);
-                if ($qty <= 0) continue;
+                $receivedQty = $this->receivedQuantityForLine($line);
+                if ($receivedQty > 0) {
+                    $product->increment('total_units_received', $receivedQty);
+                }
 
-                $stock = InventoryStock::firstOrCreate(
-                    ['inventory_item_id' => $product->id, 'inventory_location_id' => $line->inventory_location_id],
-                    ['quantity' => 0]
-                );
-                $stock->increment('quantity', $qty);
-                $product->increment('total_units_received', $qty);
+                if ($line->inventory_location_id) {
+                    $key = $product->id . ':' . $line->inventory_location_id;
+                    $reversedQty = (float) ($archiveReversals->get($key)?->sum('quantity') ?? 0);
 
-                InventoryMovement::create([
-                    'inventory_item_id' => $product->id,
-                    'from_location_id' => null,
-                    'to_location_id' => $line->inventory_location_id,
-                    'quantity' => $qty,
-                    'movement_type' => 'adjustment',
-                    'reason' => "Restored pallet #{$pallet->id} ({$pallet->displayName()}) — receipt restored",
-                    'reference_type' => 'pallet_restore',
-                    'reference_id' => $pallet->id,
-                    'created_by' => auth()->id(),
-                ]);
+                    if ($reversedQty > 0) {
+                        $stock = InventoryStock::firstOrCreate(
+                            ['inventory_item_id' => $product->id, 'inventory_location_id' => $line->inventory_location_id],
+                            ['quantity' => 0]
+                        );
+                        $stock->increment('quantity', $reversedQty);
+
+                        InventoryMovement::create([
+                            'inventory_item_id' => $product->id,
+                            'from_location_id' => null,
+                            'to_location_id' => $line->inventory_location_id,
+                            'quantity' => $reversedQty,
+                            'movement_type' => 'adjustment',
+                            'reason' => "Restored pallet #{$pallet->id} ({$pallet->displayName()}) — reversed receipt stock restored",
+                            'reference_type' => 'pallet_restore',
+                            'reference_id' => $pallet->id,
+                            'created_by' => auth()->id(),
+                        ]);
+                    }
+                }
+
                 $productIds[] = $product->id;
             }
 

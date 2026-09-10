@@ -14,7 +14,7 @@ class RepairDuplicateWhatnotAnalytics extends Command
         {--min=3 : Minimum identical signatures before a group is quarantined}
         {--apply : Actually clear the suspicious analytics so they can be re-scraped}';
 
-    protected $description = 'Quarantine suspicious cloned Whatnot analytics signatures across different show UUIDs and make those shows eligible for a clean backfill.';
+    protected $description = 'Quarantine suspicious cloned Whatnot analytics, including partial Gross + Est Net clones, and make those shows eligible for a clean backfill.';
 
     private const ANALYTICS_FIELDS = [
         'gross_revenue',
@@ -34,12 +34,6 @@ class RepairDuplicateWhatnotAnalytics extends Command
         'avg_order_rating',
     ];
 
-    /**
-     * Some legacy show analytics columns are NOT NULL in production.  Zero is
-     * the application's established "missing analytics" sentinel for the core
-     * revenue/count columns, and BackfillMissingWhatnotAnalytics explicitly
-     * treats <= 0 as needing repair.  Optional analytics can safely be null.
-     */
     private const CLEAR_VALUES = [
         'gross_revenue' => 0,
         'whatnot_net' => 0,
@@ -75,36 +69,77 @@ class RepairDuplicateWhatnotAnalytics extends Command
                 'last_analytics_synced_at',
             ], self::ANALYTICS_FIELDS));
 
-        $groups = $shows
+        $fullGroups = $shows
             ->groupBy(fn (Show $show) => $this->signature($show))
             ->filter(fn (Collection $group) => $group->count() >= $min)
             ->filter(fn (Collection $group) => $group->pluck('whatnot_show_id')->filter()->unique()->count() > 1)
             ->sortByDesc->count();
 
-        if ($groups->isEmpty()) {
-            $this->info('No suspicious duplicate analytics signatures were found.');
+        $partialGroups = $shows
+            ->groupBy(fn (Show $show) => $this->financialPair($show))
+            ->filter(fn (Collection $group) => $group->count() >= $min)
+            ->filter(fn (Collection $group) => $group->pluck('whatnot_show_id')->filter()->unique()->count() > 1)
+            ->filter(fn (Collection $group) => $this->operationalMetricsVary($group))
+            ->sortByDesc->count();
+
+        if ($fullGroups->isEmpty() && $partialGroups->isEmpty()) {
+            $this->info('No suspicious duplicate or partial-clone analytics groups were found.');
             return self::SUCCESS;
         }
 
-        $this->warn('Suspicious cloned analytics groups found:');
-        $this->table(
-            ['Shows', 'Gross', 'Est Net', 'Completed', 'AOV', 'Units', 'UUIDs', 'Dates'],
-            $groups->map(function (Collection $group) {
-                $first = $group->first();
-                return [
-                    $group->count(),
-                    '$' . number_format((float) $first->gross_revenue, 2),
-                    '$' . number_format((float) ($first->whatnot_net ?? 0), 2),
-                    '$' . number_format((float) ($first->completed_earnings ?? 0), 2),
-                    '$' . number_format((float) ($first->avg_order_value ?? 0), 2),
-                    (int) ($first->units_sold ?? 0),
-                    $group->pluck('whatnot_show_id')->filter()->unique()->count(),
-                    $group->min('show_date') . ' → ' . $group->max('show_date'),
-                ];
-            })->values()->all()
-        );
+        if ($fullGroups->isNotEmpty()) {
+            $this->warn('Suspicious full cloned analytics groups found:');
+            $this->table(
+                ['Shows', 'Gross', 'Est Net', 'Completed', 'AOV', 'Units', 'UUIDs', 'Dates'],
+                $fullGroups->map(function (Collection $group) {
+                    $first = $group->first();
+                    return [
+                        $group->count(),
+                        '$' . number_format((float) $first->gross_revenue, 2),
+                        '$' . number_format((float) ($first->whatnot_net ?? 0), 2),
+                        '$' . number_format((float) ($first->completed_earnings ?? 0), 2),
+                        '$' . number_format((float) ($first->avg_order_value ?? 0), 2),
+                        (int) ($first->units_sold ?? 0),
+                        $group->pluck('whatnot_show_id')->filter()->unique()->count(),
+                        $group->min('show_date') . ' → ' . $group->max('show_date'),
+                    ];
+                })->values()->all()
+            );
+        }
 
-        $suspects = $groups->flatten(1)->unique('id')->values();
+        if ($partialGroups->isNotEmpty()) {
+            $this->newLine();
+            $this->warn('Suspicious partial clones found (same Gross + Est Net, different units/buyers):');
+            $this->table(
+                ['Shows', 'Gross', 'Est Net', 'Unit values', 'Buyer values', 'UUIDs', 'Dates'],
+                $partialGroups->map(function (Collection $group) {
+                    $first = $group->first();
+                    return [
+                        $group->count(),
+                        '$' . number_format((float) $first->gross_revenue, 2),
+                        '$' . number_format((float) ($first->whatnot_net ?? 0), 2),
+                        $group->pluck('units_sold')->map(fn ($v) => (int) ($v ?? 0))->unique()->count(),
+                        $group->pluck('buyers_count')->map(fn ($v) => (int) ($v ?? 0))->unique()->count(),
+                        $group->pluck('whatnot_show_id')->filter()->unique()->count(),
+                        $group->min('show_date') . ' → ' . $group->max('show_date'),
+                    ];
+                })->values()->all()
+            );
+        }
+
+        $reasons = [];
+        foreach ($fullGroups as $group) {
+            foreach ($group as $show) {
+                $reasons[$show->id] = 'duplicate_full_analytics_signature_across_different_show_uuids';
+            }
+        }
+        foreach ($partialGroups as $group) {
+            foreach ($group as $show) {
+                $reasons[$show->id] ??= 'duplicate_gross_and_estimated_net_with_varying_operational_metrics';
+            }
+        }
+
+        $suspects = $shows->whereIn('id', array_keys($reasons))->unique('id')->values();
         $this->line('Affected shows: ' . $suspects->count());
 
         if (! $this->option('apply')) {
@@ -113,7 +148,7 @@ class RepairDuplicateWhatnotAnalytics extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($suspects): void {
+        DB::transaction(function () use ($suspects, $reasons): void {
             foreach ($suspects as $show) {
                 $raw = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
                 $quarantine = is_array($raw['_analytics_quarantine'] ?? null)
@@ -122,7 +157,7 @@ class RepairDuplicateWhatnotAnalytics extends Command
 
                 $snapshot = [
                     'quarantined_at' => now()->toIso8601String(),
-                    'reason' => 'duplicate_full_analytics_signature_across_different_show_uuids',
+                    'reason' => $reasons[$show->id] ?? 'duplicate_analytics_detected',
                     'whatnot_show_id' => $show->whatnot_show_id,
                     'values' => [],
                 ];
@@ -135,9 +170,6 @@ class RepairDuplicateWhatnotAnalytics extends Command
                 $raw['_analytics_quarantine'] = array_slice($quarantine, -5);
                 unset($raw['_analytics_metrics'], $raw['_analytics_synced_at']);
 
-                // Use a direct update intentionally: this is a repair operation,
-                // and the Show observer's clone guard should not interpret the
-                // temporary zero/null sentinel values as incoming analytics.
                 DB::table('shows')->where('id', $show->id)->update(array_merge(
                     self::CLEAR_VALUES,
                     [
@@ -167,5 +199,20 @@ class RepairDuplicateWhatnotAnalytics extends Command
             (int) ($show->units_sold ?? 0),
             (int) ($show->buyers_count ?? 0),
         ]);
+    }
+
+    private function financialPair(Show $show): string
+    {
+        return implode('|', [
+            number_format((float) $show->gross_revenue, 2, '.', ''),
+            number_format((float) ($show->whatnot_net ?? 0), 2, '.', ''),
+        ]);
+    }
+
+    private function operationalMetricsVary(Collection $group): bool
+    {
+        $units = $group->pluck('units_sold')->map(fn ($v) => (int) ($v ?? 0))->unique()->count();
+        $buyers = $group->pluck('buyers_count')->map(fn ($v) => (int) ($v ?? 0))->unique()->count();
+        return $units > 1 || $buyers > 1;
     }
 }

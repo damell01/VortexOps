@@ -33,10 +33,13 @@ class ReceivingReportService
         return "receiving-reports/{$filename}";
     }
 
-    public function generatePalletReport(Pallet $pallet): string
+    /**
+     * Return the exact file path for the current version of a pallet report.
+     * The version changes whenever pallet-level report fields or line data change.
+     */
+    public function preparedPalletReportPath(Pallet $pallet): string
     {
-        // Load only what the PDF renders. Packing slips are not used here.
-        $pallet->load(['vendor', 'lines.inventoryItem']);
+        $pallet->loadMissing('lines');
 
         $reference = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) ($pallet->reference ?: 'no-reference'));
         $latestLineUpdate = $pallet->lines->max(fn ($line) => optional($line->updated_at)->timestamp ?? 0);
@@ -47,9 +50,34 @@ class ReceivingReportService
             (string) ($pallet->payment_fees ?? 0),
         ])), 0, 12);
 
-        $relativePath = "receiving-reports/vortexops-pallet-{$pallet->id}-{$reference}-{$version}.pdf";
+        return "receiving-reports/vortexops-pallet-{$pallet->id}-{$reference}-{$version}.pdf";
+    }
 
-        // Reuse a previously rendered report until the pallet or its lines change.
+    public function palletReportIsReady(Pallet $pallet): bool
+    {
+        return Storage::disk('public')->exists($this->preparedPalletReportPath($pallet));
+    }
+
+    /** Remove cached versions for a pallet. Mainly used by deployment warmup. */
+    public function forgetPreparedPalletReport(Pallet $pallet): void
+    {
+        $prefix = "receiving-reports/vortexops-pallet-{$pallet->id}-";
+
+        foreach (Storage::disk('public')->files('receiving-reports') as $file) {
+            if (str_starts_with($file, $prefix) && str_ends_with($file, '.pdf')) {
+                Storage::disk('public')->delete($file);
+            }
+        }
+    }
+
+    public function generatePalletReport(Pallet $pallet): string
+    {
+        // Load only what the PDF renders. Packing slips are not used here.
+        $pallet->load(['vendor', 'lines.inventoryItem']);
+        $relativePath = $this->preparedPalletReportPath($pallet);
+
+        // Normal download requests should hit this path: the report was prepared
+        // when receiving completed or when report-affecting data was edited.
         if (Storage::disk('public')->exists($relativePath)) {
             return $relativePath;
         }

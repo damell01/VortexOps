@@ -51,10 +51,6 @@ class PalletLine extends Model
             }
         });
 
-        // A line staged from a name alone has no counts yet, and both columns
-        // are NOT NULL — so leaving them blank threw a constraint violation
-        // rather than staging anything. One case of one unit is the only
-        // sensible reading of "a thing on this pallet", and it stays editable.
         static::saving(function (self $line) {
             if ($line->case_count === null || $line->case_count === '') {
                 $line->case_count = 1;
@@ -67,6 +63,38 @@ class PalletLine extends Model
             if ($line->unit_cost === null || $line->unit_cost === '') {
                 $line->unit_cost = 0;
             }
+        });
+
+        // `received` is the final operational pallet state. Whenever a line is
+        // completed, check whether it was the last outstanding line. This makes
+        // scanning, Receive All, partial receive, and whole-pallet receive all
+        // converge on the same result without a second "mark processed" step.
+        static::saved(function (self $line): void {
+            if ($line->line_status !== 'received' || ! $line->pallet_id) {
+                return;
+            }
+
+            $hasOutstanding = static::query()
+                ->where('pallet_id', $line->pallet_id)
+                ->where(function ($query) {
+                    $query->whereNull('line_status')
+                        ->orWhere('line_status', '!=', 'received');
+                })
+                ->exists();
+
+            if ($hasOutstanding) {
+                return;
+            }
+
+            $pallet = Pallet::find($line->pallet_id);
+            if (! $pallet || $pallet->status === 'received') {
+                return;
+            }
+
+            $pallet->forceFill([
+                'status' => 'received',
+                'received_date' => $pallet->received_date ?? today(),
+            ])->save();
         });
     }
 
@@ -128,5 +156,29 @@ class PalletLine extends Model
     public function isFullyMapped(): bool
     {
         return $this->inventory_item_id !== null && $this->inventory_location_id !== null;
+    }
+
+    /**
+     * Supplier-facing quantity terminology. A manifest line whose pack size is
+     * one is not really "500 cases" — it is 500 single units. Keep the storage
+     * model intact while presenting the same language as the source document.
+     */
+    public function quantityLabel(): string
+    {
+        return (float) $this->quantity_per_case <= 1
+            ? 'Single Units'
+            : 'Cases';
+    }
+
+    public function displayQuantity(): float
+    {
+        return (float) $this->case_count;
+    }
+
+    public function packSizeLabel(): ?string
+    {
+        $pack = (float) $this->quantity_per_case;
+
+        return $pack > 1 ? rtrim(rtrim(number_format($pack, 2, '.', ''), '0'), '.') . ' / case' : null;
     }
 }

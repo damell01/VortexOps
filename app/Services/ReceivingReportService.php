@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ReceivingReportService
 {
+    /** Legacy only. Receiving sessions are no longer surfaced in the UI. */
     public function generateSessionReport(ScannerReceivingSession $session): string
     {
         $session->load(['pallet.vendor', 'pallet.lines.inventoryItem', 'user']);
@@ -17,6 +18,7 @@ class ReceivingReportService
             'session' => $session,
             'items' => $this->getSessionItems($session),
             'totals' => $this->calculateSessionTotals($session),
+            'generatedAt' => now(),
         ])->render();
 
         $pdf = Pdf::loadHTML($html)->setPaper('a4')
@@ -35,16 +37,11 @@ class ReceivingReportService
     {
         $pallet->load(['vendor', 'lines.inventoryItem', 'packingSlips']);
         $costService = app(InventoryCostService::class);
-        $logoPath = public_path('images/vb-logo.svg');
-        $logoData = is_file($logoPath)
-            ? 'data:image/svg+xml;base64,' . base64_encode(file_get_contents($logoPath))
-            : null;
 
         $html = view('reports.pallet-receiving', [
             'pallet' => $pallet,
             'lines' => $this->getPalletLineDetails($pallet, $costService),
             'totals' => $this->calculatePalletTotals($pallet, $costService),
-            'logoData' => $logoData,
             'generatedAt' => now(),
         ])->render();
 
@@ -53,7 +50,8 @@ class ReceivingReportService
             ->setOption('margin-top', 8)->setOption('margin-bottom', 8)
             ->setOption('margin-left', 8)->setOption('margin-right', 8);
 
-        $filename = "pallet-{$pallet->id}-{$pallet->reference}-" . date('Y-m-d-His') . '.pdf';
+        $reference = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) ($pallet->reference ?: 'no-reference'));
+        $filename = "vortexops-pallet-{$pallet->id}-{$reference}-" . date('Y-m-d-His') . '.pdf';
         $path = Storage::disk('public')->path("receiving-reports/{$filename}");
         @mkdir(dirname($path), 0755, true);
         $pdf->save($path);
@@ -84,12 +82,15 @@ class ReceivingReportService
         foreach ($pallet->lines as $line) {
             $item = $line->inventoryItem;
             $qty = $line->totalQuantityExpected();
+            $singleUnits = (float) $line->quantity_per_case <= 1;
+
             $lines[] = [
                 'item_name' => $item?->name ?? ($line->description ?: $line->vendor_description ?: 'Unknown'),
                 'sku' => $item?->sku ?? '—',
-                'cases' => (int) $line->case_count,
-                'qty_per_case' => (float) $line->quantity_per_case,
-                'qty' => $qty,
+                'quantity_label' => $singleUnits ? 'Single Units' : 'Cases',
+                'display_quantity' => (float) $line->case_count,
+                'pack_size' => $singleUnits ? null : (float) $line->quantity_per_case,
+                'total_units' => $qty,
                 'unit_cost' => number_format((float) $line->unit_cost, 2),
                 'total_cost' => number_format($qty * (float) $line->unit_cost, 2),
                 'current_avg' => $item ? number_format((float) $item->average_cost, 2) : '—',
@@ -112,18 +113,25 @@ class ReceivingReportService
     {
         $totalQty = 0.0;
         $totalCost = 0.0;
-        $totalCases = 0;
+        $packageQty = 0.0;
+        $caseLines = 0;
+        $singleLines = 0;
 
         foreach ($pallet->lines as $line) {
             $qty = $line->totalQuantityExpected();
             $totalQty += $qty;
             $totalCost += $qty * (float) $line->unit_cost;
-            $totalCases += (int) $line->case_count;
+            $packageQty += (float) $line->case_count;
+
+            if ((float) $line->quantity_per_case <= 1) $singleLines++;
+            else $caseLines++;
         }
 
         return [
-            'cases' => $totalCases,
+            'package_qty' => $packageQty,
             'qty' => $totalQty,
+            'case_lines' => $caseLines,
+            'single_lines' => $singleLines,
             'total_cost' => number_format($totalCost, 2),
             'avg_cost' => $totalQty > 0 ? number_format($totalCost / $totalQty, 2) : '0.00',
         ];

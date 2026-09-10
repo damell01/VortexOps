@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PalletResource\Pages;
 
+use App\Filament\Pages\ArchivedPallets;
 use App\Filament\Pages\PalletReceivingHistory;
 use App\Filament\Resources\PalletResource;
 use App\Filament\Widgets\PalletReceivingOverviewWidget;
@@ -21,7 +22,7 @@ class ListPallets extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Work the pallets that still need attention. Completed receives stay out of the way unless you open Received / Completed or Receiving History.';
+        return 'One place to receive pallets, review completed receipts, export reports, delete bad entries safely, and restore archived pallets.';
     }
 
     public function getTabs(): array
@@ -30,7 +31,7 @@ class ListPallets extends ListRecords
             'active' => Tab::make('Active Receiving')
                 ->icon('heroicon-o-inbox-arrow-down')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('status', ['received', 'processed'])),
-            'completed' => Tab::make('Received / Completed')
+            'completed' => Tab::make('Received / Complete')
                 ->icon('heroicon-o-check-circle')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['received', 'processed'])),
             'all' => Tab::make('All Pallets')
@@ -47,16 +48,22 @@ class ListPallets extends ListRecords
     {
         return [
             Action::make('create')
-                ->label('New Shipment / Pallet')
+                ->label('New Pallet')
                 ->icon('heroicon-o-plus')
                 ->color('primary')
                 ->url(fn () => PalletResource::getUrl('create')),
 
             Action::make('history')
                 ->label('Received Pallets')
-                ->icon('heroicon-o-clock')
-                ->color('gray')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
                 ->url(fn () => PalletReceivingHistory::getUrl()),
+
+            Action::make('archived')
+                ->label('Archived / Undo')
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('gray')
+                ->url(fn () => ArchivedPallets::getUrl()),
         ];
     }
 

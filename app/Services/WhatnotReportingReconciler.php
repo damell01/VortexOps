@@ -166,14 +166,50 @@ class WhatnotReportingReconciler
             }
 
             try {
+                $expectedTitle = trim((string) $show->title);
+                $expectedDate = $show->show_date ? Carbon::parse($show->show_date)->toDateString() : null;
+
                 $progress && $progress("analytics: refreshing show #{$show->id} ({$show->show_date})");
-                $rawRows = $this->scraper->fetchShows(limit: 1, debug: false, channelUsername: $channel->whatnot_username, onProgress: $progress, seedLiveId: $liveId);
+                $rawRows = $this->scraper->fetchShows(
+                    limit: 1,
+                    debug: false,
+                    channelUsername: $channel->whatnot_username,
+                    onProgress: $progress,
+                    seedLiveId: $liveId,
+                    expectedTitle: $expectedTitle !== '' ? $expectedTitle : null,
+                    expectedDate: $expectedDate,
+                );
+
                 $raw = collect($rawRows)->first(function ($row) use ($liveId) {
-                    if (! is_array($row)) return false;
-                    $candidate = strtolower((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? ''));
-                    return $candidate === '' || $candidate === strtolower($liveId);
+                    if (! is_array($row)) {
+                        return false;
+                    }
+
+                    $candidate = strtolower(trim((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? '')));
+
+                    // Never accept analytics whose show identity is missing. The
+                    // Whatnot React SPA can leave stale metric cards rendered while
+                    // the URL changes, so the requested UUID must be returned exactly.
+                    return $candidate !== '' && $candidate === strtolower($liveId);
                 });
-                if (! is_array($raw)) throw new \RuntimeException('No analytics row returned for show UUID.');
+
+                if (! is_array($raw)) {
+                    $returnedIds = collect($rawRows)
+                        ->filter(fn ($row) => is_array($row))
+                        ->map(fn ($row) => strtolower(trim((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? ''))))
+                        ->filter()
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    $actual = $returnedIds === [] ? 'none' : implode(', ', $returnedIds);
+                    throw new \RuntimeException("Analytics identity mismatch: requested {$liveId}, scraper returned {$actual}.");
+                }
+
+                $candidate = strtolower(trim((string) ($raw['whatnot_live_id'] ?? $raw['live_id'] ?? '')));
+                if ($candidate !== strtolower($liveId)) {
+                    throw new \RuntimeException("Analytics identity mismatch after selection: requested {$liveId}, got ".($candidate ?: 'none').'.');
+                }
 
                 $normalized = $this->normalizer->normalizeShow($raw);
                 $fields = [];

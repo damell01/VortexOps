@@ -64,7 +64,7 @@ class PalletReceivingHistory extends Page implements HasTable
 
     public function getSubheading(): ?string
     {
-        return 'Review completed pallet receipts, inspect the received items, and export a branded receiving report.';
+        return 'Review completed pallet receipts, inspect received items, and export a branded receiving report.';
     }
 
     public function table(Table $table): Table
@@ -72,17 +72,12 @@ class PalletReceivingHistory extends Page implements HasTable
         return $table
             ->query(
                 Pallet::query()
-                    ->with(['vendor', 'lines', 'scannerSessions'])
+                    ->with(['vendor', 'lines'])
                     ->whereIn('status', ['received', 'processed'])
             )
             ->defaultSort('received_date', 'desc')
             ->columns([
-                TextColumn::make('received_date')
-                    ->label('Received')
-                    ->date('M j, Y')
-                    ->sortable()
-                    ->placeholder('—'),
-
+                TextColumn::make('received_date')->label('Received')->date('M j, Y')->sortable()->placeholder('—'),
                 TextColumn::make('name')
                     ->label('Pallet / PO')
                     ->state(fn (Pallet $record) => $record->displayName())
@@ -90,54 +85,27 @@ class PalletReceivingHistory extends Page implements HasTable
                     ->weight('semibold')
                     ->searchable(['name', 'reference'])
                     ->url(fn (Pallet $record) => route('filament.admin.resources.pallets.view', ['record' => $record->id])),
-
-                TextColumn::make('vendor.name')
-                    ->label('Vendor')
-                    ->searchable(['vendors.name']),
-
-                TextColumn::make('line_items_total')
-                    ->label('Items')
-                    ->alignCenter()
-                    ->state(fn (Pallet $record) => $record->lines->count()),
-
-                TextColumn::make('total_cost')
-                    ->label('Total Cost')
-                    ->money('USD', locale: 'en_US')
-                    ->alignRight()
-                    ->placeholder('—'),
-
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'received' => 'success',
-                        'processed' => 'info',
-                        default => 'gray',
-                    }),
+                TextColumn::make('vendor.name')->label('Vendor')->searchable(['vendors.name']),
+                TextColumn::make('line_items_total')->label('Items')->alignCenter()->state(fn (Pallet $record) => $record->lines->count()),
+                TextColumn::make('total_cost')->label('Total Cost')->money('USD', locale: 'en_US')->alignRight()->placeholder('—'),
+                TextColumn::make('status')->label('Status')->badge()->color(fn (string $state) => match ($state) {
+                    'received' => 'success',
+                    'processed' => 'info',
+                    default => 'gray',
+                }),
             ])
             ->actions([
                 Action::make('view_items')
                     ->label('Items')
                     ->icon('heroicon-o-list-bullet')
                     ->color('gray')
+                    ->modalWidth('5xl')
                     ->modalHeading(fn (Pallet $record) => 'Received Items — ' . $record->displayName())
                     ->modalContent(fn (Pallet $record) => view('modals.pallet-items', [
                         'pallet' => $record->load(['lines.inventoryItem', 'vendor']),
                     ]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
-
-                Action::make('view_sessions')
-                    ->label('Sessions')
-                    ->icon('heroicon-o-clock')
-                    ->color('gray')
-                    ->modalHeading('Receiving Sessions')
-                    ->modalContent(fn (Pallet $record) => view('modals.pallet-sessions', [
-                        'sessions' => $record->scannerSessions()->with('user')->get(),
-                    ]))
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
-
                 Action::make('export_pdf')
                     ->label('PDF')
                     ->icon('heroicon-o-document-arrow-down')
@@ -146,7 +114,6 @@ class PalletReceivingHistory extends Page implements HasTable
                         try {
                             $filePath = app(ReceivingReportService::class)->generatePalletReport($record);
                             $fullPath = Storage::disk('public')->path($filePath);
-
                             return response()->download($fullPath, "pallet-{$record->reference}.pdf");
                         } catch (\Exception $e) {
                             report($e);

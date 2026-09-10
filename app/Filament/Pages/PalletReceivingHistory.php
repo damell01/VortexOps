@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Jobs\GeneratePalletReceivingReport;
 use App\Models\Pallet;
 use App\Services\PalletArchiveService;
 use App\Services\ReceivingReportService;
@@ -82,11 +83,26 @@ class PalletReceivingHistory extends Page implements HasTable
                     ->iconButton()
                     ->action(function (Pallet $record) {
                         try {
-                            $filePath = app(ReceivingReportService::class)->generatePalletReport($record);
-                            return response()->download(Storage::disk('public')->path($filePath), "pallet-{$record->reference}.pdf");
-                        } catch (\Exception $e) {
+                            $reports = app(ReceivingReportService::class);
+                            $filePath = $reports->preparedPalletReportPath($record);
+
+                            if (! Storage::disk('public')->exists($filePath)) {
+                                GeneratePalletReceivingReport::dispatch($record->id);
+                                Notification::make()
+                                    ->title('Report is preparing')
+                                    ->body('It was not pre-generated yet. It is being built now; try the PDF button again in a moment.')
+                                    ->warning()
+                                    ->send();
+                                return null;
+                            }
+
+                            return response()->download(
+                                Storage::disk('public')->path($filePath),
+                                'pallet-' . ($record->reference ?: $record->id) . '.pdf'
+                            );
+                        } catch (\Throwable $e) {
                             report($e);
-                            Notification::make()->title('Could not generate report')->body($e->getMessage())->danger()->send();
+                            Notification::make()->title('Could not download report')->body($e->getMessage())->danger()->send();
                         }
                     }),
                 Action::make('archive')

@@ -14,6 +14,7 @@ use App\Observers\DeductionRequestObserver;
 use App\Observers\PayoutObserver;
 use App\Observers\ProductObserver;
 use App\Observers\ShipmentObserver;
+use App\Observers\ShowAnalyticsIntegrityObserver;
 use App\Observers\ShowObserver;
 use App\Services\AI\OllamaClient;
 use App\Services\AI\Mapping\MappingEngine;
@@ -69,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
         Payout::observe(PayoutObserver::class);
         DeductionRequest::observe(DeductionRequestObserver::class);
         Show::observe(ShowObserver::class);
+        Show::observe(ShowAnalyticsIntegrityObserver::class);
         Shipment::observe(ShipmentObserver::class);
         Product::observe(ProductObserver::class);
 

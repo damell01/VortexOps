@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Show;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
@@ -13,7 +14,7 @@ class AuditDuplicateWhatnotAnalytics extends Command
         {--min=3 : Minimum repeats before a value/signature is reported}
         {--gross= : Inspect one exact gross-revenue value, e.g. 1201 or 3264}';
 
-    protected $description = 'Find suspicious repeated Whatnot analytics and verify whether stored analytics payloads belong to the show UUID they were saved on.';
+    protected $description = 'Find suspicious repeated Whatnot analytics and inspect stored UUID evidence.';
 
     public function handle(): int
     {
@@ -64,15 +65,12 @@ class AuditDuplicateWhatnotAnalytics extends Command
                         '$' . number_format((float) $gross, 2),
                         $group->count(),
                         $group->pluck('whatnot_show_id')->filter()->unique()->count(),
-                        optional($group->min('show_date'))->format('Y-m-d') . ' → ' . optional($group->max('show_date'))->format('Y-m-d'),
+                        $this->formatDate($group->min('show_date')) . ' → ' . $this->formatDate($group->max('show_date')),
                     ];
                 })->values()->all()
             );
         }
 
-        // A repeated gross by itself can be coincidence. An entire analytics
-        // signature repeating across different show UUIDs is much stronger
-        // evidence that one analytics payload was cloned onto several records.
         $signatureGroups = $shows
             ->groupBy(fn (Show $show) => $this->signature($show))
             ->filter(fn (Collection $group) => $group->count() >= $min)
@@ -107,16 +105,16 @@ class AuditDuplicateWhatnotAnalytics extends Command
 
             $identity = $payloadUuids === []
                 ? 'payload-no-uuid'
-                : ($stored && in_array($stored, $payloadUuids, true) ? 'match' : 'MISMATCH');
+                : ($stored && in_array($stored, $payloadUuids, true) ? 'contains-stored-uuid' : 'MISMATCH');
 
             return ['show' => $show, 'identity' => $identity, 'payload_uuids' => $payloadUuids];
         });
 
-        $identityProblems = $suspects->filter(fn (array $row) => $row['identity'] !== 'match');
+        $identityProblems = $suspects->filter(fn (array $row) => $row['identity'] !== 'contains-stored-uuid');
 
         $this->newLine();
-        $this->comment('Stored show UUID vs raw analytics payload identity');
-        $this->line('  verified match: ' . ($suspects->count() - $identityProblems->count()));
+        $this->comment('Stored show UUID vs raw payload UUID evidence');
+        $this->line('  raw payload contains stored UUID: ' . ($suspects->count() - $identityProblems->count()));
         $this->line('  payload missing UUID or mismatch: ' . $identityProblems->count());
 
         if ($identityProblems->isNotEmpty()) {
@@ -152,7 +150,7 @@ class AuditDuplicateWhatnotAnalytics extends Command
                         $show->whatnot_show_id ?: '—',
                         '$' . number_format((float) ($show->whatnot_net ?? 0), 2),
                         (int) ($show->units_sold ?? 0),
-                        $show->last_analytics_synced_at?->format('Y-m-d H:i') ?? '—',
+                        $this->formatDateTime($show->last_analytics_synced_at),
                         mb_strimwidth((string) $show->title, 0, 42, '…'),
                     ])->values()->all()
                 );
@@ -160,7 +158,7 @@ class AuditDuplicateWhatnotAnalytics extends Command
         }
 
         $this->newLine();
-        $this->info('Audit only — nothing was changed. The backfill now requires an exact show UUID before saving new analytics.');
+        $this->info('Audit only — nothing was changed. Full-signature duplication across different UUIDs is the strongest corruption signal.');
 
         return self::SUCCESS;
     }
@@ -175,6 +173,20 @@ class AuditDuplicateWhatnotAnalytics extends Command
             (int) ($show->units_sold ?? 0),
             (int) ($show->buyers_count ?? 0),
         ]);
+    }
+
+    private function formatDate(mixed $value): string
+    {
+        if ($value === null || $value === '') return '—';
+        try { return Carbon::parse($value)->format('Y-m-d'); }
+        catch (\Throwable) { return (string) $value; }
+    }
+
+    private function formatDateTime(mixed $value): string
+    {
+        if ($value === null || $value === '') return '—';
+        try { return Carbon::parse($value)->format('Y-m-d H:i'); }
+        catch (\Throwable) { return (string) $value; }
     }
 
     /** @return list<string> */

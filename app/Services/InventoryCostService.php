@@ -62,10 +62,8 @@ class InventoryCostService
             'updated_by' => $userId,
         ]);
 
-        // Update the line itself
         $line->update(['unit_cost' => $newCost]);
 
-        // Update item's average cost if mapped
         if ($line->inventory_item_id) {
             $this->updateItemAverageFromAllReceipts($line->inventoryItem);
         }
@@ -75,11 +73,9 @@ class InventoryCostService
 
     /**
      * Recalculate average cost based on all historical receipts for an item.
-     * Useful after cost adjustments or corrections.
      */
     public function updateItemAverageFromAllReceipts(InventoryItem $item): void
     {
-        // Get all received pallet lines for this item
         $receipts = PalletLine::where('inventory_item_id', $item->id)
             ->whereHas('pallet', fn ($q) => $q->whereIn('status', ['received', 'processed']))
             ->with('pallet')
@@ -100,28 +96,38 @@ class InventoryCostService
         }
 
         if ($totalQty > 0) {
-            $newAverageCost = $totalCost / $totalQty;
             $item->update([
-                'average_cost' => round($newAverageCost, 4),
+                'average_cost' => round($totalCost / $totalQty, 4),
             ]);
         }
     }
 
     /**
-     * Get cost breakdown for an item across all vendors/receipts.
+     * Get cost breakdown for an item across all active pallet receipts.
+     *
+     * Archived/deleted pallets intentionally do not participate. Their pallet
+     * lines can remain for audit/history, but the normal Pallet relation resolves
+     * to null because Pallet uses SoftDeletes. Filtering them here prevents the
+     * inventory scanner from dereferencing a missing pallet.
      */
     public function getCostBreakdown(InventoryItem $item): array
     {
         $lines = PalletLine::where('inventory_item_id', $item->id)
-            ->with(['pallet.vendor', 'pallet'])
+            ->whereHas('pallet')
+            ->with('pallet.vendor')
             ->get();
 
         $breakdown = [];
         foreach ($lines as $line) {
-            $vendor = $line->pallet?->vendor;
+            $pallet = $line->pallet;
+            if (! $pallet) {
+                continue;
+            }
+
+            $vendor = $pallet->vendor;
             $vendorKey = $vendor ? "{$vendor->id}:{$vendor->name}" : 'unknown';
 
-            if (!isset($breakdown[$vendorKey])) {
+            if (! isset($breakdown[$vendorKey])) {
                 $breakdown[$vendorKey] = [
                     'vendor_id' => $vendor?->id,
                     'vendor_name' => $vendor?->name ?? 'Unknown',
@@ -137,8 +143,8 @@ class InventoryCostService
             $totalCost = $qty * $unitCost;
 
             $breakdown[$vendorKey]['receipts'][] = [
-                'pallet_reference' => $line->pallet->reference,
-                'received_date' => $line->pallet->received_date,
+                'pallet_reference' => $pallet->reference,
+                'received_date' => $pallet->received_date,
                 'quantity' => $qty,
                 'unit_cost' => $unitCost,
                 'total_cost' => $totalCost,
@@ -149,7 +155,6 @@ class InventoryCostService
             $breakdown[$vendorKey]['weighted_total_cost'] += $totalCost;
         }
 
-        // Calculate vendor-specific average costs
         foreach ($breakdown as $key => $data) {
             if ($data['total_qty'] > 0) {
                 $breakdown[$key]['average_cost'] = $data['weighted_total_cost'] / $data['total_qty'];
@@ -165,18 +170,27 @@ class InventoryCostService
     public function getCostTrend(InventoryItem $item, int $limit = 10): array
     {
         $lines = PalletLine::where('inventory_item_id', $item->id)
-            ->with('pallet')
+            ->whereHas('pallet')
+            ->with('pallet.vendor')
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();
 
-        return $lines->map(fn ($line) => [
-            'date' => $line->pallet->received_date,
-            'vendor' => $line->pallet->vendor?->name ?? 'Unknown',
-            'unit_cost' => (float) $line->unit_cost,
-            'quantity' => (float) $line->case_count * (float) $line->quantity_per_case,
-            'total_cost' => (float) $line->case_count * (float) $line->quantity_per_case * (float) $line->unit_cost,
-        ])->toArray();
+        return $lines
+            ->filter(fn (PalletLine $line) => $line->pallet !== null)
+            ->map(function (PalletLine $line) {
+                $pallet = $line->pallet;
+
+                return [
+                    'date' => $pallet?->received_date,
+                    'vendor' => $pallet?->vendor?->name ?? 'Unknown',
+                    'unit_cost' => (float) $line->unit_cost,
+                    'quantity' => (float) $line->case_count * (float) $line->quantity_per_case,
+                    'total_cost' => (float) $line->case_count * (float) $line->quantity_per_case * (float) $line->unit_cost,
+                ];
+            })
+            ->values()
+            ->toArray();
     }
 
     /**
@@ -184,15 +198,11 @@ class InventoryCostService
      */
     public function calculateInventoryValue(InventoryItem $item): float
     {
-        $totalQty = $item->totalQuantity();
-        $avgCost = (float) ($item->average_cost ?? 0);
-
-        return $totalQty * $avgCost;
+        return $item->totalQuantity() * (float) ($item->average_cost ?? 0);
     }
 
     /**
      * Get all items with prices significantly different from average.
-     * Useful for finding pricing anomalies or data entry errors.
      */
     public function findPricingAnomalies(float $percentageThreshold = 20): array
     {

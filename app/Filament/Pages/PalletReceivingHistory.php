@@ -4,10 +4,12 @@ namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Models\Pallet;
+use App\Services\PalletArchiveService;
 use App\Services\ReceivingReportService;
 use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
@@ -34,7 +36,18 @@ class PalletReceivingHistory extends Page implements HasTable
     public static function getNavigationSort(): ?int { return 999; }
     public function getView(): string { return 'filament.pages.pallet-receiving-history'; }
     public function getMaxContentWidth(): Width { return Width::Full; }
-    public function getSubheading(): ?string { return 'Review completed pallet receipts, inspect received items, and export a branded receiving report.'; }
+    public function getSubheading(): ?string { return 'Review completed pallet receipts, inspect received items, export branded reports, or safely archive a bad receipt.'; }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('archived')
+                ->label('Archived Pallets')
+                ->icon('heroicon-o-trash')
+                ->color('gray')
+                ->url(fn () => ArchivedPallets::getUrl()),
+        ];
+    }
 
     public function table(Table $table): Table
     {
@@ -47,7 +60,7 @@ class PalletReceivingHistory extends Page implements HasTable
                 TextColumn::make('vendor.name')->label('Vendor')->searchable(['vendors.name']),
                 TextColumn::make('line_items_total')->label('Items')->alignCenter()->state(fn (Pallet $record) => $record->lines->count()),
                 TextColumn::make('total_cost')->label('Total Cost')->money('USD', locale: 'en_US')->alignRight()->placeholder('—'),
-                TextColumn::make('status')->label('Status')->badge()->color(fn (string $state) => match ($state) {'received' => 'success','processed' => 'info',default => 'gray'}),
+                TextColumn::make('status')->label('Status')->badge()->formatStateUsing(fn (string $state) => in_array($state, ['received', 'processed'], true) ? 'Complete' : ucfirst($state))->color('success'),
             ])
             ->actions([
                 Action::make('view_items')
@@ -71,7 +84,38 @@ class PalletReceivingHistory extends Page implements HasTable
                         try {
                             $filePath = app(ReceivingReportService::class)->generatePalletReport($record);
                             return response()->download(Storage::disk('public')->path($filePath), "pallet-{$record->reference}.pdf");
-                        } catch (\Exception $e) { report($e); }
+                        } catch (\Exception $e) {
+                            report($e);
+                            Notification::make()->title('Could not generate report')->body($e->getMessage())->danger()->send();
+                        }
+                    }),
+                Action::make('archive')
+                    ->label('Archive')
+                    ->tooltip('Remove pallet and reverse its received inventory')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger')
+                    ->iconButton()
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Pallet $record) => 'Archive ' . $record->displayName() . '?')
+                    ->modalDescription(fn (Pallet $record) => app(PalletArchiveService::class)->previewText($record))
+                    ->modalSubmitActionLabel('Archive & reverse inventory')
+                    ->action(function (Pallet $record) {
+                        try {
+                            $preview = app(PalletArchiveService::class)->archive($record);
+                            Notification::make()
+                                ->title('Pallet archived')
+                                ->body(number_format(collect($preview['effects'])->sum('quantity'), 2) . ' inventory units reversed. You can restore it from Archived Pallets.')
+                                ->success()
+                                ->send();
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title('Pallet was not archived')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->persistent()
+                                ->send();
+                        }
                     }),
             ])
             ->bulkActions([])

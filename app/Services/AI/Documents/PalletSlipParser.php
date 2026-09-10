@@ -41,8 +41,21 @@ class PalletSlipParser
                     if ($tableLines !== []) {
                         Log::info('PalletSlipParser parsed PDF table deterministically', [
                             'lines' => count($tableLines),
+                            'parser' => 'numbered_upc_table',
                         ]);
                         return $tableLines;
+                    }
+
+                    // Several distributor POs use a bracketed vendor SKU followed
+                    // by description, quantity, unit price, and extended total,
+                    // but no UPC. Parse that layout locally before asking Ollama.
+                    $supplierLines = $this->parseBracketedSkuRows($textRows);
+                    if ($supplierLines !== []) {
+                        Log::info('PalletSlipParser parsed PDF table deterministically', [
+                            'lines' => count($supplierLines),
+                            'parser' => 'bracketed_supplier_sku',
+                        ]);
+                        return $supplierLines;
                     }
 
                     try {
@@ -203,7 +216,6 @@ class PalletSlipParser
             }
 
             if ($current !== null) {
-                // Stop carrying a completed line into document totals/notes.
                 if (preg_match('/^(AI MATCHING|SUBTOTAL|MERCHANDISE|SHIPPING|PAYMENT|TOTAL|NOTES?|TERMS?)\b/i', $row)) {
                     $blocks[] = $current;
                     $current = null;
@@ -220,7 +232,6 @@ class PalletSlipParser
         foreach ($blocks as $block) {
             $text = preg_replace('/\s+/u', ' ', trim($block['text'])) ?: '';
 
-            // Find the stable tail first: UPC + cases + units/case + cost + total.
             if (! preg_match(
                 '/^(.*?)(\d{8,14})\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s+\$?([\d,]+(?:\.\d{1,2})?)(?:\s+.*)?$/u',
                 $text,
@@ -236,9 +247,6 @@ class PalletSlipParser
             $unitsPerCase = $this->number($m[4]);
             $unitCost = $this->money($m[5]);
 
-            // SKU is the final code-like token before UPC. It may be glued to the
-            // description by pdftotext (e.g. "VersionVND-151-GATH-CH"). Prefer
-            // an explicit separated token, then fall back to a trailing code.
             $sku = null;
             $description = $prefix;
             if (preg_match('/^(.*?)\s+([A-Z0-9][A-Z0-9._\/-]*[-_][A-Z0-9._\/-]+)$/u', $prefix, $skuMatch)) {
@@ -273,6 +281,70 @@ class PalletSlipParser
         return $out;
     }
 
+    /**
+     * Parse distributor text rows shaped like:
+     * [SKU-CODE] Product description 468.00000 76.00000 $ 35,568.00
+     *
+     * The last three numeric values are quantity, unit price, and extended
+     * total. We verify qty * price ~= total before accepting the row so random
+     * addresses/order metadata cannot be mistaken for merchandise.
+     *
+     * @param list<string> $rows
+     * @return list<array<string,mixed>>
+     */
+    private function parseBracketedSkuRows(array $rows): array
+    {
+        $text = preg_replace('/\s+/u', ' ', implode(' ', $rows)) ?: '';
+        if ($text === '') return [];
+
+        $pattern = '/\[([A-Z0-9][A-Z0-9._\/-]{2,})\]\s*(.*?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+\$\s*([\d,]+(?:\.\d{1,2})?)(?=\s+(?:\[[A-Z0-9]|SUBTOTAL\b|MERCHANDISE\b|SHIPPING\b|TOTAL\b|Bundle\b|$))/iu';
+        preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
+
+        $out = [];
+        $rejected = [];
+        foreach ($matches as $m) {
+            $sku = trim($m[1]);
+            $description = trim(preg_replace('/\s+/u', ' ', $m[2]) ?: '');
+            $quantity = $this->number($m[3]);
+            $unitCost = $this->money($m[4]);
+            $total = $this->money($m[5]);
+
+            if ($description === '' || $quantity <= 0 || $unitCost === null || $unitCost <= 0 || $total === null) {
+                continue;
+            }
+
+            $expectedTotal = $quantity * $unitCost;
+            $tolerance = max(0.05, abs($total) * 0.01);
+            if (abs($expectedTotal - $total) > $tolerance) {
+                $rejected[] = [
+                    'sku' => $sku,
+                    'reason' => 'extended_total_mismatch',
+                    'quantity' => $quantity,
+                    'unit_cost' => $unitCost,
+                    'total' => $total,
+                ];
+                continue;
+            }
+
+            $out[] = [
+                'description' => $description,
+                'case_count' => max(1, (int) round($quantity)),
+                'quantity_per_case' => 1,
+                'unit_cost' => $unitCost,
+                'sku' => $sku,
+                'barcode' => null,
+            ];
+        }
+
+        Log::info('PalletSlipParser bracketed supplier diagnostics', [
+            'matches' => count($matches),
+            'accepted' => count($out),
+            'rejected' => $rejected,
+        ]);
+
+        return $out;
+    }
+
     /** @param list<string> $rows @return list<array<string,mixed>> */
     private function normalizeUnknownRows(array $rows): array
     {
@@ -294,6 +366,7 @@ class PalletSlipParser
             'temperature' => 0.0,
             'max_tokens' => 3200,
             'context_length' => 8192,
+            'timeout' => 90,
         ]);
 
         if (! is_array($result)) {

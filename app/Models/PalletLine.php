@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\GeneratePalletReceivingReport;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -70,32 +71,40 @@ class PalletLine extends Model
         // scanning, Receive All, partial receive, and whole-pallet receive all
         // converge on the same result without a second "mark processed" step.
         static::saved(function (self $line): void {
-            if ($line->line_status !== 'received' || ! $line->pallet_id) {
-                return;
+            if ($line->line_status === 'received' && $line->pallet_id) {
+                $hasOutstanding = static::query()
+                    ->where('pallet_id', $line->pallet_id)
+                    ->where(function ($query) {
+                        $query->whereNull('line_status')
+                            ->orWhere('line_status', '!=', 'received');
+                    })
+                    ->exists();
+
+                if (! $hasOutstanding) {
+                    $pallet = Pallet::find($line->pallet_id);
+                    if ($pallet && $pallet->status !== 'received') {
+                        $pallet->forceFill([
+                            'status' => 'received',
+                            'received_date' => $pallet->received_date ?? today(),
+                        ])->save();
+                    }
+                }
             }
 
-            $hasOutstanding = static::query()
-                ->where('pallet_id', $line->pallet_id)
-                ->where(function ($query) {
-                    $query->whereNull('line_status')
-                        ->orWhere('line_status', '!=', 'received');
-                })
-                ->exists();
-
-            if ($hasOutstanding) {
-                return;
-            }
-
-            $pallet = Pallet::find($line->pallet_id);
-            if (! $pallet || $pallet->status === 'received') {
-                return;
-            }
-
-            $pallet->forceFill([
-                'status' => 'received',
-                'received_date' => $pallet->received_date ?? today(),
-            ])->save();
+            static::queuePreparedReportRefresh($line->pallet_id);
         });
+
+        static::deleted(fn (self $line) => static::queuePreparedReportRefresh($line->pallet_id));
+    }
+
+    private static function queuePreparedReportRefresh(?int $palletId): void
+    {
+        if (! $palletId) return;
+
+        $pallet = Pallet::find($palletId);
+        if (! $pallet || ! in_array($pallet->status, ['received', 'processed'], true)) return;
+
+        GeneratePalletReceivingReport::dispatch($palletId)->afterCommit();
     }
 
     public function pallet(): BelongsTo

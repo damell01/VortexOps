@@ -66,7 +66,7 @@ def select_tab(module, page, name: str) -> bool:
 
 def extract_show_rows(page) -> list[dict[str, Any]]:
     try:
-        return page.locator('[data-testid="show-list-item"]').evaluate_all(r"""
+        rows = page.locator('[data-testid="show-list-item"]').evaluate_all(r"""
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
           const open = row.querySelector('a[href^="/dashboard/live/"]');
@@ -84,6 +84,9 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
           };
         })
         """) or []
+        for row in rows:
+            row["show_date"] = parse_date(row.get("text"))
+        return rows
     except Exception:
         return []
 
@@ -91,7 +94,7 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
 def verify_identity(module, row: dict[str, Any], live_id: str, expected_title: str, expected_date: str | None) -> bool:
     actual_title = normalize_identity(row.get("title"))
     wanted_title = normalize_identity(expected_title)
-    row_date = parse_date(row.get("text"))
+    row_date = row.get("show_date") or parse_date(row.get("text"))
     title_ok = not wanted_title or actual_title == wanted_title
     date_ok = not expected_date or not row_date or row_date == expected_date
     module.info(
@@ -164,16 +167,11 @@ def find_target_row(module, page, live_id: str, expected_title: str, expected_da
 
 
 def find_target_in_short_tab(module, page, tab_name: str, live_id: str) -> tuple[bool, bool]:
-    """Return (found, verified_scan) for Current/Upcoming.
-
-    These lists are short in Seller Hub. We still make a few passes so lazy DOM
-    hydration cannot turn an empty first render into a false absence.
-    """
+    """Return (found, verified_scan) for Current/Upcoming."""
     if not select_tab(module, page, tab_name):
         return False, False
 
     wanted = live_id.lower()
-    seen_any_render = False
     stable = 0
     previous_count = -1
     seen_ids: set[str] = set()
@@ -181,8 +179,6 @@ def find_target_in_short_tab(module, page, tab_name: str, live_id: str) -> tuple
     for _ in range(6):
         module.check_login(page)
         rows = extract_show_rows(page)
-        if rows:
-            seen_any_render = True
         for row in rows:
             candidate = clean(row.get("live_id")).lower()
             if candidate:
@@ -199,10 +195,134 @@ def find_target_in_short_tab(module, page, tab_name: str, live_id: str) -> tuple
             break
         page.wait_for_timeout(700)
 
-    # A selected tab can legitimately be empty. Selection plus repeated stable
-    # renders is sufficient verification even when there are zero show rows.
     module.info(f"analytics: uuid={live_id} absent from Seller Hub {tab_name} tab rows_seen={len(seen_ids)}")
     return False, True
+
+
+def scroll_to_bottom(page) -> None:
+    try:
+        page.evaluate(r"""
+        () => {
+          window.scrollTo(0, document.body.scrollHeight);
+          const scrollers = [...document.querySelectorAll('*')]
+            .filter(el => el.scrollHeight > el.clientHeight + 200);
+          for (const el of scrollers.slice(-8)) el.scrollTop = el.scrollHeight;
+        }
+        """)
+    except Exception:
+        pass
+
+
+def scan_selected_tab_index(module, page, tab_name: str, max_passes: int, stable_needed: int) -> tuple[dict[str, dict[str, Any]], bool, bool]:
+    """Scan one Seller Hub tab once and return every UUID observed.
+
+    The third return value is exhausted. Absence is only safe evidence when the
+    tab selection succeeded AND the list stopped growing. Hitting max_passes while
+    rows are still growing is deliberately fail-closed.
+    """
+    if not select_tab(module, page, tab_name):
+        return {}, False, False
+
+    seen: dict[str, dict[str, Any]] = {}
+    previous_count = -1
+    stable_passes = 0
+
+    for attempt in range(1, max_passes + 1):
+        module.check_login(page)
+        for row in extract_show_rows(page):
+            live_id = clean(row.get("live_id")).lower()
+            if live_id:
+                row["live_id"] = live_id
+                seen[live_id] = row
+
+        if len(seen) == previous_count:
+            stable_passes += 1
+        else:
+            stable_passes = 0
+        previous_count = len(seen)
+
+        if attempt == 1 or attempt % 10 == 0:
+            module.info(
+                f"reconcile-index: {tab_name} scan pass {attempt}/{max_passes} "
+                f"rows_seen={len(seen)} stable={stable_passes}"
+            )
+
+        if stable_passes >= stable_needed:
+            module.info(
+                f"reconcile-index: {tab_name} exhausted after {attempt} passes "
+                f"rows_seen={len(seen)}"
+            )
+            return seen, True, True
+
+        scroll_to_bottom(page)
+        page.wait_for_timeout(900 if tab_name.lower() == "past" else 500)
+
+    module.info(
+        f"reconcile-index: {tab_name} reached max passes while list may still be growing; "
+        f"rows_seen={len(seen)} absence will NOT be treated as verified"
+    )
+    return seen, True, False
+
+
+def reconcile_index(module, session):
+    """Build a channel-wide Seller Hub UUID index in one browser traversal."""
+    max_passes = max(20, min(200, int(os.getenv("WHATNOT_RECONCILE_MAX_PASSES", "100"))))
+    result: dict[str, Any] = {
+        "_seller_hub_index": True,
+        "past": [],
+        "current_ids": [],
+        "upcoming_ids": [],
+        "past_selected": False,
+        "past_exhausted": False,
+        "current_verified": False,
+        "upcoming_verified": False,
+    }
+
+    module.info(f"reconcile-index: building one Seller Hub index max_passes={max_passes}")
+
+    def action(page):
+        module.prepare(page)
+        page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1800)
+        module.check_login(page)
+
+        past, past_selected, past_exhausted = scan_selected_tab_index(
+            module, page, "Past", max_passes=max_passes, stable_needed=5
+        )
+        current, current_selected, current_exhausted = scan_selected_tab_index(
+            module, page, "Current", max_passes=12, stable_needed=2
+        )
+        upcoming, upcoming_selected, upcoming_exhausted = scan_selected_tab_index(
+            module, page, "Upcoming", max_passes=20, stable_needed=3
+        )
+
+        result["past"] = list(past.values())
+        result["current_ids"] = sorted(current.keys())
+        result["upcoming_ids"] = sorted(upcoming.keys())
+        result["past_selected"] = past_selected
+        result["past_exhausted"] = past_exhausted
+        result["current_verified"] = current_selected and current_exhausted
+        result["upcoming_verified"] = upcoming_selected and upcoming_exhausted
+        result["counts"] = {
+            "past": len(past),
+            "current": len(current),
+            "upcoming": len(upcoming),
+        }
+
+    session.fetch(
+        f"{module.BASE}/dashboard/home",
+        page_action=action,
+        timeout=300000,
+        network_idle=False,
+        google_search=False,
+    )
+
+    module.info(
+        "reconcile-index: complete "
+        f"past={len(result['past'])} current={len(result['current_ids'])} "
+        f"upcoming={len(result['upcoming_ids'])} past_exhausted={result['past_exhausted']}"
+    )
+    return result
 
 
 def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
@@ -352,4 +472,11 @@ def analytics(module, session):
 
 
 def install(module) -> None:
+    if os.getenv("WHATNOT_MODE", "").strip() == "reconcile-index":
+        # Reuse the base module's well-tested analytics dispatch/session lifecycle
+        # while replacing the analytics function with a one-pass channel index.
+        module.MODE = "analytics"
+        module.analytics = lambda session: reconcile_index(module, session)
+        return
+
     module.analytics = lambda session: analytics(module, session)

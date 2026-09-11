@@ -58,14 +58,28 @@ class BackfillMissingWhatnotAnalytics extends Command
 
         $query = Show::query()
             ->with('channel')
-            ->whereDate('show_date', '<=', today())
             ->whereDate('show_date', '>=', today()->subDays($days))
+            ->where(function ($q) {
+                // start_time is a full datetime when Whatnot supplied a scheduled
+                // time. Use it so a show later today is not treated as completed
+                // just because show_date equals today's date. Older records that
+                // have no start_time remain eligible only when their date is before
+                // today; same-day rows with an unknown time wait until tomorrow.
+                $q->where(function ($timed) {
+                    $timed->whereNotNull('start_time')
+                        ->where('start_time', '<=', now());
+                })->orWhere(function ($dateOnly) {
+                    $dateOnly->whereNull('start_time')
+                        ->whereDate('show_date', '<', today());
+                });
+            })
             ->whereNotIn('status', ['cancelled'])
             ->where(function ($q) {
                 $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
                   ->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0);
             })
             ->orderByDesc('show_date')
+            ->orderByDesc('start_time')
             ->orderByDesc('id');
 
         if ($this->option('quarantined-only')) {

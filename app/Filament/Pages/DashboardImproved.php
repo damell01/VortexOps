@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\FulfillmentInventoryWidget;
+use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\RecentShowsWidget;
+use App\Filament\Widgets\ShowQueueCountsWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerInventoryWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
@@ -67,6 +69,9 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
+                ShowQueueCountsWidget::class,
+                NeedsAttentionWidget::class,
+                RecentShowsWidget::class,
                 ShowsKpiWidget::class,
             ];
         }
@@ -135,6 +140,29 @@ class DashboardImproved extends Dashboard
                 'unassignedShows' => $user?->isFulfillmentAdmin()
                     ? Show::query()->inChannelContext()->whereHas('shipments')->whereDoesntHave('fulfillmentUsers')->whereNotIn('status', ['closed', 'cancelled'])->count()
                     : 0,
+            ];
+        } elseif ($user?->isAdmin() || $user?->isOwner()) {
+            $data += [
+                'roleMode' => 'admin',
+                'reportsToReview' => StreamerLogEntry::query()
+                    ->where('status', 'streamer_reviewed')
+                    ->whereHas('show', fn ($q) => $q->inChannelContext())
+                    ->count(),
+                'unmatchedItems' => StreamerLogItem::query()
+                    ->whereNull('inventory_item_id')
+                    ->whereHas('logEntry.show', fn ($q) => $q->inChannelContext())
+                    ->count(),
+                'openShipments' => Shipment::query()
+                    ->whereHas('show', fn ($q) => $q->inChannelContext())
+                    ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
+                    ->count(),
+                'unassignedFulfillment' => Show::query()
+                    ->inChannelContext()
+                    ->whereHas('shipments')
+                    ->whereDoesntHave('fulfillmentUsers')
+                    ->whereNotIn('status', ['closed', 'cancelled'])
+                    ->count(),
+                'draftPayouts' => Payout::where('status', 'draft')->inChannelContext()->count(),
             ];
         }
 

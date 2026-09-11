@@ -23,6 +23,7 @@ from scrapling.fetchers import StealthySession
 HERE = Path(__file__).resolve().parent
 BASE_SCRIPT = HERE / "whatnot-scrapling.py"
 ANALYTICS_HELPER = HERE / "whatnot-analytics-hardened.py"
+ANALYTICS_LIVES_HELPER = HERE / "whatnot-analytics-lives.py"
 ORDERS_HELPER = HERE / "whatnot-orders-hardened.py"
 CDP_URL = os.getenv(
     "WHATNOT_SCRAPLING_CDP_URL",
@@ -388,11 +389,13 @@ def main() -> None:
     module.DynamicSession = stealthy_session
     module.check_login = ensure_authenticated
 
-    # Keep the common Scrapling channel/auth/browser code untouched while using
-    # hardened extractors for surfaces Whatnot has changed.
+    # Keep shared extraction/parsing helpers installed, then override analytics
+    # navigation with the proven Seller Hub /dashboard/lives -> See Analytics path.
     analytics_helper = load_module(ANALYTICS_HELPER, "vortexops_whatnot_analytics_hardened")
     analytics_helper.install(module)
-    log("analytics extractor=hardened")
+    analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
+    analytics_lives_helper.install(module)
+    log("analytics extractor=seller-hub-lives")
 
     orders_helper = load_module(ORDERS_HELPER, "vortexops_whatnot_orders_hardened")
     orders_helper.install(module)

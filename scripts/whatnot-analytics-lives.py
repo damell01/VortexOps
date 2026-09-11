@@ -101,9 +101,10 @@ def find_target_row(module, page, live_id: str, expected_title: str, expected_da
             if not date_ok:
                 module.info("analytics: exact UUID row date does not match database show; refusing click")
                 return None
-            if not row.get("analytics_url"):
-                module.info("analytics: exact UUID row has no See Analytics link yet")
-                return None
+
+            # Return the exact verified Past row even when Whatnot does not expose
+            # See Analytics. PHP needs to distinguish "this Past row has no
+            # analytics action" from "the scraper could not find/verify the row".
             return row
 
         if len(seen) == previous_count:
@@ -128,7 +129,6 @@ def find_target_row(module, page, live_id: str, expected_title: str, expected_da
             pass
         page.wait_for_timeout(1500)
 
-        # Give lazy loading several stable passes before concluding the show is absent.
         if stable_passes >= 5 and attempt >= 8:
             break
 
@@ -142,7 +142,6 @@ def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
     if not open_url or not expected_href:
         return False
 
-    # The exact UUID's row may have scrolled out of the rendered virtual list.
     for _ in range(16):
         row = page.locator('[data-testid="show-list-item"]', has=page.locator(f'a[href="{open_url}"]')).first
         try:
@@ -210,6 +209,19 @@ def analytics(module, session):
         if not target:
             return
 
+        if not target.get("analytics_url"):
+            rows.append({
+                "whatnot_live_id": live_id,
+                "title": expected_title or target.get("title"),
+                "show_date": expected_date,
+                "detail_url": f"{module.BASE}/dashboard/live/{live_id}",
+                "_seller_hub_verified": True,
+                "_analytics_unavailable": True,
+                "_seller_hub_text": target.get("text"),
+            })
+            module.info(f"analytics: exact Past row has no See Analytics action uuid={live_id}")
+            return
+
         if not click_target_analytics(module, page, target):
             return
 
@@ -219,9 +231,6 @@ def analytics(module, session):
             module.info("analytics: See Analytics destination loaded but usable metrics did not stabilize")
             return
 
-        # Identity comes from the exact /dashboard/lives UUID row that Whatnot supplied.
-        # Do not trust the SPA query string alone. Preserve the destination metrics,
-        # but stamp the verified source-row identity so PHP can perform its own check.
         row["whatnot_live_id"] = live_id
         if expected_title:
             row["title"] = expected_title

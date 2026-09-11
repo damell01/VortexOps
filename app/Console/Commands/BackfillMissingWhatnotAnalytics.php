@@ -112,6 +112,7 @@ class BackfillMissingWhatnotAnalytics extends Command
         $scope = $this->option('quarantined-only') ? 'quarantined ' : '';
         $this->info("Backfilling {$shows->count()} {$scope}show(s) one UUID at a time…");
         $updated = 0;
+        $removed = 0;
         $skipped = 0;
         $failed = 0;
         $debug = filter_var((string) (getenv('WHATNOT_DEBUG') ?: '0'), FILTER_VALIDATE_BOOL);
@@ -137,13 +138,43 @@ class BackfillMissingWhatnotAnalytics extends Command
                     expectedDate: $show->show_date?->format('Y-m-d'),
                 );
 
-                // An empty result is different from a mismatched result. The Seller
-                // Hub only exposes "See Analytics" for shows that actually produced
-                // analytics. Scheduled/cancelled-never-opened rows can legitimately
-                // exist in our database with no analytics destination at all.
+                // The scraper only sets this marker after it finds the exact UUID
+                // in Whatnot's Past tab and verifies title/date, but that exact row
+                // has no "See Analytics" action. Those auto-imported records are
+                // not real completed analytics shows and should not remain in our
+                // Shows data. Do not infer deletion from an empty result: an empty
+                // result can also mean the tab/session failed or the row was not
+                // reached during scrolling.
+                $unavailable = collect($rawRows)->first(function ($row) use ($show, $liveId) {
+                    return is_array($row)
+                        && ! empty($row['_seller_hub_verified'])
+                        && ! empty($row['_analytics_unavailable'])
+                        && $this->analyticsRowMatchesShow($show, $row, $liveId);
+                });
+
+                if (is_array($unavailable)) {
+                    if ($show->import_source !== 'auto_whatnot') {
+                        $skipped++;
+                        $this->warn('    skipped cleanup: exact Past row has no analytics, but this is not an auto-Whatnot record.');
+                        continue;
+                    }
+
+                    $showId = $show->id;
+                    $showTitle = $show->title;
+                    $show->delete();
+                    $removed++;
+                    $this->warn("    removed: #{$showId} {$showTitle} — exact Whatnot Past row has no See Analytics button.");
+                    Log::info('Missing Whatnot analytics backfill removed non-analytics show', [
+                        'show_id' => $showId,
+                        'live_id' => $liveId,
+                        'channel' => $channelUsername,
+                    ]);
+                    continue;
+                }
+
                 if ($rawRows === []) {
                     $skipped++;
-                    $this->warn('    skipped: no Whatnot analytics available for this show (it may never have gone live/opened, or Whatnot has not exposed analytics yet).');
+                    $this->warn('    skipped: no verified Whatnot analytics result; record left untouched.');
                     Log::info('Missing Whatnot analytics backfill skipped unavailable show', [
                         'show_id' => $show->id,
                         'live_id' => $liveId,
@@ -153,7 +184,8 @@ class BackfillMissingWhatnotAnalytics extends Command
                 }
 
                 $raw = collect($rawRows)->first(function (array $row) use ($show, $liveId) {
-                    return $this->analyticsRowMatchesShow($show, $row, $liveId);
+                    return empty($row['_analytics_unavailable'])
+                        && $this->analyticsRowMatchesShow($show, $row, $liveId);
                 });
 
                 if (! is_array($raw)) {
@@ -214,8 +246,8 @@ class BackfillMissingWhatnotAnalytics extends Command
         }
 
         $this->newLine();
-        $this->info("Analytics backfill complete: {$updated} updated, {$skipped} skipped, {$failed} failed.");
-        return $failed > 0 && $updated === 0 && $skipped === 0 ? self::FAILURE : self::SUCCESS;
+        $this->info("Analytics backfill complete: {$updated} updated, {$removed} removed, {$skipped} skipped, {$failed} failed.");
+        return $failed > 0 && $updated === 0 && $removed === 0 && $skipped === 0 ? self::FAILURE : self::SUCCESS;
     }
 
     private function analyticsRowMatchesShow(Show $show, array $row, string $liveId): bool
@@ -233,9 +265,6 @@ class BackfillMissingWhatnotAnalytics extends Command
         $dateMatches = $expectedDate !== null && $actualDate !== null && $expectedDate === $actualDate;
         $titleMatches = $expectedTitle !== '' && $actualTitle !== '' && $expectedTitle === $actualTitle;
 
-        // Multiple Whatnot shows can happen on the same date, so date alone is
-        // not strong enough when both sides provide a title. Require the exact
-        // normalized rendered title and reject ambiguous same-day stale cards.
         if ($expectedTitle !== '') {
             if ($actualTitle === '' || ! $titleMatches) {
                 return false;

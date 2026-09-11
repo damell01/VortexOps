@@ -28,21 +28,39 @@ extract_show = base.extract_show
 has_useful_data = base.has_useful_data
 
 
-def click_past_tab(module, page) -> bool:
+def tab_locator(page, name: str):
+    lowered = name.lower()
+    if lowered == "current":
+        return page.locator('button[data-testid="tab-current"][role="tab"]').first
+    if lowered == "upcoming":
+        return page.locator('button[data-testid="tab-upcoming"][role="tab"]').first
+    return page.locator('ul[role="tablist"] button[role="tab"]', has_text=re.compile(r"^Past$", re.I)).first
+
+
+def select_tab(module, page, name: str) -> bool:
     try:
-        past = page.locator('ul[role="tablist"] button[role="tab"]', has_text=re.compile(r"^Past$", re.I)).first
-        if not past.count():
-            past = page.get_by_role("tab", name=re.compile(r"^Past$", re.I)).first
-        if not past.count():
-            module.info("analytics: Past tab not found on /dashboard/lives")
+        tab = tab_locator(page, name)
+        if not tab.count():
+            tab = page.get_by_role("tab", name=re.compile(rf"^{re.escape(name)}$", re.I)).first
+        if not tab.count():
+            module.info(f"analytics: {name} tab not found on /dashboard/lives")
             return False
-        if past.get_attribute("aria-selected") != "true":
-            past.click(timeout=8000)
+        if tab.get_attribute("aria-selected") != "true":
+            tab.click(timeout=8000)
         page.wait_for_timeout(1800)
-        module.info("analytics: Past tab selected")
-        return True
+        selected = tab.get_attribute("aria-selected")
+        if selected != "true":
+            try:
+                tab.evaluate("el => el.click()")
+                page.wait_for_timeout(1800)
+                selected = tab.get_attribute("aria-selected")
+            except Exception:
+                pass
+        ok = selected == "true"
+        module.info(f"analytics: {name} tab {'selected' if ok else 'did not become selected'}")
+        return ok
     except Exception as exc:
-        module.info(f"analytics: unable to select Past tab error={exc}")
+        module.info(f"analytics: unable to select {name} tab error={exc}")
         return False
 
 
@@ -70,7 +88,32 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         return []
 
 
-def find_target_row(module, page, live_id: str, expected_title: str, expected_date: str | None) -> dict[str, Any] | None:
+def verify_identity(module, row: dict[str, Any], live_id: str, expected_title: str, expected_date: str | None) -> bool:
+    actual_title = normalize_identity(row.get("title"))
+    wanted_title = normalize_identity(expected_title)
+    row_date = parse_date(row.get("text"))
+    title_ok = not wanted_title or actual_title == wanted_title
+    date_ok = not expected_date or not row_date or row_date == expected_date
+    module.info(
+        f"analytics: exact Seller Hub row found uuid={live_id} title={row.get('title')!r} "
+        f"date={row_date or 'unknown'} analytics_link={'yes' if row.get('analytics_url') else 'no'}"
+    )
+    if not title_ok:
+        module.info("analytics: exact UUID row title does not match database show; refusing action")
+        return False
+    if not date_ok:
+        module.info("analytics: exact UUID row date does not match database show; refusing action")
+        return False
+    return True
+
+
+def find_target_row(module, page, live_id: str, expected_title: str, expected_date: str | None) -> tuple[dict[str, Any] | None, bool]:
+    """Find an exact UUID in the selected tab.
+
+    Returns (row, exhausted). exhausted is true only after the list stopped growing
+    for several passes or the full 30-pass scan completed. PHP may only interpret
+    absence as evidence when exhausted is true.
+    """
     wanted = live_id.lower()
     seen: dict[str, dict[str, Any]] = {}
     stable_passes = 0
@@ -86,26 +129,9 @@ def find_target_row(module, page, live_id: str, expected_title: str, expected_da
 
         if wanted in seen:
             row = seen[wanted]
-            actual_title = normalize_identity(row.get("title"))
-            wanted_title = normalize_identity(expected_title)
-            row_date = parse_date(row.get("text"))
-            title_ok = not wanted_title or actual_title == wanted_title
-            date_ok = not expected_date or not row_date or row_date == expected_date
-            module.info(
-                f"analytics: exact Seller Hub row found uuid={live_id} title={row.get('title')!r} "
-                f"date={row_date or 'unknown'} analytics_link={'yes' if row.get('analytics_url') else 'no'}"
-            )
-            if not title_ok:
-                module.info("analytics: exact UUID row title does not match database show; refusing click")
-                return None
-            if not date_ok:
-                module.info("analytics: exact UUID row date does not match database show; refusing click")
-                return None
-
-            # Return the exact verified Past row even when Whatnot does not expose
-            # See Analytics. PHP needs to distinguish "this Past row has no
-            # analytics action" from "the scraper could not find/verify the row".
-            return row
+            if not verify_identity(module, row, live_id, expected_title, expected_date):
+                return None, False
+            return row, True
 
         if len(seen) == previous_count:
             stable_passes += 1
@@ -115,6 +141,10 @@ def find_target_row(module, page, live_id: str, expected_title: str, expected_da
 
         if attempt in {1, 5, 10, 20, 30}:
             module.info(f"analytics: Seller Hub history scan pass {attempt}/30 rows_seen={len(seen)} target={live_id}")
+
+        if stable_passes >= 5 and attempt >= 8:
+            module.info(f"analytics: selected Seller Hub tab exhausted after {attempt} passes rows_seen={len(seen)}")
+            return None, True
 
         try:
             page.evaluate(r"""
@@ -129,11 +159,50 @@ def find_target_row(module, page, live_id: str, expected_title: str, expected_da
             pass
         page.wait_for_timeout(1500)
 
-        if stable_passes >= 5 and attempt >= 8:
-            break
+    module.info(f"analytics: selected Seller Hub tab exhausted at 30 passes rows_seen={len(seen)}")
+    return None, True
 
-    module.info(f"analytics: requested UUID {live_id} was not found in Seller Hub Past rows (seen={len(seen)})")
-    return None
+
+def find_target_in_short_tab(module, page, tab_name: str, live_id: str) -> tuple[bool, bool]:
+    """Return (found, verified_scan) for Current/Upcoming.
+
+    These lists are short in Seller Hub. We still make a few passes so lazy DOM
+    hydration cannot turn an empty first render into a false absence.
+    """
+    if not select_tab(module, page, tab_name):
+        return False, False
+
+    wanted = live_id.lower()
+    seen_any_render = False
+    stable = 0
+    previous_count = -1
+    seen_ids: set[str] = set()
+
+    for _ in range(6):
+        module.check_login(page)
+        rows = extract_show_rows(page)
+        if rows:
+            seen_any_render = True
+        for row in rows:
+            candidate = clean(row.get("live_id")).lower()
+            if candidate:
+                seen_ids.add(candidate)
+        if wanted in seen_ids:
+            module.info(f"analytics: uuid={live_id} exists in Seller Hub {tab_name} tab; preserving record")
+            return True, True
+        if len(seen_ids) == previous_count:
+            stable += 1
+        else:
+            stable = 0
+        previous_count = len(seen_ids)
+        if stable >= 2:
+            break
+        page.wait_for_timeout(700)
+
+    # A selected tab can legitimately be empty. Selection plus repeated stable
+    # renders is sufficient verification even when there are zero show rows.
+    module.info(f"analytics: uuid={live_id} absent from Seller Hub {tab_name} tab rows_seen={len(seen_ids)}")
+    return False, True
 
 
 def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
@@ -202,11 +271,34 @@ def analytics(module, session):
         page.wait_for_timeout(1800)
         module.check_login(page)
 
-        if not click_past_tab(module, page):
+        if not select_tab(module, page, "Past"):
             return
 
-        target = find_target_row(module, page, live_id, expected_title, expected_date)
+        target, past_exhausted = find_target_row(module, page, live_id, expected_title, expected_date)
         if not target:
+            if not past_exhausted:
+                module.info(f"analytics: Past scan was not verifiable for uuid={live_id}; preserving record")
+                return
+
+            in_current, current_ok = find_target_in_short_tab(module, page, "Current", live_id)
+            if in_current:
+                return
+            in_upcoming, upcoming_ok = find_target_in_short_tab(module, page, "Upcoming", live_id)
+            if in_upcoming:
+                return
+
+            if current_ok and upcoming_ok:
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "title": expected_title,
+                    "show_date": expected_date,
+                    "detail_url": f"{module.BASE}/dashboard/live/{live_id}",
+                    "_seller_hub_verified": True,
+                    "_seller_hub_absent_all_tabs": True,
+                })
+                module.info(f"analytics: uuid={live_id} absent from Past, Current, and Upcoming after verified scans")
+            else:
+                module.info(f"analytics: unable to verify every Seller Hub tab for uuid={live_id}; preserving record")
             return
 
         if not target.get("analytics_url"):
@@ -250,7 +342,7 @@ def analytics(module, session):
     session.fetch(
         f"{module.BASE}/dashboard/home",
         page_action=action,
-        timeout=90000,
+        timeout=120000,
         network_idle=False,
         google_search=False,
     )

@@ -1,6 +1,12 @@
 #!/bin/sh
 # Run a command against a private X display, without merging its output streams.
 # Usage: with-xvfb.sh <command> [args...]
+#
+# The wrapped command is started in its own process group.  This is important for
+# the Whatnot stack because the chain is normally:
+#   PHP -> this wrapper -> node -> flock -> python -> Chromium
+# If PHP/Node is interrupted, descendants such as Python must not survive and
+# continue holding storage/whatnot-browser.lock.
 
 set -e
 
@@ -31,17 +37,76 @@ STDERR_PIPE="${TMP_DIR}/stderr.pipe"
 : > "$STDERR_LOG"
 mkfifo "$STDERR_PIPE"
 TEE_PID=""
+CHILD_PID=""
+CHILD_PGID=""
+
+process_group_alive() {
+    [ -n "$CHILD_PGID" ] || return 1
+    /bin/kill -0 -- "-$CHILD_PGID" 2>/dev/null
+}
+
+terminate_child_tree() {
+    # setsid makes CHILD_PID the process-group leader.  Kill the group rather
+    # than only the immediate Node child so flock/python/Chromium cannot become
+    # orphaned lock holders.
+    if [ -n "$CHILD_PGID" ] && process_group_alive; then
+        /bin/kill -TERM -- "-$CHILD_PGID" 2>/dev/null || true
+
+        i=0
+        while [ "$i" -lt 30 ] && process_group_alive; do
+            i=$((i + 1))
+            sleep 0.1
+        done
+
+        if process_group_alive; then
+            /bin/kill -KILL -- "-$CHILD_PGID" 2>/dev/null || true
+        fi
+    elif [ -n "$CHILD_PID" ] && kill -0 "$CHILD_PID" 2>/dev/null; then
+        # Fallback for systems without setsid. This cannot guarantee descendant
+        # cleanup, but still forwards termination to the direct child.
+        kill -TERM "$CHILD_PID" 2>/dev/null || true
+        sleep 0.5
+        kill -KILL "$CHILD_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$CHILD_PID" ]; then
+        wait "$CHILD_PID" 2>/dev/null || true
+    fi
+}
 
 cleanup() {
+    # Avoid recursively running signal traps while cleanup is in progress.
+    trap - INT TERM HUP
+
+    terminate_child_tree
+
     if [ -n "$TEE_PID" ]; then
         kill "$TEE_PID" 2>/dev/null || true
         wait "$TEE_PID" 2>/dev/null || true
     fi
+
     kill "$XVFB_PID" 2>/dev/null || true
     wait "$XVFB_PID" 2>/dev/null || true
     rm -rf "$TMP_DIR" 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM HUP
+
+handle_signal() {
+    SIGNAL="$1"
+    trap - INT TERM HUP
+    terminate_child_tree
+
+    case "$SIGNAL" in
+        INT)  exit 130 ;;
+        TERM) exit 143 ;;
+        HUP)  exit 129 ;;
+        *)    exit 1 ;;
+    esac
+}
+
+trap cleanup EXIT
+trap 'handle_signal INT' INT
+trap 'handle_signal TERM' TERM
+trap 'handle_signal HUP' HUP
 
 i=0
 while [ "$i" -lt 50 ]; do
@@ -54,9 +119,27 @@ tee "$STDERR_LOG" < "$STDERR_PIPE" >&2 &
 TEE_PID=$!
 
 set +e
-DISPLAY=":${DISPLAY_NUM}" "$@" 2> "$STDERR_PIPE"
+if command -v setsid >/dev/null 2>&1; then
+    DISPLAY=":${DISPLAY_NUM}" setsid "$@" 2> "$STDERR_PIPE" &
+    CHILD_PID=$!
+    CHILD_PGID=$CHILD_PID
+else
+    echo "with-xvfb: warning: setsid unavailable; descendant cleanup is best-effort" >&2
+    DISPLAY=":${DISPLAY_NUM}" "$@" 2> "$STDERR_PIPE" &
+    CHILD_PID=$!
+fi
+
+wait "$CHILD_PID"
 STATUS=$?
-wait "$TEE_PID"
+
+# Even on a normal direct-child exit, terminate anything left in its process
+# group. This closes the exact failure mode where node/flock exits but Python
+# remains alive and keeps the browser lock's file descriptor open.
+terminate_child_tree
+CHILD_PID=""
+CHILD_PGID=""
+
+wait "$TEE_PID" 2>/dev/null || true
 TEE_PID=""
 set -e
 

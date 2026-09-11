@@ -51,18 +51,21 @@ class ReconcileWhatnotShows extends Command
         $apply = (bool) $this->option('apply');
         $debug = filter_var((string) (getenv('WHATNOT_DEBUG') ?: '0'), FILTER_VALIDATE_BOOL);
 
+        $nowTime = now()->format('H:i:s');
+
         $query = Show::query()
             ->with('channel')
             ->where('import_source', 'auto_whatnot')
             ->whereDate('show_date', '>=', today()->subDays($days))
-            ->where(function ($q) {
-                $q->where(function ($timed) {
-                    $timed->whereNotNull('start_time')
-                        ->where('start_time', '<=', now());
-                })->orWhere(function ($dateOnly) {
-                    $dateOnly->whereNull('start_time')
-                        ->whereDate('show_date', '<', today());
-                });
+            ->where(function ($q) use ($nowTime) {
+                $q->whereDate('show_date', '<', today())
+                    ->orWhere(function ($today) use ($nowTime) {
+                        $today->whereDate('show_date', today())
+                            ->where(function ($time) use ($nowTime) {
+                                $time->whereNull('start_time')
+                                    ->orWhereTime('start_time', '<=', $nowTime);
+                            });
+                    });
             })
             ->whereNotIn('status', ['cancelled'])
             ->where(function ($q) {

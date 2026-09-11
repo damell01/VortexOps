@@ -98,13 +98,15 @@ class BackfillMissingWhatnotAnalytics extends Command
         $scope = $this->option('quarantined-only') ? 'quarantined ' : '';
         $this->info("Backfilling {$shows->count()} {$scope}show(s) one UUID at a time…");
         $updated = 0;
+        $skipped = 0;
         $failed = 0;
+        $debug = filter_var((string) (getenv('WHATNOT_DEBUG') ?: '0'), FILTER_VALIDATE_BOOL);
 
         foreach ($shows as $show) {
             $liveId = $this->resolveLiveId($show, $scraper);
             if (! $liveId) {
-                $this->warn("Show #{$show->id}: UUID still unresolved after stored-data and seller-show discovery; skipped.");
-                $failed++;
+                $this->warn("Show #{$show->id}: UUID unresolved; likely never opened on Whatnot or no completed live exists. Skipped.");
+                $skipped++;
                 continue;
             }
 
@@ -114,19 +116,34 @@ class BackfillMissingWhatnotAnalytics extends Command
             try {
                 $rawRows = $scraper->fetchShows(
                     limit: 1,
-                    debug: false,
+                    debug: $debug,
                     channelUsername: $channelUsername,
                     seedLiveId: $liveId,
                     expectedTitle: (string) $show->title,
                     expectedDate: $show->show_date?->format('Y-m-d'),
                 );
 
+                // An empty result is different from a mismatched result. The Seller
+                // Hub only exposes "See Analytics" for shows that actually produced
+                // analytics. Scheduled/cancelled-never-opened rows can legitimately
+                // exist in our database with no analytics destination at all.
+                if ($rawRows === []) {
+                    $skipped++;
+                    $this->warn('    skipped: no Whatnot analytics available for this show (it may never have gone live/opened, or Whatnot has not exposed analytics yet).');
+                    Log::info('Missing Whatnot analytics backfill skipped unavailable show', [
+                        'show_id' => $show->id,
+                        'live_id' => $liveId,
+                        'channel' => $channelUsername,
+                    ]);
+                    continue;
+                }
+
                 $raw = collect($rawRows)->first(function (array $row) use ($show, $liveId) {
                     return $this->analyticsRowMatchesShow($show, $row, $liveId);
                 });
 
                 if (! is_array($raw)) {
-                    throw new \RuntimeException('Whatnot returned analytics, but the rendered show identity did not verify this exact show after hydration retries. Skipped to prevent stale SPA metrics from being copied to another UUID.');
+                    throw new \RuntimeException('Whatnot returned analytics, but the rendered show identity did not verify this exact show. Skipped to prevent stale SPA metrics from being copied to another UUID.');
                 }
 
                 $row = $normalizer->normalizeShow($raw);
@@ -183,8 +200,8 @@ class BackfillMissingWhatnotAnalytics extends Command
         }
 
         $this->newLine();
-        $this->info("Analytics backfill complete: {$updated} updated, {$failed} failed.");
-        return $failed > 0 && $updated === 0 ? self::FAILURE : self::SUCCESS;
+        $this->info("Analytics backfill complete: {$updated} updated, {$skipped} skipped, {$failed} failed.");
+        return $failed > 0 && $updated === 0 && $skipped === 0 ? self::FAILURE : self::SUCCESS;
     }
 
     private function analyticsRowMatchesShow(Show $show, array $row, string $liveId): bool

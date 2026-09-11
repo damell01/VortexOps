@@ -5,13 +5,11 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\HasTrend;
 use App\Models\Show;
 use App\Models\StreamerLogEntry;
-use App\Models\WhatnotLedgerEntry;
 use App\Models\WhatnotShowOrder;
 use App\Support\ChannelContext;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 
 class OperationsOverviewWidget extends BaseWidget
 {
@@ -20,20 +18,10 @@ class OperationsOverviewWidget extends BaseWidget
     protected static bool $isLazy = true;
     protected static ?int $sort = 1;
 
-    /**
-     * Two across on a phone, four on a desktop.
-     *
-     * Left to itself this lays one column out per stat, which on a phone means
-     * four money figures sharing a 390px row: the labels truncate to "STREAM…
-     * ER LOGS" and "ENUE · AUG", and $26,970.00 renders as $26,970.0( with the
-     * last character clipped. A revenue figure missing its final digit is
-     * worse than no figure — it is a number that can be misread rather than
-     * one that is obviously incomplete.
-     */
     protected int | array | null $columns = [
-        'default' => 2,
-        'md'      => 2,
-        'xl'      => 4,
+        'default' => 1,
+        'md'      => 3,
+        'xl'      => 3,
     ];
 
     public static function canView(): bool
@@ -43,35 +31,17 @@ class OperationsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        // flexible() serves the cached value for 120s, then serves a slightly
-        // stale value (up to 300s) while refreshing in the background — so an
-        // expiring key never makes concurrent dashboard loads all recompute at once.
         $cacheKey = 'widget:ops_overview:' . (ChannelContext::currentId() ?? 'all');
 
-        [$pendingLogs, $ledgerNet, $monthGross, $monthOrders, $priorLedgerNet, $priorMonthGross, $priorMonthOrders, $monthlyGross] =
+        [$pendingLogs, $monthGross, $monthOrders, $priorMonthGross, $priorMonthOrders, $monthlyGross] =
             Cache::flexible($cacheKey, [120, 300], function () {
                 $mStart = now()->startOfMonth();
                 $mEnd   = now()->endOfMonth();
-                // Fair month-over-month comparison: same day-of-month span last
-                // month, not last month's full total vs. this month's partial total.
                 $pStart = now()->subMonthNoOverflow()->startOfMonth();
                 $pEnd   = now()->subMonthNoOverflow();
 
                 $pendingLogs = StreamerLogEntry::where('status', 'pending')->inChannelContext()->count();
 
-                // Ledger table may not be migrated yet on every environment.
-                $hasLedger = Schema::hasTable('whatnot_ledger_entries');
-                $ledgerNet = $hasLedger
-                    ? (float) WhatnotLedgerEntry::whereBetween('created_date', [$mStart, $mEnd])->inChannelContext()->sum('amount')
-                    : 0.0;
-                $priorLedgerNet = $hasLedger
-                    ? (float) WhatnotLedgerEntry::whereBetween('created_date', [$pStart, $pEnd])->inChannelContext()->sum('amount')
-                    : 0.0;
-
-                // Upper bounds include a time component: a show_date row dated on
-                // the boundary day is stored with a midnight timestamp, which a
-                // bare date-string upper bound would exclude via lexical
-                // comparison on SQLite (see Show::weekPacing() for the same trap).
                 $monthGross = (float) Show::whereBetween('show_date', [$mStart->toDateString(), $mEnd->copy()->endOfDay()->toDateTimeString()])
                     ->inChannelContext()
                     ->sum('gross_revenue');
@@ -86,7 +56,6 @@ class OperationsOverviewWidget extends BaseWidget
                     ->inChannelContext()
                     ->count();
 
-                // Trailing 6 months of gross revenue, oldest first, for the sparkline.
                 $monthlyGross = [];
                 for ($i = 5; $i >= 0; $i--) {
                     $ms = now()->subMonthsNoOverflow($i)->startOfMonth()->toDateString();
@@ -94,7 +63,7 @@ class OperationsOverviewWidget extends BaseWidget
                     $monthlyGross[] = (float) Show::whereBetween('show_date', [$ms, $me])->inChannelContext()->sum('gross_revenue');
                 }
 
-                return [$pendingLogs, $ledgerNet, $monthGross, $monthOrders, $priorLedgerNet, $priorMonthGross, $priorMonthOrders, $monthlyGross];
+                return [$pendingLogs, $monthGross, $monthOrders, $priorMonthGross, $priorMonthOrders, $monthlyGross];
             });
 
         return [
@@ -102,12 +71,6 @@ class OperationsOverviewWidget extends BaseWidget
                 ->description($pendingLogs > 0 ? 'Awaiting streamer review' : 'All caught up')
                 ->icon('heroicon-o-clipboard-document-list')
                 ->color($pendingLogs > 0 ? 'warning' : 'gray'),
-
-            Stat::make('Ledger Net · ' . now()->format('M'), '$' . number_format($ledgerNet, 2))
-                ->description('Whatnot ledger, this month' . $this->trendSuffix($ledgerNet, $priorLedgerNet, 'last month'))
-                ->descriptionIcon($this->trendIcon($ledgerNet, $priorLedgerNet))
-                ->icon('heroicon-o-document-currency-dollar')
-                ->color($ledgerNet >= 0 ? 'success' : 'danger'),
 
             Stat::make('Gross Revenue · ' . now()->format('M'), '$' . number_format($monthGross, 2))
                 ->description('Across all shows this month' . $this->trendSuffix($monthGross, $priorMonthGross, 'last month'))

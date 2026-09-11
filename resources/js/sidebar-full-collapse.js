@@ -55,9 +55,26 @@ function installStyles() {
                 max-width: none !important;
             }
 
-            /* Keep Filament's desktop open-sidebar control available. It is the
-               only thing users need while the navigation itself is hidden. */
+            /* Exactly one desktop sidebar control is visible at a time.
+               Collapsed: show Open. Expanded: show Close. This prevents the
+               duplicate hamburger controls Filament otherwise renders when the
+               desktop-collapsible sidebar and drawer control are both present. */
             html.${ROOT_CLASS} .fi-topbar-open-sidebar-btn {
+                display: inline-flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+            }
+
+            html.${ROOT_CLASS} .fi-topbar-close-sidebar-btn {
+                display: none !important;
+            }
+
+            html:not(.${ROOT_CLASS}) .fi-topbar-open-sidebar-btn {
+                display: none !important;
+            }
+
+            html:not(.${ROOT_CLASS}) .fi-topbar-close-sidebar-btn {
                 display: inline-flex !important;
                 visibility: visible !important;
                 opacity: 1 !important;

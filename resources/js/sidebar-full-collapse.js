@@ -55,10 +55,19 @@ function installStyles() {
                 max-width: none !important;
             }
 
-            /* Exactly one desktop sidebar control is visible at a time.
-               Collapsed: show Open. Expanded: show Close. This prevents the
-               duplicate hamburger controls Filament otherwise renders when the
-               desktop-collapsible sidebar and drawer control are both present. */
+            /* Filament desktop-collapsible mode renders a second pair of
+               collapse controls in addition to the normal drawer controls.
+               VortexOps only needs one hamburger, so never show the collapse
+               pair on desktop. */
+            .fi-topbar-open-collapse-sidebar-btn,
+            .fi-topbar-close-collapse-sidebar-btn {
+                display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
+            }
+
+            /* Exactly one normal desktop sidebar control is visible at a time.
+               Collapsed: Open. Expanded: Close. */
             html.${ROOT_CLASS} .fi-topbar-open-sidebar-btn {
                 display: inline-flex !important;
                 visibility: visible !important;
@@ -68,10 +77,14 @@ function installStyles() {
 
             html.${ROOT_CLASS} .fi-topbar-close-sidebar-btn {
                 display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
             }
 
             html:not(.${ROOT_CLASS}) .fi-topbar-open-sidebar-btn {
                 display: none !important;
+                visibility: hidden !important;
+                pointer-events: none !important;
             }
 
             html:not(.${ROOT_CLASS}) .fi-topbar-close-sidebar-btn {

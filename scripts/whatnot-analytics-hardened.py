@@ -228,36 +228,119 @@ def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: 
         module.check_login(page)
         last = extract_show(page)
         live_id = clean(last.get("whatnot_live_id")).lower() or None
-
         changed = previous_live_id is None or (live_id and live_id != previous_live_id)
         live_matches = expected_live_id is None or live_id == expected_live_id
-
         actual_title = normalize_identity(last.get("title"))
         preview = normalize_identity(last.get("_preview"))
         actual_date = clean(last.get("show_date")) or None
-
-        if expected_title:
-            title_matches = actual_title == expected_title or expected_title in preview
-        else:
-            title_matches = True
-
+        title_matches = not expected_title or actual_title == expected_title or expected_title in preview
         date_matches = expected_date is None or actual_date == expected_date
         identity_matches = title_matches and date_matches
-
         fingerprint = analytics_fingerprint(last)
         if fingerprint == last_fingerprint:
             stable_count += 1
         else:
             last_fingerprint = fingerprint
             stable_count = 1
-
         if changed and live_matches and identity_matches and has_useful_data(last) and stable_count >= 3:
             return last
-
         page.wait_for_timeout(500)
         elapsed += 500
 
     return last or extract_show(page)
+
+
+def select_expected_show(module, page) -> bool:
+    expected_title_raw = clean(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
+    expected_title = normalize_identity(expected_title_raw)
+    expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
+    if not expected_title:
+        return False
+
+    module.info(f"analytics: opening Select Show for {expected_title_raw!r} date={expected_date or 'any'}")
+
+    try:
+        trigger = page.get_by_text("Select Show", exact=True).first
+        if trigger.is_visible(timeout=2500):
+            trigger.click(timeout=4000)
+        else:
+            raise RuntimeError("Select Show text trigger not visible")
+    except Exception:
+        try:
+            clicked = page.evaluate(r"""
+            () => {
+              const candidates = [...document.querySelectorAll('button,[role="combobox"],[aria-haspopup="listbox"],div,span')];
+              const el = candidates.find(node => (node.textContent || '').replace(/\s+/g, ' ').trim() === 'Select Show');
+              if (!el) return false;
+              const target = el.closest('button,[role="combobox"],[aria-haspopup="listbox"]') || el;
+              target.click();
+              return true;
+            }
+            """)
+            if not clicked:
+                module.info("analytics: Select Show control was not found")
+                return False
+        except Exception as exc:
+            module.info(f"analytics: Select Show open failed error={exc}")
+            return False
+
+    page.wait_for_timeout(500)
+
+    for attempt in range(1, 5):
+        try:
+            candidates = page.locator('[role="option"], [role="menuitem"], [data-radix-collection-item], li, [data-testid*="show" i]')
+            count = min(candidates.count(), 300)
+            best_index = None
+            best_text = None
+            for i in range(count):
+                candidate = candidates.nth(i)
+                try:
+                    if not candidate.is_visible(timeout=100):
+                        continue
+                    text = clean(candidate.inner_text(timeout=250))
+                except Exception:
+                    continue
+                if not text:
+                    continue
+                normalized = normalize_identity(text)
+                if expected_title not in normalized and normalized not in expected_title:
+                    continue
+                parsed = parse_date(text)
+                if expected_date and parsed and parsed != expected_date:
+                    continue
+                best_index = i
+                best_text = text
+                if expected_date and parsed == expected_date:
+                    break
+
+            if best_index is not None:
+                module.info(f"analytics: selecting show option {best_text!r}")
+                candidates.nth(best_index).click(timeout=5000, force=True)
+                page.wait_for_timeout(900)
+                return True
+        except Exception as exc:
+            module.info(f"analytics: Select Show option scan {attempt}/4 failed error={exc}")
+
+        try:
+            search = page.locator('input[placeholder*="search" i], input[role="combobox"], input[type="search"]').first
+            if search.is_visible(timeout=500):
+                search.fill(expected_title_raw, timeout=1500)
+                page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+        try:
+            page.mouse.wheel(0, 1200)
+        except Exception:
+            pass
+        page.wait_for_timeout(350)
+
+    module.info("analytics: requested historical show was not found in Select Show options")
+    try:
+        page.keyboard.press("Escape")
+    except Exception:
+        pass
+    return False
 
 
 def analytics(module, session):
@@ -273,19 +356,18 @@ def analytics(module, session):
         os.environ.setdefault("WHATNOT_EXPECTED_LIVE_ID", module.START_UUID)
         previous_live_id = None
 
-        # Whatnot's analytics page is a React SPA and can reuse the previous
-        # show's cards after the URL changes. Retry a fresh navigation when the
-        # requested row does not become stable and verified on the first pass.
         for navigation_attempt in range(1, 4):
             page.goto(target, wait_until="domcontentloaded", timeout=30000)
             if navigation_attempt > 1:
                 page.wait_for_timeout(750)
+
+            if clean(os.getenv("WHATNOT_EXPECTED_TITLE", "")):
+                selected = select_expected_show(module, page)
+                if selected:
+                    module.info(f"analytics: Select Show selection applied on attempt {navigation_attempt}/3")
+
             row = wait_for_row(module, page, previous_live_id)
             expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", "")).lower()
-            if expected_live_id and clean(row.get("whatnot_live_id")).lower() != expected_live_id:
-                module.info(f"analytics: hydration retry {navigation_attempt}/3 live_id mismatch")
-                continue
-
             expected_title = normalize_identity(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
             expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
             actual_title = normalize_identity(row.get("title"))
@@ -294,6 +376,9 @@ def analytics(module, session):
             title_ok = not expected_title or actual_title == expected_title or expected_title in preview
             date_ok = not expected_date or actual_date == expected_date
 
+            if expected_live_id and clean(row.get("whatnot_live_id")).lower() != expected_live_id:
+                module.info(f"analytics: hydration retry {navigation_attempt}/3 live_id mismatch")
+                continue
             if expected_title and not title_ok:
                 module.info(f"analytics: hydration retry {navigation_attempt}/3 title mismatch")
                 continue

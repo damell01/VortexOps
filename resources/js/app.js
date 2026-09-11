@@ -152,6 +152,7 @@ Promise.all([
     import('./ui-enhancements.js').catch(e => console.warn('[app.js] ui-enhancements failed:', e.message)),
     import('./ux-enhancements.js').catch(e => console.warn('[app.js] ux-enhancements failed:', e.message)),
     import('./mobile-enhancements.js').catch(e => console.warn('[app.js] mobile-enhancements failed:', e.message)),
+    import('./sidebar-full-collapse.js').catch(e => console.warn('[app.js] sidebar-full-collapse failed:', e.message)),
     import('./ui-improvements.js').catch(e => console.warn('[app.js] ui-improvements failed:', e.message)),
     import('./responsive-data-tables.js').catch(e => console.warn('[app.js] responsive-data-tables failed:', e.message)),
     import('./modal-visibility.js').catch(e => console.warn('[app.js] modal-visibility failed:', e.message)),

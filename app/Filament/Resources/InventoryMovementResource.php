@@ -80,7 +80,13 @@ class InventoryMovementResource extends Resource
             THEN CONCAT('receipt|', COALESCE(inventory_item_id,0),'|',COALESCE(to_location_id,0),'|',COALESCE(reason,''))
             ELSE CONCAT('row|',id) END";
 
-        return parent::getEloquentQuery()
+        // Build the aggregate as an inner query, then expose it as
+        // `inventory_movements` to Filament. Filament adds the model primary key
+        // as a secondary ORDER BY for stable pagination. If it does that directly
+        // on the grouped base table, MySQL ONLY_FULL_GROUP_BY rejects the raw
+        // inventory_movements.id. Ordering the outer query instead makes `id`
+        // refer to our MIN(id) aggregate and keeps pallet receipt collapsing intact.
+        $grouped = parent::getEloquentQuery()
             ->selectRaw("MIN(id) as id,
                 inventory_item_id,
                 MIN(lot_id) as lot_id,
@@ -100,8 +106,11 @@ class InventoryMovementResource extends Resource
                 {$groupKey} as movement_group")
             ->groupBy('inventory_item_id','from_location_id','to_location_id','unit_cost','movement_type','reason','created_by')
             ->groupByRaw($groupKey)
-            ->with(['item','fromLocation','toLocation','createdByUser'])
             ->inChannelContext();
+
+        return InventoryMovement::query()
+            ->fromSub($grouped->toBase(), 'inventory_movements')
+            ->with(['item','fromLocation','toLocation','createdByUser']);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool

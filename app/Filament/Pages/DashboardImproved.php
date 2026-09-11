@@ -2,10 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\DashboardNeedsAttentionWidget;
+use App\Filament\Widgets\DashboardShowsKpiWidget;
 use App\Filament\Widgets\FulfillmentInventoryWidget;
-use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\RecentShowsWidget;
-use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerInventoryWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Filament\Widgets\StreamerProfitShareWidget;
@@ -69,9 +69,9 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
-                ShowsKpiWidget::class,
+                DashboardShowsKpiWidget::class,
                 UpcomingShowsWidget::class,
-                NeedsAttentionWidget::class,
+                DashboardNeedsAttentionWidget::class,
                 RecentShowsWidget::class,
             ];
         }

@@ -5,13 +5,11 @@ namespace App\Filament\Widgets;
 use App\Filament\Widgets\Concerns\HasTrend;
 use App\Models\Payout;
 use App\Models\Show;
-use App\Models\WhatnotLedgerEntry;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 
 class ShowsKpiWidget extends BaseWidget
 {
@@ -21,11 +19,9 @@ class ShowsKpiWidget extends BaseWidget
     protected static ?int $sort = 0;
 
     /**
-     * Keep the financial figures explicit:
+     * Keep the financial figures tied directly to Whatnot analytics:
      * - Gross Revenue = Whatnot Estimated Sales
-     * - Estimated Net Earnings = Whatnot Total Estimated Earnings
-     * - Completed Earnings = Whatnot Completed Earnings
-     * - Ledger Net = signed Whatnot ledger activity for the period
+     * - Net Revenue = Whatnot Total Estimated Earnings
      */
     protected int | array | null $columns = [
         'default' => 2,
@@ -40,26 +36,20 @@ class ShowsKpiWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $cacheKey = 'widget:shows_kpi:v3:' . (ChannelContext::currentId() ?? 'all');
+        $cacheKey = 'widget:shows_kpi:v4:' . (ChannelContext::currentId() ?? 'all');
 
         [
             $weekShows,
             $weekGross,
-            $weekEstimatedNet,
-            $weekCompleted,
-            $weekLedgerNet,
+            $weekNet,
             $pendingReview,
             $draftPayoutTotal,
             $dailyShows,
             $dailyGross,
-            $dailyEstimatedNet,
-            $dailyCompleted,
-            $dailyLedgerNet,
+            $dailyNet,
             $priorWeekShows,
             $priorWeekGross,
-            $priorWeekEstimatedNet,
-            $priorWeekCompleted,
-            $priorWeekLedgerNet,
+            $priorWeekNet,
             $weekHours,
             $priorWeekHours,
         ] = Cache::remember($cacheKey, 120, function () {
@@ -74,31 +64,13 @@ class ShowsKpiWidget extends BaseWidget
             $weekQuery = fn () => Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext();
             $priorWeekQuery = fn () => Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])->inChannelContext();
 
-            $ledgerQuery = function ($start, $end) {
-                if (! Schema::hasTable('whatnot_ledger_entries')) {
-                    return null;
-                }
-
-                $query = WhatnotLedgerEntry::query()->whereBetween('created_date', [$start, $end]);
-
-                if (ChannelContext::isScoped()) {
-                    $query->where('whatnot_channel_id', ChannelContext::currentId());
-                }
-
-                return $query;
-            };
-
             $weekShows = $weekQuery()->count();
             $weekGross = (float) $weekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
-            $weekEstimatedNet = (float) $weekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
-            $weekCompleted = (float) $weekQuery()->whereNotNull('completed_earnings')->sum('completed_earnings');
-            $weekLedgerNet = (float) ($ledgerQuery($weekStart, $weekEnd)?->sum('amount') ?? 0);
+            $weekNet = (float) $weekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
 
             $priorWeekShows = $priorWeekQuery()->count();
             $priorWeekGross = (float) $priorWeekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
-            $priorWeekEstimatedNet = (float) $priorWeekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
-            $priorWeekCompleted = (float) $priorWeekQuery()->whereNotNull('completed_earnings')->sum('completed_earnings');
-            $priorWeekLedgerNet = (float) ($ledgerQuery($priorWeekStart, $priorWeekEnd)?->sum('amount') ?? 0);
+            $priorWeekNet = (float) $priorWeekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
 
             $weekHours = (float) $weekQuery()->sum('show_duration') / 60;
             $priorWeekHours = (float) $priorWeekQuery()->sum('show_duration') / 60;
@@ -111,50 +83,34 @@ class ShowsKpiWidget extends BaseWidget
             // Trailing 7 days, oldest first, for the sparklines.
             $dailyShows = [];
             $dailyGross = [];
-            $dailyEstimatedNet = [];
-            $dailyCompleted = [];
-            $dailyLedgerNet = [];
+            $dailyNet = [];
 
             for ($i = 6; $i >= 0; $i--) {
-                $day = now()->subDays($i);
-                $dayStart = $day->copy()->startOfDay();
-                $dayEnd = $day->copy()->endOfDay();
-                $date = $day->toDateString();
+                $date = now()->subDays($i)->toDateString();
 
                 $dailyShows[] = Show::where('show_date', $date)->inChannelContext()->count();
                 $dailyGross[] = (float) Show::where('show_date', $date)
                     ->whereNotNull('gross_revenue')
                     ->inChannelContext()
                     ->sum('gross_revenue');
-                $dailyEstimatedNet[] = (float) Show::where('show_date', $date)
+                $dailyNet[] = (float) Show::where('show_date', $date)
                     ->whereNotNull('whatnot_net')
                     ->inChannelContext()
                     ->sum('whatnot_net');
-                $dailyCompleted[] = (float) Show::where('show_date', $date)
-                    ->whereNotNull('completed_earnings')
-                    ->inChannelContext()
-                    ->sum('completed_earnings');
-                $dailyLedgerNet[] = (float) ($ledgerQuery($dayStart, $dayEnd)?->sum('amount') ?? 0);
             }
 
             return [
                 $weekShows,
                 $weekGross,
-                $weekEstimatedNet,
-                $weekCompleted,
-                $weekLedgerNet,
+                $weekNet,
                 $pendingReview,
                 $draftPayoutTotal,
                 $dailyShows,
                 $dailyGross,
-                $dailyEstimatedNet,
-                $dailyCompleted,
-                $dailyLedgerNet,
+                $dailyNet,
                 $priorWeekShows,
                 $priorWeekGross,
-                $priorWeekEstimatedNet,
-                $priorWeekCompleted,
-                $priorWeekLedgerNet,
+                $priorWeekNet,
                 $weekHours,
                 $priorWeekHours,
             ];
@@ -181,26 +137,12 @@ class ShowsKpiWidget extends BaseWidget
                 ->icon('heroicon-o-currency-dollar')
                 ->color($this->trendColor($weekGross, $priorWeekGross, 'primary')),
 
-            Stat::make('Estimated Net Earnings', '$' . number_format($weekEstimatedNet, 2))
-                ->description('Whatnot Total Estimated Earnings' . $this->trendSuffix($weekEstimatedNet, $priorWeekEstimatedNet))
-                ->descriptionIcon($this->trendIcon($weekEstimatedNet, $priorWeekEstimatedNet))
-                ->chart($dailyEstimatedNet)
+            Stat::make('Net Revenue', '$' . number_format($weekNet, 2))
+                ->description('Whatnot Total Estimated Earnings' . $this->trendSuffix($weekNet, $priorWeekNet))
+                ->descriptionIcon($this->trendIcon($weekNet, $priorWeekNet))
+                ->chart($dailyNet)
                 ->icon('heroicon-o-banknotes')
-                ->color($this->trendColor($weekEstimatedNet, $priorWeekEstimatedNet, 'success')),
-
-            Stat::make('Completed Earnings', '$' . number_format($weekCompleted, 2))
-                ->description('Whatnot Completed Earnings' . $this->trendSuffix($weekCompleted, $priorWeekCompleted))
-                ->descriptionIcon($this->trendIcon($weekCompleted, $priorWeekCompleted))
-                ->chart($dailyCompleted)
-                ->icon('heroicon-o-check-circle')
-                ->color($this->trendColor($weekCompleted, $priorWeekCompleted, 'success')),
-
-            Stat::make('Ledger Net', '$' . number_format($weekLedgerNet, 2))
-                ->description('Signed Whatnot ledger activity' . $this->trendSuffix($weekLedgerNet, $priorWeekLedgerNet))
-                ->descriptionIcon($this->trendIcon($weekLedgerNet, $priorWeekLedgerNet))
-                ->chart($dailyLedgerNet)
-                ->icon('heroicon-o-document-currency-dollar')
-                ->color($this->trendColor($weekLedgerNet, $priorWeekLedgerNet, 'info')),
+                ->color($this->trendColor($weekNet, $priorWeekNet, 'success')),
 
             Stat::make('Pending Review', $pendingReview)
                 ->description($pendingReview > 0 ? 'Shows awaiting streamer assignment' : 'No shows in review queue')

@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\HasTrend;
-use App\Models\Payout;
 use App\Models\Show;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
@@ -17,12 +16,8 @@ class ShowsKpiWidget extends BaseWidget
 
     protected static bool $isLazy = true;
     protected static ?int $sort = 0;
+    protected int | string | array $columnSpan = 'full';
 
-    /**
-     * Keep the financial figures tied directly to Whatnot analytics:
-     * - Gross Revenue = Whatnot Estimated Sales
-     * - Net Revenue = Whatnot Total Estimated Earnings
-     */
     protected int | array | null $columns = [
         'default' => 2,
         'md'      => 4,
@@ -31,19 +26,18 @@ class ShowsKpiWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->isAdmin() && AdminModules::isEnabled('streams');
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('streams');
     }
 
     protected function getStats(): array
     {
-        $cacheKey = 'widget:shows_kpi:v4:' . (ChannelContext::currentId() ?? 'all');
+        $cacheKey = 'widget:shows_kpi:v5:' . (ChannelContext::currentId() ?? 'all');
 
         [
             $weekShows,
             $weekGross,
             $weekNet,
-            $pendingReview,
-            $draftPayoutTotal,
             $dailyShows,
             $dailyGross,
             $dailyNet,
@@ -55,9 +49,6 @@ class ShowsKpiWidget extends BaseWidget
         ] = Cache::remember($cacheKey, 120, function () {
             $weekStart = now()->startOfWeek()->startOfDay();
             $weekEnd   = now()->endOfWeek()->endOfDay();
-
-            // Fair week-over-week comparison: compare this week's elapsed span
-            // with the equivalent span last week rather than a completed week.
             $priorWeekStart = now()->subWeek()->startOfWeek()->startOfDay();
             $priorWeekEnd   = now()->subWeek()->endOfDay();
 
@@ -75,36 +66,21 @@ class ShowsKpiWidget extends BaseWidget
             $weekHours = (float) $weekQuery()->sum('show_duration') / 60;
             $priorWeekHours = (float) $priorWeekQuery()->sum('show_duration') / 60;
 
-            $pendingReview = Show::where('status', 'pending_review')->inChannelContext()->count();
-            $draftPayoutTotal = AdminModules::isEnabled('payouts')
-                ? (float) Payout::where('status', 'draft')->inChannelContext()->sum('calculated_payout')
-                : 0.0;
-
-            // Trailing 7 days, oldest first, for the sparklines.
             $dailyShows = [];
             $dailyGross = [];
             $dailyNet = [];
 
             for ($i = 6; $i >= 0; $i--) {
                 $date = now()->subDays($i)->toDateString();
-
                 $dailyShows[] = Show::where('show_date', $date)->inChannelContext()->count();
-                $dailyGross[] = (float) Show::where('show_date', $date)
-                    ->whereNotNull('gross_revenue')
-                    ->inChannelContext()
-                    ->sum('gross_revenue');
-                $dailyNet[] = (float) Show::where('show_date', $date)
-                    ->whereNotNull('whatnot_net')
-                    ->inChannelContext()
-                    ->sum('whatnot_net');
+                $dailyGross[] = (float) Show::where('show_date', $date)->whereNotNull('gross_revenue')->inChannelContext()->sum('gross_revenue');
+                $dailyNet[] = (float) Show::where('show_date', $date)->whereNotNull('whatnot_net')->inChannelContext()->sum('whatnot_net');
             }
 
             return [
                 $weekShows,
                 $weekGross,
                 $weekNet,
-                $pendingReview,
-                $draftPayoutTotal,
                 $dailyShows,
                 $dailyGross,
                 $dailyNet,
@@ -143,16 +119,6 @@ class ShowsKpiWidget extends BaseWidget
                 ->chart($dailyNet)
                 ->icon('heroicon-o-banknotes')
                 ->color($this->trendColor($weekNet, $priorWeekNet, 'success')),
-
-            Stat::make('Pending Review', $pendingReview)
-                ->description($pendingReview > 0 ? 'Shows awaiting streamer assignment' : 'No shows in review queue')
-                ->icon('heroicon-o-clock')
-                ->color($pendingReview > 0 ? 'warning' : 'gray'),
-
-            Stat::make('Draft Payouts', '$' . number_format($draftPayoutTotal, 2))
-                ->description('Awaiting approval across all streamers')
-                ->icon('heroicon-o-currency-dollar')
-                ->color($draftPayoutTotal > 0 ? 'info' : 'gray'),
         ];
     }
 }

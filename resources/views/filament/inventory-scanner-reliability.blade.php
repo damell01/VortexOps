@@ -13,9 +13,11 @@
     let candidateTimer = null;
     let lastCandidate = null;
     let showReceived = false;
+    let scanInFlight = false;
 
     const scannerRoot = () => document.querySelector('[data-vx-page="inventory-scanner"]');
     const scanSheetOpen = () => !!document.querySelector('.vx-scan-sheet-backdrop');
+    const scanInput = () => scannerRoot()?.querySelector('input[wire\\:model\\.live\\.debounce\\.300ms="scanInput"]');
     const lookupIsActive = () => {
         const root = scannerRoot();
         if (!root) return false;
@@ -23,20 +25,35 @@
         return !!button && (button.className.includes('text-primary-600') || button.className.includes('shadow-[inset_0_-2px_0_currentColor]'));
     };
 
+    const livewireComponent = () => {
+        const root = scannerRoot()?.closest('[wire\\:id]');
+        const id = root?.getAttribute('wire:id');
+        return id && window.Livewire?.find ? window.Livewire.find(id) : null;
+    };
+
+    const submitBarcodeOnce = async barcode => {
+        barcode = String(barcode || '').trim();
+        if (!barcode || scanInFlight) return;
+
+        const component = livewireComponent();
+        if (!component) return;
+
+        scanInFlight = true;
+        try {
+            await component.call('barcodeScanned', barcode);
+        } finally {
+            scanInFlight = false;
+        }
+    };
+
     const openUnknownChooser = barcode => {
         if (!barcode || scanSheetOpen()) return;
         const text = scannerRoot()?.innerText || '';
         if (text.includes(`No inventory item found for "${barcode}"`) || text.includes(`No inventory item found for “${barcode}”`)) {
-            // Existing scanner helper watches this exact text. Touching the DOM
-            // here makes sure its MutationObserver gets another chance after
-            // fast Livewire rerenders on mobile Safari.
             scannerRoot()?.setAttribute('data-vx-unknown-refresh', String(Date.now()));
             return;
         }
 
-        // If Livewire already cleared/re-rendered before the old observer saw
-        // the error, place a short-lived copy of the same message in the page.
-        // The existing chooser detects it and removes nothing from inventory.
         const marker = document.createElement('span');
         marker.hidden = true;
         marker.dataset.vxUnknownFallback = '1';
@@ -60,18 +77,59 @@
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok) return;
 
-                // The server search checks name/SKU/primary barcode/UPC and
-                // product identities. Zero results means this really is an
-                // unknown code, so force the chooser even if Livewire's error
-                // text flashed too quickly for the original observer to see it.
                 if (!Array.isArray(data.items) || data.items.length === 0) {
                     openUnknownChooser(barcode);
                 }
             } catch (_) {
                 // Keep the original Livewire lookup/error path as fallback.
             }
-        }, 450);
+        }, 350);
     };
+
+    const clearHardwareInput = input => {
+        input.value = '';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+    };
+
+    // Hardware/Bluetooth scanners normally send Enter after the code. Capture
+    // that before Livewire's keydown handler so the same scan cannot be submitted
+    // once by Enter and again by the debounced updatedScanInput() hook.
+    document.addEventListener('keydown', event => {
+        const target = event.target;
+        if (event.key !== 'Enter' || !(target instanceof HTMLInputElement)) return;
+        if (target !== scanInput()) return;
+
+        const barcode = target.value.trim();
+        if (!barcode) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        verifyCandidate(barcode);
+        clearHardwareInput(target);
+        void submitBarcodeOnce(barcode);
+    }, true);
+
+    // Camera scans used to hit Alpine's $wire.set(...).then(submitScan()), which
+    // can also invoke updatedScanInput() and create a second request. Own the
+    // event on the scanner page and call the server's barcodeScanned() method once.
+    window.addEventListener('barcode-scanned', event => {
+        if (!scannerRoot()) return;
+        const barcode = String(event?.detail?.value || '').trim();
+        if (!barcode) return;
+
+        event.preventDefault?.();
+        event.stopImmediatePropagation();
+        verifyCandidate(barcode);
+        void submitBarcodeOnce(barcode);
+    }, true);
+
+    // Save candidate codes while scanners type so unknown-item recovery still
+    // has the barcode even if Livewire rerenders and clears the input quickly.
+    document.addEventListener('input', event => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement) || target !== scanInput()) return;
+        verifyCandidate(target.value);
+    }, true);
 
     const enhanceReceivedPalletFilter = () => {
         const root = scannerRoot();
@@ -98,22 +156,7 @@
         });
     };
 
-    const inspect = () => {
-        enhanceReceivedPalletFilter();
-    };
-
-    // Camera scans dispatch this event from the scanner page.
-    window.addEventListener('barcode-scanned', event => verifyCandidate(event?.detail?.value));
-
-    // Hardware/Bluetooth scanners type into the Livewire scanInput field. Save
-    // the code before Livewire clears it during submit so the unknown prompt
-    // cannot lose the value on a fast rerender.
-    document.addEventListener('input', event => {
-        const target = event.target;
-        if (!(target instanceof HTMLInputElement)) return;
-        if (target.getAttribute('wire:model.live.debounce.300ms') !== 'scanInput') return;
-        verifyCandidate(target.value);
-    }, true);
+    const inspect = () => enhanceReceivedPalletFilter();
 
     const observer = new MutationObserver(() => {
         clearTimeout(window.__vxScannerReliabilityTimer);
@@ -124,6 +167,7 @@
     document.addEventListener('livewire:navigated', () => {
         lastCandidate = null;
         showReceived = false;
+        scanInFlight = false;
         setTimeout(inspect, 80);
     });
 

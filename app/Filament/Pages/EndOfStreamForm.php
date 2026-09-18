@@ -418,6 +418,11 @@ class EndOfStreamForm extends Page implements HasForms
     {
         if (! $this->show) { Notification::make()->title('No show selected')->body('Please select a show first.')->danger()->send(); return; }
         $entry = $this->logEntry(); if (! $entry) { Notification::make()->title('Could not open the report for this show')->danger()->send(); return; }
+        if ($entry->isSubmitted() && $entry->status !== 'changes_requested') {
+            Notification::make()->title('Report already submitted')->body('This show report has already been submitted and cannot be submitted again.')->warning()->send();
+            $this->redirect(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'), navigate: true);
+            return;
+        }
         $lines = $entry->items()->with('inventoryItem')->get();
         if ($lines->isEmpty()) { Notification::make()->title('No items added')->body('Add at least one item used during this show.')->warning()->send(); return; }
         try {
@@ -444,6 +449,7 @@ class EndOfStreamForm extends Page implements HasForms
                 }
             }
             $this->lastSavedAt = now()->toIso8601String(); $this->step = 3; $this->stagedQuantities = [];
+            $this->redirect(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'), navigate: true);
         } catch (\Throwable $e) {
             report($e); Notification::make()->title('Could not submit the report')->body($e->getMessage())->danger()->send();
         }

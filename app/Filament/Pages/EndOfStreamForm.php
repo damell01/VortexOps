@@ -142,9 +142,9 @@ class EndOfStreamForm extends Page implements HasForms
         $this->setStagedQuantity($inventoryItemId, ($this->stagedQuantities[$inventoryItemId] ?? 0) + $delta);
     }
 
-    public function setStagedQuantity(int $inventoryItemId, int $quantity): void
+    public function setStagedQuantity(int $inventoryItemId, int|string|null $quantity): void
     {
-        $quantity = max(0, $quantity);
+        $quantity = max(0, (int) ($quantity ?? 0));
         if ($quantity === 0) { unset($this->stagedQuantities[$inventoryItemId]); return; }
         $this->stagedQuantities[$inventoryItemId] = $quantity;
     }

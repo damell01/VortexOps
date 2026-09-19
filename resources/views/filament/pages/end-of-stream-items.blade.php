@@ -8,6 +8,14 @@
 @endphp
 
 <x-filament-panels::page>
+    @if(auth()->user()?->isStreamer() && ! auth()->user()?->isAdmin() && ! auth()->user()?->isOwner())
+        <style>
+            .fi-sidebar { display: none !important; }
+            .fi-topbar-open-sidebar-btn, .fi-topbar-close-sidebar-btn { display: none !important; }
+            .fi-main-ctn { margin-inline-start: 0 !important; }
+            .fi-main { width: 100% !important; max-width: none !important; }
+        </style>
+    @endif
     {{-- A scan anywhere on this page goes into the report. The camera reports
          through a window event carrying only the code; the page resolves it
          to an item, checks it is one this report may draw on, and stages it. --}}
@@ -120,8 +128,8 @@
                         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">What inventory was used?</h3>
-                                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Choose from inventory currently held by this streamer. Classify each line as Sold, Giveaway, Promo / Bonus, or Other.</p>
+                                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">What did you use?</h3>
+                                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Search or scan an item, choose the quantity, and add it to the report.</p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 sm:flex">
                                     <x-filament::button type="button" icon="heroicon-m-magnifying-glass" wire:click="toggleBrowse">Browse Inventory</x-filament::button>
@@ -389,13 +397,13 @@
                     </section>
 
                     <section class="rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-4">
-                        <h3 class="text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Inventory Status</h3>
+                        <h3 class="text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Report Check</h3>
                         @if($summary['items'] === 0)
                             <p class="mt-2 text-xs text-gray-500 sm:mt-3 sm:text-sm">Add show items to begin.</p>
                         @elseif($summary['unmatched'] > 0)
                             <p class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300 sm:mt-3 sm:text-sm">{{ $summary['unmatched'] }} unlisted {{ \Illuminate\Support\Str::plural('item', $summary['unmatched']) }} will need admin matching.</p>
                         @else
-                            <p class="mt-2 text-xs text-green-700 dark:text-green-300 sm:mt-3 sm:text-sm">All report lines are linked to inventory.</p>
+                            <p class="mt-2 text-xs text-green-700 dark:text-green-300 sm:mt-3 sm:text-sm">Everything is ready.</p>
                         @endif
                     </section>
                 </aside>
@@ -426,8 +434,8 @@
                 <section class="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-gray-900">
                     <div class="flex items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Add From Streamer Inventory</h3>
-                            <p class="text-[11px] leading-4 text-gray-500 sm:text-xs">Shows stock currently held in this streamer's inventory locations.</p>
+                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Add Items</h3>
+                            <p class="text-[11px] leading-4 text-gray-500 sm:text-xs">Search or scan, then choose how many were used.</p>
                         </div>
                         <button type="button" wire:click="toggleBrowse" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">✕</button>
                     </div>
@@ -435,7 +443,7 @@
                         <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_200px_auto] sm:items-center">
                             {{-- Barcode and UPC are searched too, so a scanner
                                  aimed at this box works without the camera. --}}
-                            <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search or scan — name, SKU, barcode…" autofocus
+                            <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search or scan an item…" autofocus
                                 class="min-h-11 w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
 
                             <button type="button"

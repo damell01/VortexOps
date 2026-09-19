@@ -31,13 +31,13 @@
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div class="min-w-0">
                     <div class="text-xs font-bold uppercase tracking-[.12em] text-primary-600 dark:text-primary-400">Streamer Hub</div>
-                    <h2 class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">Your shows. Your reports. That’s it.</h2>
-                    <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Open a show, log what left inventory, submit it, and move on. Upcoming shows and completed reports stay here too.</p>
+                    <h2 class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">What do you need to do?</h2>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">If a show needs a report, it will be at the top. Tap it, add what was used, and submit.</p>
 
                     <div class="mt-4 flex flex-wrap gap-2">
                         <a href="#needs-you" class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary-600 px-3.5 text-sm font-semibold text-white hover:bg-primary-500">
                             <x-heroicon-m-clipboard-document-list class="h-4 w-4" />
-                            Log a show
+                            Complete a report
                         </a>
                         <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                             <x-heroicon-m-archive-box class="h-4 w-4" />
@@ -45,7 +45,7 @@
                         </a>
                         <a href="{{ \App\Filament\Pages\StreamerStatement::getUrl() }}" class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                             <x-heroicon-m-banknotes class="h-4 w-4" />
-                            Pay & reports
+                            My pay
                         </a>
                     </div>
                 </div>
@@ -53,7 +53,7 @@
                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[520px]">
                     <a href="#needs-you" class="rounded-xl border border-amber-200 bg-amber-50 p-3 transition hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:hover:bg-amber-950/50">
                         <div class="text-xl font-semibold text-amber-800 dark:text-amber-300">{{ $summary['needs_you'] }}</div>
-                        <div class="mt-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">Need a report</div>
+                        <div class="mt-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">Needs you</div>
                     </a>
                     <a href="#upcoming" class="rounded-xl border border-gray-200 bg-gray-50 p-3 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700">
                         <div class="text-xl font-semibold text-gray-800 dark:text-gray-200">{{ $summary['upcoming'] }}</div>
@@ -83,7 +83,7 @@
                     'text-[10px] font-bold uppercase tracking-[.12em] sm:text-xs',
                     'text-amber-700 dark:text-amber-400' => filled($needsYou),
                     'text-emerald-700 dark:text-emerald-400' => empty($needsYou),
-                ])>Waiting on you</div>
+                ])>Needs your attention</div>
                 <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">
                     @if (filled($needsYou))
                         {{ count($needsYou) }} {{ Str::plural('show', count($needsYou)) }} {{ count($needsYou) === 1 ? 'needs' : 'need' }} a report
@@ -92,7 +92,7 @@
                     @endif
                 </h2>
                 @if (empty($needsYou))
-                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Every show you have run has a report filed.</p>
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">You're all caught up. No reports need to be completed.</p>
                 @endif
             </div>
 
@@ -130,9 +130,9 @@
         </section>
 
         @foreach ([
-            ['key' => 'upcoming', 'id' => 'upcoming', 'title' => 'Coming up', 'blurb' => 'Shows you are scheduled to run.'],
-            ['key' => 'waiting', 'id' => 'submitted', 'title' => 'Submitted reports', 'blurb' => 'Filed and waiting on review.'],
-            ['key' => 'done', 'id' => 'approved', 'title' => 'Approved reports', 'blurb' => 'Finished reports you can look back at anytime.'],
+            ['key' => 'upcoming', 'id' => 'upcoming', 'title' => 'Coming up', 'blurb' => 'Your upcoming shows.'],
+            ['key' => 'waiting', 'id' => 'submitted', 'title' => 'Submitted reports', 'blurb' => 'Already sent. Nothing else to do unless changes are requested.'],
+            ['key' => 'done', 'id' => 'approved', 'title' => 'Approved reports', 'blurb' => 'Completed reports.'],
         ] as $section)
             @php $rows = $groups[$section['key']]; @endphp
 

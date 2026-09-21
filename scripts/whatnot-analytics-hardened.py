@@ -507,6 +507,54 @@ def analytics(module, session):
                 page.wait_for_timeout(1200)
             module.info(f"analytics: Shows tab active on attempt {navigation_attempt}/3")
 
+            # The Shows table inherits Analytics' default ~14-day range. Historical
+            # searches (July, etc.) cannot match until that range includes the
+            # requested show. The current SPA honors start_dt/end_dt on the
+            # analytics overview route, so widen it before searching the table.
+            expected_date_for_range = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
+            if expected_date_for_range:
+                range_start = expected_date_for_range
+                range_end = (date.today() + timedelta(days=7)).isoformat()
+                current_url = page.url
+                if callable(current_url):
+                    current_url = current_url()
+                if f"start_dt={range_start}" not in str(current_url):
+                    ranged_target = (
+                        f"{module.BASE}/dashboard/analytics/overview?tab=livestream"
+                        f"&start_dt={range_start}&end_dt={range_end}"
+                    )
+                    module.info(
+                        f"analytics: widening Shows range {range_start} -> {range_end}"
+                    )
+                    page.goto(ranged_target, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(1200)
+
+                    # Direct ranged navigation may return to Overview; reactivate Shows.
+                    for selector in [
+                        '[role="tab"]:has-text("Shows")',
+                        'button:has-text("Shows")',
+                        'button[aria-controls="simple-tabpanel-1"]',
+                        'button#simple-tab-1',
+                        '[role="tab"][data-value="shows"]',
+                        '[role="tab"][data-index="1"]',
+                    ]:
+                        try:
+                            ranged_tab = page.locator(selector).first
+                            if ranged_tab.is_visible(timeout=800):
+                                try:
+                                    ranged_selected = (
+                                        ranged_tab.get_attribute("aria-selected") == "true"
+                                        or ranged_tab.get_attribute("aria-current") == "true"
+                                    )
+                                except Exception:
+                                    ranged_selected = False
+                                if not ranged_selected:
+                                    ranged_tab.click(timeout=5000)
+                                    page.wait_for_timeout(1000)
+                                break
+                        except Exception:
+                            pass
+
             # Current Whatnot UI renders Analytics > Shows as a searchable
             # table. Read the verified target row directly; it already contains
             # Sales, Earnings, Orders and AOV and avoids mixing aggregate Overview

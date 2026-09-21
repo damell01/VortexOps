@@ -473,40 +473,83 @@ def analytics(module, session):
 
 
 def historical_analytics(module, session):
-    """Walk Seller Hub Past shows once, then collect analytics in the same browser session."""
+    """Walk Seller Hub Past shows once, then collect a small resumable analytics batch."""
     since = clean(os.getenv("WHATNOT_ANALYTICS_SINCE", ""))
     max_passes = max(20, min(300, int(os.getenv("WHATNOT_RECONCILE_MAX_PASSES", "160"))))
+    batch_size = max(1, min(10, int(os.getenv("WHATNOT_ANALYTICS_BATCH_SIZE", "5"))))
+    target_ids = {
+        value.strip().lower()
+        for value in os.getenv("WHATNOT_ANALYTICS_TARGET_IDS", "").split(",")
+        if value.strip()
+    }
+    channel_key = re.sub(r"[^a-z0-9_-]+", "-", clean(os.getenv("WHATNOT_CHANNEL_NAME", "channel")).lower().lstrip("@"))
+    cache_dir = HERE.parent / "storage" / "app" / "whatnot-analytics"
+    cache_file = cache_dir / f"{channel_key}-past-index.json"
     rows: list[dict[str, Any]] = []
 
-    module.info(f"historical-analytics: walking Seller Hub Past shows since={since or 'all'} max_passes={max_passes}")
+    module.info(
+        f"historical-analytics: resumable batch since={since or 'all'} "
+        f"batch_size={batch_size} targets={len(target_ids)}"
+    )
 
     def action(page):
         module.prepare(page)
-        page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(1800)
-        module.check_login(page)
+        candidates: list[dict[str, Any]] = []
+        cached = None
+        try:
+            if cache_file.exists():
+                cached = json.loads(cache_file.read_text())
+                if cached.get("since") != since:
+                    cached = None
+        except Exception:
+            cached = None
 
-        past, selected, exhausted = scan_selected_tab_index(
-            module, page, "Past", max_passes=max_passes, stable_needed=5
-        )
-        if not selected:
-            module.info("historical-analytics: Past tab could not be selected")
-            return
+        if cached and isinstance(cached.get("candidates"), list):
+            candidates = cached["candidates"]
+            module.info(
+                f"historical-analytics: using cached Past index "
+                f"candidates={len(candidates)} file={cache_file}"
+            )
+        else:
+            page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(1800)
+            module.check_login(page)
+            past, selected, exhausted = scan_selected_tab_index(
+                module, page, "Past", max_passes=max_passes, stable_needed=5
+            )
+            if not selected:
+                module.info("historical-analytics: Past tab could not be selected")
+                return
+            for item in past.values():
+                show_date = clean(item.get("show_date"))
+                if since and show_date and show_date < since:
+                    continue
+                if item.get("analytics_url"):
+                    candidates.append(item)
+            candidates.sort(
+                key=lambda x: (clean(x.get("show_date")), clean(x.get("live_id"))),
+                reverse=True,
+            )
+            try:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                cache_file.write_text(json.dumps({
+                    "since": since,
+                    "candidates": candidates,
+                }, ensure_ascii=False))
+            except Exception as exc:
+                module.info(f"historical-analytics: unable to cache Past index error={exc}")
+            module.info(
+                f"historical-analytics: Past scan found {len(past)} show(s); "
+                f"{len(candidates)} analytics candidate(s) in range; exhausted={exhausted}"
+            )
 
-        candidates = []
-        for item in past.values():
-            show_date = clean(item.get("show_date"))
-            if since and show_date and show_date < since:
-                continue
-            if not item.get("analytics_url"):
-                continue
-            candidates.append(item)
-
-        candidates.sort(key=lambda x: (clean(x.get("show_date")), clean(x.get("live_id"))), reverse=True)
-        module.info(
-            f"historical-analytics: Past scan found {len(past)} show(s); "
-            f"{len(candidates)} analytics candidate(s) in range; exhausted={exhausted}"
-        )
+        if target_ids:
+            candidates = [
+                item for item in candidates
+                if clean(item.get("live_id")).lower() in target_ids
+            ]
+        candidates = candidates[:batch_size]
+        module.info(f"historical-analytics: processing {len(candidates)} show(s) this batch")
 
         total = len(candidates)
         for index, item in enumerate(candidates, 1):
@@ -515,56 +558,41 @@ def historical_analytics(module, session):
             if not live_id or not analytics_url:
                 continue
             url = analytics_url if analytics_url.startswith("http") else f"{module.BASE}{analytics_url}"
-            try:
-                module.info(
-                    f"historical-analytics [{index}/{total}]: opening uuid={live_id} "
-                    f"date={item.get('show_date') or '?'} title={item.get('title')!r}"
-                )
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_timeout(1200)
-                module.check_login(page)
-                metric = wait_for_metrics(module, page, timeout_ms=12000)
-                if not metric or not has_useful_data(metric):
-                    module.info(f"historical-analytics [{index}/{total}]: no stable metrics uuid={live_id}")
-                    continue
+            module.info(
+                f"historical-analytics [{index}/{total}]: opening uuid={live_id} "
+                f"date={item.get('show_date') or '?'} title={item.get('title')!r}"
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(random.randint(2500, 4500))
+            module.check_login(page)
+            metric = wait_for_metrics(module, page, timeout_ms=12000)
+            if not metric or not has_useful_data(metric):
+                module.info(f"historical-analytics [{index}/{total}]: no stable metrics uuid={live_id}")
+                continue
 
-                metric["whatnot_live_id"] = live_id
-                metric["title"] = item.get("title") or metric.get("title")
-                metric["show_date"] = item.get("show_date") or metric.get("show_date")
-                metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
-                metric.pop("_preview", None)
-                metric.pop("_titles", None)
-                metric.pop("_dates", None)
-                rows.append(metric)
-                module.info(
-                    f"historical-analytics [{index}/{total}]: collected uuid={live_id} "
-                    f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
-                )
-            except Exception as exc:
-                module.info(f"historical-analytics [{index}/{total}]: failed uuid={live_id} error={exc}")
+            metric["whatnot_live_id"] = live_id
+            metric["title"] = item.get("title") or metric.get("title")
+            metric["show_date"] = item.get("show_date") or metric.get("show_date")
+            metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
+            metric.pop("_preview", None)
+            metric.pop("_titles", None)
+            metric.pop("_dates", None)
+            rows.append(metric)
+            module.info(
+                f"historical-analytics [{index}/{total}]: collected uuid={live_id} "
+                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+            )
+            if index < total:
+                page.wait_for_timeout(random.randint(3500, 6500))
 
     session.fetch(
         f"{module.BASE}/dashboard/home",
         page_action=action,
-        timeout=900000,
+        timeout=300000,
         network_idle=False,
         google_search=False,
     )
-    module.info(f"historical-analytics: collected {len(rows)} show(s) in one channel session")
+    module.info(f"historical-analytics: collected {len(rows)} show(s) in resumable batch")
     return rows
 
 
-def install(module) -> None:
-    mode = os.getenv("WHATNOT_MODE", "").strip()
-    if mode == "historical-analytics":
-        module.MODE = "analytics"
-        module.analytics = lambda session: historical_analytics(module, session)
-        return
-    if mode == "reconcile-index":
-        # Reuse the base module's well-tested analytics dispatch/session lifecycle
-        # while replacing the analytics function with a one-pass channel index.
-        module.MODE = "analytics"
-        module.analytics = lambda session: reconcile_index(module, session)
-        return
-
-    module.analytics = lambda session: analytics(module, session)

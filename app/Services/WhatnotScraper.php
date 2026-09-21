@@ -82,6 +82,46 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
+    public function fetchHistoricalAnalytics(
+        string $since,
+        ?string $channelUsername = null,
+        ?callable $onProgress = null,
+    ): array {
+        $env = $this->baseEnv(false);
+        $env['WHATNOT_MODE'] = 'historical-analytics';
+        $env['WHATNOT_ANALYTICS_SINCE'] = $since;
+        if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+
+        // One browser/session walks the entire channel's Past shows and their
+        // analytics destinations. Avoid the old one-process-per-show pattern.
+        $timeoutSeconds = 1800;
+        $process = $this->makeProcess($env, timeout: $timeoutSeconds);
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            $onProgress ? $this->streamProcess($process, $onProgress) : $process->run();
+        }, waitSeconds: $timeoutSeconds);
+
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+        if ($stderr) {
+            Log::channel('stack')->warning('Whatnot historical analytics stderr', [
+                'output' => $stderr,
+                'channel' => $channelUsername,
+            ]);
+        }
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException('Historical analytics scraper failed: '.($stderr ?: "Scraper exited with code {$process->getExitCode()}"));
+        }
+        if ($stdout === '') return [];
+
+        $data = json_decode($stdout, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('Historical analytics scraper returned invalid JSON: '.json_last_error_msg());
+        }
+
+        return is_array($data) ? $data : [];
+    }
+
     public function fetchSellerShowUrls(bool $debug = false, ?string $channelUsername = null, int $limit = 500): array
     {
         $env = $this->baseEnv($debug);

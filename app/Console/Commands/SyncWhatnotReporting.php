@@ -19,6 +19,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
+        {--analytics-only : Refresh show discovery and backfill all missing show analytics; skip orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
@@ -42,10 +43,15 @@ class SyncWhatnotReporting extends Command
         }
 
         $showLimit = max(1, min(30, (int) $this->option('show-limit')));
-        $analyticsLimit = max(1, min(25, (int) $this->option('analytics-limit')));
+        $analyticsOnly = (bool) $this->option('analytics-only');
+        $analyticsLimit = $analyticsOnly ? PHP_INT_MAX : max(1, min(25, (int) $this->option('analytics-limit')));
         $shipmentBatch = max(1, min(30, (int) $this->option('shipment-batch')));
         $shipmentsOnly = (bool) $this->option('shipments-only');
-        $withOrders = ! $shipmentsOnly && ! (bool) $this->option('without-orders');
+        if ($shipmentsOnly && $analyticsOnly) {
+            $this->error('Choose either --shipments-only or --analytics-only, not both.');
+            return self::FAILURE;
+        }
+        $withOrders = ! $shipmentsOnly && ! $analyticsOnly && ! (bool) $this->option('without-orders');
         $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
 
@@ -60,10 +66,12 @@ class SyncWhatnotReporting extends Command
             return self::FAILURE;
         }
 
-        $this->info($shipmentsOnly ? 'WHATNOT HISTORICAL SHIPMENT BACKFILL' : 'COORDINATED WHATNOT REPORTING SYNC');
+        $this->info($shipmentsOnly ? 'WHATNOT HISTORICAL SHIPMENT BACKFILL' : ($analyticsOnly ? 'WHATNOT HISTORICAL ANALYTICS BACKFILL' : 'COORDINATED WHATNOT REPORTING SYNC'));
         $this->line('Reporting start: '.$since->toDateString());
         if ($shipmentsOnly) {
             $this->line("Channels: {$channels->count()} · shipment batch {$shipmentBatch} · SHIPMENTS ONLY · orders OFF");
+        } elseif ($analyticsOnly) {
+            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · all missing shows · orders OFF · shipments OFF · ledger OFF");
         } else {
             $this->line(
                 "Channels: {$channels->count()} · show {$showLimit} · analytics {$analyticsLimit} · shipment {$shipmentBatch}".
@@ -124,6 +132,23 @@ class SyncWhatnotReporting extends Command
                     $this->line('     created '.($result['created'] ?? 0).', updated '.($result['updated'] ?? 0));
                 } catch (\Throwable $e) {
                     $this->warn('     show refresh failed: '.$e->getMessage());
+                }
+
+                if ($analyticsOnly) {
+                    $missingBefore = $this->missingAnalyticsCount($channel->id, $since);
+                    $this->line("  {$step}. Historical analytics backfill ({$missingBefore} show(s) currently missing gross/net)");
+                    $step++;
+                    try {
+                        $analytics = $reconciler->backfillAnalytics($channel, $since, null, $progress);
+                        $remaining = $this->missingAnalyticsCount($channel->id, $since);
+                        $this->line("     completed: {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped · {$remaining} remaining");
+                    } catch (\Throwable $e) {
+                        $this->warn('     analytics backfill failed: '.$e->getMessage());
+                    }
+
+                    $this->reportChannelCoverage($channel->id, $since);
+                    $this->newLine();
+                    continue;
                 }
 
                 if ($withOrders) {
@@ -211,6 +236,18 @@ class SyncWhatnotReporting extends Command
         }
 
         $this->line("Ended-show check: {$flagged} show(s) newly flagged for happened/cancelled verification.");
+    }
+
+    private function missingAnalyticsCount(int $channelId, Carbon $since): int
+    {
+        return Show::query()
+            ->where('whatnot_channel_id', $channelId)
+            ->whereDate('show_date', '>=', $since->toDateString())
+            ->whereDate('show_date', '<=', today())
+            ->whereNotIn('status', ['cancelled'])
+            ->whereNotNull('whatnot_show_id')
+            ->where(fn ($q) => $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0))
+            ->count();
     }
 
     private function reportChannelCoverage(int $channelId, Carbon $since): void

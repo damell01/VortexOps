@@ -133,9 +133,10 @@ class WhatnotReportingReconciler
         return compact('checked', 'replaced', 'created', 'rejected', 'skipped', 'buyers');
     }
 
-    public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, int $limit = 25, ?callable $progress = null): array
+    public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null): array
     {
-        $limit = max(1, min(25, $limit));
+        $unlimited = $limit === null;
+        $limit = $unlimited ? null : max(1, min(25, $limit));
         $missing = fn () => Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
@@ -144,21 +145,27 @@ class WhatnotReportingReconciler
             ->whereNotNull('whatnot_show_id')
             ->where(fn ($q) => $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0));
 
-        $recentSlots = min($limit, max(1, (int) ceil($limit / 2)));
-        $recent = $missing()->orderByDesc('show_date')->orderByDesc('id')->limit($recentSlots)->get();
-        $remaining = $limit - $recent->count();
-        $older = collect();
+        if ($unlimited) {
+            $shows = $missing()->orderBy('show_date')->orderBy('id')->get();
+            $progress && $progress('analytics: '.number_format($shows->count()).' missing show(s) queued for full historical backfill');
+        } else {
+            $recentSlots = min($limit, max(1, (int) ceil($limit / 2)));
+            $recent = $missing()->orderByDesc('show_date')->orderByDesc('id')->limit($recentSlots)->get();
+            $remaining = $limit - $recent->count();
+            $older = collect();
 
-        if ($remaining > 0) {
-            $older = $missing()
-                ->when($recent->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $recent->pluck('id')))
-                ->orderBy('show_date')->orderBy('id')->limit($remaining)->get();
+            if ($remaining > 0) {
+                $older = $missing()
+                    ->when($recent->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $recent->pluck('id')))
+                    ->orderBy('show_date')->orderBy('id')->limit($remaining)->get();
+            }
+
+            $shows = $recent->concat($older)->values();
         }
-
-        $shows = $recent->concat($older)->values();
         $updated = $failed = $skipped = 0;
 
-        foreach ($shows as $show) {
+        $total = $shows->count();
+        foreach ($shows as $index => $show) {
             $liveId = $this->liveId($show);
             if (! $liveId) {
                 $skipped++;
@@ -169,7 +176,8 @@ class WhatnotReportingReconciler
                 $expectedTitle = trim((string) $show->title);
                 $expectedDate = $show->show_date ? Carbon::parse($show->show_date)->toDateString() : null;
 
-                $progress && $progress("analytics: refreshing show #{$show->id} ({$show->show_date})");
+                $position = $index + 1;
+                $progress && $progress("analytics [{$position}/{$total}]: refreshing show #{$show->id} ({$show->show_date}) — {$show->title}");
                 $rawRows = $this->scraper->fetchShows(
                     limit: 1,
                     debug: false,
@@ -223,7 +231,7 @@ class WhatnotReportingReconciler
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
                 $updated++;
-                $progress && $progress("analytics: show #{$show->id} updated");
+                $progress && $progress("analytics [{$position}/{$total}]: show #{$show->id} updated · gross $".number_format((float) ($show->fresh()->gross_revenue ?? 0), 2)." · net $".number_format((float) ($show->fresh()->whatnot_net ?? 0), 2));
             } catch (\Throwable $e) {
                 $failed++;
                 $progress && $progress("analytics: show #{$show->id} failed — {$e->getMessage()}");

@@ -507,53 +507,63 @@ def analytics(module, session):
                 page.wait_for_timeout(1200)
             module.info(f"analytics: Shows tab active on attempt {navigation_attempt}/3")
 
-            # The Shows table inherits Analytics' default ~14-day range. Historical
-            # searches (July, etc.) cannot match until that range includes the
-            # requested show. The current SPA honors start_dt/end_dt on the
-            # analytics overview route, so widen it before searching the table.
+            # The Shows page's date picker is client-side state. Query-string
+            # start_dt/end_dt is ignored on the current Seller Hub route, so set
+            # the visible range through the UI itself.
             expected_date_for_range = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
             if expected_date_for_range:
                 range_start = expected_date_for_range
-                range_end = (date.today() + timedelta(days=7)).isoformat()
-                current_url = page.url
-                if callable(current_url):
-                    current_url = current_url()
-                if f"start_dt={range_start}" not in str(current_url):
-                    ranged_target = (
-                        f"{module.BASE}/dashboard/analytics/overview?tab=livestream"
-                        f"&start_dt={range_start}&end_dt={range_end}"
-                    )
-                    module.info(
-                        f"analytics: widening Shows range {range_start} -> {range_end}"
-                    )
-                    page.goto(ranged_target, wait_until="domcontentloaded", timeout=30000)
-                    page.wait_for_timeout(1200)
-
-                    # Direct ranged navigation may return to Overview; reactivate Shows.
-                    for selector in [
-                        '[role="tab"]:has-text("Shows")',
-                        'button:has-text("Shows")',
-                        'button[aria-controls="simple-tabpanel-1"]',
-                        'button#simple-tab-1',
-                        '[role="tab"][data-value="shows"]',
-                        '[role="tab"][data-index="1"]',
-                    ]:
-                        try:
-                            ranged_tab = page.locator(selector).first
-                            if ranged_tab.is_visible(timeout=800):
+                range_end = date.today().isoformat()
+                module.info(f"analytics: setting Shows date picker {range_start} -> {range_end}")
+                try:
+                    changed = page.evaluate(r"""
+                    ({start, end}) => {
+                      const text = document.body.innerText || '';
+                      const rangeRe = /\b\d{1,2}\/\d{1,2}\/\d{4}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}\b/;
+                      const candidates = [...document.querySelectorAll('button,[role="button"],input,div,span')];
+                      const el = candidates.find(n => rangeRe.test((n.innerText || n.value || n.textContent || '').trim()));
+                      if (!el) return false;
+                      const target = el.closest('button,[role="button"]') || el;
+                      target.click();
+                      return true;
+                    }
+                    """, {"start": range_start, "end": range_end})
+                    if changed:
+                        page.wait_for_timeout(500)
+                        # Date pickers vary, but the current one exposes editable
+                        # start/end text inputs after opening.
+                        inputs = page.locator(
+                            'input[placeholder*="start" i], input[placeholder*="end" i], '
+                            'input[aria-label*="start" i], input[aria-label*="end" i], '
+                            '[role="dialog"] input'
+                        )
+                        count = inputs.count()
+                        if count >= 2:
+                            def us_date(iso):
+                                y, m, d = iso.split("-")
+                                return f"{int(m)}/{int(d)}/{y}"
+                            inputs.nth(0).fill(us_date(range_start), timeout=2500)
+                            inputs.nth(1).fill(us_date(range_end), timeout=2500)
+                            applied = False
+                            for label in ["Apply", "Update", "Done"]:
                                 try:
-                                    ranged_selected = (
-                                        ranged_tab.get_attribute("aria-selected") == "true"
-                                        or ranged_tab.get_attribute("aria-current") == "true"
-                                    )
+                                    btn = page.get_by_text(label, exact=True).last
+                                    if btn.is_visible(timeout=400):
+                                        btn.click(timeout=2000)
+                                        applied = True
+                                        break
                                 except Exception:
-                                    ranged_selected = False
-                                if not ranged_selected:
-                                    ranged_tab.click(timeout=5000)
-                                    page.wait_for_timeout(1000)
-                                break
-                        except Exception:
-                            pass
+                                    pass
+                            if not applied:
+                                page.keyboard.press("Enter")
+                            page.wait_for_timeout(1500)
+                            module.info("analytics: Shows date picker updated")
+                        else:
+                            module.info(f"analytics: date picker opened but editable inputs not found count={count}")
+                    else:
+                        module.info("analytics: visible date range control not found")
+                except Exception as exc:
+                    module.info(f"analytics: date picker update failed error={exc}")
 
             # Current Whatnot UI renders Analytics > Shows as a searchable
             # table. Read the verified target row directly; it already contains

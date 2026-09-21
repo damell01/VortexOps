@@ -19,7 +19,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
-        {--analytics-only : Refresh show discovery and backfill all missing show analytics; skip orders, shipments, and ledger}
+        {--analytics-only : Backfill every database show missing analytics directly by Whatnot show UUID; skip discovery, orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
@@ -71,7 +71,7 @@ class SyncWhatnotReporting extends Command
         if ($shipmentsOnly) {
             $this->line("Channels: {$channels->count()} · shipment batch {$shipmentBatch} · SHIPMENTS ONLY · orders OFF");
         } elseif ($analyticsOnly) {
-            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · all missing shows · orders OFF · shipments OFF · ledger OFF");
+            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · database targets by show UUID · discovery OFF · orders OFF · shipments OFF · ledger OFF");
         } else {
             $this->line(
                 "Channels: {$channels->count()} · show {$showLimit} · analytics {$analyticsLimit} · shipment {$shipmentBatch}".
@@ -125,18 +125,20 @@ class SyncWhatnotReporting extends Command
                     continue;
                 }
 
-                $this->line("  {$step}. Refresh latest show index / analytics ({$showLimit} shows)");
-                $step++;
-                try {
-                    $result = $scraper->importShows(channel: $channel, limit: $showLimit, debug: false, withOrders: false, onProgress: $progress);
-                    $this->line('     created '.($result['created'] ?? 0).', updated '.($result['updated'] ?? 0));
-                } catch (\Throwable $e) {
-                    $this->warn('     show refresh failed: '.$e->getMessage());
+                if (! $analyticsOnly) {
+                    $this->line("  {$step}. Refresh latest show index / analytics ({$showLimit} shows)");
+                    $step++;
+                    try {
+                        $result = $scraper->importShows(channel: $channel, limit: $showLimit, debug: false, withOrders: false, onProgress: $progress);
+                        $this->line('     created '.($result['created'] ?? 0).', updated '.($result['updated'] ?? 0));
+                    } catch (\Throwable $e) {
+                        $this->warn('     show refresh failed: '.$e->getMessage());
+                    }
                 }
 
                 if ($analyticsOnly) {
                     $missingBefore = $this->missingAnalyticsCount($channel->id, $since);
-                    $this->line("  {$step}. Historical analytics backfill ({$missingBefore} show(s) currently missing gross/net)");
+                    $this->line("  {$step}. Historical analytics backfill ({$missingBefore} database show(s) missing gross/net; oldest first, direct UUID targets)");
                     $step++;
                     try {
                         $analytics = $reconciler->backfillAnalytics($channel, $since, null, $progress);

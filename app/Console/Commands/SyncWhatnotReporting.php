@@ -19,7 +19,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
-        {--with-orders : Also run order/buyer reconciliation (disabled by default)}
+        {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
         {--skip-if-busy : Exit cleanly if another Whatnot pipeline is active}
@@ -45,7 +45,7 @@ class SyncWhatnotReporting extends Command
         $analyticsLimit = max(1, min(25, (int) $this->option('analytics-limit')));
         $shipmentBatch = max(1, min(30, (int) $this->option('shipment-batch')));
         $shipmentsOnly = (bool) $this->option('shipments-only');
-        $withOrders = ! $shipmentsOnly && (bool) $this->option('with-orders');
+        $withOrders = ! $shipmentsOnly && ! (bool) $this->option('without-orders');
         $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
 

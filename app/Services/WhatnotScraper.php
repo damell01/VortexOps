@@ -86,10 +86,16 @@ class WhatnotScraper
         string $since,
         ?string $channelUsername = null,
         ?callable $onProgress = null,
+        array $targetLiveIds = [],
+        int $batchSize = 5,
     ): array {
         $env = $this->baseEnv(false);
         $env['WHATNOT_MODE'] = 'historical-analytics';
         $env['WHATNOT_ANALYTICS_SINCE'] = $since;
+        $env['WHATNOT_ANALYTICS_BATCH_SIZE'] = (string) max(1, min(10, $batchSize));
+        if ($targetLiveIds !== []) {
+            $env['WHATNOT_ANALYTICS_TARGET_IDS'] = implode(',', array_values(array_unique(array_filter(array_map('strval', $targetLiveIds)))));
+        }
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
 
         // One browser/session walks the entire channel's Past shows and their

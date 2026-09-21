@@ -19,7 +19,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
-        {--analytics-only : Backfill every database show missing analytics directly by Whatnot show UUID; skip discovery, orders, shipments, and ledger}
+        {--analytics-only : Walk each channel's Seller Hub Past shows and refresh analytics in one browser session; skip discovery, orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
@@ -71,7 +71,7 @@ class SyncWhatnotReporting extends Command
         if ($shipmentsOnly) {
             $this->line("Channels: {$channels->count()} · shipment batch {$shipmentBatch} · SHIPMENTS ONLY · orders OFF");
         } elseif ($analyticsOnly) {
-            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · database targets by show UUID · discovery OFF · orders OFF · shipments OFF · ledger OFF");
+            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · Seller Hub Past-show walk · discovery OFF · orders OFF · shipments OFF · ledger OFF");
         } else {
             $this->line(
                 "Channels: {$channels->count()} · show {$showLimit} · analytics {$analyticsLimit} · shipment {$shipmentBatch}".
@@ -138,7 +138,7 @@ class SyncWhatnotReporting extends Command
 
                 if ($analyticsOnly) {
                     $missingBefore = $this->missingAnalyticsCount($channel->id, $since);
-                    $this->line("  {$step}. Historical analytics backfill ({$missingBefore} database show(s) missing gross/net; oldest first, direct UUID targets)");
+                    $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently missing gross/net; Seller Hub Past shows scanned once)");
                     $step++;
                     try {
                         $analytics = $reconciler->backfillAnalytics($channel, $since, null, $progress);

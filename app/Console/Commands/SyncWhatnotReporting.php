@@ -170,9 +170,47 @@ class SyncWhatnotReporting extends Command
             WhatnotPipelineLock::release($lock);
         }
 
+        if (! $shipmentsOnly) {
+            $this->reconcileEndedShowState($channels->pluck('id')->all(), $since);
+        }
+
         $this->info($shipmentsOnly ? 'Historical shipment backfill finished.' : 'Reporting sync finished.');
         $this->reportCoverage($channels->pluck('id')->all(), $since);
         return self::SUCCESS;
+    }
+
+    private function reconcileEndedShowState(array $channelIds, Carbon $since): void
+    {
+        $cutoff = now()->subHours(12);
+        $candidates = Show::query()
+            ->whereIn('whatnot_channel_id', $channelIds)
+            ->whereDate('show_date', '>=', $since->toDateString())
+            ->whereDate('show_date', '<=', $cutoff->toDateString())
+            ->whereNotIn('status', ['cancelled', 'closed'])
+            ->withCount(['orders', 'shipments'])
+            ->get();
+
+        $flagged = 0;
+        foreach ($candidates as $show) {
+            $hasActivity = (int) $show->orders_count > 0
+                || (int) $show->shipments_count > 0
+                || (int) ($show->units_sold ?? 0) > 0
+                || (float) ($show->gross_revenue ?? 0) > 0
+                || (float) ($show->whatnot_net ?? 0) > 0;
+
+            if ($hasActivity) {
+                continue;
+            }
+
+            $notes = trim((string) $show->notes);
+            $flag = '[SYSTEM] Past show has no Whatnot sales, orders, shipments, gross, or net data. Verify whether the show happened or was cancelled.';
+            if (! str_contains($notes, $flag)) {
+                $show->forceFill(['notes' => trim($notes."\n".$flag)])->saveQuietly();
+                $flagged++;
+            }
+        }
+
+        $this->line("Ended-show check: {$flagged} show(s) newly flagged for happened/cancelled verification.");
     }
 
     private function reportChannelCoverage(int $channelId, Carbon $since): void

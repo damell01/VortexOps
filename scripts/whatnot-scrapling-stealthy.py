@@ -395,10 +395,11 @@ def main() -> None:
     analytics_helper = load_module(ANALYTICS_HELPER, "vortexops_whatnot_analytics_hardened")
     analytics_helper.install(module)
 
-    if os.getenv("WHATNOT_MODE", "").strip() == "reconcile-index":
+    mode = os.getenv("WHATNOT_MODE", "").strip()
+    if mode in {"reconcile-index", "historical-analytics"}:
         analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
         analytics_lives_helper.install(module)
-        log("analytics extractor=seller-hub-lives (reconcile-index)")
+        log(f"analytics extractor=seller-hub-lives ({mode})")
     else:
         log("analytics extractor=account-analytics")
 

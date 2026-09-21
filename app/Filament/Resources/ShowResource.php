@@ -145,12 +145,12 @@ class ShowResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return AdminModules::navigationGroupFor('streams');
+        return 'Operations';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 1;
+        return 10;
     }
 
     public static function getNavigationBadge(): ?string

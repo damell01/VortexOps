@@ -348,8 +348,11 @@ def analytics(module, session):
         module.fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
     rows: list[dict[str, Any]] = []
     end_date = (date.today() + timedelta(days=7)).isoformat()
-    target = f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}&start_dt=2019-01-01&end_dt={end_date}"
-    module.info(f"analytics: range end={end_date} seed={module.START_UUID}")
+    # The legacy /account/analytics?live_id= route now redirects to the aggregate
+    # overview and silently drops the show identity. Enter the current Seller Hub
+    # analytics UI directly, then switch to the Shows tab before selecting a show.
+    target = f"{module.BASE}/dashboard/analytics/overview"
+    module.info(f"analytics: current-ui shows flow seed={module.START_UUID}")
 
     def action(page):
         module.prepare(page)
@@ -360,6 +363,41 @@ def analytics(module, session):
             page.goto(target, wait_until="domcontentloaded", timeout=30000)
             if navigation_attempt > 1:
                 page.wait_for_timeout(750)
+
+            # Overview contains aggregate account totals. Never extract from it.
+            # Click the analytics Shows tab first so the DOM represents one show.
+            shows_tab = None
+            for selector in [
+                '[role="tab"]:has-text("Shows")',
+                'button:has-text("Shows")',
+                'button[aria-controls="simple-tabpanel-1"]',
+                'button#simple-tab-1',
+                '[role="tab"][data-value="shows"]',
+                '[role="tab"][data-index="1"]',
+            ]:
+                try:
+                    candidate = page.locator(selector).first
+                    if candidate.is_visible(timeout=800):
+                        shows_tab = candidate
+                        break
+                except Exception:
+                    pass
+
+            if shows_tab is None:
+                module.info(f"analytics: Shows tab not found on attempt {navigation_attempt}/3")
+                continue
+
+            try:
+                selected_tab = (
+                    shows_tab.get_attribute("aria-selected") == "true"
+                    or shows_tab.get_attribute("aria-current") == "true"
+                )
+            except Exception:
+                selected_tab = False
+            if not selected_tab:
+                shows_tab.click(timeout=5000)
+                page.wait_for_timeout(1200)
+            module.info(f"analytics: Shows tab active on attempt {navigation_attempt}/3")
 
             if clean(os.getenv("WHATNOT_EXPECTED_TITLE", "")):
                 selected = select_expected_show(module, page)
@@ -376,9 +414,18 @@ def analytics(module, session):
             title_ok = not expected_title or actual_title == expected_title or expected_title in preview
             date_ok = not expected_date or actual_date == expected_date
 
-            if expected_live_id and clean(row.get("whatnot_live_id")).lower() != expected_live_id:
-                module.info(f"analytics: hydration retry {navigation_attempt}/3 live_id mismatch")
-                continue
+            actual_live_id = clean(row.get("whatnot_live_id")).lower()
+            # The current Shows SPA does not put the livestream UUID in the URL.
+            # For targeted backfill, title+date are the identity proof supplied by
+            # our DB row. Only after both match do we bind the requested UUID.
+            if expected_live_id and actual_live_id != expected_live_id:
+                if expected_title and expected_date and title_ok and date_ok:
+                    row["whatnot_live_id"] = expected_live_id
+                    row["detail_url"] = f"{module.BASE}/dashboard/live/{expected_live_id}"
+                    module.info("analytics: identity verified by title+date; bound requested live_id")
+                else:
+                    module.info(f"analytics: hydration retry {navigation_attempt}/3 live_id unavailable and title+date proof incomplete")
+                    continue
             if expected_title and not title_ok:
                 module.info(f"analytics: hydration retry {navigation_attempt}/3 title mismatch")
                 continue

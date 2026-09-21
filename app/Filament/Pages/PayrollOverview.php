@@ -22,10 +22,10 @@ use UnitEnum;
 
 class PayrollOverview extends Page
 {
-    protected static ?string $title = 'Payroll Dashboard';
-    protected static ?string $navigationLabel = 'Payroll';
+    protected static ?string $title = 'Finance';
+    protected static ?string $navigationLabel = 'Finance';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
-    protected static string|UnitEnum|null $navigationGroup = 'Payouts';
+    protected static string|UnitEnum|null $navigationGroup = 'Finance';
     protected static ?int $navigationSort = 1;
 
     public array $mockProducts = [];
@@ -78,7 +78,7 @@ class PayrollOverview extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Current weekly payroll, show-by-show calculations, blockers and resolution actions in one place.';
+        return 'Payroll, pay runs, payout readiness and finance actions in one place.';
     }
 
     protected function getHeaderActions(): array

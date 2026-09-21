@@ -559,6 +559,31 @@ def analytics(module, session):
                             page.wait_for_timeout(1500)
                             module.info("analytics: Shows date picker updated")
                         else:
+                            # Current picker may be a calendar-only popover rather
+                            # than editable text inputs. Capture its bounded DOM so
+                            # we can target the real controls instead of guessing.
+                            try:
+                                picker_diag = page.evaluate(r"""
+                                () => {
+                                  const visible = el => {
+                                    const s = getComputedStyle(el), r = el.getBoundingClientRect();
+                                    return s.visibility !== 'hidden' && s.display !== 'none' && r.width > 0 && r.height > 0;
+                                  };
+                                  const nodes = [...document.querySelectorAll(
+                                    '[role="dialog"],[role="grid"],[role="listbox"],[data-radix-popper-content-wrapper],button,[role="button"]'
+                                  )].filter(visible);
+                                  return nodes.slice(0, 120).map(el => ({
+                                    tag: el.tagName,
+                                    role: el.getAttribute('role'),
+                                    aria: el.getAttribute('aria-label'),
+                                    testid: el.getAttribute('data-testid'),
+                                    text: (el.innerText || el.textContent || '').replace(/\\s+/g,' ').trim().slice(0,180)
+                                  })).filter(x => x.text || x.aria || x.testid);
+                                }
+                                """)
+                                module.info("analytics: DATE_PICKER_DIAGNOSTIC " + json.dumps(picker_diag, ensure_ascii=False)[:7000])
+                            except Exception as diag_exc:
+                                module.info(f"analytics: date picker diagnostic failed error={diag_exc}")
                             module.info(f"analytics: date picker opened but editable inputs not found count={count}")
                     else:
                         module.info("analytics: visible date range control not found")

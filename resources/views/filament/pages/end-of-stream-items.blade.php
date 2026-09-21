@@ -365,7 +365,11 @@
 
                             <div class="mt-5 hidden gap-2 sm:flex sm:justify-end">
                                 <x-filament::button type="button" color="gray" wire:click="goToStep(2)">Back</x-filament::button>
-                                <x-filament::button type="button" @if(! $reportSubmitted) wire:click="submit" wire:confirm="Submit this show report?" @endif>{{ $reportSubmitted ? 'Report Submitted' : 'Submit Show Report' }}</x-filament::button>
+                                @if($reportSubmitted)
+                                    <x-filament::button type="button" disabled>Report Submitted</x-filament::button>
+                                @else
+                                    <x-filament::button type="button" wire:click="submit" wire:confirm="Submit this show report?">Submit Show Report</x-filament::button>
+                                @endif
                             </div>
                         </section>
                     @endif
@@ -423,7 +427,11 @@
                     <button type="button" wire:click="goToStep(3)" class="inline-flex min-h-11 flex-[1.25] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white">Review Report</button>
                 @else
                     <button type="button" wire:click="goToStep(2)" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">Back</button>
-                    <button type="button" @if(! $reportSubmitted) wire:click="submit" wire:confirm="Submit this show report?" @endif class="inline-flex min-h-11 flex-[1.35] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white">{{ $reportSubmitted ? 'Submitted' : 'Submit Report' }}</button>
+                    @if($reportSubmitted)
+                        <button type="button" disabled class="inline-flex min-h-11 flex-[1.35] cursor-not-allowed items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white opacity-60">Submitted</button>
+                    @else
+                        <button type="button" wire:click="submit" wire:confirm="Submit this show report?" class="inline-flex min-h-11 flex-[1.35] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white">Submit Report</button>
+                    @endif
                 @endif
             </div>
         </div>

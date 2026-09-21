@@ -39,7 +39,7 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return AdminModules::navigationGroupFor('payouts');
+        return 'Finance';
     }
 
     public static function getNavigationSort(): ?int

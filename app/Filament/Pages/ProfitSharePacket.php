@@ -18,7 +18,7 @@ class ProfitSharePacket extends Page
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Reports';
+        return 'Finance';
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

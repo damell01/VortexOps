@@ -19,7 +19,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
-        {--analytics-only : Walk each channel's Seller Hub Past shows and refresh analytics in one browser session; skip discovery, orders, shipments, and ledger}
+        {--analytics-only : Walk each channel Seller Hub Past shows and refresh analytics in one browser session; skip discovery, orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}

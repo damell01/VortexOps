@@ -389,13 +389,18 @@ def main() -> None:
     module.DynamicSession = stealthy_session
     module.check_login = ensure_authenticated
 
-    # Keep shared extraction/parsing helpers installed, then override analytics
-    # navigation with the proven Seller Hub /dashboard/lives -> See Analytics path.
+    # Use /account/analytics for historical per-show metrics. Seller Hub
+    # /dashboard/lives remains limited to reconcile-index, where the tab index
+    # is specifically required.
     analytics_helper = load_module(ANALYTICS_HELPER, "vortexops_whatnot_analytics_hardened")
     analytics_helper.install(module)
-    analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
-    analytics_lives_helper.install(module)
-    log("analytics extractor=seller-hub-lives")
+
+    if os.getenv("WHATNOT_MODE", "").strip() == "reconcile-index":
+        analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
+        analytics_lives_helper.install(module)
+        log("analytics extractor=seller-hub-lives (reconcile-index)")
+    else:
+        log("analytics extractor=account-analytics")
 
     orders_helper = load_module(ORDERS_HELPER, "vortexops_whatnot_orders_hardened")
     orders_helper.install(module)

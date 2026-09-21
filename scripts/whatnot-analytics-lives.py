@@ -471,8 +471,96 @@ def analytics(module, session):
     return rows
 
 
+
+def historical_analytics(module, session):
+    """Walk Seller Hub Past shows once, then collect analytics in the same browser session."""
+    since = clean(os.getenv("WHATNOT_ANALYTICS_SINCE", ""))
+    max_passes = max(20, min(300, int(os.getenv("WHATNOT_RECONCILE_MAX_PASSES", "160"))))
+    rows: list[dict[str, Any]] = []
+
+    module.info(f"historical-analytics: walking Seller Hub Past shows since={since or 'all'} max_passes={max_passes}")
+
+    def action(page):
+        module.prepare(page)
+        page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1800)
+        module.check_login(page)
+
+        past, selected, exhausted = scan_selected_tab_index(
+            module, page, "Past", max_passes=max_passes, stable_needed=5
+        )
+        if not selected:
+            module.info("historical-analytics: Past tab could not be selected")
+            return
+
+        candidates = []
+        for item in past.values():
+            show_date = clean(item.get("show_date"))
+            if since and show_date and show_date < since:
+                continue
+            if not item.get("analytics_url"):
+                continue
+            candidates.append(item)
+
+        candidates.sort(key=lambda x: (clean(x.get("show_date")), clean(x.get("live_id"))), reverse=True)
+        module.info(
+            f"historical-analytics: Past scan found {len(past)} show(s); "
+            f"{len(candidates)} analytics candidate(s) in range; exhausted={exhausted}"
+        )
+
+        total = len(candidates)
+        for index, item in enumerate(candidates, 1):
+            live_id = clean(item.get("live_id")).lower()
+            analytics_url = clean(item.get("analytics_url"))
+            if not live_id or not analytics_url:
+                continue
+            url = analytics_url if analytics_url.startswith("http") else f"{module.BASE}{analytics_url}"
+            try:
+                module.info(
+                    f"historical-analytics [{index}/{total}]: opening uuid={live_id} "
+                    f"date={item.get('show_date') or '?'} title={item.get('title')!r}"
+                )
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(1200)
+                module.check_login(page)
+                metric = wait_for_metrics(module, page, timeout_ms=12000)
+                if not metric or not has_useful_data(metric):
+                    module.info(f"historical-analytics [{index}/{total}]: no stable metrics uuid={live_id}")
+                    continue
+
+                metric["whatnot_live_id"] = live_id
+                metric["title"] = item.get("title") or metric.get("title")
+                metric["show_date"] = item.get("show_date") or metric.get("show_date")
+                metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
+                metric.pop("_preview", None)
+                metric.pop("_titles", None)
+                metric.pop("_dates", None)
+                rows.append(metric)
+                module.info(
+                    f"historical-analytics [{index}/{total}]: collected uuid={live_id} "
+                    f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+                )
+            except Exception as exc:
+                module.info(f"historical-analytics [{index}/{total}]: failed uuid={live_id} error={exc}")
+
+    session.fetch(
+        f"{module.BASE}/dashboard/home",
+        page_action=action,
+        timeout=900000,
+        network_idle=False,
+        google_search=False,
+    )
+    module.info(f"historical-analytics: collected {len(rows)} show(s) in one channel session")
+    return rows
+
+
 def install(module) -> None:
-    if os.getenv("WHATNOT_MODE", "").strip() == "reconcile-index":
+    mode = os.getenv("WHATNOT_MODE", "").strip()
+    if mode == "historical-analytics":
+        module.MODE = "analytics"
+        module.analytics = lambda session: historical_analytics(module, session)
+        return
+    if mode == "reconcile-index":
         # Reuse the base module's well-tested analytics dispatch/session lifecycle
         # while replacing the analytics function with a one-pass channel index.
         module.MODE = "analytics"

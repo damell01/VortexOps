@@ -277,14 +277,14 @@
             </section>
 
             <section class="grid gap-3 sm:grid-cols-2">
-                <a href="{{ \App\Filament\Resources\ShowResource::getUrl('index') }}" class="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
+                <a href="{{ App\Filament\Resources\ShowResource::getUrl('index') }}" class="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/40"><x-heroicon-m-video-camera class="h-5 w-5" /></div>
                         <div><div class="text-sm font-semibold text-gray-950 dark:text-white">Shows</div><div class="text-xs text-gray-500 dark:text-gray-400">Schedule, sales, assignments and show details</div></div>
                         <x-heroicon-m-chevron-right class="ml-auto h-5 w-5 text-gray-300 group-hover:text-primary-500" />
                     </div>
                 </a>
-                <a href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('index') }}" class="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
+                <a href="{{ App\Filament\Resources\StreamerLogResource::getUrl('index') }}" class="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40"><x-heroicon-m-clipboard-document-check class="h-5 w-5" /></div>
                         <div><div class="text-sm font-semibold text-gray-950 dark:text-white">Reports</div><div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($reportsToReview ?? 0) }} waiting for review</div></div>
@@ -293,7 +293,7 @@
                 </a>
             </section>
             <section>
-                <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
+                <a href="{{ App\Filament\Pages\PayrollOverview::getUrl() }}" class="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"><x-heroicon-m-banknotes class="h-5 w-5" /></div>
                     <div class="min-w-0 flex-1"><div class="text-sm font-semibold text-gray-950 dark:text-white">Finance</div><div class="text-xs text-gray-500 dark:text-gray-400">Payroll, pay runs, payout readiness and profit-share reporting</div></div>
                     <x-heroicon-m-chevron-right class="h-5 w-5 shrink-0 text-gray-300 group-hover:text-primary-500" />

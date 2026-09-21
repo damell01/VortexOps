@@ -43,7 +43,7 @@ class StreamerLogResource extends Resource
 
     protected static ?string $model = StreamerLogEntry::class;
 
-    protected static ?string $navigationLabel = 'Streamer Log';
+    protected static ?string $navigationLabel = 'Reports';
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -52,12 +52,12 @@ class StreamerLogResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Streams';
+        return 'Operations';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 40;
+        return 20;
     }
 
     public static function getSlug(?\Filament\Panel $panel = null): string
@@ -263,8 +263,10 @@ class StreamerLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->emptyStateHeading('No log entries')
-            ->emptyStateDescription('Streamer show logs land here for review and approval.')
+            ->heading('Show Reports')
+            ->description('Review submitted streamer reports, request changes, edit details, and approve them from one queue.')
+            ->emptyStateHeading('No reports')
+            ->emptyStateDescription('Submitted streamer reports will appear here for review.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')
             ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([

@@ -135,109 +135,93 @@ class WhatnotReportingReconciler
 
     public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null): array
     {
-        $unlimited = $limit === null;
-        $limit = $unlimited ? null : max(1, min(25, $limit));
-        $missing = fn () => Show::query()
-            ->where('whatnot_channel_id', $channel->id)
-            ->whereDate('show_date', '>=', $since->toDateString())
-            ->whereDate('show_date', '<=', today())
-            ->whereNotIn('status', ['cancelled'])
-            ->whereNotNull('whatnot_show_id')
-            ->where(fn ($q) => $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0));
+        // Historical analytics is intentionally channel-wide. Seller Hub's Past
+        // list is already the authoritative traversal, so keep one authenticated
+        // browser/session alive and visit each show's See Analytics destination.
+        // This replaces the old DB-missing-show -> UUID -> new browser loop.
+        $progress && $progress(
+            'analytics: walking Seller Hub Past shows once for @'.$channel->whatnot_username.
+            ' since '.$since->toDateString()
+        );
 
-        if ($unlimited) {
-            $shows = $missing()->orderBy('show_date')->orderBy('id')->get();
-            $progress && $progress('analytics: '.number_format($shows->count()).' missing show(s) queued for full historical backfill');
-        } else {
-            $recentSlots = min($limit, max(1, (int) ceil($limit / 2)));
-            $recent = $missing()->orderByDesc('show_date')->orderByDesc('id')->limit($recentSlots)->get();
-            $remaining = $limit - $recent->count();
-            $older = collect();
+        $rawRows = $this->scraper->fetchHistoricalAnalytics(
+            since: $since->toDateString(),
+            channelUsername: $channel->whatnot_username,
+            onProgress: $progress,
+        );
 
-            if ($remaining > 0) {
-                $older = $missing()
-                    ->when($recent->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $recent->pluck('id')))
-                    ->orderBy('show_date')->orderBy('id')->limit($remaining)->get();
-            }
-
-            $shows = $recent->concat($older)->values();
-        }
         $updated = $failed = $skipped = 0;
+        $seen = [];
 
-        $total = $shows->count();
-        foreach ($shows as $index => $show) {
-            $liveId = $this->liveId($show);
-            if (! $liveId) {
+        foreach ($rawRows as $raw) {
+            if (! is_array($raw)) {
                 $skipped++;
                 continue;
             }
 
+            $liveId = strtolower(trim((string) ($raw['whatnot_live_id'] ?? $raw['live_id'] ?? '')));
+            if ($liveId === '' || isset($seen[$liveId])) {
+                $skipped++;
+                continue;
+            }
+            $seen[$liveId] = true;
+
+            $show = Show::query()
+                ->where('whatnot_channel_id', $channel->id)
+                ->where(function ($q) use ($liveId) {
+                    $q->where('whatnot_show_id', $liveId)
+                        ->orWhere('detail_url', 'like', '%'.$liveId.'%');
+                })
+                ->first();
+
+            if (! $show) {
+                $skipped++;
+                $progress && $progress("analytics: Seller Hub uuid={$liveId} is not in this channel's database yet; discovery will import it");
+                continue;
+            }
+
             try {
-                $expectedTitle = trim((string) $show->title);
-                $expectedDate = $show->show_date ? Carbon::parse($show->show_date)->toDateString() : null;
-
-                $position = $index + 1;
-                $progress && $progress("analytics [{$position}/{$total}]: refreshing show #{$show->id} ({$show->show_date}) — {$show->title}");
-                $rawRows = $this->scraper->fetchShows(
-                    limit: 1,
-                    debug: false,
-                    channelUsername: $channel->whatnot_username,
-                    onProgress: $progress,
-                    seedLiveId: $liveId,
-                    expectedTitle: $expectedTitle !== '' ? $expectedTitle : null,
-                    expectedDate: $expectedDate,
-                );
-
-                $raw = collect($rawRows)->first(function ($row) use ($liveId) {
-                    if (! is_array($row)) {
-                        return false;
-                    }
-
-                    $candidate = strtolower(trim((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? '')));
-
-                    // Never accept analytics whose show identity is missing. The
-                    // Whatnot React SPA can leave stale metric cards rendered while
-                    // the URL changes, so the requested UUID must be returned exactly.
-                    return $candidate !== '' && $candidate === strtolower($liveId);
-                });
-
-                if (! is_array($raw)) {
-                    $returnedIds = collect($rawRows)
-                        ->filter(fn ($row) => is_array($row))
-                        ->map(fn ($row) => strtolower(trim((string) ($row['whatnot_live_id'] ?? $row['live_id'] ?? ''))))
-                        ->filter()
-                        ->unique()
-                        ->values()
-                        ->all();
-
-                    $actual = $returnedIds === [] ? 'none' : implode(', ', $returnedIds);
-                    throw new \RuntimeException("Analytics identity mismatch: requested {$liveId}, scraper returned {$actual}.");
-                }
-
-                $candidate = strtolower(trim((string) ($raw['whatnot_live_id'] ?? $raw['live_id'] ?? '')));
-                if ($candidate !== strtolower($liveId)) {
-                    throw new \RuntimeException("Analytics identity mismatch after selection: requested {$liveId}, got ".($candidate ?: 'none').'.');
-                }
-
                 $normalized = $this->normalizer->normalizeShow($raw);
                 $fields = [];
                 foreach (['gross_revenue','whatnot_net','completed_earnings','avg_order_value','giveaway_spend','units_sold','giveaways_count','buyers_count','first_time_buyers','returning_buyers','shares_count','max_concurrent_viewers','total_views','show_duration'] as $field) {
-                    if (($normalized[$field] ?? null) !== null) $fields[$field] = $normalized[$field];
+                    if (($normalized[$field] ?? null) !== null) {
+                        $fields[$field] = $normalized[$field];
+                    }
                 }
-                if ($fields === []) throw new \RuntimeException('Analytics loaded but contained no usable metrics.');
+
+                if ($fields === []) {
+                    $failed++;
+                    $progress && $progress("analytics: show #{$show->id} returned no usable metrics");
+                    continue;
+                }
 
                 $fields['last_synced_at'] = now();
                 $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
                 $updated++;
-                $progress && $progress("analytics [{$position}/{$total}]: show #{$show->id} updated · gross $".number_format((float) ($show->fresh()->gross_revenue ?? 0), 2)." · net $".number_format((float) ($show->fresh()->whatnot_net ?? 0), 2));
+
+                $fresh = $show->fresh();
+                $progress && $progress(
+                    "analytics: show #{$show->id} updated · {$fresh->show_date} · gross $".
+                    number_format((float) ($fresh->gross_revenue ?? 0), 2).
+                    ' · net $'.number_format((float) ($fresh->whatnot_net ?? 0), 2)
+                );
             } catch (\Throwable $e) {
                 $failed++;
                 $progress && $progress("analytics: show #{$show->id} failed — {$e->getMessage()}");
-                Log::warning('Coordinated Whatnot analytics backfill failed', ['show_id' => $show->id, 'channel' => $channel->whatnot_username, 'exception' => $e->getMessage()]);
+                Log::warning('Channel-wide Whatnot analytics update failed', [
+                    'show_id' => $show->id,
+                    'channel' => $channel->whatnot_username,
+                    'exception' => $e->getMessage(),
+                ]);
             }
         }
+
+        $progress && $progress(
+            'analytics: channel walk complete · '.number_format(count($seen)).
+            " unique show(s) returned · {$updated} updated · {$failed} failed · {$skipped} skipped"
+        );
 
         return compact('updated', 'failed', 'skipped');
     }

@@ -144,10 +144,41 @@ class WhatnotReportingReconciler
             ' since '.$since->toDateString()
         );
 
+        $batchSize = max(1, min(5, (int) ($limit ?: 5)));
+        $targets = Show::query()
+            ->where('whatnot_channel_id', $channel->id)
+            ->whereDate('show_date', '>=', $since->toDateString())
+            ->whereDate('show_date', '<=', today())
+            ->whereNotIn('status', ['cancelled'])
+            ->whereNotNull('whatnot_show_id')
+            ->where(function ($q) {
+                $q->whereNull('gross_revenue')
+                    ->orWhere('gross_revenue', '<=', 0)
+                    ->orWhereNull('whatnot_net')
+                    ->orWhere('whatnot_net', '<=', 0);
+            })
+            ->orderByDesc('show_date')
+            ->orderByDesc('id')
+            ->limit($batchSize)
+            ->pluck('whatnot_show_id')
+            ->map(fn ($id) => strtolower(trim((string) $id)))
+            ->filter()
+            ->values()
+            ->all();
+
+        if ($targets === []) {
+            $progress && $progress('analytics: no missing analytics targets remain for this channel');
+            return ['updated' => 0, 'failed' => 0, 'skipped' => 0];
+        }
+
+        $progress && $progress('analytics: resumable batch targeting '.count($targets).' missing show(s)');
+
         $rawRows = $this->scraper->fetchHistoricalAnalytics(
             since: $since->toDateString(),
             channelUsername: $channel->whatnot_username,
             onProgress: $progress,
+            targetLiveIds: $targets,
+            batchSize: $batchSize,
         );
 
         $updated = $failed = $skipped = 0;

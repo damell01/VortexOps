@@ -250,6 +250,114 @@ def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: 
     return last or extract_show(page)
 
 
+
+def extract_expected_show_from_table(module, page) -> dict[str, Any] | None:
+    """Find one show in the current Analytics > Shows table.
+
+    The September 2026 UI is a searchable table (Show, Date, Est. Sales,
+    Est. Earning, Orders, AOV), not the old per-show "Select Show" control.
+    """
+    expected_title_raw = clean(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
+    expected_title = normalize_identity(expected_title_raw)
+    expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
+    expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", ""))
+    if not expected_title:
+        return None
+
+    # Search is important for historical rows: only recent shows are initially
+    # rendered, while the input queries the full analytics history.
+    try:
+        search = page.locator(
+            'input[placeholder*="search shows" i], input[placeholder*="search" i], input[type="search"]'
+        ).first
+        if search.is_visible(timeout=1500):
+            search.fill(expected_title_raw, timeout=3000)
+            page.wait_for_timeout(1200)
+            module.info(f"analytics: searched Shows table for {expected_title_raw!r}")
+    except Exception as exc:
+        module.info(f"analytics: Shows table search unavailable error={exc}")
+
+    for attempt in range(1, 6):
+        try:
+            rows = page.locator("tbody tr, [role='row']")
+            count = min(rows.count(), 250)
+            for i in range(count):
+                tr = rows.nth(i)
+                try:
+                    if not tr.is_visible(timeout=100):
+                        continue
+                    text = clean(tr.inner_text(timeout=350))
+                except Exception:
+                    continue
+                normalized = normalize_identity(text)
+                if expected_title not in normalized:
+                    continue
+                parsed_date = parse_date(text)
+                if expected_date and parsed_date != expected_date:
+                    continue
+
+                cells = []
+                try:
+                    cells = [clean(x) for x in tr.locator("td, [role='cell']").all_inner_texts()]
+                except Exception:
+                    pass
+
+                # Current columns: Show | Date | Est. Sales | Est. Earning | Orders | AOV.
+                # Prefer positional cells; retain a regex fallback for minor markup changes.
+                gross = parse_money(cells[2]) if len(cells) > 2 else None
+                net = parse_money(cells[3]) if len(cells) > 3 else None
+                orders = parse_int(cells[4]) if len(cells) > 4 else None
+                aov = parse_money(cells[5]) if len(cells) > 5 else None
+                if gross is None or net is None:
+                    monies = re.findall(r"\$[\d,]+(?:\.\d{1,2})?", text)
+                    if gross is None and len(monies) >= 1:
+                        gross = parse_money(monies[0])
+                    if net is None and len(monies) >= 2:
+                        net = parse_money(monies[1])
+                    if aov is None and len(monies) >= 3:
+                        aov = parse_money(monies[2])
+
+                if gross is None and net is None:
+                    # "Still calculating your metrics" rows are real shows but
+                    # are not ready to persist as analytics yet.
+                    module.info(f"analytics: matched Shows row but metrics are not ready: {text[:180]!r}")
+                    return None
+
+                module.info(
+                    f"analytics: matched Shows row date={parsed_date or '?'} "
+                    f"sales={gross} earning={net} orders={orders} aov={aov}"
+                )
+                return {
+                    "title": expected_title_raw,
+                    "show_date": parsed_date or expected_date or None,
+                    "whatnot_live_id": expected_live_id or None,
+                    "detail_url": f"{module.BASE}/dashboard/live/{expected_live_id}" if expected_live_id else None,
+                    "gross_revenue": gross,
+                    "whatnot_net": net,
+                    "completed_earnings": None,
+                    "units_sold": orders,
+                    "buyers_count": None,
+                    "first_time_buyers": None,
+                    "returning_buyers": None,
+                    "shares_count": None,
+                    "show_duration": None,
+                    "max_concurrent_viewers": None,
+                    "total_views": None,
+                    "avg_order_value": aov,
+                    "giveaway_spend": None,
+                    "giveaways_count": None,
+                }
+        except Exception as exc:
+            module.info(f"analytics: Shows table scan {attempt}/5 failed error={exc}")
+        page.wait_for_timeout(750)
+
+    module.info(
+        f"analytics: requested show not found in Shows table after search "
+        f"title={expected_title_raw!r} date={expected_date or 'any'}"
+    )
+    return None
+
+
 def select_expected_show(module, page) -> bool:
     expected_title_raw = clean(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
     expected_title = normalize_identity(expected_title_raw)
@@ -399,6 +507,17 @@ def analytics(module, session):
                 page.wait_for_timeout(1200)
             module.info(f"analytics: Shows tab active on attempt {navigation_attempt}/3")
 
+            # Current Whatnot UI renders Analytics > Shows as a searchable
+            # table. Read the verified target row directly; it already contains
+            # Sales, Earnings, Orders and AOV and avoids mixing aggregate Overview
+            # totals into an individual show.
+            row = extract_expected_show_from_table(module, page)
+            if row is not None:
+                rows.append(row)
+                break
+
+            # Compatibility fallback for accounts still receiving the older
+            # per-show analytics UI.
             if clean(os.getenv("WHATNOT_EXPECTED_TITLE", "")):
                 selected = select_expected_show(module, page)
                 if selected:

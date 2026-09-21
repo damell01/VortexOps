@@ -6,15 +6,13 @@ const { spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
-const scraplingModes = new Set(['shows', 'seller-shows', 'reconcile-index', 'orders-batch', 'shipments-batch', 'ledger']);
+const scraplingModes = new Set(['shows', 'seller-shows', 'analytics', 'reconcile-index', 'orders-batch', 'shipments-batch', 'ledger']);
 const explicitBackendRaw = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
 const explicitBackend = explicitBackendRaw === 'scrapling' ? 'scrapling-stealthy' : explicitBackendRaw;
 const legacyLocal = explicitBackend === 'local';
-let backend = mode === 'analytics'
-  ? 'local'
-  : (scraplingModes.has(mode) && (!explicitBackend || legacyLocal)
-      ? 'scrapling-stealthy'
-      : (explicitBackend || 'local'));
+let backend = scraplingModes.has(mode) && (!explicitBackend || legacyLocal)
+  ? 'scrapling-stealthy'
+  : (explicitBackend || 'local');
 const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '0').trim() !== '0';
 const httpPreflightEnabled = String(process.env.WHATNOT_HTTP_PREFLIGHT || '0').trim() === '1';
 const httpPreflightStrict = String(process.env.WHATNOT_HTTP_PREFLIGHT_STRICT || '0').trim() === '1';
@@ -126,10 +124,6 @@ function exitFor(result,label) { if(result.error){process.stderr.write(`[whatnot
 
 if (backend === 'http-health') exitFor(runHttpHealth(),'HTTP health adapter');
 if (httpPreflightEnabled && backend !== 'attached') { const p=runHttpHealth(); const s=p.status==null?1:p.status; if((p.error||s!==0)&&httpPreflightStrict) process.exit(s||1); }
-if (mode === 'analytics') {
-  process.stderr.write('[whatnot] analytics backend=legacy-playwright-show-walk\n');
-  exitFor(runPlaywright(),'Playwright analytics runner');
-}
 if (scraplingModes.has(mode)) {
   const result=runScraplingStealthy(); const status=result.status==null?1:result.status;
   if(status===0) process.exit(0);

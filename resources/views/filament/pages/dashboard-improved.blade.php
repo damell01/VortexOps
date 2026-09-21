@@ -291,6 +291,13 @@
                         <x-heroicon-m-chevron-right class="ml-auto h-5 w-5 text-gray-300 group-hover:text-primary-500" />
                     </div>
                 </a>
+            <section>
+                <a href="{{ \\App\\Filament\\Pages\\PayrollOverview::getUrl() }}" class="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"><x-heroicon-m-banknotes class="h-5 w-5" /></div>
+                    <div class="min-w-0 flex-1"><div class="text-sm font-semibold text-gray-950 dark:text-white">Finance</div><div class="text-xs text-gray-500 dark:text-gray-400">Payroll, pay runs, payout readiness and profit-share reporting</div></div>
+                    <x-heroicon-m-chevron-right class="h-5 w-5 shrink-0 text-gray-300 group-hover:text-primary-500" />
+                </a>
+            </section>
             </section>
         @endif
 

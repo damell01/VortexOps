@@ -115,7 +115,7 @@ def snapshot(page) -> dict[str, Any]:
       const text = document.body?.innerText || '';
       const liveId = (location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0] || null;
       const wanted = [
-        'Estimated Sales','Gross Revenue','Revenue','Total Estimated Earnings','Estimated Earnings','Net Revenue',
+        'Estimated Sales','Gross Revenue','Revenue','Total Estimated Earnings','Estimated Earnings','Est. Earning','Est. Earnings','Net Revenue',
         'Completed Earnings','Units Sold','Orders','Buyers','First Time Buyers','Returning Buyers','Shares',
         'Show Duration','Max Concurrent Viewers','Total Views','Average Order Value','Avg Order Value',
         'Giveaway Spend','Giveaways'
@@ -177,7 +177,7 @@ def extract_show(page) -> dict[str, Any]:
         "whatnot_live_id": raw.get("live_id"),
         "detail_url": f"https://www.whatnot.com/dashboard/live/{raw.get('live_id')}" if raw.get("live_id") else raw.get("url"),
         "gross_revenue": parse_money(labels.get("Estimated Sales") or labels.get("Gross Revenue") or labels.get("Revenue")),
-        "whatnot_net": parse_money(labels.get("Total Estimated Earnings") or labels.get("Estimated Earnings") or labels.get("Net Revenue")),
+        "whatnot_net": parse_money(labels.get("Total Estimated Earnings") or labels.get("Estimated Earnings") or labels.get("Est. Earning") or labels.get("Est. Earnings") or labels.get("Net Revenue")),
         "completed_earnings": parse_money(labels.get("Completed Earnings")),
         "units_sold": parse_int(labels.get("Units Sold") or labels.get("Orders")),
         "buyers_count": parse_int(labels.get("Buyers")),

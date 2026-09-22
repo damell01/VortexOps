@@ -494,7 +494,16 @@ class InventoryItemResource extends Resource
                     TextInput::make('average_cost')
                         ->label('Current Avg Cost ($)')
                         ->numeric()
-                        ->prefix('
+                        ->prefix('$')
+                        ->formatStateUsing(fn ($state, $record) => $record
+                            ? number_format((float) ($record->costBasis() ?? $state ?? 0), 4, '.', '')
+                            : ($state ?? 0))
+                        ->disabled(fn ($record) => $record !== null)
+                        ->dehydrated(fn ($record) => $record === null)
+                        ->default(0)
+                        ->step(0.0001)
+                        ->helperText('Current FIFO average cost. This is calculated from stock on hand and updates when costed stock is received or consumed.'),
+                    TextInput::make('sale_price')
                         ->label('Sale Price / Target ($)')
                         ->numeric()
                         ->prefix('$')
@@ -502,8 +511,6 @@ class InventoryItemResource extends Resource
                         ->step(0.01)
                         ->placeholder('—')
                         ->helperText('What this should sell for')
-                        // Live so the margin below answers as the number is
-                        // typed — the two only mean anything together.
                         ->live(onBlur: true),
                     Placeholder::make('margin_potential')
                         ->label('Margin Potential')

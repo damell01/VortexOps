@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotReportingReconciler;
 use App\Services\WhatnotScraper;
+use App\Support\WhatnotBrowserLock;
 use App\Support\WhatnotPipelineLock;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -100,6 +101,26 @@ class SyncWhatnotReporting extends Command
             $this->error('Reporting sync did not start — '.$message);
             $this->line('Stop/wait for that process, then rerun. To intentionally wait, pass --wait=<seconds>.');
             return self::FAILURE;
+        }
+
+        // Scheduled runs are single-flight. Holding the coordinator is not enough:
+        // a direct/manual scraper may already own the shared browser profile. In that
+        // case --skip-if-busy must leave immediately instead of becoming a second
+        // long-lived PHP process waiting behind Chrome.
+        if ($this->option('skip-if-busy')) {
+            WhatnotBrowserLock::recoverIfStale();
+            $browserHolder = WhatnotBrowserLock::holder();
+
+            if ($browserHolder !== null && $browserHolder['alive']) {
+                WhatnotPipelineLock::release($lock);
+                $this->line("Reporting sync skipped — shared Whatnot browser is already active (PID {$browserHolder['pid']}).");
+                return self::SUCCESS;
+            }
+
+            // Close the tiny race between the preflight above and each scraper call.
+            // Any browser contention inside this scheduled run fails immediately;
+            // scheduled work is refreshed by the next cadence instead of piling up.
+            config(['vortex.whatnot.browser_lock_fail_fast' => true]);
         }
 
         $this->line('Coordinator lock acquired. Starting channel work now.');

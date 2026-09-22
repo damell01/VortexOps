@@ -44,7 +44,7 @@ class SyncWhatnotReporting extends Command
 
         $showLimit = max(1, min(30, (int) $this->option('show-limit')));
         $analyticsOnly = (bool) $this->option('analytics-only');
-        $analyticsLimit = $analyticsOnly ? PHP_INT_MAX : max(1, min(25, (int) $this->option('analytics-limit')));
+        $analyticsLimit = max(1, min(25, (int) $this->option('analytics-limit')));
         $shipmentBatch = max(1, min(30, (int) $this->option('shipment-batch')));
         $shipmentsOnly = (bool) $this->option('shipments-only');
         if ($shipmentsOnly && $analyticsOnly) {
@@ -141,7 +141,7 @@ class SyncWhatnotReporting extends Command
                     $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently missing gross/net; Seller Hub Past shows scanned once)");
                     $step++;
                     try {
-                        $analytics = $reconciler->backfillAnalytics($channel, $since, null, $progress);
+                        $analytics = $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress);
                         $remaining = $this->missingAnalyticsCount($channel->id, $since);
                         $this->line("     completed: {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped · {$remaining} remaining");
                     } catch (\Throwable $e) {

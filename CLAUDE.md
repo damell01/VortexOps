@@ -209,7 +209,27 @@ Channel routing: streamer's `channel_routing_rules` JSON array `[{channel, bank_
    - `receiveAllCasesForLine(PalletLine)` — auto-generates stubs if none exist
 5. `receivePallet(Pallet)` — validates all lines mapped, receives all
 
-WAC is recalculated on every receipt: `((existing_qty × existing_avg) + (incoming_qty × unit_cost)) / total_qty`.
+`products.average_cost` is a **live FIFO average of what's currently on hand**,
+not a lifetime average of everything ever bought. Every costed receipt opens
+an `InventoryLot` (`quantity`, `unit_cost`, `remaining_quantity`); every real
+depletion (a sale, a giveaway, damage, a physical-count shrinkage — not a
+transfer between locations, which doesn't change the total) consumes the
+oldest active lots first. `average_cost` is recomputed as
+`SUM(remaining_quantity × unit_cost) / SUM(remaining_quantity)` across a
+product's active lots, and holds at the last known value once every lot is
+depleted rather than resetting to 0. `App\Services\InventoryLotService` is
+the single place this lives — `open()`, `consume()`, `recompute()`,
+`releaseForPalletLine()` — used by `ReceivingService`, `InventoryService`,
+`ContainerBreakdownService`, `PalletCorrectionService` (cost corrections
+rewrite the specific lot a line opened, not the item's whole history), and
+`PalletArchiveService` (archiving a pallet releases its lots; restoring it
+reopens them). `total_units_received` is a separate, untouched lifetime-volume
+counter — it no longer feeds cost.
+
+Stock received before this shipped (or through a path that still doesn't
+lot-cost it) can leave a gap between on-hand quantity and lot coverage; run
+`php artisan inventory:backfill-lots --apply` to cover it with a synthetic
+lot priced at each item's current cost.
 
 ---
 

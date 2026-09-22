@@ -4,6 +4,7 @@ namespace Tests\Feature\Inventory;
 
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\User;
@@ -41,6 +42,19 @@ class InventoryServiceTest extends TestCase
             'inventory_item_id'     => $this->item->id,
             'inventory_location_id' => $this->location->id,
             'quantity'              => 100,
+        ]);
+
+        // Backs the fixture's starting stock with a lot, the way the backfill
+        // command does for pre-existing inventory — otherwise the weighted
+        // average below would only see the lot this test itself adds.
+        InventoryLot::create([
+            'product_id'         => $this->item->id,
+            'quantity'           => 100,
+            'unit_cost'          => 5.00,
+            'remaining_quantity' => 100,
+            'source'             => InventoryLot::SOURCE_SYNTHETIC,
+            'status'             => InventoryLot::STATUS_ACTIVE,
+            'received_at'        => now()->subDay(),
         ]);
     }
 
@@ -103,5 +117,57 @@ class InventoryServiceTest extends TestCase
         $this->assertEquals(30, (float) $movement->quantity);
         $this->assertEquals('Test restock', $movement->reason);
         $this->assertEquals(130, (float) InventoryStock::where('inventory_item_id', $this->item->id)->first()->quantity);
+    }
+
+    public function test_deduct_stock_consumes_the_oldest_lot_first(): void
+    {
+        // Fixture already has 100 @ $5 (older). Add a second, newer lot @ $9.
+        $this->service->addStock($this->item, $this->location, 50, 'opening', null, 9.00);
+
+        // Selling 120 should exhaust the $5 lot (100) before touching the $9 one (20 of 50 left).
+        $this->service->deductStock($this->item, $this->location, 120);
+
+        $oldLot = InventoryLot::where('unit_cost', 5.00)->first();
+        $newLot = InventoryLot::where('unit_cost', 9.00)->first();
+        $this->assertEquals(0, (float) $oldLot->remaining_quantity);
+        $this->assertEquals(30, (float) $newLot->remaining_quantity);
+
+        $this->item->refresh();
+        $this->assertEquals(9.0000, (float) $this->item->average_cost);
+    }
+
+    public function test_adjust_stock_decrease_consumes_lots_and_recomputes_average(): void
+    {
+        // 100 @ $5 on hand. Physical count finds only 60 — 40 shrank away.
+        $this->service->adjustStock($this->item, $this->location, 60, 'Physical count', 'adjustment');
+
+        $lot = InventoryLot::where('product_id', $this->item->id)->first();
+        $this->assertEquals(60, (float) $lot->remaining_quantity);
+
+        $this->item->refresh();
+        $this->assertEquals(5.0000, (float) $this->item->average_cost);
+    }
+
+    public function test_adjust_stock_increase_does_not_touch_lots_or_average_cost(): void
+    {
+        // Counting more than expected has no known cost behind it.
+        $this->service->adjustStock($this->item, $this->location, 150, 'Found extra stock', 'adjustment');
+
+        $lot = InventoryLot::where('product_id', $this->item->id)->first();
+        $this->assertEquals(100, (float) $lot->remaining_quantity);
+
+        $this->item->refresh();
+        $this->assertEquals(5.0000, (float) $this->item->average_cost);
+    }
+
+    public function test_average_cost_holds_at_last_known_value_once_sold_out(): void
+    {
+        $this->service->deductStock($this->item, $this->location, 100);
+
+        $this->item->refresh();
+        $this->assertEquals(0, (float) InventoryStock::where('inventory_item_id', $this->item->id)->first()->quantity);
+        // Sold out entirely, but the last real price paid stays as the answer
+        // until new stock arrives — not reset to 0.
+        $this->assertEquals(5.0000, (float) $this->item->average_cost);
     }
 }

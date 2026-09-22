@@ -15,35 +15,14 @@ use Decimal\Decimal;
 class InventoryCostService
 {
     /**
-     * Calculate and update weighted average cost when receiving inventory.
+     * Track a cost change and correct the item's average cost from it.
      *
-     * Formula: WAC = ((existing_qty × existing_avg_cost) + (incoming_qty × incoming_cost)) / total_qty
-     */
-    public function updateAverageCostFromReceipt(
-        InventoryItem $item,
-        float $incomingQuantity,
-        float $incomingCost,
-        ?int $vendorId = null
-    ): void {
-        $existingQty = (float) $item->totalQuantity();
-        $existingCost = (float) ($item->average_cost ?? 0);
-
-        if ($incomingQuantity <= 0) {
-            return;
-        }
-
-        $newTotalQty = $existingQty + $incomingQuantity;
-        $newAverageCost = $newTotalQty > 0
-            ? (($existingQty * $existingCost) + ($incomingQuantity * $incomingCost)) / $newTotalQty
-            : $incomingCost;
-
-        $item->update([
-            'average_cost' => round($newAverageCost, 4),
-        ]);
-    }
-
-    /**
-     * Track cost changes for audit trail and reporting.
+     * The actual cost math lives in PalletCorrectionService::correctUnitCost()
+     * — this used to keep its own separate full-recompute-from-PalletLine-
+     * history implementation, which used a different quantity basis
+     * (expected case counts, not what's actually still on hand) and could
+     * disagree with what the same correction did when made from the pallet
+     * screen instead of here. One implementation, two entry points.
      */
     public function recordCostChange(
         PalletLine $line,
@@ -62,44 +41,9 @@ class InventoryCostService
             'updated_by' => $userId,
         ]);
 
-        $line->update(['unit_cost' => $newCost]);
-
-        if ($line->inventory_item_id) {
-            $this->updateItemAverageFromAllReceipts($line->inventoryItem);
-        }
+        app(PalletCorrectionService::class)->correctUnitCost($line, $newCost);
 
         return $costRecord;
-    }
-
-    /**
-     * Recalculate average cost based on all historical receipts for an item.
-     */
-    public function updateItemAverageFromAllReceipts(InventoryItem $item): void
-    {
-        $receipts = PalletLine::where('inventory_item_id', $item->id)
-            ->whereHas('pallet', fn ($q) => $q->whereIn('status', ['received', 'processed']))
-            ->with('pallet')
-            ->get();
-
-        if ($receipts->isEmpty()) {
-            return;
-        }
-
-        $totalCost = 0;
-        $totalQty = 0;
-
-        foreach ($receipts as $line) {
-            $qty = (float) $line->case_count * (float) $line->quantity_per_case;
-            $cost = (float) ($line->unit_cost ?? 0);
-            $totalCost += $qty * $cost;
-            $totalQty += $qty;
-        }
-
-        if ($totalQty > 0) {
-            $item->update([
-                'average_cost' => round($totalCost / $totalQty, 4),
-            ]);
-        }
     }
 
     /**

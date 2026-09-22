@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\InventoryLocation;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\InventoryItem;
@@ -63,12 +64,15 @@ class PalletCorrectionService
     /**
      * Correct what this line's units cost.
      *
-     * The product's weighted average is rebuilt by removing the old figure's
-     * contribution and adding the new one, rather than by averaging the two —
-     * which would leave the mistake permanently baked into the number at a
-     * smaller weight. Units already sold have gone out at the old cost and
-     * cannot be revisited from here; this fixes the valuation going forward,
-     * which is what a cost correction can honestly claim to do.
+     * The receipt's own InventoryLot gets its unit_cost rewritten directly —
+     * a full replacement, never a blend, so the mistake can't stay baked into
+     * the average at a smaller weight. This is also strictly more honest
+     * than the item-wide arithmetic it replaced: it only re-prices whatever
+     * of THIS specific receipt is still in stock (its lot's
+     * remaining_quantity), not the item's entire history. Units from this
+     * lot already sold have gone out at the old cost and cannot be revisited
+     * from here — fixing the valuation going forward is what a cost
+     * correction can honestly claim to do.
      */
     public function correctUnitCost(PalletLine $line, float $unitCost): PalletLine
     {
@@ -86,6 +90,23 @@ class PalletCorrectionService
                 return $line->fresh();
             }
 
+            // A line can carry more than one lot — one per case-by-case
+            // receiveCase() call, or one from a batch receive — so every lot
+            // this line opened is corrected, not just the first found.
+            $lots = InventoryLot::where('pallet_line_id', $line->id)->get();
+
+            if ($lots->isNotEmpty()) {
+                InventoryLot::where('pallet_line_id', $line->id)->update(['unit_cost' => $unitCost]);
+                app(InventoryLotService::class)->recompute($item);
+                $item->update(['unit_cost' => $unitCost]);
+
+                return $line->fresh();
+            }
+
+            // No lot exists for this line — data received before lot
+            // tracking shipped, or before a backfill has covered it. Fall
+            // back to backing the old figure out of the item's lifetime
+            // average, the best available approximation without one.
             $units = $line->cases()->where('status', '!=', 'expected')->count()
                 * (float) $line->quantity_per_case;
 
@@ -97,8 +118,6 @@ class PalletCorrectionService
             $total   = (float) $fresh->total_units_received;
             $average = (float) $fresh->average_cost;
 
-            // Back the wrong figure out of the average, then put the right one
-            // in at the same weight.
             $value = ($total * $average) - ($units * $old) + ($units * $unitCost);
 
             $fresh->update([

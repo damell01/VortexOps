@@ -497,7 +497,7 @@ class InventoryItemResource extends Resource
                         ->prefix('$')
                         ->default(0)
                         ->step(0.0001)
-                        ->helperText('Auto-calculated from receiving history'),
+                        ->helperText('Live FIFO average of what\'s currently on hand — only what was paid for stock still in inventory, not everything ever bought. Holds at the last real cost once sold out, until new stock opens a fresh lot.'),
                     TextInput::make('sale_price')
                         ->label('Sale Price / Target ($)')
                         ->numeric()

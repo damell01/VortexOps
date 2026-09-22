@@ -76,7 +76,8 @@ class InventoryService
             ]);
 
             if (in_array($movementType, self::COSTED_INTAKE, true) && $unitCost !== null && $unitCost > 0) {
-                app(ReceivingService::class)->recalculateAverageCost($item, $quantity, $unitCost);
+                DB::table('products')->where('id', $item->id)->increment('total_units_received', $quantity);
+                app(InventoryLotService::class)->open($item, $quantity, $unitCost);
             }
 
             $this->notifyIfLowStock($item);
@@ -155,6 +156,14 @@ class InventoryService
 
             $before = (float) $stock->quantity;
             $stock->update(['quantity' => $newQuantity]);
+
+            // A drop is a real depletion (a show sale, a giveaway, shrinkage
+            // found on a count) and consumes lots FIFO; an increase has no
+            // known cost behind it, so it never did and still doesn't touch
+            // average_cost.
+            if ($diff < 0) {
+                app(InventoryLotService::class)->consume($item, abs($diff));
+            }
 
             $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
@@ -287,6 +296,7 @@ class InventoryService
 
             $before = (float) $stock->quantity;
             $stock->decrement('quantity', $quantity);
+            app(InventoryLotService::class)->consume($item, $quantity);
 
             $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,

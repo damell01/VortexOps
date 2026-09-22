@@ -43,9 +43,39 @@ class ReceivingServiceTest extends TestCase
         ]);
     }
 
+    /** Receives one case on a fresh pallet line, through the real public API. */
+    private function receiveOneCase(float $unitCost, float $qtyPerCase): void
+    {
+        $pallet = Pallet::create([
+            'vendor_id'  => $this->vendor->id,
+            'reference'  => 'PO-' . uniqid(),
+            'status'     => 'pending',
+            'created_by' => $this->user->id,
+        ]);
+
+        $line = PalletLine::create([
+            'pallet_id'             => $pallet->id,
+            'line_number'           => 1,
+            'description'           => 'Test Cards Box',
+            'inventory_item_id'     => $this->item->id,
+            'inventory_location_id' => $this->location->id,
+            'case_count'            => 1,
+            'quantity_per_case'     => $qtyPerCase,
+            'unit_cost'             => $unitCost,
+        ]);
+
+        $case = InventoryCase::create([
+            'pallet_line_id' => $line->id,
+            'barcode'        => 'CASE-' . uniqid(),
+            'status'         => 'expected',
+        ]);
+
+        $this->service->receiveCase($case);
+    }
+
     public function test_average_cost_calculates_correctly_on_first_receipt(): void
     {
-        $this->service->recalculateAverageCost($this->item, 100, 5.00);
+        $this->receiveOneCase(unitCost: 5.00, qtyPerCase: 100);
 
         $this->item->refresh();
         $this->assertEquals(5.0000, (float) $this->item->average_cost);
@@ -54,10 +84,11 @@ class ReceivingServiceTest extends TestCase
 
     public function test_average_cost_uses_weighted_average_across_receipts(): void
     {
-        // First receipt: 100 units @ $5
-        $this->service->recalculateAverageCost($this->item, 100, 5.00);
-        // Second receipt: 100 units @ $7
-        $this->service->recalculateAverageCost($this->item->fresh(), 100, 7.00);
+        // First receipt: 100 units @ $5. Second: 100 units @ $7. Nothing has
+        // sold between them, so every unit from both is still on hand — the
+        // lot-based average and the old lifetime one agree here.
+        $this->receiveOneCase(unitCost: 5.00, qtyPerCase: 100);
+        $this->receiveOneCase(unitCost: 7.00, qtyPerCase: 100);
 
         $this->item->refresh();
         // Expected: (100*5 + 100*7) / 200 = 6.00
@@ -67,13 +98,29 @@ class ReceivingServiceTest extends TestCase
 
     public function test_average_cost_skips_zero_cost_receipts(): void
     {
-        $this->service->recalculateAverageCost($this->item, 50, 4.00);
-        $this->service->recalculateAverageCost($this->item->fresh(), 10, 0);
+        $this->receiveOneCase(unitCost: 4.00, qtyPerCase: 50);
+        $this->receiveOneCase(unitCost: 0, qtyPerCase: 10);
 
         $this->item->refresh();
-        // Cost should remain 4.00, only units_received increments
+        // Cost should remain 4.00 (no lot opens for a $0 receipt); units_received still counts it.
         $this->assertEquals(4.0000, (float) $this->item->average_cost);
         $this->assertEquals(60, (float) $this->item->total_units_received);
+    }
+
+    public function test_average_cost_reflects_only_what_is_still_on_hand(): void
+    {
+        // The behavior this whole rework was for: buy 100 @ $10 (avg $10),
+        // sell 90, buy 10 more @ $50. The old lifetime-cumulative average
+        // would land on ~$13.64 (still counting the 90 units gone). The
+        // correct answer only weighs what's actually left: 10 @ $10 and
+        // 10 @ $50 = $30.
+        $this->receiveOneCase(unitCost: 10.00, qtyPerCase: 100);
+        $this->assertEquals(10.0000, (float) $this->item->fresh()->average_cost);
+
+        app(\App\Services\InventoryService::class)->deductStock($this->item, $this->location, 90);
+        $this->receiveOneCase(unitCost: 50.00, qtyPerCase: 10);
+
+        $this->assertEquals(30.0000, (float) $this->item->fresh()->average_cost);
     }
 
     public function test_receive_case_credits_stock_and_logs_movement(): void

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\InventoryCase;
 use App\Models\InventoryLocation;
+use App\Models\InventoryLot;
 use App\Models\Product;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -231,8 +232,9 @@ class ReceivingService
     /**
      * The weighted average an item would carry after taking this much in.
      *
-     * Mirrors recalculateAverageCost() rather than calling it, because the
-     * whole point here is to show the number without writing it.
+     * Mirrors InventoryLotService::open() rather than calling it, because the
+     * whole point here is to show the number without writing it: what's
+     * currently on hand (active lots), plus this hypothetical receipt.
      */
     private function projectAverageCost(?Product $item, float $incomingQty, float $incomingUnitCost): ?float
     {
@@ -240,8 +242,14 @@ class ReceivingService
             return null;
         }
 
-        $existingQty = (float) $item->total_units_received;
-        $existingAvg = (float) $item->average_cost;
+        $totals = InventoryLot::where('product_id', $item->id)
+            ->where('status', InventoryLot::STATUS_ACTIVE)
+            ->where('remaining_quantity', '>', 0)
+            ->selectRaw('SUM(remaining_quantity * unit_cost) as val, SUM(remaining_quantity) as qty')
+            ->first();
+
+        $existingQty = (float) ($totals->qty ?? 0);
+        $existingVal = (float) ($totals->val ?? 0);
         $totalQty    = $existingQty + $incomingQty;
 
         if ($totalQty <= 0) {
@@ -249,7 +257,7 @@ class ReceivingService
         }
 
         return round(
-            (($existingQty * $existingAvg) + ($incomingQty * $incomingUnitCost)) / $totalQty,
+            ($existingVal + ($incomingQty * $incomingUnitCost)) / $totalQty,
             4,
         );
     }
@@ -636,8 +644,8 @@ class ReceivingService
                 'updated_at'        => $now,
             ])->toArray());
 
-            // Single WAC recalculation for the entire batch, including allocated shipping cost
-            $this->recalculateAverageCost($item, $totalQty, $totalUnitCost);
+            // Single cost update for the entire batch, including allocated shipping cost
+            $this->receiveCost($item, $totalQty, $totalUnitCost, $line);
 
             return $count;
         });
@@ -751,43 +759,22 @@ class ReceivingService
             'created_by'        => Auth::id(),
         ]);
 
-        $this->recalculateAverageCost($item, $qty, $unitCost);
+        $this->receiveCost($item, $qty, $unitCost, $line);
     }
 
     /**
-     * Weighted average cost: (existing_qty * existing_avg + new_qty * new_cost) / total_qty
-     * If unit_cost is 0, skip the cost update (free samples, etc.).
+     * Track this receipt: total volume always, a cost lot only when a real
+     * cost was paid (free samples etc. still count toward volume, but a
+     * costless lot would only corrupt the average).
      */
-    public function recalculateAverageCost(Product $item, float $incomingQty, float $incomingUnitCost): void
+    private function receiveCost(Product $item, float $qty, float $unitCost, PalletLine $line): void
     {
-        if ($incomingUnitCost <= 0) {
-            // Use atomic increment and sync the in-memory model from the return value
-            DB::table('products')
-                ->where('id', $item->id)
-                ->increment('total_units_received', $incomingQty);
-            $item->total_units_received = (float) $item->total_units_received + $incomingQty;
-            return;
-        }
+        DB::table('products')->where('id', $item->id)->increment('total_units_received', $qty);
+        $item->total_units_received = (float) $item->total_units_received + $qty;
 
-        // Lock the row so concurrent receipts (barcode scan + batch receive) don't race on WAC.
-        // This must be called from within an existing DB::transaction (receiveCaseBatch already provides one).
-        $fresh = Product::lockForUpdate()->findOrFail($item->id);
-
-        $existingQty = (float) $fresh->total_units_received;
-        $existingAvg = (float) $fresh->average_cost;
-        $totalQty    = $existingQty + $incomingQty;
-
-        $newAvg = $totalQty > 0
-            ? (($existingQty * $existingAvg) + ($incomingQty * $incomingUnitCost)) / $totalQty
-            : $incomingUnitCost;
-
-        $fresh->update([
-            'average_cost'         => round($newAvg, 4),
-            'total_units_received' => $totalQty,
+        app(InventoryLotService::class)->open($item, $qty, $unitCost, [
+            'pallet_line_id' => $line->id,
+            'received_by'    => Auth::id(),
         ]);
-
-        // Sync in-memory model so callers that chain multiple lines see fresh values
-        $item->average_cost         = $fresh->average_cost;
-        $item->total_units_received = $fresh->total_units_received;
     }
 }

@@ -144,20 +144,29 @@ class PalletArchiveService
                     }
                 }
 
-                Product::query()->whereKey($effect['product_id'])->update([
-                    'total_units_received' => DB::raw('GREATEST(0, total_units_received - ' . (float) $effect['quantity'] . ')'),
-                ]);
+                // GREATEST() is MySQL-only and has no SQLite equivalent (the
+                // test suite's driver), so this is done in PHP rather than
+                // as a single DB-specific raw expression.
+                $product = Product::lockForUpdate()->find($effect['product_id']);
+                if ($product) {
+                    $product->update([
+                        'total_units_received' => max(0, (float) $product->total_units_received - (float) $effect['quantity']),
+                    ]);
+                }
             }
 
-            $productIds = collect($preview['effects'])->pluck('product_id')->unique();
             $pallet->delete();
 
             foreach ($preview['delete_candidates'] as $candidate) {
                 Product::find($candidate['id'])?->delete();
             }
 
-            foreach ($productIds as $productId) {
-                $this->recalculateReceiptCost((int) $productId);
+            // Undo this receipt's contribution to cost — releasing each
+            // line's lot(s) and recomputing leaves whatever other pallets
+            // already gave the product intact, rather than re-deriving the
+            // average from every historical PalletLine the way this used to.
+            foreach ($pallet->lines as $line) {
+                app(InventoryLotService::class)->releaseForPalletLine($line);
             }
 
             return $preview;
@@ -178,7 +187,6 @@ class PalletArchiveService
                 ->get()
                 ->groupBy(fn ($movement) => $movement->inventory_item_id . ':' . ($movement->from_location_id ?? 0));
 
-            $productIds = [];
             foreach ($pallet->lines as $line) {
                 if (! $line->inventory_item_id) continue;
 
@@ -189,6 +197,15 @@ class PalletArchiveService
                 $receivedQty = $this->receivedQuantityForLine($line);
                 if ($receivedQty > 0) {
                     $product->increment('total_units_received', $receivedQty);
+
+                    // Recreates the lot archiving released, priced at what
+                    // this line actually paid — symmetric with archive()'s
+                    // releaseForPalletLine(), and folds straight into
+                    // whatever other lots the product already carries.
+                    app(InventoryLotService::class)->open($product, $receivedQty, (float) $line->unit_cost, [
+                        'pallet_line_id' => $line->id,
+                        'received_by'    => auth()->id(),
+                    ]);
                 }
 
                 if ($line->inventory_location_id) {
@@ -216,11 +233,6 @@ class PalletArchiveService
                     }
                 }
 
-                $productIds[] = $product->id;
-            }
-
-            foreach (array_unique($productIds) as $productId) {
-                $this->recalculateReceiptCost((int) $productId);
             }
         });
     }
@@ -249,34 +261,5 @@ class PalletArchiveService
             ->exists();
 
         return ! $hasOtherOperationalMovement;
-    }
-
-    private function recalculateReceiptCost(int $productId): void
-    {
-        $product = Product::withTrashed()->find($productId);
-        if (! $product) return;
-
-        $receipts = $product->palletLines()
-            ->whereHas('pallet', fn ($q) => $q->whereIn('status', ['received', 'processed']))
-            ->get();
-
-        if ($receipts->isEmpty()) {
-            if (! $product->trashed()) {
-                $product->forceFill(['average_cost' => (float) ($product->unit_cost ?? 0)])->save();
-            }
-            return;
-        }
-
-        $qty = 0.0;
-        $cost = 0.0;
-        foreach ($receipts as $line) {
-            $lineQty = $line->totalQuantityExpected();
-            $qty += $lineQty;
-            $cost += $lineQty * (float) $line->unit_cost;
-        }
-
-        if ($qty > 0 && ! $product->trashed()) {
-            $product->forceFill(['average_cost' => round($cost / $qty, 4)])->save();
-        }
     }
 }

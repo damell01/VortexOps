@@ -151,7 +151,7 @@ class ReceivingSessionService
         DB::transaction(function () use ($session, &$totalCases, &$lotsCreated, &$skipped) {
             $session->update(['status' => ReceivingSession::STATUS_REVIEWING]);
 
-            foreach ($session->palletLines()->with(['pallet', 'product', 'lot'])->get() as $line) {
+            foreach ($session->palletLines()->with(['pallet', 'product'])->get() as $line) {
                 if (! $line->inventory_item_id || ! $line->inventory_location_id) {
                     $skipped++;
                     continue;
@@ -160,22 +160,18 @@ class ReceivingSessionService
                 $cases = $this->receiving->receiveAllCasesForLine($line);
                 $totalCases += $cases;
 
-                // Create inventory lot for this line if not already created
-                if (! $line->lot) {
-                    InventoryLot::create([
-                        'product_id'          => $line->inventory_item_id,
-                        'pallet_line_id'      => $line->id,
+                // receiveAllCasesForLine() already opened this line's lot (a
+                // costed receipt always does, per InventoryLotService::open())
+                // — attach this session's paperwork to it rather than
+                // creating a second, duplicate lot for the same receipt.
+                $lot = InventoryLot::where('pallet_line_id', $line->id)->latest('id')->first();
+
+                if ($lot) {
+                    $lot->update([
                         'receiving_session_id' => $session->id,
-                        'received_by'         => Auth::id(),
-                        'quantity'            => $line->totalQuantityExpected(),
-                        'unit_cost'           => $line->unit_cost,
-                        'remaining_quantity'  => $line->totalQuantityExpected(),
-                        'supplier_invoice'    => $session->invoice_number,
-                        'purchase_order'      => $session->purchase_order,
-                        'vendor_sku'          => $line->vendor_description,
-                        'source'              => InventoryLot::SOURCE_RECEIVED,
-                        'status'              => InventoryLot::STATUS_ACTIVE,
-                        'received_at'         => now(),
+                        'supplier_invoice'     => $session->invoice_number,
+                        'purchase_order'       => $session->purchase_order,
+                        'vendor_sku'           => $line->vendor_description,
                     ]);
                     $lotsCreated++;
                 }

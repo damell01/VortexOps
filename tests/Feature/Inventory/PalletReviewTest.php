@@ -58,6 +58,16 @@ class PalletReviewTest extends TestCase
             'total_units_received' => 10, 'is_active' => true,
         ]);
 
+        \App\Models\InventoryLot::create([
+            'product_id'         => $this->item->id,
+            'quantity'           => 10,
+            'unit_cost'          => 8,
+            'remaining_quantity' => 10,
+            'source'             => \App\Models\InventoryLot::SOURCE_SYNTHETIC,
+            'status'             => \App\Models\InventoryLot::STATUS_ACTIVE,
+            'received_at'        => now()->subDay(),
+        ]);
+
         $this->pallet = Pallet::create([
             'vendor_id' => $vendor->id, 'reference' => 'PO-REVIEW', 'status' => 'receiving',
             'shipping_cost' => 30, 'payment_fees' => 20,

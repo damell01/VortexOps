@@ -140,6 +140,7 @@ class SyncWhatnotReporting extends Command
         $this->line('Coordinator lock acquired. Starting channel work now.');
         $progress = function (string $line) {
             $this->line('      <fg=gray>'.OutputFormatter::escape($line).'</>');
+            $this->output->getOutput()->flush();
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
             if (in_array($state['status'] ?? null, ['queued', 'running'], true)) {
                 $state['status'] = 'running';

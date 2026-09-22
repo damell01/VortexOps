@@ -673,6 +673,10 @@ def main():
             result = batch(session, True)
         elif MODE == 'ledger':
             result = ledger(session)
+        elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index')):
+            result = globals()['reconcile_index'](session)
+        elif MODE == 'historical-analytics' and callable(globals().get('historical_analytics')):
+            result = globals()['historical_analytics'](session)
         else:
             fail(f"SCRAPLING_MODE_UNSUPPORTED: {MODE}")
     json.dump(result, sys.stdout, separators=(',', ':'))

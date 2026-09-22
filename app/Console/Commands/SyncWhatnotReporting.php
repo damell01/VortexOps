@@ -147,13 +147,13 @@ class SyncWhatnotReporting extends Command
                 }
 
                 if (! $analyticsOnly) {
-                    $this->line("  {$step}. Refresh latest show index / analytics ({$showLimit} shows)");
+                    $this->line("  {$step}. Discover Current / Upcoming / Past shows (Scrapling Seller Hub)");
                     $step++;
                     try {
-                        $result = $scraper->importShows(channel: $channel, limit: $showLimit, debug: false, withOrders: false, onProgress: $progress);
-                        $this->line('     created '.($result['created'] ?? 0).', updated '.($result['updated'] ?? 0));
+                        $result = $reconciler->discoverShows($channel, $progress);
+                        $this->line('     created '.($result['created'] ?? 0).', refreshed '.($result['updated'] ?? 0).', skipped '.($result['skipped'] ?? 0));
                     } catch (\Throwable $e) {
-                        $this->warn('     show refresh failed: '.$e->getMessage());
+                        $this->warn('     show discovery failed: '.$e->getMessage());
                     }
                 }
 

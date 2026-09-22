@@ -268,7 +268,7 @@ class WhatnotScraper
 
     protected function withBrowserLock(callable $fn,?int $waitSeconds=null)
     {
-        $waitSeconds??=(int)config('vortex.whatnot.browser_lock_wait',1200);$lock=\App\Support\WhatnotBrowserLock::make();if(!$lock->get()){self::announceLockWait();try{$lock->block($waitSeconds);}catch(\Illuminate\Contracts\Cache\LockTimeoutException $e){throw new \RuntimeException('Timed out waiting for the shared Whatnot browser lock.',0,$e);}}try{return$fn();}finally{$lock->release();}
+        $waitSeconds??=(int)config('vortex.whatnot.browser_lock_wait',1200);$lock=\App\Support\WhatnotBrowserLock::make();if(!$lock->get()){if((bool)config('vortex.whatnot.browser_lock_fail_fast',false)){throw new \RuntimeException('Shared Whatnot browser is already active; scheduled run will not wait or pile up.');}self::announceLockWait();try{$lock->block($waitSeconds);}catch(\Illuminate\Contracts\Cache\LockTimeoutException $e){throw new \RuntimeException('Timed out waiting for the shared Whatnot browser lock.',0,$e);}}try{return$fn();}finally{$lock->release();}
     }
 
     public static function announceLockWait():void

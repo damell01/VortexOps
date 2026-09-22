@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Jobs\RunWhatnotSyncJob;
+use App\Jobs\RunWhatnotReportingJob;
 use App\Jobs\SyncWhatnotShipmentsJob;
 use App\Models\Setting;
 use App\Models\WhatnotChannel;
@@ -39,6 +40,38 @@ class WhatnotSyncPage extends Page
     public function getView(): string
     {
         return 'filament.pages.whatnot-sync';
+    }
+
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->isSuperAdmin();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
+    public function getReportingJobProperty(): array
+    {
+        return json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
+    }
+
+    public function runReporting(string $mode): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+        abort_unless(in_array($mode, ['test', 'freshness', 'full'], true), 422);
+        $active = $this->reportingJob;
+        if (in_array($active['status'] ?? null, ['queued', 'running'], true)) {
+            Notification::make()->title('A Whatnot job is already active')->warning()->send();
+            return;
+        }
+        Setting::set('whatnot_ui_job', json_encode([
+            'mode' => $mode, 'status' => 'queued', 'launched_by' => auth()->id(),
+            'queued_at' => now()->toIso8601String(), 'phase' => 'Waiting for queue worker',
+        ]));
+        RunWhatnotReportingJob::dispatch($mode, (int) auth()->id());
+        Notification::make()->title(ucfirst($mode).' Whatnot job queued')->success()->send();
     }
 
     // ── Computed properties for the view ──────────────────────────────────────

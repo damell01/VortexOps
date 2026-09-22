@@ -16,7 +16,10 @@ class RunWhatnotReportingJob implements ShouldQueue
     public int $tries = 1;
     public int $timeout = 14400;
 
-    public function __construct(public readonly string $mode, public readonly int $launchedBy) {}
+    public function __construct(public readonly string $mode, public readonly int $launchedBy)
+    {
+        $this->onQueue('whatnot');
+    }
 
     public function handle(): void
     {
@@ -31,7 +34,7 @@ class RunWhatnotReportingJob implements ShouldQueue
             $code = Artisan::call('whatnot:sync-reporting', $args);
             $output = trim(Artisan::output());
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
-            Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'output'=>mb_substr($output,-12000)])));
+            Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'phase'=>$code===0?'Pipeline completed successfully':'Pipeline failed','output'=>$output !== '' ? mb_substr($output,-12000) : 'Command completed without captured console output.'])));
             if ($code !== 0) throw new \RuntimeException("Whatnot reporting exited with code {$code}");
         } catch (\Throwable $e) {
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];

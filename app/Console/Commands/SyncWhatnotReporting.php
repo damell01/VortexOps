@@ -26,6 +26,7 @@ class SyncWhatnotReporting extends Command
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
         {--skip-if-busy : Exit cleanly if another Whatnot pipeline is active}
         {--test : Production smoke test: one channel and one item through each data phase}
+        {--max-runtime=10800 : Stop starting new channel work after this many seconds}
         {--dry-run : Show the plan and coverage without syncing}';
 
     protected $description = 'Keep Whatnot show analytics, shipments, and ledger reporting complete from a hard start date';
@@ -56,6 +57,8 @@ class SyncWhatnotReporting extends Command
         $withOrders = ! $shipmentsOnly && ! $analyticsOnly && ! (bool) $this->option('without-orders');
         $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
+        $maxRuntime = max(300, min(21600, (int) $this->option('max-runtime')));
+        $startedAt = microtime(true);
         $testMode = (bool) $this->option('test');
         if ($testMode) {
             $showLimit = 1;
@@ -154,6 +157,10 @@ class SyncWhatnotReporting extends Command
 
         try {
             foreach ($channels as $index => $channel) {
+                if (! $testMode && (microtime(true) - $startedAt) >= $maxRuntime) {
+                    $this->warn("Runtime ceiling reached ({$maxRuntime}s); stopping cleanly before the next channel. The next scheduled pass will continue.");
+                    break;
+                }
                 $position = $index + 1;
                 $step = 1;
                 $this->info("[{$position}/{$channels->count()}] {$channel->name} (@{$channel->whatnot_username})");

@@ -18,10 +18,6 @@
 
 <x-filament-panels::page>
     <style>
-        .fi-sidebar { display:none!important; }
-        .fi-topbar-open-sidebar-btn,.fi-topbar-close-sidebar-btn { display:none!important; }
-        .fi-main-ctn { margin-inline-start:0!important; }
-        .fi-main { width:100%!important;max-width:none!important; }
         .vx-show-shell{--vx-border:#e2e8f0;--vx-muted:#64748b;--vx-ink:#0f172a}
         .dark .vx-show-shell{--vx-border:#334155;--vx-muted:#94a3b8;--vx-ink:#f8fafc}
         .vx-summary{border:1px solid var(--vx-border);border-radius:16px;background:#fff;padding:18px;min-height:108px}

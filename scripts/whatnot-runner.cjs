@@ -127,7 +127,8 @@ if (httpPreflightEnabled && backend !== 'attached') { const p=runHttpHealth(); c
 if (scraplingModes.has(mode)) {
   const result=runScraplingStealthy(); const status=result.status==null?1:result.status;
   if(status===0) process.exit(0);
-  if(fallbackEnabled && !new Set([3,4,5]).has(status)) exitFor(runPlaywright(),'Playwright fallback');
+  // Production data modes are Scrapling-only. Never silently change browser
+  // engines after a Scrapling failure; surface the real failure to operations.
   exitFor(result,'Scrapling StealthySession runner');
 }
 if (backend === 'scrapling-stealthy') process.stderr.write(`[whatnot] mode=${mode} is an auth/diagnostic utility mode; retaining the existing browser utility runner.\n`);

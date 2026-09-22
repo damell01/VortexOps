@@ -400,9 +400,9 @@ def main() -> None:
         analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
         analytics_lives_helper.install(module)
         if mode == "reconcile-index":
-            module.reconcile_index_handler = lambda session: analytics_lives_helper.reconcile_index(module, session)
+            module.__dict__["reconcile_index"] = lambda session: analytics_lives_helper.reconcile_index(module, session)
         elif mode == "historical-analytics":
-            module.historical_analytics_handler = lambda session: analytics_lives_helper.historical_analytics(module, session)
+            module.__dict__["historical_analytics"] = lambda session: analytics_lives_helper.historical_analytics(module, session)
         log(f"analytics extractor=seller-hub-lives ({mode})")
     else:
         log("analytics extractor=account-analytics")

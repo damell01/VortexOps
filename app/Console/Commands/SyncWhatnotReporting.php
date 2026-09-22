@@ -135,6 +135,22 @@ class SyncWhatnotReporting extends Command
 
         $this->line('Coordinator lock acquired. Starting channel work now.');
         $progress = fn (string $line) => $this->line('      <fg=gray>'.OutputFormatter::escape($line).'</>');
+        $retry = function (callable $work, string $phase) use ($progress) {
+            $last = null;
+            for ($attempt = 1; $attempt <= 2; $attempt++) {
+                try {
+                    return $work();
+                } catch (\Throwable $e) {
+                    $last = $e;
+                    if ($attempt < 2) {
+                        $progress("{$phase}: transient failure; retrying once in 3 seconds — {$e->getMessage()}");
+                        sleep(3);
+                    }
+                }
+            }
+            throw $last;
+        };
+        $smoke = [];
 
         try {
             foreach ($channels as $index => $channel) {
@@ -145,7 +161,8 @@ class SyncWhatnotReporting extends Command
                 if ($shipmentsOnly) {
                     $this->line("  {$step}. Historical shipments / fulfillment ({$shipmentBatch}-show batches)");
                     try {
-                        $shipments = $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress);
+                        $shipments = $retry(fn () => $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress), 'shipments');
+                    if ($testMode) $smoke['Shipments'] = true;
                         $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
                     } catch (\Throwable $e) {
                         $this->warn('     shipment reconciliation failed: '.$e->getMessage());
@@ -160,7 +177,15 @@ class SyncWhatnotReporting extends Command
                     $this->line("  {$step}. Discover Current / Upcoming / Past shows (Scrapling Seller Hub)");
                     $step++;
                     try {
-                        $result = $reconciler->discoverShows($channel, $progress);
+                        $result = $retry(fn () => $reconciler->discoverShows($channel, $progress), 'discovery');
+                        if ($testMode) {
+                            $counts = $result['counts'] ?? [];
+                            $smoke['Authentication / channel'] = true;
+                            $smoke['Current discovery'] = array_key_exists('current', $counts);
+                            $smoke['Upcoming discovery'] = array_key_exists('upcoming', $counts);
+                            $smoke['Past discovery'] = (int) ($counts['past'] ?? 0) > 0;
+                            $smoke['Show DB upsert'] = (($result['created'] ?? 0) + ($result['updated'] ?? 0)) > 0;
+                        }
                         $this->line('     created '.($result['created'] ?? 0).', refreshed '.($result['updated'] ?? 0).', skipped '.($result['skipped'] ?? 0));
                     } catch (\Throwable $e) {
                         $this->warn('     show discovery failed: '.$e->getMessage());
@@ -172,7 +197,8 @@ class SyncWhatnotReporting extends Command
                     $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently missing gross/net; Seller Hub Past shows scanned once)");
                     $step++;
                     try {
-                        $analytics = $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress);
+                        $analytics = $retry(fn () => $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress), 'analytics');
+                    if ($testMode) $smoke['Analytics'] = true;
                         $remaining = $this->missingAnalyticsCount($channel->id, $since);
                         $this->line("     completed: {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped · {$remaining} remaining");
                     } catch (\Throwable $e) {
@@ -188,7 +214,8 @@ class SyncWhatnotReporting extends Command
                     $this->line("  {$step}. Authoritative orders / buyers ({$orderBatch}-show batches)");
                     $step++;
                     try {
-                        $orders = $reconciler->reconcileOrders($channel, $since, $orderBatch, $progress);
+                        $orders = $retry(fn () => $reconciler->reconcileOrders($channel, $since, $orderBatch, $progress), 'orders');
+                        if ($testMode) $smoke['Orders'] = true;
                         $this->line("     {$orders['checked']} checked · {$orders['created']} current rows · {$orders['replaced']} old rows replaced · {$orders['rejected']} rejected · {$orders['skipped']} skipped");
                     } catch (\Throwable $e) {
                         $this->warn('     order reconciliation failed: '.$e->getMessage());
@@ -198,7 +225,8 @@ class SyncWhatnotReporting extends Command
                 $this->line("  {$step}. Missing analytics (up to {$analyticsLimit} this run)");
                 $step++;
                 try {
-                    $analytics = $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress);
+                    $analytics = $retry(fn () => $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress), 'analytics');
+                    if ($testMode) $smoke['Analytics'] = true;
                     $this->line("     {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped");
                 } catch (\Throwable $e) {
                     $this->warn('     analytics backfill failed: '.$e->getMessage());
@@ -207,7 +235,8 @@ class SyncWhatnotReporting extends Command
                 $this->line("  {$step}. Shipments / fulfillment ({$shipmentBatch}-show batches)");
                 $step++;
                 try {
-                    $shipments = $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress);
+                    $shipments = $retry(fn () => $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress), 'shipments');
+                    if ($testMode) $smoke['Shipments'] = true;
                     $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
                 } catch (\Throwable $e) {
                     $this->warn('     shipment reconciliation failed: '.$e->getMessage());
@@ -215,7 +244,8 @@ class SyncWhatnotReporting extends Command
 
                 $this->line("  {$step}. Ledger / post-show adjustments");
                 try {
-                    $ledger = $scraper->importLedger($channel, $since->toDateString(), today()->toDateString(), false);
+                    $ledger = $retry(fn () => $scraper->importLedger($channel, $since->toDateString(), today()->toDateString(), false), 'ledger');
+                    if ($testMode) $smoke['Ledger'] = true;
                     $this->line('     ledger rows created '.($ledger['created'] ?? 0).', updated '.($ledger['updated'] ?? 0));
                 } catch (\Throwable $e) {
                     $this->warn('     ledger refresh failed: '.$e->getMessage());
@@ -234,6 +264,23 @@ class SyncWhatnotReporting extends Command
 
         $this->info($shipmentsOnly ? 'Historical shipment backfill finished.' : 'Reporting sync finished.');
         $this->reportCoverage($channels->pluck('id')->all(), $since);
+
+        if ($testMode) {
+            $smoke['Browser cleanup'] = WhatnotBrowserLock::holder() === null;
+            $expected = ['Authentication / channel','Current discovery','Upcoming discovery','Past discovery','Show DB upsert','Orders','Analytics','Shipments','Ledger','Browser cleanup'];
+            $rows = [];
+            $passed = true;
+            foreach ($expected as $phase) {
+                $ok = (bool) ($smoke[$phase] ?? false);
+                $passed = $passed && $ok;
+                $rows[] = [$phase, $ok ? 'PASS' : 'FAIL'];
+            }
+            $this->newLine();
+            $this->table(['Production smoke test', 'Result'], $rows);
+            $this->line('RESULT: '.($passed ? '<fg=green>PASS</>' : '<fg=red>FAIL</>'));
+            return $passed ? self::SUCCESS : self::FAILURE;
+        }
+
         return self::SUCCESS;
     }
 

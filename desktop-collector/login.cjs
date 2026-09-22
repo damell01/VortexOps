@@ -56,7 +56,7 @@ if (fs.existsSync(CONFIG_PATH)) {
 
 const chrome = config.chrome_path ? path.resolve(config.chrome_path) : detectChrome();
 const profile = config.profile_dir ? path.resolve(config.profile_dir) : DEFAULT_PROFILE;
-const cacheDir = path.join(APP_DIR, 'ChromeCache');
+const cacheDir = path.join(os.tmpdir(), 'VortexOps-Whatnot-ChromeCache');
 
 if (!chrome || !fs.existsSync(chrome)) {
   console.error('Google Chrome was not found. Set chrome_path in desktop-collector/config.json.');
@@ -84,6 +84,8 @@ console.log('');
 const child = spawn(chrome, [
   `--user-data-dir=${profile}`,
   `--disk-cache-dir=${cacheDir}`,
+  `--media-cache-dir=${cacheDir}`,
+  '--disk-cache-size=1',
   '--disable-gpu-shader-disk-cache',
   '--no-first-run',
   '--no-default-browser-check',

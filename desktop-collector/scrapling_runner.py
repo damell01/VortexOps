@@ -127,7 +127,7 @@ def prepare_page(page) -> None:
 
 def extract_show(page) -> dict[str, Any]:
     raw = page.evaluate(
-        """
+        r"""
         () => {
           const text = document.body?.innerText || '';
           const title = document.querySelector('h1,h2')?.textContent?.trim() || null;
@@ -251,7 +251,7 @@ def analytics_mode(session: DynamicSession) -> list[dict[str, Any]]:
 
 def extract_orders(page) -> list[dict[str, Any]]:
     return page.evaluate(
-        """
+        r"""
         () => {
           const parsePrice = (s) => {
             if (!s) return null;
@@ -334,7 +334,7 @@ def batch_mode(session: DynamicSession, shipments: bool) -> list[dict[str, Any]]
 
 def extract_shipments(page) -> list[dict[str, Any]]:
     return page.evaluate(
-        """
+        r"""
         () => {
           const rows = [];
           for (const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')) {

@@ -1,5 +1,44 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-6" wire:poll.3s>
+        @php($job = $this->reportingJob)
+        <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 p-6 space-y-4">
+            <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+                <div class="flex-1">
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Scrapling Production Control</h2>
+                    <p class="text-xs text-gray-500 mt-1">Super-admin only. Launches the same coordinated pipeline used by production schedules.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button wire:click="runReporting('test')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">Run Smoke Test</button>
+                    <button wire:click="runReporting('freshness')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">Run Freshness Sync</button>
+                    <button wire:click="runReporting('full')" wire:confirm="Run the full Whatnot reconciliation from July 1 forward?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700">Run Full Reconciliation</button>
+                </div>
+            </div>
+            @if(!empty($job))
+                <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $job['mode'] ?? 'job' }}</span>
+                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1">{{ $job['phase'] ?? 'Waiting for status…' }}</p>
+                        </div>
+                        <span @class([
+                            'rounded-full px-2.5 py-1 text-xs font-semibold',
+                            'bg-blue-100 text-blue-700' => in_array($job['status'] ?? '', ['queued','running']),
+                            'bg-green-100 text-green-700' => ($job['status'] ?? '') === 'completed',
+                            'bg-red-100 text-red-700' => ($job['status'] ?? '') === 'failed',
+                        ])>{{ strtoupper($job['status'] ?? 'UNKNOWN') }}</span>
+                    </div>
+                    @if(!empty($job['started_at']))
+                        <p class="mt-2 text-xs text-gray-400">Started {{ \Carbon\Carbon::parse($job['started_at'])->diffForHumans() }}</p>
+                    @endif
+                    @if(!empty($job['error']))
+                        <div class="mt-3 rounded bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-300">{{ $job['error'] }}</div>
+                    @endif
+                    @if(!empty($job['output']) && in_array($job['status'] ?? '', ['completed','failed']))
+                        <details class="mt-3"><summary class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">View run output</summary><pre class="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre></details>
+                    @endif
+                </div>
+            @endif
+        </div>
 
         {{-- ── Last Sync Status ──────────────────────────────────────────────── --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

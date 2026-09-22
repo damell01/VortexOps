@@ -56,6 +56,7 @@ if (fs.existsSync(CONFIG_PATH)) {
 
 const chrome = config.chrome_path ? path.resolve(config.chrome_path) : detectChrome();
 const profile = config.profile_dir ? path.resolve(config.profile_dir) : DEFAULT_PROFILE;
+const cacheDir = path.join(APP_DIR, 'ChromeCache');
 
 if (!chrome || !fs.existsSync(chrome)) {
   console.error('Google Chrome was not found. Set chrome_path in desktop-collector/config.json.');
@@ -63,6 +64,7 @@ if (!chrome || !fs.existsSync(chrome)) {
 }
 
 fs.mkdirSync(profile, { recursive: true });
+fs.mkdirSync(cacheDir, { recursive: true });
 acquireLock();
 
 console.log('============================================================');
@@ -81,6 +83,8 @@ console.log('');
 
 const child = spawn(chrome, [
   `--user-data-dir=${profile}`,
+  `--disk-cache-dir=${cacheDir}`,
+  '--disable-gpu-shader-disk-cache',
   '--no-first-run',
   '--no-default-browser-check',
   'https://www.whatnot.com/dashboard/home',

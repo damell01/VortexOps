@@ -72,25 +72,23 @@ Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activi
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// One authoritative Whatnot browser pipeline. A smaller operational pass runs
-// every two hours so shows, analytics, orders and shipments stay useful during
-// the day without bringing back competing browser jobs. The command itself
-// still owns the shared browser/profile lock and skips cleanly when busy.
-Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=20 --order-batch=20 --analytics-limit=20 --shipment-batch=20 --skip-if-busy')
+// Two authoritative Scrapling pipelines only. The daytime freshness pass keeps
+// operational data current without grinding through large historical backlogs.
+// If the browser/pipeline is busy it skips cleanly and the next cadence catches up.
+Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(7)->toDateString() . ' --show-limit=10 --order-batch=10 --analytics-limit=5 --shipment-batch=10 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('15 */2 * * *')
-    ->name('whatnot-operational-reporting-refresh')
+    ->cron('15 */4 * * *')
+    ->name('whatnot-freshness-refresh')
     ->withoutOverlapping(180);
 
-// Heavier nightly reconciliation catches older gaps with wider batches. Times
-// are intentionally stored/scheduled in UTC; the UI renders them in the
-// browser's detected timezone so operators see local clock time automatically.
+// The nightly full reconciliation is the completeness pass from the reporting
+// baseline. It fills older analytics/order/shipment/ledger gaps after discovery.
 Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=30 --order-batch=30 --analytics-limit=25 --shipment-batch=30 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->dailyAt('00:30')
-    ->name('whatnot-nightly-reporting-reconciliation')
+    ->name('whatnot-nightly-full-reconciliation')
     ->withoutOverlapping(480);
 
 // Alias cleanup is database-only and does not use the Whatnot browser.

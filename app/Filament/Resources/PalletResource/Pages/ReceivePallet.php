@@ -368,17 +368,23 @@ class ReceivePallet extends Page
     public function searchItems(): void
     {
         $search = trim($this->itemSearch);
-        if (mb_strlen($search) < 2) {
+        if (mb_strlen($search) < 3) {
             $this->itemSearchOptions = null;
             return;
         }
 
+        // sku/barcode are uniquely indexed but only for exact/prefix lookups
+        // — a leading-wildcard LIKE can't use that index, so those two stay
+        // prefix-only here while name (unindexed, the point of this search)
+        // keeps matching anywhere. Ordered so a name that starts with the
+        // search shows before one that merely contains it somewhere.
         $this->itemSearchOptions = InventoryItem::where('is_active', true)
             ->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
+                  ->orWhere('sku', 'like', "{$search}%")
+                  ->orWhere('barcode', 'like', "{$search}%");
             })
+            ->orderByRaw('CASE WHEN name LIKE ? THEN 0 ELSE 1 END', ["{$search}%"])
             ->orderBy('name')
             ->limit(10)
             ->get(['id', 'name', 'sku'])

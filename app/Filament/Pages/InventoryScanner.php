@@ -501,18 +501,26 @@ class InventoryScanner extends Page
     public function searchKeywordItems(): void
     {
         $search = trim($this->keywordSearch);
-        if (mb_strlen($search) < 2) {
+        if (mb_strlen($search) < 3) {
             $this->keywordOptions = null;
             return;
         }
 
-        $this->keywordOptions = InventoryItem::where(function ($q) use ($search) {
-            $q->where('name', 'like', "%{$search}%")
-              ->orWhere('sku', 'like', "%{$search}%")
-              ->orWhere('barcode', 'like', "%{$search}%");
-        })
-        ->limit(10)
-        ->get(['id', 'name', 'sku', 'barcode'])
+        // sku/barcode are uniquely indexed but only for exact/prefix lookups
+        // — a leading-wildcard LIKE can't use that index, so those two stay
+        // prefix-only here while name (unindexed, the point of this search)
+        // keeps matching anywhere. Ordered so a name that starts with the
+        // search shows before one that merely contains it somewhere.
+        $this->keywordOptions = InventoryItem::where('is_active', true)
+            ->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "{$search}%")
+                  ->orWhere('barcode', 'like', "{$search}%");
+            })
+            ->orderByRaw('CASE WHEN name LIKE ? THEN 0 ELSE 1 END', ["{$search}%"])
+            ->orderBy('name')
+            ->limit(10)
+            ->get(['id', 'name', 'sku', 'barcode'])
         ->map(fn ($item) => [
             'id'      => $item->id,
             'name'    => $item->name,

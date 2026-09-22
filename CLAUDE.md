@@ -127,7 +127,21 @@ Or pass already-loaded relations explicitly (see `ReceivingService::creditStock(
 
 ## Whatnot scraper
 
-Playwright/Node.js script (`scripts/whatnot-scraper.cjs`) — no public API exists.
+No public API exists. `App\Services\WhatnotScraper` shells out to
+`scripts/whatnot-runner.cjs`, which routes every real data mode (`shows`,
+`analytics`, `orders-batch`, `shipments-batch`, `ledger`, etc.) to the
+**Scrapling** Python backend by default — `scripts/whatnot-scrapling-stealthy.py`
+(a `StealthySession` wrapper around `scripts/whatnot-scrapling.py`'s
+`DynamicSession`-based logic), run under `.venv/bin/python` if present, else
+`python3`. `WHATNOT_BROWSER_BACKEND=local` (the config default) is a legacy
+alias that still resolves to Scrapling, so this is the path every channel runs
+through unless it's explicitly overridden.
+
+The old Playwright/Node script (`scripts/whatnot-scraper.cjs`) is kept only as
+an **opt-in emergency fallback** — reached solely when `WHATNOT_SCRAPER_FALLBACK=1`
+(default `0`, i.e. off) and Scrapling fails with an exit code outside
+{3, 4, 5}, or when `WHATNOT_BROWSER_BACKEND=attached` (CDP) is set. Don't add
+new scraping logic there; it is not what runs day to day.
 
 ```bash
 php artisan whatnot:import              # uses WHATNOT_LIMIT (default 50)
@@ -139,7 +153,7 @@ php artisan whatnot:import --channel=1
 |------|---------|-----------|
 | `0` | Success — JSON on stdout | — |
 | `1` | General/nav error | Read stderr |
-| `2` | Selector miss | Update `SELECTORS` at the top of `scripts/whatnot-scraper.cjs` |
+| `2` | Selector miss | Update the extraction logic in `scripts/whatnot-scrapling.py` |
 | `3` | Bot challenge or signed-out page | `php artisan whatnot:login` — the session lapsed |
 | `4` | Rate limited | Wait; running more often makes it worse |
 

@@ -195,10 +195,16 @@ class InventoryCostService
 
     /**
      * Estimate total inventory value using average costs.
+     *
+     * costBasis() falls back to the list unit cost when there is no receiving
+     * history yet, same as the Edit/View item pages. Reading the raw
+     * average_cost column here (as this used to) meant an item priced but
+     * never received showed $0.00 of value on every screen that calls this,
+     * while the item's own pages showed a real number for the same item.
      */
     public function calculateInventoryValue(InventoryItem $item): float
     {
-        return $item->totalQuantity() * (float) ($item->average_cost ?? 0);
+        return $item->totalQuantity() * (float) ($item->costBasis() ?? 0);
     }
 
     /**

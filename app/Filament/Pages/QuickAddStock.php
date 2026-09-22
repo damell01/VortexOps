@@ -24,6 +24,10 @@ class QuickAddStock extends Page
     public string $barcode = '';
     public array $recentAdds = [];
 
+    // ── Keyword search (no barcode at hand) ──────────────────────────────────
+    public string $productSearch = '';
+    public ?array $productOptions = null;
+
     private InventoryService $inventoryService;
 
     public function mount(): void
@@ -59,22 +63,76 @@ class QuickAddStock extends Page
         if (!$product) {
             Notification::make()
                 ->title('Product Not Found')
-                ->body("Barcode '{$this->barcode}' not found in system")
+                ->body("Barcode '{$this->barcode}' not found in system. Try searching by name below instead.")
                 ->danger()
                 ->send();
             $this->barcode = '';
             return;
         }
 
+        $this->selectProduct($product, "Scanned: {$product->name}");
+    }
+
+    /**
+     * Load a product into the "selected" state, whether it arrived from an
+     * exact barcode/SKU scan above or from picking a name-search result
+     * below — a barcode is not always at hand.
+     */
+    private function selectProduct(Product $product, string $notificationBody): void
+    {
         $this->product = $product;
         $this->quantity = 1;
         $this->unitCost = $product->average_cost ?? $product->unit_cost;
+        $this->productSearch = '';
+        $this->productOptions = null;
 
         Notification::make()
             ->title('Product Found')
-            ->body("Scanned: {$product->name}")
+            ->body($notificationBody)
             ->success()
             ->send();
+    }
+
+    public function updatedProductSearch(): void
+    {
+        $this->searchProducts();
+    }
+
+    public function searchProducts(): void
+    {
+        $search = trim($this->productSearch);
+        if (mb_strlen($search) < 2) {
+            $this->productOptions = null;
+            return;
+        }
+
+        $this->productOptions = Product::where(function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('sku', 'like', "%{$search}%")
+              ->orWhere('barcode', 'like', "%{$search}%");
+        })
+        ->limit(10)
+        ->get(['id', 'name', 'sku', 'barcode'])
+        ->map(fn (Product $p) => [
+            'id'      => $p->id,
+            'name'    => $p->name,
+            'sku'     => $p->sku,
+            'barcode' => $p->barcode,
+        ])
+        ->toArray();
+    }
+
+    public function selectSearchResult(int $productId): void
+    {
+        $product = Product::find($productId);
+        $this->productSearch = '';
+        $this->productOptions = null;
+
+        if (! $product) {
+            return;
+        }
+
+        $this->selectProduct($product, "Selected: {$product->name}");
     }
 
     public function incrementQuantity(): void

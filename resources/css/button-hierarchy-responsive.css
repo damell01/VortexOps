@@ -8,8 +8,14 @@
    1. BUTTON HIERARCHY & STANDARDIZATION
    ═══════════════════════════════════════════ */
 
-/* Base button reset and standardization */
-button, a[role="button"], .fi-btn, [type="submit"], [type="button"], [type="reset"] {
+/* Base button reset and standardization.
+   Excludes FilePond's own action buttons (filepond--file-action-button etc):
+   those are ~26px circular controls with space reserved for them by the
+   vendor skin (.filepond--file-status{margin-right:2.25em}), sized to match.
+   This reset used to reach them too, and forcing the app's own min-height/
+   padding onto a button that small made it balloon past its reserved space
+   and sit on top of the "Uploading…" label next to it. */
+button:not([class*="filepond"]), a[role="button"], .fi-btn, [type="submit"]:not([class*="filepond"]), [type="button"]:not([class*="filepond"]), [type="reset"]:not([class*="filepond"]) {
     cursor: pointer !important;
     border: none !important;
     font-family: inherit !important;
@@ -363,7 +369,7 @@ a.btn-icon {
 
 /* Mobile: buttons stack vertically or wrap */
 @media (max-width: 640px) {
-    button, a[role="button"], .fi-btn, [type="submit"], [type="button"], [type="reset"] {
+    button:not([class*="filepond"]), a[role="button"], .fi-btn, [type="submit"]:not([class*="filepond"]), [type="button"]:not([class*="filepond"]), [type="reset"]:not([class*="filepond"]) {
         min-height: 2.75rem !important;
         font-size: 16px !important; /* Prevents iOS zoom */
         padding: 0.625rem 1rem !important;
@@ -396,7 +402,7 @@ a.btn-icon {
     /* Button text truncation on mobile. Same opt-out as the desktop rule: a
        card that happens to be a button holds a paragraph, and ellipsising it
        hides the half that says what the card is. */
-    button:not(.vx-plain), a[role="button"]:not(.vx-plain), .fi-btn {
+    button:not(.vx-plain):not([class*="filepond"]), a[role="button"]:not(.vx-plain), .fi-btn {
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;

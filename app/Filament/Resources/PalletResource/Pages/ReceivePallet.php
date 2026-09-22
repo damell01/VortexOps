@@ -117,6 +117,10 @@ class ReceivePallet extends Page
      */
     public ?string $pendingCode = null;
 
+    // ── Keyword search (no barcode on the box) ───────────────────────────────
+    public string $itemSearch = '';
+    public ?array $itemSearchOptions = null;
+
     /** The staged lines a held code could belong to. */
     public function pendingChoices(): \Illuminate\Support\Collection
     {
@@ -354,6 +358,91 @@ class ReceivePallet extends Page
             $this->lastScanDetails = null;
             $this->lastScanSuccess = false;
         }
+    }
+
+    public function updatedItemSearch(): void
+    {
+        $this->searchItems();
+    }
+
+    public function searchItems(): void
+    {
+        $search = trim($this->itemSearch);
+        if (mb_strlen($search) < 2) {
+            $this->itemSearchOptions = null;
+            return;
+        }
+
+        $this->itemSearchOptions = InventoryItem::where('is_active', true)
+            ->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            })
+            ->orderBy('name')
+            ->limit(10)
+            ->get(['id', 'name', 'sku'])
+            ->map(fn (InventoryItem $item) => ['id' => $item->id, 'name' => $item->name, 'sku' => $item->sku])
+            ->toArray();
+    }
+
+    /**
+     * Pick a catalog item found by name instead of by scanning its box.
+     *
+     * Feeds the item's own SKU through the same linkAndCount() a barcode scan
+     * uses — Product::findByScan() resolves a SKU exactly the way it resolves
+     * a barcode, so this walks the identical, already-proven path rather than
+     * a second one that could disagree with it (a duplicate-on-another-line
+     * check, a missing-location error, and so on).
+     */
+    public function selectSearchedItem(int $itemId): void
+    {
+        $item = InventoryItem::find($itemId);
+        $this->itemSearch = '';
+        $this->itemSearchOptions = null;
+
+        if (! $item) {
+            return;
+        }
+
+        if ($this->targetLineId) {
+            $line = $this->record->lines->firstWhere('id', $this->targetLineId);
+
+            if ($line && ! $line->isFullyMapped()) {
+                if ($this->linkAndCount($line, $item->sku)) {
+                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                    $this->refreshProgress();
+                }
+
+                return;
+            }
+        }
+
+        $unmapped = $this->unmappedLines();
+
+        if ($unmapped->count() === 1) {
+            if ($this->linkAndCount($unmapped->first(), $item->sku)) {
+                $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                $this->refreshProgress();
+            }
+
+            return;
+        }
+
+        if ($unmapped->count() > 1) {
+            // Same "which line?" prompt a scan with no obvious home gets —
+            // the item is already known, only the line is missing.
+            $this->pendingCode = $item->sku;
+            $this->lastScannedResult = null;
+            $this->lastScanDetails = null;
+            $this->lastScanSuccess = false;
+
+            return;
+        }
+
+        $this->lastScannedResult = '✗ Every line on this pallet is already received or mapped.';
+        $this->lastScanDetails = null;
+        $this->lastScanSuccess = false;
     }
 
     public function receiveLine(int $lineId): void

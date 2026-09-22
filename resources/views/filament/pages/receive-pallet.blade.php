@@ -115,6 +115,31 @@
                             </button>
                         </div>
 
+                        <div class="relative mt-3 border-t border-gray-200 pt-3 dark:border-gray-700">
+                            <label class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200">No barcode on the box? Find it by name</label>
+                            <input
+                                wire:model.live.debounce.300ms="itemSearch"
+                                type="text"
+                                autocomplete="off"
+                                placeholder="Search by item name, SKU or barcode…"
+                                class="min-h-12 w-full rounded-xl border-gray-300 bg-white px-3 text-base text-gray-950 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                            />
+
+                            @if($itemSearchOptions !== null)
+                                <div class="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                                    @forelse($itemSearchOptions as $option)
+                                        <button type="button" wire:click="selectSearchedItem({{ $option['id'] }})"
+                                            class="block w-full px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                                            <span class="font-medium text-gray-950 dark:text-white">{{ $option['name'] }}</span>
+                                            <span class="ml-2 text-xs text-gray-500">{{ $option['sku'] ?: '—' }}</span>
+                                        </button>
+                                    @empty
+                                        <div class="px-3 py-2.5 text-xs text-gray-500">No matching items.</div>
+                                    @endforelse
+                                </div>
+                            @endif
+                        </div>
+
                         @if($lastScannedResult)
                             <div class="mt-3 rounded-xl px-3 py-3 text-sm font-semibold {{ $lastScanSuccess ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200' }}">
                                 {{ $lastScannedResult }}

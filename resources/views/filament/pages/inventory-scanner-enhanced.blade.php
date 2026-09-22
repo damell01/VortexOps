@@ -197,6 +197,29 @@
                 <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 @if($mode === 'lookup') bg-primary-600 @elseif($mode === 'receive') bg-amber-600 @else bg-emerald-600 @endif"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
             </div>
             <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">USB/Bluetooth scanner: scan directly into this field. Camera: tap Camera and center the barcode in the scan box.</p>
+
+            @if(in_array($mode, ['lookup', 'quickadd'], true))
+                <div class="relative mt-3 border-t border-gray-200/70 pt-3 dark:border-gray-700/70">
+                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">No barcode? Find it by name</label>
+                    <input type="text" wire:model.live.debounce.300ms="keywordSearch" autocomplete="off"
+                        placeholder="Search by item name, SKU or barcode…"
+                        class="mt-2 min-h-11 w-full rounded-lg border-gray-300 bg-white px-3 text-base dark:border-gray-600 dark:bg-gray-900" />
+
+                    @if($keywordOptions !== null)
+                        <div class="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                            @forelse($keywordOptions as $option)
+                                <button type="button" wire:click="selectKeywordItem({{ $option['id'] }})"
+                                    class="block w-full px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                                    <span class="font-medium text-gray-950 dark:text-white">{{ $option['name'] }}</span>
+                                    <span class="ml-2 text-xs text-gray-500">{{ $option['sku'] ?: '—' }}</span>
+                                </button>
+                            @empty
+                                <div class="px-3 py-2.5 text-xs text-gray-500">No matching items.</div>
+                            @endforelse
+                        </div>
+                    @endif
+                </div>
+            @endif
         </section>
 
         @if($errorMessage)<section class="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Not found.</strong> {{ $errorMessage }}</section>@endif
@@ -214,9 +237,10 @@
                         <div class="min-w-0"><div class="text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">{{ $result['name'] }}</div><div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs"><span>SKU {{ $result['sku'] ?: '—' }}</span>@if($result['barcode'])<span>UPC {{ $result['barcode'] }}</span>@endif</div></div>
                         <span class="rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs {{ $result['is_low'] ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200' : 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' }}">{{ $result['is_low'] ? 'Low stock' : 'In stock' }}</span>
                     </div>
-                    <div class="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+                    <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                         <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">On hand</div><div class="mt-0.5 text-xl font-semibold">{{ number_format((float)$result['total_qty']) }}</div></div>
                         <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Avg cost</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">${{ number_format((float)$result['avg_cost'], 2) }}</div></div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Sale price</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">{{ $result['sale_price'] > 0 ? '$' . number_format((float)$result['sale_price'], 2) : '—' }}</div></div>
                         <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Value</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">${{ number_format((float)$result['inventory_value'], 2) }}</div></div>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2">

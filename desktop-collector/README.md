@@ -13,15 +13,14 @@ VortexOps remains the system of record. The desktop computer only collects data 
 
 ## First setup
 
-1. Keep this folder inside the VortexOps project so `../scripts/whatnot-scraper.cjs` is available.
-2. Install Google Chrome and Node.js 18+.
-3. Double-click `install.bat`.
-4. Open `config.json` and set:
+1. Install Google Chrome, Node.js 18+, and Python 3, then run `pip install -r requirements.txt` once in this folder for the Scrapling extraction backend `scrapling_runner.py` uses.
+2. Double-click `install.bat`.
+3. Open `config.json` and set:
    - `api_url` to the VortexOps API base URL, ending in `/api`
    - `api_token` to the same value as `SCRAPER_API_TOKEN` on the VortexOps server
-5. Double-click `Login to Whatnot.bat`.
-6. In the dedicated Chrome window, log into Whatnot normally and confirm Seller Hub works. Close the entire dedicated Chrome window.
-7. Double-click `Sync Whatnot.bat`.
+4. Double-click `Login to Whatnot.bat`.
+5. In the dedicated Chrome window, log into Whatnot normally and confirm Seller Hub works. Close the entire dedicated Chrome window.
+6. Double-click `Sync Whatnot.bat`.
 
 The collector profile is stored under `%LOCALAPPDATA%\VortexOps\WhatnotCollector\ChromeProfile` by default. It is separate from normal Chrome browsing.
 
@@ -57,7 +56,7 @@ Orders retain the existing magnitude safety check: if an order scrape returns wi
 Dedicated Chrome profile on Windows
         |
         v
-scripts/whatnot-scraper.cjs
+scrapling_collector.cjs -> scrapling_runner.py (Scrapling)
         |
         +-- analytics
         +-- orders-batch

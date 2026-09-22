@@ -93,6 +93,11 @@ class InventoryScanner extends Page
     public string  $adjustReason = '';
     public int     $adjustLocationId = 0;
 
+    // ── Keyword search (Look Up / Add Stock, no scanner needed) ─────────────────
+
+    public string $keywordSearch  = '';
+    public ?array $keywordOptions = null;
+
     // ── Quick Add state ───────────────────────────────────────────────────────
 
     public int    $qaLocationId = 0;
@@ -207,6 +212,8 @@ class InventoryScanner extends Page
         $this->qaFlash     = null;
         $this->rcvFlash    = null;
         $this->rcvError    = null;
+        $this->keywordSearch  = '';
+        $this->keywordOptions = null;
     }
 
     // ── Unified scan entry point ──────────────────────────────────────────────
@@ -291,7 +298,19 @@ class InventoryScanner extends Page
             return;
         }
 
-        $this->result = $this->buildResultFromItem($item);
+        $this->lookupItem($item);
+    }
+
+    /**
+     * Build and show the lookup result for an item already resolved — by
+     * barcode/SKU scan above, or by name/SKU from the keyword search when
+     * there is no scanner or barcode at hand.
+     */
+    private function lookupItem(InventoryItem $item): void
+    {
+        $this->errorMessage = null;
+        $this->adjustMode   = false;
+        $this->result       = $this->buildResultFromItem($item);
         $this->costWarnings = $this->generateCostWarnings($item);
     }
 
@@ -394,6 +413,18 @@ class InventoryScanner extends Page
             $createdItem = true;
         }
 
+        $this->addQuickAddStock($item, $createdItem);
+    }
+
+    /**
+     * Book the configured quantity into the configured location for an item
+     * already resolved — by barcode/SKU scan above, or by picking it from
+     * the keyword search when there is no scanner or barcode at hand.
+     */
+    private function addQuickAddStock(InventoryItem $item, bool $createdItem): void
+    {
+        $qty = (float) $this->qaQty;
+
         $location = InventoryLocation::find($this->qaLocationId);
         if (! $location) {
             $this->qaFlash = ['error' => 'Selected location no longer exists.'];
@@ -420,6 +451,75 @@ class InventoryScanner extends Page
 
         // Clear the name so the next scan does not silently reuse it.
         $this->qaName = '';
+    }
+
+    /**
+     * Select an item found via the keyword search below the scan box and
+     * carry out whatever the current mode does with a resolved item —
+     * without ever needing a barcode.
+     */
+    public function selectKeywordItem(int $itemId): void
+    {
+        $item = InventoryItem::find($itemId);
+        $this->keywordSearch  = '';
+        $this->keywordOptions = null;
+
+        if (! $item) {
+            return;
+        }
+
+        match ($this->mode) {
+            'lookup'   => $this->lookupItem($item),
+            'quickadd' => $this->quickAddResolvedItem($item),
+            default    => null,
+        };
+    }
+
+    private function quickAddResolvedItem(InventoryItem $item): void
+    {
+        $this->qaFlash = null;
+
+        if (! $this->qaLocationId) {
+            $this->qaFlash = ['error' => 'Select a destination location before adding stock.'];
+            return;
+        }
+
+        $qty = (float) $this->qaQty;
+        if ($qty <= 0) {
+            $this->qaFlash = ['error' => 'Quantity must be greater than zero.'];
+            return;
+        }
+
+        $this->addQuickAddStock($item, false);
+    }
+
+    public function updatedKeywordSearch(): void
+    {
+        $this->searchKeywordItems();
+    }
+
+    public function searchKeywordItems(): void
+    {
+        $search = trim($this->keywordSearch);
+        if (mb_strlen($search) < 2) {
+            $this->keywordOptions = null;
+            return;
+        }
+
+        $this->keywordOptions = InventoryItem::where(function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('sku', 'like', "%{$search}%")
+              ->orWhere('barcode', 'like', "%{$search}%");
+        })
+        ->limit(10)
+        ->get(['id', 'name', 'sku', 'barcode'])
+        ->map(fn ($item) => [
+            'id'      => $item->id,
+            'name'    => $item->name,
+            'sku'     => $item->sku,
+            'barcode' => $item->barcode,
+        ])
+        ->toArray();
     }
 
     // ── Receive Pallet mode ───────────────────────────────────────────────────
@@ -1368,13 +1468,18 @@ class InventoryScanner extends Page
     {
         $warnings = [];
 
-        // Check if average cost is missing or zero
+        // Check if there is no receiving history yet to base a weighted average
+        // on. The displayed cost still falls back to the list unit cost (see
+        // costBasis()), so say that plainly instead of implying $0.00 is real.
         $avgCost = (float) ($item->average_cost ?? 0);
+        $unitCost = (float) ($item->unit_cost ?? 0);
         if ($avgCost <= 0 && $item->totalQuantity() > 0) {
             $warnings[] = [
                 'type' => 'no_cost',
                 'title' => 'Missing Cost Data',
-                'message' => 'This item has stock but no cost history. Receive items to calculate average cost.',
+                'message' => $unitCost > 0
+                    ? 'No receiving history yet — the cost shown is the List Unit Cost ($' . number_format($unitCost, 2) . '), not a real average. Receive items to calculate one.'
+                    : 'This item has stock but no cost history. Receive items to calculate average cost.',
                 'severity' => 'warning',
             ];
         }
@@ -1505,7 +1610,13 @@ class InventoryScanner extends Page
             // badge compared "1,234" against a number as a string. A value that
             // sometimes formats itself is a value nobody can use safely, so the
             // formatting belongs in the view that prints it.
-            'avg_cost'         => (float) $item->average_cost,
+            // costBasis() falls back to the list unit cost when no receipt has
+            // set a weighted average yet — the same fallback the item's Edit
+            // and View pages already use. Reading the raw column here instead
+            // was why this card could show "$0.00" for an item whose Edit page
+            // showed a real List Unit Cost.
+            'avg_cost'         => (float) ($item->costBasis() ?? 0),
+            'sale_price'       => (float) ($item->sale_price ?? 0),
             'total_qty'        => (float) $totalQty,
             'inventory_value'  => (float) $inventoryValue,
             'is_low'           => $item->isLowStock(),

@@ -27,6 +27,33 @@
                     </button>
                 </div>
             </div>
+
+            {{-- Keyword Search: for when there's no barcode to scan --}}
+            <div class="relative mt-4 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">No barcode? Find it by name</label>
+                <input
+                    wire:model.live.debounce.300ms="productSearch"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Search by product name, SKU or barcode…"
+                    class="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    style="min-height: 44px;"
+                />
+
+                @if($productOptions !== null)
+                    <div class="absolute z-20 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                        @forelse($productOptions as $option)
+                            <button type="button" wire:click="selectSearchResult({{ $option['id'] }})"
+                                class="block w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
+                                <span class="font-medium text-gray-900 dark:text-white">{{ $option['name'] }}</span>
+                                <span class="ml-2 text-xs text-gray-500">{{ $option['sku'] ?: '—' }}</span>
+                            </button>
+                        @empty
+                            <div class="px-4 py-2.5 text-xs text-gray-500">No matching products.</div>
+                        @endforelse
+                    </div>
+                @endif
+            </div>
         </div>
 
         {{-- Product Details Section --}}
@@ -117,7 +144,7 @@
         @else
         <div class="bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
             <p class="text-gray-500 dark:text-gray-400 text-lg">
-                👇 Scan a barcode or enter an SKU to get started
+                👇 Scan a barcode, enter an SKU, or search by name to get started
             </p>
         </div>
         @endif

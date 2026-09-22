@@ -25,6 +25,7 @@ class SyncWhatnotReporting extends Command
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
         {--skip-if-busy : Exit cleanly if another Whatnot pipeline is active}
+        {--test : Production smoke test: one channel and one item through each data phase}
         {--dry-run : Show the plan and coverage without syncing}';
 
     protected $description = 'Keep Whatnot show analytics, shipments, and ledger reporting complete from a hard start date';
@@ -55,11 +56,19 @@ class SyncWhatnotReporting extends Command
         $withOrders = ! $shipmentsOnly && ! $analyticsOnly && ! (bool) $this->option('without-orders');
         $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
+        $testMode = (bool) $this->option('test');
+        if ($testMode) {
+            $showLimit = 1;
+            $analyticsLimit = 1;
+            $shipmentBatch = 1;
+            $orderBatch = 1;
+        }
 
         $channels = WhatnotChannel::query()
             ->where('include_in_import', true)
             ->where('status', 'active')
             ->orderBy('id')
+            ->when($testMode, fn ($q) => $q->limit(1))
             ->get();
 
         if ($channels->isEmpty()) {
@@ -67,8 +76,9 @@ class SyncWhatnotReporting extends Command
             return self::FAILURE;
         }
 
-        $this->info($shipmentsOnly ? 'WHATNOT HISTORICAL SHIPMENT BACKFILL' : ($analyticsOnly ? 'WHATNOT HISTORICAL ANALYTICS BACKFILL' : 'COORDINATED WHATNOT REPORTING SYNC'));
+        $this->info($testMode ? 'WHATNOT PRODUCTION SMOKE TEST' : ($shipmentsOnly ? 'WHATNOT HISTORICAL SHIPMENT BACKFILL' : ($analyticsOnly ? 'WHATNOT HISTORICAL ANALYTICS BACKFILL' : 'COORDINATED WHATNOT REPORTING SYNC')));
         $this->line('Reporting start: '.$since->toDateString());
+        if ($testMode) $this->line('TEST MODE: first enabled channel · one analytics target · one order target · one shipment target · ledger still verified');
         if ($shipmentsOnly) {
             $this->line("Channels: {$channels->count()} · shipment batch {$shipmentBatch} · SHIPMENTS ONLY · orders OFF");
         } elseif ($analyticsOnly) {

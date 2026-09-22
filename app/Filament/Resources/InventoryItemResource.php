@@ -492,12 +492,864 @@ class InventoryItemResource extends Resource
                         ->step(0.01)
                         ->helperText('Fallback cost when no receipts exist'),
                     TextInput::make('average_cost')
-                        ->label('Avg Cost ($)')
+                        ->label('Current Avg Cost ($)')
+                        ->numeric()
+                        ->prefix('
+                    TextInput::make('sale_price')
+                        ->label('Sale Price / Target ($)')
                         ->numeric()
                         ->prefix('$')
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->placeholder('—')
+                        ->helperText('What this should sell for')
+                        // Live so the margin below answers as the number is
+                        // typed — the two only mean anything together.
+                        ->live(onBlur: true),
+                    Placeholder::make('margin_potential')
+                        ->label('Margin Potential')
+                        ->content(function ($record, $get) {
+                            $sale = (float) ($get('sale_price') ?? 0);
+                            $cost = (float) ($get('average_cost') ?? 0) > 0
+                                ? (float) $get('average_cost')
+                                : (float) ($get('unit_cost') ?? 0);
+
+                            if ($sale <= 0 || $cost <= 0) {
+                                return 'Set a cost and a target to see this';
+                            }
+
+                            $margin = $sale - $cost;
+
+                            return '$' . number_format($margin, 2)
+                                . ' per unit  ·  ' . number_format(($margin / $sale) * 100, 1) . '%'
+                                . ($margin < 0 ? '  ·  selling below cost' : '');
+                        }),
+                    TextInput::make('reorder_level')
+                        ->numeric()
+                        ->minValue(0)
+                        ->label('Reorder Level (units)')
+                        ->placeholder('0')
+                        ->helperText('Alert when stock drops below this'),
+                ]),
+            ]);
+    }
+
+    public static function notesSection(): Section
+    {
+        return Section::make('Notes & Description')
+            ->icon('heroicon-o-document-text')
+            ->description('Additional details about this item')
+            ->columnSpanFull()
+            ->schema([
+                Textarea::make('description')
+                    ->rows(3)
+                    ->placeholder('Brand, set, year, condition, or other details...')
+                    ->columnSpanFull(),
+                Textarea::make('notes')
+                    ->rows(2)
+                    ->placeholder('Internal notes for your team...')
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public static function initialStockSection(): Section
+    {
+        return Section::make('Initial Stock (Optional)')
+            ->icon('heroicon-o-inbox-arrow-down')
+            ->description('Add stock when creating this item')
+            ->columnSpanFull()
+            ->visible(fn (Get $get) => !$get('id'))
+            ->schema([
+                Grid::make(2)->schema([
+                    Select::make('initial_stock_location_id')
+                        ->label('Stock Location')
+                        ->options(fn () => InventoryLocation::activeOptions())
+                        ->searchable()
+                        ->dehydrated(false)
+                        ->placeholder('Select location to add stock'),
+                    TextInput::make('initial_stock_quantity')
+                        ->label('Initial Quantity')
+                        ->numeric()
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->dehydrated(false)
+                        ->placeholder('0'),
+                    TextInput::make('initial_stock_cost')
+                        ->label('Stock Unit Cost ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->step(0.01)
+                        ->dehydrated(false)
+                        ->placeholder('Leave blank to use List Unit Cost'),
+                ]),
+            ]);
+    }
+
+    public static function stockByLocationSection(): Section
+    {
+        return Section::make('Stock by Location')
+            ->icon('heroicon-o-map-pin')
+            ->description('Current inventory levels by location')
+            ->columnSpanFull()
+            ->visible(fn (Get $get) => !!$get('id'))
+            ->schema([
+                Repeater::make('stock')
+                    ->relationship('stock')
+                    ->schema([
+                        Grid::make(3)->schema([
+                            // Was TextInput::make('location.name'), which
+                            // rendered empty for every row: the repeater fills
+                            // from the stock row's own attributes, and a dotted
+                            // path there is read as a nested array key rather
+                            // than as a relationship. inventory_location_id is
+                            // a real column, so this resolves — and it reads
+                            // every location, not just active ones, so stock
+                            // sitting in a retired location still says where.
+                            Select::make('inventory_location_id')
+                                ->label('Location')
+                                ->options(fn () => \App\Models\InventoryLocation::orderBy('name')->pluck('name', 'id')->toArray())
+                                ->disabled()
+                                ->columnSpan(2)
+                                ->dehydrated(false),
+                            TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->step(0.01)
+                                ->columnSpan(1),
+                        ]),
+                    ])
+                    ->columnSpanFull()
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false),
+            ]);
+    }
+
+    /**
+     * Stock health for a row: 'out', 'low' or 'ok'.
+     *
+     * An item with no reorder level set can only be out or in stock — there's
+     * no threshold to be "low" against.
+     */
+    public static function stockStatus(InventoryItem $record): string
+    {
+        $onHand = (float) ($record->stock_sum_quantity ?? 0);
+
+        if ($onHand <= 0) {
+            return 'out';
+        }
+
+        return $record->reorder_level !== null && $onHand <= (float) $record->reorder_level
+            ? 'low'
+            : 'ok';
+    }
+
+    /**
+     * Product ids whose barcode or UPC is also carried by the other form —
+     * a case sharing a scannable code with the singles inside it.
+     *
+     * Not SKU: that column is uniquely indexed, so two products cannot share
+     * one and looking there found nothing by construction. Barcodes and UPCs
+     * are not unique, and a vendor reusing one code for the case and for the
+     * boxes inside it is exactly the case worth flagging — scanning it is then
+     * ambiguous, and picking the wrong row is a twelve-fold counting error.
+     *
+     * Keyed by product id rather than by code, so a row can be checked without
+     * knowing which of its two codes caused the clash. One query, memoised for
+     * the request.
+     *
+     * @return array<int, int>
+     */
+    public static function productsSharingAScanCode(): array
+    {
+        // Cached rather than just memoised per-request: this is a full,
+        // unindexed scan of every barcode, UPC and learned alias in the
+        // catalog (product_identities grows with every AI-assisted match
+        // made while receiving, so it can be far larger than products
+        // itself), re-run on every render of the inventory table — visiting
+        // it on every keystroke of a filter. Ten minutes of staleness on a
+        // "shares a barcode" warning is a fair trade for not re-scanning the
+        // whole catalog per request; a real barcode collision doesn't need
+        // to be caught within seconds of being created.
+        return \Illuminate\Support\Facades\Cache::remember('vx.products_sharing_scan_code', now()->addMinutes(10), function () {
+            // Every scannable code a product answers to, in one column —
+            // fetched once and grouped in PHP rather than running the same
+            // union-all scan a second time as a subquery to resolve which
+            // ids the ambiguous codes belong to.
+            $codes = \App\Models\Product::query()
+                ->selectRaw('barcode as code, id, is_container')
+                ->whereNotNull('barcode')->where('barcode', '!=', '')
+                ->unionAll(
+                    \App\Models\Product::query()
+                        ->selectRaw('upc as code, id, is_container')
+                        ->whereNotNull('upc')->where('upc', '!=', '')
+                )
+                ->unionAll(
+                    \Illuminate\Support\Facades\DB::table('product_identities')
+                        ->join('products', 'products.id', '=', 'product_identities.product_id')
+                        ->selectRaw('product_identities.value as code, products.id, products.is_container')
+                        ->whereNotNull('product_identities.value')
+                        ->where('product_identities.value', '!=', '')
+                )
+                ->get();
+
+            $ids = [];
+
+            foreach ($codes->groupBy('code') as $rows) {
+                if ($rows->pluck('is_container')->unique()->count() > 1) {
+                    foreach ($rows as $row) {
+                        $ids[(int) $row->id] = true;
+                    }
+                }
+            }
+
+            return array_keys($ids);
+        });
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                // Leading the row rather than buried: scanning a list of
+                // near-identical names is exactly the job a thumbnail does
+                // better than text. Toggleable for anyone who wants it gone.
+                // Picture first, then what the thing is, then its code — the
+                // order the row is actually read in. SKU led the row before,
+                // which is the one column nobody scans a list by.
+                //
+                // Sizing is set as an inline style rather than through
+                // ->width()/->height(): extraImgAttributes replaces Filament's
+                // own class list, which is where its width came from, so the
+                // thumbnails rendered 36px tall and 0px wide — present in the
+                // DOM and invisible on screen.
+                \Filament\Tables\Columns\ImageColumn::make('image_path')
+                    ->label('')
+                    ->disk(\App\Models\Product::IMAGE_DISK)
+                    // The brand mark rather than a gap: a missing image in a
+                    // list is a hole in the layout, not information.
+                    ->defaultImageUrl(fn () => \App\Models\Product::placeholderImageUrl())
+                    ->extraImgAttributes(fn ($record) => [
+                        'class' => 'rounded-md border border-gray-200 dark:border-gray-700 '
+                            . ($record->hasImage() ? 'object-cover' : 'object-contain p-1 opacity-50'),
+                        // flex:none because .fi-ta-image is a flex container:
+                        // the img carried width:40px and still computed to 14px,
+                        // shrunk to fit, which is why the thumbnails were in the
+                        // DOM but invisible.
+                        'style' => 'width:40px;height:40px;min-width:40px;flex:none;',
+                    ])
+                    ->toggleable(),
+                TextColumn::make('name')
+                    ->label('Item')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('semibold')
+                    // Containers get a marker so it's obvious which rows have
+                    // something to open; the Contents action does the rest.
+                    ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : null)
+                    ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
+                    ->iconColor('primary')
+                    ->description(fn ($record) => filled($record->description)
+                        ? \Illuminate\Support\Str::limit($record->description, 70)
+                        : null),
+                TextColumn::make('sku')
+                    ->label('SKU')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->placeholder('—')
+                    ->color('gray')
+                    // Null rather than an em dash: Filament skips the second
+                    // line entirely, so rows without a barcode stay one line
+                    // tall instead of carrying an empty placeholder.
+                    ->description(fn ($record) => filled($record->barcode) ? $record->barcode : null),
+                // Case or single. A vendor may use one SKU for both, so the
+                // row has to say which of the two it is rather than leaving it
+                // to be inferred from the name.
+                TextColumn::make('item_type')
+                    ->label('Type')
+                    ->badge()
+                    ->getStateUsing(fn ($record) => $record->is_container ? 'Case' : 'Item')
+                    ->color(fn ($record) => $record->is_container ? 'warning' : 'gray')
+                    ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : 'heroicon-m-cube')
+                    // Only says anything when the same SKU exists in both
+                    // forms, which is exactly when the distinction can bite.
+                    ->description(fn ($record) => in_array((int) $record->id, static::productsSharingAScanCode(), true)
+                        ? ($record->is_container ? 'Shares a barcode with the singles' : 'Shares a barcode with a case')
+                        : null),
+                // Stock health, not the active flag — this is the status the
+                // tiles above the table count, so the two agree at a glance.
+                TextColumn::make('stock_status')
+                    ->label('Status')
+                    ->badge()
+                    ->getStateUsing(fn ($record) => static::stockStatus($record))
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'out'   => 'Out of Stock',
+                        'low'   => 'Low Stock',
+                        default => 'In Stock',
+                    })
+                    ->color(fn (string $state) => match ($state) {
+                        'out'   => 'danger',
+                        'low'   => 'warning',
+                        default => 'success',
+                    }),
+                TextColumn::make('stock_sum_quantity')
+                    ->label('Qty on Hand')
+                    ->numeric(decimalPlaces: 0)
+                    ->default(0)
+                    ->sortable()
+                    ->weight('semibold')
+                    // The tiles above the table already carry the totals, so
+                    // the summary row is redundant noise under every page.
+                    ->color(fn ($record) => match (static::stockStatus($record)) {
+                        'out'   => 'danger',
+                        'low'   => 'warning',
+                        default => 'success',
+                    }),
+                TextColumn::make('created_at')
+                    ->label('Added')
+                    ->date('M j, Y')
+                    ->sortable(),
+                TextColumn::make('category')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('reorder_level')
+                    // hiddenFrom('md') hid the header but not the data cells,
+                    // leaving an unlabeled column on desktop, so this is simply
+                    // a visible column: the card pairs it with Stock on phones.
+                    ->label('Reorder Level')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('average_cost')
+                    ->label('Avg Cost')
+                    // A weighted average only exists once something has been
+                    // received. Until then the column read $0.00 for every item
+                    // that had a perfectly good list cost, which looks like the
+                    // stock is worth nothing rather than like nothing has been
+                    // received yet. effectiveCost() is what the rest of the app
+                    // already values stock at.
+                    ->getStateUsing(fn ($record) => $record->effectiveCost())
+                    ->money('USD')
+                    // Sort on the number shown, not the raw column — otherwise
+                    // every not-yet-received item sorts as if it cost nothing.
+                    ->sortable(query: fn ($query, string $direction) => $query->orderByRaw(
+                        'CASE WHEN COALESCE(products.average_cost, 0) > 0
+                              THEN products.average_cost
+                              ELSE COALESCE(products.unit_cost, 0) END ' . $direction
+                    ))
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->description(function ($record) {
+                        $units = (int) ($record->stock_sum_quantity ?? 0);
+
+                        if ($units > 0) {
+                            return number_format($units) . ' units • $'
+                                . number_format($units * $record->effectiveCost(), 2);
+                        }
+
+                        // Say which number is on show, so a list cost is never
+                        // mistaken for an average nothing has earned yet.
+                        return ((float) $record->average_cost) > 0
+                            ? '(' . number_format((float) $record->total_units_received, 0) . ' units received)'
+                            : 'list cost — nothing received yet';
+                    }),
+                TextColumn::make('sold_as')
+                    ->label('Sold as')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('sale_price')
+                    ->label('Sale Target')
+                    ->money('USD')
+                    ->sortable()
+                    ->placeholder('Not set')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                // Not a stored column: it is the target less whichever cost
+                // is real for this item, and a saved copy of that subtraction
+                // is wrong the moment a receipt moves the weighted average.
+                TextColumn::make('margin_potential')
+                    ->label('Margin Potential')
+                    ->getStateUsing(fn ($record) => $record->marginPotential())
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->description(fn ($record) => $record->marginPercent() !== null
+                        ? number_format($record->marginPercent(), 1) . '% of target'
+                        : null)
+                    ->color(fn ($record) => match (true) {
+                        $record->marginPotential() === null => 'gray',
+                        $record->marginPotential() < 0      => 'danger',
+                        default                             => 'success',
+                    })
+                    // Sortable through the same arithmetic the accessor does,
+                    // so the column can be ordered without a stored copy.
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderByRaw(
+                        'CASE WHEN products.sale_price IS NULL THEN 1 ELSE 0 END,
+                         (products.sale_price - CASE WHEN COALESCE(products.average_cost, 0) > 0
+                            THEN products.average_cost ELSE COALESCE(products.unit_cost, 0) END) ' . $direction
+                    ))
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('inventory_value')
+                    ->label('Inventory Value')
+                    ->getStateUsing(fn ($record) => ((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)))
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('is_active')
+                    ->label('Active')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? 'Active' : 'Inactive')
+                    ->color(fn ($state) => $state ? 'success' : 'gray')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('barcode')
+                    ->label('Barcode')
+                    ->searchable()
+                    ->copyable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')
+                    // Card footer on phones; a normal sortable column on desktop.
+                    ->label('Updated')
+                    ->date('M j, Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->striped()
+            ->emptyStateIcon('heroicon-o-cube')
+            ->emptyStateHeading('No inventory items yet')
+            ->emptyStateDescription('Add the products you stock and break. You can also create items on the fly while receiving pallets.')
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()
+                    ->label('+ Add Inventory')
+                    ->color('success')
+                    ->visible(function () {
+                        $user = auth()->user();
+                        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+                    }),
+            ])
+            // Layout and trigger come from TableFilterPresentation, applied to
+            // every table in the panel. Eight filters here is what put it over
+            // the line into a dialog: AboveContent pushed the table below the
+            // fold, and the dropdown ran off the bottom of the window.
+            ->filters([
+                SelectFilter::make('item_type')
+                    ->label('Type')
+                    ->options(['case' => 'Cases / containers', 'single' => 'Single items'])
+                    ->query(fn (Builder $query, array $data) => match ($data['value'] ?? null) {
+                        'case'   => $query->where('is_container', true),
+                        'single' => $query->where('is_container', false),
+                        default  => $query,
+                    }),
+                Filter::make('shared_scan_code')
+                    ->label('Barcode used by both a case and a single')
+                    // The rows worth checking by hand: one scan, two meanings.
+                    ->query(fn (Builder $query) => $query->whereIn('id', static::productsSharingAScanCode())),
+                // "Where is it?" is the first question anyone asks of a stock
+                // list and there was no way to ask it. Scoped to what the
+                // viewer is allowed to see, so the filter can never become a
+                // way to look somewhere they cannot.
+                SelectFilter::make('location')
+                    ->label('Location')
+                    ->options(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user())
+                        ? InventoryLocation::whereIn('id', \App\Support\InventoryVisibility::locationIdsFor(auth()->user()))
+                            ->orderBy('name')->pluck('name', 'id')->all()
+                        : InventoryLocation::activeOptions())
+                    ->multiple()
+                    ->query(function (Builder $query, array $data) {
+                        $ids = array_filter((array) ($data['values'] ?? []));
+
+                        return $ids === []
+                            ? $query
+                            // Stock rows of zero are still rows, and an item
+                            // that sat at a location and ran out is not at that
+                            // location any more.
+                            : $query->whereHas('stock', fn ($q) => $q
+                                ->whereIn('inventory_location_id', $ids)
+                                ->where('quantity', '>', 0));
+                    }),
+                SelectFilter::make('category')
+                    ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                        ->distinct()
+                        ->pluck('category', 'category')
+                        ->toArray()))
+                    ->multiple(),
+                Filter::make('low_stock')
+                    ->label('Low Stock Only')
+                    ->query(fn (Builder $query) => $query
+                        ->whereNotNull('reorder_level')
+                        ->whereExists(function ($q) {
+                            $q->selectRaw('1')
+                                ->from('inventory_stock')
+                                ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                                ->groupBy('inventory_stock.inventory_item_id')
+                                ->havingRaw('SUM(quantity) <= products.reorder_level');
+                        })
+                    ),
+                // A streamer opening All Inventory wants their own shelves —
+                // that is what they count, pick from and report against. The
+                // wider list matters too, but only when they are looking for
+                // something to request a transfer of, which is the rarer trip.
+                //
+                // So: their own by default, one toggle away from everything
+                // they are allowed to see. Off, this filter adds nothing and
+                // getEloquentQuery()'s visibility scope is what remains.
+                Filter::make('mine_only')
+                    ->label('My inventory only')
+                    ->visible(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user()))
+                    ->default()
+                    ->query(function (Builder $query) {
+                        $user = auth()->user();
+                        $own  = $user ? \App\Support\InventoryVisibility::ownLocationIds($user) : [];
+
+                        // With no location of their own, this would filter the
+                        // page down to nothing and read as an empty catalog.
+                        if ($own === []) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('stock', fn ($q) => $q
+                            ->whereIn('inventory_location_id', $own)
+                            ->where('quantity', '>', 0));
+                    }),
+                SelectFilter::make('sold_as')
+                    ->label('Sold as')
+                    // Options come from the data as well as the known three,
+                    // so a value someone typed by hand is still filterable.
+                    ->options(fn () => InventoryItem::soldAsOptions() + InventoryItem::whereNotNull('sold_as')
+                        ->distinct()->orderBy('sold_as')->pluck('sold_as', 'sold_as')->toArray()),
+                // An item with no target cannot be judged at all — it is
+                // absent from every margin figure rather than showing badly
+                // in one, which is exactly how it stays missing.
+                Filter::make('no_sale_price')
+                    ->label('Missing a sale target')
+                    ->query(fn (Builder $query) => $query->whereNull('sale_price')),
+                Filter::make('thin_margin')
+                    ->label('Margin under 25%')
+                    ->query(fn (Builder $query) => $query
+                        ->whereNotNull('sale_price')
+                        ->where('sale_price', '>', 0)
+                        ->whereRaw(
+                            '(products.sale_price - CASE WHEN COALESCE(products.average_cost, 0) > 0
+                                THEN products.average_cost ELSE COALESCE(products.unit_cost, 0) END)
+                             < (products.sale_price * 0.25)'
+                        )),
+                Filter::make('is_active')
+                    ->label('Active Only')
+                    ->query(fn (Builder $query) => $query->where('is_active', true))
+                    ->default(),
+                QueryBuilder::make()
+                    ->label('Advanced Filters')
+                    // Its rules are full-width controls; squeezed into one
+                    // column of three it is unusable.
+                    ->columnSpanFull()
+                    ->constraintPickerColumns(2)
+                    ->constraints([
+                        TextConstraint::make('name')->label('Item Name'),
+                        TextConstraint::make('sku')->label('SKU'),
+                        TextConstraint::make('barcode')->label('Barcode'),
+                        SelectConstraint::make('category')
+                            ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                                ->distinct()->pluck('category', 'category')->toArray()))
+                            ->multiple(),
+                        NumberConstraint::make('average_cost')->label('Avg Cost ($)'),
+                        NumberConstraint::make('sale_price')->label('Sale Target ($)'),
+                        NumberConstraint::make('reorder_level')->label('Reorder Level'),
+                        BooleanConstraint::make('is_active')->label('Active'),
+                    ]),
+            ])
+            ->actions([
+                // Only rendered for containers, so it sits alongside view/edit
+                // as a third icon rather than adding a column to every row.
+                TableAction::make('contents')
+                    ->label('Contents')
+                    ->icon('heroicon-o-archive-box')
+                    ->color('primary')
+                    ->size('sm')
+                    ->iconButton()
+                    ->tooltip('See what is inside')
+                    ->visible(fn ($record) => (bool) $record->is_container)
+                    ->modalHeading(fn ($record) => 'Inside ' . $record->name)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalWidth('2xl')
+                    ->modalContent(fn ($record) => view(
+                        'filament.modals.container-contents',
+                        // Eager-loaded here: lazy loading is off outside
+                        // production, so the view would fatal otherwise.
+                        ['record' => $record->load('childContents.childItem.stock')],
+                    )),
+                // Turns a container's recorded contents into real stock: one
+                // case out, twelve boxes in. Only shown when there is
+                // something to break it into.
+                TableAction::make('break_container')
+                    ->label('Break Case')
+                    ->icon('heroicon-o-scissors')
+                    ->color('warning')
+                    ->size('sm')
+                    ->iconButton()
+                    ->tooltip('Break this container into its contents')
+                    ->visible(fn ($record) => (bool) $record->is_container
+                        && $record->childContents()->exists())
+                    ->modalHeading(fn ($record) => 'Break ' . $record->name)
+                    ->modalDescription('Deducts the containers and adds their contents as stock at the same location.')
+                    ->modalSubmitActionLabel('Break')
+                    ->form([
+                        Select::make('location_id')
+                            ->label('Location')
+                            ->options(fn ($record) => InventoryStock::query()
+                                ->where('inventory_item_id', $record->getKey())
+                                ->where('quantity', '>', 0)
+                                ->with('location')
+                                ->get()
+                                ->mapWithKeys(fn ($stock) => [
+                                    $stock->inventory_location_id =>
+                                        ($stock->location?->name ?? 'Location') . ' — ' . (int) $stock->quantity . ' on hand',
+                                ])
+                                ->toArray())
+                            ->required()
+                            ->helperText('Only locations holding this container are listed.'),
+                        TextInput::make('count')
+                            ->label('How many to break')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1)
+                            ->required(),
+                        Placeholder::make('contents_preview')
+                            ->label('Each one produces')
+                            ->content(fn ($record) => $record->childContents()->with('childItem')->get()
+                                ->map(fn ($l) => (int) $l->quantity_per_parent . ' × ' . ($l->childItem?->name ?? 'unknown'))
+                                ->implode(', ') ?: '—'),
+                    ])
+                    ->action(function (InventoryItem $record, array $data): void {
+                        try {
+                            $result = app(\App\Services\ContainerBreakdownService::class)->break(
+                                $record,
+                                InventoryLocation::findOrFail($data['location_id']),
+                                (int) $data['count'],
+                            );
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not break this container')
+                                ->body($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        $summary = collect($result['produced'])
+                            ->map(fn ($p) => $p['quantity'] . ' × ' . $p['name'])
+                            ->implode(', ');
+
+                        Notification::make()
+                            ->title('Broke ' . $result['containers_broken'] . ' × ' . $result['container'])
+                            ->body('Added ' . $summary)
+                            ->success()
+                            ->send();
+                    }),
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                EditAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                // Everything past view/edit lives behind the overflow menu, so
+                // a row is three controls wide instead of five.
+                ActionGroup::make([
+                    Action::make('add_stock')
+                        ->label('Add Stock')
+                        ->icon('heroicon-o-plus-circle')
+                        ->color('success')
+                        ->form([
+                            Grid::make(2)->schema([
+                                Select::make('location_id')
+                                    ->label('Location')
+                                    ->options(fn () => InventoryLocation::activeOptions())
+                                    ->required()
+                                    ->searchable()
+                                    ->columnSpan(1),
+                                Select::make('vendor_id')
+                                    ->label('Vendor')
+                                    ->options(fn () => Vendor::activeOptions())
+                                    ->searchable()
+                                    ->columnSpan(1)
+                                    ->helperText('Track which vendor this stock came from'),
+                            ]),
+                            TextInput::make('quantity')
+                                ->numeric()
+                                ->required()
+                                ->minValue(0.01)
+                                ->label('Quantity to Add'),
+                            TextInput::make('unit_cost')
+                                ->label('Unit Cost ($)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->helperText('Blends into this item\'s weighted average cost. Leave blank to add stock without changing the average.'),
+                            Textarea::make('reason')->rows(2)->placeholder('e.g., Restock from Vendor, damaged replacement, etc.'),
+                        ])
+                        ->action(function (InventoryItem $record, array $data): void {
+                            $location = InventoryLocation::findOrFail($data['location_id']);
+                            $reason = $data['reason'] ?? '';
+                            if (isset($data['vendor_id'])) {
+                                $vendor = Vendor::find($data['vendor_id']);
+                                $reason = ($reason ? $reason . ' — ' : '') . 'From ' . ($vendor?->name ?? 'Unknown Vendor');
+                            }
+                            app(InventoryService::class)->addStock(
+                                $record,
+                                $location,
+                                (float) $data['quantity'],
+                                'opening',
+                                $reason ?: null,
+                                isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== ''
+                                    ? (float) $data['unit_cost']
+                                    : null,
+                            );
+                            Notification::make()->title('Stock added successfully')->success()->send();
+                        }),
+                    // One page, three operations. These were three modals
+                    // that each asked you to decide a number against figures
+                    // the dialog itself was covering — what is here now, where,
+                    // and what it will be afterwards. On a page those stay on
+                    // screen while the decision is made, and the three stop
+                    // being three places for the same mistake to be made
+                    // differently.
+                    Action::make('manage_stock')
+                        ->label('Move or correct stock')
+                        ->icon('heroicon-o-arrows-right-left')
+                        ->color('warning')
+                        ->url(fn (InventoryItem $record) => static::getUrl('stock', ['record' => $record])),
+                    Action::make('mark_damaged')
+                        ->label('Mark Damaged')
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->color('danger')
+                        ->form([
+                            Select::make('from_location_id')
+                                ->label('From Location')
+                                ->options(fn () => InventoryLocation::activeOptions())
+                                ->required()
+                                ->searchable(),
+                            Select::make('damaged_location_id')
+                                ->label('Damaged Inventory Location')
+                                ->options(fn () => InventoryLocation::activeOptionsByType('damaged'))
+                                ->required()
+                                ->searchable(),
+                            TextInput::make('quantity')
+                                ->numeric()
+                                ->required()
+                                ->minValue(0.01),
+                            Textarea::make('reason')->rows(2),
+                        ])
+                        ->action(function (InventoryItem $record, array $data): void {
+                            $from = InventoryLocation::findOrFail($data['from_location_id']);
+                            $damaged = InventoryLocation::findOrFail($data['damaged_location_id']);
+                            app(InventoryService::class)->markDamaged($record, $from, $damaged, (float) $data['quantity'], $data['reason'] ?? null);
+                            Notification::make()->title('Items marked as damaged')->warning()->send();
+                        }),
+                    Action::make('move_to_returns')
+                        ->label('Move to Returns')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('gray')
+                        ->form([
+                            Select::make('from_location_id')
+                                ->label('From Location')
+                                ->options(fn () => InventoryLocation::activeOptions())
+                                ->required()
+                                ->searchable(),
+                            Select::make('returns_location_id')
+                                ->label('Returns Location')
+                                ->options(fn () => InventoryLocation::activeOptionsByType('returned'))
+                                ->required()
+                                ->searchable(),
+                            TextInput::make('quantity')
+                                ->numeric()
+                                ->required()
+                                ->minValue(0.01),
+                            Textarea::make('reason')->rows(2),
+                        ])
+                        ->action(function (InventoryItem $record, array $data): void {
+                            $from = InventoryLocation::findOrFail($data['from_location_id']);
+                            $returns = InventoryLocation::findOrFail($data['returns_location_id']);
+                            app(InventoryService::class)->moveToReturns($record, $from, $returns, (float) $data['quantity'], $data['reason'] ?? null);
+                            Notification::make()->title('Items moved to returns')->success()->send();
+                        }),
+                    // This used to open a notification telling you to go and
+                    // edit the item — a menu entry whose whole function was
+                    // to name the four screens you still had to walk through
+                    // to record one number a phone can read in a second.
+                    Action::make('scan_barcode')
+                        ->label(fn ($record) => filled($record->barcode) ? 'Replace Barcode' : 'Scan Barcode')
+                        ->icon('heroicon-o-qr-code')
+                        ->color('info')
+                        ->visible(fn () => (auth()->user()?->isAdmin() ?? false)
+                            || (auth()->user()?->isOwner() ?? false)
+                            || (auth()->user()?->isStreamer() ?? false))
+                        // The page owns the capture. The camera reports back
+                        // through a window event carrying only the code, so
+                        // something has to remember which item it was opened
+                        // for, and the record is not in scope by then.
+                        ->action(fn (InventoryItem $record, $livewire) => $livewire->startBarcodeScan($record->getKey())),
+                    DeleteAction::make(),
+                ]),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                            $deletable = $records->filter(fn (InventoryItem $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' item(s) deleted')
+                                    ->body("{$blocked} skipped — still hold stock.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' item(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
+            ])
+            ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
+            ->deferLoading()
+            ->defaultSort('name');
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Resources\InventoryItemResource\RelationManagers\BarcodesRelationManager::class,
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListInventoryItems::route('/'),
+            'quick-add' => Pages\QuickAddInventoryItem::route('/quick-add'),
+            'create' => Pages\CreateInventoryItem::route('/create'),
+            'view' => Pages\ViewInventoryItem::route('/{record}'),
+            'edit' => Pages\EditInventoryItem::route('/{record}/edit'),
+            'stock' => Pages\ManageStock::route('/{record}/stock'),
+        ];
+    }
+}
+)
+                        ->formatStateUsing(fn ($state, $record) => $record ? number_format((float) ($record->costBasis() ?? $state ?? 0), 4, '.', '') : ($state ?? 0))
+                        ->disabled(fn ($record) => $record !== null)
+                        ->dehydrated(fn ($record) => $record === null)
                         ->default(0)
                         ->step(0.0001)
-                        ->helperText('Live FIFO average of what\'s currently on hand — only what was paid for stock still in inventory, not everything ever bought. Holds at the last real cost once sold out, until new stock opens a fresh lot.'),
+                        ->helperText('Current FIFO average cost. This is calculated from stock on hand and updates when costed stock is received or consumed.'),
                     TextInput::make('sale_price')
                         ->label('Sale Price / Target ($)')
                         ->numeric()

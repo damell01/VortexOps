@@ -270,6 +270,8 @@ def reconcile_index(module, session):
     result: dict[str, Any] = {
         "_seller_hub_index": True,
         "past": [],
+        "current": [],
+        "upcoming": [],
         "current_ids": [],
         "upcoming_ids": [],
         "past_selected": False,
@@ -297,6 +299,8 @@ def reconcile_index(module, session):
         )
 
         result["past"] = list(past.values())
+        result["current"] = list(current.values())
+        result["upcoming"] = list(upcoming.values())
         result["current_ids"] = sorted(current.keys())
         result["upcoming_ids"] = sorted(upcoming.keys())
         result["past_selected"] = past_selected
@@ -598,3 +602,10 @@ def historical_analytics(module, session):
     return rows
 
 
+
+
+def install(module) -> None:
+    """Install Seller Hub-backed analytics/index modes into the Scrapling base."""
+    module.analytics = lambda session: analytics(module, session)
+    module.reconcile_index = lambda session: reconcile_index(module, session)
+    module.historical_analytics = lambda session: historical_analytics(module, session)

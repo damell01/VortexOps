@@ -101,7 +101,13 @@ class WhatnotReportingReconciler
         }
 
         $progress && $progress("discovery: {$created} created, {$updated} refreshed, {$skipped} skipped, {$flagged} missing-upcoming flagged");
-        return compact('created', 'updated', 'skipped', 'flagged');
+        return array_merge(compact('created', 'updated', 'skipped', 'flagged'), [
+            'counts' => [
+                'current' => count($groups['current']),
+                'upcoming' => count($groups['upcoming']),
+                'past' => count($groups['past']),
+            ],
+        ]);
     }
 
     public function reconcileOrders(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array

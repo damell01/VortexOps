@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Setting;
 use App\Models\Show;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotReportingReconciler;
@@ -137,7 +138,16 @@ class SyncWhatnotReporting extends Command
         }
 
         $this->line('Coordinator lock acquired. Starting channel work now.');
-        $progress = fn (string $line) => $this->line('      <fg=gray>'.OutputFormatter::escape($line).'</>');
+        $progress = function (string $line) {
+            $this->line('      <fg=gray>'.OutputFormatter::escape($line).'</>');
+            $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
+            if (in_array($state['status'] ?? null, ['queued', 'running'], true)) {
+                $state['status'] = 'running';
+                $state['phase'] = $line;
+                $state['updated_at'] = now()->toIso8601String();
+                Setting::set('whatnot_ui_job', json_encode($state));
+            }
+        };
         $retry = function (callable $work, string $phase) use ($progress) {
             $last = null;
             for ($attempt = 1; $attempt <= 2; $attempt++) {

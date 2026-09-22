@@ -33,8 +33,11 @@
                     @if(!empty($job['error']))
                         <div class="mt-3 rounded bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-300">{{ $job['error'] }}</div>
                     @endif
+                    @if(in_array($job['status'] ?? '', ['queued','running']))
+                        <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div class="h-full w-2/3 animate-pulse rounded-full bg-blue-500"></div></div>
+                    @endif
                     @if(!empty($job['output']) && in_array($job['status'] ?? '', ['completed','failed']))
-                        <details class="mt-3"><summary class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">View run output</summary><pre class="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre></details>
+                        <details open class="mt-3"><summary class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">View run output</summary><pre class="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre></details>
                     @endif
                 </div>
             @endif

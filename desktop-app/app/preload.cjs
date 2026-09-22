@@ -1,0 +1,1 @@
+const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('vortex',{state:()=>ipcRenderer.invoke('state'),saveToken:t=>ipcRenderer.invoke('save-token',t),login:()=>ipcRenderer.invoke('login'),sync:()=>ipcRenderer.invoke('sync'),stop:()=>ipcRenderer.invoke('stop'),onLog:f=>ipcRenderer.on('log',(_,x)=>f(x))});

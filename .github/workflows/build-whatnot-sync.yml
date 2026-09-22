@@ -15,16 +15,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
+        with: { node-version: '22' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
       - name: Prepare collector bundle
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force collector | Out-Null
           Copy-Item ..\desktop-collector\* collector -Recurse -Force
-      - name: Install dependencies
+      - name: Build portable Python runtime with Scrapling
+        shell: pwsh
+        run: |
+          python -m venv runtime\python
+          runtime\python\Scripts\python.exe -m pip install --upgrade pip
+          runtime\python\Scripts\python.exe -m pip install -r ..\desktop-collector\requirements.txt
+          Move-Item runtime\python\Scripts\python.exe runtime\python\python.exe
+      - name: Bundle Node runtime
+        shell: pwsh
+        run: |
+          Copy-Item (Get-Command node).Source runtime\node.exe
+      - name: Install desktop dependencies
         run: npm install
-      - name: Build portable EXE
+      - name: Build Windows EXE
         run: npm run dist:win
       - name: Upload EXE
         uses: actions/upload-artifact@v4

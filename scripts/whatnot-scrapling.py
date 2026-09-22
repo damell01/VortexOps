@@ -675,8 +675,12 @@ def main():
             result = ledger(session)
         elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index')):
             result = globals()['reconcile_index'](session)
+        elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index_handler')):
+            result = globals()['reconcile_index_handler'](session)
         elif MODE == 'historical-analytics' and callable(globals().get('historical_analytics')):
             result = globals()['historical_analytics'](session)
+        elif MODE == 'historical-analytics' and callable(globals().get('historical_analytics_handler')):
+            result = globals()['historical_analytics_handler'](session)
         else:
             fail(f"SCRAPLING_MODE_UNSUPPORTED: {MODE}")
     json.dump(result, sys.stdout, separators=(',', ':'))

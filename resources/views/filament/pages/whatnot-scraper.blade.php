@@ -22,21 +22,9 @@
             </div>
 
             @if ($testResult)
-                @if ($testStatus !== 'success' && str_contains($testResult, 'Playwright not found'))
-                    <div class="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-3 py-3 text-xs space-y-2">
-                        <p class="font-semibold text-amber-800 dark:text-amber-200">Playwright is not installed on this server.</p>
-                        <p class="text-amber-700 dark:text-amber-300">Run these commands on the VPS to set it up:</p>
-                        <div class="space-y-1 font-mono bg-amber-100 dark:bg-amber-900 rounded p-2">
-                            <div>npm install -g playwright</div>
-                            <div>npx playwright install chromium --with-deps</div>
-                        </div>
-                        <p class="text-amber-600 dark:text-amber-400">Then click Test Connection again.</p>
-                    </div>
-                @else
-                    <div class="rounded-lg {{ $testStatus === 'success' ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300' }} px-3 py-2 text-xs">
-                        {{ $testResult }}
-                    </div>
-                @endif
+                <div class="rounded-lg {{ $testStatus === 'success' ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300' }} px-3 py-2 text-xs">
+                    {{ $testResult }}
+                </div>
             @endif
 
             <button
@@ -66,7 +54,7 @@
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Run Import Now</h3>
                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     Pull the latest shows from all enabled channels.
-                    Runs automatically every 30 min via scheduler.
+                    Legacy quick import. Production reporting is controlled from the Sync Dashboard using Scrapling.
                     @if ($this->lastImport)
                         <br>Last import: <span class="font-medium">{{ \Carbon\Carbon::parse($this->lastImport)->diffForHumans() }}</span>
                     @else
@@ -227,24 +215,6 @@
         @endif
     </div>
 
-    {{-- ── Debug / CLI Help ─────────────────────────────────────────────────── --}}
-    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 space-y-2">
-        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">CLI Commands</h3>
-        <div class="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <div class="flex gap-3 items-start">
-                <code class="flex-shrink-0 rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 font-mono text-gray-700 dark:text-gray-300">php artisan whatnot:import</code>
-                <span>Import latest shows from all enabled channels</span>
-            </div>
-            <div class="flex gap-3 items-start">
-                <code class="flex-shrink-0 rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 font-mono text-gray-700 dark:text-gray-300">php artisan whatnot:import --debug</code>
-                <span>Import with debug screenshots saved to <code>/tmp/whatnot-debug-*.png</code></span>
-            </div>
-            <div class="flex gap-3 items-start">
-                <code class="flex-shrink-0 rounded bg-gray-100 dark:bg-gray-800 px-2 py-0.5 font-mono text-gray-700 dark:text-gray-300">php artisan whatnot:import --channel=1</code>
-                <span>Import a specific channel by ID</span>
-            </div>
-        </div>
-    </div>
-
+ 
 </div>
 </x-filament-panels::page>

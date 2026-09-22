@@ -1,6 +1,6 @@
 {
   "name": "vortex-whatnot-sync",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "VortexOps Whatnot desktop sync companion",
   "main": "app/main.cjs",
@@ -25,6 +25,10 @@
       {
         "from": "collector",
         "to": "collector"
+      },
+      {
+        "from": "runtime",
+        "to": "runtime"
       }
     ],
     "win": {

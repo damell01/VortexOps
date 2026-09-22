@@ -82,6 +82,28 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
+    public function fetchSellerHubIndex(?string $channelUsername = null, bool $debug = false): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'reconcile-index';
+        $env['WHATNOT_RECONCILE_MAX_PASSES'] = '100';
+        if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        $timeout = 1800;
+        $process = $this->makeProcess($env, timeout: $timeout);
+        $this->withBrowserLock(fn () => $process->run(), waitSeconds: $timeout);
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+        if ($stderr) Log::channel('stack')->warning('Whatnot Seller Hub index stderr', ['output' => $stderr, 'channel' => $channelUsername]);
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+        if (! $process->isSuccessful()) throw new \RuntimeException('Seller Hub index failed: '.($stderr ?: "Scraper exited with code {$process->getExitCode()}"));
+        if ($stdout === '') return [];
+        $data = json_decode($stdout, true);
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data) || empty($data['_seller_hub_index'])) {
+            throw new \RuntimeException('Seller Hub index returned invalid JSON: '.json_last_error_msg());
+        }
+        return $data;
+    }
+
     public function fetchHistoricalAnalytics(
         string $since,
         ?string $channelUsername = null,

@@ -665,51 +665,49 @@ class InventoryItemResource extends Resource
      */
     public static function productsSharingAScanCode(): array
     {
-        // Memoised on the container rather than in a static: a static survives
-        // the whole PHP process, so it would go stale in a queue worker, under
-        // Octane, and between tests — which is exactly how it first went wrong
-        // here, returning one test's answer to the next.
-        $key = 'vx.products_sharing_scan_code';
+        // Cached rather than just memoised per-request: this is a full,
+        // unindexed scan of every barcode, UPC and learned alias in the
+        // catalog (product_identities grows with every AI-assisted match
+        // made while receiving, so it can be far larger than products
+        // itself), re-run on every render of the inventory table — visiting
+        // it on every keystroke of a filter. Ten minutes of staleness on a
+        // "shares a barcode" warning is a fair trade for not re-scanning the
+        // whole catalog per request; a real barcode collision doesn't need
+        // to be caught within seconds of being created.
+        return \Illuminate\Support\Facades\Cache::remember('vx.products_sharing_scan_code', now()->addMinutes(10), function () {
+            // Every scannable code a product answers to, in one column —
+            // fetched once and grouped in PHP rather than running the same
+            // union-all scan a second time as a subquery to resolve which
+            // ids the ambiguous codes belong to.
+            $codes = \App\Models\Product::query()
+                ->selectRaw('barcode as code, id, is_container')
+                ->whereNotNull('barcode')->where('barcode', '!=', '')
+                ->unionAll(
+                    \App\Models\Product::query()
+                        ->selectRaw('upc as code, id, is_container')
+                        ->whereNotNull('upc')->where('upc', '!=', '')
+                )
+                ->unionAll(
+                    \Illuminate\Support\Facades\DB::table('product_identities')
+                        ->join('products', 'products.id', '=', 'product_identities.product_id')
+                        ->selectRaw('product_identities.value as code, products.id, products.is_container')
+                        ->whereNotNull('product_identities.value')
+                        ->where('product_identities.value', '!=', '')
+                )
+                ->get();
 
-        if (app()->bound($key)) {
-            return app()->make($key);
-        }
+            $ids = [];
 
-        // Every scannable code a product answers to, in one column.
-        $codes = \App\Models\Product::query()
-            ->selectRaw('barcode as code, id, is_container')
-            ->whereNotNull('barcode')->where('barcode', '!=', '')
-            ->unionAll(
-                \App\Models\Product::query()
-                    ->selectRaw('upc as code, id, is_container')
-                    ->whereNotNull('upc')->where('upc', '!=', '')
-            )
-            ->unionAll(
-                \Illuminate\Support\Facades\DB::table('product_identities')
-                    ->join('products', 'products.id', '=', 'product_identities.product_id')
-                    ->selectRaw('product_identities.value as code, products.id, products.is_container')
-                    ->whereNotNull('product_identities.value')
-                    ->where('product_identities.value', '!=', '')
-            );
+            foreach ($codes->groupBy('code') as $rows) {
+                if ($rows->pluck('is_container')->unique()->count() > 1) {
+                    foreach ($rows as $row) {
+                        $ids[(int) $row->id] = true;
+                    }
+                }
+            }
 
-        // Codes answered to by both a container and a non-container.
-        $ambiguous = \Illuminate\Support\Facades\DB::query()
-            ->fromSub($codes, 'c')
-            ->select('code')
-            ->groupBy('code')
-            ->havingRaw('COUNT(DISTINCT is_container) > 1');
-
-        $ids = \Illuminate\Support\Facades\DB::query()
-            ->fromSub($codes, 'c2')
-            ->whereIn('code', $ambiguous)
-            ->distinct()
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        app()->instance($key, $ids);
-
-        return $ids;
+            return array_keys($ids);
+        });
     }
 
     public static function table(Table $table): Table

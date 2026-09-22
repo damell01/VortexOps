@@ -76,7 +76,7 @@ class SharedScanCodeTest extends TestCase
         $this->assertSame([], InventoryItemResource::productsSharingAScanCode());
     }
 
-    public function test_the_result_does_not_leak_between_requests(): void
+    public function test_the_result_is_cached_and_a_cleared_cache_recomputes(): void
     {
         $this->assertSame([], InventoryItemResource::productsSharingAScanCode());
 
@@ -84,13 +84,14 @@ class SharedScanCodeTest extends TestCase
         $box  = $this->product(['sku' => 'BOX-E', 'name' => 'Box E', 'is_container' => false]);
         ProductIdentity::create(['product_id' => $box->id, 'type' => 'upc', 'value' => '777']);
 
-        // Memoised per request, so within one it is allowed to be stale...
+        // Cached for ten minutes deliberately — this is a full, unindexed scan
+        // of every barcode/UPC/alias in the catalog, and re-running it on
+        // every render of the inventory table is what made the page slow.
+        // The trade is bounded staleness on a cosmetic "shares a barcode"
+        // hint, which resolving an actual scan never reads.
         $this->assertSame([], InventoryItemResource::productsSharingAScanCode());
 
-        // ...but a fresh container must recompute. Held in a static instead,
-        // this returned the first answer for the life of the process — which is
-        // how it went wrong across tests, and would in a queue worker too.
-        app()->forgetInstance('vx.products_sharing_scan_code');
+        \Illuminate\Support\Facades\Cache::forget('vx.products_sharing_scan_code');
 
         $this->assertContains($case->id, InventoryItemResource::productsSharingAScanCode());
     }

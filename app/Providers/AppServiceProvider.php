@@ -43,6 +43,17 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // laravel-debugbar is a real (non-dev) dependency, so a misconfigured
+        // APP_DEBUG or DEBUGBAR_ENABLED on the live server silently turns it
+        // on there too — it then profiles every query with a full backtrace
+        // on every request, which is severe on a Livewire page that fires a
+        // request per keystroke (the keyword-search boxes) or renders many
+        // computed columns per row (the inventory table). Forced off outside
+        // local/testing regardless of what either env var says.
+        if (! app()->environment(['local', 'testing'])) {
+            config(['debugbar.enabled' => false]);
+        }
+
         $this->app->singleton(OllamaClient::class, fn () => OllamaClient::fromSettings());
         $this->app->singleton(EmbeddingService::class, fn ($app) => new EmbeddingService($app->make(OllamaClient::class)));
         $this->app->singleton(ProductMatchingService::class, fn ($app) => new ProductMatchingService($app->make(EmbeddingService::class)));

@@ -104,29 +104,57 @@ def ensure_channel(page, requested: str) -> str:
 
     page.wait_for_timeout(600)
 
-    switcher = page.locator("#team-invite-switch-role-anchor").first
+    # The current Seller Hub sometimes renders the Switch Role button while
+    # Playwright/Scrapling still considers its click action unfinished. Prefer
+    # a DOM click first, then fall back to the locator. Success is determined by
+    # the role picker appearing, not by click() returning.
+    switch_error = None
     try:
-        switcher.click(timeout=8000, force=True)
-    except Exception as first_exc:
+        clicked = page.evaluate(r"""
+        () => {
+          const el = document.querySelector('#team-invite-switch-role-anchor');
+          if (!el) return false;
+          el.click();
+          return true;
+        }
+        """)
+        if not clicked:
+            raise RuntimeError("switch-role element not found")
+    except Exception as exc:
+        switch_error = exc
         try:
-            clicked = page.evaluate(r"""
-            () => {
-              const el = document.querySelector('#team-invite-switch-role-anchor');
-              if (!el) return false;
-              el.click();
-              return true;
-            }
-            """)
-            if not clicked:
-                raise RuntimeError("switch-role element not found")
-        except Exception as fallback_exc:
-            fail(
-                f"CHANNEL_SWITCH_FAILED: could not open role picker for "
-                f"@{requested}: {first_exc}; fallback={fallback_exc}",
-                3,
-            )
+            page.locator("#team-invite-switch-role-anchor").first.click(timeout=3000, force=True)
+        except Exception as locator_exc:
+            switch_error = locator_exc
 
-    page.wait_for_timeout(700)
+    role_picker_open = False
+    for _ in range(12):
+        try:
+            role_picker_open = bool(page.evaluate(r"""
+            () => {
+              const selectors = [
+                'button[formaction*="switch-role"]',
+                'form[action*="switch-role"] button',
+                'button img[alt]',
+                '[role="button"] img[alt]'
+              ];
+              return selectors.some(s => document.querySelector(s));
+            }
+            """))
+        except Exception:
+            role_picker_open = False
+        if role_picker_open:
+            break
+        page.wait_for_timeout(250)
+
+    if not role_picker_open:
+        fail(
+            f"CHANNEL_SWITCH_FAILED: role picker did not appear for "
+            f"@{requested}: {switch_error or 'switch click produced no picker'}",
+            3,
+        )
+
+    page.wait_for_timeout(300)
     target = None
 
     candidate_selectors = [

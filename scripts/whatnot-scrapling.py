@@ -514,6 +514,18 @@ def page_signature(page, shipments: bool) -> str:
 
 
 def advance_next_page(page, previous_signature: str, shipments: bool) -> tuple[bool, str]:
+    """Advance exactly once and wait for that one navigation to settle.
+
+    Whatnot can leave the old Next button actionable while React is replacing
+    the table. Reusing a locator click during that transition can advance two
+    cursors. A DOM click is synchronous, and we immediately wait for either the
+    URL or table signature to change before allowing another pagination step.
+    """
+    try:
+        before_url = page.url
+    except Exception:
+        before_url = ""
+
     try:
         state = page.evaluate(r"""
         () => {
@@ -525,43 +537,38 @@ def advance_next_page(page, previous_signature: str, shipments: bool) -> tuple[b
             || button.getAttribute('aria-disabled') === 'true'
             || button.matches('[disabled]')
             || button.classList.contains('cursor-not-allowed');
-          return {found:true, disabled};
+          if (disabled) return {found:true, disabled:true};
+          button.click();
+          return {found:true, disabled:false};
         }
         """)
     except Exception as exc:
-        info(f"pagination: could not inspect Next button: {exc}")
+        info(f"pagination: could not click Next button: {exc}")
         return False, previous_signature
 
     if not state or not state.get("found") or state.get("disabled"):
         return False, previous_signature
 
-    next_button = page.locator('button[aria-label="Next page"], button[aria-label="Next Page"], button:has(svg[aria-label="Next page"]), button:has(svg[aria-label="Next Page"])').first
-    try:
-        next_button.click(timeout=5000, force=True)
-    except Exception:
-        try:
-            clicked = page.evaluate(r"""
-            () => {
-              const svg = document.querySelector('svg[aria-label="Next page"], svg[aria-label="Next Page"]');
-              const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"], button[aria-label="Next Page"]');
-              if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
-              button.click();
-              return true;
-            }
-            """)
-            if not clicked:
-                return False, previous_signature
-        except Exception:
-            return False, previous_signature
-
-    for _ in range(20):
+    for _ in range(40):
         page.wait_for_timeout(250)
         check_login(page)
+        try:
+            current_url = page.url
+        except Exception:
+            current_url = ""
         current_signature = page_signature(page, shipments)
-        if current_signature and current_signature != previous_signature:
+        url_changed = bool(before_url and current_url and current_url != before_url)
+        signature_changed = bool(current_signature and current_signature != previous_signature)
+        if signature_changed:
+            # Give the React table a brief settling period before the caller
+            # reads rows or exposes the Next control again.
+            page.wait_for_timeout(350)
             return True, current_signature
+        if url_changed:
+            # Cursor changed but rows have not rendered yet; keep waiting.
+            continue
 
-    info("pagination: Next was clickable but the table did not change; stopping to avoid repeating one page")
+    info("pagination: Next was clicked once but the table did not change; stopping")
     return False, previous_signature
 
 

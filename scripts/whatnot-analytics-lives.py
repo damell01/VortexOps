@@ -459,8 +459,10 @@ def analytics(module, session):
             f"gross={row.get('gross_revenue')} net={row.get('whatnot_net')}"
         )
 
+    # Start directly on Seller Hub Shows. The dashboard home SPA has recently
+    # stalled long enough to exhaust navigation retries before analytics begins.
     session.fetch(
-        f"{module.BASE}/dashboard/home",
+        f"{module.BASE}/dashboard/lives",
         page_action=action,
         timeout=120000,
         network_idle=False,

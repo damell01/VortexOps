@@ -41,7 +41,16 @@ class RunWhatnotReportingJob implements ShouldQueue
             }
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
             Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'phase'=>$code===0?'Pipeline completed successfully':'Pipeline failed','output'=>$output !== '' ? mb_substr($output,-12000) : 'Command completed without captured console output.'])));
-            if ($code !== 0) throw new \RuntimeException("Whatnot reporting exited with code {$code}");
+            if ($code !== 0) {
+                $lines = preg_split('/\R/', $output) ?: [];
+                $useful = array_values(array_filter($lines, fn ($line) =>
+                    str_contains(strtolower($line), 'failed') ||
+                    str_contains(strtolower($line), 'error') ||
+                    str_contains(strtolower($line), 'did not start')
+                ));
+                $reason = trim((string) end($useful));
+                throw new \RuntimeException($reason !== '' ? $reason : "Whatnot reporting exited with code {$code}");
+            }
         } catch (\Throwable $e) {
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
             Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>'failed','finished_at'=>now()->toIso8601String(),'error'=>$e->getMessage()])));

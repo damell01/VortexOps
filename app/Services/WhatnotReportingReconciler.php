@@ -20,6 +20,63 @@ class WhatnotReportingReconciler
         private readonly WhatnotDataNormalizer $normalizer,
     ) {}
 
+    public function discoverShows(WhatnotChannel $channel, ?callable $progress = null): array
+    {
+        $progress && $progress('discovery: scanning Seller Hub Current, Upcoming, and Past with Scrapling');
+        $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username);
+        $created = $updated = $skipped = 0;
+
+        $groups = [
+            'current' => (array) ($index['current'] ?? []),
+            'upcoming' => (array) ($index['upcoming'] ?? []),
+            'past' => (array) ($index['past'] ?? []),
+        ];
+
+        foreach ($groups as $state => $rows) {
+            foreach ($rows as $raw) {
+                if (! is_array($raw)) { $skipped++; continue; }
+                $liveId = strtolower(trim((string) ($raw['live_id'] ?? $raw['whatnot_live_id'] ?? '')));
+                if ($liveId === '') { $skipped++; continue; }
+
+                $normalized = $this->normalizer->normalizeShow($raw);
+                $title = trim((string) ($normalized['title'] ?? $raw['title'] ?? ''));
+                $date = $normalized['show_date'] ?? $raw['show_date'] ?? null;
+                if ($title === '' || ! $date) { $skipped++; continue; }
+
+                $show = Show::query()
+                    ->where('whatnot_channel_id', $channel->id)
+                    ->where('whatnot_show_id', $liveId)
+                    ->first();
+
+                $fields = array_filter([
+                    'whatnot_channel_id' => $channel->id,
+                    'whatnot_show_id' => $liveId,
+                    'title' => $title,
+                    'show_date' => $date,
+                    'start_time' => $normalized['start_time'] ?? $raw['start_time'] ?? null,
+                    'detail_url' => $raw['detail_url'] ?? $raw['open_url'] ?? ('https://www.whatnot.com/dashboard/live/'.$liveId),
+                    'import_source' => 'auto_whatnot',
+                    'last_synced_at' => now(),
+                    'raw_import_payload' => array_merge($raw, ['_seller_hub_state' => $state]),
+                ], fn ($v) => $v !== null);
+
+                if ($show) {
+                    $show->forceFill($fields)->save();
+                    $updated++;
+                } else {
+                    $fields['status'] = 'draft';
+                    $fields['created_by'] = 1;
+                    $show = Show::create($fields);
+                    $show->detectStreamers();
+                    $created++;
+                }
+            }
+        }
+
+        $progress && $progress("discovery: {$created} created, {$updated} refreshed, {$skipped} skipped");
+        return compact('created', 'updated', 'skipped');
+    }
+
     public function reconcileOrders(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array
     {
         $batchSize = max(1, min(30, $batchSize));

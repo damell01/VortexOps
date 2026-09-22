@@ -24,32 +24,40 @@ class WhatnotReportingReconciler
     {
         $progress && $progress('discovery: scanning Seller Hub Current, Upcoming, and Past with Scrapling');
         $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username);
-        $created = $updated = $skipped = 0;
+        $created = $updated = $skipped = $flagged = 0;
 
         $groups = [
             'current' => (array) ($index['current'] ?? []),
             'upcoming' => (array) ($index['upcoming'] ?? []),
             'past' => (array) ($index['past'] ?? []),
         ];
+        $totalSeen = array_sum(array_map('count', $groups));
+        if ($totalSeen === 0) {
+            throw new \RuntimeException('Seller Hub returned zero Current, Upcoming, and Past shows; refusing to treat an empty page as authoritative.');
+        }
 
+        $seenIds = [];
         foreach ($groups as $state => $rows) {
             foreach ($rows as $raw) {
                 if (! is_array($raw)) { $skipped++; continue; }
                 $liveId = strtolower(trim((string) ($raw['live_id'] ?? $raw['whatnot_live_id'] ?? '')));
                 if ($liveId === '') { $skipped++; continue; }
+                $seenIds[$liveId] = true;
 
                 $normalized = $this->normalizer->normalizeShow($raw);
                 $title = trim((string) ($normalized['title'] ?? $raw['title'] ?? ''));
                 $date = $normalized['show_date'] ?? $raw['show_date'] ?? null;
                 if ($title === '' || ! $date) { $skipped++; continue; }
 
-                $show = Show::query()
-                    ->where('whatnot_channel_id', $channel->id)
-                    ->where('whatnot_show_id', $liveId)
-                    ->first();
+                // Whatnot UUID is globally unique in our schema. Never create a
+                // duplicate merely because a channel context was wrong.
+                $show = Show::query()->where('whatnot_show_id', $liveId)->first();
+                $channelMismatch = $show && $show->whatnot_channel_id && (int) $show->whatnot_channel_id !== (int) $channel->id;
 
+                $previousRaw = $show && is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
                 $fields = array_filter([
-                    'whatnot_channel_id' => $channel->id,
+                    'whatnot_channel_id' => $channelMismatch ? $show->whatnot_channel_id : $channel->id,
+                    'channel_attribution_suspect' => $channelMismatch ? true : ($show?->channel_attribution_suspect ?? false),
                     'whatnot_show_id' => $liveId,
                     'title' => $title,
                     'show_date' => $date,
@@ -57,7 +65,10 @@ class WhatnotReportingReconciler
                     'detail_url' => $raw['detail_url'] ?? $raw['open_url'] ?? ('https://www.whatnot.com/dashboard/live/'.$liveId),
                     'import_source' => 'auto_whatnot',
                     'last_synced_at' => now(),
-                    'raw_import_payload' => array_merge($raw, ['_seller_hub_state' => $state]),
+                    'raw_import_payload' => array_merge($previousRaw, $raw, [
+                        '_seller_hub_state' => $state,
+                        '_seller_hub_seen_at' => now()->toIso8601String(),
+                    ]),
                 ], fn ($v) => $v !== null);
 
                 if ($show) {
@@ -73,8 +84,24 @@ class WhatnotReportingReconciler
             }
         }
 
-        $progress && $progress("discovery: {$created} created, {$updated} refreshed, {$skipped} skipped");
-        return compact('created', 'updated', 'skipped');
+        // A formerly-upcoming show disappearing is suspicious, not proof of a
+        // cancellation. Flag it for reconciliation instead of silently deleting
+        // or cancelling a legitimate show.
+        $future = Show::query()
+            ->where('whatnot_channel_id', $channel->id)
+            ->where('import_source', 'auto_whatnot')
+            ->whereDate('show_date', '>=', today())
+            ->get();
+        foreach ($future as $show) {
+            $raw = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+            if (($raw['_seller_hub_state'] ?? null) !== 'upcoming' || isset($seenIds[strtolower((string) $show->whatnot_show_id)])) continue;
+            $raw['_seller_hub_missing_since'] ??= now()->toIso8601String();
+            $show->forceFill(['raw_import_payload' => $raw])->saveQuietly();
+            $flagged++;
+        }
+
+        $progress && $progress("discovery: {$created} created, {$updated} refreshed, {$skipped} skipped, {$flagged} missing-upcoming flagged");
+        return compact('created', 'updated', 'skipped', 'flagged');
     }
 
     public function reconcileOrders(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array

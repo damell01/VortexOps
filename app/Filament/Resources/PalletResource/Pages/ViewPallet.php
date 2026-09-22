@@ -370,6 +370,10 @@ class ViewPallet extends ViewRecord
                 ->label(function () {
                     $progress = $this->getRecord()->receivingProgress();
 
+                    if ($progress['expected'] > 0 && $progress['received'] >= $progress['expected']) {
+                        return 'Complete Pallet';
+                    }
+
                     if (! $progress['started']) {
                         return 'Start receiving';
                     }
@@ -386,6 +390,13 @@ class ViewPallet extends ViewRecord
                 // expectations — and nothing downstream reads them. Lines can
                 // be added from the scanner as the box is unpacked.
                 ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'], true)),
+
+            Action::make('scan_completed_pallet')
+                ->label('Scan / Verify Items')
+                ->icon('heroicon-o-qr-code')
+                ->color('primary')
+                ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
+                ->visible(fn () => in_array($this->getRecord()->status, ['received', 'processed'], true)),
 
             // The other direction of the same question. From an item you ask
             // "where did this come from"; from a pallet, "what did this bring

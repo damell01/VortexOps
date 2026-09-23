@@ -100,7 +100,8 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
           const open = row.querySelector('a[href^="/dashboard/live/"]');
           // Current Seller Hub renders these actions as buttons, not necessarily anchors.
           const analytics = [...row.querySelectorAll('a,button,[role="button"]')]
-            .find(a => /^\s*See Analytics\s*$/i.test(a.textContent || ''));
+            .find(a => /^\s*See Analytics\s*$/i.test(a.textContent || '') ||
+              /\/dashboard\/analytics\/overview\?.*tab=livestream.*live_id=/i.test(a.getAttribute('href') || ''));
           const shipments = [...row.querySelectorAll('a,button,[role="button"]')]
             .find(a => /^\s*View Shipments\s*$/i.test(a.textContent || ''));
           const openUrl = open?.getAttribute('href') || null;

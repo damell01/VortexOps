@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import os
 import re
+import json
+import random
 from pathlib import Path
 from typing import Any
 
@@ -544,6 +546,90 @@ def analytics(module, session):
     module.info(f"analytics: collected {len(rows)} show(s)")
     return rows
 
+
+
+
+def recent_past_analytics(module, session):
+    """Import recent Seller Hub Past rows directly, then follow each row's See Analytics href."""
+    limit = max(1, min(100, int(os.getenv("WHATNOT_LIMIT", "50"))))
+    rows: list[dict[str, Any]] = []
+    module.info(f"recent-past-analytics: loading newest Past shows limit={limit}")
+
+    def action(page):
+        module.prepare(page)
+        if "/dashboard/lives" not in page.url:
+            page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1800)
+        module.check_login(page)
+        if not select_tab(module, page, "Past"):
+            return
+
+        candidates: dict[str, dict[str, Any]] = {}
+        stable = 0
+        previous = -1
+        for attempt in range(1, 12):
+            module.check_login(page)
+            for item in extract_show_rows(page):
+                live_id = clean(item.get("live_id")).lower()
+                if live_id and item.get("analytics_url"):
+                    item["live_id"] = live_id
+                    candidates[live_id] = item
+            if len(candidates) >= limit:
+                break
+            if len(candidates) == previous:
+                stable += 1
+            else:
+                stable = 0
+            previous = len(candidates)
+            if stable >= 3:
+                break
+            scroll_to_bottom(page)
+            page.wait_for_timeout(900)
+
+        selected = list(candidates.values())[:limit]
+        module.info(
+            f"recent-past-analytics: Past rows ready candidates={len(candidates)} processing={len(selected)}"
+        )
+
+        for index, item in enumerate(selected, 1):
+            live_id = clean(item.get("live_id")).lower()
+            analytics_url = clean(item.get("analytics_url"))
+            if not live_id or not analytics_url:
+                continue
+            url = analytics_url if analytics_url.startswith("http") else f"{module.BASE}{analytics_url}"
+            module.info(
+                f"recent-past-analytics [{index}/{len(selected)}]: opening See Analytics "
+                f"uuid={live_id} date={item.get('show_date') or '?'} title={item.get('title')!r}"
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(2200)
+            module.check_login(page)
+            metric = wait_for_metrics(module, page, timeout_ms=15000)
+            if not metric or not has_useful_data(metric):
+                module.info(f"recent-past-analytics [{index}/{len(selected)}]: no stable metrics uuid={live_id}")
+                continue
+            metric["whatnot_live_id"] = live_id
+            metric["title"] = item.get("title") or metric.get("title")
+            metric["show_date"] = item.get("show_date") or metric.get("show_date")
+            metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
+            metric.pop("_preview", None)
+            metric.pop("_titles", None)
+            metric.pop("_dates", None)
+            rows.append(metric)
+            module.info(
+                f"recent-past-analytics [{index}/{len(selected)}]: collected uuid={live_id} "
+                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+            )
+
+    session.fetch(
+        f"{module.BASE}/dashboard/lives",
+        page_action=action,
+        timeout=max(180000, limit * 45000),
+        network_idle=False,
+        google_search=False,
+    )
+    module.info(f"recent-past-analytics: collected {len(rows)} show(s)")
+    return rows
 
 
 def historical_analytics(module, session):

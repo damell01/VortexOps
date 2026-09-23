@@ -58,7 +58,7 @@ class WhatnotDesktopIngestor
 
         $sync = WhatnotSync::create([
             'whatnot_channel_id' => $channel->id,
-            'type'               => 'desktop_collector',
+            'type'               => 'incremental',
             'status'             => 'running',
             'started_at'         => now(),
             'summary'            => [

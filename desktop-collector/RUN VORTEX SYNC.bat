@@ -52,25 +52,39 @@ if errorlevel 1 (
   )
 )
 
-for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "$p=Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data';if(Test-Path -LiteralPath $p){$p}"`) do set "CHROME_USER_DATA=%%P"
-if not defined CHROME_USER_DATA (
+set "SOURCE_CHROME_USER_DATA=%LOCALAPPDATA%\Google\Chrome\User Data"
+set "CHROME_USER_DATA=%LOCALAPPDATA%\VortexOps\WhatnotCollector\ChromeProfile"
+
+if not exist "%SOURCE_CHROME_USER_DATA%" (
   echo ERROR: Could not find your normal Google Chrome profile.
   pause
   exit /b 1
 )
 
 echo.
-echo IMPORTANT: Close ALL Google Chrome windows before continuing.
-echo The collector will use the same Chrome data where your Whatnot
-echo account already shows Switch Role.
+echo IMPORTANT: Close ALL Google Chrome windows for this first profile copy.
+echo Vortex will COPY your Chrome profile into its own dedicated collector
+echo profile. Future syncs will not need to control your normal Chrome.
 echo.
 pause
+
+if not exist "%CHROME_USER_DATA%\Local State" (
+  echo Creating dedicated Vortex Chrome profile...
+  if not exist "%CHROME_USER_DATA%" mkdir "%CHROME_USER_DATA%"
+  robocopy "%SOURCE_CHROME_USER_DATA%" "%CHROME_USER_DATA%" /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /XD "Cache" "Code Cache" "GPUCache" "ShaderCache" "GrShaderCache" "Crashpad" /XF "SingletonLock" "SingletonCookie" "SingletonSocket" >nul
+  set "ROBOCOPY_EXIT=%ERRORLEVEL%"
+  if %ROBOCOPY_EXIT% GEQ 8 (
+    echo ERROR: Could not copy your Chrome profile into the Vortex collector profile.
+    pause
+    exit /b 1
+  )
+)
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SCRIPT_DIR+'config.json';$j=Get-Content -LiteralPath $p -Raw|ConvertFrom-Json;$j.profile_dir=$env:CHROME_USER_DATA;$j.headless=$false;$json=$j|ConvertTo-Json -Depth 10;[System.IO.File]::WriteAllText($p,$json,(New-Object System.Text.UTF8Encoding($false)))"
 if errorlevel 1 goto :CONFIGFAIL
 
 echo.
-echo Starting Vortex Whatnot sync using:
+echo Starting Vortex Whatnot sync using dedicated profile:
 echo %CHROME_USER_DATA%
 echo.
 node "%SCRIPT_DIR%scrapling_collector.cjs"

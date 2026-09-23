@@ -51,6 +51,7 @@ function loadConfig() {
   config.historical_ledger_from = String(config.historical_ledger_from || '').trim();
   config.channels = Array.isArray(config.channels) ? config.channels.map(String) : [];
   config.profile_dir = config.profile_dir ? path.resolve(config.profile_dir) : DEFAULT_PROFILE;
+  config.chrome_profile_name = String(config.chrome_profile_name || '').trim();
   config.chrome_path = config.chrome_path ? path.resolve(config.chrome_path) : detectChrome();
   config.python_path = String(config.python_path || process.env.PYTHON || 'python').trim();
   config.headless = config.headless !== false;
@@ -114,6 +115,7 @@ function runScrapling(config, mode, channel, extras = {}, timeoutMs = 60 * 60 * 
       ...process.env,
       PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: config.chrome_path,
       WHATNOT_USER_DATA_DIR: config.profile_dir,
+      ...(config.chrome_profile_name ? { WHATNOT_CHROME_PROFILE_NAME: config.chrome_profile_name } : {}),
       WHATNOT_HEADLESS: config.headless ? 'true' : 'false',
       WHATNOT_MODE: mode,
       WHATNOT_CHANNEL_NAME: channel,

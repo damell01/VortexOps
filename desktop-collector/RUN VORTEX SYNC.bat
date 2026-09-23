@@ -31,7 +31,7 @@ if not exist "%SCRIPT_DIR%config.json" (
   echo FIRST RUN SETUP
   echo.
   set /p "VORTEX_TOKEN=Paste the Vortex SCRAPER_API_TOKEN: "
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SCRIPT_DIR+'config.json';$j=Get-Content -LiteralPath $p -Raw|ConvertFrom-Json;$j.api_url='https://vortexops.tech/api';$j.api_token=$env:VORTEX_TOKEN;$j.headless=$false;$j.profile_dir='';$j|ConvertTo-Json -Depth 10|[System.IO.File]::WriteAllText($p,($j|ConvertTo-Json -Depth 10),(New-Object System.Text.UTF8Encoding($false)))"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SCRIPT_DIR+'config.json';$j=Get-Content -LiteralPath $p -Raw|ConvertFrom-Json;$j.api_url='https://vortexops.tech/api';$j.api_token=$env:VORTEX_TOKEN;$j.headless=$false;$j.profile_dir='';$json=$j|ConvertTo-Json -Depth 10;[System.IO.File]::WriteAllText($p,$json,(New-Object System.Text.UTF8Encoding($false)))"
   if errorlevel 1 goto :CONFIGFAIL
 )
 
@@ -60,7 +60,7 @@ echo account already shows Switch Role.
 echo.
 pause
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SCRIPT_DIR+'config.json';$j=Get-Content -LiteralPath $p -Raw|ConvertFrom-Json;$j.profile_dir=$env:CHROME_USER_DATA;$j.headless=$false;$j|ConvertTo-Json -Depth 10|[System.IO.File]::WriteAllText($p,($j|ConvertTo-Json -Depth 10),(New-Object System.Text.UTF8Encoding($false)))"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=$env:SCRIPT_DIR+'config.json';$j=Get-Content -LiteralPath $p -Raw|ConvertFrom-Json;$j.profile_dir=$env:CHROME_USER_DATA;$j.headless=$false;$json=$j|ConvertTo-Json -Depth 10;[System.IO.File]::WriteAllText($p,$json,(New-Object System.Text.UTF8Encoding($false)))"
 if errorlevel 1 goto :CONFIGFAIL
 
 echo.

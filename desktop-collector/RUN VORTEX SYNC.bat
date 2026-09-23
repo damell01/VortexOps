@@ -73,7 +73,7 @@ if not exist "%CHROME_USER_DATA%\Local State" (
   if not exist "%CHROME_USER_DATA%" mkdir "%CHROME_USER_DATA%"
   robocopy "%SOURCE_CHROME_USER_DATA%" "%CHROME_USER_DATA%" /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /XD "Cache" "Code Cache" "GPUCache" "ShaderCache" "GrShaderCache" "Crashpad" /XF "SingletonLock" "SingletonCookie" "SingletonSocket" >nul
   set "ROBOCOPY_EXIT=%ERRORLEVEL%"
-  if %ROBOCOPY_EXIT% GEQ 8 (
+  if %ERRORLEVEL% GEQ 8 (
     echo ERROR: Could not copy your Chrome profile into the Vortex collector profile.
     pause
     exit /b 1

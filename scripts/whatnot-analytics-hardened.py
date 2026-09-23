@@ -452,225 +452,136 @@ def select_expected_show(module, page) -> bool:
 
 
 def analytics(module, session):
+    """Proven channel-wide analytics walk from the July 2026 implementation.
+
+    Start from one known live UUID, open /account/analytics?tab=livestream&live_id=...,
+    rewind with "See newer show" until newest, then walk backward with
+    "See older show". Do not use the newer Seller Hub Shows table here.
+    """
     if not module.UUID_RE.fullmatch(module.START_UUID):
         module.fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
+
     rows: list[dict[str, Any]] = []
-    end_date = (date.today() + timedelta(days=7)).isoformat()
-    # The legacy /account/analytics?live_id= route now redirects to the aggregate
-    # overview and silently drops the show identity. Enter the current Seller Hub
-    # analytics UI directly, then switch to the Shows tab before selecting a show.
-    target = f"{module.BASE}/dashboard/analytics/overview"
-    module.info(f"analytics: current-ui shows flow seed={module.START_UUID}")
+    limit = max(1, int(getattr(module, "LIMIT", 50) or 50))
+    target = f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}"
+    newer_sel = 'button[aria-label="See newer show"]'
+    older_sel = 'button[aria-label="See older show"]'
+
+    module.info(f"analytics-nav: proven account-analytics walk seed={module.START_UUID} limit={limit}")
+
+    def button_enabled(page, selector: str) -> bool:
+        try:
+            btn = page.locator(selector).first
+            return btn.count() > 0 and btn.is_visible(timeout=500) and not btn.is_disabled(timeout=500)
+        except Exception:
+            return False
+
+    def wait_for_change(page, previous_url: str, previous_fp: str, timeout_ms: int = 8000) -> bool:
+        elapsed = 0
+        while elapsed < timeout_ms:
+            page.wait_for_timeout(300)
+            elapsed += 300
+            try:
+                current = extract_show(page)
+                if page.url != previous_url or analytics_fingerprint(current) != previous_fp:
+                    return True
+            except Exception:
+                pass
+        return False
 
     def action(page):
         module.prepare(page)
-        os.environ.setdefault("WHATNOT_EXPECTED_LIVE_ID", module.START_UUID)
-        previous_live_id = None
+        module.info(f"analytics-nav: navigating to {target}")
+        page.goto(target, wait_until="domcontentloaded", timeout=30000)
+        module.check_login(page)
+        page.wait_for_timeout(1500)
 
-        for navigation_attempt in range(1, 4):
-            page.goto(target, wait_until="domcontentloaded", timeout=30000)
-            if navigation_attempt > 1:
-                page.wait_for_timeout(750)
+        if "analytics" not in page.url.lower():
+            module.info(f"analytics-nav: unexpected landing URL {page.url}; aborting")
+            return
 
-            # Overview contains aggregate account totals. Never extract from it.
-            # Click the analytics Shows tab first so the DOM represents one show.
-            shows_tab = None
-            for selector in [
-                '[role="tab"]:has-text("Shows")',
-                'button:has-text("Shows")',
-                'button[aria-controls="simple-tabpanel-1"]',
-                'button#simple-tab-1',
-                '[role="tab"][data-value="shows"]',
-                '[role="tab"][data-index="1"]',
-            ]:
-                try:
-                    candidate = page.locator(selector).first
-                    if candidate.is_visible(timeout=800):
-                        shows_tab = candidate
-                        break
-                except Exception:
-                    pass
-
-            if shows_tab is None:
-                module.info(f"analytics: Shows tab not found on attempt {navigation_attempt}/3")
-                continue
-
-            try:
-                selected_tab = (
-                    shows_tab.get_attribute("aria-selected") == "true"
-                    or shows_tab.get_attribute("aria-current") == "true"
-                )
-            except Exception:
-                selected_tab = False
-            if not selected_tab:
-                shows_tab.click(timeout=5000)
-                page.wait_for_timeout(1200)
-            module.info(f"analytics: Shows tab active on attempt {navigation_attempt}/3")
-
-            # The Shows page's date picker is client-side state. Query-string
-            # start_dt/end_dt is ignored on the current Seller Hub route, so set
-            # the visible range through the UI itself.
-            expected_date_for_range = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
-            if expected_date_for_range:
-                range_start = expected_date_for_range
-                range_end = date.today().isoformat()
-                module.info(f"analytics: setting Shows date picker {range_start} -> {range_end}")
-                try:
-                    changed = page.evaluate(r"""
-                    ({start, end}) => {
-                      const text = document.body.innerText || '';
-                      const rangeRe = /\b\d{1,2}\/\d{1,2}\/\d{4}\s*-\s*\d{1,2}\/\d{1,2}\/\d{4}\b/;
-                      const candidates = [...document.querySelectorAll('button,[role="button"],input,div,span')];
-                      const el = candidates.find(n => rangeRe.test((n.innerText || n.value || n.textContent || '').trim()));
-                      if (!el) return false;
-                      const target = el.closest('button,[role="button"]') || el;
-                      target.click();
-                      return true;
-                    }
-                    """, {"start": range_start, "end": range_end})
-                    if changed:
-                        page.wait_for_timeout(500)
-                        # Date pickers vary, but the current one exposes editable
-                        # start/end text inputs after opening.
-                        inputs = page.locator(
-                            'input[placeholder*="start" i], input[placeholder*="end" i], '
-                            'input[aria-label*="start" i], input[aria-label*="end" i], '
-                            '[role="dialog"] input'
-                        )
-                        count = inputs.count()
-                        if count >= 2:
-                            def us_date(iso):
-                                y, m, d = iso.split("-")
-                                return f"{int(m)}/{int(d)}/{y}"
-                            inputs.nth(0).fill(us_date(range_start), timeout=2500)
-                            inputs.nth(1).fill(us_date(range_end), timeout=2500)
-                            applied = False
-                            for label in ["Apply", "Update", "Done"]:
-                                try:
-                                    btn = page.get_by_text(label, exact=True).last
-                                    if btn.is_visible(timeout=400):
-                                        btn.click(timeout=2000)
-                                        applied = True
-                                        break
-                                except Exception:
-                                    pass
-                            if not applied:
-                                page.keyboard.press("Enter")
-                            page.wait_for_timeout(1500)
-                            module.info("analytics: Shows date picker updated")
-                        else:
-                            # Current picker may be a calendar-only popover rather
-                            # than editable text inputs. Capture its bounded DOM so
-                            # we can target the real controls instead of guessing.
-                            try:
-                                picker_diag = page.evaluate(r"""
-                                () => {
-                                  const visible = el => {
-                                    const s = getComputedStyle(el), r = el.getBoundingClientRect();
-                                    return s.visibility !== 'hidden' && s.display !== 'none' && r.width > 0 && r.height > 0;
-                                  };
-                                  const nodes = [...document.querySelectorAll(
-                                    '[role="dialog"],[role="grid"],[role="listbox"],[data-radix-popper-content-wrapper],button,[role="button"]'
-                                  )].filter(visible);
-                                  return nodes.slice(0, 120).map(el => ({
-                                    tag: el.tagName,
-                                    role: el.getAttribute('role'),
-                                    aria: el.getAttribute('aria-label'),
-                                    testid: el.getAttribute('data-testid'),
-                                    text: (el.innerText || el.textContent || '').replace(/\\s+/g,' ').trim().slice(0,180)
-                                  })).filter(x => x.text || x.aria || x.testid);
-                                }
-                                """)
-                                module.info("analytics: DATE_PICKER_DIAGNOSTIC " + json.dumps(picker_diag, ensure_ascii=False)[:7000])
-                            except Exception as diag_exc:
-                                module.info(f"analytics: date picker diagnostic failed error={diag_exc}")
-                            module.info(f"analytics: date picker opened but editable inputs not found count={count}")
-                    else:
-                        module.info("analytics: visible date range control not found")
-                except Exception as exc:
-                    module.info(f"analytics: date picker update failed error={exc}")
-
-            # Current Whatnot UI renders Analytics > Shows as a searchable
-            # table. Read the verified target row directly; it already contains
-            # Sales, Earnings, Orders and AOV and avoids mixing aggregate Overview
-            # totals into an individual show.
-            row = extract_expected_show_from_table(module, page)
-            if row is not None:
-                rows.append(row)
+        # Proven behavior: the DB seed can be old. Walk forward first so the
+        # backward pass always starts at the newest show in this channel.
+        for rewind in range(limit):
+            if not button_enabled(page, newer_sel):
                 break
+            previous_url = page.url
+            previous_fp = analytics_fingerprint(extract_show(page))
+            try:
+                page.locator(newer_sel).first.click(timeout=5000)
+            except Exception as exc:
+                module.info(f"analytics-nav: newer click failed at step {rewind + 1}: {exc}")
+                break
+            if not wait_for_change(page, previous_url, previous_fp):
+                module.info("analytics-nav: newer navigation did not change show; stopping rewind")
+                break
+        module.info(f"analytics-nav: rewound to newest show at {page.url}")
 
-            # Compatibility fallback for accounts still receiving the older
-            # per-show analytics UI.
-            if clean(os.getenv("WHATNOT_EXPECTED_TITLE", "")):
-                selected = select_expected_show(module, page)
-                if selected:
-                    module.info(f"analytics: Select Show selection applied on attempt {navigation_attempt}/3")
-
-            row = wait_for_row(module, page, previous_live_id)
-            expected_live_id = clean(os.getenv("WHATNOT_EXPECTED_LIVE_ID", "")).lower()
-            expected_title = normalize_identity(os.getenv("WHATNOT_EXPECTED_TITLE", ""))
-            expected_date = clean(os.getenv("WHATNOT_EXPECTED_DATE", ""))
-            actual_title = normalize_identity(row.get("title"))
-            preview = normalize_identity(row.get("_preview"))
-            actual_date = clean(row.get("show_date"))
-            title_ok = not expected_title or actual_title == expected_title or expected_title in preview
-            date_ok = not expected_date or actual_date == expected_date
-
-            actual_live_id = clean(row.get("whatnot_live_id")).lower()
-            # The current Shows SPA does not put the livestream UUID in the URL.
-            # For targeted backfill, title+date are the identity proof supplied by
-            # our DB row. Only after both match do we bind the requested UUID.
-            if expected_live_id and actual_live_id != expected_live_id:
-                if expected_title and expected_date and title_ok and date_ok:
-                    row["whatnot_live_id"] = expected_live_id
-                    row["detail_url"] = f"{module.BASE}/dashboard/live/{expected_live_id}"
-                    module.info("analytics: identity verified by title+date; bound requested live_id")
-                else:
-                    module.info(f"analytics: hydration retry {navigation_attempt}/3 live_id unavailable and title+date proof incomplete")
-                    continue
-            if expected_title and not title_ok:
-                module.info(f"analytics: hydration retry {navigation_attempt}/3 title mismatch")
-                continue
-            if expected_date and not date_ok:
-                module.info(f"analytics: hydration retry {navigation_attempt}/3 date mismatch")
-                continue
-            if not has_useful_data(row):
-                module.info(f"analytics: hydration retry {navigation_attempt}/3 no usable metrics")
-                continue
-
-            rows.append(row)
-            break
-
-        if not rows:
+        seen: set[str] = set()
+        for index in range(limit):
+            page.wait_for_timeout(800)
+            module.check_login(page)
             row = extract_show(page)
-            module.info("ANALYTICS_DIAGNOSTIC " + json.dumps({
-                "live_id": row.get("whatnot_live_id"),
-                "title": row.get("title"),
-                "show_date": row.get("show_date"),
-                "titles": (row.get("_titles") or [])[:8],
-                "dates": (row.get("_dates") or [])[:8],
-                "preview": row.get("_preview"),
-            }, separators=(",", ":")))
+
+            title = clean(row.get("title"))
+            show_date = clean(row.get("show_date"))
+            live_id = clean(row.get("whatnot_live_id")).lower()
+            fp = analytics_fingerprint(row)
+            # Whatnot historically sometimes swapped content without updating
+            # live_id, so content identity is authoritative for loop detection.
+            signature = f"{title}|{show_date}|{fp}"
+            if signature in seen:
+                module.info(f"analytics-nav: revisited show content at item {index + 1}; stopping")
+                break
+            seen.add(signature)
+
+            useful = has_useful_data(row)
             module.info(
-                "analytics: identity never verified after 3 hydration attempts; "
-                "returning no row so stale SPA metrics cannot be persisted"
+                f"analytics-nav show {index + 1}: title={title!r} date={show_date or '?'} "
+                f"live_id={live_id or '?'} useful={'yes' if useful else 'no'} "
+                f"sales={row.get('gross_revenue')} net={row.get('whatnot_net')} "
+                f"orders={row.get('units_sold')}"
             )
 
-        for row in rows:
-            row.pop("_preview", None)
-            row.pop("_titles", None)
-            row.pop("_dates", None)
-        module.info(f"analytics: collected {len(rows)} show(s)")
+            # Preserve the proven walk even when one show's metrics are still
+            # calculating; title/date rows are still useful for show discovery.
+            if title or show_date:
+                row.pop("_preview", None)
+                row.pop("_titles", None)
+                row.pop("_dates", None)
+                rows.append(row)
+            elif not useful:
+                module.info("analytics-nav: no show identity or metrics on page; stopping")
+                break
 
+            if not button_enabled(page, older_sel):
+                module.info('analytics-nav: "See older show" disabled; reached oldest show')
+                break
+
+            previous_url = page.url
+            previous_fp = fp
+            try:
+                page.locator(older_sel).first.click(timeout=5000)
+            except Exception as exc:
+                module.info(f"analytics-nav: older click failed at show {index + 1}: {exc}")
+                break
+            if not wait_for_change(page, previous_url, previous_fp):
+                module.info(f"analytics-nav: older navigation stalled after show {index + 1}; stopping")
+                break
+            module.info(f"analytics-nav: advanced to show {index + 2}")
+
+        module.info(f"analytics-nav: collected {len(rows)} show(s) total")
+
+    # Scrapling owns/authenticates the persistent browser. The actual scrape
+    # deliberately follows the proven /account/analytics navigation above.
     session.fetch(
-        f"{module.BASE}/dashboard/home",
+        f"{module.BASE}/dashboard",
         page_action=action,
-        timeout=60000,
+        timeout=max(120, min(900, 45 + limit * 12)),
         network_idle=False,
         google_search=False,
     )
     return rows
-
 
 def extract_orders_hardened(page) -> list[dict[str, Any]]:
     return page.evaluate(r"""

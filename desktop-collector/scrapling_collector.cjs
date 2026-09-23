@@ -39,7 +39,7 @@ function loadConfig() {
   }
 
   let config;
-  try { config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); }
+  try { config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^\uFEFF/, '')); }
   catch (e) { die('config.json is invalid JSON: ' + e.message); }
 
   config.api_url = String(config.api_url || '').replace(/\/+$/, '');

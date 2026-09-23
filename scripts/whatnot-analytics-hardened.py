@@ -512,7 +512,50 @@ def analytics(module, session):
         module.info(f"analytics-nav: navigating to {target}")
         page.goto(target, wait_until="domcontentloaded", timeout=30000)
         module.check_login(page)
-        page.wait_for_timeout(1500)
+
+        # Exact proven implementation: the SPA shell can land first and the
+        # per-show analytics controls/data render asynchronously. Wait up to
+        # 20 seconds for the same signals the July scraper used.
+        rendered = False
+        elapsed = 0
+        while elapsed < 20000:
+            try:
+                rendered = bool(page.evaluate(r"""
+                () => {
+                  const t = document.body?.innerText || '';
+                  return /Estimated Sales|Completed Earnings|Show Duration|Select Show/i.test(t) ||
+                    document.querySelector(
+                      'button[aria-label="See older show"], button[aria-label="See newer show"]'
+                    ) !== null;
+                }
+                """))
+            except Exception:
+                rendered = False
+            if rendered:
+                break
+            page.wait_for_timeout(500)
+            elapsed += 500
+        page.wait_for_timeout(1200)
+
+        try:
+            diag = page.evaluate(r"""
+            () => {
+              const older = document.querySelector('button[aria-label="See older show"]');
+              const newer = document.querySelector('button[aria-label="See newer show"]');
+              return {
+                url: location.href,
+                bodyLen: (document.body?.innerText || '').length,
+                bodySnippet: (document.body?.innerText || '').replace(/\\n+/g, ' | ').substring(0, 500),
+                olderBtn: older ? ('present disabled=' + older.disabled) : 'ABSENT',
+                newerBtn: newer ? ('present disabled=' + newer.disabled) : 'ABSENT',
+                ariaLabels: [...document.querySelectorAll('button[aria-label]')]
+                  .map(b => b.getAttribute('aria-label')).filter(Boolean).slice(0, 25)
+              };
+            }
+            """)
+            module.info("analytics-nav diag: " + json.dumps(diag, separators=(",", ":")))
+        except Exception as exc:
+            module.info(f"analytics-nav diag failed: {exc}")
 
         # Safety only: the old per-show page must expose its show navigation.
         # If Whatnot redirects to the aggregate overview, never persist that

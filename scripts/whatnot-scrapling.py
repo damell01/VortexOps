@@ -183,7 +183,17 @@ def ensure_channel(page, requested: str) -> str:
             except Exception:
                 pass
 
-            if norm(requested) in {norm(text), norm(alt)}:
+            # Role buttons include the username plus role text, e.g.
+            # "V vortexbreaks Admin". The proven UI exposes the requested
+            # username inside that button; exact whole-button equality rejects it.
+            text_norm = norm(text)
+            alt_norm = norm(alt)
+            wanted_norm = norm(requested)
+            if wanted_norm and (
+                alt_norm == wanted_norm
+                or text_norm == wanted_norm
+                or wanted_norm in text_norm
+            ):
                 target = candidate
                 info(
                     f"CHANNEL_ROLE_FOUND requested=@{requested} "
@@ -210,7 +220,13 @@ def ensure_channel(page, requested: str) -> str:
                   for (const el of elements) {
                     const alt = el.getAttribute?.('alt') || '';
                     const text = el.innerText || el.textContent || '';
-                    if (norm(alt) !== wanted && norm(text) !== wanted) continue;
+                    const normalizedText = norm(text);
+                    const normalizedAlt = norm(alt);
+                    if (
+                      normalizedAlt !== wanted &&
+                      normalizedText !== wanted &&
+                      !normalizedText.includes(wanted)
+                    ) continue;
 
                     const clickable =
                       el.closest('button') ||

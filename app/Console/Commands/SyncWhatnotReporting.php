@@ -178,7 +178,7 @@ class SyncWhatnotReporting extends Command
                 if ($shipmentsOnly) {
                     $this->line("  {$step}. Historical shipments / fulfillment ({$shipmentBatch}-show batches)");
                     try {
-                        $shipments = $retry(fn () => $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress), 'shipments');
+                        $shipments = $retry(fn () => $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress, $testMode ? 1 : null), 'shipments');
                     if ($testMode) $smoke['Shipments'] = true;
                         $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
                     } catch (\Throwable $e) {

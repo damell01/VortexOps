@@ -35,16 +35,16 @@ if not exist "%SCRIPT_DIR%config.json" (
   if errorlevel 1 goto :CONFIGFAIL
 )
 
-python -c "import scrapling; import curl_cffi; import playwright; from scrapling.fetchers import DynamicSession" >nul 2>&1
+python -c "from scrapling.fetchers import DynamicSession" >nul 2>&1
 if errorlevel 1 (
   echo Installing/updating Scrapling browser requirements...
-  python -m pip install -r "%SCRIPT_DIR%requirements.txt"
+  python -m pip install --upgrade -r "%SCRIPT_DIR%requirements.txt"
   if errorlevel 1 (
     echo ERROR: Scrapling browser dependency install failed.
     pause
     exit /b 1
   )
-  python -c "import curl_cffi; import playwright; from scrapling.fetchers import DynamicSession" >nul 2>&1
+  python -c "from scrapling.fetchers import DynamicSession" >nul 2>&1
   if errorlevel 1 (
     echo ERROR: Scrapling browser runtime is still incomplete after installation.
     pause

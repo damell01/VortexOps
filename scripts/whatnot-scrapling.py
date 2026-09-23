@@ -102,7 +102,40 @@ def ensure_channel(page, requested: str) -> str:
                 3,
             )
 
-    page.wait_for_timeout(600)
+    page.wait_for_timeout(1500)
+
+    # Proven July flow: opening the avatar/profile drawer is only step one.
+    # The channel choices are not rendered until "Switch Role" is clicked.
+    # Keep the current direct-ID path, but also use the old text/DOM fallbacks.
+    switch_role_opened = False
+    for _ in range(3):
+        try:
+            node = page.get_by_text(re.compile(r"^\\s*Switch Role\\s*$", re.I)).first
+            if node.is_visible(timeout=1000):
+                node.click(timeout=5000, force=True)
+                switch_role_opened = True
+                break
+        except Exception:
+            pass
+        try:
+            switch_role_opened = bool(page.evaluate(r"""
+            () => {
+              const byId = document.querySelector('#team-invite-switch-role-anchor');
+              if (byId) { byId.click(); return true; }
+              const nodes = [...document.querySelectorAll('button,a,[role="button"],div,h4')];
+              const el = nodes.find(n => /^\\s*Switch Role\\s*$/i.test((n.innerText || n.textContent || '').trim()));
+              if (!el) return false;
+              (el.closest('button,a,[role="button"]') || el).click();
+              return true;
+            }
+            """))
+            if switch_role_opened:
+                break
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
+
+    page.wait_for_timeout(1500)
 
     # The current Seller Hub sometimes renders the Switch Role button while
     # Playwright/Scrapling still considers its click action unfinished. Prefer

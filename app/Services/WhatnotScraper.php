@@ -82,7 +82,7 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
-    public function fetchSellerHubIndex(?string $channelUsername = null, bool $debug = false): array
+    public function fetchSellerHubIndex(?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE'] = 'reconcile-index';
@@ -90,7 +90,9 @@ class WhatnotScraper
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
         $timeout = 1800;
         $process = $this->makeProcess($env, timeout: $timeout);
-        $this->withBrowserLock(fn () => $process->run(), waitSeconds: $timeout);
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            $onProgress ? $this->streamProcess($process, $onProgress) : $process->run();
+        }, waitSeconds: $timeout);
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
         if ($stderr) Log::channel('stack')->warning('Whatnot Seller Hub index stderr', ['output' => $stderr, 'channel' => $channelUsername]);

@@ -342,7 +342,7 @@ def reconcile_index(module, session):
         }
 
     session.fetch(
-        f"{module.BASE}/dashboard/home",
+        f"{module.BASE}/dashboard/lives",
         page_action=action,
         timeout=300000,
         network_idle=False,
@@ -545,8 +545,15 @@ def historical_analytics(module, session):
                 f"candidates={len(candidates)} file={cache_file}"
             )
         else:
-            page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(1800)
+            # session.fetch already opened Seller Hub Shows. Avoid a second goto here:
+            # Whatnot can return HTTP 200 while DOMContentLoaded remains busy long enough
+            # for Playwright's navigation promise to time out.
+            if "/dashboard/lives" not in page.url:
+                try:
+                    page.goto(f"{module.BASE}/dashboard/lives", wait_until="commit", timeout=30000)
+                except Exception as exc:
+                    module.info(f"historical-analytics: Shows navigation warning={exc}")
+            page.wait_for_timeout(2500)
             module.check_login(page)
             past, selected, exhausted = scan_selected_tab_index(
                 module, page, "Past", max_passes=max_passes, stable_needed=5

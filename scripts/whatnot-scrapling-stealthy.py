@@ -399,14 +399,14 @@ def main() -> None:
     analytics_lives_helper.install(module)
 
     mode = os.getenv("WHATNOT_MODE", "").strip()
-    module.__dict__["analytics"] = lambda session: analytics_lives_helper.analytics(module, session)
+    module.__dict__["analytics"] = lambda session: analytics_lives_helper.recent_past_analytics(module, session)
     if mode == "reconcile-index":
         module.__dict__["reconcile_index"] = lambda session: analytics_lives_helper.reconcile_index(module, session)
     elif mode == "historical-analytics":
         module.__dict__["historical_analytics"] = lambda session: analytics_lives_helper.historical_analytics(module, session)
 
     log(
-        "analytics extractor=seller-hub-past-see-analytics "
+        "analytics extractor=seller-hub-recent-past-see-analytics "
         f"({mode or 'analytics'})"
     )
 

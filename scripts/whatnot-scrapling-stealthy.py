@@ -396,14 +396,15 @@ def main() -> None:
     analytics_helper.install(module)
 
     mode = os.getenv("WHATNOT_MODE", "").strip()
-    if mode in {"analytics", "reconcile-index", "historical-analytics"}:
+    if mode in {"reconcile-index", "historical-analytics"}:
         analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
         analytics_lives_helper.install(module)
         if mode == "reconcile-index":
             module.__dict__["reconcile_index"] = lambda session: analytics_lives_helper.reconcile_index(module, session)
         elif mode == "historical-analytics":
-            module.__dict__["historical_analytics"] = lambda session: analytics_lives_helper.historical_analytics(module, session)
-        log(f"analytics extractor=seller-hub-lives ({mode})")
+            # Historical backfill uses the proven account-analytics extractor below.
+            module.__dict__["historical_analytics"] = lambda session: analytics_helper.analytics(module, session)
+        log(f"analytics extractor={'seller-hub-lives' if mode == 'reconcile-index' else 'account-analytics'} ({mode})")
     else:
         log("analytics extractor=account-analytics")
 

@@ -63,9 +63,35 @@ def tab_locator(page, name: str):
 
 def select_tab(module, page, name: str) -> bool:
     try:
-        tab = tab_locator(page, name)
-        if not tab.count():
-            module.info(f"analytics: {name} tab not found on /dashboard/lives")
+        # Seller Hub can finish the route before the tab strip hydrates,
+        # especially immediately after a channel-role switch. Wait for the
+        # exact Current/Upcoming/Past controls instead of treating the first
+        # DOM snapshot as authoritative.
+        tab = None
+        for attempt in range(20):
+            module.check_login(page)
+            candidate = tab_locator(page, name)
+            try:
+                if candidate.count() and candidate.is_visible(timeout=500):
+                    tab = candidate
+                    break
+            except Exception:
+                pass
+            page.wait_for_timeout(500)
+        if tab is None:
+            try:
+                diag = page.evaluate(r"""
+                () => ({
+                  url: location.href,
+                  text: (document.body?.innerText || '').replace(/\n+/g, ' | ').substring(0, 700),
+                  buttons: [...document.querySelectorAll('button,[role="tab"],[role="button"]')]
+                    .map(x => (x.innerText || x.textContent || '').trim()).filter(Boolean).slice(0, 40)
+                })
+                """)
+                module.info("analytics: tab diagnostic " + json.dumps(diag, separators=(",", ":")))
+            except Exception:
+                pass
+            module.info(f"analytics: {name} tab not found on /dashboard/lives after hydration wait")
             return False
         selected = tab.get_attribute("aria-selected")
         if selected != "true":

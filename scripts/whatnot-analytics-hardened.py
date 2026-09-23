@@ -452,18 +452,22 @@ def select_expected_show(module, page) -> bool:
 
 
 def analytics(module, session):
-    """Proven channel-wide analytics walk from the July 2026 implementation.
+    """Run the proven account-analytics walk inside the seller/channel SPA context.
 
-    Start from one known live UUID, open /account/analytics?tab=livestream&live_id=...,
-    rewind with "See newer show" until newest, then walk backward with
-    "See older show". Do not use the newer Seller Hub Shows table here.
+    This preserves the July 2026 sequence: establish the requested seller role,
+    visit the completed-shows page in that role, then navigate the same browser
+    page to /account/analytics using the known UUID and walk newer/older.
     """
     if not module.UUID_RE.fullmatch(module.START_UUID):
         module.fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
 
     rows: list[dict[str, Any]] = []
     limit = max(1, int(getattr(module, "LIMIT", 50) or 50))
-    target = f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}"
+    today = date.today().isoformat()
+    target = (
+        f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}"
+        f"&start_dt=2019-01-01&end_dt={today}"
+    )
     newer_sel = 'button[aria-label="See newer show"]'
     older_sel = 'button[aria-label="See older show"]'
 
@@ -490,18 +494,45 @@ def analytics(module, session):
         return False
 
     def action(page):
+        # The working scraper entered the seller SPA and selected the channel
+        # before opening /account/analytics. Keep that exact ordering.
         module.prepare(page)
+        module.info("analytics-nav: establishing seller shows context")
+        try:
+            page.goto(
+                f"{module.BASE}/dashboard/lives?status=completed",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+            page.wait_for_timeout(1200)
+            module.check_login(page)
+        except Exception as exc:
+            module.info(f"analytics-nav: seller shows context navigation warning={exc}")
+
         module.info(f"analytics-nav: navigating to {target}")
         page.goto(target, wait_until="domcontentloaded", timeout=30000)
         module.check_login(page)
         page.wait_for_timeout(1500)
 
-        if "analytics" not in page.url.lower():
-            module.info(f"analytics-nav: unexpected landing URL {page.url}; aborting")
+        # Safety only: the old per-show page must expose its show navigation.
+        # If Whatnot redirects to the aggregate overview, never persist that
+        # page's headings/totals as a fake show.
+        has_show_nav = False
+        try:
+            has_show_nav = (
+                page.locator(newer_sel).count() > 0
+                or page.locator(older_sel).count() > 0
+                or page.get_by_text(re.compile(r"Select Show", re.I)).count() > 0
+            )
+        except Exception:
+            pass
+        if not has_show_nav:
+            module.info(
+                f"analytics-nav: per-show analytics did not render at {page.url}; "
+                "refusing to import aggregate analytics as a show"
+            )
             return
 
-        # Proven behavior: the DB seed can be old. Walk forward first so the
-        # backward pass always starts at the newest show in this channel.
         for rewind in range(limit):
             if not button_enabled(page, newer_sel):
                 break
@@ -515,6 +546,7 @@ def analytics(module, session):
             if not wait_for_change(page, previous_url, previous_fp):
                 module.info("analytics-nav: newer navigation did not change show; stopping rewind")
                 break
+
         module.info(f"analytics-nav: rewound to newest show at {page.url}")
 
         seen: set[str] = set()
@@ -522,13 +554,9 @@ def analytics(module, session):
             page.wait_for_timeout(800)
             module.check_login(page)
             row = extract_show(page)
-
             title = clean(row.get("title"))
             show_date = clean(row.get("show_date"))
-            live_id = clean(row.get("whatnot_live_id")).lower()
             fp = analytics_fingerprint(row)
-            # Whatnot historically sometimes swapped content without updating
-            # live_id, so content identity is authoritative for loop detection.
             signature = f"{title}|{show_date}|{fp}"
             if signature in seen:
                 module.info(f"analytics-nav: revisited show content at item {index + 1}; stopping")
@@ -538,13 +566,10 @@ def analytics(module, session):
             useful = has_useful_data(row)
             module.info(
                 f"analytics-nav show {index + 1}: title={title!r} date={show_date or '?'} "
-                f"live_id={live_id or '?'} useful={'yes' if useful else 'no'} "
-                f"sales={row.get('gross_revenue')} net={row.get('whatnot_net')} "
-                f"orders={row.get('units_sold')}"
+                f"live_id={clean(row.get('whatnot_live_id')) or '?'} "
+                f"useful={'yes' if useful else 'no'} sales={row.get('gross_revenue')} "
+                f"net={row.get('whatnot_net')} orders={row.get('units_sold')}"
             )
-
-            # Preserve the proven walk even when one show's metrics are still
-            # calculating; title/date rows are still useful for show discovery.
             if title or show_date:
                 row.pop("_preview", None)
                 row.pop("_titles", None)
@@ -557,7 +582,6 @@ def analytics(module, session):
             if not button_enabled(page, older_sel):
                 module.info('analytics-nav: "See older show" disabled; reached oldest show')
                 break
-
             previous_url = page.url
             previous_fp = fp
             try:
@@ -572,19 +596,15 @@ def analytics(module, session):
 
         module.info(f"analytics-nav: collected {len(rows)} show(s) total")
 
-    # Scrapling owns/authenticates the persistent browser. The actual scrape
-    # deliberately follows the proven /account/analytics navigation above.
     session.fetch(
-        f"{module.BASE}/dashboard",
+        f"{module.BASE}/dashboard/home",
         page_action=action,
-        # Scrapling's browser timeout is expressed in milliseconds. Keep this
-        # comfortably below the outer PHP runner timeout while allowing Whatnot
-        # SPA navigation to complete.
         timeout=max(120000, min(900000, (45 + limit * 12) * 1000)),
         network_idle=False,
         google_search=False,
     )
     return rows
+
 
 def extract_orders_hardened(page) -> list[dict[str, Any]]:
     return page.evaluate(r"""

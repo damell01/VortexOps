@@ -28,6 +28,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class VendorResource extends Resource
 {
+    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';

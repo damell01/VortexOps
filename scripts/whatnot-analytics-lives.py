@@ -98,8 +98,11 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
           const open = row.querySelector('a[href^="/dashboard/live/"]');
-          const analytics = [...row.querySelectorAll('a')].find(a => /^\s*See Analytics\s*$/i.test(a.textContent || ''));
-          const shipments = [...row.querySelectorAll('a')].find(a => /^\s*View Shipments\s*$/i.test(a.textContent || ''));
+          // Current Seller Hub renders these actions as buttons, not necessarily anchors.
+          const analytics = [...row.querySelectorAll('a,button,[role="button"]')]
+            .find(a => /^\s*See Analytics\s*$/i.test(a.textContent || ''));
+          const shipments = [...row.querySelectorAll('a,button,[role="button"]')]
+            .find(a => /^\s*View Shipments\s*$/i.test(a.textContent || ''));
           const openUrl = open?.getAttribute('href') || null;
           const liveId = (openUrl?.match(/\/dashboard\/live\/([0-9a-f-]{36})/i) || [])[1] || null;
           return {
@@ -107,8 +110,8 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
             title,
             text: (row.innerText || '').replace(/\s+/g, ' ').trim(),
             open_url: openUrl,
-            analytics_url: analytics?.getAttribute('href') || null,
-            shipments_url: shipments?.getAttribute('href') || null,
+            analytics_url: analytics?.getAttribute('href') || analytics?.getAttribute('formaction') || (analytics ? '__BUTTON__' : null),
+            shipments_url: shipments?.getAttribute('href') || shipments?.getAttribute('formaction') || (shipments ? '__BUTTON__' : null),
           };
         })
         """) or []
@@ -367,11 +370,21 @@ def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
         row = page.locator('[data-testid="show-list-item"]', has=page.locator(f'a[href="{open_url}"]')).first
         try:
             if row.count() and row.is_visible(timeout=400):
-                link = row.locator('a', has_text=re.compile(r"^See Analytics$", re.I)).first
+                link = row.locator('a,button,[role="button"]', has_text=re.compile(r"^\\s*See Analytics\\s*$", re.I)).first
                 if link.count():
-                    module.info(f"analytics: clicking See Analytics for uuid={target.get('live_id')} href={expected_href}")
-                    link.click(timeout=8000)
-                    page.wait_for_timeout(2500)
+                    module.info(f"analytics: clicking See Analytics for uuid={target.get('live_id')} action={expected_href}")
+                    before_url = page.url
+                    link.click(timeout=8000, force=True)
+                    # The action may be SPA navigation/modal state, so URL change is optional.
+                    for _ in range(20):
+                        page.wait_for_timeout(250)
+                        if page.url != before_url:
+                            break
+                        try:
+                            if has_useful_data(extract_show(page)):
+                                break
+                        except Exception:
+                            pass
                     return True
         except Exception:
             pass

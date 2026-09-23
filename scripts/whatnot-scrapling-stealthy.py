@@ -389,24 +389,26 @@ def main() -> None:
     module.DynamicSession = stealthy_session
     module.check_login = ensure_authenticated
 
-    # Use /account/analytics for historical per-show metrics. Seller Hub
-    # /dashboard/lives remains limited to reconcile-index, where the tab index
-    # is specifically required.
+    # Current Whatnot Seller Hub exposes per-show analytics from
+    # /dashboard/lives -> Past -> "See Analytics". This is the same user flow
+    # the working scraper relied on, but the old /account/analytics deep-link
+    # now redirects to the aggregate overview. Always use the actual row action.
     analytics_helper = load_module(ANALYTICS_HELPER, "vortexops_whatnot_analytics_hardened")
     analytics_helper.install(module)
+    analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
+    analytics_lives_helper.install(module)
 
     mode = os.getenv("WHATNOT_MODE", "").strip()
-    if mode in {"reconcile-index", "historical-analytics"}:
-        analytics_lives_helper = load_module(ANALYTICS_LIVES_HELPER, "vortexops_whatnot_analytics_lives")
-        analytics_lives_helper.install(module)
-        if mode == "reconcile-index":
-            module.__dict__["reconcile_index"] = lambda session: analytics_lives_helper.reconcile_index(module, session)
-        elif mode == "historical-analytics":
-            # Historical backfill uses the proven account-analytics extractor below.
-            module.__dict__["historical_analytics"] = lambda session: analytics_helper.analytics(module, session)
-        log(f"analytics extractor={'seller-hub-lives' if mode == 'reconcile-index' else 'account-analytics'} ({mode})")
-    else:
-        log("analytics extractor=account-analytics")
+    module.__dict__["analytics"] = lambda session: analytics_lives_helper.analytics(module, session)
+    if mode == "reconcile-index":
+        module.__dict__["reconcile_index"] = lambda session: analytics_lives_helper.reconcile_index(module, session)
+    elif mode == "historical-analytics":
+        module.__dict__["historical_analytics"] = lambda session: analytics_lives_helper.historical_analytics(module, session)
+
+    log(
+        "analytics extractor=seller-hub-past-see-analytics "
+        f"({mode or 'analytics'})"
+    )
 
     orders_helper = load_module(ORDERS_HELPER, "vortexops_whatnot_orders_hardened")
     orders_helper.install(module)

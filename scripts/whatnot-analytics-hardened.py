@@ -577,7 +577,10 @@ def analytics(module, session):
     session.fetch(
         f"{module.BASE}/dashboard",
         page_action=action,
-        timeout=max(120, min(900, 45 + limit * 12)),
+        # Scrapling's browser timeout is expressed in milliseconds. Keep this
+        # comfortably below the outer PHP runner timeout while allowing Whatnot
+        # SPA navigation to complete.
+        timeout=max(120000, min(900000, (45 + limit * 12) * 1000)),
         network_idle=False,
         google_search=False,
     )

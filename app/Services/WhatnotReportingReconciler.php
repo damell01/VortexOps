@@ -347,12 +347,13 @@ class WhatnotReportingReconciler
         return compact('updated', 'failed', 'skipped');
     }
 
-    public function reconcileShipments(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array
+    public function reconcileShipments(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null, ?int $maxShows = null): array
     {
         $batchSize = max(1, min(30, $batchSize));
         $shows = Show::query()->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())->whereDate('show_date', '<=', today())
-            ->whereNotIn('status', ['cancelled'])->whereNotNull('whatnot_show_id')->orderBy('show_date')->orderBy('id')->get();
+            ->whereNotIn('status', ['cancelled'])->whereNotNull('whatnot_show_id')->orderBy('show_date')->orderBy('id')
+            ->when($maxShows !== null, fn ($q) => $q->limit(max(1, $maxShows)))->get();
         $checked = $created = $updated = $skipped = 0;
 
         foreach ($shows->chunk($batchSize) as $chunk) {

@@ -30,25 +30,53 @@ has_useful_data = base.has_useful_data
 
 def tab_locator(page, name: str):
     lowered = name.lower()
+    # Whatnot currently renders Upcoming/Past as plain text controls rather than
+    # consistently exposing role=tab/data-testid attributes. Prefer semantic
+    # selectors when available, then fall back to exact visible text.
+    selectors = []
     if lowered == "current":
-        return page.locator('button[data-testid="tab-current"][role="tab"]').first
-    if lowered == "upcoming":
-        return page.locator('button[data-testid="tab-upcoming"][role="tab"]').first
-    return page.locator('ul[role="tablist"] button[role="tab"]', has_text=re.compile(r"^Past$", re.I)).first
+        selectors = [
+            page.locator('button[data-testid="tab-current"][role="tab"]').first,
+            page.get_by_role("tab", name=re.compile(r"^Current$", re.I)).first,
+            page.get_by_text(re.compile(r"^Current$", re.I), exact=True).first,
+        ]
+    elif lowered == "upcoming":
+        selectors = [
+            page.locator('button[data-testid="tab-upcoming"][role="tab"]').first,
+            page.get_by_role("tab", name=re.compile(r"^Upcoming$", re.I)).first,
+            page.get_by_text(re.compile(r"^Upcoming$", re.I), exact=True).first,
+        ]
+    else:
+        selectors = [
+            page.locator('ul[role="tablist"] button[role="tab"]', has_text=re.compile(r"^Past$", re.I)).first,
+            page.get_by_role("tab", name=re.compile(r"^Past$", re.I)).first,
+            page.get_by_text(re.compile(r"^Past$", re.I), exact=True).first,
+        ]
+    for candidate in selectors:
+        try:
+            if candidate.count() and candidate.is_visible(timeout=1000):
+                return candidate
+        except Exception:
+            continue
+    return selectors[-1]
 
 
 def select_tab(module, page, name: str) -> bool:
     try:
         tab = tab_locator(page, name)
         if not tab.count():
-            tab = page.get_by_role("tab", name=re.compile(rf"^{re.escape(name)}$", re.I)).first
-        if not tab.count():
             module.info(f"analytics: {name} tab not found on /dashboard/lives")
             return False
-        if tab.get_attribute("aria-selected") != "true":
+        selected = tab.get_attribute("aria-selected")
+        if selected != "true":
             tab.click(timeout=8000)
         page.wait_for_timeout(1800)
         selected = tab.get_attribute("aria-selected")
+        # New Seller Hub tabs may not expose aria-selected. A successful click
+        # plus a visible exact tab is sufficient; extraction verifies the rows.
+        if selected is None:
+            module.info(f"analytics: {name} tab clicked (no aria-selected attribute)")
+            return True
         if selected != "true":
             try:
                 tab.evaluate("el => el.click()")

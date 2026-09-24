@@ -5,6 +5,10 @@
     $payouts = $run->payouts;
     $problems = $run->status === 'draft' ? app(\App\Services\PayRunReadinessService::class)->problems($run) : [];
     $byPerson = $payouts->groupBy('streamer_id');
+    $peopleTotal = $byPerson->count();
+    $peopleLastPage = max(1, (int) ceil($peopleTotal / $this::PEOPLE_PER_PAGE));
+    $peoplePage = min(max(1, $this->peoplePage), $peopleLastPage);
+    $visiblePeople = $byPerson->slice(($peoplePage - 1) * $this::PEOPLE_PER_PAGE, $this::PEOPLE_PER_PAGE);
     $streamerTotal = (float)$payouts->filter(fn($p)=>!$p->streamer?->isFulfillment())->sum('calculated_payout');
     $fulfillmentTotal = (float)$payouts->filter(fn($p)=>$p->streamer?->isFulfillment())->sum('calculated_payout');
     $statusLabel = \App\Models\WeeklyPayoutBatch::statusLabels()[$run->status] ?? ucfirst($run->status);
@@ -73,7 +77,7 @@
     <div class="vx-grid">
         <section class="vx-card vx-section">
             <div class="flex items-start justify-between gap-3"><div><h3>People in This Pay Run</h3><div class="vx-sub">Person total first. Expand only when you need the lines that built it.</div></div><span class="vx-chip">{{ $byPerson->count() }} people</span></div>
-            @forelse($byPerson as $streamerId=>$rows)
+            @forelse($visiblePeople as $streamerId=>$rows)
                 @php $person=$rows->first()->streamer; $personTotal=(float)$rows->sum('calculated_payout'); $hours=(float)$rows->sum('hours_worked'); $labels=(int)$rows->sum('label_count'); $pwe=(int)$rows->sum('pwe_count'); @endphp
                 <details class="vx-person">
                     <summary class="vx-person-head cursor-pointer list-none">
@@ -89,6 +93,13 @@
                     </div>
                 </details>
             @empty<div class="py-10 text-center text-sm text-gray-500">No payout entries are attached to this run yet.</div>@endforelse
+            @if($peopleLastPage > 1)
+                <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
+                    <button type="button" wire:click="previousPeoplePage" @disabled($peoplePage <= 1) class="vx-link disabled:cursor-not-allowed disabled:opacity-40">← Previous</button>
+                    <div class="text-[11px] font-semibold text-gray-500">People {{ (($peoplePage-1)*$this::PEOPLE_PER_PAGE)+1 }}–{{ min($peoplePage*$this::PEOPLE_PER_PAGE,$peopleTotal) }} of {{ $peopleTotal }}</div>
+                    <button type="button" wire:click="nextPeoplePage({{ $peopleLastPage }})" @disabled($peoplePage >= $peopleLastPage) class="vx-link disabled:cursor-not-allowed disabled:opacity-40">Next →</button>
+                </div>
+            @endif
         </section>
 
         <aside class="space-y-3">

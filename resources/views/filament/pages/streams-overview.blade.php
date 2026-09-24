@@ -13,10 +13,6 @@
   @if(auth()->user()?->isAdmin())
    <a href="{{ $this->statusUrl() }}" class="vx-top-link">Show Pipeline</a>
    <a href="{{ $this->approvalsUrl() }}" class="vx-top-link">Pending Approvals</a>
-   @if(auth()->user()?->isSuperAdmin())
-    <a href="{{ $this->importerUrl() }}" class="vx-top-link">Whatnot Import</a>
-    <a href="{{ $this->syncUrl() }}" class="vx-top-link">Sync Dashboard</a>
-   @endif
   @endif
  </div>
 

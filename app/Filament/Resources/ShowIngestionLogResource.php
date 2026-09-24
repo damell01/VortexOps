@@ -24,10 +24,10 @@ use Illuminate\Support\HtmlString;
 
 class ShowIngestionLogResource extends Resource
 {
-    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
+    /** Super-admin diagnostics belong in navigation for owners/admins only. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     use HasModuleAccess;
@@ -36,11 +36,11 @@ class ShowIngestionLogResource extends Resource
     protected static ?string $model = ShowIngestionLog::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-down-tray'; }
-    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('streams'); }
-    public static function getNavigationSort(): ?int { return 4; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Super Admin'; }
+    public static function getNavigationSort(): ?int { return 20; }
     public static function getModelLabel(): string { return 'Ingestion Record'; }
     public static function getPluralModelLabel(): string { return 'Ingestion Records'; }
-    public static function getNavigationLabel(): string { return 'Ingestion'; }
+    public static function getNavigationLabel(): string { return 'Ingestion Monitor'; }
 
     public static function getNavigationBadge(): ?string
     {

@@ -1,10 +1,10 @@
 <x-filament-panels::page>
     @php
-        $data = $this->getData();
-        $snapshot = $data['currentSnapshot'];
-        $trendData = $data['trendData'];
-        $itemDetails = $data['itemDetails'];
-        $stocks = $data['stocks'];
+        $data = $this->getViewerData();
+        $snapshot = (object) ['snapshot_date' => now(), 'total_value' => $data['summary']['value'], 'total_items' => $data['summary']['items'], 'total_quantity' => $data['summary']['quantity'], 'location_breakdown' => $data['locations']->keyBy('name')->all(), 'item_type_breakdown' => [], 'slow_moving_items' => [], 'stock_outs' => []];
+        $trendData = $data['trend'];
+        $itemDetails = $data['items'];
+        $stocks = collect($data['items']);
     @endphp
 
     <div class="space-y-6">
@@ -12,14 +12,14 @@
         {{-- Export Button --}}
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Valuation Report</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">As of {{ $snapshot->snapshot_date->format('M d, Y g:i A') }}</p>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Report</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Live in-app inventory reporting • Updated {{ now()->format('M d, Y g:i A') }}</p>
             </div>
             <button type="button"
                     wire:click="exportPdf"
                     class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                Export PDF
+                Export Report
             </button>
         </div>
 
@@ -167,7 +167,7 @@
                 @forelse ($itemDetails as $item)
                     <div class="grid gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 md:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] md:items-center {{ $item['is_low_stock'] ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
                         <div class="min-w-0"><div class="font-semibold text-gray-900 dark:text-gray-100">{{ $item['name'] }}</div><div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</div></div>
-                        <div class="text-sm text-gray-600 dark:text-gray-300">{{ $item['location'] }}</div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">{{ $item['locations'] }}</div>
                         <div class="flex justify-between md:block md:text-right"><span class="text-xs text-gray-500 md:hidden">Qty</span><span class="font-semibold">{{ number_format($item['quantity']) }} @if ($item['is_low_stock'])<span class="text-amber-500">⚠</span>@endif</span></div>
                         <div class="flex justify-between md:block md:text-right"><span class="text-xs text-gray-500 md:hidden">Avg Cost</span><span>${{ number_format($item['unit_cost'], 2) }}</span></div>
                         <div class="flex justify-between md:block md:text-right"><span class="text-xs text-gray-500 md:hidden">Value</span><span class="font-bold text-gray-900 dark:text-gray-100">${{ number_format($item['total_value'], 2) }}</span></div>

@@ -16,6 +16,7 @@ use App\Services\ShowWorkflowService;
 use App\Support\ProfitShareFormula;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use UnitEnum;
@@ -79,6 +80,22 @@ class PayrollOverview extends Page
     public function getSubheading(): ?string
     {
         return 'Payroll, pay runs, payout readiness and finance actions in one place.';
+    }
+
+    public function prepareCurrentPayRun(): void
+    {
+        try {
+            $result = app(PayRunAutomationService::class)->syncWeek(now(), true);
+            $this->redirect(WeeklyPayoutBatchResource::getUrl('view', ['record' => $result['batch']]));
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()
+                ->title('Could not prepare this week\'s Pay Run')
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+        }
     }
 
     protected function getHeaderActions(): array

@@ -383,10 +383,16 @@ class WhatnotReportingReconciler
                 $updated++;
 
                 $fresh = $fresh->fresh();
+                $netDisplay = $fresh->whatnot_net === null
+                    ? 'unavailable'
+                    : '$'.number_format((float) $fresh->whatnot_net, 2);
+
                 $progress && $progress(
                     "analytics: show #{$show->id} updated · {$fresh->show_date} · gross $".
                     number_format((float) ($fresh->gross_revenue ?? 0), 2).
-                    ' · net '.($fresh->whatnot_net === null ? 'unavailable' : '
+                    " · net {$netDisplay} · status {$fresh->analytics_sync_status}"
+                );
+            } catch (\Throwable $e) {
                 $failed++;
                 $progress && $progress("analytics: show #{$show->id} failed — {$e->getMessage()}");
                 Log::warning('Channel-wide Whatnot analytics update failed', [

@@ -60,14 +60,21 @@ def parse_duration(value: Any) -> int | None:
     text = clean(value)
     if not text:
         return None
+    minutes = None
     hm = re.search(r"(\d+)\s*h(?:r|our)?s?\s*(?:(\d+)\s*m)?", text, re.I)
     if hm:
-        return int(hm.group(1)) * 60 + int(hm.group(2) or 0)
-    mm = re.search(r"(\d+)\s*m(?:in)?", text, re.I)
-    if mm:
-        return int(mm.group(1))
-    clock = re.search(r"\b(\d+):(\d{2})(?::\d{2})?\b", text)
-    return int(clock.group(1)) * 60 + int(clock.group(2)) if clock else None
+        minutes = int(hm.group(1)) * 60 + int(hm.group(2) or 0)
+    else:
+        mm = re.search(r"(\d+)\s*m(?:in)?", text, re.I)
+        if mm:
+            minutes = int(mm.group(1))
+        else:
+            clock = re.search(r"\b(\d+):(\d{2})(?::\d{2})?\b", text)
+            if clock:
+                minutes = int(clock.group(1)) * 60 + int(clock.group(2))
+    # A completed Whatnot show reporting zero duration is not useful coverage.
+    # Keep it missing so the show remains eligible for a later analytics retry.
+    return minutes if minutes is not None and minutes > 0 else None
 
 
 def parse_date(*values: Any) -> str | None:

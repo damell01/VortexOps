@@ -18,7 +18,7 @@ class SyncWhatnotReporting extends Command
     protected $signature = 'whatnot:sync-reporting
         {--since=2026-07-01 : Earliest reporting date to keep fully synced}
         {--show-limit=25 : Number of shows to pull/update per channel pass}
-        {--analytics-limit=25 : Number of missing analytics shows to fill per channel run}
+        {--analytics-limit=0 : Number of incomplete analytics shows per channel run; 0 processes all}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
         {--analytics-only : Walk each channel Seller Hub Past shows and refresh analytics in one browser session; skip discovery, orders, shipments, and ledger}
@@ -48,7 +48,7 @@ class SyncWhatnotReporting extends Command
 
         $showLimit = max(1, min(30, (int) $this->option('show-limit')));
         $analyticsOnly = (bool) $this->option('analytics-only');
-        $analyticsLimit = max(1, min(25, (int) $this->option('analytics-limit')));
+        $analyticsLimit = max(0, (int) $this->option('analytics-limit'));
         $shipmentBatch = max(1, min(30, (int) $this->option('shipment-batch')));
         $shipmentsOnly = (bool) $this->option('shipments-only');
         if ($shipmentsOnly && $analyticsOnly) {

@@ -83,10 +83,17 @@ class ShowDataAudit extends Page
             'show_duration' => $field('show_duration'),
         ];
 
-        $missing = $shows->filter(fn (Show $s) =>
-            $s->show_date?->lt(today())
-            && ($s->gross_revenue === null || $s->whatnot_net === null || $s->completed_earnings === null || $s->show_duration === null)
-        )->take(50)->values();
+        $pastShows = $shows->filter(fn (Show $s) => $s->show_date?->lt(today()));
+        $statusCounts = [
+            'complete' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'complete')->count(),
+            'partial' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'partial')->count(),
+            'unavailable' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'unavailable')->count(),
+            'unclassified' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'unclassified')->count(),
+        ];
+
+        $missing = $pastShows
+            ->filter(fn (Show $s) => $s->analyticsCoverageStatus() !== 'complete')
+            ->take(50)->values();
 
         return [
             'from' => $from, 'to' => $to, 'total' => $total,
@@ -95,7 +102,8 @@ class ShowDataAudit extends Page
             'completed' => (float) $shows->sum('completed_earnings'),
             'hours' => (float) $shows->sum('show_duration') / 60,
             'coverage' => $coverage, 'missing' => $missing,
-            'complete' => $shows->filter(fn (Show $s) => $s->gross_revenue !== null && $s->whatnot_net !== null && $s->show_duration !== null)->count(),
+            'statusCounts' => $statusCounts,
+            'complete' => $statusCounts['complete'],
         ];
     }
 

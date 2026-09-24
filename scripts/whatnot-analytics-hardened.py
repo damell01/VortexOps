@@ -139,7 +139,24 @@ def snapshot(page) -> dict[str, Any]:
             .filter(el => el !== hit && el.childElementCount === 0)
             .map(el => (el.textContent || '').trim())
             .filter(v => v && v.length < 100 && v.toLowerCase() !== lower);
-          const value = values.find(v => /^[-+$]?[$]?\d[\d,.]*(?:\s*%|\s*k|\s*m|\s*h|\s*hr|\s*hrs|\s*min)?$/i.test(v));
+          let value = null;
+          if (lower === 'show duration') {
+            // Whatnot commonly renders duration as "4h 32m", "4 hr 32 min",
+            // "272 min", or a clock value. The generic metric matcher only
+            // accepted a single suffix, so multi-part durations were skipped.
+            value = values.find(v =>
+              /^\d+\s*(?:h|hr|hrs|hour|hours)(?:\s*\d+\s*(?:m|min|mins|minute|minutes))?$/i.test(v) ||
+              /^\d+\s*(?:m|min|mins|minute|minutes)$/i.test(v) ||
+              /^\d+:\d{2}(?::\d{2})?$/.test(v)
+            );
+            if (!value) {
+              const containerText = (node.innerText || node.textContent || '').replace(/\s+/g, ' ').trim();
+              const durationMatch = containerText.match(/show duration\s*[:\-]?\s*(\d+\s*(?:h|hr|hrs|hour|hours)(?:\s*\d+\s*(?:m|min|mins|minute|minutes))?|\d+\s*(?:m|min|mins|minute|minutes)|\d+:\d{2}(?::\d{2})?)/i);
+              if (durationMatch) value = durationMatch[1];
+            }
+          } else {
+            value = values.find(v => /^[-+$]?[$]?\d[\d,.]*(?:\s*%|\s*k|\s*m|\s*h|\s*hr|\s*hrs|\s*min)?$/i.test(v));
+          }
           if (value) { labels[label] = value; break; }
         }
       }

@@ -91,6 +91,10 @@
                     [$this->countUrl(),'heroicon-o-clipboard-document-check','Inventory Count','Count physical stock'],
                     [$this->reconciliationUrl(),'heroicon-o-check-circle','Reconciliation','Resolve physical/system variances'],
                     [$this->analyticsUrl(),'heroicon-o-chart-bar','Analytics & Insights','Inventory value, health and trends'],
+                    [$this->ageUrl(),'heroicon-o-clock','Inventory Age','Find aging and stale inventory'],
+                    [$this->stockLevelsUrl(),'heroicon-o-chart-bar-square','Stock Levels','Review quantities by location'],
+                    [$this->productInsightsUrl(),'heroicon-o-presentation-chart-line','Product Insights','Margin, sell-through and dead stock'],
+                    [$this->guideUrl(),'heroicon-o-academic-cap','How It Works','Inventory workflow and troubleshooting'],
                 ] as [$url,$icon,$title,$sub])
                     <a href="{{ $url }}" class="vx-action"><div class="vx-icon !h-9 !w-9"><x-filament::icon :icon="$icon" class="h-5 w-5" /></div><div class="min-w-0 flex-1"><div class="text-sm font-semibold">{{ $title }}</div><div class="truncate text-xs text-gray-500">{{ $sub }}</div></div><span class="text-gray-400">›</span></a>
                 @endforeach

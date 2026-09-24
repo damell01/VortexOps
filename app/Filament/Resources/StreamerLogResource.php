@@ -603,6 +603,8 @@ class StreamerLogResource extends Resource
             ])
             ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('id', 'desc')
+            ->paginated([9, 18, 36])
+            ->defaultPaginationPageOption(9)
             ->striped()
             ->deferLoading()
             ->persistFiltersInSession();

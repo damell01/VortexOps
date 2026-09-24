@@ -20,6 +20,16 @@ use Filament\Support\Enums\MaxWidth;
         .vx-streamer-log-page .vx-col-title { min-width: 14rem; max-width: 20rem; }
         .vx-streamer-log-page .vx-col-tight { min-width: 7rem; max-width: 10rem; }
         .vx-streamer-log-page td { vertical-align: middle; }
+        @media (min-width: 1024px) {
+            .vx-streamer-log-page .fi-ta-table { min-width: 0; border-collapse: separate; border-spacing: 0 10px; }
+            .vx-streamer-log-page .fi-ta-header-cell { border-bottom: 0; padding-block: .45rem; }
+            .vx-streamer-log-page .fi-ta-row { background: transparent; box-shadow: none; }
+            .vx-streamer-log-page .fi-ta-row > td { background: rgb(255 255 255); border-top: 1px solid rgb(229 231 235); border-bottom: 1px solid rgb(229 231 235); padding-block: .85rem; }
+            .dark .vx-streamer-log-page .fi-ta-row > td { background: rgb(15 23 42); border-color: rgb(51 65 85); }
+            .vx-streamer-log-page .fi-ta-row > td:first-child { border-left: 1px solid rgb(229 231 235); border-radius: 14px 0 0 14px; }
+            .vx-streamer-log-page .fi-ta-row > td:last-child { border-right: 1px solid rgb(229 231 235); border-radius: 0 14px 14px 0; }
+            .dark .vx-streamer-log-page .fi-ta-row > td:first-child,.dark .vx-streamer-log-page .fi-ta-row > td:last-child { border-color: rgb(51 65 85); }
+        }
 
         @media (max-width: 767px) {
             .vx-streamer-log-page { overflow: visible; }

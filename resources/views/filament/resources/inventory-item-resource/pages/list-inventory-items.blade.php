@@ -12,11 +12,14 @@
  <section class="vx-inventory-desktop-tools">
   <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
    <div><h2 class="text-3xl font-bold tracking-tight text-gray-950 dark:text-white">All Inventory</h2><p class="mt-1 text-sm text-gray-500">Browse your inventory, check stock, and take quick actions.</p></div>
-   <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
     <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
     <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
     <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
+    <a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
+    <a href="{{ route('export.inventory-pdf') }}?download=1" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-document-arrow-down class="mb-1 h-5 w-5"/>Report PDF</a>
+    <a href="{{ route('export.inventory-items') }}" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-table-cells class="mb-1 h-5 w-5"/>Export Excel</a>
    </div>
   </div>
  </section>
@@ -40,7 +43,6 @@
    </div>
    @if($viewMode === 'catalog')
     <select wire:model.live="catalogSort" class="min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
-    <select wire:model.live="catalogPerPage" class="min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="24">24 per page</option><option value="50">50 per page</option><option value="100">100 per page</option></select>
    @endif
    @if($viewMode === 'catalog' && filled($catalogSearch))<button wire:click="clearCatalogSearch" class="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
   </div>
@@ -80,11 +82,13 @@
     @endforeach
    </div>
    <div class="vx-catalog-footer">
-    <div class="text-xs text-gray-500">Page {{ $catalogPage }} · {{ number_format($this->catalogTotal) }} matching products</div>
-    <div class="flex gap-2">
-     <button type="button" wire:click="previousCatalogPage" @disabled($catalogPage <= 1) class="vx-load-more disabled:opacity-40">Previous</button>
-     <button type="button" wire:click="nextCatalogPage" @disabled(($catalogPage * $catalogPerPage) >= $this->catalogTotal) class="vx-load-more disabled:opacity-40">Next</button>
-    </div>
+    <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
+    @if($this->catalogItems->count() < $this->catalogTotal)
+     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" class="vx-load-more">
+      <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
+      <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
+     </button>
+    @endif
    </div>
   @else
    <div class="vx-empty"><x-heroicon-o-magnifying-glass class="mx-auto h-8 w-8" /><div class="mt-2 font-semibold text-gray-800 dark:text-gray-200">No matching inventory</div><div class="mt-1 text-sm">Try another search or stock filter.</div></div>

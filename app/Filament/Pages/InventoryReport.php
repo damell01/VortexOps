@@ -150,6 +150,7 @@ class InventoryReport extends Page
                 'unit_cost' => $cost,
                 'total_value' => $stock->quantity * $cost,
                 'reorder_level' => $stock->item->reorder_level ?? 0,
+                'category' => $this->sanitizeUtf8($stock->item->category ?? 'Uncategorized'),
                 'is_low_stock' => $stock->quantity <= ($stock->item->reorder_level ?? 0),
             ];
         })->sortByDesc('total_value');
@@ -175,7 +176,7 @@ class InventoryReport extends Page
             $first = $rows->first();
             return [
                 'id' => $first['id'], 'sku' => $first['sku'], 'name' => $first['name'],
-                'category' => (string) (InventoryItem::whereKey($first['id'])->value('category') ?: 'Uncategorized'),
+                'category' => $first['category'] ?? 'Uncategorized',
                 'quantity' => (float) $rows->sum('quantity'),
                 'unit_cost' => (float) $first['unit_cost'],
                 'total_value' => (float) $rows->sum('total_value'),

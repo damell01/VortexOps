@@ -72,9 +72,10 @@ def parse_duration(value: Any) -> int | None:
             clock = re.search(r"\b(\d+):(\d{2})(?::\d{2})?\b", text)
             if clock:
                 minutes = int(clock.group(1)) * 60 + int(clock.group(2))
-    # A completed Whatnot show reporting zero duration is not useful coverage.
-    # Keep it missing so the show remains eligible for a later analytics retry.
-    return minutes if minutes is not None and minutes > 0 else None
+    # Preserve an explicit zero from Whatnot. The reconciler distinguishes
+    # this from a missing duration and can classify an older zero-duration show
+    # as a no-show.
+    return minutes
 
 
 def parse_date(*values: Any) -> str | None:

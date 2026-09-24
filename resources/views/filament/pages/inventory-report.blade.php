@@ -42,15 +42,13 @@
  </div>
 
  <div class="vx-r-card p-3">
-  <div class="vx-builder-head"><div><div class="text-sm font-extrabold">Report Builder</div><div class="text-xs text-gray-500">Adjust the report filters and sort. Results update instantly.</div></div><div class="vx-builder-actions"><button wire:click="toggleReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">{{ $showReportFilters ? 'Hide Filters' : 'Show Filters' }}</button><button wire:click="resetReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">Reset</button></div></div>
-  @if($showReportFilters)
+  <div class="vx-builder-head"><div><div class="text-sm font-extrabold">Report Builder</div><div class="text-xs text-gray-500">Adjust the report filters and sort. Results update instantly.</div></div><div class="vx-builder-actions"><span class="hidden text-[11px] font-semibold text-emerald-600 md:inline">Live report</span><button wire:click="resetReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">Reset</button></div></div>
   <div class="vx-filter-row mt-3">
    <div class="relative"><x-heroicon-o-magnifying-glass class="absolute left-3 top-3 h-4 w-4 text-gray-400"/><input wire:model.live.debounce.350ms="reportSearch" type="search" placeholder="Search inventory, SKU, or keyword..." class="vx-filter-control w-full py-2.5 pl-9"/></div>
    <select wire:model.live="reportCategory" class="vx-filter-control"><option value="">All Categories</option>@foreach($data['categories'] as $category)<option>{{ $category }}</option>@endforeach</select>
    <select wire:model.live="reportLocation" class="vx-filter-control"><option value="">All Locations</option>@foreach($locations as $loc)<option>{{ $loc['name'] }}</option>@endforeach</select>
    <select wire:model.live="reportStock" class="vx-filter-control"><option value="">All Stock</option><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select>
   </div>
-  @endif
  </div>
 
  <div class="vx-kpis">
@@ -66,7 +64,6 @@
   <div class="vx-r-card p-4"><h3 class="text-sm font-bold">Inventory by Category</h3><div class="mt-4 space-y-3">@forelse($categories->take(6) as $cat)<div><div class="flex justify-between text-xs"><span class="font-semibold">{{ $cat['name'] }}</span><span>{{ number_format($cat['quantity']) }} · {{ number_format(($cat['quantity']/$totalQty)*100,1) }}%</span></div><div class="vx-track mt-1"><div class="vx-fill" style="width:{{ ($cat['quantity']/$totalQty)*100 }}%"></div></div></div>@empty<div class="text-sm text-gray-400">No category data.</div>@endforelse</div></div>
   <div class="vx-r-card p-4"><h3 class="text-sm font-bold">Inventory by Location</h3>@forelse($locations->take(7) as $loc)<div class="vx-loc-row"><span class="truncate text-xs font-semibold">{{ $loc['name'] }}</span><div class="vx-track"><div class="vx-fill" style="width:{{ ($loc['quantity']/$maxLocation)*100 }}%"></div></div><span class="text-right text-xs">{{ number_format($loc['quantity']) }}</span></div>@empty<div class="mt-5 text-sm text-gray-400">No location data.</div>@endforelse</div>
  </div>
- @endif
 
  <div class="vx-report-sheet">
   <div class="vx-sheet-toolbar"><div class="vx-tabs border-0">

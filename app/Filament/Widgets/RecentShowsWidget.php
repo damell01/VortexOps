@@ -5,88 +5,42 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
 use App\Support\AdminModules;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Table;
-use Filament\Widgets\TableWidget as BaseWidget;
+use Filament\Widgets\Widget;
 
-class RecentShowsWidget extends BaseWidget
+class RecentShowsWidget extends Widget
 {
     protected static bool $isLazy = true;
     protected static ?int $sort = 3;
-    protected static ?string $heading = 'Recent Shows · Past 7 Days';
-    protected int | string | array $columnSpan = 'full';
+    protected static string $view = 'filament.widgets.recent-shows-cards';
+    protected int|string|array $columnSpan = 'full';
 
     public static function canView(): bool
     {
         return AdminModules::isEnabled('streams');
     }
 
-    /** Streamer id to scope by, or null for admins/owner (who see all shows). */
-    private function streamerScopeId(): ?int
-    {
-        $user = auth()->user();
-
-        if ($user && $user->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
-            return $user->streamer?->id ?? 0;
-        }
-
-        return null;
-    }
-
-    public function table(Table $table): Table
+    protected function getViewData(): array
     {
         $query = Show::query()
             ->with('channel')
             ->inChannelContext()
             ->where('is_operational', true)
             ->whereNotIn('status', ['cancelled'])
-            ->whereDate('show_date', '>=', today()->subDays(7))
-            ->whereDate('show_date', '<=', today());
+            // Do not show today's streams here. Analytics can still be settling.
+            ->whereDate('show_date', '<=', today()->subDay())
+            ->whereDate('show_date', '>=', today()->subDays(8));
 
-        $streamerId = $this->streamerScopeId();
-        if ($streamerId !== null) {
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            $streamerId = $user->streamer?->id ?? 0;
             $query->whereHas('streamers', fn ($s) => $s->where('streamers.id', $streamerId));
         }
 
-        return $table
-            ->query($query->orderByDesc('show_date')->orderByDesc('start_time')->limit(20))
-            ->columns([
-                TextColumn::make('show_date')
-                    ->label('Date')
-                    ->date('M j, Y')
-                    ->sortable(),
-                TextColumn::make('title')
-                    ->searchable()
-                    ->limit(40),
-                TextColumn::make('channel.name')
-                    ->label('Channel')
-                    ->placeholder('—')
-                    ->badge()
-                    ->color('gray'),
-                TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'draft'            => 'gray',
-                        'pending_review'   => 'warning',
-                        'mapping'          => 'info',
-                        'pending_approval' => 'warning',
-                        'reconciled'       => 'success',
-                        'closed'           => 'gray',
-                        'cancelled'        => 'danger',
-                        default            => 'gray',
-                    }),
-                TextColumn::make('gross_revenue')
-                    ->label('Sales')
-                    ->money('USD')
-                    ->placeholder('—'),
-                TextColumn::make('completed_earnings')
-                    ->label('Completed Earnings')
-                    ->money('USD')
-                    ->placeholder('—'),
-            ])
-            ->deferLoading()
-            ->recordUrl(fn ($record) => ShowResource::getUrl('view', ['record' => $record]))
-            ->paginated(false);
+        $shows = $query->orderByDesc('show_date')->orderByDesc('start_time')->limit(5)->get();
+
+        return [
+            'shows' => $shows,
+            'allShowsUrl' => ShowResource::getUrl('index'),
+        ];
     }
 }

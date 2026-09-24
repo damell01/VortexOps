@@ -242,6 +242,11 @@ class InventoryOverview extends Page
         return InventoryValueDashboard::getUrl();
     }
 
+    public function reportUrl(): string
+    {
+        return InventoryReport::getUrl();
+    }
+
     public function ageUrl(): string
     {
         return InventoryAge::getUrl();

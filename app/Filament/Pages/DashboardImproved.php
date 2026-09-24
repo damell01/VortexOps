@@ -12,12 +12,15 @@ use App\Filament\Widgets\StreamerProfitShareWidget;
 use App\Filament\Widgets\StreamerShowsToReviewWidget;
 use App\Filament\Widgets\UpcomingShowsWidget;
 use App\Models\InventoryItem;
+use App\Models\InventoryMovement;
+use App\Models\InventoryStock;
 use App\Models\Payout;
 use App\Models\Setting;
 use App\Models\Shipment;
 use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\StreamerLogItem;
+use Illuminate\Support\Facades\Schema;
 use App\Support\ChannelContext;
 use Filament\Pages\Dashboard;
 
@@ -84,6 +87,12 @@ class DashboardImproved extends Dashboard
         $user = auth()->user();
         $data = ['roleMode' => 'user'];
 
+        if ($user?->isAdmin() || $user?->isOwner()) {
+            $data['roleMode'] = 'admin';
+            $data['inventoryHealth'] = $this->inventoryHealth();
+            $data['recentInventoryActivity'] = $this->recentInventoryActivity();
+        }
+
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $streamerId = $user->streamer?->id ?? 0;
             $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();
@@ -145,4 +154,34 @@ class DashboardImproved extends Dashboard
 
         return $data;
     }
+
+    private function inventoryHealth(): array
+    {
+        try {
+            $products = InventoryItem::query()->where('is_active', true)->with('stock')->get();
+            $in = $products->filter(fn ($p) => (float) $p->stock->sum('quantity') > 0)->count();
+            $out = $products->count() - $in;
+            $low = $products->filter(function ($p) {
+                $qty = (float) $p->stock->sum('quantity');
+                return $qty > 0 && $p->reorder_level !== null && $qty <= (float) $p->reorder_level;
+            })->count();
+            return compact('in', 'low', 'out');
+        } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
+    }
+
+    private function recentInventoryActivity(): array
+    {
+        try {
+            return InventoryMovement::query()->with('item')->latest()->limit(5)->get()->map(function ($m) {
+                $qty = (float) ($m->quantity ?? 0);
+                return [
+                    'name' => $m->item?->name ?: 'Inventory item',
+                    'qty' => $qty,
+                    'type' => ucfirst(str_replace('_', ' ', (string) $m->movement_type)),
+                    'time' => $m->created_at?->diffForHumans(),
+                ];
+            })->all();
+        } catch (\Throwable) { return []; }
+    }
 }
+

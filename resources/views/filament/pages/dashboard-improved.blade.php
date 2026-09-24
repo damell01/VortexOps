@@ -253,51 +253,36 @@
                 </div>
             </section>
         @elseif($pageMode === 'admin')
-            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-                <div class="p-4 sm:p-6">
-                    <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Admin Operations Center</div>
-                    <h1 class="mt-1 text-xl font-semibold leading-tight text-gray-950 dark:text-white sm:text-2xl">What needs attention now</h1>
-                    <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Exceptions first: show reports, inventory matching, fulfillment ownership, shipments, and payouts.</p>
-                </div>
-
-                <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-5">
-                    @foreach ([
-                        ['Reports', $reportsToReview ?? 0],
-                        ['Unmatched', $unmatchedItems ?? 0],
-                        ['Open Shipments', $openShipments ?? 0],
-                        ['Unassigned', $unassignedFulfillment ?? 0],
-                        ['Draft Payouts', $draftPayouts ?? 0],
-                    ] as [$label, $value])
-                        <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
-                            <div class="truncate text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
-                            <div class="mt-0.5 text-xl font-semibold leading-none text-gray-950 dark:text-white sm:mt-1 sm:text-2xl">{{ number_format((float)$value) }}</div>
+            <section class="grid gap-3 lg:grid-cols-2">
+                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-950 dark:text-white">Inventory Health</h2>
+                            <p class="mt-0.5 text-xs text-gray-500">Current stock status at a glance.</p>
                         </div>
-                    @endforeach
+                        <a href="{{ App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="text-xs font-semibold text-primary-600">View Inventory →</a>
+                    </div>
+                    <div class="mt-4 grid grid-cols-3 gap-3">
+                        <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/20"><div class="text-xs text-gray-500">In Stock</div><div class="mt-1 text-2xl font-bold text-emerald-600">{{ number_format($inventoryHealth['in'] ?? 0) }}</div></div>
+                        <div class="rounded-xl bg-amber-50 p-3 dark:bg-amber-950/20"><div class="text-xs text-gray-500">Low Stock</div><div class="mt-1 text-2xl font-bold text-amber-600">{{ number_format($inventoryHealth['low'] ?? 0) }}</div></div>
+                        <div class="rounded-xl bg-rose-50 p-3 dark:bg-rose-950/20"><div class="text-xs text-gray-500">Out of Stock</div><div class="mt-1 text-2xl font-bold text-rose-600">{{ number_format($inventoryHealth['out'] ?? 0) }}</div></div>
+                    </div>
                 </div>
-            </section>
-
-            <section class="grid gap-3 sm:grid-cols-2">
-                <a href="{{ App\Filament\Resources\ShowResource::getUrl('index') }}" class="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/40"><x-heroicon-m-video-camera class="h-5 w-5" /></div>
-                        <div><div class="text-sm font-semibold text-gray-950 dark:text-white">Shows</div><div class="text-xs text-gray-500 dark:text-gray-400">Schedule, sales, assignments and show details</div></div>
-                        <x-heroicon-m-chevron-right class="ml-auto h-5 w-5 text-gray-300 group-hover:text-primary-500" />
+                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+                    <div class="flex items-center justify-between"><div><h2 class="text-sm font-semibold text-gray-950 dark:text-white">Recent Inventory Activity</h2><p class="mt-0.5 text-xs text-gray-500">Latest stock changes.</p></div></div>
+                    <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse(($recentInventoryActivity ?? []) as $activity)
+                            <div class="flex items-center gap-3 py-2.5">
+                                <span class="w-14 shrink-0 text-[11px] text-gray-400">{{ $activity['time'] }}</span>
+                                <span class="min-w-0 flex-1 truncate text-xs font-medium text-gray-800 dark:text-gray-100">{{ $activity['name'] }}</span>
+                                <span class="text-xs font-semibold {{ $activity['qty'] >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">{{ $activity['qty'] >= 0 ? '+' : '' }}{{ number_format($activity['qty']) }}</span>
+                                <span class="hidden text-[11px] text-gray-400 sm:block">{{ $activity['type'] }}</span>
+                            </div>
+                        @empty
+                            <div class="py-8 text-center text-xs text-gray-500">No recent inventory activity.</div>
+                        @endforelse
                     </div>
-                </a>
-                <a href="{{ App\Filament\Resources\StreamerLogResource::getUrl('index') }}" class="group rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40"><x-heroicon-m-clipboard-document-check class="h-5 w-5" /></div>
-                        <div><div class="text-sm font-semibold text-gray-950 dark:text-white">Reports</div><div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($reportsToReview ?? 0) }} waiting for review</div></div>
-                        <x-heroicon-m-chevron-right class="ml-auto h-5 w-5 text-gray-300 group-hover:text-primary-500" />
-                    </div>
-                </a>
-            </section>
-            <section>
-                <a href="{{ App\Filament\Pages\PayrollOverview::getUrl() }}" class="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-primary-300 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40"><x-heroicon-m-banknotes class="h-5 w-5" /></div>
-                    <div class="min-w-0 flex-1"><div class="text-sm font-semibold text-gray-950 dark:text-white">Finance</div><div class="text-xs text-gray-500 dark:text-gray-400">Payroll, pay runs, payout readiness and profit-share reporting</div></div>
-                    <x-heroicon-m-chevron-right class="h-5 w-5 shrink-0 text-gray-300 group-hover:text-primary-500" />
-                </a>
+                </div>
             </section>
         @endif
 

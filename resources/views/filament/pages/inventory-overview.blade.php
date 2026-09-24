@@ -91,6 +91,7 @@
                     [$this->countUrl(),'heroicon-o-clipboard-document-check','Inventory Count','Count physical stock'],
                     [$this->reconciliationUrl(),'heroicon-o-check-circle','Reconciliation','Resolve physical/system variances'],
                     [$this->analyticsUrl(),'heroicon-o-chart-bar','Analytics & Insights','Inventory value, health and trends'],
+                    [$this->reportUrl(),'heroicon-o-document-chart-bar','Inventory Report','Value, stock health, velocity and coverage'],
                     [$this->ageUrl(),'heroicon-o-clock','Inventory Age','Find aging and stale inventory'],
                     [$this->stockLevelsUrl(),'heroicon-o-chart-bar-square','Stock Levels','Review quantities by location'],
                     [$this->productInsightsUrl(),'heroicon-o-presentation-chart-line','Product Insights','Margin, sell-through and dead stock'],

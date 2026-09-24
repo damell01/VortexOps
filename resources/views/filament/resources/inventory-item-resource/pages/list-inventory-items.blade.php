@@ -12,11 +12,14 @@
  <section class="vx-inventory-desktop-tools">
   <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
    <div><h2 class="text-3xl font-bold tracking-tight text-gray-950 dark:text-white">All Inventory</h2><p class="mt-1 text-sm text-gray-500">Browse your inventory, check stock, and take quick actions.</p></div>
-   <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+   <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
     <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
     <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
     <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
+    <a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
+    <a href="{{ route('export.inventory-pdf') }}?download=1" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-document-arrow-down class="mb-1 h-5 w-5"/>Report PDF</a>
+    <a href="{{ route('export.inventory-items') }}" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-table-cells class="mb-1 h-5 w-5"/>Export Excel</a>
    </div>
   </div>
  </section>

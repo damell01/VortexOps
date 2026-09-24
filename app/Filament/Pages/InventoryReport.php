@@ -64,14 +64,13 @@ class InventoryReport extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        // Nav visibility is configured per role in Settings; without this
-        // check an override here silently ignored that setting and the link
-        // stayed in the sidebar regardless.
+        // Inventory Report is intentionally one of the few primary Inventory
+        // destinations. Keep the existing per-role visibility settings intact.
         if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
             return false;
         }
 
-        return false;
+        return static::canAccess();
     }
 
     public function getSubheading(): ?string

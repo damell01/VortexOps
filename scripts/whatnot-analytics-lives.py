@@ -711,10 +711,26 @@ def historical_analytics(module, session):
             )
 
         if target_ids:
-            candidates = [
-                item for item in candidates
-                if clean(item.get("live_id")).lower() in target_ids
-            ]
+            by_id = {
+                clean(item.get("live_id")).lower(): item
+                for item in candidates
+                if clean(item.get("live_id"))
+            }
+            # A verified DB UUID can have a working analytics page even when the
+            # Seller Hub Past virtualized index did not expose a See Analytics
+            # link. Use the current direct analytics route as a fallback instead
+            # of declaring every cache miss unavailable.
+            for live_id in target_ids:
+                if live_id not in by_id:
+                    by_id[live_id] = {
+                        "live_id": live_id,
+                        "analytics_url": (
+                            f"{module.BASE}/dashboard/analytics/overview"
+                            f"?tab=livestream&live_id={live_id}"
+                        ),
+                        "_direct_uuid_fallback": True,
+                    }
+            candidates = [by_id[live_id] for live_id in target_ids if live_id in by_id]
         candidates = candidates[:batch_size]
         module.info(f"historical-analytics: processing {len(candidates)} show(s) this batch")
 
@@ -735,6 +751,17 @@ def historical_analytics(module, session):
             metric = wait_for_metrics(module, page, timeout_ms=12000)
             if not metric or not has_useful_data(metric):
                 module.info(f"historical-analytics [{index}/{total}]: no stable metrics uuid={live_id}")
+                continue
+
+            # Fail closed on direct fallback: the rendered analytics page must
+            # still identify the requested UUID. This prevents an invalid UUID
+            # or SPA redirect from importing another show's metrics.
+            rendered_live_id = clean(metric.get("whatnot_live_id")).lower()
+            if item.get("_direct_uuid_fallback") and rendered_live_id != live_id:
+                module.info(
+                    f"historical-analytics [{index}/{total}]: direct UUID fallback identity mismatch "
+                    f"requested={live_id} rendered={rendered_live_id or '?'}"
+                )
                 continue
 
             metric["whatnot_live_id"] = live_id

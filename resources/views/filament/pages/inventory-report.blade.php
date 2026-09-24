@@ -206,7 +206,7 @@
                 @endforelse
             </div>
         </div>
+        @endif
 
     </div>
-        @endif
 </x-filament-panels::page>

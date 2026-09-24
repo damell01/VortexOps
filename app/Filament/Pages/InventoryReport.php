@@ -8,6 +8,7 @@ use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\InventoryMovement;
 use App\Services\InventoryVelocityService;
 use App\Support\AdminModules;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -105,113 +106,149 @@ class InventoryReport extends Page
 
     public function getData(): array
     {
-        // Keep the trend as historical snapshots, but build the headline from
-        // stock physically on hand now so the report never waits on a cron.
-        $currentSnapshot = InventorySnapshot::latest('snapshot_date')->first();
-        $stocks = InventoryStock::with(['item', 'location.streamer'])
-            ->where('quantity', '>', 0)
+        $products = Product::query()
+            ->where('is_active', true)
+            ->with(['stock.location'])
             ->get();
 
-        // The report is a live valuation of what is physically on hand:
-        // current stock quantity × the product's current WAC/cost basis.
-        // Historical receipts remain history; sold/depleted units do not inflate
-        // the headline inventory value.
-        $liveValue = $stocks->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->costBasis() ?? 0));
-        $liveQty = (float) $stocks->sum('quantity');
-        $liveItems = $stocks->pluck('inventory_item_id')->filter()->unique()->count();
+        $items = $products->map(function (Product $product) {
+            $quantity = max(0, (float) $product->stock->sum('quantity'));
+            $cost = (float) ($product->costBasis() ?? 0);
+            $locations = $product->stock
+                ->filter(fn ($stock) => (float) $stock->quantity > 0)
+                ->pluck('location.name')->filter()->unique()->values();
 
-        if (! $currentSnapshot) {
-            $currentSnapshot = new InventorySnapshot(['snapshot_date' => now()]);
-        }
+            return [
+                'id' => $product->id,
+                'sku' => $this->sanitizeUtf8($product->sku ?: '—'),
+                'name' => $this->sanitizeUtf8($product->name),
+                'category' => $this->sanitizeUtf8($product->category ?: 'Uncategorized'),
+                'image_url' => $product->imageUrl(),
+                'quantity' => $quantity,
+                'unit_cost' => $cost,
+                'total_value' => $quantity * $cost,
+                'reorder_level' => (float) ($product->reorder_level ?? 0),
+                'is_low_stock' => $quantity > 0 && $product->reorder_level !== null && $quantity <= (float) $product->reorder_level,
+                'is_out_stock' => $quantity <= 0,
+                'locations' => $locations->implode(', ') ?: '—',
+                'updated_at' => $product->updated_at,
+            ];
+        });
 
-        // Do not persist a page-view snapshot; that would turn normal browsing
-        // into fake trend points. Overlay only the live headline values.
-        $currentSnapshot->snapshot_date = now();
-        $currentSnapshot->total_value = $liveValue;
-        $currentSnapshot->total_quantity = $liveQty;
-        $currentSnapshot->total_items = $liveItems;
+        $onHand = $items->where('quantity', '>', 0)->values();
+        $totalQuantity = (float) $onHand->sum('quantity');
+        $totalValue = (float) $onHand->sum('total_value');
 
-        $trendData = InventorySnapshot::where('snapshot_date', '>=', now()->subDays(30))
+        $trend = InventorySnapshot::query()
+            ->where('snapshot_date', '>=', now()->subDays(30))
             ->orderBy('snapshot_date')
             ->get()
-            ->map(fn ($s) => [
-                'date' => $s->snapshot_date->format('M d'),
-                'value' => $s->total_value,
+            ->groupBy(fn ($snapshot) => $snapshot->snapshot_date->format('Y-m-d'))
+            ->map(fn ($rows) => $rows->last())
+            ->values()
+            ->map(fn ($snapshot) => [
+                'date' => $snapshot->snapshot_date->format('M d'),
+                'value' => (float) $snapshot->total_value,
             ]);
 
-        $itemDetails = $stocks->map(function ($stock) {
-            $cost = (float) ($stock->item->costBasis() ?? 0);
-            return [
-                'id' => $stock->item_id,
-                'sku' => $this->sanitizeUtf8($stock->item->sku),
-                'name' => $this->sanitizeUtf8($stock->item->name),
-                'location' => $this->sanitizeUtf8($stock->location->name),
-                'quantity' => $stock->quantity,
-                'unit_cost' => $cost,
-                'total_value' => $stock->quantity * $cost,
-                'reorder_level' => $stock->item->reorder_level ?? 0,
-                'category' => $this->sanitizeUtf8($stock->item->category ?? 'Uncategorized'),
-                'is_low_stock' => $stock->quantity <= ($stock->item->reorder_level ?? 0),
-            ];
-        })->sortByDesc('total_value');
+        $locations = InventoryStock::query()
+            ->with(['item', 'location'])
+            ->where('quantity', '>', 0)
+            ->get()
+            ->groupBy(fn ($stock) => $stock->location?->name ?: 'Unknown')
+            ->map(function ($rows, $name) {
+                return [
+                    'name' => $name,
+                    'quantity' => (float) $rows->sum('quantity'),
+                    'value' => (float) $rows->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->costBasis() ?? 0)),
+                ];
+            })->sortByDesc('quantity')->values();
 
         return [
-            'currentSnapshot' => $currentSnapshot,
-            'trendData' => $trendData,
-            'itemDetails' => $itemDetails,
-            'stocks' => $stocks,
+            'summary' => [
+                'value' => $totalValue,
+                'items' => $products->count(),
+                'in_stock_items' => $onHand->count(),
+                'quantity' => $totalQuantity,
+                'avg_cost' => $totalQuantity > 0 ? $totalValue / $totalQuantity : 0,
+                'low_stock' => $items->where('is_low_stock', true)->count(),
+                'out_stock' => $items->where('is_out_stock', true)->count(),
+            ],
+            'trend' => $trend,
+            'locations' => $locations,
+            'items' => $items,
+            'category_breakdown' => $onHand->groupBy('category')->map(function ($rows, $category) {
+                return [
+                    'name' => $category ?: 'Uncategorized',
+                    'quantity' => (float) $rows->sum('quantity'),
+                    'value' => (float) $rows->sum('total_value'),
+                ];
+            })->sortByDesc('quantity')->values(),
+            'categories' => $products->pluck('category')->filter()->unique()->sort()->values(),
         ];
     }
 
-    /** Lightweight payload used by the in-app viewer. */
     public function getViewerData(): array
     {
-        if ($this->viewerDataCache !== null) {
-            return $this->viewerDataCache;
-        }
-
         $data = $this->getData();
-        $snapshot = $data['currentSnapshot'];
-        $items = $data['itemDetails']->groupBy('id')->map(function ($rows) {
-            $first = $rows->first();
-            return [
-                'id' => $first['id'], 'sku' => $first['sku'], 'name' => $first['name'],
-                'category' => $first['category'] ?? 'Uncategorized',
-                'quantity' => (float) $rows->sum('quantity'),
-                'unit_cost' => (float) $first['unit_cost'],
-                'total_value' => (float) $rows->sum('total_value'),
-                'is_low_stock' => $rows->contains(fn ($row) => (bool) $row['is_low_stock']),
-                'locations' => $rows->pluck('location')->filter()->unique()->implode(', '),
-            ];
-        })->sortByDesc('total_value')->values();
+        $items = collect($data['items']);
+
         if ($this->reportSearch !== '') {
             $needle = mb_strtolower($this->reportSearch);
-            $items = $items->filter(fn ($item) => str_contains(mb_strtolower($item['name'].' '.$item['sku']), $needle))->values();
+            $items = $items->filter(fn ($item) => str_contains(mb_strtolower($item['name'].' '.$item['sku']), $needle));
         }
         if ($this->reportCategory !== '') {
-            $items = $items->where('category', $this->reportCategory)->values();
+            $items = $items->where('category', $this->reportCategory);
         }
         if ($this->reportLocation !== '') {
-            $items = $items->filter(fn ($item) => str_contains($item['locations'], $this->reportLocation))->values();
+            $items = $items->filter(fn ($item) => str_contains($item['locations'], $this->reportLocation));
         }
 
-        $locations = $data['itemDetails']->groupBy('location')->map(function ($rows, $name) {
-            return ['name' => $name ?: 'Unknown', 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value')];
-        })->sortByDesc('quantity')->values();
-        $quantity = (float) $snapshot->total_quantity;
-        return $this->viewerDataCache = [
-            'summary' => [
-                'value' => (float) $snapshot->total_value, 'items' => (int) $snapshot->total_items,
-                'quantity' => $quantity, 'avg_cost' => $quantity > 0 ? ((float) $snapshot->total_value / $quantity) : 0,
-                'low_stock' => $items->where('is_low_stock', true)->count(),
-            ],
-            'trend' => $data['trendData']->values(), 'locations' => $locations, 'items' => $items,
-            'category_breakdown' => $items->groupBy('category')->map(function ($rows, $category) {
-                return ['name' => $category ?: 'Uncategorized', 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value')];
-            })->sortByDesc('quantity')->values(),
-            'categories' => InventoryItem::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'),
-        ];
+        $data['items'] = $items->values();
+        return $data;
     }
+
+    public function getRecentActivityRows(): array
+    {
+        return InventoryMovement::query()
+            ->with(['item', 'fromLocation', 'toLocation'])
+            ->latest('created_at')
+            ->limit(50)
+            ->get()
+            ->map(fn ($movement) => [
+                'id' => $movement->id,
+                'name' => $this->sanitizeUtf8($movement->item?->name ?? 'Unknown item'),
+                'sku' => $this->sanitizeUtf8($movement->item?->sku ?? '—'),
+                'change' => $movement->changeLabel(),
+                'type' => InventoryMovement::movementTypeLabels()[$movement->movement_type] ?? $movement->movement_type,
+                'location' => $movement->toLocation?->name ?? $movement->fromLocation?->name ?? '—',
+                'updated_at' => $movement->created_at,
+            ])->all();
+    }
+
+    public function getTopMovingRows(): array
+    {
+        $totals = InventoryMovement::query()
+            ->where('created_at', '>=', now()->subDays(30))
+            ->selectRaw('inventory_item_id, SUM(ABS(quantity)) as moved_units')
+            ->groupBy('inventory_item_id')
+            ->orderByDesc('moved_units')
+            ->limit(25)
+            ->pluck('moved_units', 'inventory_item_id');
+
+        $products = Product::whereIn('id', $totals->keys())->get()->keyBy('id');
+
+        return $totals->map(function ($moved, $id) use ($products) {
+            $product = $products->get($id);
+            return [
+                'id' => (int) $id,
+                'name' => $this->sanitizeUtf8($product?->name ?? 'Unknown item'),
+                'sku' => $this->sanitizeUtf8($product?->sku ?? '—'),
+                'moved_units' => (float) $moved,
+            ];
+        })->values()->all();
+    }
+
     // ── Stock Health ────────────────────────────────────────────
 
     public function getStockHealthProperty(): array

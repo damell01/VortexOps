@@ -47,9 +47,10 @@ class WhatnotSyncPage extends Page
         return (bool) auth()->user()?->isSuperAdmin();
     }
 
+    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        return false;
     }
 
     public function getReportingJobProperty(): array

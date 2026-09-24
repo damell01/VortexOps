@@ -44,6 +44,7 @@ class ListInventoryItems extends ListRecords
     public int $catalogPerPage = 50;
 
     public int $catalogPage = 1;
+    public int $catalogVisible = 40;
 
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
@@ -109,7 +110,7 @@ class ListInventoryItems extends ListRecords
     #[Computed]
     public function catalogItems(): Collection
     {
-        return $this->catalogQuery()->forPage($this->catalogPage, $this->catalogPerPage)->get();
+        return $this->catalogQuery()->limit($this->catalogVisible)->get();
     }
 
     #[Computed]
@@ -132,7 +133,7 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSearch(): void
     {
-        $this->catalogPage = 1;
+        $this->catalogVisible = 40;
         unset($this->catalogItems, $this->catalogTotal);
     }
 
@@ -142,26 +143,10 @@ class ListInventoryItems extends ListRecords
         unset($this->catalogItems, $this->catalogTotal);
     }
 
-    public function updatedCatalogPerPage(): void
+    public function loadMoreCatalog(): void
     {
-        $this->catalogPage = 1;
-        unset($this->catalogItems, $this->catalogTotal);
-    }
-
-    public function nextCatalogPage(): void
-    {
-        if (($this->catalogPage * $this->catalogPerPage) < $this->catalogTotal) {
-            $this->catalogPage++;
-            unset($this->catalogItems);
-        }
-    }
-
-    public function previousCatalogPage(): void
-    {
-        if ($this->catalogPage > 1) {
-            $this->catalogPage--;
-            unset($this->catalogItems);
-        }
+        $this->catalogVisible += 40;
+        unset($this->catalogItems);
     }
 
     public function clearCatalogSearch(): void

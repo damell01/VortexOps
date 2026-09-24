@@ -75,10 +75,10 @@ $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 // Two authoritative Scrapling pipelines only. The daytime freshness pass keeps
 // operational data current without grinding through large historical backlogs.
 // If the browser/pipeline is busy it skips cleanly and the next cadence catches up.
-Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(7)->toDateString() . ' --show-limit=10 --order-batch=10 --analytics-limit=5 --shipment-batch=10 --max-runtime=2700 --skip-if-busy')
+Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(7)->toDateString() . ' --show-limit=10 --order-batch=10 --analytics-limit=25 --shipment-batch=10 --max-runtime=2700 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('15 */4 * * *')
+    ->hourlyAt(15)
     ->name('whatnot-freshness-refresh')
     ->withoutOverlapping(180);
 

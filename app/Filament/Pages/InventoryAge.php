@@ -20,6 +20,12 @@ use Illuminate\Support\Facades\DB;
  */
 class InventoryAge extends Page
 {
+    /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug = 'inventory';

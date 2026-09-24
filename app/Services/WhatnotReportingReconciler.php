@@ -234,7 +234,9 @@ class WhatnotReportingReconciler
             ' since '.$since->toDateString()
         );
 
-        $batchSize = max(1, min(5, (int) ($limit ?: 5)));
+        // A null/zero limit means no artificial cap: process every incomplete show.
+        // Explicit limits are still honored for smoke tests or targeted runs.
+        $batchSize = $limit === null || $limit <= 0 ? null : max(1, (int) $limit);
         $targets = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
@@ -242,14 +244,19 @@ class WhatnotReportingReconciler
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('whatnot_show_id')
             ->where(function ($q) {
+                // A show is not analytically complete just because gross/net exist.
+                // Keep refreshing past shows until duration and completed earnings
+                // have also been captured from Whatnot.
                 $q->whereNull('gross_revenue')
                     ->orWhere('gross_revenue', '<=', 0)
                     ->orWhereNull('whatnot_net')
-                    ->orWhere('whatnot_net', '<=', 0);
+                    ->orWhere('whatnot_net', '<=', 0)
+                    ->orWhereNull('show_duration')
+                    ->orWhereNull('completed_earnings');
             })
             ->orderByDesc('show_date')
             ->orderByDesc('id')
-            ->limit($batchSize)
+            ->when($batchSize !== null, fn ($q) => $q->limit($batchSize))
             ->pluck('whatnot_show_id')
             ->map(fn ($id) => strtolower(trim((string) $id)))
             ->filter()
@@ -261,14 +268,14 @@ class WhatnotReportingReconciler
             return ['updated' => 0, 'failed' => 0, 'skipped' => 0];
         }
 
-        $progress && $progress('analytics: resumable batch targeting '.count($targets).' missing show(s)');
+        $progress && $progress('analytics: targeting '.count($targets).' incomplete show(s)'.($batchSize === null ? ' (all)' : ''));
 
         $rawRows = $this->scraper->fetchHistoricalAnalytics(
             since: $since->toDateString(),
             channelUsername: $channel->whatnot_username,
             onProgress: $progress,
             targetLiveIds: $targets,
-            batchSize: $batchSize,
+            batchSize: $batchSize ?? max(1, count($targets)),
         );
 
         $updated = $failed = $skipped = 0;

@@ -1,6 +1,10 @@
 <x-filament-widgets::widget>
-    <x-filament::section>
-        <x-slot name="heading">{{ $heading ?? 'Needs Attention' }}</x-slot>
+    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-4 dark:border-gray-800 sm:px-5">
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/30"><x-heroicon-o-exclamation-triangle class="h-5 w-5" /></div>
+            <div><h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Needs Attention</h2><p class="text-[11px] text-gray-500 sm:text-xs">Items that need action or review.</p></div>
+        </div>
+        <div class="px-4 sm:px-5">
 
         @if (empty($items))
             <div class="flex items-center gap-3 py-6 justify-center text-sm text-gray-500 dark:text-gray-400">
@@ -36,5 +40,6 @@
                 @endforeach
             </div>
         @endif
-    </x-filament::section>
+        </div>
+    </section>
 </x-filament-widgets::widget>

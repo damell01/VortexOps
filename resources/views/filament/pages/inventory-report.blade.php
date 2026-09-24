@@ -23,6 +23,22 @@
             </button>
         </div>
 
+        <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+                <div class="relative min-w-0 flex-1">
+                    <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input type="search" wire:model.live.debounce.350ms="reportSearch" placeholder="Search inventory, SKU, or keyword..." class="w-full rounded-lg border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800" />
+                </div>
+                <select wire:model.live="reportCategory" class="rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800">
+                    <option value="">All Categories</option>
+                    @foreach($data['categories'] as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach
+                </select>
+                <select wire:model.live="reportLocation" class="rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800">
+                    <option value="">All Locations</option>
+                    @foreach($data['locations'] as $location)<option value="{{ $location['name'] }}">{{ $location['name'] }}</option>@endforeach
+                </select>
+            </div>
+        </div>
         {{-- Key Metrics Cards --}}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">

@@ -87,7 +87,7 @@
         </div>
 
         {{-- Value Trend Chart --}}
-        @if ($trendData->count() > 1)
+        @if ($activeTab === 'overview' && $trendData->count() > 1)
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">30-Day Value Trend</h3>
                 <div class="space-y-4">
@@ -112,7 +112,7 @@
         @endif
 
         {{-- Breakdown by Location --}}
-        @if ($snapshot->location_breakdown)
+        @if ($activeTab === 'overview' && $snapshot->location_breakdown)
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Inventory by Location</h3>
                 <div class="space-y-3">
@@ -178,6 +178,12 @@
         @endif
 
         {{-- Detailed Item List --}}
+        @if ($activeTab !== 'overview')
+        @php
+            $visibleItems = $activeTab === 'low-stock'
+                ? collect($itemDetails)->where('is_low_stock', true)->values()
+                : ($activeTab === 'top-value' ? collect($itemDetails)->sortByDesc('total_value')->take(10) : collect($itemDetails));
+        @endphp
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Inventory Details</h3>
@@ -187,7 +193,7 @@
                 <div class="hidden md:grid grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] gap-3 bg-gray-50 dark:bg-gray-800/50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     <span>Item</span><span>Location</span><span class="text-right">Qty</span><span class="text-right">Avg Cost</span><span class="text-right">Value</span>
                 </div>
-                @forelse ($itemDetails as $item)
+                @forelse ($visibleItems as $item)
                     <div class="grid gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 md:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] md:items-center {{ $item['is_low_stock'] ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
                         <div class="min-w-0"><div class="font-semibold text-gray-900 dark:text-gray-100">{{ $item['name'] }}</div><div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</div></div>
                         <div class="text-sm text-gray-600 dark:text-gray-300">{{ $item['locations'] }}</div>
@@ -202,4 +208,5 @@
         </div>
 
     </div>
+        @endif
 </x-filament-panels::page>

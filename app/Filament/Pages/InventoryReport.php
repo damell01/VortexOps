@@ -34,6 +34,10 @@ class InventoryReport extends Page
     public string $reportStock = '';
     public string $reportSort = 'value';
     public bool $showReportFilters = false;
+    public string $reportPriceMin = '';
+    public string $reportPriceMax = '';
+    public string $reportValueMin = '';
+    public string $reportValueMax = '';
 
     protected ?array $viewerDataCache = null;
 
@@ -125,6 +129,10 @@ class InventoryReport extends Page
         $this->reportLocation = '';
         $this->reportStock = '';
         $this->reportSort = 'value';
+        $this->reportPriceMin = '';
+        $this->reportPriceMax = '';
+        $this->reportValueMin = '';
+        $this->reportValueMax = '';
     }
 
     /**
@@ -249,6 +257,11 @@ class InventoryReport extends Page
                 default => $items,
             };
         }
+
+        if ($this->reportPriceMin !== '') $items = $items->where('unit_cost', '>=', (float) $this->reportPriceMin);
+        if ($this->reportPriceMax !== '') $items = $items->where('unit_cost', '<=', (float) $this->reportPriceMax);
+        if ($this->reportValueMin !== '') $items = $items->where('total_value', '>=', (float) $this->reportValueMin);
+        if ($this->reportValueMax !== '') $items = $items->where('total_value', '<=', (float) $this->reportValueMax);
 
         $items = match ($this->reportSort) {
             'name' => $items->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE),

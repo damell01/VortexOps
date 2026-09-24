@@ -93,6 +93,7 @@ class StreamerLogResource extends Resource
      * their own access rules. Hiding it on Roles & Permissions still works.
      */
     /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
+    /** Secondary Shows workspace screen; permissions and direct access remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
         return false;

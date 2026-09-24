@@ -747,7 +747,8 @@ def historical_analytics(module, session):
             rows.append(metric)
             module.info(
                 f"historical-analytics [{index}/{total}]: collected uuid={live_id} "
-                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')} "
+                f"duration_min={metric.get('show_duration')}"
             )
             if index < total:
                 page.wait_for_timeout(random.randint(3500, 6500))

@@ -65,7 +65,7 @@ class InventorySnapshot extends Model
             // Before anything is received there is no weighted average, and
             // valuing that stock at zero understates the snapshot by whatever
             // the list cost says it is worth.
-            $itemValue = $stock->quantity * ($stock->item?->effectiveCost() ?? 0);
+            $itemValue = $stock->quantity * ($stock->item?->costBasis() ?? 0);
             $totalValue += $itemValue;
             $seenItems[$stock->inventory_item_id] = true;
             $totalQuantity += (float) $stock->quantity;

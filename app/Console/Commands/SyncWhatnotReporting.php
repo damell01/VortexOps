@@ -211,7 +211,7 @@ class SyncWhatnotReporting extends Command
 
                 if ($analyticsOnly) {
                     $missingBefore = $this->missingAnalyticsCount($channel->id, $since);
-                    $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently missing gross/net; Seller Hub Past shows scanned once)");
+                    $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently missing analytics fields; Seller Hub Past shows scanned once)");
                     $step++;
                     try {
                         $analytics = $retry(fn () => $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress), 'analytics');
@@ -343,7 +343,7 @@ class SyncWhatnotReporting extends Command
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('whatnot_show_id')
-            ->where(fn ($q) => $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0))
+            ->where(fn ($q) => $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0)->orWhereNull('show_duration')->orWhereNull('completed_earnings'))
             ->count();
     }
 
@@ -360,7 +360,9 @@ class SyncWhatnotReporting extends Command
             $q->whereNull('gross_revenue')
                 ->orWhere('gross_revenue', '<=', 0)
                 ->orWhereNull('whatnot_net')
-                ->orWhere('whatnot_net', '<=', 0);
+                ->orWhere('whatnot_net', '<=', 0)
+                ->orWhereNull('show_duration')
+                ->orWhereNull('completed_earnings');
         })->count();
         $shipments = (clone $shows)->doesntHave('shipments')->count();
 
@@ -380,7 +382,9 @@ class SyncWhatnotReporting extends Command
             $q->whereNull('gross_revenue')
                 ->orWhere('gross_revenue', '<=', 0)
                 ->orWhereNull('whatnot_net')
-                ->orWhere('whatnot_net', '<=', 0);
+                ->orWhere('whatnot_net', '<=', 0)
+                ->orWhereNull('show_duration')
+                ->orWhereNull('completed_earnings');
         })->count();
         $withoutShipments = (clone $shows)->doesntHave('shipments')->count();
 

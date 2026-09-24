@@ -130,7 +130,15 @@ class Show extends Model
         }
 
         $gross = (float) $this->gross_revenue;
-        $net   = (float) $this->whatnot_net;
+        // Whatnot's Completed Earnings is the best settled/net figure once it
+        // exists. Until the streamer report supplies COGS, use it as the
+        // operating revenue base rather than showing a $0 Show Net simply
+        // because Total Estimated Earnings was not captured.
+        $completed = $this->completed_earnings;
+        $estimated = $this->whatnot_net;
+        $net = $completed !== null
+            ? (float) $completed
+            : (float) ($estimated ?? 0);
         $tips  = (float) $this->tips;
 
         // Approved COGS from the latest deduction request's lines.

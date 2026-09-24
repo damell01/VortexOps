@@ -33,6 +33,7 @@ class InventoryReport extends Page
     public string $reportLocation = '';
     public string $reportStock = '';
     public string $reportSort = 'value';
+    public bool $showReportFilters = false;
 
     protected ?array $viewerDataCache = null;
 
@@ -89,6 +90,32 @@ class InventoryReport extends Page
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
+    }
+
+    public function toggleReportFilters(): void
+    {
+        $this->showReportFilters = ! $this->showReportFilters;
+    }
+
+    public function applyQuickReport(string $report): void
+    {
+        $this->reportSearch = '';
+        $this->reportCategory = '';
+        $this->reportLocation = '';
+        $this->reportStock = '';
+        $this->reportSort = 'value';
+
+        $this->activeTab = match ($report) {
+            'low-stock' => 'low-stock',
+            'out-stock' => 'out-stock',
+            'recent' => 'recent',
+            'top-value' => 'top-value',
+            'moving' => 'moving',
+            default => 'items',
+        };
+
+        if ($report === 'current') $this->reportStock = 'in';
+        if ($report === 'valuation') $this->reportSort = 'value';
     }
 
     public function resetReportFilters(): void

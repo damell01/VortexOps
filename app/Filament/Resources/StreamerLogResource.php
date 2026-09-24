@@ -260,7 +260,11 @@ class StreamerLogResource extends Resource
             ->emptyStateHeading('No reports')
             ->emptyStateDescription('Submitted streamer reports will appear here for review.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')
-            ->extraAttributes(['data-sticky-header' => 'true'])
+            ->extraAttributes(['data-sticky-header' => 'true', 'class' => 'vx-card-table'])
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Date')

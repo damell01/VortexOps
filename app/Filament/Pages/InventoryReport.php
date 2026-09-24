@@ -31,6 +31,8 @@ class InventoryReport extends Page
     public string $reportSearch = '';
     public string $reportCategory = '';
     public string $reportLocation = '';
+    public string $reportStock = '';
+    public string $reportSort = 'value';
 
     protected ?array $viewerDataCache = null;
 
@@ -87,6 +89,15 @@ class InventoryReport extends Page
     public function setTab(string $tab): void
     {
         $this->activeTab = $tab;
+    }
+
+    public function resetReportFilters(): void
+    {
+        $this->reportSearch = '';
+        $this->reportCategory = '';
+        $this->reportLocation = '';
+        $this->reportStock = '';
+        $this->reportSort = 'value';
     }
 
     /**
@@ -203,6 +214,21 @@ class InventoryReport extends Page
         if ($this->reportLocation !== '') {
             $items = $items->filter(fn ($item) => str_contains($item['locations'], $this->reportLocation));
         }
+        if ($this->reportStock !== '') {
+            $items = match ($this->reportStock) {
+                'in' => $items->where('quantity', '>', 0),
+                'low' => $items->where('is_low_stock', true),
+                'out' => $items->where('is_out_stock', true),
+                default => $items,
+            };
+        }
+
+        $items = match ($this->reportSort) {
+            'name' => $items->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE),
+            'qty' => $items->sortByDesc('quantity'),
+            'updated' => $items->sortByDesc('updated_at'),
+            default => $items->sortByDesc('total_value'),
+        };
 
         $data['items'] = $items->values();
         return $data;

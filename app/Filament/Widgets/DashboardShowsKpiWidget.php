@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Models\InventorySnapshot;
-use App\Models\InventoryStock;
 use App\Models\Product;
 use App\Models\Show;
 use App\Support\ChannelContext;
@@ -37,7 +36,6 @@ class DashboardShowsKpiWidget extends BaseWidget
 
                 $monthGross = (float) (clone $monthShows)->whereNotNull('gross_revenue')->sum('gross_revenue');
                 $monthNet = (float) (clone $monthShows)->whereNotNull('completed_earnings')->sum('completed_earnings');
-                // Whatnot reports show_duration in minutes; derive dashboard hours from the imported duration.
                 $monthHours = (float) (clone $monthShows)->whereNotNull('show_duration')->sum('show_duration') / 60;
 
                 $valueTrend = InventorySnapshot::query()
@@ -52,7 +50,9 @@ class DashboardShowsKpiWidget extends BaseWidget
                 for ($i = 6; $i >= 0; $i--) {
                     $date = now()->subDays($i)->toDateString();
                     $salesTrend[] = (float) Show::query()->inChannelContext()
-                        ->whereDate('show_date', $date)->whereNotNull('gross_revenue')->sum('gross_revenue');
+                        ->whereDate('show_date', $date)
+                        ->whereNotNull('gross_revenue')
+                        ->sum('gross_revenue');
                 }
 
                 return [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend];
@@ -64,39 +64,17 @@ class DashboardShowsKpiWidget extends BaseWidget
 
         return [
             Stat::make('Total Inventory Value', '$'.number_format($value, 2))
-                ->description('Current on-hand valuation')
-                ->icon('heroicon-o-cube')
-                ->chart($valueTrend)
-                ->color('primary'),
+                ->description('Current on-hand valuation')->icon('heroicon-o-cube')->chart($valueTrend)->color('primary'),
             Stat::make('Total Items', number_format($items))
-                ->description('Active inventory SKUs')
-                ->icon('heroicon-o-tag')
-                ->color('info'),
+                ->description('Active inventory SKUs')->icon('heroicon-o-tag')->color('info'),
             Stat::make('Units on Hand', number_format($units))
-                ->description('Across all inventory locations')
-                ->icon('heroicon-o-archive-box')
-                ->color('success'),
-            Stat::make('Whatnot Gross', '
-        ];
-    }
-}
-.number_format($monthGross, 2))
-                ->description('Gross revenue this month')
-                ->icon('heroicon-o-banknotes')
-                ->chart($salesTrend)
-                ->color('warning'),
-            Stat::make('Whatnot Net', '
-        ];
-    }
-}
-.number_format($monthNet, 2))
-                ->description('Completed earnings this month')
-                ->icon('heroicon-o-currency-dollar')
-                ->color('success'),
+                ->description('Across all inventory locations')->icon('heroicon-o-archive-box')->color('success'),
+            Stat::make('Whatnot Gross', '$'.number_format($monthGross, 2))
+                ->description('Gross revenue this month')->icon('heroicon-o-banknotes')->chart($salesTrend)->color('warning'),
+            Stat::make('Whatnot Net', '$'.number_format($monthNet, 2))
+                ->description('Completed earnings this month')->icon('heroicon-o-currency-dollar')->color('success'),
             Stat::make('Stream Hours', number_format($monthHours, 1))
-                ->description('Whatnot show duration this month')
-                ->icon('heroicon-o-clock')
-                ->color('primary'),
+                ->description('Whatnot show duration this month')->icon('heroicon-o-clock')->color('primary'),
         ];
     }
 }

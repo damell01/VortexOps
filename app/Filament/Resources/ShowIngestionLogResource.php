@@ -390,8 +390,8 @@ class ShowIngestionLogResource extends Resource
                     ->color(fn ($state) => StatusColor::for($state)),
             ])
             ->defaultSort('created_at', 'desc')
-            ->striped()
-            ->paginated([15, 25, 50])
+            ->paginated([9, 18, 36])
+            ->defaultPaginationPageOption(9)
             ->groups([
                 Group::make('source')->label('Job / Pipeline')->getTitleFromRecordUsing(fn (ShowIngestionLog $record) => $record->sourceLabel()),
                 Group::make('channel.name')->label('Channel')->getTitleFromRecordUsing(fn ($record) => $record->channel?->name ?? 'All channels'),

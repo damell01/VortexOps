@@ -10,7 +10,7 @@
     <div class="space-y-6">
 
         {{-- Export Button --}}
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Valuation Report</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">As of {{ $snapshot->snapshot_date->format('M d, Y g:i A') }}</p>
@@ -24,7 +24,7 @@
         </div>
 
         {{-- Key Metrics Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Inventory Value</p>
                 <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
@@ -160,45 +160,21 @@
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Inventory Details</h3>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                            <th class="px-6 py-3 text-left font-medium text-gray-700 dark:text-gray-300">SKU / Name</th>
-                            <th class="px-6 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Location</th>
-                            <th class="px-6 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Qty</th>
-                            <th class="px-6 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Unit Cost</th>
-                            <th class="px-6 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Total Value</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @forelse ($itemDetails as $item)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $item['is_low_stock'] ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
-                                <td class="px-6 py-3">
-                                    <div>
-                                        <p class="font-medium text-gray-900 dark:text-gray-100">{{ $item['name'] }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-3 text-gray-600 dark:text-gray-300">{{ $item['location'] }}</td>
-                                <td class="px-6 py-3 text-right">
-                                    {{ $item['quantity'] }}
-                                    @if ($item['is_low_stock'])
-                                        <span class="text-amber-600 dark:text-amber-400 text-xs ml-1">⚠️</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-3 text-right text-gray-600 dark:text-gray-300">${{ number_format($item['unit_cost'], 2) }}</td>
-                                <td class="px-6 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">${{ number_format($item['total_value'], 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                                    No inventory items found
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                <div class="hidden md:grid grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] gap-3 bg-gray-50 dark:bg-gray-800/50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <span>Item</span><span>Location</span><span class="text-right">Qty</span><span class="text-right">Avg Cost</span><span class="text-right">Value</span>
+                </div>
+                @forelse ($itemDetails as $item)
+                    <div class="grid gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 md:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] md:items-center {{ $item['is_low_stock'] ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
+                        <div class="min-w-0"><div class="font-semibold text-gray-900 dark:text-gray-100">{{ $item['name'] }}</div><div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</div></div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300">{{ $item['location'] }}</div>
+                        <div class="flex justify-between md:block md:text-right"><span class="text-xs text-gray-500 md:hidden">Qty</span><span class="font-semibold">{{ number_format($item['quantity']) }} @if ($item['is_low_stock'])<span class="text-amber-500">⚠</span>@endif</span></div>
+                        <div class="flex justify-between md:block md:text-right"><span class="text-xs text-gray-500 md:hidden">Avg Cost</span><span>${{ number_format($item['unit_cost'], 2) }}</span></div>
+                        <div class="flex justify-between md:block md:text-right"><span class="text-xs text-gray-500 md:hidden">Value</span><span class="font-bold text-gray-900 dark:text-gray-100">${{ number_format($item['total_value'], 2) }}</span></div>
+                    </div>
+                @empty
+                    <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No inventory currently in stock.</div>
+                @endforelse
             </div>
         </div>
 

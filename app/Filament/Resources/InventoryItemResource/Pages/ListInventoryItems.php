@@ -409,29 +409,11 @@ class ListInventoryItems extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        $user = auth()->user();
-        $canExport = fn () => $user?->isAdmin() || $user?->isOwner();
-        $canReceive = fn () => $user?->isAdmin() || $user?->isOwner();
-        $canCreate = fn () => ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
-
+        // Keep page-level actions in the purple quick-action strip below.
+        // The only Filament action retained here is the hidden modal action
+        // used by each product card's Add Stock button.
         return [
-            Action::make('scan')->label('Quick Scan')->icon('heroicon-o-qr-code')->color('primary')->url(fn () => InventoryScanner::getUrl())->visible($canReceive),
-            Action::make('import-sheet')->label('Import Sheet')->icon('heroicon-o-arrow-up-tray')->color('info')->url(fn () => ImportInventorySheet::getUrl())->visible($canReceive),
-            Action::make('receive')->label('Receive Shipment')->icon('heroicon-o-inbox-arrow-down')->color('success')->url(fn () => PalletResource::getUrl('index'))->visible($canReceive),
-            Action::make('quick-add')->label('Quick Add')->icon('heroicon-o-bolt')->color('gray')->url(fn () => InventoryItemResource::getUrl('quick-add'))->visible($canCreate),
-            Action::make('add-item')
-                ->label('Add Item')
-                ->icon('heroicon-m-plus')
-                ->color('primary')
-                ->url(fn () => InventoryItemResource::getUrl('create'))
-                ->visible($canCreate),
-            $this->addStockAction()
-                ->extraAttributes(['class' => 'hidden']),
-            ActionGroup::make([
-                Action::make('view-report')->label('View report')->icon('heroicon-o-eye')->url(route('export.inventory-pdf'))->openUrlInNewTab(),
-                Action::make('export-pdf')->label('Download PDF')->icon('heroicon-o-document-arrow-down')->url(route('export.inventory-pdf') . '?download=1')->openUrlInNewTab(),
-                Action::make('export-excel')->label('Export to Excel')->icon('heroicon-o-table-cells')->url(route('export.inventory-items'))->openUrlInNewTab(),
-            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible($canExport),
+            $this->addStockAction()->extraAttributes(['class' => 'hidden']),
         ];
     }
 }

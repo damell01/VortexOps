@@ -351,6 +351,29 @@ class WhatnotReportingReconciler
 
             try {
                 $normalized = $this->normalizer->normalizeShow($raw);
+
+                // Whatnot explicitly reporting a zero-minute duration on a show
+                // at least two calendar days old means the scheduled show never
+                // actually happened. Do not confuse this with a missing/null
+                // duration, which remains eligible for analytics retry.
+                $explicitZeroDuration = array_key_exists('show_duration', $raw)
+                    && $raw['show_duration'] !== null
+                    && (int) $raw['show_duration'] === 0;
+                $showDate = $show->show_date ? \Illuminate\Support\Carbon::parse($show->show_date)->startOfDay() : null;
+                $isOldEnoughNoShow = $showDate
+                    && $showDate->lte(now()->startOfDay()->subDays(2));
+
+                if ($explicitZeroDuration && $isOldEnoughNoShow) {
+                    $showId = $show->id;
+                    $showDateDisplay = $showDate->toDateString();
+                    $show->delete();
+                    $updated++;
+                    $progress && $progress(
+                        "analytics: show #{$showId} removed · {$showDateDisplay} · Whatnot reported 0-minute duration on a show at least 2 days old"
+                    );
+                    continue;
+                }
+
                 $fields = [];
                 foreach (['gross_revenue','whatnot_net','completed_earnings','avg_order_value','giveaway_spend','units_sold','giveaways_count','buyers_count','first_time_buyers','returning_buyers','shares_count','max_concurrent_viewers','total_views','show_duration'] as $field) {
                     if (($normalized[$field] ?? null) !== null) {

@@ -119,9 +119,11 @@ class WhatnotScraper
         }
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
 
-        // One browser/session walks the entire channel's Past shows and their
-        // analytics destinations. Avoid the old one-process-per-show pattern.
-        $timeoutSeconds = 1800;
+        // Large channels can require more than 30 minutes just to traverse the
+        // virtualized Past-show list before analytics collection begins. Scale the
+        // process timeout to the requested target count, with a six-hour ceiling.
+        $targetCount = max(1, count($targetLiveIds));
+        $timeoutSeconds = max(3600, min(21600, 1800 + ($targetCount * 45)));
         $process = $this->makeProcess($env, timeout: $timeoutSeconds);
         $this->withBrowserLock(function () use ($process, $onProgress) {
             $onProgress ? $this->streamProcess($process, $onProgress) : $process->run();

@@ -243,17 +243,7 @@ class WhatnotReportingReconciler
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('whatnot_show_id')
-            ->where(function ($q) {
-                // A show is not analytically complete just because gross/net exist.
-                // Keep refreshing past shows until duration and completed earnings
-                // have also been captured from Whatnot.
-                $q->whereNull('gross_revenue')
-                    ->orWhere('gross_revenue', '<=', 0)
-                    ->orWhereNull('whatnot_net')
-                    ->orWhere('whatnot_net', '<=', 0)
-                    ->orWhereNull('show_duration')
-                    ->orWhereNull('completed_earnings');
-            })
+            ->missingAnalytics()
             ->orderByDesc('show_date')
             ->orderByDesc('id')
             ->when($batchSize !== null, fn ($q) => $q->limit($batchSize))
@@ -295,9 +285,18 @@ class WhatnotReportingReconciler
             );
 
             if ($rawRows === []) {
+                $unavailableAt = now();
+                Show::query()
+                    ->where('whatnot_channel_id', $channel->id)
+                    ->whereIn('whatnot_show_id', $pendingTargets)
+                    ->update([
+                        'analytics_sync_status' => 'unavailable',
+                        'analytics_sync_note' => 'Not present as an analytics candidate in the verified Seller Hub Past index.',
+                        'analytics_unavailable_at' => $unavailableAt,
+                    ]);
                 $progress && $progress(
                     'analytics: no additional Seller Hub analytics candidates matched; '.
-                    count($pendingTargets).' target(s) unavailable/not present in the current Past index'
+                    count($pendingTargets).' target(s) marked unavailable (eligible for retry in 7 days)'
                 );
                 break;
             }
@@ -369,13 +368,133 @@ class WhatnotReportingReconciler
                 $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
-                $updated++;
 
                 $fresh = $show->fresh();
+                $analyticsComplete = $fresh->gross_revenue !== null
+                    && $fresh->show_duration !== null
+                    && ($fresh->whatnot_net !== null || $fresh->completed_earnings !== null);
+                $fresh->forceFill([
+                    'analytics_sync_status' => $analyticsComplete ? 'complete' : 'partial',
+                    'analytics_sync_note' => $analyticsComplete
+                        ? 'Seller Hub analytics imported.'
+                        : 'Seller Hub analytics reached; one or more optional/settlement metrics are still unavailable.',
+                    'analytics_unavailable_at' => null,
+                ])->saveQuietly();
+                $updated++;
+
+                $fresh = $fresh->fresh();
                 $progress && $progress(
                     "analytics: show #{$show->id} updated · {$fresh->show_date} · gross $".
                     number_format((float) ($fresh->gross_revenue ?? 0), 2).
-                    ' · net $'.number_format((float) ($fresh->whatnot_net ?? 0), 2)
+                    ' · net '.($fresh->whatnot_net === null ? 'unavailable' : '
+            } catch (\Throwable $e) {
+                $failed++;
+                $progress && $progress("analytics: show #{$show->id} failed — {$e->getMessage()}");
+                Log::warning('Channel-wide Whatnot analytics update failed', [
+                    'show_id' => $show->id,
+                    'channel' => $channel->whatnot_username,
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+            }
+        }
+
+        $progress && $progress(
+            'analytics: channel walk complete · '.number_format(count($seen)).
+            " unique show(s) returned · {$updated} updated · {$failed} failed · {$skipped} skipped · ".
+            number_format(count($pendingTargets)).' unavailable/not matched this run'
+        );
+
+        return compact('updated', 'failed', 'skipped');
+    }
+
+    public function reconcileShipments(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null, ?int $maxShows = null): array
+    {
+        $batchSize = max(1, min(30, $batchSize));
+        $shows = Show::query()->where('whatnot_channel_id', $channel->id)
+            ->whereDate('show_date', '>=', $since->toDateString())->whereDate('show_date', '<=', today())
+            ->whereNotIn('status', ['cancelled'])->whereNotNull('whatnot_show_id')->orderBy('show_date')->orderBy('id')
+            ->when($maxShows !== null, fn ($q) => $q->limit(max(1, $maxShows)))->get();
+        $checked = $created = $updated = $skipped = 0;
+
+        foreach ($shows->chunk($batchSize) as $chunk) {
+            $before = Shipment::whereIn('show_id', $chunk->pluck('id'))->count();
+            $progress && $progress("shipments: scraping {$chunk->count()} show(s)");
+            $result = $this->scraper->refreshShipmentsForShows($chunk, $channel->whatnot_username);
+            $after = Shipment::whereIn('show_id', $chunk->pluck('id'))->count();
+            $created += max(0, $after - $before);
+            $updated += max(0, (int) ($result['updated'] ?? 0) - max(0, $after - $before));
+            $skipped += (int) ($result['skipped_shows'] ?? 0);
+            $checked += $chunk->count();
+        }
+
+        return compact('checked', 'created', 'updated', 'skipped');
+    }
+
+    private function rebuildBuyers(WhatnotChannel $channel, Carbon $since): array
+    {
+        $usernames = WhatnotShowOrder::query()->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+            ->where('shows.whatnot_channel_id', $channel->id)->whereDate('shows.show_date', '>=', $since->toDateString())
+            ->whereNotNull('whatnot_show_orders.buyer_username')->where('whatnot_show_orders.buyer_username', '<>', '')
+            ->distinct()->pluck('whatnot_show_orders.buyer_username');
+        $created = $updated = 0;
+
+        foreach ($usernames as $username) {
+            $agg = WhatnotShowOrder::query()->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+                ->where('shows.whatnot_channel_id', $channel->id)->whereDate('shows.show_date', '>=', $since->toDateString())
+                ->where('whatnot_show_orders.buyer_username', $username)
+                ->selectRaw('COUNT(*) as total_orders, SUM(whatnot_show_orders.total_price) as lifetime_spend, MIN(whatnot_show_orders.show_date) as first_purchase_date, MAX(whatnot_show_orders.show_date) as last_purchase_date, MAX(whatnot_show_orders.buyer_display_name) as display_name')->first();
+            $totalOrders = (int) ($agg->total_orders ?? 0);
+            $lifetimeSpend = (float) ($agg->lifetime_spend ?? 0);
+            $attrs = ['total_orders' => $totalOrders, 'lifetime_spend' => $lifetimeSpend, 'avg_order_value' => $totalOrders > 0 ? round($lifetimeSpend / $totalOrders, 2) : null, 'first_purchase_date' => $agg->first_purchase_date ?? null, 'last_purchase_date' => $agg->last_purchase_date ?? null, 'display_name' => ($agg->display_name ?? null) ?: null];
+            $buyer = WhatnotBuyer::where('username', $username)->first();
+            if ($buyer) {
+                $buyer->update($attrs);
+                $updated++;
+            } else {
+                WhatnotBuyer::create(['username' => $username] + $attrs);
+                $created++;
+            }
+        }
+
+        if ($usernames->isNotEmpty()) {
+            DB::statement('UPDATE whatnot_show_orders o JOIN whatnot_buyers b ON b.username = o.buyer_username SET o.whatnot_buyer_id = b.id WHERE o.whatnot_buyer_id IS NULL AND o.buyer_username IS NOT NULL');
+        }
+
+        return compact('created', 'updated');
+    }
+
+    private function orderBatchLooksPlausible(Show $show, array $rows): bool
+    {
+        $count = count($rows);
+        if ($count > 5000) return false;
+        $units = (int) ($show->units_sold ?? 0);
+        if ($units > 0 && $count > max(500, ($units * 3) + 100)) return false;
+
+        $ids = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) return false;
+            $id = trim((string) ($row['order_id'] ?? ''));
+            if ($id !== '') $ids[] = $id;
+        }
+        if (count($ids) > 20 && count(array_unique($ids)) < (int) floor(count($ids) * 0.8)) return false;
+
+        return true;
+    }
+
+    private function liveId(Show $show): ?string
+    {
+        foreach ([$show->whatnot_show_id, $show->detail_url] as $value) {
+            if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', (string) $value, $m)) {
+                return strtolower($m[0]);
+            }
+        }
+
+        return null;
+    }
+}
+.number_format((float) $fresh->whatnot_net, 2)).
+                    ' · status '.$fresh->analytics_sync_status
                 );
             } catch (\Throwable $e) {
                 $failed++;

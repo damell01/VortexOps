@@ -346,6 +346,10 @@ class ShowIngestionLogResource extends Resource
         return $table
             ->persistFiltersInSession()
             ->deferLoading()
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->emptyStateHeading('No ingestion logs')
             ->emptyStateDescription('Whatnot jobs are logged here with their results.')
             ->emptyStateIcon('heroicon-o-arrow-down-tray')

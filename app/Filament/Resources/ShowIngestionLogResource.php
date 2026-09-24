@@ -24,6 +24,12 @@ use Illuminate\Support\HtmlString;
 
 class ShowIngestionLogResource extends Resource
 {
+    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug = 'streams';

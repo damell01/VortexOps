@@ -30,7 +30,7 @@ class InventoryReport extends Page
 
     public function getView(): string
     {
-        return 'filament.pages.inventory-report-enhanced';
+        return 'filament.pages.inventory-report';
     }
 
     public static function getNavigationIcon(): string
@@ -100,14 +100,11 @@ class InventoryReport extends Page
 
     public function getData(): array
     {
-        $currentSnapshot = InventorySnapshot::latest('snapshot_date')->first();
-                // location.streamer is reached while building the report; lazy loading
-        // is disabled outside production so it must be eager-loaded.
-        $stocks = InventoryStock::with(['item', 'location.streamer'])->get();
-
-        if (! $currentSnapshot || $currentSnapshot->snapshot_date->diffInHours(now()) > 1) {
-            $currentSnapshot = InventorySnapshot::generateCurrent();
-        }
+        // Live report: headline value and units come from stock physically on hand now.
+        $currentSnapshot = InventorySnapshot::generateCurrent();
+        $stocks = InventoryStock::with(['item', 'location.streamer'])
+            ->where('quantity', '>', 0)
+            ->get();
 
         $trendData = InventorySnapshot::where('snapshot_date', '>=', now()->subDays(30))
             ->orderBy('snapshot_date')
@@ -118,7 +115,7 @@ class InventoryReport extends Page
             ]);
 
         $itemDetails = $stocks->map(function ($stock) {
-            $cost = $stock->item->average_cost ?? 0;
+            $cost = (float) ($stock->item->costBasis() ?? 0);
             return [
                 'id' => $stock->item_id,
                 'sku' => $this->sanitizeUtf8($stock->item->sku),

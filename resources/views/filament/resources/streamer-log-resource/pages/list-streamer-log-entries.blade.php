@@ -4,49 +4,26 @@ use Filament\Support\Enums\MaxWidth;
 
 <x-filament-panels::page>
     <style>
-        .vx-streamer-log-page { min-width: 0; max-width: 100%; overflow: hidden; }
-        .vx-streamer-log-page .fi-ta { min-width: 0; max-width: 100%; }
-        .vx-streamer-log-page .fi-ta-content { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .vx-streamer-log-page .fi-ta-table { width: 100%; min-width: 980px; }
-        .vx-streamer-log-page .fi-ta-cell,
-        .vx-streamer-log-page .fi-ta-header-cell { min-width: 0; }
-        .vx-streamer-log-page .fi-ta-text-item,
-        .vx-streamer-log-page .fi-badge { max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; }
-        .vx-streamer-log-page .fi-ta-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .25rem; max-width: 12rem; }
-        .vx-streamer-log-page .fi-ta-actions .fi-btn { max-width: 100%; min-width: 0; padding-inline: .55rem; }
-        .vx-streamer-log-page .fi-ta-actions .fi-btn-label { white-space: normal; line-height: 1.15; text-align: center; }
-        .vx-streamer-log-page .fi-dropdown-trigger button,
-        .vx-streamer-log-page .fi-icon-btn { flex: 0 0 auto; }
-        .vx-streamer-log-page .vx-col-title { min-width: 14rem; max-width: 20rem; }
-        .vx-streamer-log-page .vx-col-tight { min-width: 7rem; max-width: 10rem; }
-        .vx-streamer-log-page td { vertical-align: middle; }
-        @media (min-width: 1024px) {
-            .vx-streamer-log-page .fi-ta-table { min-width: 0; border-collapse: separate; border-spacing: 0 10px; }
-            .vx-streamer-log-page .fi-ta-header-cell { border-bottom: 0; padding-block: .45rem; }
-            .vx-streamer-log-page .fi-ta-row { background: transparent; box-shadow: none; }
-            .vx-streamer-log-page .fi-ta-row > td { background: rgb(255 255 255); border-top: 1px solid rgb(229 231 235); border-bottom: 1px solid rgb(229 231 235); padding-block: .85rem; }
-            .dark .vx-streamer-log-page .fi-ta-row > td { background: rgb(15 23 42); border-color: rgb(51 65 85); }
-            .vx-streamer-log-page .fi-ta-row > td:first-child { border-left: 1px solid rgb(229 231 235); border-radius: 14px 0 0 14px; }
-            .vx-streamer-log-page .fi-ta-row > td:last-child { border-right: 1px solid rgb(229 231 235); border-radius: 0 14px 14px 0; }
-            .dark .vx-streamer-log-page .fi-ta-row > td:first-child,.dark .vx-streamer-log-page .fi-ta-row > td:last-child { border-color: rgb(51 65 85); }
-        }
-
-        @media (max-width: 767px) {
-            .vx-streamer-log-page { overflow: visible; }
-            .vx-streamer-log-page .fi-ta-content { margin-inline: -1rem; padding-inline: 1rem; }
-            .vx-streamer-log-page .fi-ta-table { min-width: 860px; }
-            .vx-streamer-log-page .fi-ta-actions { max-width: 8rem; }
-            .vx-streamer-log-page .fi-ta-actions .fi-btn { min-height: 2.25rem; font-size: .72rem; }
-            .vx-streamer-log-page .fi-ta-text-item { line-height: 1.3; }
-        }
+        .vx-streamer-log-page{min-width:0;max-width:100%}
+        .vx-streamer-log-page .fi-ta-content{overflow:visible}
+        .vx-streamer-log-page .fi-ta-table{min-width:0!important}
+        .vx-streamer-log-page .fi-ta-record{border:1px solid rgb(229 231 235);border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+        .dark .vx-streamer-log-page .fi-ta-record{border-color:#263248;background:#101827}
+        .vx-streamer-log-page .fi-ta-cell{padding:.7rem .9rem!important}
+        .vx-streamer-log-page .fi-ta-cell:first-child{padding-top:1rem!important}
+        .vx-streamer-log-page .fi-ta-cell:last-child{padding-bottom:1rem!important}
+        .vx-streamer-log-page .fi-ta-text-item,.vx-streamer-log-page .fi-badge{max-width:100%;white-space:normal!important;overflow-wrap:anywhere}
+        .vx-streamer-log-page .fi-ta-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:.35rem;padding:.75rem .9rem!important;border-top:1px solid rgb(243 244 246)}
+        .dark .vx-streamer-log-page .fi-ta-actions{border-color:#1f2937}
+        .vx-streamer-log-page .fi-ta-header-cell{display:none}
+        @media(max-width:767px){.vx-streamer-log-page .fi-ta-record{border-radius:14px}.vx-streamer-log-page .fi-ta-cell{padding:.55rem .75rem!important}}
     </style>
 
     <div class="vx-streamer-log-page">
         <x-kpi-row :stats="$this->getStats()" />
 
-        {{-- Keep the table inside its own scroll region on narrow screens so
-             long show names, statuses, and row actions never push the whole
-             Filament page wider than the viewport. --}}
+        {{-- Operational queue uses responsive cards so show names/status/actions stay readable
+             without a wide horizontal table. Filament still provides search, filters and pagination. --}}
         {{ $this->table }}
     </div>
 

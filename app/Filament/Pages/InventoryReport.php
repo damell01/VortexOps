@@ -80,7 +80,7 @@ class InventoryReport extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Comprehensive inventory value, analytics, stock health, velocity insights, and coverage analysis.';
+        return 'View live inventory value, stock health, categories, locations, and item-level detail without leaving VortexOps.';
     }
 
     public function setTab(string $tab): void
@@ -206,6 +206,9 @@ class InventoryReport extends Page
                 'low_stock' => $items->where('is_low_stock', true)->count(),
             ],
             'trend' => $data['trendData']->values(), 'locations' => $locations, 'items' => $items,
+            'category_breakdown' => $items->groupBy('category')->map(function ($rows, $category) {
+                return ['name' => $category ?: 'Uncategorized', 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value')];
+            })->sortByDesc('quantity')->values(),
             'categories' => InventoryItem::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'),
         ];
     }

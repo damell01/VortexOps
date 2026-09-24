@@ -23,6 +23,29 @@
             </button>
         </div>
 
+        <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+                <div class="relative min-w-0 flex-1">
+                    <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <input type="search" wire:model.live.debounce.350ms="reportSearch" placeholder="Search inventory, SKU, or keyword..." class="w-full rounded-lg border-gray-200 bg-gray-50 py-2.5 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-800" />
+                </div>
+                <select wire:model.live="reportCategory" class="rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800">
+                    <option value="">All Categories</option>
+                    @foreach($data['categories'] as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach
+                </select>
+                <select wire:model.live="reportLocation" class="rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800">
+                    <option value="">All Locations</option>
+                    @foreach($data['locations'] as $location)<option value="{{ $location['name'] }}">{{ $location['name'] }}</option>@endforeach
+                </select>
+            </div>
+        </div>
+        <div class="rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex gap-1 overflow-x-auto">
+                @foreach(['overview' => 'Overview', 'items' => 'Inventory Items', 'low-stock' => 'Low Stock', 'top-value' => 'Top Value Items'] as $key => $label)
+                    <button type="button" wire:click="setTab('{{ $key }}')" class="whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold {{ $activeTab === $key ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800' }}">{{ $label }}</button>
+                @endforeach
+            </div>
+        </div>
         {{-- Key Metrics Cards --}}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
@@ -64,7 +87,7 @@
         </div>
 
         {{-- Value Trend Chart --}}
-        @if ($trendData->count() > 1)
+        @if ($activeTab === 'overview' && $trendData->count() > 1)
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">30-Day Value Trend</h3>
                 <div class="space-y-4">
@@ -89,7 +112,7 @@
         @endif
 
         {{-- Breakdown by Location --}}
-        @if ($snapshot->location_breakdown)
+        @if ($activeTab === 'overview' && $snapshot->location_breakdown)
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Inventory by Location</h3>
                 <div class="space-y-3">
@@ -155,6 +178,12 @@
         @endif
 
         {{-- Detailed Item List --}}
+        @if ($activeTab !== 'overview')
+        @php
+            $visibleItems = $activeTab === 'low-stock'
+                ? collect($itemDetails)->where('is_low_stock', true)->values()
+                : ($activeTab === 'top-value' ? collect($itemDetails)->sortByDesc('total_value')->take(10) : collect($itemDetails));
+        @endphp
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Inventory Details</h3>
@@ -164,7 +193,7 @@
                 <div class="hidden md:grid grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] gap-3 bg-gray-50 dark:bg-gray-800/50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                     <span>Item</span><span>Location</span><span class="text-right">Qty</span><span class="text-right">Avg Cost</span><span class="text-right">Value</span>
                 </div>
-                @forelse ($itemDetails as $item)
+                @forelse ($visibleItems as $item)
                     <div class="grid gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 md:grid-cols-[minmax(0,2fr)_minmax(0,1.1fr)_90px_110px_120px] md:items-center {{ $item['is_low_stock'] ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
                         <div class="min-w-0"><div class="font-semibold text-gray-900 dark:text-gray-100">{{ $item['name'] }}</div><div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</div></div>
                         <div class="text-sm text-gray-600 dark:text-gray-300">{{ $item['locations'] }}</div>
@@ -177,6 +206,7 @@
                 @endforelse
             </div>
         </div>
+        @endif
 
     </div>
 </x-filament-panels::page>

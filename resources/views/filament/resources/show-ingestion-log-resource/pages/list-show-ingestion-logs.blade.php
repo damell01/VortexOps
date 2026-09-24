@@ -35,15 +35,13 @@
 
 <x-filament-panels::page>
     <style>
-        @media (min-width:1024px){
-            [data-vx-page="ingestion"] .fi-ta-table{border-collapse:separate;border-spacing:0 9px}
-            [data-vx-page="ingestion"] .fi-ta-header-cell{border-bottom:0;padding-block:.4rem}
-            [data-vx-page="ingestion"] .fi-ta-row>td{background:#fff;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding-block:.75rem}
-            .dark [data-vx-page="ingestion"] .fi-ta-row>td{background:#0f172a;border-color:#334155}
-            [data-vx-page="ingestion"] .fi-ta-row>td:first-child{border-left:1px solid #e5e7eb;border-radius:13px 0 0 13px}
-            [data-vx-page="ingestion"] .fi-ta-row>td:last-child{border-right:1px solid #e5e7eb;border-radius:0 13px 13px 0}
-            .dark [data-vx-page="ingestion"] .fi-ta-row>td:first-child,.dark [data-vx-page="ingestion"] .fi-ta-row>td:last-child{border-color:#334155}
-        }
+        [data-vx-page="ingestion"] .fi-ta-table{min-width:0!important}
+        [data-vx-page="ingestion"] .fi-ta-header-cell{display:none}
+        [data-vx-page="ingestion"] .fi-ta-record{border:1px solid #e5e7eb;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+        .dark [data-vx-page="ingestion"] .fi-ta-record{border-color:#334155;background:#0f172a}
+        [data-vx-page="ingestion"] .fi-ta-cell{padding:.65rem .85rem!important}
+        [data-vx-page="ingestion"] .fi-ta-actions{padding:.7rem .85rem!important;border-top:1px solid #f3f4f6}
+        .dark [data-vx-page="ingestion"] .fi-ta-actions{border-color:#1f2937}
     </style>
     <div
         class="space-y-3 sm:space-y-5"
@@ -177,8 +175,8 @@
 
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
-                <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Detailed ingestion log</h2>
-                <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">Use the Job / Pipeline column and filters to see exactly which scheduled task succeeded or failed.</p>
+                <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Recent ingestion activity</h2>
+                <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">Newest importer activity first. Search or filter when you need the technical history.</p>
             </div>
             <div class="p-1 sm:p-2">{{ $this->table }}</div>
         </section>

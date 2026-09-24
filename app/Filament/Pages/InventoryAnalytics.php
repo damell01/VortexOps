@@ -16,6 +16,12 @@ use Illuminate\Support\Facades\DB;
 
 class InventoryAnalytics extends Page
 {
+    /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug = 'inventory';

@@ -40,7 +40,6 @@
    </div>
    @if($viewMode === 'catalog')
     <select wire:model.live="catalogSort" class="min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
-    <select wire:model.live="catalogPerPage" class="min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="24">24 per page</option><option value="50">50 per page</option><option value="100">100 per page</option></select>
    @endif
    @if($viewMode === 'catalog' && filled($catalogSearch))<button wire:click="clearCatalogSearch" class="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
   </div>
@@ -80,11 +79,13 @@
     @endforeach
    </div>
    <div class="vx-catalog-footer">
-    <div class="text-xs text-gray-500">Page {{ $catalogPage }} · {{ number_format($this->catalogTotal) }} matching products</div>
-    <div class="flex gap-2">
-     <button type="button" wire:click="previousCatalogPage" @disabled($catalogPage <= 1) class="vx-load-more disabled:opacity-40">Previous</button>
-     <button type="button" wire:click="nextCatalogPage" @disabled(($catalogPage * $catalogPerPage) >= $this->catalogTotal) class="vx-load-more disabled:opacity-40">Next</button>
-    </div>
+    <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
+    @if($this->catalogItems->count() < $this->catalogTotal)
+     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" class="vx-load-more">
+      <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
+      <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
+     </button>
+    @endif
    </div>
   @else
    <div class="vx-empty"><x-heroicon-o-magnifying-glass class="mx-auto h-8 w-8" /><div class="mt-2 font-semibold text-gray-800 dark:text-gray-200">No matching inventory</div><div class="mt-1 text-sm">Try another search or stock filter.</div></div>

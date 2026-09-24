@@ -107,6 +107,10 @@ class InventoryReport extends Page
             ->where('quantity', '>', 0)
             ->get();
 
+        // The report is a live valuation of what is physically on hand:
+        // current stock quantity × the product's current WAC/cost basis.
+        // Historical receipts remain history; sold/depleted units do not inflate
+        // the headline inventory value.
         $liveValue = $stocks->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->costBasis() ?? 0));
         $liveQty = (float) $stocks->sum('quantity');
         $liveItems = $stocks->pluck('inventory_item_id')->filter()->unique()->count();

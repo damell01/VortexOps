@@ -27,6 +27,9 @@ class InventoryReport extends Page
     protected static ?string $title = 'Inventory Report & Analytics';
 
     public string $activeTab = 'overview';
+    public string $reportSearch = '';
+    public string $reportCategory = '';
+    public string $reportLocation = '';
 
     protected ?array $viewerDataCache = null;
 
@@ -147,6 +150,7 @@ class InventoryReport extends Page
                 'unit_cost' => $cost,
                 'total_value' => $stock->quantity * $cost,
                 'reorder_level' => $stock->item->reorder_level ?? 0,
+                'category' => $this->sanitizeUtf8($stock->item->category ?? 'Uncategorized'),
                 'is_low_stock' => $stock->quantity <= ($stock->item->reorder_level ?? 0),
             ];
         })->sortByDesc('total_value');
@@ -172,6 +176,7 @@ class InventoryReport extends Page
             $first = $rows->first();
             return [
                 'id' => $first['id'], 'sku' => $first['sku'], 'name' => $first['name'],
+                'category' => $first['category'] ?? 'Uncategorized',
                 'quantity' => (float) $rows->sum('quantity'),
                 'unit_cost' => (float) $first['unit_cost'],
                 'total_value' => (float) $rows->sum('total_value'),
@@ -179,6 +184,17 @@ class InventoryReport extends Page
                 'locations' => $rows->pluck('location')->filter()->unique()->implode(', '),
             ];
         })->sortByDesc('total_value')->values();
+        if ($this->reportSearch !== '') {
+            $needle = mb_strtolower($this->reportSearch);
+            $items = $items->filter(fn ($item) => str_contains(mb_strtolower($item['name'].' '.$item['sku']), $needle))->values();
+        }
+        if ($this->reportCategory !== '') {
+            $items = $items->where('category', $this->reportCategory)->values();
+        }
+        if ($this->reportLocation !== '') {
+            $items = $items->filter(fn ($item) => str_contains($item['locations'], $this->reportLocation))->values();
+        }
+
         $locations = $data['itemDetails']->groupBy('location')->map(function ($rows, $name) {
             return ['name' => $name ?: 'Unknown', 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value')];
         })->sortByDesc('quantity')->values();
@@ -190,6 +206,7 @@ class InventoryReport extends Page
                 'low_stock' => $items->where('is_low_stock', true)->count(),
             ],
             'trend' => $data['trendData']->values(), 'locations' => $locations, 'items' => $items,
+            'categories' => InventoryItem::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category'),
         ];
     }
     // ── Stock Health ────────────────────────────────────────────

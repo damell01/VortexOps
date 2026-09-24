@@ -38,6 +38,11 @@ class Reports extends Page
         return 'filament.pages.reports';
     }
 
+    public function inventoryReportUrl(): ?string
+    {
+        return InventoryReport::canAccess() ? InventoryReport::getUrl() : null;
+    }
+
     // ── Period ────────────────────────────────────────────────────────────────
 
     public string $period    = '30';

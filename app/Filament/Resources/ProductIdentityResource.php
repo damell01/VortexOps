@@ -21,6 +21,12 @@ use Illuminate\Support\Collection;
 
 class ProductIdentityResource extends Resource
 {
+    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasAdminNavVisibility;
     protected static ?string $model = ProductIdentity::class;
 

@@ -1,7 +1,14 @@
 <x-filament-panels::page>
 @php
  $data=$this->getViewerData(); $summary=$data['summary']; $items=collect($data['items']); $trend=collect($data['trend']); $locations=collect($data['locations']); $categories=collect($data['category_breakdown']);
- $visible=$activeTab==='low-stock'?$items->where('is_low_stock',true)->values():($activeTab==='top-value'?$items->sortByDesc('total_value')->take(20)->values():$items);
+ $visible = match($activeTab) {
+  'low-stock' => $items->where('is_low_stock', true)->values(),
+  'out-stock' => $items->where('is_out_stock', true)->values(),
+  'top-value' => $items->where('quantity','>',0)->sortByDesc('total_value')->take(25)->values(),
+  default => $items->values(),
+ };
+ $recentRows = $activeTab === 'recent' ? collect($this->getRecentActivityRows()) : collect();
+ $movingRows = $activeTab === 'moving' ? collect($this->getTopMovingRows()) : collect();
  $maxTrend=max(1,(float)$trend->max('value')); $maxLocation=max(1,(float)$locations->max('quantity')); $totalQty=max(1,(float)$categories->sum('quantity'));
 @endphp
 <style>
@@ -43,12 +50,20 @@
   <div class="vx-tabs">
    @foreach(['items'=>'Inventory Items','low-stock'=>'Low Stock','out-stock'=>'Out of Stock','recent'=>'Recent Activity','top-value'=>'Top Value Items','moving'=>'Top Moving Items'] as $key=>$label)<button wire:click="setTab('{{ $key }}')" class="vx-tab {{ $activeTab===$key?'active':'' }}">{{ $label }}</button>@endforeach
   </div>
-  @if(!in_array($activeTab,['overview','recent','moving','out-stock']))
+  @if(!in_array($activeTab,['overview','recent','moving']))
   <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Category</th><th>Location</th><th class="text-right">Quantity</th><th class="text-right">Avg. Cost</th><th class="text-right">Total Value</th></tr></thead><tbody>
    @forelse($visible as $item)<tr><td><div class="font-bold">{{ $item['name'] }}</div></td><td>{{ $item['sku'] }}</td><td>{{ $item['category'] }}</td><td>{{ $item['locations'] }}</td><td class="text-right"><span class="vx-pill">{{ number_format($item['quantity']) }}</span></td><td class="text-right">${{ number_format($item['unit_cost'],2) }}</td><td class="text-right font-bold">${{ number_format($item['total_value'],2) }}</td></tr>@empty<tr><td colspan="7" class="py-10 text-center text-gray-500">No inventory matches this view.</td></tr>@endforelse
   </tbody></table></div>
+  @elseif($activeTab==='recent')
+  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Activity</th><th>Location</th><th>Change</th><th>Updated</th></tr></thead><tbody>
+   @forelse($recentRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['location'] }}</td><td class="font-bold">{{ $row['change'] }}</td><td>{{ $row['updated_at']?->format('M d, Y g:i A') }}</td></tr>@empty<tr><td colspan="6" class="py-10 text-center text-gray-500">No recent inventory activity.</td></tr>@endforelse
+  </tbody></table></div>
+  @elseif($activeTab==='moving')
+  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th class="text-right">Units Moved</th><th>Period</th></tr></thead><tbody>
+   @forelse($movingRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td class="text-right font-bold">{{ number_format($row['moved_units']) }}</td><td>Last 30 days</td></tr>@empty<tr><td colspan="4" class="py-10 text-center text-gray-500">No movement data in the last 30 days.</td></tr>@endforelse
+  </tbody></table></div>
   @else
-  <div class="px-4 py-8 text-center text-sm text-gray-500">This report view will populate from live inventory activity.</div>
+  <div class="px-4 py-8 text-center text-sm text-gray-500">Select a report view above.</div>
   @endif
  </div>
 </div>

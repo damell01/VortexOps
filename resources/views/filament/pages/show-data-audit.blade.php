@@ -26,12 +26,27 @@
             ['Estimated Net','$'.number_format($d['estimatedNet'],2),'Whatnot estimated earnings'],
             ['Completed Earnings','$'.number_format($d['completed'],2),'settled earnings captured'],
             ['Stream Hours',number_format($d['hours'],1),'from imported duration'],
-            ['Fully Covered',number_format($d['complete']),'gross + net + duration'],
+            ['Analytics Complete',number_format($d['complete']),'verified core analytics'],
         ] as $card)
         <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $card[0] }}</div>
             <div class="mt-2 text-xl font-bold text-gray-950 dark:text-white">{{ $card[1] }}</div>
             <div class="mt-1 text-[11px] text-gray-500">{{ $card[2] }}</div>
+        </div>
+        @endforeach
+    </section>
+
+    <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        @foreach([
+            ['Complete',$d['statusCounts']['complete'],'Analytics imported with core metrics','text-emerald-600'],
+            ['Partial',$d['statusCounts']['partial'],'Analytics reached; some metrics pending','text-amber-600'],
+            ['Unavailable',$d['statusCounts']['unavailable'],'Not exposed in Seller Hub Past index','text-gray-500'],
+            ['Not Checked',$d['statusCounts']['unclassified'],'Due for first classification','text-primary-600'],
+        ] as $status)
+        <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $status[0] }}</div>
+            <div class="mt-2 text-xl font-bold {{ $status[3] }}">{{ number_format($status[1]) }}</div>
+            <div class="mt-1 text-[11px] text-gray-500">{{ $status[2] }}</div>
         </div>
         @endforeach
     </section>
@@ -55,7 +70,7 @@
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div class="flex items-center justify-between border-b border-gray-100 p-4 dark:border-gray-800">
-            <div><h2 class="font-semibold text-gray-950 dark:text-white">Shows Missing Data</h2><p class="mt-1 text-xs text-gray-500">Past shows only. Use this list to spot failed refreshes or shows that may not have actually happened.</p></div>
+            <div><h2 class="font-semibold text-gray-950 dark:text-white">Analytics Follow-up</h2><p class="mt-1 text-xs text-gray-500">Past shows only. Partial, unavailable, and not-yet-classified analytics are separated so pending Whatnot data is not treated as a scraper failure.</p></div>
             <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{{ $d['missing']->count() }} shown</span>
         </div>
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -70,7 +85,7 @@
                 @endphp
                 <a href="{{ $this->showUrl($show->id) }}" class="grid gap-3 p-4 transition hover:bg-gray-50 sm:grid-cols-[100px_minmax(0,1fr)_auto] dark:hover:bg-gray-800/60">
                     <div class="text-xs font-semibold text-gray-500">{{ $show->show_date?->format('M j, Y') }}</div>
-                    <div class="min-w-0"><div class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div><div class="mt-1 text-[11px] text-gray-500">{{ $show->channel?->name ?: 'No channel' }}</div></div>
+                    <div class="min-w-0"><div class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div><div class="mt-1 text-[11px] text-gray-500">{{ $show->channel?->name ?: 'No channel' }} · {{ ucfirst($show->analyticsCoverageStatus()) }}@if($show->analytics_sync_note) · {{ $show->analytics_sync_note }}@endif</div></div>
                     <div class="flex flex-wrap items-center justify-end gap-1">@foreach($miss as $m)<span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ $m }} missing</span>@endforeach <span class="ml-2 text-xs font-semibold text-primary-600">Open →</span></div>
                 </a>
             @empty

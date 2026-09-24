@@ -237,21 +237,40 @@ class WhatnotReportingReconciler
         // A null/zero limit means no artificial cap: process every incomplete show.
         // Explicit limits are still honored for smoke tests or targeted runs.
         $batchSize = $limit === null || $limit <= 0 ? null : max(1, (int) $limit);
-        $targets = Show::query()
+        // Coverage and targeting must use the same population. Older imports
+        // sometimes have a UUID only inside detail_url, so recover it before
+        // deciding that a due show cannot be targeted.
+        $dueShows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
-            ->whereNotNull('whatnot_show_id')
             ->missingAnalytics()
             ->orderByDesc('show_date')
             ->orderByDesc('id')
-            ->when($batchSize !== null, fn ($q) => $q->limit($batchSize))
-            ->pluck('whatnot_show_id')
-            ->map(fn ($id) => strtolower(trim((string) $id)))
-            ->filter()
-            ->values()
-            ->all();
+            ->get();
+
+        $targets = [];
+        $unresolved = 0;
+        foreach ($dueShows as $show) {
+            $liveId = $this->liveId($show);
+            if (! $liveId) {
+                $unresolved++;
+                continue;
+            }
+            if (! $show->whatnot_show_id) {
+                $show->forceFill(['whatnot_show_id' => $liveId])->saveQuietly();
+            }
+            $targets[] = $liveId;
+            if ($batchSize !== null && count($targets) >= $batchSize) {
+                break;
+            }
+        }
+        $targets = array_values(array_unique($targets));
+
+        if ($unresolved > 0) {
+            $progress && $progress("analytics: {$unresolved} due show(s) still have no recoverable Whatnot UUID; leaving them due rather than silently excluding them");
+        }
 
         if ($targets === []) {
             $progress && $progress('analytics: no missing analytics targets remain for this channel');

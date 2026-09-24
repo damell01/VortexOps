@@ -37,6 +37,14 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'q')]
     public string $catalogSearch = '';
 
+    #[Url(as: 'sort')]
+    public string $catalogSort = 'name';
+
+    #[Url(as: 'perPage')]
+    public int $catalogPerPage = 50;
+
+    public int $catalogPage = 1;
+
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
     public ?int $quickStockScanTargetId = null;
@@ -64,8 +72,7 @@ class ListInventoryItems extends ListRecords
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = InventoryItemResource::getEloquentQuery()
-            ->with(['stock.location'])
-            ->orderBy('name');
+            ->with(['stock.location']);
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';
@@ -88,19 +95,27 @@ class ListInventoryItems extends ListRecords
             };
         }
 
+
+        $query = match ($this->catalogSort) {
+            'value' => $query->orderByDesc('stock_sum_quantity')->orderBy('name'),
+            'qty' => $query->orderByDesc('stock_sum_quantity')->orderBy('name'),
+            'newest' => $query->latest('products.created_at'),
+            default => $query->orderBy('name'),
+        };
+
         return $query;
     }
 
     #[Computed]
     public function catalogItems(): Collection
     {
-        return $this->catalogQuery()->get();
+        return $this->catalogQuery()->forPage($this->catalogPage, $this->catalogPerPage)->get();
     }
 
     #[Computed]
     public function catalogTotal(): int
     {
-        return $this->catalogItems->count();
+        return $this->catalogQuery()->count();
     }
 
     public function filterStock(?string $status): void
@@ -117,7 +132,36 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSearch(): void
     {
+        $this->catalogPage = 1;
         unset($this->catalogItems, $this->catalogTotal);
+    }
+
+    public function updatedCatalogSort(): void
+    {
+        $this->catalogPage = 1;
+        unset($this->catalogItems, $this->catalogTotal);
+    }
+
+    public function updatedCatalogPerPage(): void
+    {
+        $this->catalogPage = 1;
+        unset($this->catalogItems, $this->catalogTotal);
+    }
+
+    public function nextCatalogPage(): void
+    {
+        if (($this->catalogPage * $this->catalogPerPage) < $this->catalogTotal) {
+            $this->catalogPage++;
+            unset($this->catalogItems);
+        }
+    }
+
+    public function previousCatalogPage(): void
+    {
+        if ($this->catalogPage > 1) {
+            $this->catalogPage--;
+            unset($this->catalogItems);
+        }
     }
 
     public function clearCatalogSearch(): void

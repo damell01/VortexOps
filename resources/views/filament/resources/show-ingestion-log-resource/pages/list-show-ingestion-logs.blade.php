@@ -34,6 +34,17 @@
 @endphp
 
 <x-filament-panels::page>
+    <style>
+        @media (min-width:1024px){
+            [data-vx-page="ingestion"] .fi-ta-table{border-collapse:separate;border-spacing:0 9px}
+            [data-vx-page="ingestion"] .fi-ta-header-cell{border-bottom:0;padding-block:.4rem}
+            [data-vx-page="ingestion"] .fi-ta-row>td{background:#fff;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding-block:.75rem}
+            .dark [data-vx-page="ingestion"] .fi-ta-row>td{background:#0f172a;border-color:#334155}
+            [data-vx-page="ingestion"] .fi-ta-row>td:first-child{border-left:1px solid #e5e7eb;border-radius:13px 0 0 13px}
+            [data-vx-page="ingestion"] .fi-ta-row>td:last-child{border-right:1px solid #e5e7eb;border-radius:0 13px 13px 0}
+            .dark [data-vx-page="ingestion"] .fi-ta-row>td:first-child,.dark [data-vx-page="ingestion"] .fi-ta-row>td:last-child{border-color:#334155}
+        }
+    </style>
     <div
         class="space-y-3 sm:space-y-5"
         data-vx-page="ingestion"

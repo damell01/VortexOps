@@ -76,14 +76,13 @@ class RecentShowsWidget extends BaseWidget
                         'cancelled'        => 'danger',
                         default            => 'gray',
                     }),
-                TextColumn::make('whatnot_net')
-                    ->label('Estimated Net Earnings')
-                    ->description('Whatnot Total Estimated Earnings')
+                TextColumn::make('gross_revenue')
+                    ->label('Sales')
                     ->money('USD')
                     ->placeholder('—'),
-                TextColumn::make('units_sold')
-                    ->label('Units')
-                    ->numeric()
+                TextColumn::make('completed_earnings')
+                    ->label('Completed Earnings')
+                    ->money('USD')
                     ->placeholder('—'),
             ])
             ->deferLoading()

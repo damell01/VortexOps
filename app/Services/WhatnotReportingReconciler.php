@@ -242,10 +242,15 @@ class WhatnotReportingReconciler
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('whatnot_show_id')
             ->where(function ($q) {
+                // A show is not analytically complete just because gross/net exist.
+                // Keep refreshing past shows until duration and completed earnings
+                // have also been captured from Whatnot.
                 $q->whereNull('gross_revenue')
                     ->orWhere('gross_revenue', '<=', 0)
                     ->orWhereNull('whatnot_net')
-                    ->orWhere('whatnot_net', '<=', 0);
+                    ->orWhere('whatnot_net', '<=', 0)
+                    ->orWhereNull('show_duration')
+                    ->orWhereNull('completed_earnings');
             })
             ->orderByDesc('show_date')
             ->orderByDesc('id')

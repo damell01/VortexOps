@@ -157,6 +157,35 @@ class InventoryReport extends Page
         ];
     }
 
+    /** Lightweight payload used by the in-app viewer. */
+    public function getViewerData(): array
+    {
+        $data = $this->getData();
+        $snapshot = $data['currentSnapshot'];
+        $items = $data['itemDetails']->groupBy('id')->map(function ($rows) {
+            $first = $rows->first();
+            return [
+                'id' => $first['id'], 'sku' => $first['sku'], 'name' => $first['name'],
+                'quantity' => (float) $rows->sum('quantity'),
+                'unit_cost' => (float) $first['unit_cost'],
+                'total_value' => (float) $rows->sum('total_value'),
+                'is_low_stock' => $rows->contains(fn ($row) => (bool) $row['is_low_stock']),
+                'locations' => $rows->pluck('location')->filter()->unique()->implode(', '),
+            ];
+        })->sortByDesc('total_value')->values();
+        $locations = $data['itemDetails']->groupBy('location')->map(function ($rows, $name) {
+            return ['name' => $name ?: 'Unknown', 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value')];
+        })->sortByDesc('quantity')->values();
+        $quantity = (float) $snapshot->total_quantity;
+        return [
+            'summary' => [
+                'value' => (float) $snapshot->total_value, 'items' => (int) $snapshot->total_items,
+                'quantity' => $quantity, 'avg_cost' => $quantity > 0 ? ((float) $snapshot->total_value / $quantity) : 0,
+                'low_stock' => $items->where('is_low_stock', true)->count(),
+            ],
+            'trend' => $data['trendData']->values(), 'locations' => $locations, 'items' => $items,
+        ];
+    }
     // ── Stock Health ────────────────────────────────────────────
 
     public function getStockHealthProperty(): array

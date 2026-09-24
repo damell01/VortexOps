@@ -270,18 +270,60 @@ class WhatnotReportingReconciler
 
         $progress && $progress('analytics: targeting '.count($targets).' incomplete show(s)'.($batchSize === null ? ' (all)' : ''));
 
-        $rawRows = $this->scraper->fetchHistoricalAnalytics(
-            since: $since->toDateString(),
-            channelUsername: $channel->whatnot_username,
-            onProgress: $progress,
-            targetLiveIds: $targets,
-            batchSize: $batchSize ?? max(1, count($targets)),
-        );
-
+        // Keep browser batches small, but exhaust every analytics candidate that
+        // can actually be matched for this channel during this run. Never retry a
+        // returned UUID in the same run: a show can legitimately remain incomplete
+        // when Whatnot has not published settlement/duration yet.
         $updated = $failed = $skipped = 0;
         $seen = [];
+        $pendingTargets = array_values(array_unique($targets));
+        $batchNumber = 0;
 
-        foreach ($rawRows as $raw) {
+        while ($pendingTargets !== []) {
+            $batchNumber++;
+            $progress && $progress(
+                'analytics: batch '.$batchNumber.' requesting '.count($pendingTargets).
+                ' not-yet-attempted target(s)'
+            );
+
+            $rawRows = $this->scraper->fetchHistoricalAnalytics(
+                since: $since->toDateString(),
+                channelUsername: $channel->whatnot_username,
+                onProgress: $progress,
+                targetLiveIds: $pendingTargets,
+                batchSize: 10,
+            );
+
+            if ($rawRows === []) {
+                $progress && $progress(
+                    'analytics: no additional Seller Hub analytics candidates matched; '.
+                    count($pendingTargets).' target(s) unavailable/not present in the current Past index'
+                );
+                break;
+            }
+
+            $returnedIds = [];
+            foreach ($rawRows as $raw) {
+                if (! is_array($raw)) {
+                    continue;
+                }
+                $returnedId = strtolower(trim((string) ($raw['whatnot_live_id'] ?? $raw['live_id'] ?? '')));
+                if ($returnedId !== '') {
+                    $returnedIds[$returnedId] = true;
+                }
+            }
+
+            if ($returnedIds === []) {
+                $progress && $progress('analytics: batch returned no identifiable UUIDs; stopping to avoid a retry loop');
+                break;
+            }
+
+            $pendingTargets = array_values(array_filter(
+                $pendingTargets,
+                fn ($id) => ! isset($returnedIds[strtolower(trim((string) $id))])
+            ));
+
+            foreach ($rawRows as $raw) {
             if (! is_array($raw)) {
                 $skipped++;
                 continue;
@@ -344,11 +386,13 @@ class WhatnotReportingReconciler
                     'exception' => $e->getMessage(),
                 ]);
             }
+            }
         }
 
         $progress && $progress(
             'analytics: channel walk complete · '.number_format(count($seen)).
-            " unique show(s) returned · {$updated} updated · {$failed} failed · {$skipped} skipped"
+            " unique show(s) returned · {$updated} updated · {$failed} failed · {$skipped} skipped · ".
+            number_format(count($pendingTargets)).' unavailable/not matched this run'
         );
 
         return compact('updated', 'failed', 'skipped');

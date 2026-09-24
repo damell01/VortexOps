@@ -25,6 +25,19 @@ class ViewWeeklyPayoutBatch extends ViewRecord
     protected static string $resource = WeeklyPayoutBatchResource::class;
     protected string $view = 'filament.resources.weekly-payout-batch-resource.pages.view-pay-run-workspace';
 
+    public int $peoplePage = 1;
+    public const PEOPLE_PER_PAGE = 8;
+
+    public function previousPeoplePage(): void
+    {
+        $this->peoplePage = max(1, $this->peoplePage - 1);
+    }
+
+    public function nextPeoplePage(int $lastPage): void
+    {
+        $this->peoplePage = min(max(1, $lastPage), $this->peoplePage + 1);
+    }
+
     public function getTitle(): string
     {
         $start = $this->record->week_start?->format('M j');

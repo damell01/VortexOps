@@ -46,6 +46,9 @@ class Show extends Model
         'whatnot_fees',
         'whatnot_payout_amount',
         'last_synced_at',
+        'analytics_sync_status',
+        'analytics_sync_note',
+        'analytics_unavailable_at',
         'tips',
         'paper_sales_gross',
         'paper_sales_units',
@@ -88,6 +91,8 @@ class Show extends Model
         'whatnot_fees'           => 'decimal:2',
         'whatnot_payout_amount'  => 'decimal:2',
         'last_synced_at'         => 'datetime',
+        'last_analytics_synced_at' => 'datetime',
+        'analytics_unavailable_at' => 'datetime',
         'tips'                   => 'decimal:2',
         'paper_sales_gross'      => 'decimal:2',
         'sales_reconciled'       => 'boolean',
@@ -471,14 +476,39 @@ class Show extends Model
      */
     public const ANALYTICS_COLUMNS = ['gross_revenue', 'completed_earnings', 'buyers_count', 'total_views'];
 
-    /** Shows still genuinely missing their analytics figures. */
+    /** Shows that still need an analytics fetch attempt. */
     public function scopeMissingAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where(function ($q) {
-            foreach (self::ANALYTICS_COLUMNS as $column) {
-                $q->orWhereNull($column);
-            }
+            $q->whereNull('analytics_sync_status')
+                ->orWhere(function ($partial) {
+                    $partial->where('analytics_sync_status', 'partial')
+                        ->where(function ($stale) {
+                            $stale->whereNull('last_analytics_synced_at')
+                                ->orWhere('last_analytics_synced_at', '<=', now()->subDay());
+                        });
+                })
+                ->orWhere(function ($unavailable) {
+                    $unavailable->where('analytics_sync_status', 'unavailable')
+                        ->where(function ($retry) {
+                            $retry->whereNull('analytics_unavailable_at')
+                                ->orWhere('analytics_unavailable_at', '<=', now()->subDays(7));
+                        });
+                });
         });
+    }
+
+    public function analyticsCoverageStatus(): string
+    {
+        if ($this->analytics_sync_status === 'unavailable') {
+            return 'unavailable';
+        }
+
+        if ($this->last_analytics_synced_at !== null) {
+            return $this->analytics_sync_status === 'complete' ? 'complete' : 'partial';
+        }
+
+        return 'unclassified';
     }
 
     /**

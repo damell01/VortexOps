@@ -100,11 +100,27 @@ class InventoryReport extends Page
 
     public function getData(): array
     {
-        // Live report: headline value and units come from stock physically on hand now.
-        $currentSnapshot = InventorySnapshot::generateCurrent();
+        // Keep the trend as historical snapshots, but build the headline from
+        // stock physically on hand now so the report never waits on a cron.
+        $currentSnapshot = InventorySnapshot::latest('snapshot_date')->first();
         $stocks = InventoryStock::with(['item', 'location.streamer'])
             ->where('quantity', '>', 0)
             ->get();
+
+        $liveValue = $stocks->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->costBasis() ?? 0));
+        $liveQty = (float) $stocks->sum('quantity');
+        $liveItems = $stocks->pluck('inventory_item_id')->filter()->unique()->count();
+
+        if (! $currentSnapshot) {
+            $currentSnapshot = new InventorySnapshot(['snapshot_date' => now()]);
+        }
+
+        // Do not persist a page-view snapshot; that would turn normal browsing
+        // into fake trend points. Overlay only the live headline values.
+        $currentSnapshot->snapshot_date = now();
+        $currentSnapshot->total_value = $liveValue;
+        $currentSnapshot->total_quantity = $liveQty;
+        $currentSnapshot->total_items = $liveItems;
 
         $trendData = InventorySnapshot::where('snapshot_date', '>=', now()->subDays(30))
             ->orderBy('snapshot_date')

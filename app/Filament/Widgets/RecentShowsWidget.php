@@ -11,7 +11,7 @@ class RecentShowsWidget extends Widget
 {
     protected static bool $isLazy = true;
     protected static ?int $sort = 3;
-    protected static string $view = 'filament.widgets.recent-shows-cards';
+    protected string $view = 'filament.widgets.recent-shows-cards';
     protected int|string|array $columnSpan = 'full';
 
     public static function canView(): bool

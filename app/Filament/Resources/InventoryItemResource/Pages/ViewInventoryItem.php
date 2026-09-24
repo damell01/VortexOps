@@ -156,47 +156,33 @@ class ViewInventoryItem extends Page
     public function getCostHistoryProperty(): array
     {
         $events = [];
-
         foreach ($this->record->lots()->get() as $lot) {
-            $events[] = [
-                'date' => $lot->received_at ?? $lot->created_at ?? now(),
-                'display' => $lot->received_at?->format('M d, Y') ?? $lot->created_at?->format('M d, Y') ?? '—',
-                'type' => 'lot',
-                'unit_cost' => (float) $lot->unit_cost,
-                'qty' => (float) $lot->quantity,
-                'source' => $lot->source,
-                'note' => 'Lot received',
-            ];
+            $events[] = ['date'=>$lot->received_at ?? $lot->created_at ?? now(),'display'=>$lot->received_at?->format('M d, Y') ?? $lot->created_at?->format('M d, Y') ?? '—','type'=>'lot','unit_cost'=>(float)$lot->unit_cost,'qty'=>(float)$lot->quantity,'source'=>$lot->source,'note'=>'Lot received'];
         }
-
-        foreach ($this->record->movements()->with(['toLocation', 'lot'])->get() as $movement) {
-            if ($movement->movement_type === 'opening' || $movement->movement_type === 'adjustment') {
-                $events[] = [
-                    'date' => $movement->created_at,
-                    'display' => $movement->created_at->format('M d, Y g:i A'),
-                    'type' => 'movement',
-                    'unit_cost' => $this->costForMovement($movement, $movement->lot),
-                    'qty' => (float) $movement->quantity,
-                    'source' => $movement->movement_type,
-                    'note' => $movement->reason ?? 'Stock ' . str_replace('_', ' ', $movement->movement_type),
-                ];
-            }
+        foreach ($this->record->movements()->with(['toLocation','lot'])->get() as $movement) {
+            if ($movement->movement_type !== 'opening' && $movement->movement_type !== 'adjustment') continue;
+            $events[] = ['date'=>$movement->created_at,'display'=>$movement->created_at->format('M d, Y g:i A'),'type'=>'movement','unit_cost'=>$this->costForMovement($movement,$movement->lot),'qty'=>(float)$movement->quantity,'source'=>$movement->movement_type,'note'=>$movement->reason ?? 'Stock '.str_replace('_',' ',$movement->movement_type)];
         }
-
         if (empty($events) && $this->record->unit_cost !== null) {
-            $events[] = [
-                'date' => $this->record->created_at ?? now(),
-                'display' => $this->record->created_at?->format('M d, Y g:i A') ?? 'Initial setup',
-                'type' => 'initial',
-                'unit_cost' => (float) $this->record->unit_cost,
-                'qty' => 0,
-                'source' => 'initial_import',
-                'note' => 'Initial product cost from import / item setup',
-            ];
+            $events[] = ['date'=>$this->record->created_at ?? now(),'display'=>$this->record->created_at?->format('M d, Y g:i A') ?? 'Initial setup','type'=>'initial','unit_cost'=>(float)$this->record->unit_cost,'qty'=>0,'source'=>'initial_import','note'=>'Initial product cost from import / item setup'];
         }
 
-        usort($events, fn ($a, $b) => $b['date'] <=> $a['date']);
-        return $events;
+        // Old receiving wrote one movement per case/unit. Present identical
+        // receipt rows as the one business event they represent (+130 @ $38).
+        return collect($events)
+            ->groupBy(function (array $event): string {
+                $minute=$event['date']?->format('Y-m-d H:i') ?? 'unknown';
+                $cost=$event['unit_cost']===null ? 'unknown' : number_format((float)$event['unit_cost'],4,'.','');
+                return implode('|',[$event['type'],$event['source'],$event['note'],$cost,$minute]);
+            })
+            ->map(function ($rows): array {
+                $first=$rows->first();
+                $first['qty']=(float)$rows->sum('qty');
+                $first['grouped']=$rows->count();
+                return $first;
+            })
+            ->sortByDesc(fn(array $event)=>$event['date']?->getTimestamp() ?? 0)
+            ->values()->all();
     }
 
     private function costForMovement(\App\Models\InventoryMovement $movement, $lot): ?float

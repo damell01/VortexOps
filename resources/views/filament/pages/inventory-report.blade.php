@@ -39,6 +39,13 @@
                 </select>
             </div>
         </div>
+        <div class="rounded-xl border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex gap-1 overflow-x-auto">
+                @foreach(['overview' => 'Overview', 'items' => 'Inventory Items', 'low-stock' => 'Low Stock', 'top-value' => 'Top Value Items'] as $key => $label)
+                    <button type="button" wire:click="setTab('{{ $key }}')" class="whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold {{ $activeTab === $key ? 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800' }}">{{ $label }}</button>
+                @endforeach
+            </div>
+        </div>
         {{-- Key Metrics Cards --}}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">

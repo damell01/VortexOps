@@ -92,19 +92,10 @@ class StreamerLogResource extends Resource
      * two other resources that looked like this turned out to be contradicting
      * their own access rules. Hiding it on Roles & Permissions still works.
      */
+    /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        // A role granted this page on Roles & Permissions gets its link too;
-        // access without a way to reach it is only half a grant.
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
-        $user = auth()->user();
-
-        return ($user?->isAdmin() || $user?->isOwner())
-            && AdminModules::isEnabled('streams')
-            && ! NavVisibility::isHiddenForUser(static::class, $user);
+        return false;
     }
 
     /**

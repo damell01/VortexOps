@@ -211,13 +211,13 @@ class SyncWhatnotReporting extends Command
 
                 if ($analyticsOnly) {
                     $missingBefore = $this->missingAnalyticsCount($channel->id, $since);
-                    $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently missing analytics fields; Seller Hub Past shows scanned once)");
+                    $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently due for analytics refresh; Seller Hub Past shows scanned once)");
                     $step++;
                     try {
                         $analytics = $retry(fn () => $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress), 'analytics');
                     if ($testMode) $smoke['Analytics'] = true;
                         $remaining = $this->missingAnalyticsCount($channel->id, $since);
-                        $this->line("     completed: {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped · {$remaining} remaining");
+                        $this->line("     completed: {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped · {$remaining} due for refresh");
                     } catch (\Throwable $e) {
                         $this->warn('     analytics backfill failed: '.$e->getMessage());
                     }
@@ -343,7 +343,7 @@ class SyncWhatnotReporting extends Command
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('whatnot_show_id')
-            ->where(fn ($q) => $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0)->orWhereNull('show_duration')->orWhereNull('completed_earnings'))
+            ->missingAnalytics()
             ->count();
     }
 
@@ -356,17 +356,10 @@ class SyncWhatnotReporting extends Command
             ->whereNotIn('status', ['cancelled']);
 
         $total = (clone $shows)->count();
-        $analytics = (clone $shows)->where(function ($q) {
-            $q->whereNull('gross_revenue')
-                ->orWhere('gross_revenue', '<=', 0)
-                ->orWhereNull('whatnot_net')
-                ->orWhere('whatnot_net', '<=', 0)
-                ->orWhereNull('show_duration')
-                ->orWhereNull('completed_earnings');
-        })->count();
+        $analytics = (clone $shows)->missingAnalytics()->count();
         $shipments = (clone $shows)->doesntHave('shipments')->count();
 
-        $this->line("     coverage: {$total} shows · {$analytics} missing analytics · {$shipments} no shipments");
+        $this->line("     coverage: {$total} shows · {$analytics} due for analytics refresh · {$shipments} no shipments");
     }
 
     private function reportCoverage(array $channelIds, Carbon $since): void
@@ -378,16 +371,9 @@ class SyncWhatnotReporting extends Command
             ->whereNotIn('status', ['cancelled']);
 
         $total = (clone $shows)->count();
-        $missingAnalytics = (clone $shows)->where(function ($q) {
-            $q->whereNull('gross_revenue')
-                ->orWhere('gross_revenue', '<=', 0)
-                ->orWhereNull('whatnot_net')
-                ->orWhere('whatnot_net', '<=', 0)
-                ->orWhereNull('show_duration')
-                ->orWhereNull('completed_earnings');
-        })->count();
+        $missingAnalytics = (clone $shows)->missingAnalytics()->count();
         $withoutShipments = (clone $shows)->doesntHave('shipments')->count();
 
-        $this->line("Coverage since {$since->toDateString()}: {$total} shows · {$missingAnalytics} missing analytics · {$withoutShipments} with no shipment rows");
+        $this->line("Coverage since {$since->toDateString()}: {$total} shows · {$missingAnalytics} due for analytics refresh · {$withoutShipments} with no shipment rows");
     }
 }

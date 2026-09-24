@@ -1,10 +1,10 @@
 <x-filament-panels::page>
     @php
-        $data = $this->getData();
-        $snapshot = $data['currentSnapshot'];
-        $trendData = $data['trendData'];
-        $itemDetails = $data['itemDetails'];
-        $stocks = $data['stocks'];
+        $data = $this->getViewerData();
+        $snapshot = (object) ['snapshot_date' => now(), 'total_value' => $data['summary']['value'], 'total_items' => $data['summary']['items'], 'total_quantity' => $data['summary']['quantity']];
+        $trendData = $data['trend'];
+        $itemDetails = $data['items'];
+        $stocks = collect($data['items']);
     @endphp
 
     <div class="space-y-6">
@@ -12,14 +12,14 @@
         {{-- Export Button --}}
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Valuation Report</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">As of {{ $snapshot->snapshot_date->format('M d, Y g:i A') }}</p>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Report</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Live in-app inventory reporting • Updated {{ now()->format('M d, Y g:i A') }}</p>
             </div>
             <button type="button"
                     wire:click="exportPdf"
                     class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                Export PDF
+                Export Report
             </button>
         </div>
 

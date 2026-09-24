@@ -45,8 +45,15 @@ def parse_money(value: Any) -> float | None:
 
 
 def parse_int(value: Any) -> int | None:
-    raw = re.sub(r"[^0-9]", "", str(value or ""))
-    return int(raw) if raw else None
+    text = clean(value)
+    if not text:
+        return None
+    # Refuse decimal/currency values. The SPA briefly reflows cards while
+    # navigating and a nearby "$3,344.00" must never become 334400 units.
+    if "$" in text or re.search(r"\d[\d,]*\.\d", text):
+        return None
+    match = re.search(r"(?<![\d.])\d[\d,]*(?![\d.])", text)
+    return int(match.group(0).replace(",", "")) if match else None
 
 
 def parse_duration(value: Any) -> int | None:

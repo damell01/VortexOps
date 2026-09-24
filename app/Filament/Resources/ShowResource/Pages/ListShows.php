@@ -157,6 +157,26 @@ class ListShows extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [$weekStart, $weekEnd])),
             'unreconciled' => Tab::make('Unreconciled')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+            'missing_analytics' => Tab::make('Missing Show Data')
+                ->modifyQueryUsing(fn (Builder $query) => $query
+                    ->where('is_operational', true)
+                    ->whereDate('show_date', '<=', today()->subDay())
+                    ->whereNotIn('status', ['cancelled'])
+                    ->where(function (Builder $missing) {
+                        $missing->whereNull('gross_revenue')
+                            ->orWhereNull('completed_earnings')
+                            ->orWhereNull('show_duration');
+                    }))
+                ->badge(Cache::remember('tab_badge:shows_missing_analytics', 30, fn () => Show::query()
+                    ->where('is_operational', true)
+                    ->whereDate('show_date', '<=', today()->subDay())
+                    ->whereNotIn('status', ['cancelled'])
+                    ->where(function ($missing) {
+                        $missing->whereNull('gross_revenue')
+                            ->orWhereNull('completed_earnings')
+                            ->orWhereNull('show_duration');
+                    })->count()))
+                ->badgeColor('danger'),
         ];
 
         if (auth()->user()?->isAdmin()) {

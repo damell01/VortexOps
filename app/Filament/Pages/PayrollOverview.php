@@ -22,10 +22,10 @@ use UnitEnum;
 
 class PayrollOverview extends Page
 {
-    protected static ?string $title = 'Finance';
-    protected static ?string $navigationLabel = 'Finance';
+    protected static ?string $title = 'Payroll';
+    protected static ?string $navigationLabel = 'Payroll';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
-    protected static string|UnitEnum|null $navigationGroup = 'Finance';
+    protected static string|UnitEnum|null $navigationGroup = 'Payroll';
     protected static ?int $navigationSort = 1;
 
     public array $mockProducts = [];

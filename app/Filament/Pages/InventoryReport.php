@@ -28,6 +28,8 @@ class InventoryReport extends Page
 
     public string $activeTab = 'overview';
 
+    protected ?array $viewerDataCache = null;
+
     public function getView(): string
     {
         return 'filament.pages.inventory-report';
@@ -160,6 +162,10 @@ class InventoryReport extends Page
     /** Lightweight payload used by the in-app viewer. */
     public function getViewerData(): array
     {
+        if ($this->viewerDataCache !== null) {
+            return $this->viewerDataCache;
+        }
+
         $data = $this->getData();
         $snapshot = $data['currentSnapshot'];
         $items = $data['itemDetails']->groupBy('id')->map(function ($rows) {
@@ -177,7 +183,7 @@ class InventoryReport extends Page
             return ['name' => $name ?: 'Unknown', 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value')];
         })->sortByDesc('quantity')->values();
         $quantity = (float) $snapshot->total_quantity;
-        return [
+        return $this->viewerDataCache = [
             'summary' => [
                 'value' => (float) $snapshot->total_value, 'items' => (int) $snapshot->total_items,
                 'quantity' => $quantity, 'avg_cost' => $quantity > 0 ? ((float) $snapshot->total_value / $quantity) : 0,

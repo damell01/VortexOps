@@ -4,6 +4,9 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\FulfillmentResource;
 use App\Filament\Resources\ShowResource;
+use App\Filament\Resources\DeductionRequestResource;
+use App\Filament\Resources\ProductIdentityResource;
+use App\Filament\Resources\ShowIngestionLogResource;
 use App\Models\Show;
 use App\Support\AdminModules;
 use Carbon\Carbon;
@@ -179,4 +182,7 @@ class StreamsOverview extends Page
     public function importerUrl(): string { return WhatnotScraperPage::getUrl(); }
     public function syncUrl(): string { return WhatnotSyncPage::getUrl(); }
     public function statusUrl(): string { return ShowStatusBoard::getUrl(); }
+    public function approvalsUrl(): string { return DeductionRequestResource::getUrl('index'); }
+    public function aliasesUrl(): string { return ProductIdentityResource::getUrl('index'); }
+    public function ingestionUrl(): string { return ShowIngestionLogResource::getUrl('index'); }
 }

@@ -16,14 +16,14 @@ class DashboardShowsKpiWidget extends BaseWidget
     protected static bool $isLazy = true;
     protected static ?int $sort = 0;
     protected int|string|array $columnSpan = 'full';
-    protected int|array|null $columns = ['default' => 2, 'md' => 4, 'xl' => 4];
+    protected int|array|null $columns = ['default' => 2, 'md' => 3, 'xl' => 6];
 
     protected function getStats(): array
     {
         $channel = ChannelContext::currentId() ?? 'all';
 
-        [$value, $items, $units, $monthSales, $valueTrend, $salesTrend] = Cache::remember(
-            "widget:dashboard_business_kpi:v1:{$channel}",
+        [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend] = Cache::remember(
+            "widget:dashboard_business_kpi:v2:{$channel}",
             120,
             function () {
                 $products = Product::query()->where('is_active', true)->with('stock')->get();
@@ -31,11 +31,14 @@ class DashboardShowsKpiWidget extends BaseWidget
                 $units = (float) $products->sum(fn (Product $p) => max(0, (float) $p->stock->sum('quantity')));
                 $value = (float) $products->sum(fn (Product $p) => max(0, (float) $p->stock->sum('quantity')) * (float) ($p->costBasis() ?? 0));
 
-                $monthSales = (float) Show::query()
+                $monthShows = Show::query()
                     ->inChannelContext()
-                    ->whereBetween('show_date', [now()->startOfMonth(), now()->endOfMonth()])
-                    ->whereNotNull('gross_revenue')
-                    ->sum('gross_revenue');
+                    ->whereBetween('show_date', [now()->startOfMonth(), now()->endOfMonth()]);
+
+                $monthGross = (float) (clone $monthShows)->whereNotNull('gross_revenue')->sum('gross_revenue');
+                $monthNet = (float) (clone $monthShows)->whereNotNull('completed_earnings')->sum('completed_earnings');
+                // Whatnot reports show_duration in minutes; keep hours derived from that source of truth.
+                $monthHours = (float) (clone $monthShows)->whereNotNull('show_duration')->sum('show_duration') / 60;
 
                 $valueTrend = InventorySnapshot::query()
                     ->where('snapshot_date', '>=', now()->subDays(7))
@@ -52,12 +55,12 @@ class DashboardShowsKpiWidget extends BaseWidget
                         ->whereDate('show_date', $date)->whereNotNull('gross_revenue')->sum('gross_revenue');
                 }
 
-                return [$value, $items, $units, $monthSales, $valueTrend, $salesTrend];
+                return [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend];
             }
         );
 
         $valueTrend = count($valueTrend) > 1 ? $valueTrend : [$value, $value];
-        $salesTrend = count($salesTrend) > 1 ? $salesTrend : [$monthSales, $monthSales];
+        $salesTrend = count($salesTrend) > 1 ? $salesTrend : [$monthGross, $monthGross];
 
         return [
             Stat::make('Total Inventory Value', '$'.number_format($value, 2))
@@ -73,11 +76,27 @@ class DashboardShowsKpiWidget extends BaseWidget
                 ->description('Across all inventory locations')
                 ->icon('heroicon-o-archive-box')
                 ->color('success'),
-            Stat::make("This Month's Sales", '$'.number_format($monthSales, 2))
-                ->description('Whatnot Estimated Sales')
+            Stat::make('Whatnot Gross', '
+        ];
+    }
+}
+.number_format($monthGross, 2))
+                ->description('Gross revenue this month')
                 ->icon('heroicon-o-banknotes')
                 ->chart($salesTrend)
                 ->color('warning'),
+            Stat::make('Whatnot Net', '
+        ];
+    }
+}
+.number_format($monthNet, 2))
+                ->description('Completed earnings this month')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('success'),
+            Stat::make('Stream Hours', number_format($monthHours, 1))
+                ->description('Whatnot show duration this month')
+                ->icon('heroicon-o-clock')
+                ->color('primary'),
         ];
     }
 }

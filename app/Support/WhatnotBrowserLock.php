@@ -84,6 +84,7 @@ class WhatnotBrowserLock
         }
 
         $pid = (int) $holder['pid'];
+        $originalIdentity = self::processIdentity($pid);
         if ($holder['alive']) {
             if (! function_exists('posix_kill')) {
                 return ['ok' => false, 'pid' => $pid, 'message' => 'PHP POSIX process control is unavailable on this server; active owner was not stopped.', 'killed_pids' => [], 'removed' => []];
@@ -112,7 +113,7 @@ class WhatnotBrowserLock
                 usleep(500_000);
             }
 
-            if (self::pidIsAlive($pid)) {
+            if (self::pidIsAlive($pid) && self::sameProcessIdentity($pid, $originalIdentity)) {
                 return [
                     'ok' => false,
                     'pid' => $pid,
@@ -128,6 +129,24 @@ class WhatnotBrowserLock
         self::recoverProfile(storage_path('whatnot-scrapling-profile'), $result);
 
         return ['ok' => true, 'pid' => $pid, 'message' => "Stopped Whatnot process tree for PID {$pid} and released its lock.", 'killed_pids' => $result['killed_pids'], 'removed' => $result['removed']];
+    }
+
+    private static function processIdentity(int $pid): ?string
+    {
+        $stat = @file_get_contents("/proc/{$pid}/stat");
+        if (! is_string($stat) || $stat === '') return null;
+        $close = strrpos($stat, ') ');
+        if ($close === false) return null;
+        $fields = preg_split('/\\s+/', substr($stat, $close + 2));
+        // /proc/<pid>/stat field 22 is starttime; after stripping pid+comm it
+        // lands at zero-based index 19.
+        return isset($fields[19]) ? (string) $fields[19] : null;
+    }
+
+    private static function sameProcessIdentity(int $pid, ?string $identity): bool
+    {
+        if ($identity === null) return self::pidIsAlive($pid);
+        return self::pidIsAlive($pid) && self::processIdentity($pid) === $identity;
     }
 
     /** @return array<int,int> */

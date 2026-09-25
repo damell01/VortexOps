@@ -82,9 +82,14 @@ class WhatnotSyncPage extends Page
         WhatnotPipelineLock::recoverIfStale();
         WhatnotBrowserLock::recoverIfStale();
 
+        $pipeline = WhatnotPipelineLock::holder();
+        $browser = WhatnotBrowserLock::holder();
+
         return [
-            'pipeline' => WhatnotPipelineLock::holder(),
-            'browser' => WhatnotBrowserLock::holder(),
+            'pipeline' => $pipeline,
+            'browser' => $browser,
+            'pipeline_process' => WhatnotBrowserLock::processDetails($pipeline['pid'] ?? null),
+            'browser_process' => WhatnotBrowserLock::processDetails($browser['pid'] ?? null),
         ];
     }
 
@@ -105,6 +110,27 @@ class WhatnotSyncPage extends Page
             ->body('Healthy active processes were left alone.')
             ->info()
             ->send();
+    }
+
+    public function forceClearLocks(): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+        $browser = WhatnotBrowserLock::stopActiveOwner();
+        if (! $browser['ok']) {
+            Notification::make()->title('Could not stop Whatnot browser')->body($browser['message'])->danger()->send();
+            return;
+        }
+
+        WhatnotPipelineLock::forceRelease();
+        Setting::set('whatnot_ui_job', json_encode([
+            'status' => 'idle',
+            'phase' => 'Locks manually cleared by super admin',
+            'finished_at' => now()->toIso8601String(),
+            'launched_by' => auth()->id(),
+        ]));
+
+        Notification::make()->title('Whatnot pipeline cleared')->body($browser['message'])->success()->send();
     }
 
     public function getRecentActivityProperty(): \Illuminate\Database\Eloquent\Collection

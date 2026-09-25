@@ -342,7 +342,6 @@ class SyncWhatnotReporting extends Command
             ->whereDate('show_date', '>=', $since->toDateString())
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
-            ->whereNotNull('whatnot_show_id')
             ->missingAnalytics()
             ->count();
     }

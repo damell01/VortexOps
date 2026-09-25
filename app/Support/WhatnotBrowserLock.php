@@ -89,16 +89,37 @@ class WhatnotBrowserLock
                 return ['ok' => false, 'pid' => $pid, 'message' => 'PHP POSIX process control is unavailable on this server; active owner was not stopped.', 'killed_pids' => [], 'removed' => []];
             }
 
-            @posix_kill($pid, defined('SIGTERM') ? SIGTERM : 15);
+            // The lock owner can be a wrapper (flock/PHP/Python) whose parent and
+            // children keep one another alive. Stop only the tightly-related
+            // Whatnot process tree, never arbitrary Chrome/PHP processes.
+            $tree = self::relatedWhatnotProcessTree($pid);
+            // Children first, lock owner last. Killing the wrapper first can
+            // orphan its scraper/browser descendants.
+            foreach ($tree as $target) {
+                @posix_kill($target, defined('SIGTERM') ? SIGTERM : 15);
+            }
+
             for ($i = 0; $i < 20 && self::pidIsAlive($pid); $i++) {
                 usleep(250_000);
             }
+
             if (self::pidIsAlive($pid)) {
-                @posix_kill($pid, defined('SIGKILL') ? SIGKILL : 9);
+                foreach ($tree as $target) {
+                    if (self::pidIsAlive($target)) {
+                        @posix_kill($target, defined('SIGKILL') ? SIGKILL : 9);
+                    }
+                }
                 usleep(500_000);
             }
+
             if (self::pidIsAlive($pid)) {
-                return ['ok' => false, 'pid' => $pid, 'message' => "PID {$pid} did not stop; lock was left intact.", 'killed_pids' => [], 'removed' => []];
+                return [
+                    'ok' => false,
+                    'pid' => $pid,
+                    'message' => "Whatnot process tree containing PID {$pid} did not stop; lock was left intact.",
+                    'killed_pids' => array_values(array_filter($tree, fn (int $target) => ! self::pidIsAlive($target))),
+                    'removed' => [],
+                ];
             }
         }
 
@@ -106,7 +127,73 @@ class WhatnotBrowserLock
         $result = ['recovered' => true, 'holder_pid' => $pid, 'killed_pids' => [], 'removed' => []];
         self::recoverProfile(storage_path('whatnot-scrapling-profile'), $result);
 
-        return ['ok' => true, 'pid' => $pid, 'message' => "Stopped browser owner PID {$pid} and released its lock.", 'killed_pids' => $result['killed_pids'], 'removed' => $result['removed']];
+        return ['ok' => true, 'pid' => $pid, 'message' => "Stopped Whatnot process tree for PID {$pid} and released its lock.", 'killed_pids' => $result['killed_pids'], 'removed' => $result['removed']];
+    }
+
+    /** @return array<int,int> */
+    private static function relatedWhatnotProcessTree(int $pid): array
+    {
+        $seen = [];
+        $walk = function (int $current) use (&$walk, &$seen): void {
+            if ($current <= 1 || isset($seen[$current]) || ! self::pidIsAlive($current)) return;
+            $cmd = self::commandLine($current) ?? '';
+            if (! self::isWhatnotProcessCommand($cmd)) return;
+            $seen[$current] = $current;
+
+            foreach (glob('/proc/[0-9]*/status') ?: [] as $statusFile) {
+                $status = @file_get_contents($statusFile);
+                if (! is_string($status)
+                    || preg_match('/^Pid:\\s+(\\d+)/m', $status, $pidMatch) !== 1
+                    || preg_match('/^PPid:\\s+(\\d+)/m', $status, $ppidMatch) !== 1
+                    || (int) $ppidMatch[1] !== $current) {
+                    continue;
+                }
+                $child = (int) $pidMatch[1];
+                if (self::isWhatnotProcessCommand(self::commandLine($child) ?? '')) {
+                    $walk($child);
+                }
+            }
+        };
+
+        $walk($pid);
+
+        // Include related parents (artisan -> shell/flock -> scraper) only while
+        // they are unmistakably part of the Whatnot pipeline.
+        $current = $pid;
+        for ($i = 0; $i < 5; $i++) {
+            $status = @file_get_contents("/proc/{$current}/status") ?: '';
+            if (preg_match('/^PPid:\\s+(\\d+)/m', $status, $match) !== 1) break;
+            $parent = (int) $match[1];
+            if ($parent <= 1 || ! self::pidIsAlive($parent)) break;
+            if (! self::isWhatnotProcessCommand(self::commandLine($parent) ?? '')) break;
+            $seen[$parent] = $parent;
+            $current = $parent;
+        }
+
+        $targets = array_values($seen ?: [$pid]);
+        usort($targets, function (int $a, int $b): int {
+            $depth = function (int $target): int {
+                $d = 0;
+                while ($target > 1 && $d < 20) {
+                    $status = @file_get_contents("/proc/{$target}/status") ?: '';
+                    if (preg_match('/^PPid:\\s+(\\d+)/m', $status, $m) !== 1) break;
+                    $target = (int) $m[1];
+                    $d++;
+                }
+                return $d;
+            };
+            return $depth($b) <=> $depth($a);
+        });
+
+        return $targets;
+    }
+
+    private static function isWhatnotProcessCommand(string $command): bool
+    {
+        return $command !== '' && preg_match(
+            '/whatnot:sync-reporting|whatnot-analytics|whatnot-scrapling|whatnot-browser|storage\\/whatnot-browser\\.lock|flock.*whatnot/i',
+            $command
+        ) === 1;
     }
 
     public static function processDetails(?int $pid): ?array

@@ -7,12 +7,12 @@
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4">
                     <div class="flex-1">
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded-full {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-500 animate-pulse' : (($job['status'] ?? '') === 'failed' ? 'bg-red-500' : 'bg-emerald-500') }}"></span>
+                            <span class="h-2.5 w-2.5 rounded-full {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-500 animate-pulse' : (($job['status'] ?? '') === 'blocked' ? 'bg-amber-500' : (($job['status'] ?? '') === 'failed' ? 'bg-red-500' : 'bg-emerald-500')) }}"></span>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Whatnot Scraper</h2>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">{{ $job['phase'] ?? 'Ready for the next sync.' }}</p>
                     </div>
-                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-100 text-blue-700' : (($job['status'] ?? '') === 'failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700') }}">
+                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-100 text-blue-700' : (($job['status'] ?? '') === 'blocked' ? 'bg-amber-100 text-amber-700' : (($job['status'] ?? '') === 'failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')) }}">
                         {{ strtoupper($job['status'] ?? 'IDLE') }}
                     </span>
                 </div>
@@ -45,11 +45,21 @@
                         @php($holder = $locks[$key] ?? null)
                         <div class="rounded-lg border border-gray-100 dark:border-gray-800 p-3">
                             <div class="flex justify-between gap-3"><span class="text-xs font-semibold">{{ $label }}</span><span class="text-xs font-semibold {{ $holder ? ($holder['alive'] ? 'text-blue-600' : 'text-amber-600') : 'text-emerald-600' }}">{{ $holder ? ($holder['alive'] ? 'ACTIVE' : 'STALE') : 'AVAILABLE' }}</span></div>
-                            @if($holder)<p class="mt-1 text-[11px] text-gray-500">PID {{ $holder['pid'] }} · {{ $holder['host'] }} @if(!empty($holder['label']))· {{ $holder['label'] }}@endif</p>@endif
+                            @if($holder)
+                                @php($proc = $locks[$key.'_process'] ?? null)
+                                <p class="mt-1 text-[11px] text-gray-500">PID {{ $holder['pid'] }} · {{ $holder['host'] }} @if(!empty($holder['label']))· {{ $holder['label'] }}@endif</p>
+                                @if($proc)
+                                    <p class="mt-1 text-[10px] text-gray-400">PPID {{ $proc['ppid'] ?? '—' }} @if(isset($proc['runtime_seconds']))· running {{ \Carbon\CarbonInterval::seconds($proc['runtime_seconds'])->cascade()->forHumans(['short'=>true,'parts'=>2]) }}@endif</p>
+                                    <p class="mt-1 truncate text-[10px] font-mono text-gray-400" title="{{ $proc['command'] }}">{{ $proc['command'] }}</p>
+                                @endif
+                            @endif
                         </div>
                     @endforeach
                 </div>
-                <button wire:click="recoverStaleLocks" wire:confirm="Recover only locks whose recorded process is confirmed dead?" class="mt-4 w-full px-3 py-2 text-xs font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">Clear Stale Locks</button>
+                <div class="mt-4 grid grid-cols-2 gap-2">
+                    <button wire:click="recoverStaleLocks" wire:confirm="Recover only locks whose recorded process is confirmed dead?" class="px-3 py-2 text-xs font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">Clear Stale</button>
+                    <button wire:click="forceClearLocks" wire:confirm="Force stop the active Whatnot browser owner and release both browser and coordinator locks? Use this only when the scraper is stuck." class="px-3 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700">Stop & Clear</button>
+                </div>
             </div>
         </div>
 

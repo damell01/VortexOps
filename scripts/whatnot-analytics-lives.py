@@ -745,12 +745,49 @@ def historical_analytics(module, session):
                 f"historical-analytics [{index}/{total}]: opening uuid={live_id} "
                 f"date={item.get('show_date') or '?'} title={item.get('title')!r}"
             )
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(random.randint(2500, 4500))
-            module.check_login(page)
-            metric = wait_for_metrics(module, page, timeout_ms=12000)
+            navigation_warning = None
+            try:
+                # Seller Hub frequently returns HTTP 200 and hydrates successfully
+                # after Playwright's DOMContentLoaded promise times out. Give the
+                # analytics route more room, then recover in-place instead of
+                # aborting the entire batch.
+                page.goto(url, wait_until="domcontentloaded", timeout=90000)
+            except Exception as exc:
+                navigation_warning = str(exc)
+                module.info(
+                    f"historical-analytics [{index}/{total}]: navigation warning "
+                    f"uuid={live_id} error={navigation_warning}"
+                )
+
+            try:
+                page.wait_for_timeout(random.randint(3000, 5000))
+                module.check_login(page)
+                metric = wait_for_metrics(module, page, timeout_ms=30000)
+            except Exception as exc:
+                module.info(
+                    f"historical-analytics [{index}/{total}]: transient extraction failure "
+                    f"uuid={live_id} error={exc}"
+                )
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": f"Metric extraction failed: {exc}",
+                })
+                continue
+
             if not metric or not has_useful_data(metric):
-                module.info(f"historical-analytics [{index}/{total}]: no stable metrics uuid={live_id}")
+                note = "Analytics page returned no stable metrics"
+                if navigation_warning:
+                    note += f" after navigation warning: {navigation_warning}"
+                module.info(
+                    f"historical-analytics [{index}/{total}]: transient/no stable metrics "
+                    f"uuid={live_id}; leaving due for retry"
+                )
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": note,
+                })
                 continue
 
             # Fail closed on direct fallback: the rendered analytics page must

@@ -48,6 +48,37 @@ class RunWhatnotReportingJob implements ShouldQueue
                 ])));
                 return;
             }
+
+            // The reporting command can catch channel-level failures and still
+            // return exit code 0 so scheduled work can continue. For an explicit
+            // UI run, surface those failures instead of showing a false green
+            // COMPLETED badge.
+            $failureMarkers = [
+                'analytics backfill failed:',
+                'discovery failed:',
+                'order reconciliation failed:',
+                'shipment reconciliation failed:',
+                'BROWSER_LOCK_TIMEOUT',
+                'Permission denied',
+                'TargetClosedError',
+            ];
+            $detectedFailures = array_values(array_filter(
+                $failureMarkers,
+                fn (string $marker) => stripos($output, $marker) !== false
+            ));
+
+            if ($detectedFailures !== []) {
+                $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
+                Setting::set('whatnot_ui_job', json_encode(array_merge($state, [
+                    'status' => 'failed',
+                    'finished_at' => now()->toIso8601String(),
+                    'phase' => 'Pipeline finished with scraper/import errors',
+                    'output' => $output !== '' ? mb_substr($output, -12000) : null,
+                    'error' => 'Detected: '.implode(', ', $detectedFailures),
+                ])));
+                return;
+            }
+
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
             Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'phase'=>$code===0?'Pipeline completed successfully':'Pipeline failed','output'=>$output !== '' ? mb_substr($output,-12000) : 'Command completed without captured console output.'])));
             if ($code !== 0) {

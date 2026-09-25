@@ -459,6 +459,7 @@ class WhatnotReportingReconciler
                 if ($explicitZeroDuration && $isOldEnoughNoShow) {
                     $showId = $show->id;
                     $showDateDisplay = $showDate->toDateString();
+                    $previousStatus = $show->status;
 
                     // Preserve the row and its audit/relationship history, but remove
                     // confirmed no-shows from every operational/reporting total. The
@@ -485,7 +486,7 @@ class WhatnotReportingReconciler
                             'whatnot_show_id' => $liveId,
                             'event' => 'no_show_excluded',
                             'show_duration' => 0,
-                            'previous_status' => $show->getOriginal('status'),
+                            'previous_status' => $previousStatus,
                             'new_status' => 'cancelled',
                         ],
                     ]);

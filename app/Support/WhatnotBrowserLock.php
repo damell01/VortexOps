@@ -85,12 +85,16 @@ class WhatnotBrowserLock
 
         $pid = (int) $holder['pid'];
         if ($holder['alive']) {
-            @posix_kill($pid, SIGTERM);
+            if (! function_exists('posix_kill')) {
+                return ['ok' => false, 'pid' => $pid, 'message' => 'PHP POSIX process control is unavailable on this server; active owner was not stopped.', 'killed_pids' => [], 'removed' => []];
+            }
+
+            @posix_kill($pid, defined('SIGTERM') ? SIGTERM : 15);
             for ($i = 0; $i < 20 && self::pidIsAlive($pid); $i++) {
                 usleep(250_000);
             }
             if (self::pidIsAlive($pid)) {
-                @posix_kill($pid, SIGKILL);
+                @posix_kill($pid, defined('SIGKILL') ? SIGKILL : 9);
                 usleep(500_000);
             }
             if (self::pidIsAlive($pid)) {
@@ -213,11 +217,14 @@ class WhatnotBrowserLock
                     continue;
                 }
 
-                @posix_kill($pid, SIGTERM);
+                if (! function_exists('posix_kill')) {
+                    continue;
+                }
+                @posix_kill($pid, defined('SIGTERM') ? SIGTERM : 15);
                 usleep(500_000);
 
                 if (self::pidIsAlive($pid)) {
-                    @posix_kill($pid, SIGKILL);
+                    @posix_kill($pid, defined('SIGKILL') ? SIGKILL : 9);
                     usleep(250_000);
                 }
 

@@ -1,46 +1,88 @@
 <x-filament-panels::page>
     <div class="space-y-6" wire:poll.3s>
         @php($job = $this->reportingJob)
-        <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 p-6 space-y-4">
-            <div class="flex flex-col lg:flex-row lg:items-center gap-4">
-                <div class="flex-1">
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Scrapling Production Control</h2>
-                    <p class="text-xs text-gray-500 mt-1">Super-admin only. Launches the same coordinated pipeline used by production schedules.</p>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <button wire:click="runReporting('test')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">Run Smoke Test</button>
-                    <button wire:click="runReporting('freshness')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">Run Freshness Sync</button>
-                    <button wire:click="runReporting('full')" wire:confirm="Run the full Whatnot reconciliation from July 1 forward?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700">Run Full Reconciliation</button>
-                </div>
-            </div>
-            @if(!empty($job))
-                <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-4">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $job['mode'] ?? 'job' }}</span>
-                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1">{{ $job['phase'] ?? 'Waiting for status…' }}</p>
+        @php($locks = $this->pipelineStatus)
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="xl:col-span-2 rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+                <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="h-2.5 w-2.5 rounded-full {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-500 animate-pulse' : (($job['status'] ?? '') === 'failed' ? 'bg-red-500' : 'bg-emerald-500') }}"></span>
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Whatnot Scraper</h2>
                         </div>
-                        <span @class([
-                            'rounded-full px-2.5 py-1 text-xs font-semibold',
-                            'bg-blue-100 text-blue-700' => in_array($job['status'] ?? '', ['queued','running']),
-                            'bg-green-100 text-green-700' => ($job['status'] ?? '') === 'completed',
-                            'bg-red-100 text-red-700' => ($job['status'] ?? '') === 'failed',
-                        ])>{{ strtoupper($job['status'] ?? 'UNKNOWN') }}</span>
+                        <p class="text-xs text-gray-500 mt-1">{{ $job['phase'] ?? 'Ready for the next sync.' }}</p>
                     </div>
-                    @if(!empty($job['started_at']))
-                        <p class="mt-2 text-xs text-gray-400">Started {{ \Carbon\Carbon::parse($job['started_at'])->diffForHumans() }}</p>
-                    @endif
-                    @if(!empty($job['error']))
-                        <div class="mt-3 rounded bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-300">{{ $job['error'] }}</div>
-                    @endif
-                    @if(in_array($job['status'] ?? '', ['queued','running']))
-                        <div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div class="h-full w-2/3 animate-pulse rounded-full bg-blue-500"></div></div>
-                    @endif
-                    @if(!empty($job['output']) && in_array($job['status'] ?? '', ['completed','failed']))
-                        <details open class="mt-3"><summary class="cursor-pointer text-xs font-medium text-gray-600 dark:text-gray-300">View run output</summary><pre class="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre></details>
-                    @endif
+                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-100 text-blue-700' : (($job['status'] ?? '') === 'failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700') }}">
+                        {{ strtoupper($job['status'] ?? 'IDLE') }}
+                    </span>
                 </div>
-            @endif
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <button wire:click="runReporting('freshness')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">Freshness Sync</button>
+                    <button wire:click="runReporting('analytics')" wire:confirm="Run missing/incomplete analytics for all channels from July 1 forward?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700">Analytics Backfill</button>
+                    <button wire:click="runReporting('full')" wire:confirm="Run the full Whatnot reconciliation from July 1 forward?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800">Full Reconciliation</button>
+                    <button wire:click="runReporting('test')" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700">Smoke Test</button>
+                </div>
+                @if(!empty($job['started_at']))
+                    <p class="text-xs text-gray-400">Started {{ \Carbon\Carbon::parse($job['started_at'])->diffForHumans() }}</p>
+                @endif
+                @if(!empty($job['error']))
+                    <div class="rounded-lg bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-300">{{ $job['error'] }}</div>
+                @endif
+                @if(in_array($job['status'] ?? '', ['queued','running']))
+                    <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div class="h-full w-2/3 animate-pulse rounded-full bg-violet-500"></div></div>
+                @endif
+                @if(!empty($job['output']))
+                    <details class="rounded-lg border border-gray-200 dark:border-gray-700"><summary class="cursor-pointer p-3 text-xs font-semibold">Run output</summary><pre class="max-h-72 overflow-auto whitespace-pre-wrap bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre></details>
+                @endif
+            </div>
+
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+                <div class="flex items-center justify-between">
+                    <div><h2 class="text-sm font-semibold">Locks & Processes</h2><p class="text-xs text-gray-500 mt-1">Safe recovery only clears confirmed stale owners.</p></div>
+                </div>
+                <div class="mt-4 space-y-3">
+                    @foreach(['pipeline' => 'Coordinator', 'browser' => 'Browser'] as $key => $label)
+                        @php($holder = $locks[$key] ?? null)
+                        <div class="rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                            <div class="flex justify-between gap-3"><span class="text-xs font-semibold">{{ $label }}</span><span class="text-xs font-semibold {{ $holder ? ($holder['alive'] ? 'text-blue-600' : 'text-amber-600') : 'text-emerald-600' }}">{{ $holder ? ($holder['alive'] ? 'ACTIVE' : 'STALE') : 'AVAILABLE' }}</span></div>
+                            @if($holder)<p class="mt-1 text-[11px] text-gray-500">PID {{ $holder['pid'] }} · {{ $holder['host'] }} @if(!empty($holder['label']))· {{ $holder['label'] }}@endif</p>@endif
+                        </div>
+                    @endforeach
+                </div>
+                <button wire:click="recoverStaleLocks" wire:confirm="Recover only locks whose recorded process is confirmed dead?" class="mt-4 w-full px-3 py-2 text-xs font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">Clear Stale Locks</button>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
+                <div><h2 class="text-sm font-semibold">Recent Scraper Activity</h2><p class="text-xs text-gray-500 mt-1">Shows, analytics, orders, shipments and ledger activity in one feed.</p></div>
+                <a href="{{ $this->activityUrl }}" class="text-xs font-semibold text-violet-600 hover:underline">View all + filters & pagination</a>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                @forelse($this->recentActivity as $activity)
+                    <a href="{{ \App\Filament\Resources\ShowIngestionLogResource::getUrl('view', ['record' => $activity]) }}" class="block px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                        <div class="flex items-start gap-3">
+                            <span class="mt-1 h-2 w-2 rounded-full {{ $activity->status === 'success' ? 'bg-emerald-500' : ($activity->status === 'failed' ? 'bg-red-500' : 'bg-amber-500') }}"></span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                    <span class="text-xs font-bold text-gray-900 dark:text-gray-100">{{ $activity->sourceLabel() }}</span>
+                                    <span class="text-[11px] text-gray-400">{{ $activity->channel?->name ?? 'All channels' }}</span>
+                                    <span class="text-[11px] text-gray-400">· {{ $activity->created_at?->diffForHumans() }}</span>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{{ $activity->summary() }}</p>
+                                @if($activity->show)<p class="mt-1 truncate text-[11px] text-violet-600">{{ $activity->show->title }} · Show #{{ $activity->show_id }}</p>@endif
+                                @php($captured = $activity->capturedFields())
+                                @if($captured)
+                                    <div class="mt-2 flex flex-wrap gap-1.5">@foreach(array_slice($captured,0,4,true) as $label => $value)<span class="rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px]"><strong>{{ $label }}:</strong> {{ $value }}</span>@endforeach</div>
+                                @endif
+                            </div>
+                            <span class="text-xs text-gray-400">View →</span>
+                        </div>
+                    </a>
+                @empty
+                    <div class="px-5 py-8 text-center text-sm text-gray-500">No scraper activity recorded yet.</div>
+                @endforelse
+            </div>
         </div>
 
         {{-- ── Last Sync Status ──────────────────────────────────────────────── --}}

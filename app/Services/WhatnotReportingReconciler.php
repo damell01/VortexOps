@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Shipment;
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
 use App\Models\WhatnotBuyer;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
@@ -211,9 +212,24 @@ class WhatnotReportingReconciler
                     return $result;
                 });
 
+                $newRows = (int) ($result['created'] ?? 0);
                 $replaced += $before;
-                $created += (int) ($result['created'] ?? 0);
-                $progress && $progress("orders: show #{$show->id} reconciled — {$before} old row(s) replaced with ".(int) ($result['created'] ?? 0));
+                $created += $newRows;
+                ShowIngestionLog::create([
+                    'show_id' => $show->id,
+                    'whatnot_channel_id' => $channel->id,
+                    'source' => 'whatnot_orders',
+                    'status' => 'success',
+                    'raw_payload' => [
+                        'show_title' => $show->title,
+                        'show_date' => $show->show_date?->toDateString(),
+                        'whatnot_show_id' => $show->whatnot_show_id,
+                        'orders_before' => $before,
+                        'orders_imported' => $newRows,
+                        'orders_replaced' => $before,
+                    ],
+                ]);
+                $progress && $progress("orders: show #{$show->id} reconciled — {$before} old row(s) replaced with {$newRows}");
             }
         }
 
@@ -464,10 +480,23 @@ class WhatnotReportingReconciler
                     continue;
                 }
 
+                $beforeAnalytics = [];
+                foreach (array_keys($fields) as $field) {
+                    $beforeAnalytics[$field] = $show->{$field};
+                }
+
                 $fields['last_synced_at'] = now();
                 $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
+
+                $changes = [];
+                foreach ($beforeAnalytics as $field => $beforeValue) {
+                    $afterValue = $show->{$field};
+                    if ((string) ($beforeValue ?? '') !== (string) ($afterValue ?? '')) {
+                        $changes[$field] = ['before' => $beforeValue, 'after' => $afterValue];
+                    }
+                }
 
                 $fresh = $show->fresh();
                 $analyticsComplete = $fresh->gross_revenue !== null
@@ -481,6 +510,22 @@ class WhatnotReportingReconciler
                     'analytics_unavailable_at' => null,
                 ])->saveQuietly();
                 $updated++;
+
+                ShowIngestionLog::create([
+                    'show_id' => $show->id,
+                    'whatnot_channel_id' => $channel->id,
+                    'source' => 'whatnot_show_analytics',
+                    'status' => 'success',
+                    'raw_payload' => [
+                        'show_title' => $show->title,
+                        'show_date' => $show->show_date?->toDateString(),
+                        'whatnot_show_id' => $liveId,
+                        'analytics_status' => $fresh->analytics_sync_status,
+                        'changed_fields' => $changes,
+                        'changed_count' => count($changes),
+                        'analytics' => $raw,
+                    ],
+                ]);
 
                 $fresh = $fresh->fresh();
                 $netDisplay = $fresh->whatnot_net === null
@@ -527,10 +572,25 @@ class WhatnotReportingReconciler
             $progress && $progress("shipments: scraping {$chunk->count()} show(s)");
             $result = $this->scraper->refreshShipmentsForShows($chunk, $channel->whatnot_username);
             $after = Shipment::whereIn('show_id', $chunk->pluck('id'))->count();
-            $created += max(0, $after - $before);
-            $updated += max(0, (int) ($result['updated'] ?? 0) - max(0, $after - $before));
+            $chunkCreated = max(0, $after - $before);
+            $chunkUpdated = max(0, (int) ($result['updated'] ?? 0) - $chunkCreated);
+            $created += $chunkCreated;
+            $updated += $chunkUpdated;
             $skipped += (int) ($result['skipped_shows'] ?? 0);
             $checked += $chunk->count();
+
+            ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel->id,
+                'source' => 'whatnot_shipments',
+                'status' => 'success',
+                'raw_payload' => [
+                    'shows_checked' => $chunk->count(),
+                    'show_ids' => $chunk->pluck('id')->values()->all(),
+                    'created' => $chunkCreated,
+                    'updated' => $chunkUpdated,
+                    'skipped' => (int) ($result['skipped_shows'] ?? 0),
+                ],
+            ]);
         }
 
         return compact('checked', 'created', 'updated', 'skipped');

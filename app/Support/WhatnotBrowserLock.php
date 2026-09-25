@@ -70,6 +70,56 @@ class WhatnotBrowserLock
         Cache::forget(self::KEY . ':holder_pid');
     }
 
+    /** @return array{ok:bool,pid:?int,message:string,killed_pids:array<int,int>,removed:array<int,string>} */
+    public static function stopActiveOwner(): array
+    {
+        $holder = self::holder();
+        if (! $holder) {
+            self::forceRelease();
+            return ['ok' => true, 'pid' => null, 'message' => 'Browser lock was already free.', 'killed_pids' => [], 'removed' => []];
+        }
+
+        if ($holder['host'] !== gethostname()) {
+            return ['ok' => false, 'pid' => $holder['pid'], 'message' => 'Browser owner is on another host; refusing to terminate it.', 'killed_pids' => [], 'removed' => []];
+        }
+
+        $pid = (int) $holder['pid'];
+        if ($holder['alive']) {
+            @posix_kill($pid, SIGTERM);
+            for ($i = 0; $i < 20 && self::pidIsAlive($pid); $i++) {
+                usleep(250_000);
+            }
+            if (self::pidIsAlive($pid)) {
+                @posix_kill($pid, SIGKILL);
+                usleep(500_000);
+            }
+            if (self::pidIsAlive($pid)) {
+                return ['ok' => false, 'pid' => $pid, 'message' => "PID {$pid} did not stop; lock was left intact.", 'killed_pids' => [], 'removed' => []];
+            }
+        }
+
+        self::forceRelease();
+        $result = ['recovered' => true, 'holder_pid' => $pid, 'killed_pids' => [], 'removed' => []];
+        self::recoverProfile(storage_path('whatnot-scrapling-profile'), $result);
+
+        return ['ok' => true, 'pid' => $pid, 'message' => "Stopped browser owner PID {$pid} and released its lock.", 'killed_pids' => $result['killed_pids'], 'removed' => $result['removed']];
+    }
+
+    public static function processDetails(?int $pid): ?array
+    {
+        if (! $pid || ! self::pidIsAlive($pid)) return null;
+        $status = @file_get_contents("/proc/{$pid}/status") ?: '';
+        preg_match('/^PPid:\\s+(\\d+)/m', $status, $ppid);
+        $started = @filemtime("/proc/{$pid}") ?: null;
+
+        return [
+            'pid' => $pid,
+            'ppid' => isset($ppid[1]) ? (int) $ppid[1] : null,
+            'command' => self::commandLine($pid),
+            'runtime_seconds' => $started ? max(0, time() - $started) : null,
+        ];
+    }
+
     /**
      * Recover only when the cache lock's recorded local owner is definitely dead.
      * The separate persistent browser service/profile is deliberately not part of

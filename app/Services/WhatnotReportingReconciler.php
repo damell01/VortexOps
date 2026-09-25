@@ -259,7 +259,56 @@ class WhatnotReportingReconciler
                 continue;
             }
             if (! $show->whatnot_show_id) {
-                $show->forceFill(['whatnot_show_id' => $liveId])->saveQuietly();
+                // A UUID recovered from detail_url may already belong to an older,
+                // canonical row. Never let recovery violate the unique index or
+                // abort analytics for the rest of the channel.
+                $owner = Show::query()
+                    ->where('whatnot_show_id', $liveId)
+                    ->whereKeyNot($show->getKey())
+                    ->first();
+
+                if ($owner) {
+                    $unresolved++;
+                    $progress && $progress(
+                        "analytics: show #{$show->id} UUID collision with canonical show #{$owner->id} ({$liveId}); ".
+                        'skipping duplicate candidate for manual reconciliation'
+                    );
+                    Log::warning('Whatnot analytics UUID recovery collision', [
+                        'show_id' => $show->id,
+                        'canonical_show_id' => $owner->id,
+                        'whatnot_show_id' => $liveId,
+                        'channel' => $channel->whatnot_username,
+                    ]);
+                    continue;
+                }
+
+                try {
+                    $show->forceFill(['whatnot_show_id' => $liveId])->saveQuietly();
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Protect against a concurrent process assigning the same UUID
+                    // after the ownership check but before this write.
+                    $owner = Show::query()
+                        ->where('whatnot_show_id', $liveId)
+                        ->whereKeyNot($show->getKey())
+                        ->first();
+
+                    if ($owner) {
+                        $unresolved++;
+                        $progress && $progress(
+                            "analytics: show #{$show->id} UUID collision with canonical show #{$owner->id} ({$liveId}); ".
+                            'skipping duplicate candidate for manual reconciliation'
+                        );
+                        Log::warning('Whatnot analytics UUID recovery collision after concurrent write', [
+                            'show_id' => $show->id,
+                            'canonical_show_id' => $owner->id,
+                            'whatnot_show_id' => $liveId,
+                            'channel' => $channel->whatnot_username,
+                        ]);
+                        continue;
+                    }
+
+                    throw $e;
+                }
             }
             $targets[] = $liveId;
             if ($batchSize !== null && count($targets) >= $batchSize) {

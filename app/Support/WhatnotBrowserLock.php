@@ -93,7 +93,9 @@ class WhatnotBrowserLock
             // children keep one another alive. Stop only the tightly-related
             // Whatnot process tree, never arbitrary Chrome/PHP processes.
             $tree = self::relatedWhatnotProcessTree($pid);
-            foreach (array_reverse($tree) as $target) {
+            // Children first, lock owner last. Killing the wrapper first can
+            // orphan its scraper/browser descendants.
+            foreach ($tree as $target) {
                 @posix_kill($target, defined('SIGTERM') ? SIGTERM : 15);
             }
 
@@ -102,7 +104,7 @@ class WhatnotBrowserLock
             }
 
             if (self::pidIsAlive($pid)) {
-                foreach (array_reverse($tree) as $target) {
+                foreach ($tree as $target) {
                     if (self::pidIsAlive($target)) {
                         @posix_kill($target, defined('SIGKILL') ? SIGKILL : 9);
                     }
@@ -168,7 +170,22 @@ class WhatnotBrowserLock
             $current = $parent;
         }
 
-        return array_values($seen ?: [$pid]);
+        $targets = array_values($seen ?: [$pid]);
+        usort($targets, function (int $a, int $b): int {
+            $depth = function (int $target): int {
+                $d = 0;
+                while ($target > 1 && $d < 20) {
+                    $status = @file_get_contents("/proc/{$target}/status") ?: '';
+                    if (preg_match('/^PPid:\\s+(\\d+)/m', $status, $m) !== 1) break;
+                    $target = (int) $m[1];
+                    $d++;
+                }
+                return $d;
+            };
+            return $depth($b) <=> $depth($a);
+        });
+
+        return $targets;
     }
 
     private static function isWhatnotProcessCommand(string $command): bool

@@ -116,21 +116,31 @@ class WhatnotSyncPage extends Page
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
 
-        $browser = WhatnotBrowserLock::stopActiveOwner();
-        if (! $browser['ok']) {
-            Notification::make()->title('Could not stop Whatnot browser')->body($browser['message'])->danger()->send();
-            return;
+        try {
+            $browser = WhatnotBrowserLock::stopActiveOwner();
+            if (! $browser['ok']) {
+                Notification::make()->title('Could not stop Whatnot browser')->body($browser['message'])->danger()->send();
+                return;
+            }
+
+            WhatnotPipelineLock::forceRelease();
+            Setting::set('whatnot_ui_job', json_encode([
+                'status' => 'idle',
+                'phase' => 'Locks manually cleared by super admin',
+                'finished_at' => now()->toIso8601String(),
+                'launched_by' => auth()->id(),
+            ]));
+
+            Notification::make()->title('Whatnot pipeline cleared')->body($browser['message'])->success()->send();
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()
+                ->title('Could not clear Whatnot process')
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
         }
-
-        WhatnotPipelineLock::forceRelease();
-        Setting::set('whatnot_ui_job', json_encode([
-            'status' => 'idle',
-            'phase' => 'Locks manually cleared by super admin',
-            'finished_at' => now()->toIso8601String(),
-            'launched_by' => auth()->id(),
-        ]));
-
-        Notification::make()->title('Whatnot pipeline cleared')->body($browser['message'])->success()->send();
     }
 
     public function getRecentActivityProperty(): \Illuminate\Database\Eloquent\Collection

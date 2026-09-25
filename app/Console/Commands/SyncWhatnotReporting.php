@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Setting;
+use App\Models\ShowIngestionLog;
 use App\Models\Show;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotReportingReconciler;
@@ -262,8 +263,20 @@ class SyncWhatnotReporting extends Command
                 $this->line("  {$step}. Ledger / post-show adjustments");
                 try {
                     $ledger = $retry(fn () => $scraper->importLedger($channel, $since->toDateString(), today()->toDateString(), false), 'ledger');
+                    ShowIngestionLog::create([
+                        'whatnot_channel_id' => $channel->id,
+                        'source' => 'whatnot_ledger',
+                        'status' => 'success',
+                        'raw_payload' => [
+                            'from' => $since->toDateString(),
+                            'to' => today()->toDateString(),
+                            'created' => (int) ($ledger['created'] ?? 0),
+                            'skipped' => (int) ($ledger['skipped'] ?? 0),
+                            'windows' => (int) ($ledger['windows'] ?? 0),
+                        ],
+                    ]);
                     if ($testMode) $smoke['Ledger'] = true;
-                    $this->line('     ledger rows created '.($ledger['created'] ?? 0).', updated '.($ledger['updated'] ?? 0));
+                    $this->line('     ledger rows created '.($ledger['created'] ?? 0).', skipped '.($ledger['skipped'] ?? 0));
                 } catch (\Throwable $e) {
                     $this->warn('     ledger refresh failed: '.$e->getMessage());
                 }

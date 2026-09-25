@@ -7,9 +7,12 @@ use App\Jobs\RunWhatnotSyncJob;
 use App\Jobs\RunWhatnotReportingJob;
 use App\Jobs\SyncWhatnotShipmentsJob;
 use App\Models\Setting;
+use App\Models\ShowIngestionLog;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotSync;
 use App\Support\AdminModules;
+use App\Support\WhatnotBrowserLock;
+use App\Support\WhatnotPipelineLock;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -19,12 +22,12 @@ class WhatnotSyncPage extends Page
 
     protected static string $moduleSlug  = 'streams';
 
-    protected static ?string $title           = 'Whatnot Sync';
-    protected static ?string $navigationLabel = 'Sync Dashboard';
+    protected static ?string $title           = 'Whatnot Operations';
+    protected static ?string $navigationLabel = 'Scraper Status';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return AdminModules::navigationGroupFor('streams');
+        return 'Super Admin';
     }
 
     public static function getNavigationSort(): ?int
@@ -47,10 +50,9 @@ class WhatnotSyncPage extends Page
         return (bool) auth()->user()?->isSuperAdmin();
     }
 
-    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return auth()->user()?->isSuperAdmin() ?? false;
     }
 
     public function getReportingJobProperty(): array
@@ -61,7 +63,7 @@ class WhatnotSyncPage extends Page
     public function runReporting(string $mode): void
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
-        abort_unless(in_array($mode, ['test', 'freshness', 'full'], true), 422);
+        abort_unless(in_array($mode, ['test', 'freshness', 'analytics', 'full'], true), 422);
         $active = $this->reportingJob;
         if (in_array($active['status'] ?? null, ['queued', 'running'], true)) {
             Notification::make()->title('A Whatnot job is already active')->warning()->send();
@@ -73,6 +75,50 @@ class WhatnotSyncPage extends Page
         ]));
         RunWhatnotReportingJob::dispatch($mode, (int) auth()->id());
         Notification::make()->title(ucfirst($mode).' Whatnot job queued')->success()->send();
+    }
+
+    public function getPipelineStatusProperty(): array
+    {
+        WhatnotPipelineLock::recoverIfStale();
+        WhatnotBrowserLock::recoverIfStale();
+
+        return [
+            'pipeline' => WhatnotPipelineLock::holder(),
+            'browser' => WhatnotBrowserLock::holder(),
+        ];
+    }
+
+    public function recoverStaleLocks(): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+        $pipelineRecovered = WhatnotPipelineLock::recoverIfStale();
+        $browser = WhatnotBrowserLock::recoverIfStale();
+
+        if ($pipelineRecovered || ($browser['recovered'] ?? false)) {
+            Notification::make()->title('Stale Whatnot lock recovered')->success()->send();
+            return;
+        }
+
+        Notification::make()
+            ->title('No stale locks found')
+            ->body('Healthy active processes were left alone.')
+            ->info()
+            ->send();
+    }
+
+    public function getRecentActivityProperty(): \Illuminate\Database\Eloquent\Collection
+    {
+        return ShowIngestionLog::query()
+            ->with(['show', 'channel'])
+            ->latest('created_at')
+            ->limit(12)
+            ->get();
+    }
+
+    public function getActivityUrlProperty(): string
+    {
+        return \App\Filament\Resources\ShowIngestionLogResource::getUrl('index');
     }
 
     // ── Computed properties for the view ──────────────────────────────────────

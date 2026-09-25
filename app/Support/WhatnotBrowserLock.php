@@ -191,7 +191,7 @@ class WhatnotBrowserLock
     private static function isWhatnotProcessCommand(string $command): bool
     {
         return $command !== '' && preg_match(
-            '/whatnot:sync-reporting|whatnot-analytics|whatnot-scrapling|whatnot-browser|storage\\/whatnot-browser\\.lock/i',
+            '/whatnot:sync-reporting|whatnot-analytics|whatnot-scrapling|whatnot-browser|storage\\/whatnot-browser\\.lock|flock.*whatnot/i',
             $command
         ) === 1;
     }

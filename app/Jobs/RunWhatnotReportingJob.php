@@ -26,6 +26,7 @@ class RunWhatnotReportingJob implements ShouldQueue
         $args = match ($this->mode) {
             'test' => ['--test' => true],
             'freshness' => ['--since' => now()->subDays(7)->toDateString(), '--show-limit' => 10, '--order-batch' => 10, '--analytics-limit' => 5, '--shipment-batch' => 10, '--max-runtime' => 2700, '--skip-if-busy' => true],
+            'analytics' => ['--since' => '2026-07-01', '--analytics-only' => true, '--analytics-limit' => 0, '--max-runtime' => 21600, '--skip-if-busy' => true],
             'full' => ['--since' => '2026-07-01', '--show-limit' => 30, '--order-batch' => 30, '--analytics-limit' => 25, '--shipment-batch' => 30, '--max-runtime' => 10800, '--skip-if-busy' => true],
             default => throw new \InvalidArgumentException("Unknown Whatnot reporting mode: {$this->mode}"),
         };

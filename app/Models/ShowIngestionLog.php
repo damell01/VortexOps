@@ -134,9 +134,11 @@ class ShowIngestionLog extends Model
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
 
         return match ($this->source) {
-            'whatnot_show_analytics' => isset($payload['changed_count'])
-                ? sprintf('Analytics updated%s', (int) $payload['changed_count'] > 0 ? ' (' . (int) $payload['changed_count'] . ' field changes)' : ' (no metric changes)')
-                : sprintf('Shows + analytics completed%s', isset($payload['created'], $payload['updated']) ? " ({$payload['created']} created, {$payload['updated']} updated)" : ''),
+            'whatnot_show_analytics' => ($payload['event'] ?? null) === 'no_show_excluded'
+                ? 'Confirmed 0-minute no-show excluded from reporting'
+                : (isset($payload['changed_count'])
+                    ? sprintf('Analytics updated%s', (int) $payload['changed_count'] > 0 ? ' (' . (int) $payload['changed_count'] . ' field changes)' : ' (no metric changes)')
+                    : sprintf('Shows + analytics completed%s', isset($payload['created'], $payload['updated']) ? " ({$payload['created']} created, {$payload['updated']} updated)" : '')),
             'whatnot_orders' => isset($payload['orders_imported'])
                 ? sprintf('%s orders pulled for this show', number_format((int) $payload['orders_imported']))
                 : sprintf('Recent orders completed%s', isset($payload['shows_checked']) ? " ({$payload['shows_checked']} shows checked)" : ''),
@@ -196,6 +198,8 @@ class ShowIngestionLog extends Model
             'shipments' => 'Shipments',
             'show_duration' => 'Duration',
             'status' => 'Status',
+            'previous_status' => 'Previous Status',
+            'new_status' => 'New Status',
         ];
 
         $fields = [];

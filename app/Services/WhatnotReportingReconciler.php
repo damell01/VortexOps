@@ -304,18 +304,13 @@ class WhatnotReportingReconciler
             );
 
             if ($rawRows === []) {
-                $unavailableAt = now();
-                Show::query()
-                    ->where('whatnot_channel_id', $channel->id)
-                    ->whereIn('whatnot_show_id', $pendingTargets)
-                    ->update([
-                        'analytics_sync_status' => 'unavailable',
-                        'analytics_sync_note' => 'Not present as an analytics candidate in the verified Seller Hub Past index.',
-                        'analytics_unavailable_at' => $unavailableAt,
-                    ]);
+                // An empty browser batch can be caused by navigation, hydration,
+                // authentication, or transport trouble. It is not proof that all
+                // requested UUIDs are unavailable, so leave every target due.
+                $failed += count($pendingTargets);
                 $progress && $progress(
-                    'analytics: no additional Seller Hub analytics candidates matched; '.
-                    count($pendingTargets).' target(s) marked unavailable (eligible for retry in 7 days)'
+                    'analytics: browser batch returned no rows; '.
+                    count($pendingTargets).' target(s) left due for retry (not marked unavailable)'
                 );
                 break;
             }
@@ -365,6 +360,20 @@ class WhatnotReportingReconciler
             if (! $show) {
                 $skipped++;
                 $progress && $progress("analytics: Seller Hub uuid={$liveId} is not in this channel's database yet; discovery will import it");
+                continue;
+            }
+
+            // A browser/network/navigation failure is not evidence that
+            // analytics are unavailable. The scraper returns an identifiable
+            // transient row so this UUID counts as attempted but remains due.
+            if (($raw['_analytics_transient_failure'] ?? false) === true) {
+                $failed++;
+                $note = trim((string) ($raw['_analytics_failure_note'] ?? 'Transient Seller Hub analytics failure.'));
+                $show->forceFill([
+                    'analytics_sync_note' => $note,
+                    'analytics_unavailable_at' => null,
+                ])->saveQuietly();
+                $progress && $progress("analytics: show #{$show->id} transient failure · {$note} · left due for retry");
                 continue;
             }
 

@@ -38,7 +38,15 @@ class RunWhatnotReportingJob implements ShouldQueue
             // --skip-if-busy intentionally returns success for scheduled jobs,
             // but a UI run must never display that as a completed scrape.
             if (str_contains($output, 'Reporting sync skipped') || str_contains($output, 'Reporting sync did not start')) {
-                throw new \RuntimeException(trim($output) ?: 'Whatnot pipeline did not start because the coordinator was busy.');
+                $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
+                Setting::set('whatnot_ui_job', json_encode(array_merge($state, [
+                    'status' => 'blocked',
+                    'finished_at' => now()->toIso8601String(),
+                    'phase' => 'Blocked by another active Whatnot process',
+                    'output' => $output !== '' ? mb_substr($output, -12000) : null,
+                    'error' => null,
+                ])));
+                return;
             }
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
             Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'phase'=>$code===0?'Pipeline completed successfully':'Pipeline failed','output'=>$output !== '' ? mb_substr($output,-12000) : 'Command completed without captured console output.'])));

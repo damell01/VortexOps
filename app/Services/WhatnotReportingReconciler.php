@@ -459,10 +459,41 @@ class WhatnotReportingReconciler
                 if ($explicitZeroDuration && $isOldEnoughNoShow) {
                     $showId = $show->id;
                     $showDateDisplay = $showDate->toDateString();
-                    $show->delete();
+                    $previousStatus = $show->status;
+
+                    // Preserve the row and its audit/relationship history, but remove
+                    // confirmed no-shows from every operational/reporting total. The
+                    // audit page already excludes cancelled rows. Hard-deleting here
+                    // is unsafe because shows can have NO ACTION/SET NULL/CASCADE
+                    // relationships even when Whatnot reports a zero-minute stream.
+                    $show->forceFill([
+                        'status' => 'cancelled',
+                        'analytics_sync_status' => 'unavailable',
+                        'analytics_sync_note' => 'Automatically excluded: Whatnot reported a 0-minute duration at least 2 days after the scheduled show.',
+                        'analytics_unavailable_at' => now(),
+                        'last_analytics_synced_at' => now(),
+                        'last_synced_at' => now(),
+                    ])->save();
+
+                    ShowIngestionLog::create([
+                        'show_id' => $showId,
+                        'whatnot_channel_id' => $channel->id,
+                        'source' => 'whatnot_show_analytics',
+                        'status' => 'success',
+                        'raw_payload' => [
+                            'show_title' => $show->title,
+                            'show_date' => $showDateDisplay,
+                            'whatnot_show_id' => $liveId,
+                            'event' => 'no_show_excluded',
+                            'show_duration' => 0,
+                            'previous_status' => $previousStatus,
+                            'new_status' => 'cancelled',
+                        ],
+                    ]);
+
                     $updated++;
                     $progress && $progress(
-                        "analytics: show #{$showId} removed · {$showDateDisplay} · Whatnot reported 0-minute duration on a show at least 2 days old"
+                        "analytics: show #{$showId} excluded as no-show · {$showDateDisplay} · Whatnot reported 0-minute duration at least 2 days after scheduled date"
                     );
                     continue;
                 }

@@ -134,8 +134,12 @@ class ShowIngestionLog extends Model
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
 
         return match ($this->source) {
-            'whatnot_show_analytics' => sprintf('Shows + analytics completed%s', isset($payload['created'], $payload['updated']) ? " ({$payload['created']} created, {$payload['updated']} updated)" : ''),
-            'whatnot_orders' => sprintf('Recent orders completed%s', isset($payload['shows_checked']) ? " ({$payload['shows_checked']} shows checked)" : ''),
+            'whatnot_show_analytics' => isset($payload['changed_count'])
+                ? sprintf('Analytics updated%s', (int) $payload['changed_count'] > 0 ? ' (' . (int) $payload['changed_count'] . ' field changes)' : ' (no metric changes)')
+                : sprintf('Shows + analytics completed%s', isset($payload['created'], $payload['updated']) ? " ({$payload['created']} created, {$payload['updated']} updated)" : ''),
+            'whatnot_orders' => isset($payload['orders_imported'])
+                ? sprintf('%s orders pulled for this show', number_format((int) $payload['orders_imported']))
+                : sprintf('Recent orders completed%s', isset($payload['shows_checked']) ? " ({$payload['shows_checked']} shows checked)" : ''),
             'whatnot_shipments' => sprintf('Shipment refresh completed%s', isset($payload['shows_checked']) ? " ({$payload['shows_checked']} shows checked, " . ($payload['updated'] ?? 0) . ' updates)' : ''),
             'whatnot_ledger' => 'Rolling ledger refresh completed',
             'whatnot_nightly_reconciliation' => 'Nightly reconciliation completed',
@@ -178,6 +182,11 @@ class ShowIngestionLog extends Model
             'whatnot_net' => 'Estimated Net',
             'completed_earnings' => 'Completed Earnings',
             'orders' => 'Orders',
+            'orders_imported' => 'Orders Imported',
+            'orders_replaced' => 'Orders Replaced',
+            'shows_checked' => 'Shows Checked',
+            'created' => 'Created',
+            'updated' => 'Updated',
             'units_sold' => 'Units Sold',
             'buyers_count' => 'Buyers',
             'buyers' => 'Buyers',
@@ -190,6 +199,17 @@ class ShowIngestionLog extends Model
         ];
 
         $fields = [];
+        if (isset($payload['changed_fields']) && is_array($payload['changed_fields'])) {
+            foreach ($payload['changed_fields'] as $key => $change) {
+                if (! is_array($change)) continue;
+                $label = ucwords(str_replace('_', ' ', (string) $key));
+                $before = $change['before'] ?? null;
+                $after = $change['after'] ?? null;
+                $fields[$label] = ($before === null || $before === '' ? 'Missing' : (string) $before)
+                    . ' → ' . ($after === null || $after === '' ? 'Missing' : (string) $after);
+            }
+        }
+
         foreach ($sources as $source) {
             foreach ($aliases as $key => $label) {
                 if (! array_key_exists($key, $source) || $source[$key] === null || $source[$key] === '') continue;

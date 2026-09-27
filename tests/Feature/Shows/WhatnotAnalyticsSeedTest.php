@@ -192,4 +192,43 @@ class WhatnotAnalyticsSeedTest extends TestCase
     {
         $this->assertNull($this->scraper()->seedLiveIdFor($this->channel));
     }
+
+    public function test_a_show_confirmed_absent_from_every_tab_is_not_reseeded(): void
+    {
+        // The actual stuck-loop case: a walk that verified Past, Current and
+        // Upcoming and found the seed in none of them. Reusing that exact
+        // live_id next run guarantees the identical failure forever — unlike
+        // an ordinary failed row (tested above), which still names a show
+        // worth trying again.
+        $stuck = '99999999-9999-9999-9999-999999999999';
+
+        ShowIngestionLog::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'source'             => 'whatnot',
+            'status'             => 'failed',
+            'error_message'      => 'Scraped row had no title or show_date — could not identify the show.',
+            'raw_payload'        => [
+                'whatnot_live_id'             => $stuck,
+                'title'                       => '',
+                'show_date'                   => null,
+                'detail_url'                  => 'https://www.whatnot.com/dashboard/live/' . $stuck,
+                '_seller_hub_verified'        => true,
+                '_seller_hub_absent_all_tabs' => true,
+                '_channel_id'                 => $this->channel->id,
+            ],
+        ]);
+
+        $this->assertNull($this->scraper()->seedLiveIdFor($this->channel));
+
+        // A real, older show is still offered once the stuck one is excluded.
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Older show',
+            'show_date'          => '2026-08-01',
+            'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . self::UUID,
+            'created_by'         => 1,
+        ]);
+
+        $this->assertSame(self::UUID, $this->scraper()->seedLiveIdFor($this->channel));
+    }
 }

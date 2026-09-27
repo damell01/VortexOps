@@ -280,7 +280,18 @@ class WhatnotScraper
 
     public function seedLiveIdFor(?WhatnotChannel $channel):?string
     {
-        $uuid='/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i';$fromShows=Show::query()->when($channel,fn($q)=>$q->where('whatnot_channel_id',$channel->id))->whereNotNull('detail_url')->orderByDesc('show_date')->limit(20)->pluck('detail_url');foreach($fromShows as$url)if(preg_match($uuid,(string)$url,$m))return$m[1];$onlyChannel=WhatnotChannel::count()===1;$fromLogs=ShowIngestionLog::query()->where('source','whatnot')->whereNotNull('raw_payload')->latest('id')->limit(50)->pluck('raw_payload');foreach($fromLogs as$payload){if(!is_array($payload))continue;$stamped=$payload['_channel_id']??null;$belongsHere=$stamped!==null?((int)$stamped===(int)$channel?->id):($onlyChannel||$channel===null);if($belongsHere&&preg_match($uuid,(string)($payload['detail_url']??''),$m))return$m[1];}return null;
+        $uuid='/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i';
+
+        // A live_id the last walk actively confirmed missing from Past,
+        // Current AND Upcoming (not just "failed to import for some other
+        // reason") can never become findable again by trying it a second
+        // time — it is always the newest show/log entry on the next run too,
+        // so nothing ever moves past it without this exclusion. A failure
+        // for any other reason still names a real show worth reseeding from,
+        // same as before.
+        $avoidLiveIds=ShowIngestionLog::query()->where('source','whatnot')->where('status','failed')->where('error_message','Scraped row had no title or show_date — could not identify the show.')->when($channel,fn($q)=>$q->where('whatnot_channel_id',$channel->id))->latest('id')->limit(20)->pluck('raw_payload')->map(fn($payload)=>is_array($payload)?($payload['whatnot_live_id']??null):null)->filter()->all();
+
+        $fromShows=Show::query()->when($channel,fn($q)=>$q->where('whatnot_channel_id',$channel->id))->whereNotNull('detail_url')->orderByDesc('show_date')->limit(20)->pluck('detail_url');foreach($fromShows as$url)if(preg_match($uuid,(string)$url,$m)&&!in_array($m[1],$avoidLiveIds,true))return$m[1];$onlyChannel=WhatnotChannel::count()===1;$fromLogs=ShowIngestionLog::query()->where('source','whatnot')->whereNotNull('raw_payload')->latest('id')->limit(50)->pluck('raw_payload');foreach($fromLogs as$payload){if(!is_array($payload))continue;$stamped=$payload['_channel_id']??null;$belongsHere=$stamped!==null?((int)$stamped===(int)$channel?->id):($onlyChannel||$channel===null);if($belongsHere&&preg_match($uuid,(string)($payload['detail_url']??''),$m)&&!in_array($m[1],$avoidLiveIds,true))return$m[1];}return null;
     }
 
     public function importShows(?WhatnotChannel $channel=null,int $limit=50,bool $debug=false,bool $withOrders=true,?callable $onProgress=null,?string $seedLiveId=null):array

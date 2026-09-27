@@ -37,6 +37,15 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'q')]
     public string $catalogSearch = '';
 
+    #[Url(as: 'sort')]
+    public string $catalogSort = 'name';
+
+    #[Url(as: 'perPage')]
+    public int $catalogPerPage = 50;
+
+    public int $catalogPage = 1;
+    public int $catalogVisible = 40;
+
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
     public ?int $quickStockScanTargetId = null;
@@ -64,8 +73,7 @@ class ListInventoryItems extends ListRecords
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = InventoryItemResource::getEloquentQuery()
-            ->with(['stock.location'])
-            ->orderBy('name');
+            ->with(['stock.location']);
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';
@@ -88,19 +96,27 @@ class ListInventoryItems extends ListRecords
             };
         }
 
+
+        $query = match ($this->catalogSort) {
+            'value' => $query->orderByDesc('stock_sum_quantity')->orderBy('name'),
+            'qty' => $query->orderByDesc('stock_sum_quantity')->orderBy('name'),
+            'newest' => $query->latest('products.created_at'),
+            default => $query->orderBy('name'),
+        };
+
         return $query;
     }
 
     #[Computed]
     public function catalogItems(): Collection
     {
-        return $this->catalogQuery()->get();
+        return $this->catalogQuery()->limit($this->catalogVisible)->get();
     }
 
     #[Computed]
     public function catalogTotal(): int
     {
-        return $this->catalogItems->count();
+        return $this->catalogQuery()->count();
     }
 
     public function filterStock(?string $status): void
@@ -117,7 +133,20 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSearch(): void
     {
+        $this->catalogVisible = 40;
         unset($this->catalogItems, $this->catalogTotal);
+    }
+
+    public function updatedCatalogSort(): void
+    {
+        $this->catalogPage = 1;
+        unset($this->catalogItems, $this->catalogTotal);
+    }
+
+    public function loadMoreCatalog(): void
+    {
+        $this->catalogVisible += 40;
+        unset($this->catalogItems);
     }
 
     public function clearCatalogSearch(): void
@@ -380,29 +409,11 @@ class ListInventoryItems extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        $user = auth()->user();
-        $canExport = fn () => $user?->isAdmin() || $user?->isOwner();
-        $canReceive = fn () => $user?->isAdmin() || $user?->isOwner();
-        $canCreate = fn () => ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
-
+        // Keep page-level actions in the purple quick-action strip below.
+        // The only Filament action retained here is the hidden modal action
+        // used by each product card's Add Stock button.
         return [
-            Action::make('scan')->label('Quick Scan')->icon('heroicon-o-qr-code')->color('primary')->url(fn () => InventoryScanner::getUrl())->visible($canReceive),
-            Action::make('import-sheet')->label('Import Sheet')->icon('heroicon-o-arrow-up-tray')->color('info')->url(fn () => ImportInventorySheet::getUrl())->visible($canReceive),
-            Action::make('receive')->label('Receive Shipment')->icon('heroicon-o-inbox-arrow-down')->color('success')->url(fn () => PalletResource::getUrl('index'))->visible($canReceive),
-            Action::make('quick-add')->label('Quick Add')->icon('heroicon-o-bolt')->color('gray')->url(fn () => InventoryItemResource::getUrl('quick-add'))->visible($canCreate),
-            Action::make('add-item')
-                ->label('Add Item')
-                ->icon('heroicon-m-plus')
-                ->color('primary')
-                ->url(fn () => InventoryItemResource::getUrl('create'))
-                ->visible($canCreate),
-            $this->addStockAction()
-                ->extraAttributes(['class' => 'hidden']),
-            ActionGroup::make([
-                Action::make('view-report')->label('View report')->icon('heroicon-o-eye')->url(route('export.inventory-pdf'))->openUrlInNewTab(),
-                Action::make('export-pdf')->label('Download PDF')->icon('heroicon-o-document-arrow-down')->url(route('export.inventory-pdf') . '?download=1')->openUrlInNewTab(),
-                Action::make('export-excel')->label('Export to Excel')->icon('heroicon-o-table-cells')->url(route('export.inventory-items'))->openUrlInNewTab(),
-            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible($canExport),
+            $this->addStockAction()->extraAttributes(['class' => 'hidden']),
         ];
     }
 }

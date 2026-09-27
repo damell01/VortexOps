@@ -70,6 +70,166 @@ class WhatnotBrowserLock
         Cache::forget(self::KEY . ':holder_pid');
     }
 
+    /** @return array{ok:bool,pid:?int,message:string,killed_pids:array<int,int>,removed:array<int,string>} */
+    public static function stopActiveOwner(): array
+    {
+        $holder = self::holder();
+        if (! $holder) {
+            self::forceRelease();
+            return ['ok' => true, 'pid' => null, 'message' => 'Browser lock was already free.', 'killed_pids' => [], 'removed' => []];
+        }
+
+        if ($holder['host'] !== gethostname()) {
+            return ['ok' => false, 'pid' => $holder['pid'], 'message' => 'Browser owner is on another host; refusing to terminate it.', 'killed_pids' => [], 'removed' => []];
+        }
+
+        $pid = (int) $holder['pid'];
+        $originalIdentity = self::processIdentity($pid);
+        if ($holder['alive']) {
+            if (! function_exists('posix_kill')) {
+                return ['ok' => false, 'pid' => $pid, 'message' => 'PHP POSIX process control is unavailable on this server; active owner was not stopped.', 'killed_pids' => [], 'removed' => []];
+            }
+
+            // The lock owner can be a wrapper (flock/PHP/Python) whose parent and
+            // children keep one another alive. Stop only the tightly-related
+            // Whatnot process tree, never arbitrary Chrome/PHP processes.
+            $tree = self::relatedWhatnotProcessTree($pid);
+            // Children first, lock owner last. Killing the wrapper first can
+            // orphan its scraper/browser descendants.
+            foreach ($tree as $target) {
+                @posix_kill($target, defined('SIGTERM') ? SIGTERM : 15);
+            }
+
+            for ($i = 0; $i < 20 && self::pidIsAlive($pid); $i++) {
+                usleep(250_000);
+            }
+
+            if (self::pidIsAlive($pid)) {
+                foreach ($tree as $target) {
+                    if (self::pidIsAlive($target)) {
+                        @posix_kill($target, defined('SIGKILL') ? SIGKILL : 9);
+                    }
+                }
+                usleep(500_000);
+            }
+
+            if (self::pidIsAlive($pid) && self::sameProcessIdentity($pid, $originalIdentity)) {
+                return [
+                    'ok' => false,
+                    'pid' => $pid,
+                    'message' => "Whatnot process tree containing PID {$pid} did not stop; lock was left intact.",
+                    'killed_pids' => array_values(array_filter($tree, fn (int $target) => ! self::pidIsAlive($target))),
+                    'removed' => [],
+                ];
+            }
+        }
+
+        self::forceRelease();
+        $result = ['recovered' => true, 'holder_pid' => $pid, 'killed_pids' => [], 'removed' => []];
+        self::recoverProfile(storage_path('whatnot-scrapling-profile'), $result);
+
+        return ['ok' => true, 'pid' => $pid, 'message' => "Stopped Whatnot process tree for PID {$pid} and released its lock.", 'killed_pids' => $result['killed_pids'], 'removed' => $result['removed']];
+    }
+
+    private static function processIdentity(int $pid): ?string
+    {
+        $stat = @file_get_contents("/proc/{$pid}/stat");
+        if (! is_string($stat) || $stat === '') return null;
+        $close = strrpos($stat, ') ');
+        if ($close === false) return null;
+        $fields = preg_split('/\\s+/', substr($stat, $close + 2));
+        // /proc/<pid>/stat field 22 is starttime; after stripping pid+comm it
+        // lands at zero-based index 19.
+        return isset($fields[19]) ? (string) $fields[19] : null;
+    }
+
+    private static function sameProcessIdentity(int $pid, ?string $identity): bool
+    {
+        if ($identity === null) return self::pidIsAlive($pid);
+        return self::pidIsAlive($pid) && self::processIdentity($pid) === $identity;
+    }
+
+    /** @return array<int,int> */
+    private static function relatedWhatnotProcessTree(int $pid): array
+    {
+        $seen = [];
+        $walk = function (int $current) use (&$walk, &$seen): void {
+            if ($current <= 1 || isset($seen[$current]) || ! self::pidIsAlive($current)) return;
+            $cmd = self::commandLine($current) ?? '';
+            if (! self::isWhatnotProcessCommand($cmd)) return;
+            $seen[$current] = $current;
+
+            foreach (glob('/proc/[0-9]*/status') ?: [] as $statusFile) {
+                $status = @file_get_contents($statusFile);
+                if (! is_string($status)
+                    || preg_match('/^Pid:\\s+(\\d+)/m', $status, $pidMatch) !== 1
+                    || preg_match('/^PPid:\\s+(\\d+)/m', $status, $ppidMatch) !== 1
+                    || (int) $ppidMatch[1] !== $current) {
+                    continue;
+                }
+                $child = (int) $pidMatch[1];
+                if (self::isWhatnotProcessCommand(self::commandLine($child) ?? '')) {
+                    $walk($child);
+                }
+            }
+        };
+
+        $walk($pid);
+
+        // Include related parents (artisan -> shell/flock -> scraper) only while
+        // they are unmistakably part of the Whatnot pipeline.
+        $current = $pid;
+        for ($i = 0; $i < 5; $i++) {
+            $status = @file_get_contents("/proc/{$current}/status") ?: '';
+            if (preg_match('/^PPid:\\s+(\\d+)/m', $status, $match) !== 1) break;
+            $parent = (int) $match[1];
+            if ($parent <= 1 || ! self::pidIsAlive($parent)) break;
+            if (! self::isWhatnotProcessCommand(self::commandLine($parent) ?? '')) break;
+            $seen[$parent] = $parent;
+            $current = $parent;
+        }
+
+        $targets = array_values($seen ?: [$pid]);
+        usort($targets, function (int $a, int $b): int {
+            $depth = function (int $target): int {
+                $d = 0;
+                while ($target > 1 && $d < 20) {
+                    $status = @file_get_contents("/proc/{$target}/status") ?: '';
+                    if (preg_match('/^PPid:\\s+(\\d+)/m', $status, $m) !== 1) break;
+                    $target = (int) $m[1];
+                    $d++;
+                }
+                return $d;
+            };
+            return $depth($b) <=> $depth($a);
+        });
+
+        return $targets;
+    }
+
+    private static function isWhatnotProcessCommand(string $command): bool
+    {
+        return $command !== '' && preg_match(
+            '/whatnot:sync-reporting|whatnot-analytics|whatnot-scrapling|whatnot-browser|storage\\/whatnot-browser\\.lock|flock.*whatnot/i',
+            $command
+        ) === 1;
+    }
+
+    public static function processDetails(?int $pid): ?array
+    {
+        if (! $pid || ! self::pidIsAlive($pid)) return null;
+        $status = @file_get_contents("/proc/{$pid}/status") ?: '';
+        preg_match('/^PPid:\\s+(\\d+)/m', $status, $ppid);
+        $started = @filemtime("/proc/{$pid}") ?: null;
+
+        return [
+            'pid' => $pid,
+            'ppid' => isset($ppid[1]) ? (int) $ppid[1] : null,
+            'command' => self::commandLine($pid),
+            'runtime_seconds' => $started ? max(0, time() - $started) : null,
+        ];
+    }
+
     /**
      * Recover only when the cache lock's recorded local owner is definitely dead.
      * The separate persistent browser service/profile is deliberately not part of
@@ -163,11 +323,14 @@ class WhatnotBrowserLock
                     continue;
                 }
 
-                @posix_kill($pid, SIGTERM);
+                if (! function_exists('posix_kill')) {
+                    continue;
+                }
+                @posix_kill($pid, defined('SIGTERM') ? SIGTERM : 15);
                 usleep(500_000);
 
                 if (self::pidIsAlive($pid)) {
-                    @posix_kill($pid, SIGKILL);
+                    @posix_kill($pid, defined('SIGKILL') ? SIGKILL : 9);
                     usleep(250_000);
                 }
 

@@ -24,17 +24,23 @@ use Illuminate\Support\HtmlString;
 
 class ShowIngestionLogResource extends Resource
 {
+    /** Super-admin diagnostics belong in navigation for owners/admins only. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug = 'streams';
     protected static ?string $model = ShowIngestionLog::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-down-tray'; }
-    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('streams'); }
-    public static function getNavigationSort(): ?int { return 4; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Super Admin'; }
+    public static function getNavigationSort(): ?int { return 20; }
     public static function getModelLabel(): string { return 'Ingestion Record'; }
     public static function getPluralModelLabel(): string { return 'Ingestion Records'; }
-    public static function getNavigationLabel(): string { return 'Ingestion'; }
+    public static function getNavigationLabel(): string { return 'Ingestion Monitor'; }
 
     public static function getNavigationBadge(): ?string
     {
@@ -340,6 +346,10 @@ class ShowIngestionLogResource extends Resource
         return $table
             ->persistFiltersInSession()
             ->deferLoading()
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->emptyStateHeading('No ingestion logs')
             ->emptyStateDescription('Whatnot jobs are logged here with their results.')
             ->emptyStateIcon('heroicon-o-arrow-down-tray')
@@ -384,8 +394,8 @@ class ShowIngestionLogResource extends Resource
                     ->color(fn ($state) => StatusColor::for($state)),
             ])
             ->defaultSort('created_at', 'desc')
-            ->striped()
-            ->paginated([15, 25, 50])
+            ->paginated([9, 18, 36])
+            ->defaultPaginationPageOption(9)
             ->groups([
                 Group::make('source')->label('Job / Pipeline')->getTitleFromRecordUsing(fn (ShowIngestionLog $record) => $record->sourceLabel()),
                 Group::make('channel.name')->label('Channel')->getTitleFromRecordUsing(fn ($record) => $record->channel?->name ?? 'All channels'),

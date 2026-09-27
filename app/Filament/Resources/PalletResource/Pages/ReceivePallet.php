@@ -499,13 +499,16 @@ class ReceivePallet extends Page
     public function finalizePallet(): void
     {
         try {
+            // receivePallet() intentionally supports two workflows:
+            // scan every case, or visually verify the delivery and receive the
+            // remaining mapped cases in one operation.
+            app(ReceivingService::class)->receivePallet($this->record);
+
             $this->record->update([
                 'status'              => 'received',
                 'received_by_name'    => $this->receivedByName,
                 'attachments_count'   => $this->record->attachments()->count(),
             ]);
-
-            app(ReceivingService::class)->receivePallet($this->record);
 
             Notification::make()
                 ->title('✓ Pallet received and finalized')
@@ -522,6 +525,25 @@ class ReceivePallet extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('complete_pallet')
+                ->label('Complete Pallet')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->size(\Filament\Support\Enums\Size::Large)
+                ->requiresConfirmation()
+                ->modalHeading('Complete this pallet?')
+                ->modalDescription(function (): string {
+                    $progress = $this->record->receivingProgress();
+                    $left = max(0, (int) $progress['expected'] - (int) $progress['received']);
+
+                    return $left > 0
+                        ? "There are {$left} unscanned case(s). Confirm only if you physically verified they are here. The remaining mapped cases will be received into inventory."
+                        : 'All expected cases are accounted for. This will finalize the pallet and move it to Received / Complete.';
+                })
+                ->modalSubmitActionLabel('Yes, complete pallet')
+                ->action(fn () => $this->finalizePallet())
+                ->visible(fn () => ! in_array($this->record->status, ['received', 'processed'], true)),
+
             // Leaving is not abandoning. A shipment turns up over days — half a
             // pallet on Tuesday, the rest on Friday — and every case scanned is
             // already committed to stock, so stopping partway needs no save and

@@ -10,6 +10,12 @@ use Livewire\WithFileUploads;
 
 class InventoryImporter extends Page
 {
+    /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use WithFileUploads;
 
     protected static ?string $title = 'Inventory Importer';

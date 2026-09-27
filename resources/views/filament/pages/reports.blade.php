@@ -21,6 +21,20 @@
 
     <div class="space-y-6">
 
+        @if ($this->inventoryReportUrl())
+            <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-gray-900 dark:text-white">Inventory Reports</div>
+                    <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Value, stock health, velocity, aging, coverage and location analysis.</div>
+                </div>
+                <a href="{{ $this->inventoryReportUrl() }}"
+                   class="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary-500">
+                    <x-heroicon-o-cube class="h-4 w-4" />
+                    Inventory Report
+                </a>
+            </div>
+        @endif
+
         {{-- Period selector + date range + export --}}
         <div class="flex flex-wrap items-center gap-2 gap-y-2">
             <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Period:</span>

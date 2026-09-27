@@ -127,7 +127,7 @@ def prepare_page(page) -> None:
 
 def extract_show(page) -> dict[str, Any]:
     raw = page.evaluate(
-        """
+        r"""
         () => {
           const text = document.body?.innerText || '';
           const title = document.querySelector('h1,h2')?.textContent?.trim() || null;
@@ -212,6 +212,7 @@ def extract_show(page) -> dict[str, Any]:
 
 
 def analytics_mode(session: DynamicSession) -> list[dict[str, Any]]:
+    info("analytics: beginning browser navigation")
     seed = START_UUID
     if not UUID_RE.fullmatch(seed):
         fail("ANALYTICS_SEED_REQUIRED: desktop Scrapling analytics requires WHATNOT_START_UUID from VortexOps bootstrap.")
@@ -244,6 +245,7 @@ def analytics_mode(session: DynamicSession) -> list[dict[str, Any]]:
             except Exception:
                 break
 
+    info("analytics: opening Whatnot dashboard")
     session.fetch(f"{BASE}/dashboard/home", page_action=action, timeout=60000, network_idle=False, google_search=False)
     info(f"analytics: collected {len(rows)} show(s)")
     return rows
@@ -251,7 +253,7 @@ def analytics_mode(session: DynamicSession) -> list[dict[str, Any]]:
 
 def extract_orders(page) -> list[dict[str, Any]]:
     return page.evaluate(
-        """
+        r"""
         () => {
           const parsePrice = (s) => {
             if (!s) return null;
@@ -334,7 +336,7 @@ def batch_mode(session: DynamicSession, shipments: bool) -> list[dict[str, Any]]
 
 def extract_shipments(page) -> list[dict[str, Any]]:
     return page.evaluate(
-        """
+        r"""
         () => {
           const rows = [];
           for (const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')) {
@@ -449,6 +451,7 @@ def main() -> None:
     # DynamicSession is intentionally used instead of StealthySession. We use the
     # operator's real Chrome + persistent authenticated profile, with no
     # solve_cloudflare, fingerprint spoofing, proxy rotation, or challenge bypass.
+    info("browser: starting installed Chrome session")
     with DynamicSession(
         headless=HEADLESS,
         real_chrome=True,
@@ -458,6 +461,7 @@ def main() -> None:
         google_search=False,
         locale="en-US",
     ) as session:
+        info("browser: Chrome session ready")
         if MODE == "analytics":
             result = analytics_mode(session)
         elif MODE == "orders-batch":

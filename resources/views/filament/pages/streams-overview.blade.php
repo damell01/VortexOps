@@ -10,6 +10,10 @@
   <a href="{{ $this->showsUrl() }}" class="vx-top-link primary">All Shows</a>
   <a href="{{ $this->shipmentsUrl() }}" class="vx-top-link">Show Shipments</a>
   @if(auth()->user()?->isAdmin() || auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin())<a href="{{ $this->fulfillmentUrl() }}" class="vx-top-link">Fulfillment Center</a>@endif
+  @if(auth()->user()?->isAdmin())
+   <a href="{{ $this->statusUrl() }}" class="vx-top-link">Show Pipeline</a>
+   <a href="{{ $this->approvalsUrl() }}" class="vx-top-link">Pending Approvals</a>
+  @endif
  </div>
 
  <section class="vx-card p-4">

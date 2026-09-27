@@ -57,12 +57,9 @@ class WhatnotScraper
         $env['WHATNOT_MODE'] = 'analytics';
         $env['WHATNOT_LIMIT'] = (string) $limit;
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
-        if ($seedLiveId) {
-            $env['WHATNOT_START_UUID'] = $seedLiveId;
-            $env['WHATNOT_EXPECTED_LIVE_ID'] = $seedLiveId;
-        }
-        if ($expectedTitle !== null && trim($expectedTitle) !== '') $env['WHATNOT_EXPECTED_TITLE'] = $expectedTitle;
-        if ($expectedDate !== null && trim($expectedDate) !== '') $env['WHATNOT_EXPECTED_DATE'] = $expectedDate;
+        // Normal imports now start from Seller Hub -> Past and use each row's
+        // own See Analytics href. Seed UUIDs are retained only for legacy callers
+        // and are intentionally not sent to the normal analytics mode.
         $timeoutSeconds = max(1200, (int) ceil($limit / 50) * 1200);
         $process = $this->makeProcess($env, timeout: $timeoutSeconds);
         $this->withBrowserLock(function () use ($process, $onProgress) {
@@ -82,6 +79,30 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
+    public function fetchSellerHubIndex(?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'reconcile-index';
+        $env['WHATNOT_RECONCILE_MAX_PASSES'] = '100';
+        if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        $timeout = 1800;
+        $process = $this->makeProcess($env, timeout: $timeout);
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            $onProgress ? $this->streamProcess($process, $onProgress) : $process->run();
+        }, waitSeconds: $timeout);
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+        if ($stderr) Log::channel('stack')->warning('Whatnot Seller Hub index stderr', ['output' => $stderr, 'channel' => $channelUsername]);
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+        if (! $process->isSuccessful()) throw new \RuntimeException('Seller Hub index failed: '.($stderr ?: "Scraper exited with code {$process->getExitCode()}"));
+        if ($stdout === '') return [];
+        $data = json_decode($stdout, true);
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data) || empty($data['_seller_hub_index'])) {
+            throw new \RuntimeException('Seller Hub index returned invalid JSON: '.json_last_error_msg());
+        }
+        return $data;
+    }
+
     public function fetchHistoricalAnalytics(
         string $since,
         ?string $channelUsername = null,
@@ -98,9 +119,11 @@ class WhatnotScraper
         }
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
 
-        // One browser/session walks the entire channel's Past shows and their
-        // analytics destinations. Avoid the old one-process-per-show pattern.
-        $timeoutSeconds = 1800;
+        // Large channels can require more than 30 minutes just to traverse the
+        // virtualized Past-show list before analytics collection begins. Scale the
+        // process timeout to the requested target count, with a six-hour ceiling.
+        $targetCount = max(1, count($targetLiveIds));
+        $timeoutSeconds = max(3600, min(21600, 1800 + ($targetCount * 45)));
         $process = $this->makeProcess($env, timeout: $timeoutSeconds);
         $this->withBrowserLock(function () use ($process, $onProgress) {
             $onProgress ? $this->streamProcess($process, $onProgress) : $process->run();
@@ -268,7 +291,7 @@ class WhatnotScraper
 
     protected function withBrowserLock(callable $fn,?int $waitSeconds=null)
     {
-        $waitSeconds??=(int)config('vortex.whatnot.browser_lock_wait',1200);$lock=\App\Support\WhatnotBrowserLock::make();if(!$lock->get()){self::announceLockWait();try{$lock->block($waitSeconds);}catch(\Illuminate\Contracts\Cache\LockTimeoutException $e){throw new \RuntimeException('Timed out waiting for the shared Whatnot browser lock.',0,$e);}}try{return$fn();}finally{$lock->release();}
+        $waitSeconds??=(int)config('vortex.whatnot.browser_lock_wait',1200);$lock=\App\Support\WhatnotBrowserLock::make();if(!$lock->get()){if((bool)config('vortex.whatnot.browser_lock_fail_fast',false)){throw new \RuntimeException('Shared Whatnot browser is already active; scheduled run will not wait or pile up.');}self::announceLockWait();try{$lock->block($waitSeconds);}catch(\Illuminate\Contracts\Cache\LockTimeoutException $e){throw new \RuntimeException('Timed out waiting for the shared Whatnot browser lock.',0,$e);}}try{return$fn();}finally{$lock->release();}
     }
 
     public static function announceLockWait():void
@@ -296,7 +319,7 @@ class WhatnotScraper
 
     public function importShows(?WhatnotChannel $channel=null,int $limit=50,bool $debug=false,bool $withOrders=true,?callable $onProgress=null,?string $seedLiveId=null):array
     {
-        $seedLiveId??=$this->seedLiveIdFor($channel);if($seedLiveId&&$onProgress)$onProgress("Starting the analytics walk from a known show ({$seedLiveId})");try{$rows=$this->fetchShows($limit,$debug,$channel?->whatnot_username,$onProgress,$seedLiveId);}catch(\Throwable$e){ShowIngestionLog::create(['whatnot_channel_id'=>$channel?->id,'source'=>'whatnot','status'=>'failed','error_message'=>$e->getMessage(),'raw_payload'=>['channel'=>$channel?->name,'limit'=>$limit]]);throw$e;}$created=0;$updated=0;$skipped=0;if($onProgress)$onProgress(sprintf('Fetched %d show(s) from Whatnot — importing…',count($rows)));$orderTargets=[];
+        if($onProgress)$onProgress("Loading recent Seller Hub Past shows and their See Analytics links");try{$rows=$this->fetchShows($limit,$debug,$channel?->whatnot_username,$onProgress);}catch(\Throwable$e){ShowIngestionLog::create(['whatnot_channel_id'=>$channel?->id,'source'=>'whatnot','status'=>'failed','error_message'=>$e->getMessage(),'raw_payload'=>['channel'=>$channel?->name,'limit'=>$limit]]);throw$e;}$created=0;$updated=0;$skipped=0;if($onProgress)$onProgress(sprintf('Fetched %d show(s) from Whatnot — importing…',count($rows)));$orderTargets=[];
         foreach($rows as$row){$row['_channel_id']=$channel?->id;if(empty($row['title'])&&empty($row['show_date'])){$skipped++;ShowIngestionLog::create(['whatnot_channel_id'=>$channel?->id,'source'=>'whatnot','status'=>'failed','error_message'=>'Scraped row had no title or show_date — could not identify the show.','raw_payload'=>$row]);if($onProgress)$onProgress('Skipped: row had no title or show date');continue;}$lookupTitle=$row['title']?trim($row['title']):null;$lookupDate=$row['show_date']??null;if(!$lookupDate&&filled($row['show_date_raw']??null))try{$parsed=$this->parseScrapedTimestamp($row['show_date_raw']);$lookupDate=$parsed->toDateString();$row['show_date']=$lookupDate;$row['start_time']??=$parsed->format('H:i:s');}catch(\Throwable){}$query=Show::query()->where('import_source','auto_whatnot');if($lookupTitle&&$lookupDate)$query->where('title',$lookupTitle)->whereDate('show_date',$lookupDate);elseif($lookupTitle)$query->where('title',$lookupTitle);elseif($lookupDate)$query->whereDate('show_date',$lookupDate);else{$skipped++;continue;}$existing=$query->first();$payload=array_filter(['whatnot_channel_id'=>$channel?->id,'title'=>$lookupTitle,'show_date'=>$lookupDate,'start_time'=>$row['start_time']??null,'end_time'=>$row['end_time']??null,'show_duration'=>$row['show_duration']??null,'gross_revenue'=>$row['gross_revenue']??null,'whatnot_net'=>$row['whatnot_net']??null,'tips'=>$row['tips']??null,'units_sold'=>$row['units_sold']??null,'detail_url'=>$row['detail_url']??null,'completed_earnings'=>$row['completed_earnings']??null,'avg_order_value'=>$row['avg_order_value']??null,'giveaway_spend'=>$row['giveaway_spend']??null,'giveaways_count'=>$row['giveaways_count']??null,'buyers_count'=>$row['buyers_count']??null,'first_time_buyers'=>$row['first_time_buyers']??null,'returning_buyers'=>$row['returning_buyers']??null,'shares_count'=>$row['shares_count']??null,'max_concurrent_viewers'=>$row['max_concurrent_viewers']??null,'total_views'=>$row['total_views']??null,'avg_order_rating'=>$row['avg_order_rating']??null,'import_source'=>'auto_whatnot'],fn($v)=>$v!==null);
             if($existing){$updateFields=array_intersect_key($payload,array_flip(['gross_revenue','whatnot_net','tips','units_sold','show_duration','detail_url','start_time','end_time','completed_earnings','avg_order_value','giveaway_spend','giveaways_count','buyers_count','first_time_buyers','returning_buyers','shares_count','max_concurrent_viewers','total_views','avg_order_rating']));$updateFields=array_filter($updateFields,function($value,$field)use($existing){$current=$existing->{$field};if(is_numeric($current)&&is_numeric($value))return abs((float)$current-(float)$value)>0.0001;return (string)($current??'')!==(string)($value??'');},ARRAY_FILTER_USE_BOTH);if($channel&&$existing->whatnot_channel_id&&(int)$existing->whatnot_channel_id!==(int)$channel->id)$updateFields['channel_attribution_suspect']=true;if(in_array($existing->status,['pending_approval','reconciled','closed'],true)){$changes=[];foreach(['gross_revenue','whatnot_net','tips','units_sold']as$field){if(!array_key_exists($field,$updateFields))continue;$old=(float)$existing->{$field};$new=(float)$updateFields[$field];if(abs($old-$new)>0.01)$changes[]="{$field}: {$old} → {$new}";}if(!empty($changes)){$updateFields['financials_revised_after_lock']=true;$updateFields['revision_notes']=trim(($existing->revision_notes?$existing->revision_notes."\n":'').now()->format('M j, Y g:ia').' — '.implode('; ',$changes));}}if(!empty($updateFields)){$existing->trackChanges($updateFields,'whatnot_import');$existing->update($updateFields);$updated++;ShowIngestionLog::create(['show_id'=>$existing->id,'whatnot_channel_id'=>$existing->whatnot_channel_id??$channel?->id,'source'=>'whatnot','status'=>'success','raw_payload'=>$row]);if($onProgress)$onProgress("Updated: \"{$existing->title}\" ({$lookupDate}) — ".implode(', ',array_keys($updateFields)));}else{$skipped++;if($onProgress)$onProgress("Unchanged: \"{$existing->title}\" ({$lookupDate}) — already up to date");}$showModel=$existing;if($showModel->streamers()->count()===0)$showModel->detectStreamers();}
             else{if(!$lookupDate){$skipped++;continue;}$status=($payload['units_sold']??0)>0?'mapping':'draft';$show=Show::create(array_merge($payload,['status'=>$status,'created_by'=>auth()->id()??1]));$show->detectStreamers();$created++;$showModel=$show;ShowIngestionLog::create(['show_id'=>$show->id,'whatnot_channel_id'=>$show->whatnot_channel_id??$channel?->id,'source'=>'whatnot','status'=>'success','raw_payload'=>$row]);if($onProgress)$onProgress("Created: \"{$show->title}\" ({$lookupDate})");}$this->ensureStreamerLogEntry($showModel);$liveId=$row['whatnot_live_id']??$this->extractLiveIdFromUrl($row['detail_url']??null);if($withOrders&&$liveId)$orderTargets[]=['show'=>$showModel,'live_id'=>$liveId];}

@@ -14,10 +14,9 @@ return [
         // file returns null the moment the config is cached.
         'cookies_file' => env('WHATNOT_COOKIES_FILE'),
 
-        // Browser runtime. `scrapling` routes through the StealthySession adapter
-        // and launches its own persistent Chrome profile by default. `local` keeps
-        // the legacy Node/Playwright engine; `attached`/CDP is diagnostic only.
-        'browser_backend' => env('WHATNOT_BROWSER_BACKEND', 'local'),
+        // Production browser runtime: Scrapling StealthySession only. Legacy
+        // Node/Playwright paths are not eligible for production data ingestion.
+        'browser_backend' => 'scrapling',
         'steel_base_url'  => env('STEEL_BASE_URL', 'http://127.0.0.1:3000'),
 
         // Scrapling owns the production browser lifecycle. CDP can still be
@@ -30,7 +29,8 @@ return [
         'scrapling_block_webrtc' => filter_var(env('WHATNOT_SCRAPLING_BLOCK_WEBRTC', false), FILTER_VALIDATE_BOOLEAN),
         'scrapling_hide_canvas' => filter_var(env('WHATNOT_SCRAPLING_HIDE_CANVAS', false), FILTER_VALIDATE_BOOLEAN),
         'scrapling_allow_webgl' => filter_var(env('WHATNOT_SCRAPLING_ALLOW_WEBGL', true), FILTER_VALIDATE_BOOLEAN),
-        'scraper_fallback' => filter_var(env('WHATNOT_SCRAPER_FALLBACK', false), FILTER_VALIDATE_BOOLEAN),
+        // Never fall back from Scrapling to the legacy Playwright scraper.
+        'scraper_fallback' => false,
 
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),

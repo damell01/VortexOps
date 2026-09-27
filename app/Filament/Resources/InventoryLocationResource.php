@@ -33,6 +33,12 @@ use Illuminate\Support\Str;
 
 class InventoryLocationResource extends Resource
 {
+    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'inventory';

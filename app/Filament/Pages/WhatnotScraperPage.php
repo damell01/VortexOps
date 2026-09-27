@@ -40,6 +40,17 @@ class WhatnotScraperPage extends Page
         return 'filament.pages.whatnot-scraper';
     }
 
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->isSuperAdmin();
+    }
+
+    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     // ── State ─────────────────────────────────────────────────────────────────
 
     public string $testResult   = '';

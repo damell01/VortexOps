@@ -102,31 +102,92 @@ def ensure_channel(page, requested: str) -> str:
                 3,
             )
 
-    page.wait_for_timeout(600)
+    page.wait_for_timeout(1500)
 
-    switcher = page.locator("#team-invite-switch-role-anchor").first
-    try:
-        switcher.click(timeout=8000, force=True)
-    except Exception as first_exc:
+    # Proven July flow: opening the avatar/profile drawer is only step one.
+    # The channel choices are not rendered until "Switch Role" is clicked.
+    # Keep the current direct-ID path, but also use the old text/DOM fallbacks.
+    switch_role_opened = False
+    for _ in range(3):
         try:
-            clicked = page.evaluate(r"""
+            node = page.get_by_text(re.compile(r"^\\s*Switch Role\\s*$", re.I)).first
+            if node.is_visible(timeout=1000):
+                node.click(timeout=5000, force=True)
+                switch_role_opened = True
+                break
+        except Exception:
+            pass
+        try:
+            switch_role_opened = bool(page.evaluate(r"""
             () => {
-              const el = document.querySelector('#team-invite-switch-role-anchor');
+              const byId = document.querySelector('#team-invite-switch-role-anchor');
+              if (byId) { byId.click(); return true; }
+              const nodes = [...document.querySelectorAll('button,a,[role="button"],div,h4')];
+              const el = nodes.find(n => /^\\s*Switch Role\\s*$/i.test((n.innerText || n.textContent || '').trim()));
               if (!el) return false;
-              el.click();
+              (el.closest('button,a,[role="button"]') || el).click();
               return true;
             }
-            """)
-            if not clicked:
-                raise RuntimeError("switch-role element not found")
-        except Exception as fallback_exc:
-            fail(
-                f"CHANNEL_SWITCH_FAILED: could not open role picker for "
-                f"@{requested}: {first_exc}; fallback={fallback_exc}",
-                3,
-            )
+            """))
+            if switch_role_opened:
+                break
+        except Exception:
+            pass
+        page.wait_for_timeout(500)
 
-    page.wait_for_timeout(700)
+    page.wait_for_timeout(1500)
+
+    # The current Seller Hub sometimes renders the Switch Role button while
+    # Playwright/Scrapling still considers its click action unfinished. Prefer
+    # a DOM click first, then fall back to the locator. Success is determined by
+    # the role picker appearing, not by click() returning.
+    switch_error = None
+    try:
+        clicked = page.evaluate(r"""
+        () => {
+          const el = document.querySelector('#team-invite-switch-role-anchor');
+          if (!el) return false;
+          el.click();
+          return true;
+        }
+        """)
+        if not clicked:
+            raise RuntimeError("switch-role element not found")
+    except Exception as exc:
+        switch_error = exc
+        try:
+            page.locator("#team-invite-switch-role-anchor").first.click(timeout=3000, force=True)
+        except Exception as locator_exc:
+            switch_error = locator_exc
+
+    role_picker_open = False
+    for _ in range(12):
+        try:
+            role_picker_open = bool(page.evaluate(r"""
+            () => {
+              const selectors = [
+                'button[formaction*="switch-role"]',
+                'form[action*="switch-role"] button',
+                'button img[alt]',
+                '[role="button"] img[alt]'
+              ];
+              return selectors.some(s => document.querySelector(s));
+            }
+            """))
+        except Exception:
+            role_picker_open = False
+        if role_picker_open:
+            break
+        page.wait_for_timeout(250)
+
+    if not role_picker_open:
+        fail(
+            f"CHANNEL_SWITCH_FAILED: role picker did not appear for "
+            f"@{requested}: {switch_error or 'switch click produced no picker'}",
+            3,
+        )
+
+    page.wait_for_timeout(300)
     target = None
 
     candidate_selectors = [
@@ -155,7 +216,17 @@ def ensure_channel(page, requested: str) -> str:
             except Exception:
                 pass
 
-            if norm(requested) in {norm(text), norm(alt)}:
+            # Role buttons include the username plus role text, e.g.
+            # "V vortexbreaks Admin". The proven UI exposes the requested
+            # username inside that button; exact whole-button equality rejects it.
+            text_norm = norm(text)
+            alt_norm = norm(alt)
+            wanted_norm = norm(requested)
+            if wanted_norm and (
+                alt_norm == wanted_norm
+                or text_norm == wanted_norm
+                or wanted_norm in text_norm
+            ):
                 target = candidate
                 info(
                     f"CHANNEL_ROLE_FOUND requested=@{requested} "
@@ -182,7 +253,13 @@ def ensure_channel(page, requested: str) -> str:
                   for (const el of elements) {
                     const alt = el.getAttribute?.('alt') || '';
                     const text = el.innerText || el.textContent || '';
-                    if (norm(alt) !== wanted && norm(text) !== wanted) continue;
+                    const normalizedText = norm(text);
+                    const normalizedAlt = norm(alt);
+                    if (
+                      normalizedAlt !== wanted &&
+                      normalizedText !== wanted &&
+                      !normalizedText.includes(wanted)
+                    ) continue;
 
                     const clickable =
                       el.closest('button') ||
@@ -486,6 +563,18 @@ def page_signature(page, shipments: bool) -> str:
 
 
 def advance_next_page(page, previous_signature: str, shipments: bool) -> tuple[bool, str]:
+    """Advance exactly once and wait for that one navigation to settle.
+
+    Whatnot can leave the old Next button actionable while React is replacing
+    the table. Reusing a locator click during that transition can advance two
+    cursors. A DOM click is synchronous, and we immediately wait for either the
+    URL or table signature to change before allowing another pagination step.
+    """
+    try:
+        before_url = page.url
+    except Exception:
+        before_url = ""
+
     try:
         state = page.evaluate(r"""
         () => {
@@ -497,43 +586,38 @@ def advance_next_page(page, previous_signature: str, shipments: bool) -> tuple[b
             || button.getAttribute('aria-disabled') === 'true'
             || button.matches('[disabled]')
             || button.classList.contains('cursor-not-allowed');
-          return {found:true, disabled};
+          if (disabled) return {found:true, disabled:true};
+          button.click();
+          return {found:true, disabled:false};
         }
         """)
     except Exception as exc:
-        info(f"pagination: could not inspect Next button: {exc}")
+        info(f"pagination: could not click Next button: {exc}")
         return False, previous_signature
 
     if not state or not state.get("found") or state.get("disabled"):
         return False, previous_signature
 
-    next_button = page.locator('button[aria-label="Next page"], button[aria-label="Next Page"], button:has(svg[aria-label="Next page"]), button:has(svg[aria-label="Next Page"])').first
-    try:
-        next_button.click(timeout=5000, force=True)
-    except Exception:
-        try:
-            clicked = page.evaluate(r"""
-            () => {
-              const svg = document.querySelector('svg[aria-label="Next page"], svg[aria-label="Next Page"]');
-              const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"], button[aria-label="Next Page"]');
-              if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
-              button.click();
-              return true;
-            }
-            """)
-            if not clicked:
-                return False, previous_signature
-        except Exception:
-            return False, previous_signature
-
-    for _ in range(20):
+    for _ in range(40):
         page.wait_for_timeout(250)
         check_login(page)
+        try:
+            current_url = page.url
+        except Exception:
+            current_url = ""
         current_signature = page_signature(page, shipments)
-        if current_signature and current_signature != previous_signature:
+        url_changed = bool(before_url and current_url and current_url != before_url)
+        signature_changed = bool(current_signature and current_signature != previous_signature)
+        if signature_changed:
+            # Give the React table a brief settling period before the caller
+            # reads rows or exposes the Next control again.
+            page.wait_for_timeout(350)
             return True, current_signature
+        if url_changed:
+            # Cursor changed but rows have not rendered yet; keep waiting.
+            continue
 
-    info("pagination: Next was clickable but the table did not change; stopping to avoid repeating one page")
+    info("pagination: Next was clicked once but the table did not change; stopping")
     return False, previous_signature
 
 
@@ -673,6 +757,14 @@ def main():
             result = batch(session, True)
         elif MODE == 'ledger':
             result = ledger(session)
+        elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index')):
+            result = globals()['reconcile_index'](session)
+        elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index_handler')):
+            result = globals()['reconcile_index_handler'](session)
+        elif MODE == 'historical-analytics' and callable(globals().get('historical_analytics')):
+            result = globals()['historical_analytics'](session)
+        elif MODE == 'historical-analytics' and callable(globals().get('historical_analytics_handler')):
+            result = globals()['historical_analytics_handler'](session)
         else:
             fail(f"SCRAPLING_MODE_UNSUPPORTED: {MODE}")
     json.dump(result, sys.stdout, separators=(',', ':'))

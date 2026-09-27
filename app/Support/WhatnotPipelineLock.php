@@ -78,6 +78,12 @@ class WhatnotPipelineLock
         }
     }
 
+    public static function forceRelease(): void
+    {
+        Cache::lock(self::KEY)->forceRelease();
+        Cache::forget(self::HOLDER_KEY);
+    }
+
     public static function recoverIfStale(): bool
     {
         $holder = self::holder();

@@ -26,6 +26,12 @@ use App\Support\NavVisibility;
 
 class InventoryScanner extends Page
 {
+    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasModuleAccess, WithFileUploads;
 
     protected static string $moduleSlug  = 'inventory';

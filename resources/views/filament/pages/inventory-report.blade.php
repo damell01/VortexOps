@@ -1,206 +1,97 @@
 <x-filament-panels::page>
-    @php
-        $data = $this->getData();
-        $snapshot = $data['currentSnapshot'];
-        $trendData = $data['trendData'];
-        $itemDetails = $data['itemDetails'];
-        $stocks = $data['stocks'];
-    @endphp
-
-    <div class="space-y-6">
-
-        {{-- Export Button --}}
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Valuation Report</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">As of {{ $snapshot->snapshot_date->format('M d, Y g:i A') }}</p>
-            </div>
-            <button type="button"
-                    wire:click="exportPdf"
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
-                <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                Export PDF
-            </button>
-        </div>
-
-        {{-- Key Metrics Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Inventory Value</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
-                    ${{ number_format($snapshot->total_value, 2) }}
-                </p>
-                @php
-                    $prevSnapshot = \App\Models\InventorySnapshot::where('snapshot_date', '<', $snapshot->snapshot_date)->latest('snapshot_date')->first();
-                    $valueDiff = $prevSnapshot ? $snapshot->total_value - $prevSnapshot->total_value : 0;
-                    $valueDiffPct = $prevSnapshot && $prevSnapshot->total_value > 0 ? (($valueDiff / $prevSnapshot->total_value) * 100) : 0;
-                @endphp
-                @if ($valueDiff != 0)
-                    <p class="text-xs font-medium mt-2 {{ $valueDiff > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
-                        {{ $valueDiff > 0 ? '↑' : '↓' }} ${{ abs($valueDiff) }} ({{ number_format($valueDiffPct, 1) }}%)
-                    </p>
-                @endif
-            </div>
-
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Items</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $snapshot->total_items }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">SKUs in inventory</p>
-            </div>
-
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Units</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($snapshot->total_quantity) }}</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Quantity on hand</p>
-            </div>
-
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stock Alerts</p>
-                <p class="mt-2 text-3xl font-bold text-amber-600 dark:text-amber-400">
-                    {{ collect($snapshot->stock_outs ?? [])->count() }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Items out of stock</p>
-            </div>
-        </div>
-
-        {{-- Value Trend Chart --}}
-        @if ($trendData->count() > 1)
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">30-Day Value Trend</h3>
-                <div class="space-y-4">
-                    <div class="flex items-end justify-between h-32 gap-1">
-                        @php
-                            $maxValue = $trendData->max('value') ?: 1;
-                            $minValue = $trendData->min('value') ?: 0;
-                            $range = $maxValue - $minValue ?: 1;
-                        @endphp
-                        @foreach ($trendData as $trend)
-                            @php
-                                $height = (($trend['value'] - $minValue) / $range) * 100;
-                            @endphp
-                            <div class="flex-1 flex flex-col items-center justify-end">
-                                <div class="w-full bg-primary-500 rounded-t" style="height: {{ max(5, $height) }}%"></div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ $trend['date'] }}</p>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        @endif
-
-        {{-- Breakdown by Location --}}
-        @if ($snapshot->location_breakdown)
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Inventory by Location</h3>
-                <div class="space-y-3">
-                    @foreach ($snapshot->location_breakdown as $locId => $location)
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                            <div>
-                                <p class="font-medium text-gray-900 dark:text-gray-100">{{ $location['name'] }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($location['quantity']) }} units</p>
-                            </div>
-                            <p class="font-semibold text-gray-900 dark:text-gray-100">${{ number_format($location['value'], 2) }}</p>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- Breakdown by Type --}}
-        @if ($snapshot->item_type_breakdown)
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Inventory by Type</h3>
-                <div class="space-y-3">
-                    @foreach ($snapshot->item_type_breakdown as $type => $data)
-                        <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
-                            <div>
-                                <p class="font-medium text-gray-900 dark:text-gray-100">{{ ucfirst(str_replace('_', ' ', $type)) }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($data['quantity']) }} units</p>
-                            </div>
-                            <p class="font-semibold text-gray-900 dark:text-gray-100">${{ number_format($data['value'], 2) }}</p>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- Slow-Moving Items --}}
-        @if ($snapshot->slow_moving_items && count($snapshot->slow_moving_items) > 0)
-            <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-6">
-                <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100 mb-4">⏸️ Slow-Moving Items (30+ days)</h3>
-                <div class="space-y-2">
-                    @foreach ($snapshot->slow_moving_items as $item)
-                        <div class="flex items-center justify-between p-2 text-sm">
-                            <span class="text-amber-900 dark:text-amber-100">{{ $item['name'] }}</span>
-                            <span class="text-amber-700 dark:text-amber-300">{{ $item['quantity'] }} units • ${{ number_format($item['value'], 2) }}</span>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- Stock Outs --}}
-        @if ($snapshot->stock_outs && count($snapshot->stock_outs) > 0)
-            <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
-                <h3 class="text-sm font-semibold text-red-900 dark:text-red-100 mb-4">🔴 Out of Stock</h3>
-                <div class="space-y-2">
-                    @foreach ($snapshot->stock_outs as $item)
-                        <div class="flex items-center justify-between p-2 text-sm">
-                            <span class="text-red-900 dark:text-red-100">{{ $item['name'] }}</span>
-                            <span class="text-xs text-red-700 dark:text-red-300 font-mono">{{ $item['sku'] ?? 'N/A' }}</span>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-        @endif
-
-        {{-- Detailed Item List --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Inventory Details</h3>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                            <th class="px-6 py-3 text-left font-medium text-gray-700 dark:text-gray-300">SKU / Name</th>
-                            <th class="px-6 py-3 text-left font-medium text-gray-700 dark:text-gray-300">Location</th>
-                            <th class="px-6 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Qty</th>
-                            <th class="px-6 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Unit Cost</th>
-                            <th class="px-6 py-3 text-right font-medium text-gray-700 dark:text-gray-300">Total Value</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @forelse ($itemDetails as $item)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $item['is_low_stock'] ? 'bg-amber-50 dark:bg-amber-900/10' : '' }}">
-                                <td class="px-6 py-3">
-                                    <div>
-                                        <p class="font-medium text-gray-900 dark:text-gray-100">{{ $item['name'] }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</p>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-3 text-gray-600 dark:text-gray-300">{{ $item['location'] }}</td>
-                                <td class="px-6 py-3 text-right">
-                                    {{ $item['quantity'] }}
-                                    @if ($item['is_low_stock'])
-                                        <span class="text-amber-600 dark:text-amber-400 text-xs ml-1">⚠️</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-3 text-right text-gray-600 dark:text-gray-300">${{ number_format($item['unit_cost'], 2) }}</td>
-                                <td class="px-6 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">${{ number_format($item['total_value'], 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                                    No inventory items found
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+@php
+ $data=$this->getViewerData(); $summary=$data['summary']; $items=collect($data['items']); $trend=collect($data['trend']); $locations=collect($data['locations']); $categories=collect($data['category_breakdown']);
+ $visible = match($activeTab) {
+  'low-stock' => $items->where('is_low_stock', true)->values(),
+  'out-stock' => $items->where('is_out_stock', true)->values(),
+  'top-value' => $items->where('quantity','>',0)->sortByDesc('total_value')->take(25)->values(),
+  default => $items->values(),
+ };
+ $recentRows = $activeTab === 'recent' ? collect($this->getRecentActivityRows()) : collect();
+ $movingRows = $activeTab === 'moving' ? collect($this->getTopMovingRows()) : collect();
+ $maxTrend=max(1,(float)$trend->max('value')); $maxLocation=max(1,(float)$locations->max('quantity')); $totalQty=max(1,(float)$categories->sum('quantity'));
+@endphp
+<style>
+.vx-report{--vx-purple:#6d28d9}.vx-dashboard-layout{display:grid;grid-template-columns:236px minmax(0,1fr);gap:14px;align-items:start}.vx-builder-panel{position:sticky;top:76px;padding:14px}.vx-builder-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid #e5e7eb;border-radius:9px;overflow:hidden}.vx-builder-tab{padding:8px;font-size:.7rem;font-weight:800;text-align:center}.vx-builder-tab.active{background:#faf5ff;color:#6d28d9;box-shadow:inset 0 0 0 1px #8b5cf6}.vx-builder-field{margin-top:13px}.vx-builder-label{display:block;margin-bottom:5px;font-size:.67rem;font-weight:750;color:#475569}.vx-builder-input{width:100%;min-height:36px;border:1px solid #e2e8f0!important;border-radius:8px!important;background:#fff!important;font-size:.7rem!important}.vx-range{display:grid;grid-template-columns:1fr 1fr;gap:7px}.vx-dashboard-main{min-width:0;display:flex;flex-direction:column;gap:12px}.dark .vx-builder-input{background:#111827!important;border-color:#374151!important}.vx-quick-reports{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:8px}.vx-quick{display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;text-align:left;transition:.15s}.vx-quick:hover{border-color:#a78bfa;box-shadow:0 2px 8px rgba(109,40,217,.08)}.vx-quick.active{border-color:#8b5cf6;background:#faf5ff}.dark .vx-quick{background:#111827;border-color:#374151}.vx-quick-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;flex:none}.vx-quick-icon svg{width:19px;height:19px}.vx-quick-title{font-size:.7rem;font-weight:800;line-height:1.15}.vx-quick-sub{font-size:.61rem;color:#64748b;margin-top:2px;line-height:1.2}.vx-builder-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.vx-builder-actions{display:flex;gap:8px;align-items:center}.vx-report-sheet{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.04);overflow:hidden}.dark .vx-report-sheet{background:#111827;border-color:#374151}.vx-sheet-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;border-bottom:1px solid #e5e7eb}.dark .vx-sheet-toolbar{border-color:#374151}.vx-report-head{display:flex;align-items:end;justify-content:space-between;gap:18px}.vx-report-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}.vx-filter-row{display:grid;grid-template-columns:minmax(260px,1.8fr) repeat(3,minmax(150px,.65fr));gap:10px}.vx-filter-control{min-height:42px;border:1px solid #e2e8f0!important;border-radius:10px!important;background:#fff!important;font-size:.78rem!important}.dark .vx-filter-control{background:#111827!important;border-color:#374151!important}.vx-icon-kpi{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;flex:none}.vx-icon-kpi svg{width:22px;height:22px}.vx-icon-purple{background:#ede9fe;color:#7c3aed}.vx-icon-blue{background:#e0e7ff;color:#4f46e5}.vx-icon-green{background:#dcfce7;color:#16a34a}.vx-icon-orange{background:#ffedd5;color:#ea580c}.vx-kpi-copy{min-width:0;flex:1}.vx-kpi-change{margin-top:6px;font-size:.72rem;font-weight:700;color:#16a34a}.vx-kpi-sub{font-size:.68rem;color:#64748b;margin-top:1px}.vx-r-card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.03)}.dark .vx-r-card{background:#111827;border-color:#374151}.vx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.vx-kpi{padding:18px;display:flex;gap:14px;align-items:flex-start}.vx-kpi-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#f3e8ff;color:#7c3aed;flex:none}.vx-kpi-icon svg{width:23px;height:23px}.vx-kpi-value{font-size:1.55rem;line-height:1.1;font-weight:800;margin-top:6px}.vx-report-grid{display:grid;grid-template-columns:1.2fr .9fr 1fr;gap:12px}.vx-chart{height:170px;display:flex;align-items:end;gap:5px;padding-top:18px}.vx-bar{flex:1;min-width:5px;border-radius:5px 5px 0 0;background:linear-gradient(180deg,#7c3aed,#a78bfa);opacity:.9}.vx-loc-row{display:grid;grid-template-columns:110px 1fr 72px;align-items:center;gap:8px;margin-top:12px}.vx-track{height:9px;border-radius:999px;background:#f1f5f9;overflow:hidden}.dark .vx-track{background:#263248}.vx-fill{height:100%;border-radius:999px;background:#8b5cf6}.vx-tabs{display:flex;gap:4px;overflow:auto;border-bottom:1px solid #e5e7eb}.dark .vx-tabs{border-color:#374151}.vx-tab{padding:12px 14px;white-space:nowrap;font-size:.78rem;font-weight:750;color:#64748b;border-bottom:2px solid transparent}.vx-tab.active{color:#6d28d9;border-color:#6d28d9}.vx-table{width:100%;border-collapse:collapse}.vx-table th{padding:10px 12px;text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;background:#f8fafc}.dark .vx-table th{background:#182235}.vx-table td{padding:12px;border-top:1px solid #f1f5f9;font-size:.78rem}.dark .vx-table td{border-color:#263248}.vx-pill{display:inline-flex;border-radius:8px;padding:4px 8px;background:#ecfdf5;color:#047857;font-weight:800}.vx-export{position:relative}.vx-export-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:210px;border:1px solid #e5e7eb;border-radius:12px;background:white;padding:6px;box-shadow:0 16px 40px rgba(15,23,42,.14)}.dark .vx-export-menu{background:#111827;border-color:#374151}.vx-export-menu button{display:flex;width:100%;padding:9px 10px;border-radius:8px;font-size:.8rem;font-weight:650}.vx-export-menu button:hover{background:#f8fafc}.dark .vx-export-menu button:hover{background:#1f2937}@media(max-width:1250px){.vx-quick-reports{grid-template-columns:repeat(4,1fr)}}@media(max-width:1100px){.vx-dashboard-layout{grid-template-columns:1fr}.vx-builder-panel{position:static}.vx-builder-fields{display:grid;grid-template-columns:repeat(2,1fr);gap:0 12px}}@media(max-width:1000px){.vx-kpis{grid-template-columns:repeat(2,1fr)}.vx-report-grid{grid-template-columns:1fr}.vx-filter-row{grid-template-columns:1fr 1fr}.vx-report-head{align-items:flex-start;flex-direction:column}.vx-report-actions{justify-content:flex-start}}@media(max-width:640px){.vx-builder-fields{grid-template-columns:1fr}.vx-quick-reports{grid-template-columns:1fr 1fr}.vx-filter-row{grid-template-columns:1fr}.vx-kpis{grid-template-columns:1fr 1fr}.vx-kpi{padding:13px}.vx-kpi-value{font-size:1.15rem}.vx-report-table{overflow:auto}.vx-table{min-width:760px}}
+</style>
+<div class="vx-report space-y-4">
+ <div class="vx-report-head">
+  <div><h2 class="text-2xl font-bold tracking-tight">Inventory Report</h2><p class="mt-1 text-sm text-gray-500">View your inventory value, quantities, item breakdowns and detailed insights.</p></div>
+  <div class="vx-report-actions">
+   <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-left class="h-4 w-4"/> All Inventory</a>
+   <div x-data="{open:false}" class="vx-export">
+    <button @click="open=!open" class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-primary-700"><x-heroicon-o-arrow-down-tray class="h-4 w-4"/> Export <x-heroicon-o-chevron-down class="h-4 w-4"/></button>
+    <div x-cloak x-show="open" @click.outside="open=false" class="vx-export-menu">
+     <button wire:click="exportPdf"><x-heroicon-o-document-text class="mr-2 h-4 w-4"/> Export to PDF</button><button wire:click="exportCsv"><x-heroicon-o-table-cells class="mr-2 h-4 w-4"/> Export to CSV</button><button onclick="window.print()"><x-heroicon-o-printer class="mr-2 h-4 w-4"/> Print Report</button>
     </div>
+   </div>
+  </div>
+ </div>
+
+ <div class="vx-r-card p-2.5">
+  <div class="mb-2 px-1 text-xs font-extrabold uppercase tracking-wide text-gray-500">Quick Reports</div>
+  <div class="vx-quick-reports">
+   <button wire:click="applyQuickReport('current')" class="vx-quick {{ $reportStock==='in' && $activeTab==='items'?'active':'' }}"><span class="vx-quick-icon vx-icon-purple"><x-heroicon-o-cube/></span><span><div class="vx-quick-title">Current Inventory</div><div class="vx-quick-sub">All stock on hand</div></span></button>
+   <button wire:click="applyQuickReport('valuation')" class="vx-quick"><span class="vx-quick-icon vx-icon-blue"><x-heroicon-o-currency-dollar/></span><span><div class="vx-quick-title">Inventory Valuation</div><div class="vx-quick-sub">Total value & cost</div></span></button>
+   <button wire:click="resetReportFilters" class="vx-quick"><span class="vx-quick-icon" style="background:#dbeafe;color:#2563eb"><x-heroicon-o-map-pin/></span><span><div class="vx-quick-title">Stock by Location</div><div class="vx-quick-sub">Warehouse breakdown</div></span></button>
+   <button wire:click="applyQuickReport('low-stock')" class="vx-quick {{ $activeTab==='low-stock'?'active':'' }}"><span class="vx-quick-icon vx-icon-orange"><x-heroicon-o-exclamation-triangle/></span><span><div class="vx-quick-title">Low Stock Items</div><div class="vx-quick-sub">At risk of stockout</div></span></button>
+   <button wire:click="applyQuickReport('out-stock')" class="vx-quick {{ $activeTab==='out-stock'?'active':'' }}"><span class="vx-quick-icon" style="background:#fee2e2;color:#dc2626"><x-heroicon-o-archive-box-x-mark/></span><span><div class="vx-quick-title">Out of Stock Items</div><div class="vx-quick-sub">No inventory remaining</div></span></button>
+   <button wire:click="applyQuickReport('recent')" class="vx-quick {{ $activeTab==='recent'?'active':'' }}"><span class="vx-quick-icon vx-icon-green"><x-heroicon-o-arrows-right-left/></span><span><div class="vx-quick-title">Recent Activity</div><div class="vx-quick-sub">Adds & removals</div></span></button>
+   <button wire:click="applyQuickReport('top-value')" class="vx-quick {{ $activeTab==='top-value'?'active':'' }}"><span class="vx-quick-icon" style="background:#fef3c7;color:#d97706"><x-heroicon-o-trophy/></span><span><div class="vx-quick-title">Top Value Items</div><div class="vx-quick-sub">Highest total value</div></span></button>
+  </div>
+ </div>
+
+ <div class="vx-dashboard-layout">
+  <aside class="vx-r-card vx-builder-panel">
+   <div class="flex items-start justify-between gap-2"><div><div class="text-sm font-extrabold">Report Builder</div><div class="mt-1 text-[11px] leading-4 text-gray-500">Customize your report with filters and ranges.</div></div><x-heroicon-o-chevron-up class="h-4 w-4 text-gray-400"/></div>
+   <div class="vx-builder-tabs mt-3"><button class="vx-builder-tab active">Filters</button><button class="vx-builder-tab">Columns</button></div>
+   <div class="vx-builder-fields">
+    <div class="vx-builder-field"><label class="vx-builder-label">Search</label><input wire:model.live.debounce.350ms="reportSearch" class="vx-builder-input" placeholder="Item, SKU, keyword..."/></div>
+    <div class="vx-builder-field"><label class="vx-builder-label">Category</label><select wire:model.live="reportCategory" class="vx-builder-input"><option value="">All Categories</option>@foreach($data['categories'] as $category)<option>{{ $category }}</option>@endforeach</select></div>
+    <div class="vx-builder-field"><label class="vx-builder-label">Location</label><select wire:model.live="reportLocation" class="vx-builder-input"><option value="">All Locations</option>@foreach($locations as $loc)<option>{{ $loc['name'] }}</option>@endforeach</select></div>
+    <div class="vx-builder-field"><label class="vx-builder-label">Stock Status</label><select wire:model.live="reportStock" class="vx-builder-input"><option value="">All Stock</option><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select></div>
+    <div class="vx-builder-field"><label class="vx-builder-label">Price Range (Avg. Cost)</label><div class="vx-range"><input wire:model.live.debounce.350ms="reportPriceMin" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Min"/><input wire:model.live.debounce.350ms="reportPriceMax" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Max"/></div></div>
+    <div class="vx-builder-field"><label class="vx-builder-label">Value Range (Total Value)</label><div class="vx-range"><input wire:model.live.debounce.350ms="reportValueMin" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Min"/><input wire:model.live.debounce.350ms="reportValueMax" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Max"/></div></div>
+   </div>
+   <div class="mt-4 grid grid-cols-2 gap-2"><button class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-bold text-white">Apply Filters</button><button wire:click="resetReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">Reset</button></div>
+  </aside>
+  <main class="vx-dashboard-main">
+
+ <div class="vx-kpis">
+  <div class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-purple"><x-heroicon-o-cube/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Total Inventory Value</div><div class="vx-kpi-value">${{ number_format($summary['value'],2) }}</div><div class="vx-kpi-sub">Current on-hand valuation</div></div></div>
+  <div class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-blue"><x-heroicon-o-squares-2x2/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Total Items</div><div class="vx-kpi-value">{{ number_format($summary['items']) }}</div><div class="vx-kpi-sub">{{ number_format($summary['in_stock_items']) }} SKUs currently in stock</div></div></div>
+  <div class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-green"><x-heroicon-o-archive-box/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Total Quantity</div><div class="vx-kpi-value">{{ number_format($summary['quantity']) }}</div><div class="vx-kpi-sub">Units currently in stock</div></div></div>
+  <div class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-orange"><x-heroicon-o-tag/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Avg. Cost per Unit</div><div class="vx-kpi-value">${{ number_format($summary['avg_cost'],2) }}</div><div class="vx-kpi-sub">{{ number_format($summary['low_stock']) }} low stock · {{ number_format($summary['out_stock']) }} out of stock</div></div></div>
+ </div>
+
+ <div class="flex items-end justify-between gap-3 px-1 pt-1"><div><div class="text-sm font-extrabold">Inventory Overview</div><div class="text-xs text-gray-500">At-a-glance inventory health, value and distribution.</div></div><button wire:click="setTab('items')" class="text-xs font-bold text-primary-600">View detailed report →</button></div>
+ <div class="vx-report-grid">
+  <div class="vx-r-card p-4"><div class="flex items-center justify-between"><h3 class="text-sm font-bold">Inventory Value Trend</h3><span class="text-xs text-gray-500">Last 30 Days</span></div><div class="vx-chart">@forelse($trend as $point)<div class="vx-bar" title="{{ $point['date'] }} — ${{ number_format($point['value'],2) }}" style="height:{{ max(7,($point['value']/$maxTrend)*100) }}%"></div>@empty<div class="m-auto text-sm text-gray-400">Trend data will appear as snapshots accumulate.</div>@endforelse</div></div>
+  <div class="vx-r-card p-4"><h3 class="text-sm font-bold">Inventory by Category</h3><div class="mt-4 space-y-3">@forelse($categories->take(6) as $cat)<div><div class="flex justify-between text-xs"><span class="font-semibold">{{ $cat['name'] }}</span><span>{{ number_format($cat['quantity']) }} · {{ number_format(($cat['quantity']/$totalQty)*100,1) }}%</span></div><div class="vx-track mt-1"><div class="vx-fill" style="width:{{ ($cat['quantity']/$totalQty)*100 }}%"></div></div></div>@empty<div class="text-sm text-gray-400">No category data.</div>@endforelse</div></div>
+  <div class="vx-r-card p-4"><h3 class="text-sm font-bold">Inventory by Location</h3>@forelse($locations->take(7) as $loc)<div class="vx-loc-row"><span class="truncate text-xs font-semibold">{{ $loc['name'] }}</span><div class="vx-track"><div class="vx-fill" style="width:{{ ($loc['quantity']/$maxLocation)*100 }}%"></div></div><span class="text-right text-xs">{{ number_format($loc['quantity']) }}</span></div>@empty<div class="mt-5 text-sm text-gray-400">No location data.</div>@endforelse</div>
+ </div>
+
+ <div class="vx-report-sheet">
+  <div class="vx-sheet-toolbar"><div class="vx-tabs border-0">
+   @foreach(['items'=>'Inventory Items','low-stock'=>'Low Stock','out-stock'=>'Out of Stock','recent'=>'Recent Activity','top-value'=>'Top Value Items','moving'=>'Top Moving Items'] as $key=>$label)<button wire:click="setTab('{{ $key }}')" class="vx-tab {{ $activeTab===$key?'active':'' }}">{{ $label }}</button>@endforeach
+   </div><div class="flex items-center gap-2"><div class="relative hidden lg:block"><x-heroicon-o-magnifying-glass class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400"/><input wire:model.live.debounce.350ms="reportSearch" placeholder="Search within report..." class="w-48 rounded-lg border-gray-200 py-2 pl-8 text-xs dark:border-gray-700 dark:bg-gray-800"/></div><select wire:model.live="reportSort" class="rounded-lg border-gray-200 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800"><option value="value">Sort: Highest Value</option><option value="qty">Quantity: High-Low</option><option value="name">Name A-Z</option><option value="updated">Recently Updated</option></select></div></div>
+  @if(!in_array($activeTab,['overview','recent','moving']))
+  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Category</th><th>Location</th><th class="text-right">Quantity</th><th class="text-right">Avg. Cost</th><th class="text-right">Total Value</th><th>Last Updated</th></tr></thead><tbody>
+   @forelse($visible as $item)<tr><td><div class="font-bold">{{ $item['name'] }}</div></td><td>{{ $item['sku'] }}</td><td>{{ $item['category'] }}</td><td>{{ $item['locations'] }}</td><td class="text-right"><span class="vx-pill">{{ number_format($item['quantity']) }}</span></td><td class="text-right">${{ number_format($item['unit_cost'],2) }}</td><td class="text-right font-bold">${{ number_format($item['total_value'],2) }}</td><td>{{ $item['updated_at']?->format('M d, Y') }}</td></tr>@empty<tr><td colspan="8" class="py-10 text-center text-gray-500">No inventory matches this view.</td></tr>@endforelse
+  </tbody></table></div>
+  @elseif($activeTab==='recent')
+  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Activity</th><th>Location</th><th>Change</th><th>Updated</th></tr></thead><tbody>
+   @forelse($recentRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['location'] }}</td><td class="font-bold">{{ $row['change'] }}</td><td>{{ $row['updated_at']?->format('M d, Y g:i A') }}</td></tr>@empty<tr><td colspan="6" class="py-10 text-center text-gray-500">No recent inventory activity.</td></tr>@endforelse
+  </tbody></table></div>
+  @elseif($activeTab==='moving')
+  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th class="text-right">Units Moved</th><th>Period</th></tr></thead><tbody>
+   @forelse($movingRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td class="text-right font-bold">{{ number_format($row['moved_units']) }}</td><td>Last 30 days</td></tr>@empty<tr><td colspan="4" class="py-10 text-center text-gray-500">No movement data in the last 30 days.</td></tr>@endforelse
+  </tbody></table></div>
+  @else
+  <div class="px-4 py-8 text-center text-sm text-gray-500">Select a report view above.</div>
+  @endif
+ </main>
+ </div>
+ </div>
+</div>
 </x-filament-panels::page>

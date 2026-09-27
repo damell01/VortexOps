@@ -112,7 +112,8 @@ class WhatnotCollectorController extends Controller
     public function latest(): JsonResponse
     {
         $rows = WhatnotSync::query()
-            ->where('type', 'desktop_collector')
+            ->where('type', 'incremental')
+            ->where('summary->source', 'desktop_collector')
             ->with('channel:id,name,whatnot_username')
             ->latest('started_at')
             ->limit(25)

@@ -32,11 +32,10 @@ class InventoryMovementResource extends Resource
     protected static string $moduleSlug = 'inventory';
     protected static ?string $model = InventoryMovement::class;
 
+    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) return false;
-        if (! static::isVisibleToRole()) return false;
-        return static::moduleShouldRegisterNavigation();
+        return false;
     }
 
     public static function canAccess(): bool

@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 import os
 import re
+import json
+import random
 from pathlib import Path
 from typing import Any
 
@@ -30,25 +32,79 @@ has_useful_data = base.has_useful_data
 
 def tab_locator(page, name: str):
     lowered = name.lower()
+    # Whatnot currently renders Upcoming/Past as plain text controls rather than
+    # consistently exposing role=tab/data-testid attributes. Prefer semantic
+    # selectors when available, then fall back to exact visible text.
+    selectors = []
     if lowered == "current":
-        return page.locator('button[data-testid="tab-current"][role="tab"]').first
-    if lowered == "upcoming":
-        return page.locator('button[data-testid="tab-upcoming"][role="tab"]').first
-    return page.locator('ul[role="tablist"] button[role="tab"]', has_text=re.compile(r"^Past$", re.I)).first
+        selectors = [
+            page.locator('button[data-testid="tab-current"][role="tab"]').first,
+            page.get_by_role("tab", name=re.compile(r"^Current$", re.I)).first,
+            page.get_by_text(re.compile(r"^Current$", re.I), exact=True).first,
+        ]
+    elif lowered == "upcoming":
+        selectors = [
+            page.locator('button[data-testid="tab-upcoming"][role="tab"]').first,
+            page.get_by_role("tab", name=re.compile(r"^Upcoming$", re.I)).first,
+            page.get_by_text(re.compile(r"^Upcoming$", re.I), exact=True).first,
+        ]
+    else:
+        selectors = [
+            page.locator('ul[role="tablist"] button[role="tab"]', has_text=re.compile(r"^Past$", re.I)).first,
+            page.get_by_role("tab", name=re.compile(r"^Past$", re.I)).first,
+            page.get_by_text(re.compile(r"^Past$", re.I), exact=True).first,
+        ]
+    for candidate in selectors:
+        try:
+            if candidate.count() and candidate.is_visible(timeout=1000):
+                return candidate
+        except Exception:
+            continue
+    return selectors[-1]
 
 
 def select_tab(module, page, name: str) -> bool:
     try:
-        tab = tab_locator(page, name)
-        if not tab.count():
-            tab = page.get_by_role("tab", name=re.compile(rf"^{re.escape(name)}$", re.I)).first
-        if not tab.count():
-            module.info(f"analytics: {name} tab not found on /dashboard/lives")
+        # Seller Hub can finish the route before the tab strip hydrates,
+        # especially immediately after a channel-role switch. Wait for the
+        # exact Current/Upcoming/Past controls instead of treating the first
+        # DOM snapshot as authoritative.
+        tab = None
+        for attempt in range(20):
+            module.check_login(page)
+            candidate = tab_locator(page, name)
+            try:
+                if candidate.count() and candidate.is_visible(timeout=500):
+                    tab = candidate
+                    break
+            except Exception:
+                pass
+            page.wait_for_timeout(500)
+        if tab is None:
+            try:
+                diag = page.evaluate(r"""
+                () => ({
+                  url: location.href,
+                  text: (document.body?.innerText || '').replace(/\n+/g, ' | ').substring(0, 700),
+                  buttons: [...document.querySelectorAll('button,[role="tab"],[role="button"]')]
+                    .map(x => (x.innerText || x.textContent || '').trim()).filter(Boolean).slice(0, 40)
+                })
+                """)
+                module.info("analytics: tab diagnostic " + json.dumps(diag, separators=(",", ":")))
+            except Exception:
+                pass
+            module.info(f"analytics: {name} tab not found on /dashboard/lives after hydration wait")
             return False
-        if tab.get_attribute("aria-selected") != "true":
+        selected = tab.get_attribute("aria-selected")
+        if selected != "true":
             tab.click(timeout=8000)
         page.wait_for_timeout(1800)
         selected = tab.get_attribute("aria-selected")
+        # New Seller Hub tabs may not expose aria-selected. A successful click
+        # plus a visible exact tab is sufficient; extraction verifies the rows.
+        if selected is None:
+            module.info(f"analytics: {name} tab clicked (no aria-selected attribute)")
+            return True
         if selected != "true":
             try:
                 tab.evaluate("el => el.click()")
@@ -70,8 +126,12 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
           const open = row.querySelector('a[href^="/dashboard/live/"]');
-          const analytics = [...row.querySelectorAll('a')].find(a => /^\s*See Analytics\s*$/i.test(a.textContent || ''));
-          const shipments = [...row.querySelectorAll('a')].find(a => /^\s*View Shipments\s*$/i.test(a.textContent || ''));
+          // Current Seller Hub renders these actions as buttons, not necessarily anchors.
+          const analytics = [...row.querySelectorAll('a,button,[role="button"]')]
+            .find(a => /^\s*See Analytics\s*$/i.test(a.textContent || '') ||
+              /\/dashboard\/analytics\/overview\?.*tab=livestream.*live_id=/i.test(a.getAttribute('href') || ''));
+          const shipments = [...row.querySelectorAll('a,button,[role="button"]')]
+            .find(a => /^\s*View Shipments\s*$/i.test(a.textContent || ''));
           const openUrl = open?.getAttribute('href') || null;
           const liveId = (openUrl?.match(/\/dashboard\/live\/([0-9a-f-]{36})/i) || [])[1] || null;
           return {
@@ -79,8 +139,8 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
             title,
             text: (row.innerText || '').replace(/\s+/g, ' ').trim(),
             open_url: openUrl,
-            analytics_url: analytics?.getAttribute('href') || null,
-            shipments_url: shipments?.getAttribute('href') || null,
+            analytics_url: analytics?.getAttribute('href') || analytics?.getAttribute('formaction') || (analytics ? '__BUTTON__' : null),
+            shipments_url: shipments?.getAttribute('href') || shipments?.getAttribute('formaction') || (shipments ? '__BUTTON__' : null),
           };
         })
         """) or []
@@ -270,6 +330,8 @@ def reconcile_index(module, session):
     result: dict[str, Any] = {
         "_seller_hub_index": True,
         "past": [],
+        "current": [],
+        "upcoming": [],
         "current_ids": [],
         "upcoming_ids": [],
         "past_selected": False,
@@ -297,6 +359,8 @@ def reconcile_index(module, session):
         )
 
         result["past"] = list(past.values())
+        result["current"] = list(current.values())
+        result["upcoming"] = list(upcoming.values())
         result["current_ids"] = sorted(current.keys())
         result["upcoming_ids"] = sorted(upcoming.keys())
         result["past_selected"] = past_selected
@@ -310,7 +374,7 @@ def reconcile_index(module, session):
         }
 
     session.fetch(
-        f"{module.BASE}/dashboard/home",
+        f"{module.BASE}/dashboard/lives",
         page_action=action,
         timeout=300000,
         network_idle=False,
@@ -335,11 +399,21 @@ def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
         row = page.locator('[data-testid="show-list-item"]', has=page.locator(f'a[href="{open_url}"]')).first
         try:
             if row.count() and row.is_visible(timeout=400):
-                link = row.locator('a', has_text=re.compile(r"^See Analytics$", re.I)).first
+                link = row.locator('a,button,[role="button"]', has_text=re.compile(r"^\\s*See Analytics\\s*$", re.I)).first
                 if link.count():
-                    module.info(f"analytics: clicking See Analytics for uuid={target.get('live_id')} href={expected_href}")
-                    link.click(timeout=8000)
-                    page.wait_for_timeout(2500)
+                    module.info(f"analytics: clicking See Analytics for uuid={target.get('live_id')} action={expected_href}")
+                    before_url = page.url
+                    link.click(timeout=8000, force=True)
+                    # The action may be SPA navigation/modal state, so URL change is optional.
+                    for _ in range(20):
+                        page.wait_for_timeout(250)
+                        if page.url != before_url:
+                            break
+                        try:
+                            if has_useful_data(extract_show(page)):
+                                break
+                        except Exception:
+                            pass
                     return True
         except Exception:
             pass
@@ -459,8 +533,10 @@ def analytics(module, session):
             f"gross={row.get('gross_revenue')} net={row.get('whatnot_net')}"
         )
 
+    # Start directly on Seller Hub Shows. The dashboard home SPA has recently
+    # stalled long enough to exhaust navigation retries before analytics begins.
     session.fetch(
-        f"{module.BASE}/dashboard/home",
+        f"{module.BASE}/dashboard/lives",
         page_action=action,
         timeout=120000,
         network_idle=False,
@@ -470,6 +546,90 @@ def analytics(module, session):
     module.info(f"analytics: collected {len(rows)} show(s)")
     return rows
 
+
+
+
+def recent_past_analytics(module, session):
+    """Import recent Seller Hub Past rows directly, then follow each row's See Analytics href."""
+    limit = max(1, min(100, int(os.getenv("WHATNOT_LIMIT", "50"))))
+    rows: list[dict[str, Any]] = []
+    module.info(f"recent-past-analytics: loading newest Past shows limit={limit}")
+
+    def action(page):
+        module.prepare(page)
+        if "/dashboard/lives" not in page.url:
+            page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1800)
+        module.check_login(page)
+        if not select_tab(module, page, "Past"):
+            return
+
+        candidates: dict[str, dict[str, Any]] = {}
+        stable = 0
+        previous = -1
+        for attempt in range(1, 12):
+            module.check_login(page)
+            for item in extract_show_rows(page):
+                live_id = clean(item.get("live_id")).lower()
+                if live_id and item.get("analytics_url"):
+                    item["live_id"] = live_id
+                    candidates[live_id] = item
+            if len(candidates) >= limit:
+                break
+            if len(candidates) == previous:
+                stable += 1
+            else:
+                stable = 0
+            previous = len(candidates)
+            if stable >= 3:
+                break
+            scroll_to_bottom(page)
+            page.wait_for_timeout(900)
+
+        selected = list(candidates.values())[:limit]
+        module.info(
+            f"recent-past-analytics: Past rows ready candidates={len(candidates)} processing={len(selected)}"
+        )
+
+        for index, item in enumerate(selected, 1):
+            live_id = clean(item.get("live_id")).lower()
+            analytics_url = clean(item.get("analytics_url"))
+            if not live_id or not analytics_url:
+                continue
+            url = analytics_url if analytics_url.startswith("http") else f"{module.BASE}{analytics_url}"
+            module.info(
+                f"recent-past-analytics [{index}/{len(selected)}]: opening See Analytics "
+                f"uuid={live_id} date={item.get('show_date') or '?'} title={item.get('title')!r}"
+            )
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(2200)
+            module.check_login(page)
+            metric = wait_for_metrics(module, page, timeout_ms=15000)
+            if not metric or not has_useful_data(metric):
+                module.info(f"recent-past-analytics [{index}/{len(selected)}]: no stable metrics uuid={live_id}")
+                continue
+            metric["whatnot_live_id"] = live_id
+            metric["title"] = item.get("title") or metric.get("title")
+            metric["show_date"] = item.get("show_date") or metric.get("show_date")
+            metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
+            metric.pop("_preview", None)
+            metric.pop("_titles", None)
+            metric.pop("_dates", None)
+            rows.append(metric)
+            module.info(
+                f"recent-past-analytics [{index}/{len(selected)}]: collected uuid={live_id} "
+                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+            )
+
+    session.fetch(
+        f"{module.BASE}/dashboard/lives",
+        page_action=action,
+        timeout=max(180000, limit * 45000),
+        network_idle=False,
+        google_search=False,
+    )
+    module.info(f"recent-past-analytics: collected {len(rows)} show(s)")
+    return rows
 
 
 def historical_analytics(module, session):
@@ -511,8 +671,15 @@ def historical_analytics(module, session):
                 f"candidates={len(candidates)} file={cache_file}"
             )
         else:
-            page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(1800)
+            # session.fetch already opened Seller Hub Shows. Avoid a second goto here:
+            # Whatnot can return HTTP 200 while DOMContentLoaded remains busy long enough
+            # for Playwright's navigation promise to time out.
+            if "/dashboard/lives" not in page.url:
+                try:
+                    page.goto(f"{module.BASE}/dashboard/lives", wait_until="commit", timeout=30000)
+                except Exception as exc:
+                    module.info(f"historical-analytics: Shows navigation warning={exc}")
+            page.wait_for_timeout(2500)
             module.check_login(page)
             past, selected, exhausted = scan_selected_tab_index(
                 module, page, "Past", max_passes=max_passes, stable_needed=5
@@ -544,10 +711,26 @@ def historical_analytics(module, session):
             )
 
         if target_ids:
-            candidates = [
-                item for item in candidates
-                if clean(item.get("live_id")).lower() in target_ids
-            ]
+            by_id = {
+                clean(item.get("live_id")).lower(): item
+                for item in candidates
+                if clean(item.get("live_id"))
+            }
+            # A verified DB UUID can have a working analytics page even when the
+            # Seller Hub Past virtualized index did not expose a See Analytics
+            # link. Use the current direct analytics route as a fallback instead
+            # of declaring every cache miss unavailable.
+            for live_id in target_ids:
+                if live_id not in by_id:
+                    by_id[live_id] = {
+                        "live_id": live_id,
+                        "analytics_url": (
+                            f"{module.BASE}/dashboard/analytics/overview"
+                            f"?tab=livestream&live_id={live_id}"
+                        ),
+                        "_direct_uuid_fallback": True,
+                    }
+            candidates = [by_id[live_id] for live_id in target_ids if live_id in by_id]
         candidates = candidates[:batch_size]
         module.info(f"historical-analytics: processing {len(candidates)} show(s) this batch")
 
@@ -562,12 +745,60 @@ def historical_analytics(module, session):
                 f"historical-analytics [{index}/{total}]: opening uuid={live_id} "
                 f"date={item.get('show_date') or '?'} title={item.get('title')!r}"
             )
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(random.randint(2500, 4500))
-            module.check_login(page)
-            metric = wait_for_metrics(module, page, timeout_ms=12000)
+            navigation_warning = None
+            try:
+                # Seller Hub frequently returns HTTP 200 and hydrates successfully
+                # after Playwright's DOMContentLoaded promise times out. Give the
+                # analytics route more room, then recover in-place instead of
+                # aborting the entire batch.
+                page.goto(url, wait_until="domcontentloaded", timeout=90000)
+            except Exception as exc:
+                navigation_warning = str(exc)
+                module.info(
+                    f"historical-analytics [{index}/{total}]: navigation warning "
+                    f"uuid={live_id} error={navigation_warning}"
+                )
+
+            try:
+                page.wait_for_timeout(random.randint(3000, 5000))
+                module.check_login(page)
+                metric = wait_for_metrics(module, page, timeout_ms=30000)
+            except Exception as exc:
+                module.info(
+                    f"historical-analytics [{index}/{total}]: transient extraction failure "
+                    f"uuid={live_id} error={exc}"
+                )
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": f"Metric extraction failed: {exc}",
+                })
+                continue
+
             if not metric or not has_useful_data(metric):
-                module.info(f"historical-analytics [{index}/{total}]: no stable metrics uuid={live_id}")
+                note = "Analytics page returned no stable metrics"
+                if navigation_warning:
+                    note += f" after navigation warning: {navigation_warning}"
+                module.info(
+                    f"historical-analytics [{index}/{total}]: transient/no stable metrics "
+                    f"uuid={live_id}; leaving due for retry"
+                )
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": note,
+                })
+                continue
+
+            # Fail closed on direct fallback: the rendered analytics page must
+            # still identify the requested UUID. This prevents an invalid UUID
+            # or SPA redirect from importing another show's metrics.
+            rendered_live_id = clean(metric.get("whatnot_live_id")).lower()
+            if item.get("_direct_uuid_fallback") and rendered_live_id != live_id:
+                module.info(
+                    f"historical-analytics [{index}/{total}]: direct UUID fallback identity mismatch "
+                    f"requested={live_id} rendered={rendered_live_id or '?'}"
+                )
                 continue
 
             metric["whatnot_live_id"] = live_id
@@ -580,7 +811,8 @@ def historical_analytics(module, session):
             rows.append(metric)
             module.info(
                 f"historical-analytics [{index}/{total}]: collected uuid={live_id} "
-                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')} "
+                f"duration_min={metric.get('show_duration')}"
             )
             if index < total:
                 page.wait_for_timeout(random.randint(3500, 6500))
@@ -596,3 +828,10 @@ def historical_analytics(module, session):
     return rows
 
 
+
+
+def install(module) -> None:
+    """Install Seller Hub-backed analytics/index modes into the Scrapling base."""
+    module.analytics = lambda session: analytics(module, session)
+    module.reconcile_index = lambda session: reconcile_index(module, session)
+    module.historical_analytics = lambda session: historical_analytics(module, session)

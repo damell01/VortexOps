@@ -20,6 +20,12 @@ use Livewire\Attributes\Url;
 
 class Shows extends Page
 {
+    /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use \App\Filament\Concerns\HasAdminNavVisibility;
     protected static string $moduleSlug='streams'; protected static ?string $title='Shows';
 

@@ -370,6 +370,10 @@ class ViewPallet extends ViewRecord
                 ->label(function () {
                     $progress = $this->getRecord()->receivingProgress();
 
+                    if ($progress['expected'] > 0 && $progress['received'] >= $progress['expected']) {
+                        return 'Complete Pallet';
+                    }
+
                     if (! $progress['started']) {
                         return 'Start receiving';
                     }
@@ -386,6 +390,13 @@ class ViewPallet extends ViewRecord
                 // expectations — and nothing downstream reads them. Lines can
                 // be added from the scanner as the box is unpacked.
                 ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'], true)),
+
+            Action::make('scan_completed_pallet')
+                ->label('Scan / Verify Items')
+                ->icon('heroicon-o-qr-code')
+                ->color('primary')
+                ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
+                ->visible(fn () => in_array($this->getRecord()->status, ['received', 'processed'], true)),
 
             // The other direction of the same question. From an item you ask
             // "where did this come from"; from a pallet, "what did this bring
@@ -488,11 +499,11 @@ class ViewPallet extends ViewRecord
             // gets a look first: what turned up against what was expected, what
             // is short, and what each item will be valued at afterwards.
             Action::make('review_and_receive')
-                ->label('Review & Receive')
+                ->label('Complete Pallet')
                 ->icon('heroicon-o-clipboard-document-check')
                 ->color('success')
-                ->modalHeading('Review this pallet')
-                ->modalDescription('Nothing is committed until you confirm.')
+                ->modalHeading('Complete this pallet')
+                ->modalDescription('Review the receipt, then confirm to mark this pallet complete and move it to Received / Complete.')
                 ->modalWidth('4xl')
                 ->modalContent(fn () => view('filament.modals.pallet-review', [
                     'review' => app(ReceivingService::class)->reviewPallet($this->getRecord()),
@@ -540,9 +551,13 @@ class ViewPallet extends ViewRecord
                         $result = app(ReceivingService::class)->receivePallet($this->getRecord());
 
                         Notification::make()
-                            ->title("Received {$result['cases_received']} cases across {$result['lines_processed']} lines")
+                            ->title("Pallet complete — {$result['cases_received']} cases across {$result['lines_processed']} lines")
+                            ->body('Moved to Received / Complete.')
                             ->success()
                             ->send();
+
+                        $this->redirect(PalletResource::getUrl('index') . '?activeTab=completed');
+                        return;
                     } catch (\RuntimeException $e) {
                         Notification::make()->title($e->getMessage())->danger()->send();
                     }

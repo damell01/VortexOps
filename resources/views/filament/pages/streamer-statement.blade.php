@@ -1,10 +1,6 @@
 <x-filament-panels::page>
     @if($this->isSelfService)
         <style>
-            .fi-sidebar { display: none !important; }
-            .fi-topbar-open-sidebar-btn,
-            .fi-topbar-close-sidebar-btn { display: none !important; }
-            .fi-main-ctn { margin-inline-start: 0 !important; }
             .fi-main { width: 100% !important; max-width: none !important; }
         </style>
 

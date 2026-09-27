@@ -492,12 +492,17 @@ class InventoryItemResource extends Resource
                         ->step(0.01)
                         ->helperText('Fallback cost when no receipts exist'),
                     TextInput::make('average_cost')
-                        ->label('Avg Cost ($)')
+                        ->label('Current Avg Cost ($)')
                         ->numeric()
                         ->prefix('$')
+                        ->formatStateUsing(fn ($state, $record) => $record
+                            ? number_format((float) ($record->costBasis() ?? $state ?? 0), 4, '.', '')
+                            : ($state ?? 0))
+                        ->disabled(fn ($record) => $record !== null)
+                        ->dehydrated(fn ($record) => $record === null)
                         ->default(0)
                         ->step(0.0001)
-                        ->helperText('Live FIFO average of what\'s currently on hand — only what was paid for stock still in inventory, not everything ever bought. Holds at the last real cost once sold out, until new stock opens a fresh lot.'),
+                        ->helperText('Current FIFO average cost. This is calculated from stock on hand and updates when costed stock is received or consumed.'),
                     TextInput::make('sale_price')
                         ->label('Sale Price / Target ($)')
                         ->numeric()
@@ -506,8 +511,6 @@ class InventoryItemResource extends Resource
                         ->step(0.01)
                         ->placeholder('—')
                         ->helperText('What this should sell for')
-                        // Live so the margin below answers as the number is
-                        // typed — the two only mean anything together.
                         ->live(onBlur: true),
                     Placeholder::make('margin_potential')
                         ->label('Margin Potential')

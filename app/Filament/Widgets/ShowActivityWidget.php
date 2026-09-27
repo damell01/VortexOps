@@ -51,33 +51,9 @@ class ShowActivityWidget extends Widget
                 ];
             });
 
-        $ingestion = ShowIngestionLog::query()
-            ->with('channel')
-            ->where('show_id', $showId)
-            ->latest('created_at')
-            ->limit(30)
-            ->get()
-            ->map(function (ShowIngestionLog $log) {
-                $captured = $log->capturedFields();
-                $detail = $captured !== []
-                    ? collect($captured)->take(5)->map(fn ($value, $label) => $label . ': ' . $value)->implode(' · ')
-                    : $log->summary();
-
-                if ($log->status === 'failed' && filled($log->error_message)) {
-                    $detail = $log->error_message;
-                }
-
-                return [
-                    'at' => $log->created_at,
-                    'type' => 'ingestion',
-                    'title' => $log->sourceLabel(),
-                    'field' => null,
-                    'old' => null,
-                    'new' => null,
-                    'detail' => $detail,
-                    'meta' => trim(($log->channel?->name ? $log->channel->name . ' · ' : '') . ucfirst($log->status)),
-                ];
-            });
+        // Ingestion runs are intentionally kept out of the normal show timeline.
+        // They are technical sync diagnostics, not operational show activity.
+        $ingestion = collect();
 
         $movements = InventoryMovement::query()
             ->with(['item', 'createdByUser'])

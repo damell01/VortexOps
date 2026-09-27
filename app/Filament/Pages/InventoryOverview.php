@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\InventoryLocationResource;
+use App\Filament\Resources\InventoryMovementResource;
+use App\Filament\Resources\InventoryStockResource;
 use App\Filament\Resources\PalletResource;
 use App\Filament\Resources\VendorResource;
 use App\Models\InventoryMovement;
@@ -213,5 +215,55 @@ class InventoryOverview extends Page
     public function vendorsUrl(): string
     {
         return VendorResource::getUrl('index');
+    }
+
+    public function movementsUrl(): string
+    {
+        return InventoryMovementResource::getUrl('index');
+    }
+
+    public function transferUrl(): string
+    {
+        return StockTransfer::getUrl();
+    }
+
+    public function countUrl(): string
+    {
+        return InventoryCount::getUrl();
+    }
+
+    public function reconciliationUrl(): string
+    {
+        return InventoryReconciliation::getUrl();
+    }
+
+    public function analyticsUrl(): string
+    {
+        return InventoryValueDashboard::getUrl();
+    }
+
+    public function reportUrl(): string
+    {
+        return InventoryReport::getUrl();
+    }
+
+    public function ageUrl(): string
+    {
+        return InventoryAge::getUrl();
+    }
+
+    public function stockLevelsUrl(): string
+    {
+        return InventoryStockResource::getUrl('index');
+    }
+
+    public function productInsightsUrl(): string
+    {
+        return ProductInsights::getUrl();
+    }
+
+    public function guideUrl(): string
+    {
+        return InventoryGuide::getUrl();
     }
 }

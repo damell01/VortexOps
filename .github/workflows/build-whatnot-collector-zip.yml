@@ -1,0 +1,29 @@
+name: Build Whatnot Collector ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [Production]
+    paths:
+      - 'desktop-collector/**'
+      - '.github/workflows/build-whatnot-collector-zip.yml'
+
+jobs:
+  zip:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ZIP
+        shell: powershell
+        run: |
+          $out = "Vortex-Whatnot-Sync"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item "desktop-collector\*" $out -Recurse -Force
+          Remove-Item "$out\config.json" -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$out\*" -DestinationPath "Vortex-Whatnot-Sync.zip" -Force
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vortex-Whatnot-Sync
+          path: Vortex-Whatnot-Sync.zip
+          retention-days: 30

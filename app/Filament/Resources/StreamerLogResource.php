@@ -92,19 +92,11 @@ class StreamerLogResource extends Resource
      * two other resources that looked like this turned out to be contradicting
      * their own access rules. Hiding it on Roles & Permissions still works.
      */
+    /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
+    /** Secondary Shows workspace screen; permissions and direct access remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        // A role granted this page on Roles & Permissions gets its link too;
-        // access without a way to reach it is only half a grant.
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
-        $user = auth()->user();
-
-        return ($user?->isAdmin() || $user?->isOwner())
-            && AdminModules::isEnabled('streams')
-            && ! NavVisibility::isHiddenForUser(static::class, $user);
+        return false;
     }
 
     /**
@@ -268,7 +260,11 @@ class StreamerLogResource extends Resource
             ->emptyStateHeading('No reports')
             ->emptyStateDescription('Submitted streamer reports will appear here for review.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')
-            ->extraAttributes(['data-sticky-header' => 'true'])
+            ->extraAttributes(['data-sticky-header' => 'true', 'class' => 'vx-card-table'])
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Date')
@@ -611,6 +607,8 @@ class StreamerLogResource extends Resource
             ])
             ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('id', 'desc')
+            ->paginated([9, 18, 36])
+            ->defaultPaginationPageOption(9)
             ->striped()
             ->deferLoading()
             ->persistFiltersInSession();

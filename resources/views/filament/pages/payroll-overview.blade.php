@@ -28,9 +28,22 @@
                 <p class="mt-1 max-w-2xl text-xs text-gray-500">See what is blocked, what is payroll-ready, what is already in the run, and the one action needed to move each show forward.</p>
             </div>
             <div class="vx-actions">
-                @if($current)<a class="vx-btn primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Open Current Pay Run</a>@else<a class="vx-btn primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}">Create Pay Run</a>@endif
-                <a class="vx-btn" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}">Payment Structures</a>
-                <a class="vx-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">Pay Run History</a>
+                @if($current)
+                    <a class="vx-btn primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Continue This Week's Pay Run</a>
+                @else
+                    <button type="button" wire:click="prepareCurrentPayRun" wire:loading.attr="disabled" wire:target="prepareCurrentPayRun" class="vx-btn primary">
+                        <span wire:loading.remove wire:target="prepareCurrentPayRun">Prepare This Week's Pay Run</span>
+                        <span wire:loading wire:target="prepareCurrentPayRun">Preparing…</span>
+                    </button>
+                @endif
+                <a class="vx-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>
+                <details class="relative">
+                    <summary class="vx-btn cursor-pointer list-none">Settings</summary>
+                    <div class="absolute right-0 z-20 mt-2 min-w-[190px] rounded-xl border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+                        <a class="block rounded-lg px-3 py-2 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}">Payment Structures</a>
+                        <a class="block rounded-lg px-3 py-2 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800" href="{{ \App\Filament\Pages\PayrollSimulator::getUrl() }}">Payroll Simulator</a>
+                    </div>
+                </details>
             </div>
         </div>
         <div class="vx-kpis">

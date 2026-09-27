@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Shipment;
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
 use App\Models\WhatnotBuyer;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
@@ -19,6 +20,96 @@ class WhatnotReportingReconciler
         private readonly WhatnotScraper $scraper,
         private readonly WhatnotDataNormalizer $normalizer,
     ) {}
+
+    public function discoverShows(WhatnotChannel $channel, ?callable $progress = null): array
+    {
+        $progress && $progress('discovery: scanning Seller Hub Current, Upcoming, and Past with Scrapling');
+        $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username, false, $progress);
+        $created = $updated = $skipped = $flagged = 0;
+
+        $groups = [
+            'current' => (array) ($index['current'] ?? []),
+            'upcoming' => (array) ($index['upcoming'] ?? []),
+            'past' => (array) ($index['past'] ?? []),
+        ];
+        $totalSeen = array_sum(array_map('count', $groups));
+        if ($totalSeen === 0) {
+            throw new \RuntimeException('Seller Hub returned zero Current, Upcoming, and Past shows; refusing to treat an empty page as authoritative.');
+        }
+
+        $seenIds = [];
+        foreach ($groups as $state => $rows) {
+            foreach ($rows as $raw) {
+                if (! is_array($raw)) { $skipped++; continue; }
+                $liveId = strtolower(trim((string) ($raw['live_id'] ?? $raw['whatnot_live_id'] ?? '')));
+                if ($liveId === '') { $skipped++; continue; }
+                $seenIds[$liveId] = true;
+
+                $normalized = $this->normalizer->normalizeShow($raw);
+                $title = trim((string) ($normalized['title'] ?? $raw['title'] ?? ''));
+                $date = $normalized['show_date'] ?? $raw['show_date'] ?? null;
+                if ($title === '' || ! $date) { $skipped++; continue; }
+
+                // Whatnot UUID is globally unique in our schema. Never create a
+                // duplicate merely because a channel context was wrong.
+                $show = Show::query()->where('whatnot_show_id', $liveId)->first();
+                $channelMismatch = $show && $show->whatnot_channel_id && (int) $show->whatnot_channel_id !== (int) $channel->id;
+
+                $previousRaw = $show && is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                $fields = array_filter([
+                    'whatnot_channel_id' => $channelMismatch ? $show->whatnot_channel_id : $channel->id,
+                    'channel_attribution_suspect' => $channelMismatch ? true : ($show?->channel_attribution_suspect ?? false),
+                    'whatnot_show_id' => $liveId,
+                    'title' => $title,
+                    'show_date' => $date,
+                    'start_time' => $normalized['start_time'] ?? $raw['start_time'] ?? null,
+                    'detail_url' => $raw['detail_url'] ?? $raw['open_url'] ?? ('https://www.whatnot.com/dashboard/live/'.$liveId),
+                    'import_source' => 'auto_whatnot',
+                    'last_synced_at' => now(),
+                    'raw_import_payload' => array_merge($previousRaw, $raw, [
+                        '_seller_hub_state' => $state,
+                        '_seller_hub_seen_at' => now()->toIso8601String(),
+                    ]),
+                ], fn ($v) => $v !== null);
+
+                if ($show) {
+                    $show->forceFill($fields)->save();
+                    $updated++;
+                } else {
+                    $fields['status'] = 'draft';
+                    $fields['created_by'] = 1;
+                    $show = Show::create($fields);
+                    $show->detectStreamers();
+                    $created++;
+                }
+            }
+        }
+
+        // A formerly-upcoming show disappearing is suspicious, not proof of a
+        // cancellation. Flag it for reconciliation instead of silently deleting
+        // or cancelling a legitimate show.
+        $future = Show::query()
+            ->where('whatnot_channel_id', $channel->id)
+            ->where('import_source', 'auto_whatnot')
+            ->whereDate('show_date', '>=', today())
+            ->get();
+        foreach ($future as $show) {
+            $raw = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+            if (($raw['_seller_hub_state'] ?? null) !== 'upcoming' || isset($seenIds[strtolower((string) $show->whatnot_show_id)])) continue;
+            $raw['_seller_hub_missing_since'] ??= now()->toIso8601String();
+            $show->forceFill(['raw_import_payload' => $raw])->saveQuietly();
+            $flagged++;
+        }
+
+        $progress && $progress("discovery: {$created} created, {$updated} refreshed, {$skipped} skipped, {$flagged} missing-upcoming flagged");
+        return array_merge(compact('created', 'updated', 'skipped', 'flagged'), [
+            'counts' => [
+                'current' => count($groups['current']),
+                'upcoming' => count($groups['upcoming']),
+                'past' => count($groups['past']),
+            ],
+        ]);
+    }
 
     public function reconcileOrders(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array
     {
@@ -121,9 +212,24 @@ class WhatnotReportingReconciler
                     return $result;
                 });
 
+                $newRows = (int) ($result['created'] ?? 0);
                 $replaced += $before;
-                $created += (int) ($result['created'] ?? 0);
-                $progress && $progress("orders: show #{$show->id} reconciled — {$before} old row(s) replaced with ".(int) ($result['created'] ?? 0));
+                $created += $newRows;
+                ShowIngestionLog::create([
+                    'show_id' => $show->id,
+                    'whatnot_channel_id' => $channel->id,
+                    'source' => 'whatnot_orders',
+                    'status' => 'success',
+                    'raw_payload' => [
+                        'show_title' => $show->title,
+                        'show_date' => $show->show_date?->toDateString(),
+                        'whatnot_show_id' => $show->whatnot_show_id,
+                        'orders_before' => $before,
+                        'orders_imported' => $newRows,
+                        'orders_replaced' => $before,
+                    ],
+                ]);
+                $progress && $progress("orders: show #{$show->id} reconciled — {$before} old row(s) replaced with {$newRows}");
             }
         }
 
@@ -144,47 +250,158 @@ class WhatnotReportingReconciler
             ' since '.$since->toDateString()
         );
 
-        $batchSize = max(1, min(5, (int) ($limit ?: 5)));
-        $targets = Show::query()
+        // A null/zero limit means no artificial cap: process every incomplete show.
+        // Explicit limits are still honored for smoke tests or targeted runs.
+        $batchSize = $limit === null || $limit <= 0 ? null : max(1, (int) $limit);
+        // Coverage and targeting must use the same population. Older imports
+        // sometimes have a UUID only inside detail_url, so recover it before
+        // deciding that a due show cannot be targeted.
+        $dueShows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
-            ->whereNotNull('whatnot_show_id')
-            ->where(function ($q) {
-                $q->whereNull('gross_revenue')
-                    ->orWhere('gross_revenue', '<=', 0)
-                    ->orWhereNull('whatnot_net')
-                    ->orWhere('whatnot_net', '<=', 0);
-            })
+            ->missingAnalytics()
             ->orderByDesc('show_date')
             ->orderByDesc('id')
-            ->limit($batchSize)
-            ->pluck('whatnot_show_id')
-            ->map(fn ($id) => strtolower(trim((string) $id)))
-            ->filter()
-            ->values()
-            ->all();
+            ->get();
+
+        $targets = [];
+        $unresolved = 0;
+        foreach ($dueShows as $show) {
+            $liveId = $this->liveId($show);
+            if (! $liveId) {
+                $unresolved++;
+                continue;
+            }
+            if (! $show->whatnot_show_id) {
+                // A UUID recovered from detail_url may already belong to an older,
+                // canonical row. Never let recovery violate the unique index or
+                // abort analytics for the rest of the channel.
+                $owner = Show::query()
+                    ->where('whatnot_show_id', $liveId)
+                    ->whereKeyNot($show->getKey())
+                    ->first();
+
+                if ($owner) {
+                    $unresolved++;
+                    $progress && $progress(
+                        "analytics: show #{$show->id} UUID collision with canonical show #{$owner->id} ({$liveId}); ".
+                        'skipping duplicate candidate for manual reconciliation'
+                    );
+                    Log::warning('Whatnot analytics UUID recovery collision', [
+                        'show_id' => $show->id,
+                        'canonical_show_id' => $owner->id,
+                        'whatnot_show_id' => $liveId,
+                        'channel' => $channel->whatnot_username,
+                    ]);
+                    continue;
+                }
+
+                try {
+                    $show->forceFill(['whatnot_show_id' => $liveId])->saveQuietly();
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Protect against a concurrent process assigning the same UUID
+                    // after the ownership check but before this write.
+                    $owner = Show::query()
+                        ->where('whatnot_show_id', $liveId)
+                        ->whereKeyNot($show->getKey())
+                        ->first();
+
+                    if ($owner) {
+                        $unresolved++;
+                        $progress && $progress(
+                            "analytics: show #{$show->id} UUID collision with canonical show #{$owner->id} ({$liveId}); ".
+                            'skipping duplicate candidate for manual reconciliation'
+                        );
+                        Log::warning('Whatnot analytics UUID recovery collision after concurrent write', [
+                            'show_id' => $show->id,
+                            'canonical_show_id' => $owner->id,
+                            'whatnot_show_id' => $liveId,
+                            'channel' => $channel->whatnot_username,
+                        ]);
+                        continue;
+                    }
+
+                    throw $e;
+                }
+            }
+            $targets[] = $liveId;
+            if ($batchSize !== null && count($targets) >= $batchSize) {
+                break;
+            }
+        }
+        $targets = array_values(array_unique($targets));
+
+        if ($unresolved > 0) {
+            $progress && $progress("analytics: {$unresolved} due show(s) still have no recoverable Whatnot UUID; leaving them due rather than silently excluding them");
+        }
 
         if ($targets === []) {
             $progress && $progress('analytics: no missing analytics targets remain for this channel');
             return ['updated' => 0, 'failed' => 0, 'skipped' => 0];
         }
 
-        $progress && $progress('analytics: resumable batch targeting '.count($targets).' missing show(s)');
+        $progress && $progress('analytics: targeting '.count($targets).' incomplete show(s)'.($batchSize === null ? ' (all)' : ''));
 
-        $rawRows = $this->scraper->fetchHistoricalAnalytics(
-            since: $since->toDateString(),
-            channelUsername: $channel->whatnot_username,
-            onProgress: $progress,
-            targetLiveIds: $targets,
-            batchSize: $batchSize,
-        );
-
+        // Keep browser batches small, but exhaust every analytics candidate that
+        // can actually be matched for this channel during this run. Never retry a
+        // returned UUID in the same run: a show can legitimately remain incomplete
+        // when Whatnot has not published settlement/duration yet.
         $updated = $failed = $skipped = 0;
         $seen = [];
+        $pendingTargets = array_values(array_unique($targets));
+        $batchNumber = 0;
 
-        foreach ($rawRows as $raw) {
+        while ($pendingTargets !== []) {
+            $batchNumber++;
+            $progress && $progress(
+                'analytics: batch '.$batchNumber.' requesting '.count($pendingTargets).
+                ' not-yet-attempted target(s)'
+            );
+
+            $rawRows = $this->scraper->fetchHistoricalAnalytics(
+                since: $since->toDateString(),
+                channelUsername: $channel->whatnot_username,
+                onProgress: $progress,
+                targetLiveIds: $pendingTargets,
+                batchSize: 10,
+            );
+
+            if ($rawRows === []) {
+                // An empty browser batch can be caused by navigation, hydration,
+                // authentication, or transport trouble. It is not proof that all
+                // requested UUIDs are unavailable, so leave every target due.
+                $failed += count($pendingTargets);
+                $progress && $progress(
+                    'analytics: browser batch returned no rows; '.
+                    count($pendingTargets).' target(s) left due for retry (not marked unavailable)'
+                );
+                break;
+            }
+
+            $returnedIds = [];
+            foreach ($rawRows as $raw) {
+                if (! is_array($raw)) {
+                    continue;
+                }
+                $returnedId = strtolower(trim((string) ($raw['whatnot_live_id'] ?? $raw['live_id'] ?? '')));
+                if ($returnedId !== '') {
+                    $returnedIds[$returnedId] = true;
+                }
+            }
+
+            if ($returnedIds === []) {
+                $progress && $progress('analytics: batch returned no identifiable UUIDs; stopping to avoid a retry loop');
+                break;
+            }
+
+            $pendingTargets = array_values(array_filter(
+                $pendingTargets,
+                fn ($id) => ! isset($returnedIds[strtolower(trim((string) $id))])
+            ));
+
+            foreach ($rawRows as $raw) {
             if (! is_array($raw)) {
                 $skipped++;
                 continue;
@@ -211,8 +428,76 @@ class WhatnotReportingReconciler
                 continue;
             }
 
+            // A browser/network/navigation failure is not evidence that
+            // analytics are unavailable. The scraper returns an identifiable
+            // transient row so this UUID counts as attempted but remains due.
+            if (($raw['_analytics_transient_failure'] ?? false) === true) {
+                $failed++;
+                $note = trim((string) ($raw['_analytics_failure_note'] ?? 'Transient Seller Hub analytics failure.'));
+                $show->forceFill([
+                    'analytics_sync_note' => $note,
+                    'analytics_unavailable_at' => null,
+                ])->saveQuietly();
+                $progress && $progress("analytics: show #{$show->id} transient failure · {$note} · left due for retry");
+                continue;
+            }
+
             try {
                 $normalized = $this->normalizer->normalizeShow($raw);
+
+                // Whatnot explicitly reporting a zero-minute duration on a show
+                // at least two calendar days old means the scheduled show never
+                // actually happened. Do not confuse this with a missing/null
+                // duration, which remains eligible for analytics retry.
+                $explicitZeroDuration = array_key_exists('show_duration', $raw)
+                    && $raw['show_duration'] !== null
+                    && (int) $raw['show_duration'] === 0;
+                $showDate = $show->show_date ? \Illuminate\Support\Carbon::parse($show->show_date)->startOfDay() : null;
+                $isOldEnoughNoShow = $showDate
+                    && $showDate->lte(now()->startOfDay()->subDays(2));
+
+                if ($explicitZeroDuration && $isOldEnoughNoShow) {
+                    $showId = $show->id;
+                    $showDateDisplay = $showDate->toDateString();
+                    $previousStatus = $show->status;
+
+                    // Preserve the row and its audit/relationship history, but remove
+                    // confirmed no-shows from every operational/reporting total. The
+                    // audit page already excludes cancelled rows. Hard-deleting here
+                    // is unsafe because shows can have NO ACTION/SET NULL/CASCADE
+                    // relationships even when Whatnot reports a zero-minute stream.
+                    $show->forceFill([
+                        'status' => 'cancelled',
+                        'analytics_sync_status' => 'unavailable',
+                        'analytics_sync_note' => 'Automatically excluded: Whatnot reported a 0-minute duration at least 2 days after the scheduled show.',
+                        'analytics_unavailable_at' => now(),
+                        'last_analytics_synced_at' => now(),
+                        'last_synced_at' => now(),
+                    ])->save();
+
+                    ShowIngestionLog::create([
+                        'show_id' => $showId,
+                        'whatnot_channel_id' => $channel->id,
+                        'source' => 'whatnot_show_analytics',
+                        'status' => 'success',
+                        'raw_payload' => [
+                            'show_title' => $show->title,
+                            'show_date' => $showDateDisplay,
+                            'whatnot_show_id' => $liveId,
+                            'event' => 'no_show_excluded',
+                            'show_duration' => 0,
+                            'previous_status' => $previousStatus,
+                            'new_status' => 'cancelled',
+                        ],
+                    ]);
+
+                    $updated++;
+                    $progress && $progress(
+                        "analytics: show #{$showId} excluded as no-show · {$showDateDisplay} · Whatnot reported 0-minute duration at least 2 days after scheduled date"
+                    );
+                    continue;
+                }
+
                 $fields = [];
                 foreach (['gross_revenue','whatnot_net','completed_earnings','avg_order_value','giveaway_spend','units_sold','giveaways_count','buyers_count','first_time_buyers','returning_buyers','shares_count','max_concurrent_viewers','total_views','show_duration'] as $field) {
                     if (($normalized[$field] ?? null) !== null) {
@@ -226,17 +511,62 @@ class WhatnotReportingReconciler
                     continue;
                 }
 
+                $beforeAnalytics = [];
+                foreach (array_keys($fields) as $field) {
+                    $beforeAnalytics[$field] = $show->{$field};
+                }
+
                 $fields['last_synced_at'] = now();
                 $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
-                $updated++;
+
+                $changes = [];
+                foreach ($beforeAnalytics as $field => $beforeValue) {
+                    $afterValue = $show->{$field};
+                    if ((string) ($beforeValue ?? '') !== (string) ($afterValue ?? '')) {
+                        $changes[$field] = ['before' => $beforeValue, 'after' => $afterValue];
+                    }
+                }
 
                 $fresh = $show->fresh();
+                $analyticsComplete = $fresh->gross_revenue !== null
+                    && $fresh->show_duration !== null
+                    && ($fresh->whatnot_net !== null || $fresh->completed_earnings !== null);
+                $fresh->forceFill([
+                    'analytics_sync_status' => $analyticsComplete ? 'complete' : 'partial',
+                    'analytics_sync_note' => $analyticsComplete
+                        ? 'Seller Hub analytics imported.'
+                        : 'Seller Hub analytics reached; one or more optional/settlement metrics are still unavailable.',
+                    'analytics_unavailable_at' => null,
+                ])->saveQuietly();
+                $updated++;
+
+                ShowIngestionLog::create([
+                    'show_id' => $show->id,
+                    'whatnot_channel_id' => $channel->id,
+                    'source' => 'whatnot_show_analytics',
+                    'status' => 'success',
+                    'raw_payload' => [
+                        'show_title' => $show->title,
+                        'show_date' => $show->show_date?->toDateString(),
+                        'whatnot_show_id' => $liveId,
+                        'analytics_status' => $fresh->analytics_sync_status,
+                        'changed_fields' => $changes,
+                        'changed_count' => count($changes),
+                        'analytics' => $raw,
+                    ],
+                ]);
+
+                $fresh = $fresh->fresh();
+                $netDisplay = $fresh->whatnot_net === null
+                    ? 'unavailable'
+                    : '$'.number_format((float) $fresh->whatnot_net, 2);
+
                 $progress && $progress(
                     "analytics: show #{$show->id} updated · {$fresh->show_date} · gross $".
                     number_format((float) ($fresh->gross_revenue ?? 0), 2).
-                    ' · net $'.number_format((float) ($fresh->whatnot_net ?? 0), 2)
+                    " · net {$netDisplay} · status {$fresh->analytics_sync_status}"
                 );
             } catch (\Throwable $e) {
                 $failed++;
@@ -247,22 +577,25 @@ class WhatnotReportingReconciler
                     'exception' => $e->getMessage(),
                 ]);
             }
+            }
         }
 
         $progress && $progress(
             'analytics: channel walk complete · '.number_format(count($seen)).
-            " unique show(s) returned · {$updated} updated · {$failed} failed · {$skipped} skipped"
+            " unique show(s) returned · {$updated} updated · {$failed} failed · {$skipped} skipped · ".
+            number_format(count($pendingTargets)).' unavailable/not matched this run'
         );
 
         return compact('updated', 'failed', 'skipped');
     }
 
-    public function reconcileShipments(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array
+    public function reconcileShipments(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null, ?int $maxShows = null): array
     {
         $batchSize = max(1, min(30, $batchSize));
         $shows = Show::query()->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())->whereDate('show_date', '<=', today())
-            ->whereNotIn('status', ['cancelled'])->whereNotNull('whatnot_show_id')->orderBy('show_date')->orderBy('id')->get();
+            ->whereNotIn('status', ['cancelled'])->whereNotNull('whatnot_show_id')->orderBy('show_date')->orderBy('id')
+            ->when($maxShows !== null, fn ($q) => $q->limit(max(1, $maxShows)))->get();
         $checked = $created = $updated = $skipped = 0;
 
         foreach ($shows->chunk($batchSize) as $chunk) {
@@ -270,10 +603,25 @@ class WhatnotReportingReconciler
             $progress && $progress("shipments: scraping {$chunk->count()} show(s)");
             $result = $this->scraper->refreshShipmentsForShows($chunk, $channel->whatnot_username);
             $after = Shipment::whereIn('show_id', $chunk->pluck('id'))->count();
-            $created += max(0, $after - $before);
-            $updated += max(0, (int) ($result['updated'] ?? 0) - max(0, $after - $before));
+            $chunkCreated = max(0, $after - $before);
+            $chunkUpdated = max(0, (int) ($result['updated'] ?? 0) - $chunkCreated);
+            $created += $chunkCreated;
+            $updated += $chunkUpdated;
             $skipped += (int) ($result['skipped_shows'] ?? 0);
             $checked += $chunk->count();
+
+            ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel->id,
+                'source' => 'whatnot_shipments',
+                'status' => 'success',
+                'raw_payload' => [
+                    'shows_checked' => $chunk->count(),
+                    'show_ids' => $chunk->pluck('id')->values()->all(),
+                    'created' => $chunkCreated,
+                    'updated' => $chunkUpdated,
+                    'skipped' => (int) ($result['skipped_shows'] ?? 0),
+                ],
+            ]);
         }
 
         return compact('checked', 'created', 'updated', 'skipped');

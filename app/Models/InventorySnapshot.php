@@ -35,7 +35,7 @@ class InventorySnapshot extends Model
      */
     public static function generateCurrent(): self
     {
-        $stocks = InventoryStock::with(['item', 'location'])->get();
+        $stocks = InventoryStock::with(['item', 'location'])->where('quantity', '>', 0)->get();
 
         // Which items have moved recently, in one grouped query.
         //
@@ -53,6 +53,7 @@ class InventorySnapshot extends Model
 
         $totalValue = 0;
         $totalItems = 0;
+        $seenItems = [];
         $totalQuantity = 0;
         $locationBreakdown = [];
         $itemTypeBreakdown = [];
@@ -64,10 +65,10 @@ class InventorySnapshot extends Model
             // Before anything is received there is no weighted average, and
             // valuing that stock at zero understates the snapshot by whatever
             // the list cost says it is worth.
-            $itemValue = $stock->quantity * ($stock->item?->effectiveCost() ?? 0);
+            $itemValue = $stock->quantity * ($stock->item?->costBasis() ?? 0);
             $totalValue += $itemValue;
-            $totalItems++;
-            $totalQuantity += (int) $stock->quantity;
+            $seenItems[$stock->inventory_item_id] = true;
+            $totalQuantity += (float) $stock->quantity;
 
             // Location breakdown
             $locId = $stock->location_id;
@@ -131,7 +132,7 @@ class InventorySnapshot extends Model
         return self::create([
             'snapshot_date' => now(),
             'total_value' => $totalValue,
-            'total_items' => $totalItems,
+            'total_items' => count($seenItems),
             'total_quantity' => $totalQuantity,
             'average_margin' => self::calculateAverageMargin(),
             'location_breakdown' => $locationBreakdown,

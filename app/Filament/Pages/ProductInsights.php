@@ -20,6 +20,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ProductInsights extends Page
 {
+    /** Secondary workspace screen: linked from its hub; access/permissions are unchanged. */
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     use HasAdminNavVisibility;
 
     protected static string $moduleSlug = 'inventory';

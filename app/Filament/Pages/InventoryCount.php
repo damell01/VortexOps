@@ -35,10 +35,10 @@ class InventoryCount extends Page
         return 'Inventory';
     }
 
+    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        $user = auth()->user();
-        return (bool) ($user?->isAdmin() || $user?->isOwner());
+        return false;
     }
 
     public static function canAccess(): bool

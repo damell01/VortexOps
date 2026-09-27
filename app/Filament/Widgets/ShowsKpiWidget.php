@@ -32,7 +32,7 @@ class ShowsKpiWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $cacheKey = 'widget:shows_kpi:v5:' . (ChannelContext::currentId() ?? 'all');
+        $cacheKey = 'widget:shows_kpi:v6:' . (ChannelContext::currentId() ?? 'all');
 
         [
             $weekShows,
@@ -57,11 +57,11 @@ class ShowsKpiWidget extends BaseWidget
 
             $weekShows = $weekQuery()->count();
             $weekGross = (float) $weekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
-            $weekNet = (float) $weekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
+            $weekNet = (float) $weekQuery()->whereNotNull('completed_earnings')->sum('completed_earnings');
 
             $priorWeekShows = $priorWeekQuery()->count();
             $priorWeekGross = (float) $priorWeekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
-            $priorWeekNet = (float) $priorWeekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
+            $priorWeekNet = (float) $priorWeekQuery()->whereNotNull('completed_earnings')->sum('completed_earnings');
 
             $weekHours = (float) $weekQuery()->sum('show_duration') / 60;
             $priorWeekHours = (float) $priorWeekQuery()->sum('show_duration') / 60;
@@ -74,7 +74,7 @@ class ShowsKpiWidget extends BaseWidget
                 $date = now()->subDays($i)->toDateString();
                 $dailyShows[] = Show::where('show_date', $date)->inChannelContext()->count();
                 $dailyGross[] = (float) Show::where('show_date', $date)->whereNotNull('gross_revenue')->inChannelContext()->sum('gross_revenue');
-                $dailyNet[] = (float) Show::where('show_date', $date)->whereNotNull('whatnot_net')->inChannelContext()->sum('whatnot_net');
+                $dailyNet[] = (float) Show::where('show_date', $date)->whereNotNull('completed_earnings')->inChannelContext()->sum('completed_earnings');
             }
 
             return [
@@ -113,8 +113,8 @@ class ShowsKpiWidget extends BaseWidget
                 ->icon('heroicon-o-currency-dollar')
                 ->color($this->trendColor($weekGross, $priorWeekGross, 'primary')),
 
-            Stat::make('Net Revenue', '$' . number_format($weekNet, 2))
-                ->description('Whatnot Total Estimated Earnings' . $this->trendSuffix($weekNet, $priorWeekNet))
+            Stat::make('Completed Earnings', '$' . number_format($weekNet, 2))
+                ->description('Whatnot Completed Earnings' . $this->trendSuffix($weekNet, $priorWeekNet))
                 ->descriptionIcon($this->trendIcon($weekNet, $priorWeekNet))
                 ->chart($dailyNet)
                 ->icon('heroicon-o-banknotes')

@@ -2791,6 +2791,12 @@ nav.fi-topbar {
        search field already provides. */
     .fi-topbar .fi-global-search-ctn,
     .fi-topbar .fi-global-search { display: none !important; }
+
+    /* Hiding search removes the only element that was growing to push the
+       notification bell and user menu right (via its own margin-inline-end:
+       auto). Without it they float left inside .fi-topbar-end instead of
+       staying pinned to the far edge of the bar. */
+    .fi-topbar .fi-topbar-end { justify-content: flex-end !important; }
 }
 
 /* Quick-create "+" is the single solid accent control */

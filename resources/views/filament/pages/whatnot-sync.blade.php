@@ -108,6 +108,7 @@
                     @foreach([
                         'Files' => $r['files'] ?? 0,
                         'Rows' => $r['rows'] ?? 0,
+                        'Created' => $r['created'] ?? 0,
                         'Updated' => $r['updated'] ?? 0,
                         'Already complete' => $r['already_complete'] ?? 0,
                         'Current/future ignored' => $r['ignored_current_future'] ?? 0,

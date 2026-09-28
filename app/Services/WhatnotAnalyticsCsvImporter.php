@@ -12,14 +12,10 @@ use RuntimeException;
 
 class WhatnotAnalyticsCsvImporter
 {
-    public const REQUIRED_HEADERS = [
-        'Show', 'Date', 'Est. Sales', 'Est. Earning', 'Orders', 'AOV',
-        'Giveaway Spend', 'Giveaways', 'Buyers', 'First Time Buyers',
-        'Returning Buyers', 'Show Shares', 'Show Duration (mins)',
-        'Max Concurrent Viewers', 'Total Views', 'Unique Viewers',
-        'Average Order Rating',
-    ];
-
+    // Only identity columns are mandatory. Whatnot changes the optional
+    // analytics columns in its export over time, so available metrics are
+    // imported without rejecting an otherwise valid Shows CSV.
+    public const REQUIRED_HEADERS = ['Show', 'Date'];
     public function import(string $path, int $channelId, bool $dryRun = false): array
     {
         $channel = WhatnotChannel::findOrFail($channelId);
@@ -152,26 +148,32 @@ class WhatnotAnalyticsCsvImporter
     private function metrics(array $row): array
     {
         $map = [
-            'Est. Sales' => ['gross_revenue', 'money'],
-            'Est. Earning' => ['whatnot_net', 'money'],
-            'Orders' => ['units_sold', 'int'],
-            'AOV' => ['avg_order_value', 'money'],
-            'Giveaway Spend' => ['giveaway_spend', 'money'],
-            'Giveaways' => ['giveaways_count', 'int'],
-            'Buyers' => ['buyers_count', 'int'],
-            'First Time Buyers' => ['first_time_buyers', 'int'],
-            'Returning Buyers' => ['returning_buyers', 'int'],
-            'Show Shares' => ['shares_count', 'int'],
-            'Show Duration (mins)' => ['show_duration', 'int'],
-            'Max Concurrent Viewers' => ['max_concurrent_viewers', 'int'],
-            'Total Views' => ['total_views', 'int'],
-            'Average Order Rating' => ['avg_order_rating', 'float'],
+            [['Est. Sales', 'Estimated Sales'], 'gross_revenue', 'money'],
+            [['Est. Earning', 'Est. Earnings', 'Estimated Earnings'], 'whatnot_net', 'money'],
+            [['Orders'], 'units_sold', 'int'],
+            [['AOV', 'Average Order Value'], 'avg_order_value', 'money'],
+            [['Giveaway Spend'], 'giveaway_spend', 'money'],
+            [['Giveaways'], 'giveaways_count', 'int'],
+            [['Buyers'], 'buyers_count', 'int'],
+            [['First Time Buyers', 'First-Time Buyers'], 'first_time_buyers', 'int'],
+            [['Returning Buyers'], 'returning_buyers', 'int'],
+            [['Show Shares', 'Shares'], 'shares_count', 'int'],
+            [['Show Duration (mins)', 'Show Duration', 'Duration (mins)'], 'show_duration', 'int'],
+            [['Max Concurrent Viewers'], 'max_concurrent_viewers', 'int'],
+            [['Total Views'], 'total_views', 'int'],
+            [['Average Order Rating', 'Avg. Order Rating'], 'avg_order_rating', 'float'],
         ];
 
         $out = [];
-        foreach ($map as $column => [$field, $type]) {
-            $raw = trim((string) ($row[$column] ?? ''));
-            if ($raw === '' || $raw === '—' || $raw === '-') continue;
+        foreach ($map as [$columns, $field, $type]) {
+            $raw = null;
+            foreach ($columns as $column) {
+                if (array_key_exists($column, $row)) {
+                    $raw = trim((string) $row[$column]);
+                    break;
+                }
+            }
+            if ($raw === null || $raw === '' || $raw === '—' || $raw === '-') continue;
             $clean = str_replace([',', '$'], '', $raw);
             if (! is_numeric($clean)) continue;
             $out[$field] = match ($type) {

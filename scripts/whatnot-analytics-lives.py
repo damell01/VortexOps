@@ -801,6 +801,48 @@ def historical_analytics(module, session):
                         os.environ["WHATNOT_EXPECTED_TITLE"] = expected_title
                         os.environ["WHATNOT_EXPECTED_DATE"] = expected_date
                         os.environ["WHATNOT_EXPECTED_LIVE_ID"] = live_id
+
+                        # The direct livestream URL can render the overview/detail
+                        # state rather than the Analytics > Shows table. Explicitly
+                        # return to Analytics and select Shows before invoking the
+                        # hardened table extractor.
+                        shows_url = f"{module.BASE}/dashboard/analytics/overview"
+                        module.info(
+                            f"historical-analytics [{index}/{total}]: opening Analytics > Shows "
+                            f"fallback uuid={live_id}"
+                        )
+                        try:
+                            page.goto(shows_url, wait_until="domcontentloaded", timeout=60000)
+                        except Exception as exc:
+                            module.info(
+                                f"historical-analytics [{index}/{total}]: Analytics overview "
+                                f"navigation warning uuid={live_id} error={exc}"
+                            )
+                        page.wait_for_timeout(1800)
+                        module.check_login(page)
+
+                        shows_selected = False
+                        for selector in (
+                            lambda: page.get_by_role("tab", name=re.compile(r"^Shows$", re.I)).first,
+                            lambda: page.get_by_role("button", name=re.compile(r"^Shows$", re.I)).first,
+                            lambda: page.get_by_text(re.compile(r"^Shows$", re.I), exact=True).first,
+                        ):
+                            try:
+                                control = selector()
+                                if control.count() and control.is_visible(timeout=700):
+                                    control.click(timeout=5000, force=True)
+                                    page.wait_for_timeout(1500)
+                                    shows_selected = True
+                                    break
+                            except Exception:
+                                continue
+
+                        if not shows_selected:
+                            module.info(
+                                f"historical-analytics [{index}/{total}]: Shows tab control "
+                                f"not found; scanning current Analytics page fail-closed"
+                            )
+
                         metric = base.extract_expected_show_from_table(module, page)
                         if metric and has_useful_data(metric):
                             module.info(

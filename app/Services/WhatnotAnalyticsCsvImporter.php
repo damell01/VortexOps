@@ -44,7 +44,7 @@ class WhatnotAnalyticsCsvImporter
         }
 
         $stats = [
-            'rows' => 0, 'updated' => 0, 'already_complete' => 0, 'ignored_current_future' => 0,
+            'rows' => 0, 'created' => 0, 'updated' => 0, 'already_complete' => 0, 'ignored_current_future' => 0,
             'blank_metrics' => 0, 'unmatched' => 0, 'ambiguous' => 0, 'no_shows' => 0,
             'exact_matched' => 0, 'date_tolerant_matched' => 0, 'fuzzy_matched' => 0,
         ];
@@ -78,12 +78,53 @@ class WhatnotAnalyticsCsvImporter
                 continue;
             }
             if (! $show) {
-                $stats['unmatched']++;
-                if (count($unmatched) < 25) $unmatched[] = $date->toDateString().' · '.$title;
-                continue;
+                // A historical Whatnot analytics row is authoritative evidence
+                // that the show existed. Create the missing historical shell so
+                // the analytics history is complete; never do this for today or
+                // future rows (those were filtered above).
+                if (! $dryRun) {
+                    $show = DB::transaction(function () use ($channel, $date, $title, $metrics, $row) {
+                        $created = Show::create(array_merge([
+                            'whatnot_channel_id' => $channel->id,
+                            'title' => $title,
+                            'show_date' => $date->toDateString(),
+                            'status' => ((int) ($metrics['show_duration'] ?? 0)) > 0 ? 'closed' : 'draft',
+                            'import_source' => 'auto_whatnot',
+                            'created_by' => auth()->id() ?? 1,
+                            'raw_import_payload' => ['source' => 'whatnot_analytics_csv', 'csv' => $row],
+                        ], $metrics));
+
+                        $created->detectStreamers();
+
+                        ShowIngestionLog::create([
+                            'show_id' => $created->id,
+                            'whatnot_channel_id' => $channel->id,
+                            'source' => 'whatnot_analytics_csv',
+                            'status' => 'success',
+                            'raw_payload' => [
+                                'event' => 'csv_historical_show_created',
+                                'changed_count' => count($metrics),
+                                'csv' => $row,
+                            ],
+                        ]);
+
+                        return $created;
+                    });
+                } else {
+                    $show = new Show([
+                        'whatnot_channel_id' => $channel->id,
+                        'title' => $title,
+                        'show_date' => $date->toDateString(),
+                    ]);
+                }
+
+                $stats['created']++;
+                $matchType = null;
+            } else {
+                $stats[$matchType.'_matched']++;
             }
-            $stats[$matchType.'_matched']++;
-            $before = $show->only(array_keys($metrics));
+
+            $before = $show->exists ? $show->only(array_keys($metrics)) : [];
 
             $duration = $metrics['show_duration'] ?? null;
             $oldZero = $duration === 0 && $date->lte(today()->subDays(2));
@@ -100,6 +141,11 @@ class WhatnotAnalyticsCsvImporter
                 $metrics['analytics_unavailable_at'] = null;
             }
             $metrics['last_analytics_synced_at'] = now();
+
+            // Newly-created rows already received the CSV metrics above.
+            if ($matchType === null) {
+                continue;
+            }
 
             $changed = collect($metrics)->contains(fn ($value, $key) => $this->different($show->getAttribute($key), $value));
             if (! $changed) {

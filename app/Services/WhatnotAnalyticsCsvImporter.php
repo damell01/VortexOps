@@ -46,6 +46,7 @@ class WhatnotAnalyticsCsvImporter
         $stats = [
             'rows' => 0, 'updated' => 0, 'already_complete' => 0, 'ignored_current_future' => 0,
             'blank_metrics' => 0, 'unmatched' => 0, 'ambiguous' => 0, 'no_shows' => 0,
+            'exact_matched' => 0, 'date_tolerant_matched' => 0, 'fuzzy_matched' => 0,
         ];
         $unmatched = [];
 
@@ -70,25 +71,18 @@ class WhatnotAnalyticsCsvImporter
             }
 
             $title = trim((string) $row['Show']);
-            $candidates = Show::query()
-                ->where('whatnot_channel_id', $channel->id)
-                ->whereDate('show_date', $date->toDateString())
-                ->get()
-                ->filter(fn (Show $show) => $this->normalize($show->title) === $this->normalize($title))
-                ->values();
+            [$show, $matchType, $ambiguous] = $this->matchShow($channel->id, $date, $title);
 
-            if ($candidates->count() === 0) {
+            if ($ambiguous) {
+                $stats['ambiguous']++;
+                continue;
+            }
+            if (! $show) {
                 $stats['unmatched']++;
                 if (count($unmatched) < 25) $unmatched[] = $date->toDateString().' · '.$title;
                 continue;
             }
-            if ($candidates->count() > 1) {
-                $stats['ambiguous']++;
-                continue;
-            }
-
-            /** @var Show $show */
-            $show = $candidates->first();
+            $stats[$matchType.'_matched']++;
             $before = $show->only(array_keys($metrics));
 
             $duration = $metrics['show_duration'] ?? null;
@@ -143,6 +137,51 @@ class WhatnotAnalyticsCsvImporter
         fclose($handle);
         $stats['unmatched_examples'] = $unmatched;
         return $stats;
+    }
+
+    /**
+     * Match conservatively in stages. Whatnot's export date can differ from our
+     * stored date by one day around midnight/timezone boundaries, and historical
+     * titles sometimes differ only by punctuation/emoji or a small edit.
+     *
+     * @return array{0:?Show,1:string,2:bool}
+     */
+    private function matchShow(int $channelId, Carbon $date, string $title): array
+    {
+        $needle = $this->normalize($title);
+        $pool = Show::query()
+            ->where('whatnot_channel_id', $channelId)
+            ->whereBetween('show_date', [
+                $date->copy()->subDay()->toDateString(),
+                $date->copy()->addDay()->toDateString(),
+            ])
+            ->get();
+
+        $sameDay = $pool->filter(fn (Show $show) => $show->show_date?->isSameDay($date));
+        $exactSameDay = $sameDay->filter(fn (Show $show) => $this->normalize($show->title) === $needle)->values();
+        if ($exactSameDay->count() === 1) return [$exactSameDay->first(), 'exact', false];
+        if ($exactSameDay->count() > 1) return [null, 'exact', true];
+
+        $exactNearby = $pool->filter(fn (Show $show) => $this->normalize($show->title) === $needle)->values();
+        if ($exactNearby->count() === 1) return [$exactNearby->first(), 'date_tolerant', false];
+        if ($exactNearby->count() > 1) return [null, 'date_tolerant', true];
+
+        // Fuzzy matching is intentionally fail-closed: require a very strong
+        // title score and a clear margin over the runner-up.
+        $ranked = $pool->map(function (Show $show) use ($needle, $date) {
+            $candidate = $this->normalize($show->title);
+            similar_text($needle, $candidate, $score);
+            if ($show->show_date?->isSameDay($date)) $score += 3.0;
+            return ['show' => $show, 'score' => min(100.0, $score)];
+        })->sortByDesc('score')->values();
+
+        $best = $ranked->get(0);
+        $second = $ranked->get(1);
+        if ($best && $best['score'] >= 90.0 && (! $second || ($best['score'] - $second['score']) >= 8.0)) {
+            return [$best['show'], 'fuzzy', false];
+        }
+
+        return [null, 'exact', false];
     }
 
     private function metrics(array $row): array

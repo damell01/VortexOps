@@ -642,6 +642,13 @@ def historical_analytics(module, session):
         for value in os.getenv("WHATNOT_ANALYTICS_TARGET_IDS", "").split(",")
         if value.strip()
     }
+    try:
+        target_meta = json.loads(os.getenv("WHATNOT_ANALYTICS_TARGET_META", "{}") or "{}")
+        if not isinstance(target_meta, dict):
+            target_meta = {}
+        target_meta = {str(k).lower(): v for k, v in target_meta.items() if isinstance(v, dict)}
+    except Exception:
+        target_meta = {}
     channel_key = re.sub(r"[^a-z0-9_-]+", "-", clean(os.getenv("WHATNOT_CHANNEL_NAME", "channel")).lower().lstrip("@"))
     cache_dir = HERE.parent / "storage" / "app" / "whatnot-analytics"
     cache_file = cache_dir / f"{channel_key}-past-index.json"
@@ -722,8 +729,11 @@ def historical_analytics(module, session):
             # of declaring every cache miss unavailable.
             for live_id in target_ids:
                 if live_id not in by_id:
+                    meta = target_meta.get(live_id, {})
                     by_id[live_id] = {
                         "live_id": live_id,
+                        "title": meta.get("title"),
+                        "show_date": meta.get("show_date"),
                         "analytics_url": (
                             f"{module.BASE}/dashboard/analytics/overview"
                             f"?tab=livestream&live_id={live_id}"
@@ -774,6 +784,39 @@ def historical_analytics(module, session):
                     "_analytics_failure_note": f"Metric extraction failed: {exc}",
                 })
                 continue
+
+            if (not metric or not has_useful_data(metric)) and item.get("_direct_uuid_fallback"):
+                # The current September 2026 Analytics UI can ignore live_id on the
+                # aggregate overview route. Reuse the hardened Shows-table extractor,
+                # which is the working path for historical rows: search by the DB
+                # title/date and read Est. Sales / Est. Earning / Orders / AOV.
+                meta = target_meta.get(live_id, {})
+                expected_title = clean(item.get("title") or meta.get("title"))
+                expected_date = clean(item.get("show_date") or meta.get("show_date"))
+                if expected_title:
+                    old_title = os.environ.get("WHATNOT_EXPECTED_TITLE")
+                    old_date = os.environ.get("WHATNOT_EXPECTED_DATE")
+                    old_live = os.environ.get("WHATNOT_EXPECTED_LIVE_ID")
+                    try:
+                        os.environ["WHATNOT_EXPECTED_TITLE"] = expected_title
+                        os.environ["WHATNOT_EXPECTED_DATE"] = expected_date
+                        os.environ["WHATNOT_EXPECTED_LIVE_ID"] = live_id
+                        metric = base.extract_expected_show_from_table(module, page)
+                        if metric and has_useful_data(metric):
+                            module.info(
+                                f"historical-analytics [{index}/{total}]: recovered metrics "
+                                f"from Shows table uuid={live_id}"
+                            )
+                    finally:
+                        for key, value in (
+                            ("WHATNOT_EXPECTED_TITLE", old_title),
+                            ("WHATNOT_EXPECTED_DATE", old_date),
+                            ("WHATNOT_EXPECTED_LIVE_ID", old_live),
+                        ):
+                            if value is None:
+                                os.environ.pop(key, None)
+                            else:
+                                os.environ[key] = value
 
             if not metric or not has_useful_data(metric):
                 note = "Analytics page returned no stable metrics"

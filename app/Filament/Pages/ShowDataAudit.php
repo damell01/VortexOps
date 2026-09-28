@@ -21,11 +21,23 @@ class ShowDataAudit extends Page
     public string $dateFrom = '';
     #[Url(as: 'to')]
     public string $dateTo = '';
+    #[Url(as: 'status')]
+    public string $statusFilter = 'all';
+    #[Url(as: 'page')]
+    public int $followUpPage = 1;
+
+    private const FOLLOW_UP_PER_PAGE = 50;
 
     public function mount(): void
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
         if ($this->dateFrom === '' || $this->dateTo === '') $this->applyDatePreset($this->datePreset);
+    }
+
+    public function setStatusFilter(string $status): void
+    {
+        $this->statusFilter = $status;
+        $this->followUpPage = 1;
     }
 
     public static function canAccess(): bool { return auth()->user()?->isAdmin() ?? false; }
@@ -39,6 +51,9 @@ class ShowDataAudit extends Page
         if ($value !== 'custom') $this->applyDatePreset($value);
     }
 
+    public function updatedDateFrom(): void { $this->followUpPage = 1; }
+    public function updatedDateTo(): void { $this->followUpPage = 1; }
+
     public function applyDatePreset(string $preset): void
     {
         $today = today();
@@ -51,6 +66,7 @@ class ShowDataAudit extends Page
         $this->datePreset = $preset;
         $this->dateFrom = $from->toDateString();
         $this->dateTo = $to->toDateString();
+        $this->followUpPage = 1;
     }
 
     private function range(): array
@@ -91,9 +107,17 @@ class ShowDataAudit extends Page
             'unclassified' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'unclassified')->count(),
         ];
 
-        $missing = $pastShows
-            ->filter(fn (Show $s) => $s->analyticsCoverageStatus() !== 'complete')
-            ->take(50)->values();
+        $needsFollowUp = $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() !== 'complete');
+
+        if ($this->statusFilter !== 'all') {
+            $needsFollowUp = $needsFollowUp->filter(fn (Show $s) => $s->analyticsCoverageStatus() === $this->statusFilter);
+        }
+
+        $needsFollowUp = $needsFollowUp->values();
+        $followUpTotal = $needsFollowUp->count();
+        $followUpPages = (int) max(1, ceil($followUpTotal / self::FOLLOW_UP_PER_PAGE));
+        $followUpPage = min(max(1, $this->followUpPage), $followUpPages);
+        $missing = $needsFollowUp->forPage($followUpPage, self::FOLLOW_UP_PER_PAGE)->values();
 
         return [
             'from' => $from, 'to' => $to, 'total' => $total,
@@ -104,8 +128,16 @@ class ShowDataAudit extends Page
             'coverage' => $coverage, 'missing' => $missing,
             'statusCounts' => $statusCounts,
             'complete' => $statusCounts['complete'],
+            'followUpTotal' => $followUpTotal,
+            'followUpPages' => $followUpPages,
+            'followUpPage' => $followUpPage,
         ];
     }
 
     public function showUrl(int $id): string { return ShowResource::getUrl('view', ['record' => $id]); }
+
+    public function goToFollowUpPage(int $page): void
+    {
+        $this->followUpPage = max(1, $page);
+    }
 }

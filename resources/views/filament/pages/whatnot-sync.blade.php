@@ -32,7 +32,16 @@
                     <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div class="h-full w-2/3 animate-pulse rounded-full bg-violet-500"></div></div>
                 @endif
                 @if(!empty($job['output']))
-                    <details class="rounded-lg border border-gray-200 dark:border-gray-700"><summary class="cursor-pointer p-3 text-xs font-semibold">Run output</summary><pre class="max-h-72 overflow-auto whitespace-pre-wrap bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre></details>
+                    {{-- A native <details> loses its open state on every 3s wire:poll
+                         re-render, since the server HTML never carries an `open`
+                         attribute — it snapped shut before it could be read.
+                         Alpine's x-data lives outside that diff, so it survives. --}}
+                    <div x-data="{ open: false }" class="rounded-lg border border-gray-200 dark:border-gray-700" wire:key="whatnot-run-output">
+                        <button type="button" @click="open = !open" class="w-full cursor-pointer p-3 text-left text-xs font-semibold">
+                            <span x-text="open ? '▾' : '▸'"></span> Run output
+                        </button>
+                        <pre x-show="open" x-cloak class="max-h-72 overflow-auto whitespace-pre-wrap bg-gray-950 p-3 text-[11px] text-gray-100">{{ $job['output'] }}</pre>
+                    </div>
                 @endif
             </div>
 

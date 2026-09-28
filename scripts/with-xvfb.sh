@@ -16,7 +16,20 @@ export WHATNOT_SWITCH_TIMEOUT_MS
 DISPLAY_NUM=""
 n=99
 while [ "$n" -lt 200 ]; do
-    if [ ! -e "/tmp/.X${n}-lock" ]; then
+    LOCK="/tmp/.X${n}-lock"
+    if [ -e "$LOCK" ]; then
+        # The lock file holds the owning PID as ASCII text. If that process is
+        # not running, a prior Xvfb died without cleaning up after itself (a
+        # kill -9, a force-cleared browser lock, a container restart) and this
+        # display is actually free — reclaim it instead of leaving it marked
+        # taken forever. Without this, every crashed run permanently loses one
+        # of the 101 slots until all of them look occupied.
+        LOCK_PID="$(tr -dc '0-9' < "$LOCK" 2>/dev/null)"
+        if [ -n "$LOCK_PID" ] && ! kill -0 "$LOCK_PID" 2>/dev/null; then
+            rm -f "$LOCK" "/tmp/.X11-unix/X${n}" 2>/dev/null || true
+        fi
+    fi
+    if [ ! -e "$LOCK" ]; then
         DISPLAY_NUM="$n"
         break
     fi

@@ -95,9 +95,9 @@ class ShowDataAudit extends Page
         $coverage = [
             'gross_revenue' => $field('gross_revenue'),
             'whatnot_net' => $field('whatnot_net'),
-            'completed_earnings' => $field('completed_earnings'),
             'show_duration' => $field('show_duration'),
         ];
+        $settlementCoverage = $field('completed_earnings');
 
         $pastShows = $shows->filter(fn (Show $s) => $s->show_date?->lt(today()));
         $statusCounts = [
@@ -125,7 +125,7 @@ class ShowDataAudit extends Page
             'estimatedNet' => (float) $shows->sum('whatnot_net'),
             'completed' => (float) $shows->sum('completed_earnings'),
             'hours' => (float) $shows->sum('show_duration') / 60,
-            'coverage' => $coverage, 'missing' => $missing,
+            'coverage' => $coverage, 'settlementCoverage' => $settlementCoverage, 'missing' => $missing,
             'statusCounts' => $statusCounts,
             'complete' => $statusCounts['complete'],
             'followUpTotal' => $followUpTotal,

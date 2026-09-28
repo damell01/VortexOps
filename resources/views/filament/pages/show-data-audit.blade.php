@@ -1,6 +1,6 @@
 @php
     $d = $this->getAuditData();
-    $labels = ['gross_revenue'=>'Gross Revenue','whatnot_net'=>'Estimated Net','completed_earnings'=>'Completed Earnings','show_duration'=>'Stream Duration'];
+    $labels = ['gross_revenue'=>'Gross Revenue','whatnot_net'=>'Estimated Net','show_duration'=>'Stream Duration'];
     $statusMeta = [
         'partial' => ['label' => 'Partial', 'desc' => 'has some analytics, not all', 'pill' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
         'unavailable' => ['label' => 'Needs source review', 'desc' => 'older automated lookup did not return analytics; CSV/import evidence may supersede this', 'pill' => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'],
@@ -61,7 +61,7 @@
             <h2 class="font-semibold text-gray-950 dark:text-white">Analytics Coverage</h2>
             <p class="mt-1 text-xs text-gray-500">This is the confidence check for the totals above. Coverage counts only verified imported/synced values; database defaults alone do not count as captured.</p>
         </div>
-        <div class="grid gap-px bg-gray-100 sm:grid-cols-2 xl:grid-cols-4 dark:bg-gray-800">
+        <div class="grid gap-px bg-gray-100 sm:grid-cols-3 dark:bg-gray-800">
             @foreach($d['coverage'] as $key=>$c)
                 @php $pct=$d['total'] ? round($c['present']/$d['total']*100,1) : 0; @endphp
                 <div class="bg-white p-4 dark:bg-gray-900">
@@ -70,6 +70,25 @@
                     <div class="mt-2 flex justify-between text-[11px] text-gray-500"><span>{{ $c['present'] }} captured</span><span class="{{ $c['missing'] ? 'font-semibold text-amber-600' : '' }}">{{ $c['missing'] }} missing</span></div>
                 </div>
             @endforeach
+        </div>
+    </section>
+
+    @php
+        $settled = $d['settlementCoverage'];
+        $settledPct = $d['total'] ? round($settled['present'] / $d['total'] * 100, 1) : 0;
+    @endphp
+    <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Settlement Coverage</div>
+                <div class="mt-1 text-lg font-bold text-gray-950 dark:text-white">Completed Earnings</div>
+                <p class="mt-1 text-xs text-gray-500">Final settled earnings are tracked separately and do not determine analytics completeness.</p>
+            </div>
+            <div class="min-w-[260px] flex-1 sm:max-w-md">
+                <div class="flex justify-between text-xs"><span>{{ number_format($settled['present']) }} captured</span><strong class="{{ $settled['missing'] ? 'text-amber-600' : 'text-emerald-600' }}">{{ $settledPct }}%</strong></div>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full rounded-full bg-primary-500" style="width:{{ $settledPct }}%"></div></div>
+                <div class="mt-1 text-right text-[11px] text-gray-500">{{ number_format($settled['missing']) }} awaiting settlement</div>
+            </div>
         </div>
     </section>
 

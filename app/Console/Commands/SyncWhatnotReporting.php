@@ -22,7 +22,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-limit=0 : Number of incomplete analytics shows per channel run; 0 processes all}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
-        {--analytics-only : Walk each channel Seller Hub Past shows and refresh analytics in one browser session; skip discovery, orders, shipments, and ledger}
+        {--analytics-only : Check database shows that are missing/incomplete analytics by Whatnot UUID; skip discovery, orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
@@ -87,7 +87,7 @@ class SyncWhatnotReporting extends Command
         if ($shipmentsOnly) {
             $this->line("Channels: {$channels->count()} · shipment batch {$shipmentBatch} · SHIPMENTS ONLY · orders OFF");
         } elseif ($analyticsOnly) {
-            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · Seller Hub Past-show walk · discovery OFF · orders OFF · shipments OFF · ledger OFF");
+            $this->line("Channels: {$channels->count()} · ANALYTICS ONLY · DB missing-analytics targets by UUID · discovery OFF · orders OFF · shipments OFF · ledger OFF");
         } else {
             $this->line(
                 "Channels: {$channels->count()} · show {$showLimit} · analytics {$analyticsLimit} · shipment {$shipmentBatch}".
@@ -212,7 +212,7 @@ class SyncWhatnotReporting extends Command
 
                 if ($analyticsOnly) {
                     $missingBefore = $this->missingAnalyticsCount($channel->id, $since);
-                    $this->line("  {$step}. Historical analytics channel walk ({$missingBefore} database show(s) currently due for analytics refresh; Seller Hub Past shows scanned once)");
+                    $this->line("  {$step}. Historical analytics targeted check ({$missingBefore} database show(s) currently due; checking recoverable Whatnot UUIDs directly)");
                     $step++;
                     try {
                         $analytics = $retry(fn () => $reconciler->backfillAnalytics($channel, $since, $analyticsLimit, $progress), 'analytics');

@@ -96,7 +96,7 @@ class WhatnotSyncPage extends Page
         try {
             $totals = [
                 'files' => count($this->analyticsCsv),
-                'rows' => 0, 'updated' => 0, 'already_complete' => 0,
+                'rows' => 0, 'created' => 0, 'updated' => 0, 'already_complete' => 0,
                 'ignored_current_future' => 0, 'blank_metrics' => 0,
                 'unmatched' => 0, 'ambiguous' => 0, 'no_shows' => 0,
                 'exact_matched' => 0, 'date_tolerant_matched' => 0, 'fuzzy_matched' => 0,
@@ -109,7 +109,7 @@ class WhatnotSyncPage extends Page
                     (int) $this->analyticsCsvChannelId,
                 );
 
-                foreach (['rows','updated','already_complete','ignored_current_future','blank_metrics','unmatched','ambiguous','no_shows','exact_matched','date_tolerant_matched','fuzzy_matched'] as $key) {
+                foreach (['rows','created','updated','already_complete','ignored_current_future','blank_metrics','unmatched','ambiguous','no_shows','exact_matched','date_tolerant_matched','fuzzy_matched'] as $key) {
                     $totals[$key] += (int) ($result[$key] ?? 0);
                 }
 
@@ -125,8 +125,8 @@ class WhatnotSyncPage extends Page
             Notification::make()
                 ->title('Whatnot analytics CSVs imported')
                 ->body(sprintf(
-                    '%d files · %d rows · %d updated · %d unmatched · %d current/future ignored · %d no-shows',
-                    $totals['files'], $totals['rows'], $totals['updated'], $totals['unmatched'],
+                    '%d files · %d rows · %d created · %d updated · %d unmatched · %d current/future ignored · %d no-shows',
+                    $totals['files'], $totals['rows'], $totals['created'], $totals['updated'], $totals['unmatched'],
                     $totals['ignored_current_future'], $totals['no_shows'],
                 ))
                 ->success()

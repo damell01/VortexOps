@@ -48,6 +48,7 @@ class ShowIngestionLog extends Model
             'whatnot_spa_enrichment'          => 'Legacy analytics enrichment',
             'whatnot_recent_refresh'          => 'Legacy recent refresh',
             'whatnot_show_analytics'           => 'Shows + Analytics',
+            'whatnot_analytics_csv'            => 'Analytics CSV Backfill',
             'whatnot_orders'                   => 'Recent Orders',
             'whatnot_shipments'                => 'Shipments',
             'whatnot_ledger'                   => 'Rolling Ledger',
@@ -134,6 +135,11 @@ class ShowIngestionLog extends Model
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
 
         return match ($this->source) {
+            'whatnot_analytics_csv' => ($payload['event'] ?? null) === 'no_show_excluded'
+                ? 'CSV confirmed 0-minute no-show excluded from reporting'
+                : (isset($payload['changed_count'])
+                    ? sprintf('Historical analytics imported from CSV (%d field changes)', (int) $payload['changed_count'])
+                    : 'Historical analytics imported from CSV'),
             'whatnot_show_analytics' => ($payload['event'] ?? null) === 'no_show_excluded'
                 ? 'Confirmed 0-minute no-show excluded from reporting'
                 : (isset($payload['changed_count'])

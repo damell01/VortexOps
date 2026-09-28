@@ -183,4 +183,32 @@ class NoShowCleanupService
 
         return ['deleted' => $deleted, 'skipped' => $skipped];
     }
+
+    /**
+     * Deletes whichever of the given flagged-for-review shows are actually
+     * eligible (still flagged, still not cancelled/closed, nothing blocking
+     * them) — for reviewing a page of the list and clearing several at once
+     * instead of one click per row. A show that no longer qualifies (someone
+     * else resolved it, or a related record showed up) is skipped with its
+     * reason rather than causing the whole batch to fail.
+     *
+     * @param  int[]  $showIds
+     * @return array{deleted: int, skipped: array<int, array{show: Show, reason: string}>}
+     */
+    public function deleteManyFlagged(array $showIds): array
+    {
+        $deleted = 0;
+        $skipped = [];
+
+        foreach ($this->withRelationCounts(Show::query()->whereIn('id', $showIds))->get() as $show) {
+            try {
+                $this->deleteFlaggedReview($show);
+                $deleted++;
+            } catch (\RuntimeException $e) {
+                $skipped[] = ['show' => $show, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return ['deleted' => $deleted, 'skipped' => $skipped];
+    }
 }

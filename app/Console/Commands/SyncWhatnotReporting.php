@@ -322,6 +322,14 @@ class SyncWhatnotReporting extends Command
             ->whereDate('show_date', '>=', $since->toDateString())
             ->whereDate('show_date', '<=', $cutoff->toDateString())
             ->whereNotIn('status', ['cancelled', 'closed'])
+            // reconcileOrders() stamps last_synced_at only once an order
+            // check has actually completed for a show. Without this, a show
+            // whose orders/shipments were simply never checked yet (every
+            // --analytics-only run skips that pass entirely) reads with the
+            // exact same zero counts as a show that was checked and truly
+            // had nothing — flagging it as a no-show before anyone ever
+            // looked for its orders.
+            ->whereNotNull('last_synced_at')
             ->withCount(['orders', 'shipments'])
             ->get();
 

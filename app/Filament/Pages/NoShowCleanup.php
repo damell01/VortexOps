@@ -15,6 +15,9 @@ class NoShowCleanup extends Page
     protected static ?string $slug = 'no-show-cleanup';
     protected string $view = 'filament.pages.no-show-cleanup';
 
+    /** @var int[] */
+    public array $selectedFlagged = [];
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
@@ -101,6 +104,55 @@ class NoShowCleanup extends Page
         } catch (\RuntimeException $e) {
             Notification::make()->title('Could not delete this show')->body($e->getMessage())->danger()->send();
         }
+    }
+
+    /** Selects every currently-listed flagged show that isn't blocked by a related record. */
+    public function selectAllVisibleFlagged(): void
+    {
+        $this->selectedFlagged = $this->getFlaggedForReview()
+            ->filter(fn (array $row) => $row['blocking'] === [])
+            ->map(fn (array $row) => $row['show']->id)
+            ->values()
+            ->all();
+    }
+
+    public function clearFlaggedSelection(): void
+    {
+        $this->selectedFlagged = [];
+    }
+
+    public function deleteSelectedFlaggedAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('deleteSelectedFlagged')
+            ->label(fn () => 'Delete Selected ('.count($this->selectedFlagged).')')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->disabled(fn () => $this->selectedFlagged === [])
+            ->requiresConfirmation()
+            ->modalHeading('Permanently delete the selected shows?')
+            ->modalDescription('This cannot be undone. Any selected show that turns out to still have a related record attached is skipped and reported, not force-deleted.')
+            ->modalSubmitActionLabel('Delete them')
+            ->action(function (): void {
+                abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+                $result = $this->service()->deleteManyFlagged($this->selectedFlagged);
+                $this->selectedFlagged = [];
+
+                if ($result['skipped'] === []) {
+                    Notification::make()
+                        ->title("{$result['deleted']} show(s) permanently deleted")
+                        ->success()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title("{$result['deleted']} deleted · ".count($result['skipped']).' skipped')
+                    ->body('Some selected shows no longer qualified (already resolved, or a related record showed up) and were left alone.')
+                    ->warning()
+                    ->send();
+            });
     }
 
     public function deleteAllClearAction(): \Filament\Actions\Action

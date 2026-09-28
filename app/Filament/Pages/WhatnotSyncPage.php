@@ -99,6 +99,7 @@ class WhatnotSyncPage extends Page
                 'rows' => 0, 'updated' => 0, 'already_complete' => 0,
                 'ignored_current_future' => 0, 'blank_metrics' => 0,
                 'unmatched' => 0, 'ambiguous' => 0, 'no_shows' => 0,
+                'exact_matched' => 0, 'date_tolerant_matched' => 0, 'fuzzy_matched' => 0,
                 'unmatched_examples' => [],
             ];
 
@@ -108,7 +109,7 @@ class WhatnotSyncPage extends Page
                     (int) $this->analyticsCsvChannelId,
                 );
 
-                foreach (['rows','updated','already_complete','ignored_current_future','blank_metrics','unmatched','ambiguous','no_shows'] as $key) {
+                foreach (['rows','updated','already_complete','ignored_current_future','blank_metrics','unmatched','ambiguous','no_shows','exact_matched','date_tolerant_matched','fuzzy_matched'] as $key) {
                     $totals[$key] += (int) ($result[$key] ?? 0);
                 }
 

@@ -22,7 +22,7 @@ class WhatnotSyncPage extends Page
 {
     use HasModuleAccess, WithFileUploads;
 
-    public $analyticsCsv = null;
+    public array $analyticsCsv = [];
     public ?int $analyticsCsvChannelId = null;
     public array $analyticsCsvResult = [];
 
@@ -89,24 +89,44 @@ class WhatnotSyncPage extends Page
 
         $this->validate([
             'analyticsCsvChannelId' => ['required', 'integer', 'exists:whatnot_channels,id'],
-            'analyticsCsv' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+            'analyticsCsv' => ['required', 'array', 'min:1', 'max:25'],
+            'analyticsCsv.*' => ['file', 'mimes:csv,txt', 'max:10240'],
         ]);
 
         try {
-            $this->analyticsCsvResult = app(WhatnotAnalyticsCsvImporter::class)->import(
-                $this->analyticsCsv->getRealPath(),
-                (int) $this->analyticsCsvChannelId,
-            );
-            $this->analyticsCsv = null;
+            $totals = [
+                'files' => count($this->analyticsCsv),
+                'rows' => 0, 'updated' => 0, 'already_complete' => 0,
+                'ignored_current_future' => 0, 'blank_metrics' => 0,
+                'unmatched' => 0, 'ambiguous' => 0, 'no_shows' => 0,
+                'unmatched_examples' => [],
+            ];
+
+            foreach ($this->analyticsCsv as $file) {
+                $result = app(WhatnotAnalyticsCsvImporter::class)->import(
+                    $file->getRealPath(),
+                    (int) $this->analyticsCsvChannelId,
+                );
+
+                foreach (['rows','updated','already_complete','ignored_current_future','blank_metrics','unmatched','ambiguous','no_shows'] as $key) {
+                    $totals[$key] += (int) ($result[$key] ?? 0);
+                }
+
+                $totals['unmatched_examples'] = array_slice(array_values(array_unique(array_merge(
+                    $totals['unmatched_examples'],
+                    $result['unmatched_examples'] ?? [],
+                ))), 0, 25);
+            }
+
+            $this->analyticsCsvResult = $totals;
+            $this->analyticsCsv = [];
 
             Notification::make()
-                ->title('Whatnot analytics CSV imported')
+                ->title('Whatnot analytics CSVs imported')
                 ->body(sprintf(
-                    '%d updated · %d unmatched · %d current/future ignored · %d no-shows',
-                    $this->analyticsCsvResult['updated'],
-                    $this->analyticsCsvResult['unmatched'],
-                    $this->analyticsCsvResult['ignored_current_future'],
-                    $this->analyticsCsvResult['no_shows'],
+                    '%d files · %d rows · %d updated · %d unmatched · %d current/future ignored · %d no-shows',
+                    $totals['files'], $totals['rows'], $totals['updated'], $totals['unmatched'],
+                    $totals['ignored_current_future'], $totals['no_shows'],
                 ))
                 ->success()
                 ->send();

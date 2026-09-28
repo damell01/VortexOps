@@ -206,4 +206,74 @@ class NoShowCleanupTest extends TestCase
 
         Livewire::test(NoShowCleanup::class)->assertStatus(403);
     }
+
+    private function flaggedShow(array $overrides = []): Show
+    {
+        return Show::create(array_merge([
+            'title' => 'Suspiciously quiet show',
+            'show_date' => today()->subDays(3)->toDateString(),
+            'created_by' => $this->userId,
+            'notes' => NoShowCleanupService::FLAGGED_FOR_REVIEW_NOTE,
+        ], $overrides));
+    }
+
+    public function test_a_flagged_show_is_listed_for_review(): void
+    {
+        $show = $this->flaggedShow();
+
+        $this->assertTrue($this->service()->flaggedForReview()->pluck('id')->contains($show->id));
+    }
+
+    public function test_a_confirmed_no_show_does_not_also_appear_in_the_flagged_list(): void
+    {
+        // Once a show is auto-excluded it's status=cancelled, which the
+        // flagged-review query explicitly excludes — the two lists never overlap.
+        $show = $this->confirmedNoShow(['notes' => NoShowCleanupService::FLAGGED_FOR_REVIEW_NOTE]);
+
+        $this->assertFalse($this->service()->flaggedForReview()->pluck('id')->contains($show->id));
+    }
+
+    public function test_a_reviewer_can_delete_a_flagged_show_with_nothing_attached(): void
+    {
+        $show = $this->flaggedShow();
+
+        $this->service()->deleteFlaggedReview($show);
+
+        $this->assertDatabaseMissing('shows', ['id' => $show->id]);
+    }
+
+    public function test_a_reviewer_cannot_delete_a_flagged_show_that_has_an_order(): void
+    {
+        $show = $this->flaggedShow();
+        WhatnotShowOrder::create(['show_id' => $show->id]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->service()->deleteFlaggedReview($show);
+    }
+
+    public function test_a_show_that_was_never_flagged_cannot_be_deleted_through_the_review_path(): void
+    {
+        $show = Show::create([
+            'title' => 'Ordinary show',
+            'show_date' => today()->subDays(3)->toDateString(),
+            'created_by' => $this->userId,
+        ]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->service()->deleteFlaggedReview($show);
+    }
+
+    public function test_the_page_lets_an_admin_confirm_and_delete_a_flagged_show(): void
+    {
+        $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
+        $show = $this->flaggedShow();
+
+        Livewire::test(NoShowCleanup::class)
+            ->assertOk()
+            ->assertSee($show->title)
+            ->call('deleteFlaggedShow', $show->id)
+            ->assertOk();
+
+        $this->assertDatabaseMissing('shows', ['id' => $show->id]);
+    }
 }

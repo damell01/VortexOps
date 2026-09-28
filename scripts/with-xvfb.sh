@@ -13,6 +13,37 @@ set -e
 : "${WHATNOT_SWITCH_TIMEOUT_MS:=90000}"
 export WHATNOT_SWITCH_TIMEOUT_MS
 
+cleanup_orphaned_xvfb() {
+    # Reclaim only old Xvfb processes in our private range that were re-parented
+    # to init after a wrapper was force-killed. Never touch a live child.
+    ps -eo pid=,ppid=,comm= 2>/dev/null | while read -r pid ppid comm; do
+        [ "$comm" = "Xvfb" ] || continue
+        [ "$ppid" = "1" ] || continue
+        display="$(ps -p "$pid" -o args= 2>/dev/null | sed -n 's/.*Xvfb :\\([0-9][0-9]*\\).*/\\1/p')"
+        [ -n "$display" ] || continue
+        [ "$display" -ge 99 ] 2>/dev/null || continue
+        [ "$display" -lt 200 ] 2>/dev/null || continue
+        lock="/tmp/.X${display}-lock"
+        lock_pid="$(tr -dc '0-9' < "$lock" 2>/dev/null || true)"
+        [ "$lock_pid" = "$pid" ] || continue
+        age="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -dc '0-9')"
+        [ -n "$age" ] && [ "$age" -ge 300 ] || continue
+        kill -TERM "$pid" 2>/dev/null || true
+        i=0
+        while [ "$i" -lt 20 ] && kill -0 "$pid" 2>/dev/null; do
+            i=$((i + 1))
+            sleep 0.1
+        done
+        kill -KILL "$pid" 2>/dev/null || true
+        if ! kill -0 "$pid" 2>/dev/null; then
+            rm -f "$lock" "/tmp/.X11-unix/X${display}" 2>/dev/null || true
+            echo "with-xvfb: reclaimed orphaned display :${display} (PID ${pid})" >&2
+        fi
+    done
+}
+
+cleanup_orphaned_xvfb
+
 DISPLAY_NUM=""
 n=99
 while [ "$n" -lt 200 ]; do
@@ -100,6 +131,7 @@ cleanup() {
 
     kill "$XVFB_PID" 2>/dev/null || true
     wait "$XVFB_PID" 2>/dev/null || true
+    rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
     rm -rf "$TMP_DIR" 2>/dev/null || true
 }
 

@@ -262,6 +262,15 @@ class WhatnotReportingReconciler
             ->whereDate('show_date', '<=', today())
             ->whereNotIn('status', ['cancelled'])
             ->missingAnalytics()
+            // Work the real backlog in the same order as Show Data Audit:
+            // first-time checks first, then partial rows, then old unavailable
+            // rows whose retry window has elapsed.
+            ->orderByRaw("CASE
+                WHEN analytics_sync_status IS NULL THEN 0
+                WHEN analytics_sync_status = 'partial' THEN 1
+                WHEN analytics_sync_status = 'unavailable' THEN 2
+                ELSE 3
+            END")
             ->orderByDesc('show_date')
             ->orderByDesc('id')
             ->get();

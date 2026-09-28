@@ -84,7 +84,7 @@
                     <select wire:model="analyticsCsvChannelId" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-950 text-sm">
                         <option value="">Choose channel…</option>
                         @foreach($this->channels as $channel)
-                            <option value="{{ $channel->id }}">{{ $channel->name }} (@{{ $channel->whatnot_username }})</option>
+                            <option value="{{ $channel->id }}">{{ $channel->name }} ({{ chr(64) }}{{ $channel->whatnot_username }})</option>
                         @endforeach
                     </select>
                     @error('analyticsCsvChannelId')<span class="text-xs text-red-600">{{ $message }}</span>@enderror

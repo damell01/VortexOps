@@ -104,7 +104,7 @@
 
             @if($this->analyticsCsvResult)
                 @php($r = $this->analyticsCsvResult)
-                <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-2">
+                <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
                     @foreach([
                         'Files' => $r['files'] ?? 0,
                         'Rows' => $r['rows'] ?? 0,
@@ -115,6 +115,9 @@
                         'Unmatched' => $r['unmatched'] ?? 0,
                         'Ambiguous' => $r['ambiguous'] ?? 0,
                         'No-shows' => $r['no_shows'] ?? 0,
+                        'Exact matches' => $r['exact_matched'] ?? 0,
+                        'Date-adjusted' => $r['date_tolerant_matched'] ?? 0,
+                        'Fuzzy matches' => $r['fuzzy_matched'] ?? 0,
                     ] as $label => $value)
                         <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
                             <div class="text-lg font-bold">{{ number_format($value) }}</div>

@@ -157,7 +157,7 @@ class SyncWhatnotReporting extends Command
                 } catch (\Throwable $e) {
                     $last = $e;
                     if ($attempt < 2) {
-                        $progress("{$phase}: transient failure; retrying once in 3 seconds — {$e->getMessage()}");
+                        $progress("{$phase}: transient failure; retrying once in 3 seconds — {$this->describeError($e)}");
                         sleep(3);
                     }
                 }
@@ -183,7 +183,7 @@ class SyncWhatnotReporting extends Command
                     if ($testMode) $smoke['Shipments'] = true;
                         $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
                     } catch (\Throwable $e) {
-                        $this->warn('     shipment reconciliation failed: '.$e->getMessage());
+                        $this->warn('     shipment reconciliation failed: '.$this->describeError($e));
                     }
 
                     $this->reportChannelCoverage($channel->id, $since);
@@ -206,7 +206,7 @@ class SyncWhatnotReporting extends Command
                         }
                         $this->line('     created '.($result['created'] ?? 0).', refreshed '.($result['updated'] ?? 0).', skipped '.($result['skipped'] ?? 0));
                     } catch (\Throwable $e) {
-                        $this->warn('     show discovery failed: '.$e->getMessage());
+                        $this->warn('     show discovery failed: '.$this->describeError($e));
                     }
                 }
 
@@ -220,7 +220,7 @@ class SyncWhatnotReporting extends Command
                         $remaining = $this->missingAnalyticsCount($channel->id, $since);
                         $this->line("     completed: {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped · {$remaining} due for refresh");
                     } catch (\Throwable $e) {
-                        $this->warn('     analytics backfill failed: '.$e->getMessage());
+                        $this->warn('     analytics backfill failed: '.$this->describeError($e));
                     }
 
                     $this->reportChannelCoverage($channel->id, $since);
@@ -236,7 +236,7 @@ class SyncWhatnotReporting extends Command
                         if ($testMode) $smoke['Orders'] = true;
                         $this->line("     {$orders['checked']} checked · {$orders['created']} current rows · {$orders['replaced']} old rows replaced · {$orders['rejected']} rejected · {$orders['skipped']} skipped");
                     } catch (\Throwable $e) {
-                        $this->warn('     order reconciliation failed: '.$e->getMessage());
+                        $this->warn('     order reconciliation failed: '.$this->describeError($e));
                     }
                 }
 
@@ -247,7 +247,7 @@ class SyncWhatnotReporting extends Command
                     if ($testMode) $smoke['Analytics'] = true;
                     $this->line("     {$analytics['updated']} updated · {$analytics['failed']} failed · {$analytics['skipped']} skipped");
                 } catch (\Throwable $e) {
-                    $this->warn('     analytics backfill failed: '.$e->getMessage());
+                    $this->warn('     analytics backfill failed: '.$this->describeError($e));
                 }
 
                 $this->line("  {$step}. Shipments / fulfillment ({$shipmentBatch}-show batches)");
@@ -257,7 +257,7 @@ class SyncWhatnotReporting extends Command
                     if ($testMode) $smoke['Shipments'] = true;
                     $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
                 } catch (\Throwable $e) {
-                    $this->warn('     shipment reconciliation failed: '.$e->getMessage());
+                    $this->warn('     shipment reconciliation failed: '.$this->describeError($e));
                 }
 
                 $this->line("  {$step}. Ledger / post-show adjustments");
@@ -278,7 +278,7 @@ class SyncWhatnotReporting extends Command
                     if ($testMode) $smoke['Ledger'] = true;
                     $this->line('     ledger rows created '.($ledger['created'] ?? 0).', skipped '.($ledger['skipped'] ?? 0));
                 } catch (\Throwable $e) {
-                    $this->warn('     ledger refresh failed: '.$e->getMessage());
+                    $this->warn('     ledger refresh failed: '.$this->describeError($e));
                 }
 
                 $this->reportChannelCoverage($channel->id, $since);
@@ -357,6 +357,23 @@ class SyncWhatnotReporting extends Command
             ->whereNotIn('status', ['cancelled'])
             ->missingAnalytics()
             ->count();
+    }
+
+    /**
+     * Some exceptions carry no message at all (a bare thrown Exception, a
+     * Process failure whose real detail is in a property, not getMessage()),
+     * so "…failed: " with nothing after it silently threw away the one clue
+     * an admin has to work with. Always leave something to look up.
+     */
+    private function describeError(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+
+        if ($message !== '') {
+            return $message;
+        }
+
+        return sprintf('%s with no message at %s:%d', get_class($e), basename($e->getFile()), $e->getLine());
     }
 
     private function reportChannelCoverage(int $channelId, Carbon $since): void

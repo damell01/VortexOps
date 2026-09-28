@@ -26,13 +26,19 @@ class WhatnotAnalyticsCsvImporter
         $handle = fopen($path, 'rb');
         if (! $handle) throw new RuntimeException('Could not open the uploaded CSV.');
 
+        // Whatnot puts its UTF-8 BOM before the opening quote of "Show".
+        // Consume it before fgetcsv() so PHP recognizes that quote as the CSV
+        // enclosure instead of returning a literal '"Show"' header.
+        $prefix = fread($handle, 3);
+        if ($prefix !== "\xEF\xBB\xBF") {
+            rewind($handle);
+        }
+
         $headers = fgetcsv($handle) ?: [];
-        // Excel/Whatnot exports can include a UTF-8 BOM on the first column.
-        // Without stripping it, "Show" becomes "\xEF\xBB\xBFShow" and a valid
-        // Whatnot CSV is incorrectly rejected as missing the Show header.
         $headers = array_map(static function ($header) {
             $header = trim((string) $header);
-            return preg_replace('/^\\xEF\\xBB\\xBF/', '', $header) ?? $header;
+            $header = preg_replace('/^\\xEF\\xBB\\xBF/', '', $header) ?? $header;
+            return trim($header, " \\t\\n\\r\\0\\x0B\\\"");
         }, $headers);
 
         $missing = array_values(array_diff(self::REQUIRED_HEADERS, $headers));

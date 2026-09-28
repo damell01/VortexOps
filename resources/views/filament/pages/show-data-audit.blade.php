@@ -1,6 +1,11 @@
 @php
     $d = $this->getAuditData();
     $labels = ['gross_revenue'=>'Gross Revenue','whatnot_net'=>'Estimated Net','completed_earnings'=>'Completed Earnings','show_duration'=>'Stream Duration'];
+    $statusMeta = [
+        'partial' => ['label' => 'Partial', 'desc' => 'has some analytics, not all', 'pill' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
+        'unavailable' => ['label' => 'Never happened', 'desc' => 'no analytics tab was ever served — Whatnot has no record of this show airing', 'pill' => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'],
+        'unclassified' => ['label' => 'Not checked yet', 'desc' => 'due for a first scrape attempt', 'pill' => 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'],
+    ];
 @endphp
 <x-filament-panels::page>
 <div class="space-y-5">
@@ -69,9 +74,21 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div class="flex items-center justify-between border-b border-gray-100 p-4 dark:border-gray-800">
-            <div><h2 class="font-semibold text-gray-950 dark:text-white">Analytics Follow-up</h2><p class="mt-1 text-xs text-gray-500">Past shows only. Partial, unavailable, and not-yet-classified analytics are separated so pending Whatnot data is not treated as a scraper failure.</p></div>
-            <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">{{ $d['missing']->count() }} shown</span>
+        <div class="border-b border-gray-100 p-4 dark:border-gray-800">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div><h2 class="font-semibold text-gray-950 dark:text-white">Analytics Follow-up</h2><p class="mt-1 text-xs text-gray-500">Past shows only. Filter by why a show is here — a confirmed no-show needs no action; a not-yet-checked show is your real backlog.</p></div>
+                <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ number_format($d['followUpTotal']) }} match{{ $d['followUpTotal'] === 1 ? '' : 'es' }}</span>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-1.5">
+                @foreach([
+                    'all' => 'All ('.number_format(array_sum($d['statusCounts']) - $d['statusCounts']['complete']).')',
+                    'partial' => 'Partial ('.number_format($d['statusCounts']['partial']).')',
+                    'unclassified' => 'Not checked yet ('.number_format($d['statusCounts']['unclassified']).')',
+                    'unavailable' => 'Never happened ('.number_format($d['statusCounts']['unavailable']).')',
+                ] as $key => $label)
+                    <button wire:click="setStatusFilter('{{ $key }}')" class="rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $this->statusFilter === $key ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700' }}">{{ $label }}</button>
+                @endforeach
+            </div>
         </div>
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @forelse($d['missing'] as $show)
@@ -82,16 +99,31 @@
                         'Completed'=>$show->completed_earnings,
                         'Duration'=>$show->show_duration,
                     ])->filter(fn($v)=>$v===null)->keys();
+                    $meta = $statusMeta[$show->analyticsCoverageStatus()] ?? ['label' => ucfirst($show->analyticsCoverageStatus()), 'pill' => 'bg-gray-100 text-gray-600'];
                 @endphp
                 <a href="{{ $this->showUrl($show->id) }}" class="grid gap-3 p-4 transition hover:bg-gray-50 sm:grid-cols-[100px_minmax(0,1fr)_auto] dark:hover:bg-gray-800/60">
                     <div class="text-xs font-semibold text-gray-500">{{ $show->show_date?->format('M j, Y') }}</div>
-                    <div class="min-w-0"><div class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div><div class="mt-1 text-[11px] text-gray-500">{{ $show->channel?->name ?: 'No channel' }} · {{ ucfirst($show->analyticsCoverageStatus()) }}@if($show->analytics_sync_note) · {{ $show->analytics_sync_note }}@endif</div></div>
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div>
+                        <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+                            <span>{{ $show->channel?->name ?: 'No channel' }}</span>
+                            <span class="rounded-full px-2 py-0.5 text-[10px] font-bold {{ $meta['pill'] }}">{{ $meta['label'] }}</span>
+                            @if($show->analytics_sync_note) <span>· {{ $show->analytics_sync_note }}</span>@endif
+                        </div>
+                    </div>
                     <div class="flex flex-wrap items-center justify-end gap-1">@foreach($miss as $m)<span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ $m }} missing</span>@endforeach <span class="ml-2 text-xs font-semibold text-primary-600">Open →</span></div>
                 </a>
             @empty
-                <div class="p-8 text-center text-sm text-gray-500">No past shows are missing these core analytics in this period.</div>
+                <div class="p-8 text-center text-sm text-gray-500">No past shows match this filter in this period.</div>
             @endforelse
         </div>
+        @if($d['followUpPages'] > 1)
+            <div class="flex items-center justify-between border-t border-gray-100 p-3 dark:border-gray-800">
+                <button wire:click="goToFollowUpPage({{ $d['followUpPage'] - 1 }})" @disabled($d['followUpPage'] <= 1) class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300">← Previous</button>
+                <span class="text-xs text-gray-500">Page {{ $d['followUpPage'] }} of {{ $d['followUpPages'] }}</span>
+                <button wire:click="goToFollowUpPage({{ $d['followUpPage'] + 1 }})" @disabled($d['followUpPage'] >= $d['followUpPages']) class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300">Next →</button>
+            </div>
+        @endif
     </section>
 </div>
 </x-filament-panels::page>

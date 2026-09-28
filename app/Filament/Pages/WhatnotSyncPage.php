@@ -13,12 +13,18 @@ use App\Models\WhatnotSync;
 use App\Support\AdminModules;
 use App\Support\WhatnotBrowserLock;
 use App\Support\WhatnotPipelineLock;
+use App\Services\WhatnotAnalyticsCsvImporter;
+use Livewire\Features\SupportFileUploads\WithFileUploads;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
 class WhatnotSyncPage extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess, WithFileUploads;
+
+    public $analyticsCsv = null;
+    public ?int $analyticsCsvChannelId = null;
+    public array $analyticsCsvResult = [];
 
     protected static string $moduleSlug  = 'streams';
 
@@ -75,6 +81,39 @@ class WhatnotSyncPage extends Page
         ]));
         RunWhatnotReportingJob::dispatch($mode, (int) auth()->id());
         Notification::make()->title(ucfirst($mode).' Whatnot job queued')->success()->send();
+    }
+
+    public function importAnalyticsCsv(): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+        $this->validate([
+            'analyticsCsvChannelId' => ['required', 'integer', 'exists:whatnot_channels,id'],
+            'analyticsCsv' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
+        ]);
+
+        try {
+            $this->analyticsCsvResult = app(WhatnotAnalyticsCsvImporter::class)->import(
+                $this->analyticsCsv->getRealPath(),
+                (int) $this->analyticsCsvChannelId,
+            );
+            $this->analyticsCsv = null;
+
+            Notification::make()
+                ->title('Whatnot analytics CSV imported')
+                ->body(sprintf(
+                    '%d updated · %d unmatched · %d current/future ignored · %d no-shows',
+                    $this->analyticsCsvResult['updated'],
+                    $this->analyticsCsvResult['unmatched'],
+                    $this->analyticsCsvResult['ignored_current_future'],
+                    $this->analyticsCsvResult['no_shows'],
+                ))
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()->title('CSV import failed')->body($e->getMessage())->danger()->persistent()->send();
+        }
     }
 
     public function getPipelineStatusProperty(): array

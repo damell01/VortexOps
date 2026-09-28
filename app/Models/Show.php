@@ -527,15 +527,57 @@ class Show extends Model
 
     public function analyticsCoverageStatus(): string
     {
+        // A verified CSV/scraper import is stronger evidence than an old
+        // "unavailable" classification from a non-exhaustive Past index.
+        if ($this->hasVerifiedCoreAnalytics()) {
+            return 'complete';
+        }
+
         if ($this->analytics_sync_status === 'unavailable') {
             return 'unavailable';
         }
 
         if ($this->last_analytics_synced_at !== null) {
-            return $this->analytics_sync_status === 'complete' ? 'complete' : 'partial';
+            return 'partial';
         }
 
         return 'unclassified';
+    }
+
+    public function hasVerifiedCoreAnalytics(): bool
+    {
+        $payloadSource = is_array($this->raw_import_payload)
+            ? ($this->raw_import_payload['source'] ?? null)
+            : null;
+
+        $verifiedSource = $this->last_analytics_synced_at !== null
+            || $payloadSource === 'whatnot_analytics_csv'
+            || $this->analytics_sync_status === 'complete';
+
+        return $verifiedSource
+            && $this->gross_revenue !== null
+            && $this->show_duration !== null
+            && ($this->whatnot_net !== null || $this->completed_earnings !== null);
+    }
+
+    public function hasVerifiedAnalyticsField(string $field): bool
+    {
+        if ($this->getAttribute($field) === null) {
+            return false;
+        }
+
+        if ($field === 'completed_earnings') {
+            // Settlement is independent of core Seller Analytics completeness.
+            return true;
+        }
+
+        $payloadSource = is_array($this->raw_import_payload)
+            ? ($this->raw_import_payload['source'] ?? null)
+            : null;
+
+        return $this->last_analytics_synced_at !== null
+            || $payloadSource === 'whatnot_analytics_csv'
+            || $this->analytics_sync_status === 'complete';
     }
 
     /**

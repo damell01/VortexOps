@@ -109,6 +109,7 @@ class WhatnotScraper
         ?callable $onProgress = null,
         array $targetLiveIds = [],
         int $batchSize = 5,
+        array $targetMetadata = [],
     ): array {
         $env = $this->baseEnv(false);
         $env['WHATNOT_MODE'] = 'historical-analytics';
@@ -116,6 +117,9 @@ class WhatnotScraper
         $env['WHATNOT_ANALYTICS_BATCH_SIZE'] = (string) max(1, min(10, $batchSize));
         if ($targetLiveIds !== []) {
             $env['WHATNOT_ANALYTICS_TARGET_IDS'] = implode(',', array_values(array_unique(array_filter(array_map('strval', $targetLiveIds)))));
+        }
+        if ($targetMetadata !== []) {
+            $env['WHATNOT_ANALYTICS_TARGET_META'] = json_encode($targetMetadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
 

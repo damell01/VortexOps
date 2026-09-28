@@ -69,13 +69,25 @@ class NoShowCleanupService
         )->orderByDesc('show_date');
     }
 
-    /** Flagged by the softer heuristic and not already resolved one way or the other. */
+    /**
+     * Flagged by the softer heuristic and not already resolved one way or
+     * the other.
+     *
+     * The note alone is not trusted as proof the show is still a candidate:
+     * a show can be rescheduled to a later date after being flagged, and
+     * nothing currently clears a stale note when that happens. Requiring
+     * show_date to be safely in the past — the same two-day buffer the
+     * confirmed-no-show path uses — means a rescheduled or upcoming show can
+     * never show up here as something to delete, no matter what its notes
+     * still say.
+     */
     public function flaggedForReview(): Builder
     {
         return $this->withRelationCounts(
             Show::query()
                 ->where('notes', 'like', '%'.self::FLAGGED_FOR_REVIEW_NOTE.'%')
                 ->whereNotIn('status', ['cancelled', 'closed'])
+                ->whereDate('show_date', '<=', now()->subDays(2))
         )->orderByDesc('show_date');
     }
 

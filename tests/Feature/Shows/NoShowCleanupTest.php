@@ -233,6 +233,23 @@ class NoShowCleanupTest extends TestCase
         $this->assertFalse($this->service()->flaggedForReview()->pluck('id')->contains($show->id));
     }
 
+    public function test_a_flagged_show_rescheduled_to_the_future_is_never_listed(): void
+    {
+        // The note can go stale if a show is rescheduled after being flagged
+        // — nothing currently clears it. show_date is the source of truth
+        // for whether this is still a real candidate, not the note alone.
+        $show = $this->flaggedShow(['show_date' => today()->addMonths(2)->toDateString()]);
+
+        $this->assertFalse($this->service()->flaggedForReview()->pluck('id')->contains($show->id));
+    }
+
+    public function test_a_flagged_show_from_earlier_today_is_not_listed_yet(): void
+    {
+        $show = $this->flaggedShow(['show_date' => today()->toDateString()]);
+
+        $this->assertFalse($this->service()->flaggedForReview()->pluck('id')->contains($show->id));
+    }
+
     public function test_a_reviewer_can_delete_a_flagged_show_with_nothing_attached(): void
     {
         $show = $this->flaggedShow();

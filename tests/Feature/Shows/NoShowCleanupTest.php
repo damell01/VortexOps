@@ -293,4 +293,46 @@ class NoShowCleanupTest extends TestCase
 
         $this->assertDatabaseMissing('shows', ['id' => $show->id]);
     }
+
+    public function test_delete_many_flagged_deletes_the_eligible_ones_and_reports_the_rest(): void
+    {
+        $clear = $this->flaggedShow(['title' => 'Clear one']);
+        $blocked = $this->flaggedShow(['title' => 'Blocked one']);
+        WhatnotShowOrder::create(['show_id' => $blocked->id]);
+        $notFlagged = Show::create([
+            'title' => 'Never flagged', 'show_date' => today()->subDays(3)->toDateString(), 'created_by' => $this->userId,
+        ]);
+
+        $result = $this->service()->deleteManyFlagged([$clear->id, $blocked->id, $notFlagged->id]);
+
+        $this->assertSame(1, $result['deleted']);
+        $this->assertCount(2, $result['skipped']);
+        $this->assertDatabaseMissing('shows', ['id' => $clear->id]);
+        $this->assertDatabaseHas('shows', ['id' => $blocked->id]);
+        $this->assertDatabaseHas('shows', ['id' => $notFlagged->id]);
+    }
+
+    public function test_the_page_lets_an_admin_select_all_visible_and_bulk_delete(): void
+    {
+        $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
+        $clear1 = $this->flaggedShow(['title' => 'Clear one']);
+        $clear2 = $this->flaggedShow(['title' => 'Clear two']);
+        $blocked = $this->flaggedShow(['title' => 'Blocked one']);
+        WhatnotShowOrder::create(['show_id' => $blocked->id]);
+
+        $component = Livewire::test(NoShowCleanup::class)
+            ->assertOk()
+            ->call('selectAllVisibleFlagged');
+
+        $selected = $component->get('selectedFlagged');
+        $this->assertContains($clear1->id, $selected);
+        $this->assertContains($clear2->id, $selected);
+        $this->assertNotContains($blocked->id, $selected, 'a blocked show should never be auto-selected');
+
+        $component->callAction('deleteSelectedFlagged');
+
+        $this->assertDatabaseMissing('shows', ['id' => $clear1->id]);
+        $this->assertDatabaseMissing('shows', ['id' => $clear2->id]);
+        $this->assertDatabaseHas('shows', ['id' => $blocked->id]);
+    }
 }

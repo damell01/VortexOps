@@ -72,6 +72,64 @@
             </div>
         </div>
 
+        <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Historical Analytics CSV Backfill</h2>
+                <p class="mt-1 text-xs text-gray-500">Upload the Whatnot Seller Analytics → Shows CSV for older shows. Current-day and future shows are ignored automatically.</p>
+            </div>
+
+            <form wire:submit="importAnalyticsCsv" class="grid grid-cols-1 md:grid-cols-[220px_1fr_auto] gap-3 items-end">
+                <label class="block">
+                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Channel</span>
+                    <select wire:model="analyticsCsvChannelId" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-950 text-sm">
+                        <option value="">Choose channel…</option>
+                        @foreach($this->channels as $channel)
+                            <option value="{{ $channel->id }}">{{ $channel->name }} (@{{ $channel->whatnot_username }})</option>
+                        @endforeach
+                    </select>
+                    @error('analyticsCsvChannelId')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
+                </label>
+
+                <label class="block">
+                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Whatnot Shows CSV</span>
+                    <input type="file" wire:model="analyticsCsv" accept=".csv,text/csv" class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-violet-700 hover:file:bg-violet-200 dark:text-gray-300" />
+                    @error('analyticsCsv')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
+                </label>
+
+                <button type="submit" wire:loading.attr="disabled" wire:target="analyticsCsv,importAnalyticsCsv" class="rounded-lg bg-violet-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50">
+                    <span wire:loading.remove wire:target="importAnalyticsCsv">Import CSV</span>
+                    <span wire:loading wire:target="importAnalyticsCsv">Importing…</span>
+                </button>
+            </form>
+
+            @if($this->analyticsCsvResult)
+                @php($r = $this->analyticsCsvResult)
+                <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
+                    @foreach([
+                        'Rows' => $r['rows'] ?? 0,
+                        'Updated' => $r['updated'] ?? 0,
+                        'Already complete' => $r['already_complete'] ?? 0,
+                        'Current/future ignored' => $r['ignored_current_future'] ?? 0,
+                        'Blank metrics' => $r['blank_metrics'] ?? 0,
+                        'Unmatched' => $r['unmatched'] ?? 0,
+                        'Ambiguous' => $r['ambiguous'] ?? 0,
+                        'No-shows' => $r['no_shows'] ?? 0,
+                    ] as $label => $value)
+                        <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                            <div class="text-lg font-bold">{{ number_format($value) }}</div>
+                            <div class="text-[10px] text-gray-500">{{ $label }}</div>
+                        </div>
+                    @endforeach
+                </div>
+                @if(!empty($r['unmatched_examples']))
+                    <details class="rounded-lg border border-amber-200 dark:border-amber-800 p-3">
+                        <summary class="cursor-pointer text-xs font-semibold text-amber-700">Unmatched examples</summary>
+                        <div class="mt-2 space-y-1 text-[11px] text-gray-500">@foreach($r['unmatched_examples'] as $example)<div>{{ $example }}</div>@endforeach</div>
+                    </details>
+                @endif
+            @endif
+        </div>
+
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
                 <div><h2 class="text-sm font-semibold">Recent Scraper Activity</h2><p class="text-xs text-gray-500 mt-1">Shows, analytics, orders, shipments and ledger activity in one feed.</p></div>

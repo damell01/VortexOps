@@ -267,6 +267,7 @@ class WhatnotReportingReconciler
             ->get();
 
         $targets = [];
+        $targetMetadata = [];
         $unresolved = 0;
         foreach ($dueShows as $show) {
             $liveId = $this->liveId($show);
@@ -327,6 +328,10 @@ class WhatnotReportingReconciler
                 }
             }
             $targets[] = $liveId;
+            $targetMetadata[strtolower($liveId)] = [
+                'title' => $show->title,
+                'show_date' => $show->show_date ? \Illuminate\Support\Carbon::parse($show->show_date)->toDateString() : null,
+            ];
             if ($batchSize !== null && count($targets) >= $batchSize) {
                 break;
             }
@@ -366,6 +371,7 @@ class WhatnotReportingReconciler
                 onProgress: $progress,
                 targetLiveIds: $pendingTargets,
                 batchSize: 10,
+                targetMetadata: array_intersect_key($targetMetadata, array_flip(array_map('strtolower', $pendingTargets))),
             );
 
             if ($rawRows === []) {

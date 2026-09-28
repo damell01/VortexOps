@@ -60,6 +60,16 @@ class NoShowCleanup extends Page
         ]);
     }
 
+    public function getFlaggedForReview(): \Illuminate\Support\Collection
+    {
+        $service = $this->service();
+
+        return $service->flaggedForReview()->get()->map(fn (Show $show) => [
+            'show' => $show,
+            'blocking' => $service->blockingReferences($show),
+        ]);
+    }
+
     public function showUrl(int $id): string
     {
         return ShowResource::getUrl('view', ['record' => $id]);
@@ -73,6 +83,20 @@ class NoShowCleanup extends Page
 
         try {
             $this->service()->delete($show);
+            Notification::make()->title('Show permanently deleted')->success()->send();
+        } catch (\RuntimeException $e) {
+            Notification::make()->title('Could not delete this show')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function deleteFlaggedShow(int $id): void
+    {
+        abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+        $show = Show::findOrFail($id);
+
+        try {
+            $this->service()->deleteFlaggedReview($show);
             Notification::make()->title('Show permanently deleted')->success()->send();
         } catch (\RuntimeException $e) {
             Notification::make()->title('Could not delete this show')->body($e->getMessage())->danger()->send();

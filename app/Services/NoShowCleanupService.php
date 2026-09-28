@@ -49,7 +49,7 @@ class NoShowCleanupService
      * have zero sales on a bad night. These are surfaced for a human to
      * confirm one at a time, never bulk-deleted.
      */
-    public const FLAGGED_FOR_REVIEW_NOTE = '[SYSTEM] Past show has no Whatnot sales, orders, shipments, gross, or net data. Verify whether the show happened or was cancelled.';
+    public const FLAGGED_FOR_REVIEW_NOTE = Show::NO_ACTIVITY_FLAG;
 
     private function withRelationCounts(Builder $query): Builder
     {

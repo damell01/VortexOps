@@ -20,6 +20,18 @@ class Show extends Model
     // metric re-imports don't flood the audit log.
     protected static array $doNotRecordEvents = ['updated'];
 
+    /**
+     * Stamped into notes by reconcileEndedShowState() (SyncWhatnotReporting)
+     * for a show 12+ hours past its scheduled time with zero orders,
+     * shipments, units sold, gross, or net — a strong but not certain sign it
+     * never aired. scopeMissingAnalytics() treats a flagged show as resolved
+     * rather than leaving it in the retry pool forever: once nothing turned
+     * up on the ground, there is nothing left for another analytics fetch to
+     * find, so it belongs in a human review queue (Super Admin > No-Show
+     * Cleanup) instead of being hammered on every future sync.
+     */
+    public const NO_ACTIVITY_FLAG = '[SYSTEM] Past show has no Whatnot sales, orders, shipments, gross, or net data. Verify whether the show happened or was cancelled.';
+
     /** @return array<int,string> */
     public function auditableFields(): array
     {
@@ -476,26 +488,41 @@ class Show extends Model
      */
     public const ANALYTICS_COLUMNS = ['gross_revenue', 'completed_earnings', 'buyers_count', 'total_views'];
 
-    /** Shows that still need an analytics fetch attempt. */
+    /**
+     * Shows that still need an analytics fetch attempt.
+     *
+     * A show carrying NO_ACTIVITY_FLAG is excluded even though nothing here
+     * ever confirmed it via analytics — it has already been established, on
+     * the ground, that there is nothing to fetch (no orders, no shipments, no
+     * units, no revenue, well past its air time). Continuing to retry it
+     * indefinitely wastes every future sync on a show that was never going to
+     * resolve differently; it belongs in the No-Show Cleanup review queue
+     * instead of the retry pool.
+     */
     public function scopeMissingAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query->where(function ($q) {
-            $q->whereNull('analytics_sync_status')
-                ->orWhere(function ($partial) {
-                    $partial->where('analytics_sync_status', 'partial')
-                        ->where(function ($stale) {
-                            $stale->whereNull('last_analytics_synced_at')
-                                ->orWhere('last_analytics_synced_at', '<=', now()->subDay());
-                        });
-                })
-                ->orWhere(function ($unavailable) {
-                    $unavailable->where('analytics_sync_status', 'unavailable')
-                        ->where(function ($retry) {
-                            $retry->whereNull('analytics_unavailable_at')
-                                ->orWhere('analytics_unavailable_at', '<=', now()->subDays(7));
-                        });
-                });
-        });
+        return $query
+            ->where(function ($q) {
+                $q->whereNull('analytics_sync_status')
+                    ->orWhere(function ($partial) {
+                        $partial->where('analytics_sync_status', 'partial')
+                            ->where(function ($stale) {
+                                $stale->whereNull('last_analytics_synced_at')
+                                    ->orWhere('last_analytics_synced_at', '<=', now()->subDay());
+                            });
+                    })
+                    ->orWhere(function ($unavailable) {
+                        $unavailable->where('analytics_sync_status', 'unavailable')
+                            ->where(function ($retry) {
+                                $retry->whereNull('analytics_unavailable_at')
+                                    ->orWhere('analytics_unavailable_at', '<=', now()->subDays(7));
+                            });
+                    });
+            })
+            ->where(function ($notFlagged) {
+                $notFlagged->whereNull('notes')
+                    ->orWhere('notes', 'not like', '%'.self::NO_ACTIVITY_FLAG.'%');
+            });
     }
 
     public function analyticsCoverageStatus(): string

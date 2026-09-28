@@ -338,7 +338,7 @@ class SyncWhatnotReporting extends Command
             }
 
             $notes = trim((string) $show->notes);
-            $flag = '[SYSTEM] Past show has no Whatnot sales, orders, shipments, gross, or net data. Verify whether the show happened or was cancelled.';
+            $flag = Show::NO_ACTIVITY_FLAG;
             if (! str_contains($notes, $flag)) {
                 $show->forceFill(['notes' => trim($notes."\n".$flag)])->saveQuietly();
                 $flagged++;

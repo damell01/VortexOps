@@ -91,8 +91,8 @@
                 </label>
 
                 <label class="block">
-                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Whatnot Shows CSV</span>
-                    <input type="file" wire:model="analyticsCsv" accept=".csv,text/csv" class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-violet-700 hover:file:bg-violet-200 dark:text-gray-300" />
+                    <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Whatnot Shows CSV files</span>
+                    <input type="file" wire:model="analyticsCsv" accept=".csv,text/csv" multiple class="mt-1 block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-violet-700 hover:file:bg-violet-200 dark:text-gray-300" />
                     @error('analyticsCsv')<span class="text-xs text-red-600">{{ $message }}</span>@enderror
                 </label>
 
@@ -104,8 +104,9 @@
 
             @if($this->analyticsCsvResult)
                 @php($r = $this->analyticsCsvResult)
-                <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
+                <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-2">
                     @foreach([
+                        'Files' => $r['files'] ?? 0,
                         'Rows' => $r['rows'] ?? 0,
                         'Updated' => $r['updated'] ?? 0,
                         'Already complete' => $r['already_complete'] ?? 0,

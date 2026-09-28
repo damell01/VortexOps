@@ -3,7 +3,7 @@
     $labels = ['gross_revenue'=>'Gross Revenue','whatnot_net'=>'Estimated Net','completed_earnings'=>'Completed Earnings','show_duration'=>'Stream Duration'];
     $statusMeta = [
         'partial' => ['label' => 'Partial', 'desc' => 'has some analytics, not all', 'pill' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],
-        'unavailable' => ['label' => 'Never happened', 'desc' => 'no analytics tab was ever served — Whatnot has no record of this show airing', 'pill' => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'],
+        'unavailable' => ['label' => 'Needs source review', 'desc' => 'older automated lookup did not return analytics; CSV/import evidence may supersede this', 'pill' => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'],
         'unclassified' => ['label' => 'Not checked yet', 'desc' => 'due for a first scrape attempt', 'pill' => 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'],
     ];
 @endphp
@@ -45,7 +45,7 @@
         @foreach([
             ['Complete',$d['statusCounts']['complete'],'Analytics imported with core metrics','text-emerald-600'],
             ['Partial',$d['statusCounts']['partial'],'Analytics reached; some metrics pending','text-amber-600'],
-            ['Unavailable',$d['statusCounts']['unavailable'],'Not exposed in Seller Hub Past index','text-gray-500'],
+            ['Needs Review',$d['statusCounts']['unavailable'],'No verified analytics source yet; retry/import may resolve it','text-gray-500'],
             ['Not Checked',$d['statusCounts']['unclassified'],'Due for first classification','text-primary-600'],
         ] as $status)
         <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -59,7 +59,7 @@
     <section class="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-100 p-4 dark:border-gray-800">
             <h2 class="font-semibold text-gray-950 dark:text-white">Analytics Coverage</h2>
-            <p class="mt-1 text-xs text-gray-500">This is the confidence check for the totals above. Missing values are not silently presented as complete data.</p>
+            <p class="mt-1 text-xs text-gray-500">This is the confidence check for the totals above. Coverage counts only verified imported/synced values; database defaults alone do not count as captured.</p>
         </div>
         <div class="grid gap-px bg-gray-100 sm:grid-cols-2 xl:grid-cols-4 dark:bg-gray-800">
             @foreach($d['coverage'] as $key=>$c)
@@ -76,7 +76,7 @@
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-100 p-4 dark:border-gray-800">
             <div class="flex flex-wrap items-center justify-between gap-3">
-                <div><h2 class="font-semibold text-gray-950 dark:text-white">Analytics Follow-up</h2><p class="mt-1 text-xs text-gray-500">Past shows only. Filter by why a show is here — a confirmed no-show needs no action; a not-yet-checked show is your real backlog.</p></div>
+                <div><h2 class="font-semibold text-gray-950 dark:text-white">Analytics Follow-up</h2><p class="mt-1 text-xs text-gray-500">Past shows only. Filter by why a show is here — verified CSV/import data counts as complete; unresolved rows still need a source check.</p></div>
                 <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ number_format($d['followUpTotal']) }} match{{ $d['followUpTotal'] === 1 ? '' : 'es' }}</span>
             </div>
             <div class="mt-3 flex flex-wrap gap-1.5">
@@ -84,7 +84,7 @@
                     'all' => 'All ('.number_format(array_sum($d['statusCounts']) - $d['statusCounts']['complete']).')',
                     'partial' => 'Partial ('.number_format($d['statusCounts']['partial']).')',
                     'unclassified' => 'Not checked yet ('.number_format($d['statusCounts']['unclassified']).')',
-                    'unavailable' => 'Never happened ('.number_format($d['statusCounts']['unavailable']).')',
+                    'unavailable' => 'Needs source review ('.number_format($d['statusCounts']['unavailable']).')',
                 ] as $key => $label)
                     <button wire:click="setStatusFilter('{{ $key }}')" class="rounded-full px-3 py-1.5 text-xs font-semibold transition {{ $this->statusFilter === $key ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700' }}">{{ $label }}</button>
                 @endforeach

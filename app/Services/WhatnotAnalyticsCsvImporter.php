@@ -84,15 +84,31 @@ class WhatnotAnalyticsCsvImporter
                 // future rows (those were filtered above).
                 if (! $dryRun) {
                     $show = DB::transaction(function () use ($channel, $date, $title, $metrics, $row) {
+                        $createMetrics = $metrics;
+                        $duration = $createMetrics['show_duration'] ?? null;
+                        $oldZero = $duration === 0 && $date->lte(today()->subDays(2));
+
+                        if ($oldZero) {
+                            $createMetrics['status'] = 'cancelled';
+                            $createMetrics['analytics_sync_status'] = 'unavailable';
+                            $createMetrics['analytics_sync_note'] = 'Confirmed no-show: Whatnot CSV reported a 0-minute duration at least 2 days after the scheduled show.';
+                            $createMetrics['analytics_unavailable_at'] = now();
+                        } else {
+                            $createMetrics['status'] = ((int) ($duration ?? 0)) > 0 ? 'closed' : 'draft';
+                            $createMetrics['analytics_sync_status'] = $this->complete($createMetrics) ? 'complete' : 'partial';
+                            $createMetrics['analytics_sync_note'] = 'Imported from Whatnot Seller Analytics CSV.';
+                            $createMetrics['analytics_unavailable_at'] = null;
+                        }
+                        $createMetrics['last_analytics_synced_at'] = now();
+
                         $created = Show::create(array_merge([
                             'whatnot_channel_id' => $channel->id,
                             'title' => $title,
                             'show_date' => $date->toDateString(),
-                            'status' => ((int) ($metrics['show_duration'] ?? 0)) > 0 ? 'closed' : 'draft',
                             'import_source' => 'auto_whatnot',
                             'created_by' => auth()->id() ?? 1,
                             'raw_import_payload' => ['source' => 'whatnot_analytics_csv', 'csv' => $row],
-                        ], $metrics));
+                        ], $createMetrics));
 
                         $created->detectStreamers();
 
@@ -102,8 +118,8 @@ class WhatnotAnalyticsCsvImporter
                             'source' => 'whatnot_analytics_csv',
                             'status' => 'success',
                             'raw_payload' => [
-                                'event' => 'csv_historical_show_created',
-                                'changed_count' => count($metrics),
+                                'event' => $oldZero ? 'no_show_excluded' : 'csv_historical_show_created',
+                                'changed_count' => count($createMetrics),
                                 'csv' => $row,
                             ],
                         ]);

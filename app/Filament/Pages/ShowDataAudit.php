@@ -87,10 +87,10 @@ class ShowDataAudit extends Page
             ->orderByDesc('show_date')->orderByDesc('start_time')->get();
 
         $total = $shows->count();
-        $field = fn (string $name) => [
-            'present' => $shows->whereNotNull($name)->count(),
-            'missing' => $shows->whereNull($name)->count(),
-        ];
+        $field = function (string $name) use ($shows) {
+            $present = $shows->filter(fn (Show $show) => $show->hasVerifiedAnalyticsField($name))->count();
+            return ['present' => $present, 'missing' => $shows->count() - $present];
+        };
 
         $coverage = [
             'gross_revenue' => $field('gross_revenue'),

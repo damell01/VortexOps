@@ -1,6 +1,4 @@
 <div
-    x-show="$store.sidebar.isOpen"
-    x-cloak
     class="vx-channel-switcher"
 >
     <label for="vx-channel-switcher-select" class="vx-channel-switcher-label">Channel</label>

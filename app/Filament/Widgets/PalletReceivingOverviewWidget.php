@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 
 class PalletReceivingOverviewWidget extends BaseWidget
 {
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
     protected static ?int $sort = 1;
 
     protected function getStats(): array

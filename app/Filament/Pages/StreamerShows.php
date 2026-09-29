@@ -102,7 +102,6 @@ class StreamerShows extends Page
             ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
             ->where('status', '!=', 'cancelled')
             ->with(['channel', 'streamerLogEntry'])
-            ->withCount('shipments')
             ->orderByDesc('show_date')
             ->orderByDesc('start_time')
             ->limit(60)
@@ -166,7 +165,6 @@ class StreamerShows extends Page
             'date'      => $show->show_date?->format('D, M j'),
             'time'      => $show->start_time,
             'channel'   => $show->channel?->name,
-            'shipments' => (int) ($show->shipments_count ?? 0),
             'state'     => $state,
             'tone'      => $tone,
             'action'    => $action,

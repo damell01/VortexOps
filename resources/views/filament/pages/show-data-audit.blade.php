@@ -18,8 +18,8 @@
                     <option value="last_30">Last 30 days</option><option value="last_90">Last 90 days</option><option value="custom">Custom</option>
                 </select>
             </div>
-            <div><label class="text-xs font-semibold text-gray-500">From</label><input type="date" wire:model.live="dateFrom" class="mt-1 rounded-lg border-gray-300 text-sm dark:bg-gray-800"></div>
-            <div><label class="text-xs font-semibold text-gray-500">To</label><input type="date" wire:model.live="dateTo" class="mt-1 rounded-lg border-gray-300 text-sm dark:bg-gray-800"></div>
+            <div><label class="text-xs font-semibold text-gray-500">From</label><input type="date" wire:model.live.debounce.300ms="dateFrom" class="mt-1 rounded-lg border-gray-300 text-sm dark:bg-gray-800"></div>
+            <div><label class="text-xs font-semibold text-gray-500">To</label><input type="date" wire:model.live.debounce.300ms="dateTo" class="mt-1 rounded-lg border-gray-300 text-sm dark:bg-gray-800"></div>
             <div class="ml-auto text-xs text-gray-500">{{ $d['from']->format('M j, Y') }} – {{ $d['to']->format('M j, Y') }}</div>
         </div>
     </section>

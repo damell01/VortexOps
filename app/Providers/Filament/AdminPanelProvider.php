@@ -94,7 +94,7 @@ class AdminPanelProvider extends PanelProvider
             // 300s meant a streamer could sit for five minutes after an admin
             // requested changes before the bell showed anything, which read as
             // "no notification was sent" when one had been written instantly.
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling('120s')
             ->navigationGroups(array_map(
                 // Collapse every group except the primary "Streams" workflow, so the
                 // sidebar stays compact — you expand the group you need.

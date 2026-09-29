@@ -19,17 +19,16 @@ class PalletReceivingOverviewWidget extends BaseWidget
             $receiving = Pallet::query()->where('status', 'receiving')->count();
             $complete = Pallet::query()->whereIn('status', ['received', 'processed'])->count();
 
-            $activeExpected = (int) Pallet::query()
-                ->whereIn('status', ['staged', 'receiving'])
-                ->withSum('lines as expected_cases_sum', 'case_count')
-                ->get()
-                ->sum(fn (Pallet $pallet) => (int) ($pallet->expected_cases_sum ?? 0));
+            $activeExpected = (int) \Illuminate\Support\Facades\DB::table('pallet_lines')
+                ->join('pallets', 'pallets.id', '=', 'pallet_lines.pallet_id')
+                ->whereIn('pallets.status', ['staged', 'receiving'])
+                ->sum('pallet_lines.case_count');
 
-            $activeReceived = (int) Pallet::query()
-                ->whereIn('status', ['staged', 'receiving'])
-                ->withCount(['cases as received_cases_count' => fn ($query) => $query->where('inventory_cases.status', '!=', 'expected')])
-                ->get()
-                ->sum(fn (Pallet $pallet) => (int) ($pallet->received_cases_count ?? 0));
+            $activeReceived = (int) \Illuminate\Support\Facades\DB::table('inventory_cases')
+                ->join('pallets', 'pallets.id', '=', 'inventory_cases.pallet_id')
+                ->whereIn('pallets.status', ['staged', 'receiving'])
+                ->where('inventory_cases.status', '!=', 'expected')
+                ->count();
 
             $receivedThisMonth = Pallet::query()
                 ->whereIn('status', ['received', 'processed'])

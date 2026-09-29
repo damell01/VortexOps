@@ -60,7 +60,7 @@
                 </div>
 
                 {{-- Compact Status Bar --}}
-                <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-primary-50 dark:from-blue-900/20 dark:to-primary-900/20 p-4">
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
                     <div class="flex items-center justify-between gap-4 flex-wrap">
                         <div class="flex items-center gap-3 text-sm">
                             <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white font-semibold">1</span>

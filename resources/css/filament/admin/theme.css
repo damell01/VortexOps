@@ -55,7 +55,7 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
 .fi-tabs-item.fi-active{border-bottom-color:var(--primary-600);background:transparent}
 .dark{--vx-page:#16161d;--vx-surface:#141a33;--vx-border:#46465a;--vx-divider:#46465a;--vx-text:#ffffff;--vx-muted:#aab1c8;--vx-faint:#8a8a98}
 .dark .fi-ta-header-cell{background:var(--vx-sidebar)}
-@media(min-width:1024px){.fi-main{padding-left:248px}.fi-page-content{padding:32px}}
+@media(min-width:1024px){.fi-page-content{padding:32px}}
 @media(max-width:1023px){
  .fi-sidebar{width:288px}
  .fi-topbar{height:56px}.fi-topbar nav{height:56px}
@@ -78,3 +78,26 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
  .vx-tabbar-item svg{width:20px;height:20px}
  .vx-tabbar-item[aria-current=page]{color:var(--primary-600);font-weight:600}
 }
+
+
+/* Preserve Filament's sidebar mechanics; the redesign only changes presentation. */
+.fi-sidebar .fi-sidebar-item-btn,
+.fi-sidebar .fi-sidebar-item-label,
+.fi-sidebar .fi-sidebar-group-label,
+.fi-sidebar .fi-sidebar-group-button,
+.fi-sidebar .fi-sidebar-group-button svg {
+  color: var(--vx-sidebar-text);
+}
+.fi-sidebar .fi-sidebar-item-btn svg { color: var(--vx-sidebar-muted); }
+.fi-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn,
+.fi-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-sidebar-item-label {
+  color: #fff;
+}
+.fi-sidebar .fi-sidebar-nav { min-height: 0; }
+.vx-channel-switcher { display:block; padding:8px 12px 14px; color:var(--vx-sidebar-text); }
+.vx-channel-switcher-label { display:block; margin:0 0 6px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--vx-sidebar-muted); }
+.vx-channel-switcher-select-wrp { position:relative; }
+.vx-channel-switcher-select { width:100%; min-height:40px; appearance:none; border:1px solid rgb(255 255 255 / .10); border-radius:9px; background:var(--vx-sidebar-2); padding:0 34px 0 34px; color:var(--vx-sidebar-text); font-size:14px; }
+.vx-channel-switcher-icon,.vx-channel-switcher-chevron { position:absolute; top:50%; z-index:1; width:16px; height:16px; transform:translateY(-50%); pointer-events:none; color:var(--vx-sidebar-muted); }
+.vx-channel-switcher-icon { left:10px; }
+.vx-channel-switcher-chevron { right:10px; }

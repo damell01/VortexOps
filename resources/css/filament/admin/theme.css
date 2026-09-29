@@ -69,3 +69,12 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
  .fi-btn,.fi-icon-btn{min-height:44px;min-width:44px}
  .fi-input{font-size:16px}
 }
+
+.vx-tabbar{display:none}
+@media(max-width:1023px){
+ body:has(.vx-tabbar) .fi-main{padding-bottom:88px}
+ .vx-tabbar{position:fixed;inset-inline:0;bottom:0;z-index:40;display:flex;height:calc(56px + env(safe-area-inset-bottom,0px));padding:4px 8px env(safe-area-inset-bottom,0px);background:var(--vx-surface);border-top:1px solid var(--vx-border)}
+ .vx-tabbar-item{flex:1;display:flex;min-width:0;min-height:48px;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--vx-faint);font-size:11px;font-weight:500}
+ .vx-tabbar-item svg{width:20px;height:20px}
+ .vx-tabbar-item[aria-current=page]{color:var(--primary-600);font-weight:600}
+}

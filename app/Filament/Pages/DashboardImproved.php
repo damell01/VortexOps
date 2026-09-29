@@ -72,9 +72,7 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
-                DashboardShowsKpiWidget::class,
                 UpcomingShowsWidget::class,
-                DashboardNeedsAttentionWidget::class,
                 RecentShowsWidget::class,
             ];
         }
@@ -89,8 +87,8 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             $data['roleMode'] = 'admin';
-            $data['inventoryHealth'] = $this->inventoryHealth();
-            $data['recentInventoryActivity'] = $this->recentInventoryActivity();
+            // Keep the landing dashboard fast: detailed inventory/health analytics
+            // live on their dedicated pages rather than running on every navigation.
         }
 
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {

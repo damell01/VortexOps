@@ -7,6 +7,7 @@ use App\Models\Show;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Computed;
 
 class ShowDataAudit extends Page
 {
@@ -120,7 +121,8 @@ class ShowDataAudit extends Page
         return [$from, $to];
     }
 
-    public function getAuditData(): array
+    #[Computed]
+    public function auditData(): array
     {
         [$from, $to] = $this->range();
         $shows = Show::query()->inChannelContext()

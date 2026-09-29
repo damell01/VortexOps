@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\Widget;
 use App\Models\InventoryItem;
+use App\Models\InventoryStock;
 
 class StreamerInventoryWidget extends Widget
 {
@@ -24,9 +25,10 @@ class StreamerInventoryWidget extends Widget
             $q->whereIn('inventory_location_id', $inventoryLocations)
         )->where('is_active', true)->count();
 
-        $totalQuantity = InventoryItem::whereHas('stock', fn ($q) =>
-            $q->whereIn('inventory_location_id', $inventoryLocations)
-        )->where('is_active', true)->withSum('stock', 'quantity')->get()->sum('stock_sum_quantity');
+        $totalQuantity = (float) InventoryStock::query()
+            ->whereIn('inventory_location_id', $inventoryLocations)
+            ->whereHas('item', fn ($q) => $q->where('is_active', true))
+            ->sum('quantity');
 
         $lowStockCount = InventoryItem::whereHas('stock', fn ($q) =>
             $q->whereIn('inventory_location_id', $inventoryLocations)

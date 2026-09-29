@@ -44,9 +44,11 @@ class ShowIngestionLogResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = ShowIngestionLog::whereIn('status', ['failed', 'partial'])
-            ->where('created_at', '>=', now()->subDays(7))
-            ->count();
+        $count = \Illuminate\Support\Facades\Cache::remember('nav_badge:ingestion_issues_7d', 60, fn () =>
+            ShowIngestionLog::whereIn('status', ['failed', 'partial'])
+                ->where('created_at', '>=', now()->subDays(7))
+                ->count()
+        );
 
         return $count > 0 ? (string) $count : null;
     }

@@ -97,6 +97,10 @@ fi
 
 if [ "$FRONTEND_CHANGED" -eq 1 ]; then
   echo "Frontend/theme changed: rebuilding Vite assets"
+  # node_modules is disposable on this server. Interrupted/concurrent npm
+  # installs can leave directories that make npm ci fail with ENOTEMPTY.
+  # Start clean so a frontend deploy is deterministic.
+  rm -rf node_modules
   npm ci --no-audit --no-fund
   npm run build
   rm -rf node_modules

@@ -78,37 +78,9 @@ class ShowWorkflowService
             return $this->state('admin_review', 'Admin Review', 'Review the streamer submission and inventory exceptions.', 'info', 3, $blockers);
         }
 
-        if ($show->fulfillmentUsers->isEmpty()) {
-            $blockers[] = 'No fulfillment team member has been assigned.';
-            return $this->state('fulfillment', 'Needs Fulfillment Assignment', 'Assign this approved show to a fulfillment team member.', 'warning', 4, $blockers);
-        }
-
-        $loggedItems = $report->items;
-        $pendingFulfillment = $loggedItems->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
-        $notFulfilled = $loggedItems->filter(fn (StreamerLogItem $item) => $item->fulfillmentStatus() === StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
-
-        if ($pendingFulfillment > 0) {
-            $blockers[] = $pendingFulfillment . ' streamer-logged item line(s) still need fulfillment review.';
-            return $this->state('fulfillment', 'Fulfillment In Progress', 'The assigned fulfillment member is packing the streamer-logged items.', 'purple', 4, $blockers);
-        }
-
-        if ($notFulfilled > 0) {
-            $blockers[] = $notFulfilled . ' streamer-logged item line(s) are marked not fulfilled.';
-            return $this->state('fulfillment', 'Fulfillment Issues', 'One or more logged items still need a fulfillment decision.', 'danger', 4, $blockers);
-        }
-
-        $packages = FulfillmentPackage::query()->where('show_id', $show->id)->get(['id', 'status', 'sealed_at']);
-        $openBoxes = $packages->filter(fn (FulfillmentPackage $package) => ! $package->isSealed())->count();
-        if ($openBoxes > 0) {
-            $blockers[] = $openBoxes . ' fulfillment box(es) are still open.';
-            return $this->state('fulfillment', 'Finish Packing', 'Streamer-logged items are accounted for; finish any open physical boxes.', 'purple', 4, $blockers);
-        }
-
-        if ($report->fulfillment_reviewed_at === null) {
-            $blockers[] = 'Fulfillment has not signed off on the completed packing work.';
-            return $this->state('fulfillment', 'Ready to Complete', 'All streamer-logged items are accounted for. Fulfillment can complete the show.', 'purple', 4, $blockers);
-        }
-
+        // Fulfillment is intentionally not a payroll gate in the current rollout.
+        // Admin approval moves the show into payroll-input validation; fulfillment
+        // can be layered back in later without changing historical pay runs.
         $unmatchedLoggedItems = $loggedItems->filter(fn (StreamerLogItem $item) => ! $item->inventory_item_id)->count();
         if ($unmatchedLoggedItems > 0) {
             $blockers[] = $unmatchedLoggedItems . ' streamer-logged item line(s) are not matched to inventory.';
@@ -147,7 +119,7 @@ class ShowWorkflowService
             );
         }
 
-        return $this->state('payroll_ready', 'Payroll Ready', 'The show is approved, fulfillment-reviewed and ready for the weekly pay run.', 'success', 5, $blockers);
+        return $this->state('payroll_ready', 'Payroll Ready', 'The streamer report is approved and the required payroll inputs are ready for the weekly pay run.', 'success', 5, $blockers);
     }
 
     public function steps(): array
@@ -156,7 +128,6 @@ class ShowWorkflowService
             ['key' => 'scheduled', 'label' => 'Show'],
             ['key' => 'streamer_log', 'label' => 'Streamer Log'],
             ['key' => 'admin_review', 'label' => 'Admin Review'],
-            ['key' => 'fulfillment', 'label' => 'Fulfillment'],
             ['key' => 'payroll_ready', 'label' => 'Payroll Ready'],
             ['key' => 'payroll', 'label' => 'Pay Run'],
             ['key' => 'paid', 'label' => 'Paid'],

@@ -185,7 +185,9 @@
                             <div class="mt-2 flex items-end justify-between gap-2">
                                 <div class="flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs">
                                     @if($show->units_sold !== null)<span>{{ number_format($show->units_sold) }} orders</span>@endif
-                                    @if($show->gross_revenue !== null)<span>${{ number_format((float)$show->gross_revenue, 2) }} sales</span>@endif
+                                    @if($show->gross_revenue !== null)<span class="font-medium text-gray-700 dark:text-gray-200">Whatnot Gross: ${{ number_format((float)$show->gross_revenue, 2) }}</span>@endif
+                                    @php($displayWhatnotNet = $show->completed_earnings ?? $show->whatnot_net)
+                                    @if($displayWhatnotNet !== null)<span class="font-medium text-gray-700 dark:text-gray-200">Whatnot Net: ${{ number_format((float)$displayWhatnotNet, 2) }}</span>@endif
                                     @unless($isStreamer)
                                         <span>{{ number_format((int)$show->shipments_count) }} shipments</span>
                                         @if((int)$show->open_shipments_count > 0)<span class="font-medium text-amber-600">{{ $show->open_shipments_count }} open</span>@endif

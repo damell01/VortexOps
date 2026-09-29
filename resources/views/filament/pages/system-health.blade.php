@@ -9,7 +9,7 @@
     $failed    = $this->failedJobs;
 @endphp
 
-<div class="space-y-6" wire:poll.30000ms>
+<div class="space-y-6" wire:poll.60000ms>
 
     {{-- ── Status Cards Grid ───────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

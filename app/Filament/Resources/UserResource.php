@@ -179,7 +179,8 @@ class UserResource extends Resource
                     ->searchable()
                     ->preload()
                     ->nullable()
-                    ->helperText('Required when the user has the Streamer role.'),
+                    ->visible(fn (string $operation): bool => $operation === 'edit')
+                    ->helperText('Normally created and linked automatically when the Streamer role is assigned. Use this only to repair an existing account.'),
             ]),
         ]);
     }

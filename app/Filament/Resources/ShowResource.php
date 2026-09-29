@@ -758,7 +758,7 @@ class ShowResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('gross_revenue')
-                    ->label('Gross Revenue')
+                    ->label('Whatnot Gross')
                     ->money('USD')
                     ->default('—')
                     ->description(fn (Show $record): ?string => $record->isRevenueOutlier()
@@ -766,6 +766,17 @@ class ShowResource extends Resource
                         : null)
                     ->color(fn (Show $record) => $record->isRevenueOutlier() ? 'warning' : null)
                     ->summarize(Sum::make()->money('USD')->label('Total Gross'))
+                    ->extraCellAttributes(['class' => 'vx-nowrap']),
+                TextColumn::make('whatnot_display_net')
+                    ->label('Whatnot Net')
+                    ->state(fn (Show $record): ?float => $record->completed_earnings !== null
+                        ? (float) $record->completed_earnings
+                        : ($record->whatnot_net !== null ? (float) $record->whatnot_net : null))
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->tooltip(fn (Show $record): string => $record->completed_earnings !== null
+                        ? 'Completed earnings from Whatnot'
+                        : 'Estimated Whatnot net')
                     ->extraCellAttributes(['class' => 'vx-nowrap']),
                 TextColumn::make('net_margin')
                     ->label('Net Margin')

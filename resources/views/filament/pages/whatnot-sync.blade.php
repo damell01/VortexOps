@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6" wire:poll.3s>
+    <div class="space-y-6" wire:poll.10s>
         @php($job = $this->reportingJob)
         @php($locks = $this->pipelineStatus)
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">

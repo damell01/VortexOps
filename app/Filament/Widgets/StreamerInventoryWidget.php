@@ -9,6 +9,7 @@ use App\Models\InventoryStock;
 class StreamerInventoryWidget extends Widget
 {
     protected string $view = 'filament.widgets.streamer-inventory-widget';
+    protected static bool $isLazy = true;
 
     protected function getViewData(): array
     {
@@ -20,6 +21,9 @@ class StreamerInventoryWidget extends Widget
         }
 
         $inventoryLocations = $streamer->inventoryLocations()->pluck('id');
+        if ($inventoryLocations->isEmpty()) {
+            return ['totalItems' => 0, 'totalQuantity' => 0, 'lowStockCount' => 0, 'locationCount' => 0];
+        }
 
         $totalItems = InventoryItem::whereHas('stock', fn ($q) =>
             $q->whereIn('inventory_location_id', $inventoryLocations)

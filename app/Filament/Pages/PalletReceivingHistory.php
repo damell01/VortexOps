@@ -53,13 +53,13 @@ class PalletReceivingHistory extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(Pallet::query()->with(['vendor', 'lines'])->whereIn('status', ['received', 'processed']))
+            ->query(Pallet::query()->with('vendor')->withCount('lines')->whereIn('status', ['received', 'processed']))
             ->defaultSort('received_date', 'desc')
             ->columns([
                 TextColumn::make('received_date')->label('Received')->date('M j, Y')->sortable()->placeholder('—'),
                 TextColumn::make('name')->label('Pallet / PO')->state(fn (Pallet $record) => $record->displayName())->description(fn (Pallet $record) => $record->reference ?: 'No reference')->weight('semibold')->searchable(['name', 'reference'])->url(fn (Pallet $record) => route('filament.admin.resources.pallets.view', ['record' => $record->id])),
                 TextColumn::make('vendor.name')->label('Vendor')->searchable(['vendors.name']),
-                TextColumn::make('line_items_total')->label('Items')->alignCenter()->state(fn (Pallet $record) => $record->lines->count()),
+                TextColumn::make('line_items_total')->label('Items')->alignCenter()->state(fn (Pallet $record) => (int) $record->lines_count),
                 TextColumn::make('total_cost')->label('Total Cost')->money('USD', locale: 'en_US')->alignRight()->placeholder('—'),
                 TextColumn::make('status')->label('Status')->badge()->formatStateUsing(fn (string $state) => in_array($state, ['received', 'processed'], true) ? 'Complete' : ucfirst($state))->color('success'),
             ])

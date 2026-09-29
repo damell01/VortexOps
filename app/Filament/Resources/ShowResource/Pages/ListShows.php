@@ -144,8 +144,8 @@ class ListShows extends ListRecords
                 ->badge(Cache::remember('tab_badge:shows_needs_matching', 30, fn () => Show::where('is_operational', true)->where(function ($q) { $q->whereNull('whatnot_channel_id')->orWhereDoesntHave('streamers'); })->count()))
                 ->badgeColor('warning'),
             'needs_report' => Tab::make('Needs Report')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status',['cancelled']))
-                ->badge(Cache::remember('tab_badge:shows_needs_report', 30, fn () => Show::where('is_operational', true)->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status',['cancelled'])->count()))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereHas('streamers', fn ($s) => $s->where('streamer_type', '!=', 'remote'))->whereNotIn('status',['cancelled']))
+                ->badge(Cache::remember('tab_badge:shows_needs_report', 30, fn () => Show::where('is_operational', true)->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereHas('streamers', fn ($s) => $s->where('streamer_type', '!=', 'remote'))->whereNotIn('status',['cancelled'])->count()))
                 ->badgeColor('warning'),
             'admin_review' => Tab::make('Admin Review')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereHas('streamerLogEntry', fn ($q) => $q->whereNotNull('submitted_at')->where(function ($x) { $x->whereNull('approval_status')->orWhere('approval_status','!=','approved'); })))

@@ -20,8 +20,8 @@ class PaymentStructures extends Page
 
     use \App\Filament\Concerns\HasAdminNavVisibility;
 
-    protected static ?string $title = 'Payment Structures';
-    protected static ?string $navigationLabel = 'Payment Structures';
+    protected static ?string $title = 'Rates & Adjustments';
+    protected static ?string $navigationLabel = 'Rates & Adjustments';
     protected static ?string $slug = 'payment-structures';
 
     public array $streamer = [];

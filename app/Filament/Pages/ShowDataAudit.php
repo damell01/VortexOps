@@ -100,6 +100,43 @@ class ShowDataAudit extends Page
         $settlementCoverage = $field('completed_earnings');
 
         $pastShows = $shows->filter(fn (Show $s) => $s->show_date?->lt(today()));
+
+        // A Whatnot Shows CSV row is authoritative evidence that the show was
+        // actually hosted. Keep raw database rows visible, but do not confuse
+        // scheduled/imported shells with Whatnot's hosted-show population.
+        $hostedShows = $pastShows->filter(fn (Show $s) =>
+            $s->hasVerifiedAnalyticsField('show_duration')
+            && (int) $s->show_duration > 0
+            && $s->analyticsCoverageStatus() === 'complete'
+        );
+        $excludedShows = $pastShows->filter(fn (Show $s) =>
+            $s->status === 'cancelled' || (
+                $s->hasVerifiedAnalyticsField('show_duration') && (int) $s->show_duration === 0
+            )
+        );
+        $unresolvedPopulation = $pastShows->reject(fn (Show $s) =>
+            $hostedShows->contains('id', $s->id) || $excludedShows->contains('id', $s->id)
+        );
+
+        $channelPopulation = $pastShows->groupBy('whatnot_channel_id')->map(function ($channelShows) use ($hostedShows, $excludedShows, $unresolvedPopulation) {
+            $channel = $channelShows->first()?->channel;
+            $ids = $channelShows->pluck('id');
+            $hosted = $hostedShows->whereIn('id', $ids);
+            $excluded = $excludedShows->whereIn('id', $ids);
+            $unresolved = $unresolvedPopulation->whereIn('id', $ids);
+
+            return [
+                'name' => $channel?->name ?: 'Unknown channel',
+                'records' => $channelShows->count(),
+                'hosted' => $hosted->count(),
+                'excluded' => $excluded->count(),
+                'unresolved' => $unresolved->count(),
+                'gross' => (float) $hosted->sum('gross_revenue'),
+                'net' => (float) $hosted->sum('whatnot_net'),
+                'hours' => (float) $hosted->sum('show_duration') / 60,
+            ];
+        })->sortBy('name')->values();
+
         $statusCounts = [
             'complete' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'complete')->count(),
             'partial' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'partial')->count(),
@@ -132,6 +169,8 @@ class ShowDataAudit extends Page
             'completed' => (float) $shows->sum('completed_earnings'),
             'hours' => (float) $shows->sum('show_duration') / 60,
             'coverage' => $coverage, 'settlementCoverage' => $settlementCoverage, 'missing' => $missing,
+            'hostedTotal' => $hostedShows->count(), 'excludedTotal' => $excludedShows->count(),
+            'unresolvedPopulation' => $unresolvedPopulation->count(), 'channelPopulation' => $channelPopulation,
             'statusCounts' => $statusCounts, 'needsMatch' => $needsMatch, 'needsAnalytics' => $needsAnalytics,
             'complete' => $statusCounts['complete'],
             'followUpTotal' => $followUpTotal,

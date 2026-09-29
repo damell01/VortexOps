@@ -92,6 +92,19 @@
         </div>
     </section>
 
+    <section class="grid gap-3 sm:grid-cols-2">
+        <div class="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
+            <div class="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Needs Match</div>
+            <div class="mt-2 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($d['needsMatch']) }}</div>
+            <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">Missing a recoverable Whatnot UUID. Identity must be recovered before analytics can be targeted.</p>
+        </div>
+        <div class="rounded-2xl border border-blue-200 bg-blue-50/60 p-4 dark:border-blue-500/20 dark:bg-blue-500/5">
+            <div class="text-[10px] font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">Needs Analytics</div>
+            <div class="mt-2 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($d['needsAnalytics']) }}</div>
+            <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">Has a Whatnot UUID and can be sent directly through the targeted analytics recovery.</p>
+        </div>
+    </section>
+
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-100 p-4 dark:border-gray-800">
             <div class="flex flex-wrap items-center justify-between gap-3">

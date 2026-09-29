@@ -44,7 +44,7 @@ class ArchivedPallets extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(Pallet::onlyTrashed()->with('vendor')->withCount('lines'))
+            ->query(Pallet::onlyTrashed()->with(['vendor', 'lines']))
             ->defaultSort('deleted_at', 'desc')
             ->columns([
                 TextColumn::make('deleted_at')->label('Archived')->dateTime('M j, Y g:i A')->sortable(),

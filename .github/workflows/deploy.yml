@@ -45,10 +45,13 @@ jobs:
             export DEPLOY_BRANCH="$BRANCH"
             export DEPLOY_ENVIRONMENT="$([ "$BRANCH" = 'Production' ] && echo production || echo development)"
 
-            # Back up the currently-running database before replacing tracked code.
-            php artisan db:backup --prune=30
+            # Capture the currently deployed revision before updating the checkout.
+            # The deploy script uses this to decide which expensive steps are actually needed.
+            OLD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+
             git fetch origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"
             git reset --hard "origin/$BRANCH"
 
+            export DEPLOY_OLD_SHA="$OLD_SHA"
             bash scripts/baremetal-deploy.sh "$BRANCH"

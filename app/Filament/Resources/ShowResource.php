@@ -118,15 +118,10 @@ class ShowResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        // Keep the base list query intentionally small. Detail/workflow pages can
+        // load deeper inventory/payout relationships only when they need them.
         $query = parent::getEloquentQuery()
-            ->with([
-                'streamers',
-                'channel',
-                'latestDeductionRequest.lines', // lines power the P&L COGS
-                'payouts',
-            ])
-            // Payout aggregate for the Net Margin column, so P&L doesn't N+1.
-            ->withSum('payouts', 'calculated_payout')
+            ->with(['streamers:id,name', 'channel:id,name'])
             ->inChannelContext();
 
         $user = auth()->user();
@@ -226,7 +221,6 @@ class ShowResource extends Resource
                         ->schema([
                             static::showDetailsSection(),
                             static::notesSection(),
-                            static::fulfillmentSection(),
                         ]),
 
                     Tab::make('Financials')

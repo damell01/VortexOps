@@ -591,6 +591,65 @@ class ReceivingService
     }
 
     /**
+     * Receive only part of a pallet line.
+     *
+     * Keeps the existing per-case audit trail, but performs the selected quantity
+     * as one stock/cost transaction instead of looping through receiveCase().
+     *
+     * @return array{received_now:int, received_total:int, expected:int, remaining:int, complete:bool}
+     */
+    public function receiveCasesForLine(PalletLine $line, int $caseCount): array
+    {
+        if ($caseCount < 1) {
+            throw new RuntimeException('Enter at least 1 case to receive.');
+        }
+
+        if (! $line->isFullyMapped()) {
+            throw new RuntimeException("Line #{$line->line_number} must be mapped to an item and location before receiving.");
+        }
+
+        $existingCases = $line->cases()->count();
+        if ($existingCases === 0) {
+            $this->generateExpectedCases($line);
+        }
+
+        $remaining = $line->cases()->where('status', 'expected')->count();
+        if ($remaining < 1) {
+            throw new RuntimeException("Line #{$line->line_number} is already fully received.");
+        }
+
+        if ($caseCount > $remaining) {
+            throw new RuntimeException("Only {$remaining} case(s) remain on line #{$line->line_number}.");
+        }
+
+        $cases = $line->cases()
+            ->where('status', 'expected')
+            ->orderBy('id')
+            ->limit($caseCount)
+            ->get();
+
+        $receivedNow = $this->receiveCaseBatch($line, $cases);
+        $receivedTotal = $line->cases()->where('status', '!=', 'expected')->count();
+        $expected = (int) $line->case_count;
+        $complete = $receivedTotal >= $expected;
+
+        $line->forceFill(['line_status' => $complete ? 'received' : 'pending'])->save();
+
+        $pallet = $line->pallet()->first();
+        if ($pallet && ! $complete && ! in_array($pallet->status, ['received', 'processed'], true)) {
+            $pallet->markReceivingStarted();
+        }
+
+        return [
+            'received_now' => $receivedNow,
+            'received_total' => $receivedTotal,
+            'expected' => $expected,
+            'remaining' => max(0, $expected - $receivedTotal),
+            'complete' => $complete,
+        ];
+    }
+
+    /**
      * Receive a collection of cases belonging to the same line in one transaction.
      * Avoids N separate transactions, N PalletLine reloads, and N WAC updates.
      */

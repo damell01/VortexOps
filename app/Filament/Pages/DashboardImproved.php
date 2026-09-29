@@ -158,15 +158,35 @@ class DashboardImproved extends Dashboard
     private function inventoryHealth(): array
     {
         try {
-            $products = InventoryItem::query()->where('is_active', true)->with('stock')->get();
-            $in = $products->filter(fn ($p) => (float) $p->stock->sum('quantity') > 0)->count();
-            $out = $products->count() - $in;
-            $low = $products->filter(function ($p) {
-                $qty = (float) $p->stock->sum('quantity');
-                return $qty > 0 && $p->reorder_level !== null && $qty <= (float) $p->reorder_level;
-            })->count();
-            return compact('in', 'low', 'out');
-        } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
+            return \Illuminate\Support\Facades\Cache::remember(
+                'dashboard:inventory_health:' . (ChannelContext::currentId() ?? 'all'),
+                60,
+                function (): array {
+                    $stockTotals = \Illuminate\Support\Facades\DB::table('inventory_stock')
+                        ->selectRaw('inventory_item_id, SUM(quantity) as on_hand')
+                        ->when(ChannelContext::isScoped(), fn ($q) => $q
+                            ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                            ->where('inventory_locations.whatnot_channel_id', ChannelContext::currentId()))
+                        ->groupBy('inventory_item_id');
+
+                    $row = \Illuminate\Support\Facades\DB::table('products')
+                        ->leftJoinSub($stockTotals, 'stock_totals', 'stock_totals.inventory_item_id', '=', 'products.id')
+                        ->where('products.is_active', true)
+                        ->selectRaw('SUM(CASE WHEN COALESCE(stock_totals.on_hand, 0) > 0 AND (products.reorder_level IS NULL OR stock_totals.on_hand > products.reorder_level) THEN 1 ELSE 0 END) as in_stock')
+                        ->selectRaw('SUM(CASE WHEN COALESCE(stock_totals.on_hand, 0) > 0 AND products.reorder_level IS NOT NULL AND stock_totals.on_hand <= products.reorder_level THEN 1 ELSE 0 END) as low_stock')
+                        ->selectRaw('SUM(CASE WHEN COALESCE(stock_totals.on_hand, 0) <= 0 THEN 1 ELSE 0 END) as out_stock')
+                        ->first();
+
+                    return [
+                        'in' => (int) ($row->in_stock ?? 0),
+                        'low' => (int) ($row->low_stock ?? 0),
+                        'out' => (int) ($row->out_stock ?? 0),
+                    ];
+                }
+            );
+        } catch (\Throwable) {
+            return ['in' => 0, 'low' => 0, 'out' => 0];
+        }
     }
 
     private function recentInventoryActivity(): array

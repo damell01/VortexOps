@@ -29,7 +29,7 @@ class WeeklyPayoutBatchResource extends Resource
     /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return true;
     }
 
     use HasModuleAccess;
@@ -45,7 +45,7 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Finance';
+        return 'Payroll';
     }
 
     public static function getNavigationSort(): ?int

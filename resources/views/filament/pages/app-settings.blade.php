@@ -1,12 +1,12 @@
 <x-filament-panels::page>
-    <div class="space-y-6 max-w-3xl">
+    <div class="grid gap-6 xl:grid-cols-[220px_minmax(0,760px)]"><aside class="vx-card h-fit p-3"><nav class="space-y-1 text-sm font-medium"><a href="#branding" class="block rounded-[10px] px-3 py-2">Branding</a><a href="#payroll" class="block rounded-[10px] px-3 py-2">Payroll defaults</a><a href="#modules" class="block rounded-[10px] px-3 py-2">Modules</a></nav></aside><div class="space-y-6">
 
         {{-- ── Branding ──────────────────────────────────────────────────── --}}
-        <div wire:key="section-branding" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div id="branding" wire:key="section-branding" x-data="{ open: true }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-2 shrink-0">
+                <div class="rounded-[10px] bg-gray-100 dark:bg-gray-800 p-2 shrink-0">
                     <x-heroicon-o-paint-brush class="h-5 w-5 text-gray-600 dark:text-gray-300" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -24,7 +24,7 @@
                 <div class="px-6 py-4">
                     <label class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">Logo</label>
                     <div class="flex items-start gap-4">
-                        <div class="flex-shrink-0 w-24 h-12 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                        <div class="flex-shrink-0 w-24 h-12 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                             @if ($logo_path && file_exists(storage_path('app/public/' . $logo_path)))
                                 <img src="{{ asset('storage/' . $logo_path) }}" alt="Logo" class="max-h-10 max-w-full object-contain" />
                             @else
@@ -36,7 +36,7 @@
                                 wire:model="logo_upload"
                                 type="file"
                                 accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-700 dark:file:text-gray-300"
+                                class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-[10px] file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-700 dark:file:text-gray-300"
                             />
                             <p class="text-xs text-gray-400">PNG, JPG, SVG or WebP. Max 2 MB. Recommended: 160×40 px.</p>
                             @if ($logo_path)
@@ -55,7 +55,7 @@
                         type="text"
                         maxlength="60"
                         placeholder="VortexOps"
-                        class="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                        class="w-full max-w-sm rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                     />
                     <p class="mt-1 text-xs text-gray-400">Shown in the sidebar header when no logo is set.</p>
                 </div>
@@ -87,9 +87,9 @@
                         @endforeach
                         <div class="flex items-center gap-2 ml-2">
                             <input wire:model.live="primary_color" type="color"
-                                class="w-8 h-8 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer bg-transparent p-0.5" title="Custom color" />
+                                class="w-8 h-8 rounded-[10px] border border-gray-300 dark:border-gray-600 cursor-pointer bg-transparent p-0.5" title="Custom color" />
                             <input wire:model.live="primary_color" type="text" maxlength="7" placeholder="#7c3aed"
-                                class="w-24 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-2.5 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none" />
+                                class="w-24 rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-2.5 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none" />
                         </div>
                     </div>
                     <p class="mt-2 text-xs text-gray-400">Applies to buttons, badges, active nav items, and accent elements. Reload after saving to see the change.</p>
@@ -100,11 +100,11 @@
 
         @if ($this->canSeeModuleToggles)
         {{-- Demo / Showcase Mode --}}
-        <div wire:key="section-demo-mode" x-data="{ open: true }" class="rounded-xl border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} overflow-hidden">
+        <div wire:key="section-demo-mode" x-data="{ open: true }" class="rounded-[10px] border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors">
-                <div class="rounded-lg bg-amber-100 dark:bg-amber-900/50 p-2 shrink-0">
+                <div class="rounded-[10px] bg-amber-100 dark:bg-amber-900/50 p-2 shrink-0">
                     <x-heroicon-o-presentation-chart-bar class="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -145,11 +145,11 @@
         </div>
 
         {{-- Workspace Modules & Features --}}
-        <div wire:key="section-modules" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div id="modules" wire:key="section-modules" x-data="{ open: true }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-slate-100 dark:bg-slate-800 p-2 shrink-0">
+                <div class="rounded-[10px] bg-slate-100 dark:bg-slate-800 p-2 shrink-0">
                     <x-heroicon-o-squares-2x2 class="h-5 w-5 text-slate-600 dark:text-slate-300" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -180,7 +180,7 @@
                     @php
                         $moduleEnabled = in_array($slug, $enabled_modules);
                     @endphp
-                    <div class="rounded-xl border {{ $moduleEnabled ? 'border-violet-200 dark:border-violet-800' : 'border-gray-200 dark:border-gray-700' }} overflow-hidden transition-colors">
+                    <div class="rounded-[10px] border {{ $moduleEnabled ? 'border-violet-200 dark:border-violet-800' : 'border-gray-200 dark:border-gray-700' }} overflow-hidden transition-colors">
                         <label class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                             <input
                                 type="checkbox"
@@ -207,11 +207,11 @@
         @endif
 
         {{-- ── Show Import Settings ──────────────────────────────────────── --}}
-        <div wire:key="section-show-import" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-show-import" x-data="{ open: true }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-blue-100 dark:bg-blue-900 p-2 shrink-0">
+                <div class="rounded-[10px] bg-blue-100 dark:bg-blue-900 p-2 shrink-0">
                     <x-heroicon-o-video-camera class="h-5 w-5 text-blue-600 dark:text-blue-300" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -225,7 +225,7 @@
                 <div class="px-6 py-4">
                     <label for="show_import_mode" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Import Mode</label>
                     <select wire:model.live="show_import_mode" id="show_import_mode"
-                        class="w-full max-w-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none">
+                        class="w-full max-w-xs rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none">
                         <option value="manual">Manual Entry</option>
                         <option value="auto_whatnot">Auto (Whatnot Scraper)</option>
                     </select>
@@ -234,7 +234,7 @@
                 <div class="px-6 py-4">
                     <label for="show_ready_notification_email" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Show-ready Notification Email</label>
                     <input wire:model.blur="show_ready_notification_email" id="show_ready_notification_email" type="email" placeholder="ops@yourcompany.com"
-                        class="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
+                        class="w-full max-w-sm rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
                     <p class="mt-1 text-xs text-gray-400">Optional. For someone who needs the alert without needing a login. Sends only while email notifications are on.</p>
                 </div>
 
@@ -265,11 +265,11 @@
         </div>
 
         {{-- ── Notifications ────────────────────────────────────────────── --}}
-        <div wire:key="section-notifications" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-notifications" x-data="{ open: false }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-amber-100 dark:bg-amber-900 p-2 shrink-0">
+                <div class="rounded-[10px] bg-amber-100 dark:bg-amber-900 p-2 shrink-0">
                     <x-heroicon-o-bell class="h-5 w-5 text-amber-600 dark:text-amber-300" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -336,7 +336,7 @@
                                 <div class="shrink-0">
                                     <select
                                         wire:model.live="{{ $modeKey }}"
-                                        class="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
+                                        class="rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                                     >
                                         @foreach ($modeLabels as $val => $label)
                                             <option value="{{ $val }}" @selected($$modeKey === $val)>{{ $label }}</option>
@@ -345,7 +345,7 @@
                                 </div>
                             </div>
                             @if ($$modeKey === 'custom')
-                                <div class="ml-7 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3">
+                                <div class="ml-7 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3">
                                     <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Select recipients</p>
                                     <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                         @forelse ($allUsers as $user)
@@ -375,11 +375,11 @@
 
         {{-- ── Whatnot Import (owner only) ────────────────────────────────── --}}
         @if ($this->canSeeModuleToggles)
-        <div wire:key="section-whatnot-import" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-whatnot-import" x-data="{ open: true }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-indigo-100 dark:bg-indigo-900/40 p-2 shrink-0">
+                <div class="rounded-[10px] bg-indigo-100 dark:bg-indigo-900/40 p-2 shrink-0">
                     <x-heroicon-o-arrow-down-tray class="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -425,7 +425,7 @@
                             wire:target="testWhatnotConnection"
                             @if (! $this->whatnotConfigured) disabled @endif
                             type="button"
-                            class="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            class="inline-flex items-center gap-2 rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <span wire:loading.remove wire:target="testWhatnotConnection"><x-heroicon-o-signal class="h-4 w-4" /></span>
                             <span wire:loading wire:target="testWhatnotConnection">
@@ -444,7 +444,7 @@
                             wire:target="importWhatnotShows"
                             @if (! $this->whatnotConfigured) disabled @endif
                             type="button"
-                            class="inline-flex items-center gap-2 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            class="inline-flex items-center gap-2 rounded-[10px] border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <span wire:loading.remove wire:target="importWhatnotShows"><x-heroicon-o-arrow-down-tray class="h-4 w-4" /></span>
                             <span wire:loading wire:target="importWhatnotShows">
@@ -484,11 +484,11 @@
 
         {{-- ── Database Backup (owner only) ──────────────────────────────────── --}}
         @if ($this->canSeeModuleToggles)
-        <div wire:key="section-db-backup" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-db-backup" x-data="{ open: false }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-teal-100 dark:bg-teal-900/40 p-2 shrink-0">
+                <div class="rounded-[10px] bg-teal-100 dark:bg-teal-900/40 p-2 shrink-0">
                     <x-heroicon-o-check-badge class="h-5 w-5 text-teal-600 dark:text-teal-400" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -513,7 +513,7 @@
                         wire:loading.attr="disabled"
                         wire:target="runBackup"
                         type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950 px-3 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 shadow-sm hover:bg-teal-100 dark:hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-[10px] border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950 px-3 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 shadow-sm hover:bg-teal-100 dark:hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <span wire:loading.remove wire:target="runBackup"><x-heroicon-o-arrow-down-tray class="h-4 w-4" /></span>
                         <span wire:loading wire:target="runBackup">
@@ -539,11 +539,11 @@
 
         {{-- ── System & Maintenance (owner / super admin only) ─────────────── --}}
         @if ($this->canSeeModuleToggles)
-        <div wire:key="section-system" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-system" x-data="{ open: false }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-2 shrink-0">
+                <div class="rounded-[10px] bg-gray-100 dark:bg-gray-800 p-2 shrink-0">
                     <x-heroicon-o-wrench-screwdriver class="h-5 w-5 text-gray-600 dark:text-gray-300" />
                 </div>
                 <div class="flex-1 min-w-0">
@@ -566,7 +566,7 @@
                         wire:loading.attr="disabled"
                         wire:target="runMigrations"
                         type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <span wire:loading.remove wire:target="runMigrations"><x-heroicon-o-check-badge class="h-4 w-4 text-gray-500 dark:text-gray-400" /></span>
                         <span wire:loading wire:target="runMigrations">
@@ -591,7 +591,7 @@
                         wire:loading.attr="disabled"
                         wire:target="optimizeApp"
                         type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-[10px] border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <span wire:loading.remove wire:target="optimizeApp"><x-heroicon-o-bolt class="h-4 w-4" /></span>
                         <span wire:loading wire:target="optimizeApp">
@@ -616,7 +616,7 @@
                         wire:loading.attr="disabled"
                         wire:target="clearCaches"
                         type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950 px-3 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 shadow-sm hover:bg-rose-100 dark:hover:bg-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-[10px] border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950 px-3 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 shadow-sm hover:bg-rose-100 dark:hover:bg-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <span wire:loading.remove wire:target="clearCaches"><x-heroicon-o-trash class="h-4 w-4" /></span>
                         <span wire:loading wire:target="clearCaches">
@@ -677,7 +677,7 @@
                 <div class="px-6 py-4">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">AI Provider</label>
                     <select wire:model.live="ai_provider"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <option value="ollama">Ollama (local / self-hosted)</option>
                         <option value="openai">OpenAI-compatible (OpenAI, DeepSeek, Qwen, …)</option>
                     </select>
@@ -696,7 +696,7 @@
                         wire:model.blur="ollama_base_url"
                         type="url"
                         placeholder="http://localhost:11434"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
                 </div>
 
@@ -705,37 +705,37 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chat Model</label>
                         <input wire:model.blur="ollama_chat_model" type="text" placeholder="llama3.2:3b"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Conversational assistant + mapping LLM stage (e.g. qwen3:4b)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fast Model</label>
                         <input wire:model.blur="ollama_fast_model" type="text" placeholder="llama3.2:1b"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Quick, low-stakes calls — classification, short rewrites</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Reasoning Model</label>
                         <input wire:model.blur="ollama_reasoning_model" type="text" placeholder="llama3.2:3b"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Multi-step analysis where quality beats speed</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vision Model</label>
                         <input wire:model.blur="ollama_vision_model" type="text" placeholder="moondream"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Packing-slip / screenshot parsing (e.g. qwen2.5-vl, moondream)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Embedding Model</label>
                         <input wire:model.blur="ollama_embedding_model" type="text" placeholder="nomic-embed-text"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Inventory similarity search (e.g. nomic-embed-text)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">JSON Model</label>
                         <input wire:model.blur="ollama_json_model" type="text" placeholder="llama3.2:3b"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Structured extraction — must return valid JSON</p>
                     </div>
                 </div>
@@ -745,13 +745,13 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                         <input wire:model.blur="ai_temperature" type="number" step="0.1" min="0" max="2" placeholder="0.7"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">0 = deterministic, 2 = most creative</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Max Tokens</label>
                         <input wire:model.blur="ai_max_tokens" type="number" step="1" min="1" placeholder="1024"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Cap on response length per call</p>
                     </div>
                     <div>
@@ -775,7 +775,7 @@
                         wire:loading.attr="disabled"
                         wire:target="testOllamaConnection"
                         type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-3 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 shadow-sm hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-[10px] border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-3 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 shadow-sm hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <span wire:loading.remove wire:target="testOllamaConnection"><x-heroicon-o-signal class="h-4 w-4" /></span>
                         <span wire:loading wire:target="testOllamaConnection">
@@ -813,7 +813,7 @@
                         wire:loading.attr="disabled"
                         wire:target="generateEmbeddingsNow"
                         type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-3 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 shadow-sm hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-[10px] border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-3 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 shadow-sm hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <span wire:loading.remove wire:target="generateEmbeddingsNow"><x-heroicon-o-sparkles class="h-4 w-4" /></span>
                         <span wire:loading wire:target="generateEmbeddingsNow">
@@ -848,7 +848,7 @@
                 <div class="max-w-md">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Default Receiving Location</label>
                     <select wire:model.blur="default_receiving_location_id"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <option value="">Ask me each time</option>
                         @foreach (\App\Models\InventoryLocation::activeOptions() as $vxLocId => $vxLocName)
                             <option value="{{ $vxLocId }}">{{ $vxLocName }}</option>
@@ -881,7 +881,7 @@
 
                 <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
                     @foreach (\App\Support\InventoryVisibility::selectableLocations() as $vxVisId => $vxVisName)
-                        <label class="flex items-center gap-2.5 rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 hover:border-violet-400 cursor-pointer">
+                        <label class="flex items-center gap-2.5 rounded-[10px] border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 hover:border-violet-400 cursor-pointer">
                             <input type="checkbox" value="{{ $vxVisId }}" wire:model="streamer_visible_location_ids"
                                 class="rounded border-gray-300 dark:border-gray-500 text-violet-600 focus:ring-violet-500" />
                             <span class="truncate">{{ $vxVisName }}</span>
@@ -928,7 +928,7 @@
                             'clean_only'  => ['Only clean reports', 'A report with no unmatched or exceptional lines posts itself. Anything with a problem waits.'],
                             'on_approval' => ['After an admin approves', 'Nothing moves until someone has read the report. Slowest, and nothing lands wrong.'],
                         ] as $vxKey => [$vxLabel, $vxHelp])
-                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors
+                            <label class="flex cursor-pointer items-start gap-3 rounded-[10px] border px-4 py-3 transition-colors
                                 {{ $show_inventory_posting_policy === $vxKey
                                     ? 'border-sky-400 bg-sky-50 dark:border-sky-700 dark:bg-sky-950/30'
                                     : 'border-gray-200 hover:border-sky-300 dark:border-gray-600' }}">
@@ -953,7 +953,7 @@
                             'exceptions_only' => ['Only reports with problems', 'Clean reports pass on their own; unmatched or short lines wait for a person.'],
                             'auto'            => ['None', 'Reports approve themselves on submission. Nothing queues, and nothing is checked.'],
                         ] as $vxKey => [$vxLabel, $vxHelp])
-                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors
+                            <label class="flex cursor-pointer items-start gap-3 rounded-[10px] border px-4 py-3 transition-colors
                                 {{ $show_report_review_policy === $vxKey
                                     ? 'border-sky-400 bg-sky-50 dark:border-sky-700 dark:bg-sky-950/30'
                                     : 'border-gray-200 hover:border-sky-300 dark:border-gray-600' }}">
@@ -968,7 +968,7 @@
                     </div>
 
                     @if ($show_report_review_policy === 'auto' && $show_inventory_posting_policy === 'on_approval')
-                        <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                        <p class="mt-3 rounded-[10px] bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                             These two disagree: posting waits for an approval that now happens automatically, so
                             stock will move without anyone having looked at the report.
                         </p>
@@ -994,13 +994,13 @@
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rate per Package ($)</label>
                     <input wire:model.blur="shipping_surcharge_rate" type="number" step="0.01" min="0" placeholder="4.00"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Charge per package over the threshold (default $4.00)</p>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Threshold Amount ($)</label>
                     <input wire:model.blur="shipping_surcharge_threshold" type="number" step="0.01" min="0" placeholder="500.00"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Package value threshold that triggers the surcharge (default $500.00)</p>
                 </div>
             </div>
@@ -1024,7 +1024,7 @@
                 {{-- The formula in full. It lived only inside a spreadsheet cell,
                      so nobody who had not read its formulas knew a burden rate
                      was being deducted at all, let alone what the rates were. --}}
-                <div class="rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 p-4 text-sm">
+                <div class="rounded-[10px] bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 p-4 text-sm">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">How a show's profit share is worked out</p>
                     @php
                         // Each half applies only where its rate is set; with
@@ -1065,13 +1065,13 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Burden per Shipment ($)</label>
                         <input wire:model.blur="payroll_burden_per_shipment" type="number" step="0.01" min="0" placeholder="2.10"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Deducted per shipment on the show. Leave empty to charge nothing per shipment. The calculations sheet uses $2.10.</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Burden per Hour ($)</label>
                         <input wire:model.blur="payroll_burden_per_hour" type="number" step="0.01" min="0" placeholder="80.00"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Deducted per hour worked on the show. Leave empty to charge nothing per hour. The calculations sheet uses $80.00.</p>
                     </div>
                 </div>
@@ -1102,7 +1102,7 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fee Type</label>
                         <select wire:model.live="default_owner_fee_type"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                             <option value="">No default fee</option>
                             <option value="percentage">Percentage (%)</option>
                             <option value="flat">Flat Amount ($)</option>
@@ -1112,7 +1112,7 @@
                         <div>
                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $default_owner_fee_type === 'flat' ? 'Fee Amount ($)' : 'Fee Percentage (%)' }}</label>
                             <input wire:model.blur="default_owner_fee_value" type="number" step="0.01" min="0" placeholder="0.00"
-                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                                class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                         </div>
                         <div class="flex items-end pb-2">
                             <label class="inline-flex items-center gap-2 cursor-pointer">
@@ -1128,7 +1128,7 @@
 
         {{-- Validation errors --}}
         @if ($errors->any())
-            <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">
+            <div class="rounded-[10px] border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">
                 <ul class="list-disc list-inside space-y-1">
                     @foreach ($errors->all() as $error)
                         <li class="text-sm text-red-700 dark:text-red-300">{{ $error }}</li>

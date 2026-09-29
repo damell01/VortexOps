@@ -4,9 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\FulfillmentResource;
 use App\Filament\Resources\ShowResource;
-use App\Filament\Resources\DeductionRequestResource;
-use App\Filament\Resources\ProductIdentityResource;
-use App\Filament\Resources\ShowIngestionLogResource;
 use App\Models\Show;
 use App\Support\AdminModules;
 use Carbon\Carbon;
@@ -98,12 +95,12 @@ class StreamsOverview extends Page
         $user = auth()->user();
         return AdminModules::isEnabled('streams') && ($user?->isAdmin() || $user?->isStreamer());
     }
-    public function getSubheading(): ?string { return 'Shows, submissions, revenue, shipments, and recent activity in one place.'; }
+    public function getSubheading(): ?string { return 'Hosted shows, current Whatnot performance, upcoming schedule, and report workflow in one place.'; }
     public function getView(): string { return 'filament.pages.streams-overview'; }
 
     protected function scopedShowsQuery()
     {
-        $query = Show::query()->inChannelContext();
+        $query = Show::query()->inChannelContext()->where('is_operational', true);
         $user = auth()->user();
         if ($user?->isStreamer() && ! $user?->isAdmin() && $user->streamer) $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $user->streamer->id));
         return $query;
@@ -115,74 +112,59 @@ class StreamsOverview extends Page
         return $this->scopedShowsQuery()->whereBetween('show_date', [$from->toDateString(), $to->toDateString()]);
     }
 
+    protected function hostedPast($query)
+    {
+        return $query->where(function ($hosted) {
+            $hosted->where('analytics_sync_status', 'complete')
+                ->orWhere('show_duration', '>', 0)
+                ->orWhere('gross_revenue', '>', 0)
+                ->orWhere('whatnot_net', '>', 0)
+                ->orWhereNotNull('completed_earnings')
+                ->orWhereHas('streamerLogEntry');
+        })->whereNotIn('status', ['cancelled']);
+    }
+
     #[Computed]
     public function streamSnapshot(): array
     {
-        $base = $this->periodQuery();
-        $shows = (clone $base)->count();
-        $grossRevenue = (float) (clone $base)->sum('gross_revenue');
-        $netRevenue = (float) (clone $base)->sum('whatnot_net');
-        $shipmentRows = (clone $base)->withCount([
-            'shipments',
-            'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
-        ])->get();
-        $shipments = (int) $shipmentRows->sum('shipments_count');
-        $delivered = (int) $shipmentRows->sum('delivered_shipments_count');
-        $needsSubmission = (clone $base)
-            ->where('is_operational', true)
-            ->whereDate('show_date', '<=', today())
-            ->whereDoesntHave('streamerLogEntry')
-            ->whereNotIn('status', ['closed','cancelled'])
-            ->count();
-        return compact('shows','grossRevenue','netRevenue','shipments','delivered','needsSubmission');
+        $base = $this->hostedPast($this->periodQuery()->whereDate('show_date', '<=', today()));
+        return [
+            'shows' => (clone $base)->count(),
+            'grossRevenue' => (float) (clone $base)->sum('gross_revenue'),
+            'netRevenue' => (float) (clone $base)->sum('whatnot_net'),
+            'completed' => (clone $base)->where(function ($q) {
+                $q->where('analytics_sync_status', 'complete')->orWhereHas('streamerLogEntry');
+            })->count(),
+        ];
     }
 
     #[Computed]
     public function upcomingShows(): Collection
     {
-        return $this->scopedShowsQuery()->where('is_operational', true)->whereDate('show_date','>',today())->with('streamers')->orderBy('show_date')->orderBy('start_time')->limit(5)->get();
+        return $this->scopedShowsQuery()->whereDate('show_date','>',today())->whereNotIn('status',['cancelled'])->with('streamers')->orderBy('show_date')->orderBy('start_time')->limit(6)->get();
     }
 
     #[Computed]
     public function recentShows(): Collection
     {
-        return $this->periodQuery()->whereDate('show_date','<=',today())->with(['streamers','streamerLogEntry'])
-            ->withCount([
-                'shipments',
-                'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
-                'shipments as open_shipments_count' => fn($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
-            ])
-            ->orderByDesc('show_date')->orderByDesc('start_time')->limit(12)->get();
+        return $this->hostedPast($this->periodQuery()->whereDate('show_date','<=',today()))
+            ->with(['streamers','streamerLogEntry'])->orderByDesc('show_date')->orderByDesc('start_time')->limit(20)->get();
     }
 
     #[Computed]
     public function attentionShows(): Collection
     {
-        return $this->periodQuery()
-            ->where('is_operational', true)
-            ->whereDate('show_date','<=',today())
-            ->whereDoesntHave('streamerLogEntry')
-            ->whereNotIn('status',['closed','cancelled'])
-            ->with('streamers')
-            ->orderByDesc('show_date')
-            ->limit(5)
-            ->get();
+        return $this->hostedPast($this->periodQuery()->whereDate('show_date','<=',today()))
+            ->whereDoesntHave('streamerLogEntry')->with('streamers')->orderByDesc('show_date')->limit(6)->get();
     }
 
     #[Computed]
     public function recentActivity(): Collection
     {
-        return $this->periodQuery()->with(['streamers','streamerLogEntry'])->whereNotNull('status_changed_at')->orderByDesc('status_changed_at')->limit(6)->get();
+        return $this->hostedPast($this->scopedShowsQuery()->whereBetween('show_date',[today()->subDays(2)->toDateString(),today()->toDateString()]))
+            ->with(['streamers','streamerLogEntry'])->orderByDesc('show_date')->orderByDesc('start_time')->limit(10)->get();
     }
 
     public function showUrl(int $id): string { return ShowResource::getUrl('view',['record'=>$id]); }
     public function showsUrl(): string { return Shows::getUrl(['range'=>$this->datePreset,'from'=>$this->dateFrom,'to'=>$this->dateTo]); }
-    public function shipmentsUrl(): string { return ShowShipments::getUrl(); }
-    public function fulfillmentUrl(): string { return FulfillmentResource::getUrl('index'); }
-    public function importerUrl(): string { return WhatnotScraperPage::getUrl(); }
-    public function syncUrl(): string { return WhatnotSyncPage::getUrl(); }
-    public function statusUrl(): string { return ShowStatusBoard::getUrl(); }
-    public function approvalsUrl(): string { return DeductionRequestResource::getUrl('index'); }
-    public function aliasesUrl(): string { return ProductIdentityResource::getUrl('index'); }
-    public function ingestionUrl(): string { return ShowIngestionLogResource::getUrl('index'); }
 }

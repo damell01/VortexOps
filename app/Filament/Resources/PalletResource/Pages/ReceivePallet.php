@@ -37,6 +37,9 @@ class ReceivePallet extends Page
     /** @var array<int, array{id:int, line_number:int, description:string, case_count:int, received:int, mapped:bool}> */
     public array $lineProgress = [];
 
+    /** @var array<int, int|string|null> */
+    public array $partialReceiveQuantity = [];
+
     public function getView(): string
     {
         return 'filament.pages.receive-pallet';
@@ -82,17 +85,25 @@ class ReceivePallet extends Page
 
     private function loadRelations(): void
     {
-        $this->record->load(['vendor', 'lines.cases', 'lines.inventoryItem', 'lines.location']);
+        $this->record->load(['vendor', 'lines.inventoryItem', 'lines.location']);
+        $this->record->loadCount(['lines as received_case_counts' => fn ($query) => $query]);
     }
 
     public function refreshProgress(): void
     {
+        $receivedCounts = InventoryCase::query()
+            ->selectRaw('pallet_line_id, COUNT(*) as received_count')
+            ->whereIn('pallet_line_id', $this->record->lines->pluck('id'))
+            ->where('status', '!=', 'expected')
+            ->groupBy('pallet_line_id')
+            ->pluck('received_count', 'pallet_line_id');
+
         $this->lineProgress = $this->record->lines->map(fn (PalletLine $line) => [
             'id'          => $line->id,
             'line_number' => $line->line_number,
             'description' => $line->description,
-            'case_count'  => $line->case_count,
-            'received'    => $line->cases->where('status', '!=', 'expected')->count(),
+            'case_count'  => (int) $line->case_count,
+            'received'    => (int) ($receivedCounts[$line->id] ?? 0),
             'mapped'      => $line->isFullyMapped(),
             'item_name'   => $line->inventoryItem?->name,
             'location'    => $line->location?->name,
@@ -142,7 +153,8 @@ class ReceivePallet extends Page
         }
 
         if ($this->linkAndCount($line, $code)) {
-            $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+            $this->record->refresh();
+                    $this->loadRelations();
             $this->refreshProgress();
         }
     }
@@ -254,7 +266,8 @@ class ReceivePallet extends Page
 
             if ($line && ! $line->isFullyMapped()) {
                 if ($this->linkAndCount($line, $barcode)) {
-                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                    $this->record->refresh();
+                    $this->loadRelations();
                     $this->refreshProgress();
                 }
 
@@ -293,7 +306,8 @@ class ReceivePallet extends Page
                 $this->lastScanSuccess = false;
             }
 
-            $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+            $this->record->refresh();
+                    $this->loadRelations();
             $this->refreshProgress();
 
             return;
@@ -321,7 +335,8 @@ class ReceivePallet extends Page
                 $this->lastScannedResult = "✓ Received item {$barcode} — {$case->palletLine->inventoryItem?->name}";
                 $this->lastScanDetails = null;
                 $this->lastScanSuccess = true;
-                $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                $this->record->refresh();
+                    $this->loadRelations();
                 $this->refreshProgress();
             }
         } catch (\RuntimeException $e) {
@@ -334,7 +349,8 @@ class ReceivePallet extends Page
 
             if ($unmapped->count() === 1) {
                 if ($this->linkAndCount($unmapped->first(), $barcode)) {
-                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                    $this->record->refresh();
+                    $this->loadRelations();
                     $this->refreshProgress();
                 }
 
@@ -416,7 +432,8 @@ class ReceivePallet extends Page
 
             if ($line && ! $line->isFullyMapped()) {
                 if ($this->linkAndCount($line, $item->sku)) {
-                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                    $this->record->refresh();
+                    $this->loadRelations();
                     $this->refreshProgress();
                 }
 
@@ -428,7 +445,8 @@ class ReceivePallet extends Page
 
         if ($unmapped->count() === 1) {
             if ($this->linkAndCount($unmapped->first(), $item->sku)) {
-                $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                $this->record->refresh();
+                    $this->loadRelations();
                 $this->refreshProgress();
             }
 
@@ -451,6 +469,32 @@ class ReceivePallet extends Page
         $this->lastScanSuccess = false;
     }
 
+    public function receivePartialLine(int $lineId): void
+    {
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
+
+        $quantity = (int) ($this->partialReceiveQuantity[$lineId] ?? 0);
+
+        try {
+            $result = app(ReceivingService::class)->receiveCasesForLine($line, $quantity);
+            $this->partialReceiveQuantity[$lineId] = null;
+
+            Notification::make()
+                ->title("Received {$result['received_now']} case(s)")
+                ->body("Line #{$line->line_number}: {$result['received_total']} of {$result['expected']} received; {$result['remaining']} remaining.")
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
+
+        $this->record->refresh();
+        $this->loadRelations();
+        $this->refreshProgress();
+    }
+
     public function receiveLine(int $lineId): void
     {
         $line = PalletLine::where('id', $lineId)
@@ -467,7 +511,8 @@ class ReceivePallet extends Page
             Notification::make()->title($e->getMessage())->danger()->send();
         }
 
-        $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+        $this->record->refresh();
+                    $this->loadRelations();
         $this->refreshProgress();
     }
 
@@ -666,7 +711,8 @@ class ReceivePallet extends Page
                         $location = InventoryLocation::findOrFail($data['inventory_location_id']);
                         app(ReceivingService::class)->mapLine($line, $item, $location);
                         Notification::make()->title('Line mapped')->success()->send();
-                        $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                        $this->record->refresh();
+                    $this->loadRelations();
                         $this->refreshProgress();
                     } catch (\Throwable $e) {
                         Notification::make()->title('Could not map line')->body($e->getMessage())->danger()->send();

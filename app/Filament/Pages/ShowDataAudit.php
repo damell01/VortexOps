@@ -198,7 +198,9 @@ class ShowDataAudit extends Page
 
         $complete = (clone $past)->whereRaw($completeSql)->count();
         $unavailable = (clone $past)->where('analytics_sync_status', 'unavailable')->whereRaw("NOT ($completeSql)")->count();
-        $partial = (clone $past)->whereNotNull('last_analytics_synced_at')->whereRaw("NOT ($completeSql)")->where('analytics_sync_status', '!=', 'unavailable')->count();
+        $partial = (clone $past)->whereNotNull('last_analytics_synced_at')->whereRaw("NOT ($completeSql)")->where(function ($q) {
+            $q->whereNull('analytics_sync_status')->orWhere('analytics_sync_status', '!=', 'unavailable');
+        })->count();
         $unclassified = max(0, $pastTotal - $complete - $unavailable - $partial);
         $statusCounts = compact('complete', 'partial', 'unavailable', 'unclassified');
 
@@ -211,7 +213,9 @@ class ShowDataAudit extends Page
         } elseif ($this->statusFilter === 'unavailable') {
             $followBase->where('analytics_sync_status', 'unavailable');
         } elseif ($this->statusFilter === 'partial') {
-            $followBase->whereNotNull('last_analytics_synced_at')->where('analytics_sync_status', '!=', 'unavailable');
+            $followBase->whereNotNull('last_analytics_synced_at')->where(function ($q) {
+                $q->whereNull('analytics_sync_status')->orWhere('analytics_sync_status', '!=', 'unavailable');
+            });
         } elseif ($this->statusFilter === 'unclassified') {
             $followBase->whereNull('last_analytics_synced_at')->where(function ($q) {
                 $q->whereNull('analytics_sync_status')->orWhereNotIn('analytics_sync_status', ['complete', 'unavailable']);

@@ -87,7 +87,7 @@ class AdminPanelProvider extends PanelProvider
         $pwaIconsExist = fn (): bool => file_exists(public_path('icons/icon-192.png'));
 
         return $panel
-            ->spa(hasPrefetching: true)
+            ->spa(hasPrefetching: false)
             ->databaseNotifications()
             // 300s meant a streamer could sit for five minutes after an admin
             // requested changes before the bell showed anything, which read as

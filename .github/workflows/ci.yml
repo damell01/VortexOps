@@ -14,6 +14,7 @@ on:
       - main
       - develop
       - Dev
+      - Production
 
 jobs:
   test:
@@ -40,6 +41,18 @@ jobs:
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
 
       - name: PHP syntax check
         shell: bash

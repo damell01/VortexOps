@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Resources\FulfillmentResource;
 use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\StreamerLogResource;
 use App\Filament\Resources\WeeklyPayoutBatchResource;
@@ -12,6 +11,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayRunReadinessService;
+use App\Services\PayRunAutomationService;
 use App\Services\ShowWorkflowService;
 use App\Support\ProfitShareFormula;
 use BackedEnum;
@@ -101,11 +101,16 @@ class PayrollOverview extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('payroll_simulator')
-                ->label('Payroll Simulator')
-                ->icon('heroicon-o-beaker')
+            Action::make('prepare_pay_run')
+                ->label('Prepare Current Pay Run')
+                ->icon('heroicon-o-play')
+                ->color('primary')
+                ->action('prepareCurrentPayRun'),
+            Action::make('pay_runs')
+                ->label('Pay Runs')
+                ->icon('heroicon-o-queue-list')
                 ->color('gray')
-                ->url(PayrollSimulator::getUrl()),
+                ->url(WeeklyPayoutBatchResource::getUrl()),
         ];
     }
 
@@ -345,8 +350,6 @@ class PayrollOverview extends Page
 
         if ($payRunProblems !== [] && $this->currentPayRun()) return ['label' => 'Recalculate Run', 'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]), 'tone' => 'warning'];
         if (in_array($key, ['streamer_log', 'admin_review'], true) && $log) return ['label' => $key === 'admin_review' ? 'Review Log' : 'Open Log', 'url' => StreamerLogResource::getUrl('edit', ['record' => $log]), 'tone' => 'warning'];
-        if ($key === 'fulfillment') return ['label' => 'Resolve Fulfillment', 'url' => FulfillmentResource::getUrl('view', ['record' => $show]), 'tone' => 'primary'];
-
         if ($key === 'payroll' && $show->payouts->first(fn (Payout $p) => $p->batch)?->batch) {
             $batch = $show->payouts->first(fn (Payout $p) => $p->batch)?->batch;
             return ['label' => 'Open Pay Run', 'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $batch]), 'tone' => 'primary'];
@@ -391,7 +394,7 @@ class PayrollOverview extends Page
             ->where('is_operational', true)
             ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
             ->whereNotIn('status', ['cancelled'])
-            ->with(['streamers','streamerLogEntry.streamer','streamerLogEntry.items.inventoryItem','fulfillmentUsers','payouts.batch','latestDeductionRequest.lines.inventoryItem'])
+            ->with(['streamers:id,name,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity'])
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()

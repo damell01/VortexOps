@@ -56,49 +56,49 @@ class InventoryOverview extends Page
     #[Computed]
     public function inventorySnapshot(): array
     {
-        // The overview only needs stock, reorder level and cost. Avoid eager
-        // loading vendor models and wide product rows on every dashboard visit.
-        $items = InventoryItemResource::getEloquentQuery()
-            ->get(['products.id', 'products.reorder_level', 'products.average_cost', 'products.unit_cost']);
+        return \Illuminate\Support\Facades\Cache::remember(
+            'inventory:overview_snapshot:' . (\App\Support\ChannelContext::currentId() ?? 'all'),
+            60,
+            function (): array {
+                $stockTotals = \Illuminate\Support\Facades\DB::table('inventory_stock')
+                    ->selectRaw('inventory_item_id, SUM(quantity) as on_hand')
+                    ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                        ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                        ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()))
+                    ->groupBy('inventory_item_id');
 
-        $total = $items->count();
-        $out = 0;
-        $low = 0;
-        $noReorder = 0;
-        $value = 0.0;
+                $row = \Illuminate\Support\Facades\DB::table('products')
+                    ->leftJoinSub($stockTotals, 'stock_totals', 'stock_totals.inventory_item_id', '=', 'products.id')
+                    ->where('products.is_active', true)
+                    ->selectRaw('COUNT(*) as total')
+                    ->selectRaw('SUM(CASE WHEN COALESCE(stock_totals.on_hand, 0) <= 0 THEN 1 ELSE 0 END) as out_count')
+                    ->selectRaw('SUM(CASE WHEN COALESCE(stock_totals.on_hand, 0) > 0 AND products.reorder_level IS NOT NULL AND stock_totals.on_hand <= products.reorder_level THEN 1 ELSE 0 END) as low_count')
+                    ->selectRaw('SUM(CASE WHEN products.reorder_level IS NULL THEN 1 ELSE 0 END) as no_reorder_count')
+                    ->selectRaw('SUM(GREATEST(COALESCE(stock_totals.on_hand, 0), 0) * COALESCE(NULLIF(products.average_cost, 0), products.unit_cost, 0)) as inventory_value')
+                    ->first();
 
-        foreach ($items as $item) {
-            $onHand = (float) ($item->stock_sum_quantity ?? 0);
-            $value += max(0, $onHand) * $item->effectiveCost();
+                $total = (int) ($row->total ?? 0);
+                $out = (int) ($row->out_count ?? 0);
+                $low = (int) ($row->low_count ?? 0);
+                $in = max(0, $total - $out - $low);
+                $pct = fn (int $count): float => $total > 0 ? round(($count / $total) * 100, 1) : 0.0;
 
-            if ($onHand <= 0) {
-                $out++;
-            } elseif ($item->reorder_level !== null && $onHand <= (float) $item->reorder_level) {
-                $low++;
+                return [
+                    'total' => $total,
+                    'in' => $in,
+                    'low' => $low,
+                    'out' => $out,
+                    'no_reorder' => (int) ($row->no_reorder_count ?? 0),
+                    'value' => round((float) ($row->inventory_value ?? 0), 2),
+                    'percentages' => [
+                        'total' => $total > 0 ? 100.0 : 0.0,
+                        'in' => $pct($in),
+                        'low' => $pct($low),
+                        'out' => $pct($out),
+                    ],
+                ];
             }
-
-            if ($item->reorder_level === null) {
-                $noReorder++;
-            }
-        }
-
-        $in = max(0, $total - $out - $low);
-        $pct = fn (int $count): float => $total > 0 ? round(($count / $total) * 100, 1) : 0.0;
-
-        return [
-            'total' => $total,
-            'in' => $in,
-            'low' => $low,
-            'out' => $out,
-            'no_reorder' => $noReorder,
-            'value' => round($value, 2),
-            'percentages' => [
-                'total' => $total > 0 ? 100.0 : 0.0,
-                'in' => $pct($in),
-                'low' => $pct($low),
-                'out' => $pct($out),
-            ],
-        ];
+        );
     }
 
     #[Computed]

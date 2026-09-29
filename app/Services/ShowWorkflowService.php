@@ -11,6 +11,7 @@ class ShowWorkflowService
     public function stateFor(Show $show): array
     {
         $show->loadMissing([
+            'streamers:id,name,streamer_type',
             'streamerLogEntry.streamer',
             'streamerLogEntry.items.inventoryItem',
             'fulfillmentUsers',
@@ -20,6 +21,8 @@ class ShowWorkflowService
 
         $report = $show->streamerLogEntry;
         $payouts = $show->payouts;
+        $loggedItems = $report?->items ?? collect();
+        $remoteOnly = $show->streamers->isNotEmpty() && $show->streamers->every(fn ($streamer) => $streamer->streamer_type === 'remote');
         $blockers = [];
 
         if ($show->getAttribute('is_operational') === false || (int) $show->getAttribute('is_operational') === 0) {
@@ -56,6 +59,19 @@ class ShowWorkflowService
         if (! $report) {
             if ($show->show_date?->isFuture()) {
                 return $this->state('scheduled', 'Scheduled', 'Show has not ended yet.', 'gray', 1, $blockers);
+            }
+
+            if ($remoteOnly) {
+                if ($show->getRawOriginal('gross_revenue') === null && $show->getRawOriginal('whatnot_net') === null) {
+                    $blockers[] = 'Remote streamer analytics are still missing.';
+                    return $this->state('analytics', 'Needs Analytics', 'Remote streamers are tracked from show analytics and do not require a streamer log.', 'warning', 2, $blockers);
+                }
+
+                if ($payouts->isNotEmpty()) {
+                    return $this->state('payroll', $batch ? 'In Pay Run' : 'Payroll Draft', $batch ? 'Remote streamer analytics are included in the current draft pay run.' : 'Remote streamer analytics are ready to be placed into a weekly pay run.', 'primary', 6, $blockers);
+                }
+
+                return $this->state('payroll_ready', 'Payroll Ready', 'Remote streamer analytics are available; no streamer log is required.', 'success', 5, $blockers);
             }
 
             $blockers[] = 'End of Stream report has not been started.';
@@ -127,6 +143,7 @@ class ShowWorkflowService
         return [
             ['key' => 'scheduled', 'label' => 'Show'],
             ['key' => 'streamer_log', 'label' => 'Streamer Log'],
+            ['key' => 'analytics', 'label' => 'Analytics'],
             ['key' => 'admin_review', 'label' => 'Admin Review'],
             ['key' => 'payroll_ready', 'label' => 'Payroll Ready'],
             ['key' => 'payroll', 'label' => 'Pay Run'],

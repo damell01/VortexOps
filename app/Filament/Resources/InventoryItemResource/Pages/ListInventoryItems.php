@@ -159,16 +159,20 @@ class ListInventoryItems extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        // Aggregate in SQL instead of hydrating every product model just to
-        // render the four health cards. This keeps the inventory landing page
-        // fast as the catalog grows.
-        $base = InventoryItemResource::getEloquentQuery();
-        $total = (clone $base)->count();
-        $out = (clone $base)->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0')->count();
-        $low = (clone $base)
-            ->whereNotNull('reorder_level')
-            ->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level')
-            ->count();
+        // Keep the stock_sum_quantity alias produced by withSum(). Calling
+        // count() on this builder can strip the select that defines that alias,
+        // which makes HAVING stock_sum_quantity invalid on MySQL. Hydrate only
+        // the two tiny fields these cards need and count in memory instead.
+        $items = InventoryItemResource::getEloquentQuery()
+            ->get(['products.id', 'products.reorder_level']);
+        $total = $items->count();
+        $out = $items->filter(fn ($item) => (float) ($item->stock_sum_quantity ?? 0) <= 0)->count();
+        $low = $items->filter(function ($item): bool {
+            $onHand = (float) ($item->stock_sum_quantity ?? 0);
+            return $onHand > 0
+                && $item->reorder_level !== null
+                && $onHand <= (float) $item->reorder_level;
+        })->count();
         $in = max(0, $total - $out - $low);
         $percentage = fn (int $count): string => $total > 0
             ? number_format(($count / $total) * 100, 1) . '%'

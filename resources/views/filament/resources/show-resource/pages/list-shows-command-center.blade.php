@@ -64,7 +64,6 @@
             $report = $show->streamerLogEntry;
             $packed = $report?->items?->sum('packed_quantity') ?? 0;
             $logged = $report?->items?->sum('quantity') ?? 0;
-            $shipments = (int) ($show->shipments_count ?? $show->shipments()->count());
             $pct = $logged > 0 ? min(100, (int) round(($packed / $logged) * 100)) : 0;
             $buttonTone = match ($action['tone']) {
                 'danger' => 'bg-red-600 hover:bg-red-500',
@@ -94,7 +93,6 @@
                         @endif
 
                         <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs">
-                            <span>{{ number_format($shipments) }} shipment(s)</span>
                             <span>Fulfillment: {{ $show->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned' }}</span>
                             @if($show->gross_revenue !== null)<span>${{ number_format((float)$show->gross_revenue, 2) }} sales</span>@endif
                         </div>

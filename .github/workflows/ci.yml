@@ -67,9 +67,6 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
-      - name: Compile Blade views
-        run: php artisan view:cache
-
       - name: Run tests
         run: php artisan test
         env:
@@ -129,9 +126,6 @@ jobs:
 
       - name: Generate app key
         run: php artisan key:generate
-
-      - name: Compile Blade views
-        run: php artisan view:cache
 
       - name: Run tests
         run: php artisan test

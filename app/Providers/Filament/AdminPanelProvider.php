@@ -111,6 +111,12 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
+                fn (): string => $hasViteManifest() && $isAuthenticatedAdminView()
+                    ? Blade::render("@vite(['resources/js/app.js'])")
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
                 function () use ($brandName, $primaryColor, $pwaIconsExist): string {
                     $color  = htmlspecialchars($primaryColor, ENT_QUOTES);
                     $bname  = htmlspecialchars($brandName, ENT_QUOTES);

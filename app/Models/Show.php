@@ -674,8 +674,22 @@ class Show extends Model
         $matchesWholeWord = fn (string $needle, string $haystack): bool =>
             $needle !== '' && preg_match('/\b' . preg_quote($needle, '/') . '\b/u', $haystack) === 1;
 
-        foreach (Streamer::where('status', 'active')->get(['id', 'name']) as $streamer) {
+        foreach (Streamer::where('status', 'active')->with('aliases:id,streamer_id,alias')->get(['id', 'name']) as $streamer) {
             $lowerName = strtolower($streamer->name);
+            $identityNames = collect([$streamer->name])->merge($streamer->aliases->pluck('alias'))->filter()->unique();
+
+            foreach ($identityNames as $identity) {
+                $lowerIdentity = strtolower($identity);
+                if ($matchesWholeWord($lowerIdentity, $title)) {
+                    $suggestions[] = [
+                        'streamer_id' => $streamer->id,
+                        'streamer_name' => $streamer->name,
+                        'confidence' => 'high',
+                        'reason' => $identity === $streamer->name ? "Name \"{$streamer->name}\" found in show title" : "Alias \"{$identity}\" matched show title",
+                    ];
+                    continue 2;
+                }
+            }
 
             if ($matchesWholeWord($lowerName, $title)) {
                 $suggestions[] = [

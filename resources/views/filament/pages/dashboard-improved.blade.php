@@ -55,7 +55,21 @@
         class="space-y-3 sm:space-y-5"
         @if($pageMode === 'streamer') data-vx-page="streamer-dashboard"
         @elseif($pageMode === 'fulfillment') data-vx-page="fulfillment-dashboard"
-        @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
+        @elseif($pageMode === 'admin')
+            <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600">Operations</div>
+                        <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">Today at a glance</h2>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Keep the landing page fast. Open a workspace when you need deeper inventory, show, fulfillment, or payroll detail.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{{ App\Filament\Resources\ShowResource::getUrl('index') }}" class="inline-flex min-h-10 items-center rounded-lg bg-primary-600 px-3.5 text-xs font-semibold text-white">Shows</a>
+                        <a href="{{ App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="inline-flex min-h-10 items-center rounded-lg border border-gray-200 bg-white px-3.5 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Inventory</a>
+                        <a href="{{ App\Filament\Pages\PayrollOverview::getUrl() }}" class="inline-flex min-h-10 items-center rounded-lg border border-gray-200 bg-white px-3.5 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">Payroll</a>
+                    </div>
+                </div>
+            </section>
         @endif
     >
         @if($pageMode === 'streamer')

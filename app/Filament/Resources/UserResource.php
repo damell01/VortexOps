@@ -187,50 +187,49 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->emptyStateHeading('No users found')
-            ->emptyStateDescription('Use the Create button to add a teammate or streamer login.')
+            ->emptyStateHeading('No team members yet')
+            ->emptyStateDescription('Add a user and assign the role that matches their job.')
             ->emptyStateIcon('heroicon-o-users')
             ->deferLoading()
             ->columns([
                 TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('email')
-                    ->searchable()
+                    ->label('Team member')
+                    ->description(fn (User $record): string => $record->email)
+                    ->searchable(['name', 'email'])
                     ->sortable()
-                    ->copyable(),
-
+                    ->weight('semibold'),
                 TextColumn::make('roles.name')
-                    ->label('Roles')
+                    ->label('Role')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'super_admin' => 'warning',
-                        'admin'       => 'danger',
-                        'streamer'    => 'info',
-                        default       => 'gray',
+                        'admin' => 'danger',
+                        'fulfillment_admin' => 'success',
+                        'fulfillment' => 'success',
+                        'streamer' => 'info',
+                        default => 'gray',
                     })
+                    ->formatStateUsing(fn (string $state): string => str($state)->replace('_', ' ')->title())
                     ->separator(', '),
-
                 TextColumn::make('streamer.name')
-                    ->label('Streamer Profile')
-                    ->default('—')
-                    ->placeholder('—'),
-
+                    ->label('Streamer profile')
+                    ->default('Not linked')
+                    ->placeholder('Not linked')
+                    ->icon('heroicon-o-video-camera'),
                 TextColumn::make('created_at')
                     ->label('Joined')
                     ->date('M j, Y')
+                    ->description(fn (User $record): string => $record->created_at?->diffForHumans() ?? '')
                     ->sortable(),
             ])
-            ->striped()
             ->persistFiltersInSession()
-            ->paginationPageOptions([10, 25, 50])
-            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions([8, 16, 32])
+            ->defaultPaginationPageOption(8)
             ->defaultSort('name')
             ->actions([
-                ViewAction::make()->iconButton(),
-                EditAction::make()->iconButton(),
-                DeleteAction::make()->iconButton()
+                ViewAction::make()->iconButton()->tooltip('View user'),
+                EditAction::make()->iconButton()->tooltip('Edit user'),
+                DeleteAction::make()->iconButton()->tooltip('Delete user')
                     ->visible(fn (User $record) => static::canDelete($record)),
             ])
             ->bulkActions([]);

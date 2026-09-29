@@ -196,6 +196,10 @@ class AdminPanelProvider extends PanelProvider
                     HTML),
             )
             ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
+            )
+            ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
                 fn (): string => (auth()->user()?->canSwitchChannels() ?? false)
                     ? Blade::render("@livewire('channel-switcher')")

@@ -100,36 +100,39 @@ class ProfitSharePacket extends Page
         $streamers = Streamer::where('status', 'active')
             ->whereIn('payout_type', ['profit_share', 'hybrid'])
             ->orderBy('name')
-            ->get();
+            ->get(['id', 'name', 'payout_percentage']);
+
+        if ($streamers->isEmpty()) return [];
+
+        $ids = $streamers->pluck('id');
+        $showTotals = \Illuminate\Support\Facades\DB::table('show_streamer')
+            ->join('shows', 'shows.id', '=', 'show_streamer.show_id')
+            ->whereIn('show_streamer.streamer_id', $ids)
+            ->whereBetween('shows.show_date', [$from, $to])
+            ->groupBy('show_streamer.streamer_id')
+            ->selectRaw('show_streamer.streamer_id, COUNT(DISTINCT shows.id) as show_count, COALESCE(SUM(shows.gross_revenue), 0) as gross_rev')
+            ->get()->keyBy('streamer_id');
+
+        $paidTotals = Payout::query()
+            ->whereIn('streamer_id', $ids)
+            ->whereHas('show', fn ($q) => $q->whereBetween('show_date', [$from, $to]))
+            ->where('status', 'paid')
+            ->groupBy('streamer_id')
+            ->selectRaw('streamer_id, SUM(calculated_payout) as total_paid')
+            ->pluck('total_paid', 'streamer_id');
 
         $rows = [];
-
         foreach ($streamers as $streamer) {
-            $shows = Show::whereHas('streamers', fn ($q) => $q->where('streamer_id', $streamer->id))
-                ->whereBetween('show_date', [$from, $to])
-                ->get(['id', 'gross_revenue']);
-
-            $showCount   = $shows->count();
-            $grossRev    = (float) $shows->sum('gross_revenue');
-            $psPct       = (float) ($streamer->payout_percentage ?? 0);
-            $psEarned    = round($grossRev * ($psPct / 100), 2);
-
-            $totalPaid = (float) Payout::where('streamer_id', $streamer->id)
-                ->whereHas('show', fn ($q) => $q->whereBetween('show_date', [$from, $to]))
-                ->where('status', 'paid')
-                ->sum('calculated_payout');
-
-            $balance = $psEarned - $totalPaid;
-
+            $show = $showTotals->get($streamer->id);
+            $showCount = (int) ($show->show_count ?? 0);
+            $grossRev = (float) ($show->gross_rev ?? 0);
+            $psPct = (float) ($streamer->payout_percentage ?? 0);
+            $psEarned = round($grossRev * ($psPct / 100), 2);
+            $totalPaid = (float) ($paidTotals[$streamer->id] ?? 0);
             $rows[] = [
-                'streamer_id' => $streamer->id,
-                'name'        => $streamer->name,
-                'shows'       => $showCount,
-                'gross_rev'   => $grossRev,
-                'ps_pct'      => $psPct,
-                'ps_earned'   => $psEarned,
-                'paid'        => $totalPaid,
-                'balance'     => $balance,
+                'streamer_id' => $streamer->id, 'name' => $streamer->name,
+                'shows' => $showCount, 'gross_rev' => $grossRev, 'ps_pct' => $psPct,
+                'ps_earned' => $psEarned, 'paid' => $totalPaid, 'balance' => $psEarned - $totalPaid,
             ];
         }
 

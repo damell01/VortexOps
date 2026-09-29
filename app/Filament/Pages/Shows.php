@@ -62,7 +62,7 @@ class Shows extends Page
         if($this->filterStreamer&&$u?->isAdmin())$q->whereHas('streamers',fn($x)=>$x->where('streamers.id',$this->filterStreamer));elseif($u?->isStreamer())$q->whereHas('streamers',fn($x)=>$x->where('streamers.id',$u->streamer->id));
         if($this->searchQuery){$n=trim($this->searchQuery);$q->where(fn($x)=>$x->where('title','like',"%{$n}%")->orWhere('notes','like',"%{$n}%")->orWhere('whatnot_show_id','like',"%{$n}%"));}
         if($this->sortBy==='revenue')$q->orderByDesc('gross_revenue')->orderByDesc('show_date');elseif($this->sortBy==='oldest')$q->orderBy('show_date')->orderBy('start_time');else$q->orderByDesc('show_date')->orderByDesc('start_time');
-        return $q->with(['streamers','streamerLogEntry'])->limit(500)->get();
+        return $q->with(['streamers:id,name', 'streamerLogEntry'])->limit(150)->get();
     }
 
     #[Computed] public function calendarWeeks():Collection
@@ -76,7 +76,7 @@ class Shows extends Page
         $q=Show::query()->inChannelContext()->whereBetween('show_date',[today()->subDays(2)->toDateString(),today()->toDateString()])->whereNotIn('status',['cancelled']);
         $u=auth()->user();
         if($u?->isStreamer()&&!$u?->isAdmin())$q->whereHas('streamers',fn($x)=>$x->where('streamers.id',$u->streamer?->id));
-        return $q->with(['streamers','streamerLogEntry'])->orderByDesc('show_date')->orderByDesc('start_time')->limit(12)->get();
+        return $q->with(['streamers:id,name', 'streamerLogEntry'])->orderByDesc('show_date')->orderByDesc('start_time')->limit(12)->get();
     }
 
     public function workflowLabel(Show $s):string

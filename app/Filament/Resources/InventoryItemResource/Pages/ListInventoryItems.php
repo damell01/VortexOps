@@ -159,22 +159,17 @@ class ListInventoryItems extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        $items = InventoryItemResource::getEloquentQuery()->get(['products.id', 'products.reorder_level']);
-        $total = $items->count();
-        $out = 0;
-        $low = 0;
-
-        foreach ($items as $item) {
-            $onHand = (float) ($item->stock_sum_quantity ?? 0);
-
-            if ($onHand <= 0) {
-                $out++;
-            } elseif ($item->reorder_level !== null && $onHand <= (float) $item->reorder_level) {
-                $low++;
-            }
-        }
-
-        $in = $total - $out - $low;
+        // Aggregate in SQL instead of hydrating every product model just to
+        // render the four health cards. This keeps the inventory landing page
+        // fast as the catalog grows.
+        $base = InventoryItemResource::getEloquentQuery();
+        $total = (clone $base)->count();
+        $out = (clone $base)->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0')->count();
+        $low = (clone $base)
+            ->whereNotNull('reorder_level')
+            ->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level')
+            ->count();
+        $in = max(0, $total - $out - $low);
         $percentage = fn (int $count): string => $total > 0
             ? number_format(($count / $total) * 100, 1) . '%'
             : '0.0%';

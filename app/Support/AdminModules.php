@@ -17,19 +17,19 @@ class AdminModules
             'streams' => [
                 'label'       => 'Shows',
                 'description' => 'Shows, submissions, revenue, and show-level shipment visibility.',
-                'group'       => 'Shows',
+                'group'       => 'Streams',
                 'order'       => 10,
             ],
             'fulfillment' => [
                 'label'       => 'Fulfillment Center',
                 'description' => 'Pick, pack, shipment exceptions, and fulfillment history for assigned shows.',
-                'group'       => 'Fulfillment',
+                'group'       => 'Streams',
                 'order'       => 15,
             ],
             'payouts' => [
                 'label'       => 'Payouts & Pay Runs',
                 'description' => 'Payout records, pay runs, and reconciliation outputs.',
-                'group'       => 'Payouts & Pay Runs',
+                'group'       => 'Payroll',
                 'order'       => 20,
             ],
             'inventory' => [
@@ -53,25 +53,25 @@ class AdminModules
             'operations' => [
                 'label'       => 'Operations',
                 'description' => 'Streamers, channels, and other supporting ops tools.',
-                'group'       => 'Operations',
+                'group'       => 'System',
                 'order'       => 40,
             ],
             'reporting' => [
                 'label'       => 'Reports & Analytics',
                 'description' => 'Revenue, payout, and operational performance reports.',
-                'group'       => 'Reports',
+                'group'       => 'System',
                 'order'       => 45,
             ],
             'ai' => [
                 'label'       => 'AI Vision & Matching',
                 'description' => 'Pallet-sheet vision parsing, receiving item matching, and product embeddings. Requires Ollama. (Advanced)',
-                'group'       => 'AI',
+                'group'       => 'System',
                 'order'       => 60,
             ],
             'timekeeping' => [
                 'label'       => 'Timekeeping',
                 'description' => 'Employee time tracking, shift logs, and labor cost reporting. (Owner only)',
-                'group'       => 'Operations',
+                'group'       => 'System',
                 'order'       => 42,
             ],
         ];
@@ -165,7 +165,7 @@ class AdminModules
             ? []
             : static::visibleOperationalGroups();
 
-        $groups = array_values(array_unique(array_merge($custom, $defaults, ['Settings'])));
+        $groups = array_values(array_unique(array_merge($custom, $defaults, ['System'])));
         return $groups;
     }
 

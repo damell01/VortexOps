@@ -20,6 +20,7 @@ use App\Filament\Pages\Auth\Login;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -62,7 +63,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
-            ->font('Inter')
+            ->font('Geist', provider: GoogleFontProvider::class)
+            ->viteTheme('resources/css/filament/admin/theme.css')
             // Needed so the sidebar can be opened/closed on desktop. Filament
             // renders this as a chevron next to the drawer hamburger; the
             // stylesheet hides the duplicate and redraws the remaining control
@@ -109,11 +111,9 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => ! $hasViteManifest()
-                    ? ''
-                    : ($isAuthenticatedAdminView()
-                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])")
-                        : Blade::render("@vite(['resources/css/app.css'])")),
+                fn (): string => $hasViteManifest() && $isAuthenticatedAdminView()
+                    ? Blade::render("@vite(['resources/js/app.js'])")
+                    : '',
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -158,9 +158,6 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render(<<<'HTML'
-                    <style>
-                    .feedback-widget-container, .feedback-btn { display: none !important; }
-                    </style>
                     @livewire('feedback-widget')
                     <script>
                     (function() {
@@ -197,6 +194,10 @@ class AdminPanelProvider extends PanelProvider
                     })();
                     </script>
                     HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
@@ -319,97 +320,6 @@ class AdminPanelProvider extends PanelProvider
             // Everything lives inside AUTH_LOGIN_FORM_BEFORE/AFTER — the only hooks
             // confirmed to actually render on this page — rather than
             // SIMPLE_LAYOUT_START/END, which don't fire reliably here.
-            ->renderHook(
-                PanelsRenderHook::HEAD_END,
-                function () use ($isAuthenticatedAdminView): string {
-                    if ($isAuthenticatedAdminView()) return '';
-                    return <<<'CSS'
-                    <style>
-                    body:has(.vx-login-hero){background:#f5f3ff!important}
-                    .fi-simple-layout:has(.vx-login-hero){
-                        position:relative!important;min-height:100vh!important;overflow:hidden!important;
-                        background:radial-gradient(ellipse 80% 50% at 15% -10%,rgba(139,92,246,.28),transparent 60%),
-                                   radial-gradient(ellipse 70% 50% at 100% 100%,rgba(99,102,241,.22),transparent 60%),
-                                   linear-gradient(160deg,#f5f3ff 0%,#ede9fe 50%,#e0e7ff 100%)!important;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
-                        position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;
-                        display:flex!important;align-items:center;justify-content:center;padding:2rem 1.5rem;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-header{display:none!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main{
-                        position:relative;
-                        background:rgba(255,255,255,.85)!important;
-                        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-                        border:1px solid rgba(255,255,255,.6)!important;
-                        border-radius:1rem!important;
-                        box-shadow:0 10px 40px rgba(76,29,149,.12)!important;
-                        padding:2rem!important;
-                        width:100%;max-width:26rem;
-                        overflow:hidden;
-                    }
-                    /* Every nested wrapper Filament renders inside the card (sections,
-                       field groups, etc.) brings its own background/border — strip all
-                       of them so the glass card shows through uniformly, then
-                       re-apply distinct styling to the actual interactive controls. */
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
-                        background-color:transparent!important;
-                        background-image:none!important;
-                        box-shadow:none!important;
-                        border-color:transparent!important;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
-                        color:#4c1d95!important;
-                    }
-                    .vx-wave-banner{
-                        margin:-2rem -2rem 1.5rem;padding:1.5rem 2rem;position:relative;overflow:hidden;
-                        background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 50%,#4f46e5 100%)!important;
-                    }
-                    .vx-wave-banner::before,.vx-wave-banner::after{
-                        content:'';position:absolute;border-radius:50%;pointer-events:none;
-                        background:rgba(255,255,255,.08);
-                    }
-                    .vx-wave-banner::before{width:140px;height:140px;top:-60px;right:-30px}
-                    .vx-wave-banner::after{width:90px;height:90px;bottom:-50px;left:20%}
-                    .vx-wave-banner-inner{position:relative;z-index:1;display:flex;align-items:center;gap:.6rem}
-                    .vx-wave-banner-word{font-size:1.05rem;font-weight:800;color:#fff!important;letter-spacing:-.2px;line-height:1.1}
-                    .vx-wave-banner-word span{font-weight:500;color:#ddd6fe!important;font-size:.85rem;margin-left:.35rem}
-                    .vx-login-heading{margin-bottom:1.5rem}
-                    .vx-login-heading h1{font-size:1.3rem;font-weight:700;color:#3b0764!important;margin:0 0 .3rem}
-                    .vx-login-heading p{font-size:.85rem;color:#7c6f9c!important;margin:0}
-                    .vx-login-footer{text-align:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid rgba(124,58,237,.12)!important;font-size:.75rem;color:#9083b0!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input{
-                        background:#faf9fd!important;
-                        border:1px solid rgba(124,58,237,.18)!important;
-                        color:#3b0764!important;
-                        border-radius:.6rem!important;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input::placeholder{color:#b3a5cf!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input:focus{
-                        border-color:#8b5cf6!important;
-                        box-shadow:0 0 0 3px rgba(139,92,246,.15)!important;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main svg{color:#8b5cf6!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#7c3aed!important;text-decoration:none;font-weight:500}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#5b21b6!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]{
-                        background:linear-gradient(135deg,#4a00e0 0%,#8e2de2 100%)!important;
-                        border:none!important;
-                        border-radius:.6rem!important;
-                        box-shadow:0 4px 16px rgba(114,9,183,.35)!important;
-                        color:#fff!important;
-                        transition:transform .15s ease,box-shadow .15s ease;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]:hover{
-                        transform:translateY(-1px);
-                        box-shadow:0 6px 20px rgba(114,9,183,.45)!important;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"] *{color:#fff!important}
-                    </style>
-                    CSS;
-                },
-            )
             // ── Login page: gradient banner + heading inside the card ────────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,

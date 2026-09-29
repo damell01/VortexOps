@@ -92,7 +92,6 @@
     Same file, same version, pinned in package.json and copied to
     public/vendor, so it is as available as the page that asks for it.
 --}}
-<script src="{{ asset('vendor/quagga.min.js') }}"></script>
 @verbatim
 <script>
 function cameraScanner() {
@@ -149,7 +148,16 @@ function cameraScanner() {
         async startScanner() {
             const readerDiv = this.$refs.readerDiv;
             if (!readerDiv) return this.fail('Scanner view could not be opened. Type the barcode below.');
-            if (typeof Quagga === 'undefined') return this.fail('Scanner library did not load. Type the barcode below.');
+
+            // Quagga is large and scanning is an occasional workflow. Do not
+            // make every dashboard/table navigation download and parse it.
+            if (typeof window.Quagga === 'undefined') {
+                try {
+                    await window.vxLoadScriptOnce('/vendor/quagga.min.js', 'vx-quagga');
+                } catch (error) {
+                    return this.fail('Scanner library did not load. Type the barcode below.');
+                }
+            }
 
             try { if (window.QuaggaInitialized) Quagga.stop(); } catch (e) {}
             window.QuaggaInitialized = true;

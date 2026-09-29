@@ -5,10 +5,29 @@ namespace App\Filament\Resources\PayoutResource\Pages;
 use App\Filament\Resources\PayoutResource;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
+use App\Models\Payout;
+use Illuminate\Support\Carbon;
 
 class ListPayouts extends ListRecords
 {
     protected static string $resource = PayoutResource::class;
+
+    protected string $view = 'filament.resources.payout-resource.pages.list-payouts';
+
+    public function payoutStats(): array
+    {
+        $start = Carbon::now()->startOfWeek();
+        $end = Carbon::now()->endOfWeek();
+        $query = PayoutResource::getEloquentQuery()->whereBetween('created_at', [$start, $end]);
+
+        return [
+            'total' => (float) (clone $query)->whereIn('status', ['draft', 'approved'])->sum('calculated_payout'),
+            'streamers' => (int) (clone $query)->distinct('streamer_id')->count('streamer_id'),
+            'deductions' => (float) (clone $query)->sum('loan_repayment_deducted'),
+            'hold' => (int) (clone $query)->where('status', 'on_hold')->count(),
+            'label' => $start->format('M j') . ' – ' . $end->format('M j'),
+        ];
+    }
 
     public function getSubheading(): ?string
     {

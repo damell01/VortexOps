@@ -1,3 +1,27 @@
+
+// Shared lazy script loader for heavy, optional operational tools (camera,
+// scanners, etc.). The promise is cached so repeat opens never redownload it.
+const vxScriptLoads = new Map();
+window.vxLoadScriptOnce = function (src, id) {
+    if (id && document.getElementById(id)) return Promise.resolve();
+    if (vxScriptLoads.has(src)) return vxScriptLoads.get(src);
+
+    const promise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        if (id) script.id = id;
+        script.src = src;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    }).catch((error) => {
+        vxScriptLoads.delete(src);
+        throw error;
+    });
+
+    vxScriptLoads.set(src, promise);
+    return promise;
+};
 // Some Filament/Livewire pages attach beforeunload guards after interactive
 // actions. In VortexOps those guards were sticking around after the action had
 // already completed, so ordinary navigation could trigger Chrome's misleading
@@ -54,19 +78,18 @@ function normalizeWhatnotFinancialLabels(root = document.body) {
 function startFinancialTerminologyObserver() {
     normalizeWhatnotFinancialLabels();
 
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            for (const added of mutation.addedNodes) {
-                if (added.nodeType === Node.TEXT_NODE) {
-                    normalizeWhatnotFinancialLabels(added.parentNode);
-                } else if (added.nodeType === Node.ELEMENT_NODE) {
-                    normalizeWhatnotFinancialLabels(added);
-                }
-            }
-        }
+    let pending = false;
+    const observer = new MutationObserver(() => {
+        if (pending) return;
+        pending = true;
+
+        requestAnimationFrame(() => {
+            pending = false;
+            normalizeWhatnotFinancialLabels(document.body);
+        });
     });
 
-    observer.observe(document.documentElement, {
+    observer.observe(document.body, {
         childList: true,
         subtree: true,
     });
@@ -145,16 +168,24 @@ document.addEventListener('livewire:init', () => {
     });
 });
 
-// Load optional modules asynchronously so they never block first paint.
-Promise.all([
-    import('./feedback-annotation.js').catch(e => console.warn('[app.js] feedback-annotation failed:', e.message)),
-    import('./animations.js').catch(e => console.warn('[app.js] animations failed:', e.message)),
-    import('./ui-enhancements.js').catch(e => console.warn('[app.js] ui-enhancements failed:', e.message)),
-    import('./ux-enhancements.js').catch(e => console.warn('[app.js] ux-enhancements failed:', e.message)),
-    import('./mobile-enhancements.js').catch(e => console.warn('[app.js] mobile-enhancements failed:', e.message)),
-    import('./sidebar-full-collapse.js').catch(e => console.warn('[app.js] sidebar-full-collapse failed:', e.message)),
-    import('./ui-improvements.js').catch(e => console.warn('[app.js] ui-improvements failed:', e.message)),
-    import('./responsive-data-tables.js').catch(e => console.warn('[app.js] responsive-data-tables failed:', e.message)),
-    import('./modal-visibility.js').catch(e => console.warn('[app.js] modal-visibility failed:', e.message)),
-    import('./modal-lifecycle.js').catch(e => console.warn('[app.js] modal-lifecycle failed:', e.message)),
-]).catch(e => console.warn('[app.js] Error loading optional modules:', e.message));
+// Keep the SPA shell lean. These enhancements are progressive, not prerequisites
+// for first paint or navigation. Load them only once the browser is idle so a
+// click to another Filament page wins the network/main-thread race.
+const loadOptionalUi = () => Promise.allSettled([
+    import('./feedback-annotation.js'),
+    import('./animations.js'),
+    import('./ui-enhancements.js'),
+    import('./ux-enhancements.js'),
+    import('./mobile-enhancements.js'),
+    import('./sidebar-full-collapse.js'),
+    import('./ui-improvements.js'),
+    import('./responsive-data-tables.js'),
+    import('./modal-visibility.js'),
+    import('./modal-lifecycle.js'),
+]);
+
+if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(loadOptionalUi, { timeout: 2500 });
+} else {
+    window.setTimeout(loadOptionalUi, 1200);
+}

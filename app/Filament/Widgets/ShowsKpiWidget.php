@@ -52,29 +52,39 @@ class ShowsKpiWidget extends BaseWidget
             $priorWeekStart = now()->subWeek()->startOfWeek()->startOfDay();
             $priorWeekEnd   = now()->subWeek()->endOfDay();
 
-            $weekQuery = fn () => Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext();
-            $priorWeekQuery = fn () => Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])->inChannelContext();
+            $window = Show::query()
+                ->inChannelContext()
+                ->whereBetween('show_date', [$priorWeekStart, $weekEnd])
+                ->selectRaw('DATE(show_date) as day')
+                ->selectRaw('COUNT(*) as shows_count')
+                ->selectRaw('COALESCE(SUM(gross_revenue), 0) as gross_total')
+                ->selectRaw('COALESCE(SUM(completed_earnings), 0) as net_total')
+                ->selectRaw('COALESCE(SUM(show_duration), 0) as duration_total')
+                ->groupByRaw('DATE(show_date)')
+                ->get()
+                ->keyBy(fn ($row) => (string) $row->day);
 
-            $weekShows = $weekQuery()->count();
-            $weekGross = (float) $weekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
-            $weekNet = (float) $weekQuery()->whereNotNull('completed_earnings')->sum('completed_earnings');
+            $sumRange = function ($start, $end, string $field) use ($window): float {
+                return (float) $window->filter(fn ($row, $day) => $day >= $start->toDateString() && $day <= $end->toDateString())->sum($field);
+            };
 
-            $priorWeekShows = $priorWeekQuery()->count();
-            $priorWeekGross = (float) $priorWeekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
-            $priorWeekNet = (float) $priorWeekQuery()->whereNotNull('completed_earnings')->sum('completed_earnings');
-
-            $weekHours = (float) $weekQuery()->sum('show_duration') / 60;
-            $priorWeekHours = (float) $priorWeekQuery()->sum('show_duration') / 60;
+            $weekShows = (int) $sumRange($weekStart, $weekEnd, 'shows_count');
+            $weekGross = $sumRange($weekStart, $weekEnd, 'gross_total');
+            $weekNet = $sumRange($weekStart, $weekEnd, 'net_total');
+            $weekHours = $sumRange($weekStart, $weekEnd, 'duration_total') / 60;
+            $priorWeekShows = (int) $sumRange($priorWeekStart, $priorWeekEnd, 'shows_count');
+            $priorWeekGross = $sumRange($priorWeekStart, $priorWeekEnd, 'gross_total');
+            $priorWeekNet = $sumRange($priorWeekStart, $priorWeekEnd, 'net_total');
+            $priorWeekHours = $sumRange($priorWeekStart, $priorWeekEnd, 'duration_total') / 60;
 
             $dailyShows = [];
             $dailyGross = [];
             $dailyNet = [];
-
             for ($i = 6; $i >= 0; $i--) {
-                $date = now()->subDays($i)->toDateString();
-                $dailyShows[] = Show::where('show_date', $date)->inChannelContext()->count();
-                $dailyGross[] = (float) Show::where('show_date', $date)->whereNotNull('gross_revenue')->inChannelContext()->sum('gross_revenue');
-                $dailyNet[] = (float) Show::where('show_date', $date)->whereNotNull('completed_earnings')->inChannelContext()->sum('completed_earnings');
+                $row = $window->get(now()->subDays($i)->toDateString());
+                $dailyShows[] = (int) ($row->shows_count ?? 0);
+                $dailyGross[] = (float) ($row->gross_total ?? 0);
+                $dailyNet[] = (float) ($row->net_total ?? 0);
             }
 
             return [

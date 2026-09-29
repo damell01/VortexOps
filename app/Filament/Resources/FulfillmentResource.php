@@ -43,7 +43,7 @@ class FulfillmentResource extends Resource
         // Fulfillment begins only after the streamer report is approved. Imported
         // shipment/buyer data never puts a show into the packing queue by itself.
         $query = parent::getEloquentQuery()
-            ->with(['streamers', 'channel', 'fulfillmentUsers', 'streamerLogEntry.items'])
+            ->with(['streamers:id,name', 'channel:id,name', 'fulfillmentUsers:id,name', 'streamerLogEntry.items', 'streamerLogEntry.streamer:id,payout_type'])
             ->where('is_operational', true)
             ->whereNotIn('status', ['cancelled'])
             ->whereHas('streamerLogEntry', fn (Builder $log) => $log

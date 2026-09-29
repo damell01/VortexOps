@@ -6,7 +6,7 @@
     $editingMember=$editing_member_id ? \App\Models\Streamer::find($editing_member_id) : null;
 @endphp
 <div class="space-y-6">
-    <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div class="vx-card p-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Standard payroll calculation</p>
@@ -17,17 +17,17 @@
         </div>
 
         <div class="mt-6 grid gap-4 md:grid-cols-3">
-            <label class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+            <label class="rounded-[10px] border border-[var(--vx-border)] p-4">
                 <span class="text-xs font-semibold text-gray-500">Default Streamer Pay %</span>
-                <div class="mt-2 flex items-center gap-2"><input wire:model.live.debounce.300ms="streamer.payout_percentage" type="number" step=".01" class="w-full rounded-lg border-gray-300 bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"><span class="font-bold">%</span></div>
+                <div class="mt-2 flex items-center gap-2"><input wire:model.live.debounce.300ms="streamer.payout_percentage" type="number" step=".01" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"><span class="font-bold">%</span></div>
             </label>
-            <label class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+            <label class="rounded-[10px] border border-[var(--vx-border)] p-4">
                 <span class="text-xs font-semibold text-gray-500">Burden Per Shipment</span>
-                <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer_burden_per_shipment" type="number" step=".01" class="w-full rounded-lg border-gray-300 bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"></div>
+                <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer_burden_per_shipment" type="number" step=".01" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"></div>
             </label>
-            <label class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+            <label class="rounded-[10px] border border-[var(--vx-border)] p-4">
                 <span class="text-xs font-semibold text-gray-500">Burden Per Hour</span>
-                <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer_burden_per_hour" type="number" step=".01" class="w-full rounded-lg border-gray-300 bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"></div>
+                <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer_burden_per_hour" type="number" step=".01" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"></div>
             </label>
         </div>
 
@@ -42,14 +42,14 @@
             <p class="mt-3 text-xs text-gray-500">A weekly Pay Run collects that week's eligible shows. The show calculations roll up into the person's weekly total; a custom override is only used when you intentionally set one.</p>
         </div>
 
-        <details class="mt-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+        <details class="mt-5 rounded-[10px] border border-[var(--vx-border)] p-4">
             <summary class="cursor-pointer text-sm font-bold">Advanced: change the standard calculation for everyone</summary>
             <p class="mt-2 text-xs text-gray-500">Normally leave this blank. Use it only if the spreadsheet formula itself changes for the whole streamer team.</p>
-            <textarea wire:model="streamer.custom_payout_formula" rows="3" class="mt-3 w-full rounded-lg border-gray-300 bg-gray-50 font-mono text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Optional team-wide custom formula"></textarea>
+            <textarea wire:model="streamer.custom_payout_formula" rows="3" class="mt-3 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Optional team-wide custom formula"></textarea>
         </details>
     </div>
 
-    <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div class="vx-card p-5">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
                 <h2 class="text-lg font-bold">Individual Overrides</h2>
@@ -82,17 +82,17 @@
 
             @if(!$editingMember->isFulfillment())
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.payout_percentage">Use a different Streamer Pay %</span><input wire:model="member_override_values.payout_percentage" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Use a different calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 font-mono text-sm dark:bg-gray-800" placeholder="Only for this streamer"></textarea></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.payout_percentage">Use a different Streamer Pay %</span><input wire:model="member_override_values.payout_percentage" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Use a different calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:bg-gray-800" placeholder="Only for this streamer"></textarea></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.include_tips">Override tip handling</span><label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" wire:model="member_override_values.include_tips">Include tips in pay</label></label>
                 </div>
             @else
                 <div class="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.hourly_rate">Hourly rate</span><input wire:model="member_override_values.hourly_rate" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.pwe_rate">PWE rate</span><input wire:model="member_override_values.pwe_rate" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.label_rate">Label rate</span><input wire:model="member_override_values.label_rate" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.package_rate">Flat/package rate</span><input wire:model="member_override_values.package_rate" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
-                    <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Custom calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 font-mono text-sm dark:bg-gray-800"></textarea></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.hourly_rate">Hourly rate</span><input wire:model="member_override_values.hourly_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.pwe_rate">PWE rate</span><input wire:model="member_override_values.pwe_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.label_rate">Label rate</span><input wire:model="member_override_values.label_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.package_rate">Flat/package rate</span><input wire:model="member_override_values.package_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Custom calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:bg-gray-800"></textarea></label>
                 </div>
             @endif
 
@@ -101,11 +101,11 @@
         @endif
     </div>
 
-    <details class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+    <details class="vx-card p-5">
         <summary class="cursor-pointer text-lg font-bold">Pay Run Automation</summary>
         <div class="mt-4 grid gap-3 md:grid-cols-3"><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_setup_enabled">Automatic weekly setup</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_recalculate_drafts">Recalculate drafts</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_include_zero_activity">Include no-activity members</label></div>
     </details>
 
-    <div class="flex justify-end"><button wire:click="save" class="rounded-xl bg-primary-600 px-6 py-3 text-sm font-bold text-white shadow-lg">Save Payment Structures</button></div>
+    <div class="flex justify-end"><button wire:click="save" class="rounded-[10px] bg-primary-600 px-6 py-3 text-sm font-bold text-white ">Save Payment Structures</button></div>
 </div>
 </x-filament-panels::page>

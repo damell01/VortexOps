@@ -75,20 +75,30 @@ $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 // Two authoritative Scrapling pipelines only. The daytime freshness pass keeps
 // operational data current without grinding through large historical backlogs.
 // If the browser/pipeline is busy it skips cleanly and the next cadence catches up.
-Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(7)->toDateString() . ' --show-limit=10 --order-batch=10 --analytics-limit=0 --shipment-batch=10 --max-runtime=2700 --skip-if-busy')
+// Operational priority: show discovery + analytics freshness. Shipment scraping
+// is intentionally paused so browser time goes to yesterday/today show data.
+Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(3)->toDateString() . ' --analytics-only --analytics-limit=0 --max-runtime=2400 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(15)
-    ->name('whatnot-freshness-refresh')
+    ->name('whatnot-recent-analytics-refresh')
+    ->withoutOverlapping(120);
+
+// Discovery pass keeps newly ended shows/UUIDs current without spending runtime
+// on orders or shipments. Analytics refresh above then fills their show metrics.
+Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(3)->toDateString() . ' --show-limit=20 --order-batch=0 --analytics-limit=20 --shipment-batch=0 --max-runtime=2700 --skip-if-busy')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->everyThreeHours()
+    ->name('whatnot-recent-show-discovery')
     ->withoutOverlapping(180);
 
-// The nightly full reconciliation is the completeness pass from the reporting
-// baseline. It fills older analytics/order/shipment/ledger gaps after discovery.
-Schedule::command('whatnot:sync-reporting --since=2026-07-01 --show-limit=30 --order-batch=30 --analytics-limit=0 --shipment-batch=30 --max-runtime=10800 --skip-if-busy')
+// Nightly historical analytics completeness pass. Shipments stay paused.
+Schedule::command('whatnot:sync-reporting --since=2026-07-01 --analytics-only --analytics-limit=0 --max-runtime=10800 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->dailyAt('00:30')
-    ->name('whatnot-nightly-full-reconciliation')
+    ->name('whatnot-nightly-analytics-reconciliation')
     ->withoutOverlapping(480);
 
 // Alias cleanup is database-only and does not use the Whatnot browser.

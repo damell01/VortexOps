@@ -92,6 +92,47 @@
         </div>
     </section>
 
+    <section class="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div class="border-b border-gray-100 p-4 dark:border-gray-800">
+            <h2 class="font-semibold text-gray-950 dark:text-white">Hosted Show Population</h2>
+            <p class="mt-1 text-xs text-gray-500">Raw database records are classified before they count as hosted Whatnot shows. Nothing is deleted by this audit.</p>
+        </div>
+        <div class="grid gap-px bg-gray-100 sm:grid-cols-3 dark:bg-gray-800">
+            @foreach([
+                ['Hosted', $d['hostedTotal'], 'Verified analytics + live duration'],
+                ['Excluded', $d['excludedTotal'], 'Cancelled / confirmed 0-minute no-show'],
+                ['Unresolved', $d['unresolvedPopulation'], 'Needs classification before counting as hosted'],
+            ] as $population)
+                <div class="bg-white p-4 dark:bg-gray-900">
+                    <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $population[0] }}</div>
+                    <div class="mt-2 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($population[1]) }}</div>
+                    <div class="mt-1 text-[11px] text-gray-500">{{ $population[2] }}</div>
+                </div>
+            @endforeach
+        </div>
+        <div class="overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+            <table class="w-full min-w-[820px] text-left text-xs">
+                <thead class="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500 dark:bg-gray-800/60">
+                    <tr><th class="px-4 py-3">Channel</th><th class="px-3 py-3 text-right">DB Records</th><th class="px-3 py-3 text-right">Hosted</th><th class="px-3 py-3 text-right">Excluded</th><th class="px-3 py-3 text-right">Unresolved</th><th class="px-3 py-3 text-right">Hosted Gross</th><th class="px-3 py-3 text-right">Hosted Est. Net</th><th class="px-4 py-3 text-right">Hosted Hours</th></tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @foreach($d['channelPopulation'] as $row)
+                        <tr>
+                            <td class="px-4 py-3 font-semibold text-gray-950 dark:text-white">{{ $row['name'] }}</td>
+                            <td class="px-3 py-3 text-right">{{ number_format($row['records']) }}</td>
+                            <td class="px-3 py-3 text-right font-semibold text-emerald-600">{{ number_format($row['hosted']) }}</td>
+                            <td class="px-3 py-3 text-right">{{ number_format($row['excluded']) }}</td>
+                            <td class="px-3 py-3 text-right {{ $row['unresolved'] ? 'font-semibold text-amber-600' : '' }}">{{ number_format($row['unresolved']) }}</td>
+                            <td class="px-3 py-3 text-right">${{ number_format($row['gross'], 2) }}</td>
+                            <td class="px-3 py-3 text-right">${{ number_format($row['net'], 2) }}</td>
+                            <td class="px-4 py-3 text-right">{{ number_format($row['hours'], 1) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <section class="grid gap-3 sm:grid-cols-2">
         <div class="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/20 dark:bg-amber-500/5">
             <div class="text-[10px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Needs Match</div>

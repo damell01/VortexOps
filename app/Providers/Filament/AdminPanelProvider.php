@@ -19,6 +19,7 @@ use App\Filament\Pages\DashboardImproved;
 use App\Filament\Pages\Auth\Login;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\Support\Colors\Color;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -62,7 +63,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
-            ->font('Inter')
+            ->font('Geist', provider: GoogleFontProvider::class)
+            ->viteTheme('resources/css/filament/admin/theme.css')
             // Needed so the sidebar can be opened/closed on desktop. Filament
             // renders this as a chevron next to the drawer hamburger; the
             // stylesheet hides the duplicate and redraws the remaining control
@@ -109,11 +111,9 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => ! $hasViteManifest()
-                    ? ''
-                    : ($isAuthenticatedAdminView()
-                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])")
-                        : Blade::render("@vite(['resources/css/app.css'])")),
+                fn (): string => ($hasViteManifest() && $isAuthenticatedAdminView())
+                    ? Blade::render("@vite(['resources/js/app.js'])")
+                    : '',
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -197,6 +197,12 @@ class AdminPanelProvider extends PanelProvider
                     })();
                     </script>
                     HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,

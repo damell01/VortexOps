@@ -6,20 +6,6 @@ concurrency:
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - develop
-      - Dev
-      - 'claude/**'
-      - 'feature/**'
-      - ui-redesign
-  pull_request:
-    branches:
-      - main
-      - develop
-      - Dev
-      - Production
 
 jobs:
   test:

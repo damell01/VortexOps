@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Filament\Pages\Page;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\Computed;
+use Illuminate\Support\Facades\DB;
 
 class ShowDataAudit extends Page
 {
@@ -125,99 +126,122 @@ class ShowDataAudit extends Page
     public function auditData(): array
     {
         [$from, $to] = $this->range();
-        $shows = Show::query()->inChannelContext()
-            ->whereBetween('show_date', [$from->toDateString(), $to->toDateString()])
-            ->whereNotIn('status', ['cancelled'])
-            ->with('channel')
-            ->orderByDesc('show_date')->orderByDesc('start_time')->get();
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
+        $pastTo = min($toDate, today()->subDay()->toDateString());
 
-        $total = $shows->count();
-        $field = function (string $name) use ($shows) {
-            $present = $shows->filter(fn (Show $show) => $show->hasVerifiedAnalyticsField($name))->count();
-            return ['present' => $present, 'missing' => $shows->count() - $present];
+        $base = Show::query()->inChannelContext()
+            ->whereBetween('show_date', [$fromDate, $toDate])
+            ->whereNotIn('status', ['cancelled']);
+
+        // Keep the large-range audit cheap: totals and classifications are
+        // calculated in SQL. Only the current 50-row follow-up page is hydrated.
+        $summary = (clone $base)->selectRaw(
+            'COUNT(*) as total, COALESCE(SUM(gross_revenue),0) as gross, '.
+            'COALESCE(SUM(whatnot_net),0) as estimated_net, '.
+            'COALESCE(SUM(completed_earnings),0) as completed, '.
+            'COALESCE(SUM(show_duration),0) as duration_minutes'
+        )->first();
+
+        $verifiedSql = "(last_analytics_synced_at IS NOT NULL OR analytics_sync_status = 'complete' OR JSON_UNQUOTE(JSON_EXTRACT(raw_import_payload, '$.source')) = 'whatnot_analytics_csv')";
+        $uuidSql = "CONCAT(COALESCE(whatnot_show_id,''),' ',COALESCE(detail_url,'')) REGEXP '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'";
+
+        $fieldCoverage = function (string $field) use ($base, $verifiedSql) {
+            $total = (clone $base)->count();
+            $present = $field === 'completed_earnings'
+                ? (clone $base)->whereNotNull($field)->count()
+                : (clone $base)->whereNotNull($field)->whereRaw($verifiedSql)->count();
+            return ['present' => $present, 'missing' => $total - $present];
         };
 
         $coverage = [
-            'gross_revenue' => $field('gross_revenue'),
-            'whatnot_net' => $field('whatnot_net'),
-            'show_duration' => $field('show_duration'),
+            'gross_revenue' => $fieldCoverage('gross_revenue'),
+            'whatnot_net' => $fieldCoverage('whatnot_net'),
+            'show_duration' => $fieldCoverage('show_duration'),
         ];
-        $settlementCoverage = $field('completed_earnings');
+        $settlementCoverage = $fieldCoverage('completed_earnings');
 
-        $pastShows = $shows->filter(fn (Show $s) => $s->show_date?->lt(today()));
+        $past = (clone $base)->whereDate('show_date', '<=', $pastTo);
+        $completeSql = "$verifiedSql AND gross_revenue IS NOT NULL AND show_duration IS NOT NULL AND (whatnot_net IS NOT NULL OR completed_earnings IS NOT NULL)";
+        $hostedSql = "$completeSql AND show_duration > 0";
+        $excludedSql = "show_duration = 0 AND $verifiedSql";
 
-        // A Whatnot Shows CSV row is authoritative evidence that the show was
-        // actually hosted. Keep raw database rows visible, but do not confuse
-        // scheduled/imported shells with Whatnot's hosted-show population.
-        $hostedShows = $pastShows->filter(fn (Show $s) =>
-            $s->hasVerifiedAnalyticsField('show_duration')
-            && (int) $s->show_duration > 0
-            && $s->analyticsCoverageStatus() === 'complete'
-        );
-        $excludedShows = $pastShows->filter(fn (Show $s) =>
-            $s->status === 'cancelled' || (
-                $s->hasVerifiedAnalyticsField('show_duration') && (int) $s->show_duration === 0
+        $hostedTotal = (clone $past)->whereRaw($hostedSql)->count();
+        $excludedTotal = (clone $past)->whereRaw($excludedSql)->count();
+        $pastTotal = (clone $past)->count();
+        $unresolvedPopulation = max(0, $pastTotal - $hostedTotal - $excludedTotal);
+
+        $channelRows = (clone $past)
+            ->leftJoin('whatnot_channels as wc', 'shows.whatnot_channel_id', '=', 'wc.id')
+            ->selectRaw(
+                "shows.whatnot_channel_id, COALESCE(wc.name, 'Unknown channel') as name, COUNT(*) as records, ".
+                "SUM(CASE WHEN $hostedSql THEN 1 ELSE 0 END) as hosted, ".
+                "SUM(CASE WHEN $excludedSql THEN 1 ELSE 0 END) as excluded, ".
+                "SUM(CASE WHEN NOT ($hostedSql) AND NOT ($excludedSql) THEN 1 ELSE 0 END) as unresolved, ".
+                "COALESCE(SUM(CASE WHEN $hostedSql THEN gross_revenue ELSE 0 END),0) as gross, ".
+                "COALESCE(SUM(CASE WHEN $hostedSql THEN whatnot_net ELSE 0 END),0) as net, ".
+                "COALESCE(SUM(CASE WHEN $hostedSql THEN show_duration ELSE 0 END),0) / 60 as hours"
             )
-        );
-        $unresolvedPopulation = $pastShows->reject(fn (Show $s) =>
-            $hostedShows->contains('id', $s->id) || $excludedShows->contains('id', $s->id)
-        );
+            ->groupBy('shows.whatnot_channel_id', 'wc.name')
+            ->orderBy('wc.name')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'records' => (int) $row->records,
+                'hosted' => (int) $row->hosted,
+                'excluded' => (int) $row->excluded,
+                'unresolved' => (int) $row->unresolved,
+                'gross' => (float) $row->gross,
+                'net' => (float) $row->net,
+                'hours' => (float) $row->hours,
+            ]);
 
-        $channelPopulation = $pastShows->groupBy('whatnot_channel_id')->map(function ($channelShows) use ($hostedShows, $excludedShows, $unresolvedPopulation) {
-            $channel = $channelShows->first()?->channel;
-            $ids = $channelShows->pluck('id');
-            $hosted = $hostedShows->whereIn('id', $ids);
-            $excluded = $excludedShows->whereIn('id', $ids);
-            $unresolved = $unresolvedPopulation->whereIn('id', $ids);
+        $complete = (clone $past)->whereRaw($completeSql)->count();
+        $unavailable = (clone $past)->where('analytics_sync_status', 'unavailable')->whereRaw("NOT ($completeSql)")->count();
+        $partial = (clone $past)->whereNotNull('last_analytics_synced_at')->whereRaw("NOT ($completeSql)")->where(function ($q) {
+            $q->whereNull('analytics_sync_status')->orWhere('analytics_sync_status', '!=', 'unavailable');
+        })->count();
+        $unclassified = max(0, $pastTotal - $complete - $unavailable - $partial);
+        $statusCounts = compact('complete', 'partial', 'unavailable', 'unclassified');
 
-            return [
-                'name' => $channel?->name ?: 'Unknown channel',
-                'records' => $channelShows->count(),
-                'hosted' => $hosted->count(),
-                'excluded' => $excluded->count(),
-                'unresolved' => $unresolved->count(),
-                'gross' => (float) $hosted->sum('gross_revenue'),
-                'net' => (float) $hosted->sum('whatnot_net'),
-                'hours' => (float) $hosted->sum('show_duration') / 60,
-            ];
-        })->sortBy('name')->values();
+        $followBase = (clone $past)->whereRaw("NOT ($completeSql)");
+        $needsMatch = (clone $followBase)->whereRaw("NOT ($uuidSql)")->count();
+        $needsAnalytics = (clone $followBase)->whereRaw($uuidSql)->count();
 
-        $statusCounts = [
-            'complete' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'complete')->count(),
-            'partial' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'partial')->count(),
-            'unavailable' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'unavailable')->count(),
-            'unclassified' => $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() === 'unclassified')->count(),
-        ];
-
-        $needsFollowUp = $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() !== 'complete');
-        $hasUuid = fn (Show $s) => (bool) preg_match(
-            '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i',
-            (string) ($s->whatnot_show_id ?: $s->detail_url)
-        );
-        $needsMatch = $needsFollowUp->reject($hasUuid)->count();
-        $needsAnalytics = $needsFollowUp->filter($hasUuid)->count();
-
-        if ($this->statusFilter !== 'all') {
-            $needsFollowUp = $needsFollowUp->filter(fn (Show $s) => $s->analyticsCoverageStatus() === $this->statusFilter);
+        if ($this->statusFilter === 'complete') {
+            $followBase->whereRaw($completeSql);
+        } elseif ($this->statusFilter === 'unavailable') {
+            $followBase->where('analytics_sync_status', 'unavailable');
+        } elseif ($this->statusFilter === 'partial') {
+            $followBase->whereNotNull('last_analytics_synced_at')->where(function ($q) {
+                $q->whereNull('analytics_sync_status')->orWhere('analytics_sync_status', '!=', 'unavailable');
+            });
+        } elseif ($this->statusFilter === 'unclassified') {
+            $followBase->whereNull('last_analytics_synced_at')->where(function ($q) {
+                $q->whereNull('analytics_sync_status')->orWhereNotIn('analytics_sync_status', ['complete', 'unavailable']);
+            });
         }
 
-        $needsFollowUp = $needsFollowUp->values();
-        $followUpTotal = $needsFollowUp->count();
+        $followUpTotal = (clone $followBase)->count();
         $followUpPages = (int) max(1, ceil($followUpTotal / self::FOLLOW_UP_PER_PAGE));
         $followUpPage = min(max(1, $this->followUpPage), $followUpPages);
-        $missing = $needsFollowUp->forPage($followUpPage, self::FOLLOW_UP_PER_PAGE)->values();
+        $missing = (clone $followBase)
+            ->with('channel')
+            ->orderByDesc('show_date')->orderByDesc('start_time')
+            ->forPage($followUpPage, self::FOLLOW_UP_PER_PAGE)
+            ->get();
 
         return [
-            'from' => $from, 'to' => $to, 'total' => $total,
-            'gross' => (float) $shows->sum('gross_revenue'),
-            'estimatedNet' => (float) $shows->sum('whatnot_net'),
-            'completed' => (float) $shows->sum('completed_earnings'),
-            'hours' => (float) $shows->sum('show_duration') / 60,
+            'from' => $from, 'to' => $to, 'total' => (int) ($summary->total ?? 0),
+            'gross' => (float) ($summary->gross ?? 0),
+            'estimatedNet' => (float) ($summary->estimated_net ?? 0),
+            'completed' => (float) ($summary->completed ?? 0),
+            'hours' => (float) ($summary->duration_minutes ?? 0) / 60,
             'coverage' => $coverage, 'settlementCoverage' => $settlementCoverage, 'missing' => $missing,
-            'hostedTotal' => $hostedShows->count(), 'excludedTotal' => $excludedShows->count(),
-            'unresolvedPopulation' => $unresolvedPopulation->count(), 'channelPopulation' => $channelPopulation,
+            'hostedTotal' => $hostedTotal, 'excludedTotal' => $excludedTotal,
+            'unresolvedPopulation' => $unresolvedPopulation, 'channelPopulation' => $channelRows,
             'statusCounts' => $statusCounts, 'needsMatch' => $needsMatch, 'needsAnalytics' => $needsAnalytics,
-            'complete' => $statusCounts['complete'],
+            'complete' => $complete,
             'followUpTotal' => $followUpTotal,
             'followUpPages' => $followUpPages,
             'followUpPage' => $followUpPage,

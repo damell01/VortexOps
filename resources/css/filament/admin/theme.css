@@ -69,11 +69,11 @@ html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale} body.
 /* VortexOps redesign alignment — uploaded mockups */
 :root{
   --vo-bg:#fafafc;--vo-surface:#ffffff;--vo-surface-2:#fafafc;--vo-border:#e3e3ea;--vo-border-soft:#efeff4;
-  --vo-text:#16161d;--vo-muted:#5a5a68;--vo-faint:#8a8a98;--vo-side-bg:#16161d;--vo-side-bg-2:#1f1f29;
+  --vo-text:#16161d;--vo-muted:#5a5a68;--vo-faint:#8a8a98;--vo-side-bg:#0b1022;--vo-side-bg-2:#141a33;
   --vo-side-text:#aab1c8;--vo-side-muted:#6b7392;--vo-radius:12px;--vo-radius-sm:8px;
 }
 body.fi-body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.fi-sidebar{width:15.5rem!important;background:#16161d}
+.fi-sidebar{width:15.5rem!important;background:#0b1022}
 .fi-sidebar-header{min-height:4rem;padding-inline:1.25rem;border-bottom:1px solid rgb(255 255 255/.06)}
 .fi-sidebar-nav{padding:.9rem .75rem 1.25rem;gap:1.1rem}
 .fi-sidebar-group-label{font-size:.625rem!important;letter-spacing:.11em!important;color:#6b7392!important}

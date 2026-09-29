@@ -108,9 +108,7 @@ class InventoryCount extends Page
             })
             ->when($this->categoryFilter !== '', fn ($q) => $q->where('category', $this->categoryFilter))
             ->orderBy('name')
-            // Keep the Livewire payload bounded. Search/scanning can reach the full catalog,
-            // but rendering 1,000 editable rows makes every interaction expensive.
-            ->limit($term !== '' ? 200 : 250)
+            ->limit(1000)
             ->get(['id', 'name', 'sku', 'barcode', 'upc', 'category']);
 
         if ($this->countFilter === 'all') {

@@ -55,12 +55,14 @@ class ShowDataAudit extends Page
     {
         $this->datePreset = 'custom';
         $this->followUpPage = 1;
+        $this->dispatch('$refresh');
     }
 
     public function updatedDateTo(): void
     {
         $this->datePreset = 'custom';
         $this->followUpPage = 1;
+        $this->dispatch('$refresh');
     }
 
     public function applyDatePreset(string $preset): void

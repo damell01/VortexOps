@@ -16,7 +16,6 @@ class ShowActivityWidget extends Widget
     protected static ?int $sort = 20;
     protected int|string|array $columnSpan = 'full';
     protected string $view = 'filament.widgets.show-activity';
-    protected static bool $isLazy = true;
 
     public ?Model $record = null;
 

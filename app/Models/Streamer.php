@@ -29,7 +29,7 @@ class Streamer extends Model
         'custom_payout_formula', 'pwe_rate', 'label_rate', 'burden_rate_type', 'burden_rate_value',
         'include_tips', 'adp_employee_id', 'owner_fee_type', 'owner_fee_value',
         'owner_fee_deduct_from_payout', 'total_earnings_due', 'total_earnings_paid',
-        'channel_routing_rules', 'status', 'member_type', 'compensation_override_fields', 'notes',
+        'channel_routing_rules', 'status', 'member_type', 'streamer_type', 'pay_rate_effective_at', 'compensation_override_fields', 'notes',
     ];
 
     protected $casts = [
@@ -38,7 +38,7 @@ class Streamer extends Model
         'burden_rate_value' => 'decimal:4', 'owner_fee_value' => 'decimal:2',
         'owner_fee_deduct_from_payout' => 'boolean', 'total_earnings_due' => 'decimal:2',
         'total_earnings_paid' => 'decimal:2', 'channel_routing_rules' => 'array',
-        'compensation_override_fields' => 'array',
+        'compensation_override_fields' => 'array', 'pay_rate_effective_at' => 'date',
     ];
 
     public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll()->logOnlyDirty(); }
@@ -78,6 +78,7 @@ class Streamer extends Model
     public function loans(): HasMany { return $this->hasMany(StreamerLoan::class); }
     public function streamerLogEntries(): HasMany { return $this->hasMany(StreamerLogEntry::class); }
     public function profitSharePackets(): HasMany { return $this->hasMany(ProfitSharePacket::class); }
+    public function aliases(): HasMany { return $this->hasMany(StreamerAlias::class); }
 
     public function outstandingBalance(): float { return max(0, (float) $this->total_earnings_due - (float) $this->total_earnings_paid); }
     public function effectiveCompensation(): array { return \App\Support\PaymentStructure::resolve($this); }
@@ -113,6 +114,8 @@ class Streamer extends Model
     }
 
     public static function memberTypeLabels(): array { return ['streamer' => 'Streamer', 'fulfillment' => 'Fulfillment']; }
+    public static function streamerTypeLabels(): array { return ['in_house' => 'In-House', 'remote' => 'Remote']; }
+    public function isRemote(): bool { return $this->streamer_type === 'remote'; }
     public function scopeStreamers(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder { return $query->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type')); }
     public function scopeFulfillment(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder { return $query->where('member_type', 'fulfillment'); }
     public function isFulfillment(): bool { return $this->member_type === 'fulfillment'; }

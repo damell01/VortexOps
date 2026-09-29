@@ -108,6 +108,12 @@ class ShowDataAudit extends Page
         ];
 
         $needsFollowUp = $pastShows->filter(fn (Show $s) => $s->analyticsCoverageStatus() !== 'complete');
+        $hasUuid = fn (Show $s) => (bool) preg_match(
+            '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i',
+            (string) ($s->whatnot_show_id ?: $s->detail_url)
+        );
+        $needsMatch = $needsFollowUp->reject($hasUuid)->count();
+        $needsAnalytics = $needsFollowUp->filter($hasUuid)->count();
 
         if ($this->statusFilter !== 'all') {
             $needsFollowUp = $needsFollowUp->filter(fn (Show $s) => $s->analyticsCoverageStatus() === $this->statusFilter);
@@ -126,7 +132,7 @@ class ShowDataAudit extends Page
             'completed' => (float) $shows->sum('completed_earnings'),
             'hours' => (float) $shows->sum('show_duration') / 60,
             'coverage' => $coverage, 'settlementCoverage' => $settlementCoverage, 'missing' => $missing,
-            'statusCounts' => $statusCounts,
+            'statusCounts' => $statusCounts, 'needsMatch' => $needsMatch, 'needsAnalytics' => $needsAnalytics,
             'complete' => $statusCounts['complete'],
             'followUpTotal' => $followUpTotal,
             'followUpPages' => $followUpPages,

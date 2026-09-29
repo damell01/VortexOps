@@ -58,18 +58,26 @@ class ManagerHub extends Page
     {
         $manager = $this->getManager();
 
-        $query = ProfitSharePacket::query();
-        if (!$manager->isAdmin()) {
-            $query->whereIn('streamer_id', $manager->managedStreamers()->pluck('streamers.id'));
-        }
+        return \Illuminate\Support\Facades\Cache::remember("manager_hub:stats:{$manager->id}", 60, function () use ($manager): array {
+            $query = ProfitSharePacket::query();
+            if (! $manager->isAdmin()) {
+                $query->whereIn('streamer_id', $manager->managedStreamers()->select('streamers.id'));
+            }
 
-        return [
-            'pending_review' => (clone $query)->where('status', 'submitted')->count(),
-            'approved' => (clone $query)->where('status', 'approved')->count(),
-            'rejected' => (clone $query)->where('status', 'rejected')->count(),
-            'managed_streamers' => $manager->isAdmin()
-                ? \App\Models\Streamer::count()
-                : $manager->managedStreamers()->count(),
-        ];
+            $row = $query
+                ->selectRaw("SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as pending_review")
+                ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
+                ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected")
+                ->first();
+
+            return [
+                'pending_review' => (int) ($row->pending_review ?? 0),
+                'approved' => (int) ($row->approved ?? 0),
+                'rejected' => (int) ($row->rejected ?? 0),
+                'managed_streamers' => $manager->isAdmin()
+                    ? \App\Models\Streamer::count()
+                    : $manager->managedStreamers()->count(),
+            ];
+        });
     }
 }

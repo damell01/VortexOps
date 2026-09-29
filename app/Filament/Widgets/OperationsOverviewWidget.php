@@ -56,11 +56,16 @@ class OperationsOverviewWidget extends BaseWidget
                     ->inChannelContext()
                     ->count();
 
+                $grossByMonth = Show::query()
+                    ->inChannelContext()
+                    ->whereBetween('show_date', [now()->subMonthsNoOverflow(5)->startOfMonth(), now()->endOfMonth()])
+                    ->selectRaw("DATE_FORMAT(show_date, '%Y-%m') as month_key, COALESCE(SUM(gross_revenue), 0) as gross_total")
+                    ->groupByRaw("DATE_FORMAT(show_date, '%Y-%m')")
+                    ->pluck('gross_total', 'month_key');
+
                 $monthlyGross = [];
                 for ($i = 5; $i >= 0; $i--) {
-                    $ms = now()->subMonthsNoOverflow($i)->startOfMonth()->toDateString();
-                    $me = now()->subMonthsNoOverflow($i)->endOfMonth()->endOfDay()->toDateTimeString();
-                    $monthlyGross[] = (float) Show::whereBetween('show_date', [$ms, $me])->inChannelContext()->sum('gross_revenue');
+                    $monthlyGross[] = (float) ($grossByMonth[now()->subMonthsNoOverflow($i)->format('Y-m')] ?? 0);
                 }
 
                 return [$pendingLogs, $monthGross, $monthOrders, $priorMonthGross, $priorMonthOrders, $monthlyGross];

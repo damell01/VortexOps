@@ -12,11 +12,11 @@ class ListUsers extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Team logins. Assign a role to control what someone can see and do — fine-tune per-page access under Settings → Roles & Permissions.';
+        return 'Manage team access, roles, and linked streamer profiles.';
     }
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [CreateAction::make()->label('Add User')->icon('heroicon-o-plus')->color('primary')];
     }
 }

@@ -28,6 +28,6 @@
         border-top: 1px solid var(--vx-divider);
     }
 
-    body:has(.vx-end-stream-actions) .vx-mobile-tabbar { display: none; }
+    body:has(.vx-end-stream-actions) .vx-tabbar { display: none; }
     body:has(.vx-end-stream-actions) .vx-end-stream-actions { bottom: env(safe-area-inset-bottom); }
 }

@@ -406,10 +406,17 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $entry = $this->logEntry(); if (! $entry) return [];
         $problems = []; $locationIds = $this->reportLocationIds();
-        foreach ($entry->items()->with('inventoryItem')->get() as $line) {
+        $lines = $entry->items()->with('inventoryItem')->get();
+        $stock = InventoryStock::query()
+            ->whereIn('inventory_item_id', $lines->pluck('inventory_item_id')->filter()->unique())
+            ->whereIn('inventory_location_id', $locationIds)
+            ->selectRaw('inventory_item_id, SUM(quantity) as on_hand')
+            ->groupBy('inventory_item_id')
+            ->pluck('on_hand', 'inventory_item_id');
+        foreach ($lines as $line) {
             if (! $line->inventoryItem) { $problems[] = "\"{$line->item_name}\" is not linked to an inventory product."; continue; }
-            $onHand = InventoryStock::where('inventory_item_id', $line->inventory_item_id)->whereIn('inventory_location_id', $locationIds)->sum('quantity');
-            if ((float) $onHand < (int) $line->quantity) $problems[] = "\"{$line->item_name}\" needs {$line->quantity} but only " . (float) $onHand . ' is available in Main Warehouse / show inventory.';
+            $onHand = (float) ($stock[$line->inventory_item_id] ?? 0);
+            if ($onHand < (int) $line->quantity) $problems[] = "\"{$line->item_name}\" needs {$line->quantity} but only {$onHand} is available in Main Warehouse / show inventory.';
         }
         return $problems;
     }

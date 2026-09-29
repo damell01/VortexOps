@@ -134,6 +134,7 @@ class StreamerResource extends Resource
                         TextInput::make('legal_name')->maxLength(255),
                         TextInput::make('email')->email()->maxLength(255),
                         TextInput::make('phone')->tel()->maxLength(50),
+                        Select::make('streamer_type')->label('Streamer Type')->options(Streamer::streamerTypeLabels())->default('in_house')->required()->native(false)->helperText('Remote streamers use the same show/payroll workflow but can be filtered separately.'),
                         Select::make('whatnot_channel_id')
                             ->label('Channel')
                             ->relationship('channel', 'name')
@@ -173,14 +174,390 @@ class StreamerResource extends Resource
                 ]),
 
             Section::make('Payroll')
-                ->description('All team members are paid through the weekly Pay Run. Any one-off pay adjustment is handled as an override in the Pay Run, not on the team profile.')
-                ->icon('heroicon-o-banknotes')
+                ->description('Set the normal pay structure here. Pay Runs snapshot the calculated amount so future rate changes do not rewrite history.')
+                ->icon('heroicon-o-banknotes')->columns(3)->columnSpanFull()
+                ->schema([
+                    Select::make('payout_type')->label('Pay Type')->options(Streamer::payoutTypeLabels())->native(false),
+                    TextInput::make('hourly_rate')->label('Hourly Rate')->numeric()->prefix('
+
+            Section::make('Channel Routing')
+                ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
+                ->collapsed()
                 ->columnSpanFull()
                 ->schema([
-                    Placeholder::make('weekly_payroll')
-                        ->label('Pay Run Cadence')
-                        ->content('Weekly')
-                        ->helperText('Compensation calculations and overrides are reviewed in Payroll before the weekly Pay Run is finalized.'),
+                    Repeater::make('channel_routing_rules')
+                        ->label('')
+                        ->schema([
+                            TextInput::make('channel')->label('Channel Name')->placeholder('e.g. Breaks')->required()->maxLength(100),
+                            TextInput::make('bank_label')->label('Bank / Account Label')->placeholder('e.g. Chase Business x1234')->required()->maxLength(255),
+                        ])
+                        ->columns(2)
+                        ->reorderable()
+                        ->cloneable()
+                        ->addActionLabel('Add routing rule')
+                        ->itemLabel(fn (array $state): ?string => ($state['channel'] ?? null)
+                            ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
+                            : null)
+                        ->collapsible()
+                        ->columnSpanFull()
+                        ->defaultItems(0),
+                ]),
+
+            Section::make('Inventory Access Control')
+                ->description('Control which inventory locations this team member can access when mapping items. Leave empty to allow access to all locations.')
+                ->collapsed()
+                ->columnSpanFull()
+                ->schema([
+                    Repeater::make('inventoryLocations')
+                        ->label('Allowed Inventory Locations')
+                        ->relationship('inventoryLocations')
+                        ->schema([
+                            Select::make('name')
+                                ->label('Location')
+                                ->options(fn () => \App\Models\InventoryLocation::where('status', 'active')
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray())
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->columns(1)
+                        ->defaultItems(0)
+                        ->addActionLabel('Add Location')
+                        ->reorderable()
+                        ->collapsible()
+                        ->helperText('Streamers will see items from these locations first when mapping sold items.')
+                        ->columnSpanFull(),
+                ]),
+
+            Section::make('Status & Notes')->columnSpanFull()->schema([
+                Grid::make(2)->schema([
+                    Select::make('member_type')
+                        ->label('Role')
+                        ->helperText('This controls where the team member appears in the operations workflow.')
+                        ->options(Streamer::memberTypeLabels())
+                        ->required()
+                        ->default('streamer')
+                        ->native(false),
+                    Select::make('status')
+                        ->options(Streamer::statusLabels())
+                        ->required()
+                        ->default('active'),
+                ]),
+                Textarea::make('notes')->rows(3)->columnSpanFull(),
+            ]),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->deferLoading()
+            ->columns([
+                TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('semibold')
+                    ->description(fn (Streamer $record) => $record->email)
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
+                TextColumn::make('streamer_type')->label('Type')->badge()->formatStateUsing(fn ($state) => Streamer::streamerTypeLabels()[$state] ?? 'In-House')->color(fn ($state) => $state === 'remote' ? 'info' : 'gray'),
+                TextColumn::make('member_type')
+                    ->label('Role')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::memberTypeLabels()[$state] ?? 'Streamer')
+                    ->color(fn ($state) => $state === 'fulfillment' ? 'info' : 'gray')
+                    ->toggleable()
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'active' => 'success',
+                        'inactive' => 'danger',
+                        'on_leave' => 'warning',
+                        default => 'gray',
+                    })
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('inventoryLocations_count')
+                    ->counts('inventoryLocations')
+                    ->label('Location Count')
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('channel.name')
+                    ->label('Channel')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—'),
+                TextColumn::make('email')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_due')->label('Due')->money('USD')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_paid')->label('Paid')->money('USD')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->emptyStateIcon('heroicon-o-user-group')
+            ->emptyStateHeading('No team members yet')
+            ->emptyStateDescription('Add the people who work your shows and fulfillment workflow. Payroll is handled in the weekly Pay Run.')
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()->label('Add your first team member'),
+            ])
+            ->filters([
+                SelectFilter::make('status')->options(Streamer::statusLabels()),
+                SelectFilter::make('member_type')->label('Role')->options(Streamer::memberTypeLabels()),
+                SelectFilter::make('streamer_type')->label('Streamer Type')->options(Streamer::streamerTypeLabels()),
+                SelectFilter::make('whatnot_channel_id')->label('Channel')->relationship('channel', 'name'),
+            ])
+            ->actions([
+                ViewAction::make()->size('sm')->iconButton(),
+                EditAction::make()->size('sm')->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Streamer $record) => static::canDelete($record))
+                    ->tooltip(fn (Streamer $record) => static::canDelete($record)
+                        ? null
+                        : 'Has shows, payouts, loans, surcharges, or log entries — can\'t be deleted while those exist.'),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Streamer $record) => static::canDelete($record));
+                            $blocked = $records->count() - $deletable->count();
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' team member(s) deleted')
+                                    ->body("{$blocked} skipped — still have shows, payouts, loans, surcharges, or log entries.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' team member(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
+            ])
+            ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
+            ->defaultSort('name');
+    }
+
+    public static function getRelations(): array
+    {
+        return [LoansRelationManager::class];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListStreamers::route('/'),
+            'create' => Pages\CreateStreamer::route('/create'),
+            'view' => Pages\ViewStreamer::route('/{record}'),
+            'edit' => Pages\EditStreamer::route('/{record}/edit'),
+        ];
+    }
+}
+),
+                    TextInput::make('package_rate')->label('Flat / Package Rate')->numeric()->prefix('
+
+            Section::make('Channel Routing')
+                ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
+                ->collapsed()
+                ->columnSpanFull()
+                ->schema([
+                    Repeater::make('channel_routing_rules')
+                        ->label('')
+                        ->schema([
+                            TextInput::make('channel')->label('Channel Name')->placeholder('e.g. Breaks')->required()->maxLength(100),
+                            TextInput::make('bank_label')->label('Bank / Account Label')->placeholder('e.g. Chase Business x1234')->required()->maxLength(255),
+                        ])
+                        ->columns(2)
+                        ->reorderable()
+                        ->cloneable()
+                        ->addActionLabel('Add routing rule')
+                        ->itemLabel(fn (array $state): ?string => ($state['channel'] ?? null)
+                            ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
+                            : null)
+                        ->collapsible()
+                        ->columnSpanFull()
+                        ->defaultItems(0),
+                ]),
+
+            Section::make('Inventory Access Control')
+                ->description('Control which inventory locations this team member can access when mapping items. Leave empty to allow access to all locations.')
+                ->collapsed()
+                ->columnSpanFull()
+                ->schema([
+                    Repeater::make('inventoryLocations')
+                        ->label('Allowed Inventory Locations')
+                        ->relationship('inventoryLocations')
+                        ->schema([
+                            Select::make('name')
+                                ->label('Location')
+                                ->options(fn () => \App\Models\InventoryLocation::where('status', 'active')
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray())
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->columns(1)
+                        ->defaultItems(0)
+                        ->addActionLabel('Add Location')
+                        ->reorderable()
+                        ->collapsible()
+                        ->helperText('Streamers will see items from these locations first when mapping sold items.')
+                        ->columnSpanFull(),
+                ]),
+
+            Section::make('Status & Notes')->columnSpanFull()->schema([
+                Grid::make(2)->schema([
+                    Select::make('member_type')
+                        ->label('Role')
+                        ->helperText('This controls where the team member appears in the operations workflow.')
+                        ->options(Streamer::memberTypeLabels())
+                        ->required()
+                        ->default('streamer')
+                        ->native(false),
+                    Select::make('status')
+                        ->options(Streamer::statusLabels())
+                        ->required()
+                        ->default('active'),
+                ]),
+                Textarea::make('notes')->rows(3)->columnSpanFull(),
+            ]),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->deferLoading()
+            ->columns([
+                TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('semibold')
+                    ->description(fn (Streamer $record) => $record->email)
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
+                TextColumn::make('member_type')
+                    ->label('Role')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::memberTypeLabels()[$state] ?? 'Streamer')
+                    ->color(fn ($state) => $state === 'fulfillment' ? 'info' : 'gray')
+                    ->toggleable()
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'active' => 'success',
+                        'inactive' => 'danger',
+                        'on_leave' => 'warning',
+                        default => 'gray',
+                    })
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('inventoryLocations_count')
+                    ->counts('inventoryLocations')
+                    ->label('Location Count')
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('channel.name')
+                    ->label('Channel')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—'),
+                TextColumn::make('email')->searchable()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_due')->label('Due')->money('USD')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_paid')->label('Paid')->money('USD')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->emptyStateIcon('heroicon-o-user-group')
+            ->emptyStateHeading('No team members yet')
+            ->emptyStateDescription('Add the people who work your shows and fulfillment workflow. Payroll is handled in the weekly Pay Run.')
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()->label('Add your first team member'),
+            ])
+            ->filters([
+                SelectFilter::make('status')->options(Streamer::statusLabels()),
+                SelectFilter::make('member_type')->label('Role')->options(Streamer::memberTypeLabels()),
+                SelectFilter::make('whatnot_channel_id')->label('Channel')->relationship('channel', 'name'),
+            ])
+            ->actions([
+                ViewAction::make()->size('sm')->iconButton(),
+                EditAction::make()->size('sm')->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Streamer $record) => static::canDelete($record))
+                    ->tooltip(fn (Streamer $record) => static::canDelete($record)
+                        ? null
+                        : 'Has shows, payouts, loans, surcharges, or log entries — can\'t be deleted while those exist.'),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Streamer $record) => static::canDelete($record));
+                            $blocked = $records->count() - $deletable->count();
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' team member(s) deleted')
+                                    ->body("{$blocked} skipped — still have shows, payouts, loans, surcharges, or log entries.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' team member(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
+            ])
+            ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
+            ->defaultSort('name');
+    }
+
+    public static function getRelations(): array
+    {
+        return [LoansRelationManager::class];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListStreamers::route('/'),
+            'create' => Pages\CreateStreamer::route('/create'),
+            'view' => Pages\ViewStreamer::route('/{record}'),
+            'edit' => Pages\EditStreamer::route('/{record}/edit'),
+        ];
+    }
+}
+),
+                    TextInput::make('payout_percentage')->label('Profit Share')->numeric()->suffix('%'),
+                    \Filament\Forms\Components\DatePicker::make('pay_rate_effective_at')->label('Rate Effective Date')->helperText('When this profile rate becomes effective.'),
+                    Placeholder::make('weekly_payroll')->label('Cadence')->content('Weekly Pay Run'),
+                ]),
+
+            Section::make('Aliases & Matching')
+                ->description('Names this streamer may use in Whatnot show titles. Once saved, future shows can match automatically.')
+                ->icon('heroicon-o-link')->columnSpanFull()
+                ->schema([
+                    Repeater::make('aliases')->relationship('aliases')->schema([
+                        TextInput::make('alias')->label('Alias / nickname')->required()->maxLength(255),
+                    ])->columns(1)->defaultItems(0)->addActionLabel('Add alias')->itemLabel(fn (array $state): ?string => $state['alias'] ?? null),
                 ]),
 
             Section::make('Channel Routing')

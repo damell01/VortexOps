@@ -35,14 +35,14 @@ class ListStreamerLogEntries extends ListRecords
             [
                 'label' => 'Total Submissions',
                 'value' => number_format($base()->count()),
-                'sub'   => 'All entries',
+                'sub'   => 'Show reports in the system',
                 'icon'  => 'heroicon-o-document-text',
                 'tone'  => 'purple',
             ],
             [
-                'label' => 'Pending Review',
+                'label' => 'Admin Review',
                 'value' => number_format($base()->where('status', 'streamer_reviewed')->count()),
-                'sub'   => 'Awaiting admin review',
+                'sub'   => 'Submitted and waiting',
                 'icon'  => 'heroicon-o-clock',
                 'tone'  => 'blue',
             ],
@@ -66,16 +66,9 @@ class ListStreamerLogEntries extends ListRecords
             [
                 'label' => 'Approved',
                 'value' => number_format($base()->where('status', 'admin_approved')->count()),
-                'sub'   => 'Ready for payout',
+                'sub'   => 'Ready for fulfillment / next step',
                 'icon'  => 'heroicon-o-check-circle',
                 'tone'  => 'green',
-            ],
-            [
-                'label' => 'Total Payout',
-                'value' => '$' . number_format((float) $base()->sum('total_due'), 2),
-                'sub'   => 'Across all entries',
-                'icon'  => 'heroicon-o-banknotes',
-                'tone'  => 'orange',
             ],
         ];
     }
@@ -87,10 +80,16 @@ class ListStreamerLogEntries extends ListRecords
             return 'Your shows to review — open one to map the items you sold, set costs, then mark it reviewed for admin approval.';
         }
 
-        return 'Per-show streamer logs. Review streamer submissions and approve them, or send one back to reopen it.';
+        return 'Review streamer submissions in one queue. Approve clean reports, request corrections, and hand approved inventory work to fulfillment.';
     }
 
     /** Quick filter presets. The "To Review" count respects per-streamer scoping. */
+    public function getDefaultActiveTab(): string|int|null
+    {
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin()) ? 'submitted' : 'all';
+    }
+
     public function getTabs(): array
     {
         $count = fn (callable $filter): int => $filter(StreamerLogResource::getEloquentQuery())->count();

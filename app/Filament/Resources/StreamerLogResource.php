@@ -43,11 +43,11 @@ class StreamerLogResource extends Resource
 
     protected static ?string $model = StreamerLogEntry::class;
 
-    protected static ?string $navigationLabel = 'Reports';
+    protected static ?string $navigationLabel = 'Show Report Inbox';
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
-        return 'heroicon-o-clipboard-document-list';
+        return 'heroicon-o-inbox-stack';
     }
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -96,7 +96,7 @@ class StreamerLogResource extends Resource
     /** Secondary Shows workspace screen; permissions and direct access remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()) ?? false;
     }
 
     /**
@@ -255,8 +255,8 @@ class StreamerLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->heading('Show Reports')
-            ->description('Review submitted streamer reports, request changes, edit details, and approve them from one queue.')
+            ->heading('Show Report Inbox')
+            ->description('Review what streamers submitted, verify inventory deductions, approve the report, or send it back for changes.')
             ->emptyStateHeading('No reports')
             ->emptyStateDescription('Submitted streamer reports will appear here for review.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')

@@ -1,3 +1,27 @@
+
+// Shared lazy script loader for heavy, optional operational tools (camera,
+// scanners, etc.). The promise is cached so repeat opens never redownload it.
+const vxScriptLoads = new Map();
+window.vxLoadScriptOnce = function (src, id) {
+    if (id && document.getElementById(id)) return Promise.resolve();
+    if (vxScriptLoads.has(src)) return vxScriptLoads.get(src);
+
+    const promise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        if (id) script.id = id;
+        script.src = src;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    }).catch((error) => {
+        vxScriptLoads.delete(src);
+        throw error;
+    });
+
+    vxScriptLoads.set(src, promise);
+    return promise;
+};
 // Some Filament/Livewire pages attach beforeunload guards after interactive
 // actions. In VortexOps those guards were sticking around after the action had
 // already completed, so ordinary navigation could trigger Chrome's misleading

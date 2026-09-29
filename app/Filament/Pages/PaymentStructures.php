@@ -15,13 +15,13 @@ class PaymentStructures extends Page
     /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return true;
     }
 
     use \App\Filament\Concerns\HasAdminNavVisibility;
 
-    protected static ?string $title = 'Payment Structures';
-    protected static ?string $navigationLabel = 'Payment Structures';
+    protected static ?string $title = 'Rates & Adjustments';
+    protected static ?string $navigationLabel = 'Rates & Adjustments';
     protected static ?string $slug = 'payment-structures';
 
     public array $streamer = [];
@@ -57,7 +57,7 @@ class PaymentStructures extends Page
 
     private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type)); }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
-    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('payouts'); }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Payroll'; }
     public static function getNavigationSort(): ?int { return 2; }
     public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner()) ?? false; }
     public function getView(): string { return 'filament.pages.payment-structures'; }

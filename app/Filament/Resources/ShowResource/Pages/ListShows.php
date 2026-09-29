@@ -49,17 +49,7 @@ class ListShows extends ListRecords
         // accessible in the table/History tab but never appear as fake actions.
         $base = fn () => ShowResource::getEloquentQuery()
             ->where('is_operational', true)
-            ->with([
-                'streamerLogEntry.items.inventoryItem',
-                'fulfillmentUsers',
-                'payouts.batch',
-                'latestDeductionRequest.lines.inventoryItem',
-            ])
-            ->withCount('shipments')
-            ->withCount([
-                'shipments as open_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
-                'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
-            ])
+            ->with(['streamerLogEntry:id,show_id,status,approval_status,submitted_at', 'payouts:id,show_id,weekly_payout_batch_id,status'])
             ->whereNotIn('status', ['cancelled']);
 
         $nowTime = now()->format('H:i:s');
@@ -137,7 +127,7 @@ class ListShows extends ListRecords
 
     public function getDefaultActiveTab(): string|int|null
     {
-        return 'past_7_days';
+        return 'all';
     }
 
     public function getTabs(): array
@@ -146,32 +136,28 @@ class ListShows extends ListRecords
         $weekEnd   = now()->endOfWeek()->toDateString();
 
         $tabs = [
-            'past_7_days' => Tab::make('Past 7 Days')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [now()->subDays(7)->toDateString(), now()->endOfDay()->toDateTimeString()])),
-            'all' => Tab::make('All'),
-            'needs_review' => Tab::make('Needs Review')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereIn('status', ['pending_review', 'pending_approval']))
-                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () => Show::where('is_operational', true)->whereIn('status', ['pending_review', 'pending_approval'])->count()))
+            'all' => Tab::make('All Shows')->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)),
+            'needs_matching' => Tab::make('Needs Matching')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->where(function ($q) {
+                    $q->whereNull('whatnot_channel_id')->orWhereDoesntHave('streamers');
+                }))
+                ->badge(Cache::remember('tab_badge:shows_needs_matching', 30, fn () => Show::where('is_operational', true)->where(function ($q) { $q->whereNull('whatnot_channel_id')->orWhereDoesntHave('streamers'); })->count()))
                 ->badgeColor('warning'),
-            'this_week' => Tab::make('This Week')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereBetween('show_date', [$weekStart, $weekEnd])),
-            'unreconciled' => Tab::make('Unreconciled')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
-            'missing_analytics' => Tab::make('Analytics Refresh')
-                ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->where('is_operational', true)
-                    ->whereDate('show_date', '<=', today()->subDay())
-                    ->whereNotIn('status', ['cancelled'])
-                    ->missingAnalytics())
-                ->badge(Cache::remember('tab_badge:shows_missing_analytics', 30, fn () => Show::query()
-                    ->where('is_operational', true)
-                    ->whereDate('show_date', '<=', today()->subDay())
-                    ->whereNotIn('status', ['cancelled'])
-                    ->missingAnalytics()
-                    ->count()))
+            'needs_report' => Tab::make('Needs Report')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status',['cancelled']))
+                ->badge(Cache::remember('tab_badge:shows_needs_report', 30, fn () => Show::where('is_operational', true)->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status',['cancelled'])->count()))
+                ->badgeColor('warning'),
+            'admin_review' => Tab::make('Admin Review')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereHas('streamerLogEntry', fn ($q) => $q->whereNotNull('submitted_at')->where(function ($x) { $x->whereNull('approval_status')->orWhere('approval_status','!=','approved'); })))
+                ->badgeColor('info'),
+            'upcoming' => Tab::make('Upcoming')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date','>=',today())->whereNotIn('status',['cancelled'])),
+            'completed' => Tab::make('Completed')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date','<',today())->where(function ($q) { $q->where('analytics_sync_status','complete')->orWhere('show_duration','>',0)->orWhere('gross_revenue','>',0); })->whereNotIn('status',['cancelled'])),
+            'analytics_refresh' => Tab::make('Needs Analytics')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->whereDate('show_date','<=',today()->subDay())->whereNotIn('status',['cancelled'])->missingAnalytics())
                 ->badgeColor('danger'),
         ];
-
         if (auth()->user()?->isAdmin()) {
             $historical = Cache::remember('tab_badge:shows_historical', 30, fn () => Show::where('is_operational', false)->count());
             if ($historical > 0) {

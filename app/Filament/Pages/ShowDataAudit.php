@@ -26,12 +26,19 @@ class ShowDataAudit extends Page
     #[Url(as: 'page')]
     public int $followUpPage = 1;
 
+    // Applied values are deliberately separate from the editable controls.
+    // Audit queries only change after Apply Filters is clicked.
+    public string $appliedDateFrom = '';
+    public string $appliedDateTo = '';
+
     private const FOLLOW_UP_PER_PAGE = 50;
 
     public function mount(): void
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
         if ($this->dateFrom === '' || $this->dateTo === '') $this->applyDatePreset($this->datePreset);
+        $this->appliedDateFrom = $this->dateFrom;
+        $this->appliedDateTo = $this->dateTo;
     }
 
     public function setStatusFilter(string $status): void
@@ -54,15 +61,31 @@ class ShowDataAudit extends Page
     public function updatedDateFrom(): void
     {
         $this->datePreset = 'custom';
-        $this->followUpPage = 1;
-        $this->dispatch('$refresh');
     }
 
     public function updatedDateTo(): void
     {
         $this->datePreset = 'custom';
+    }
+
+    public function applyFilters(): void
+    {
+        try {
+            $from = Carbon::parse($this->dateFrom)->toDateString();
+            $to = Carbon::parse($this->dateTo)->toDateString();
+        } catch (\Throwable) {
+            return;
+        }
+
+        if ($from > $to) {
+            [$from, $to] = [$to, $from];
+            $this->dateFrom = $from;
+            $this->dateTo = $to;
+        }
+
+        $this->appliedDateFrom = $from;
+        $this->appliedDateTo = $to;
         $this->followUpPage = 1;
-        $this->dispatch('$refresh');
     }
 
     public function applyDatePreset(string $preset): void
@@ -72,18 +95,27 @@ class ShowDataAudit extends Page
             'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
             'last_30' => [$today->copy()->subDays(29), $today],
             'last_90' => [$today->copy()->subDays(89), $today],
+            'custom' => [
+                Carbon::parse($this->dateFrom ?: $today->copy()->startOfMonth()),
+                Carbon::parse($this->dateTo ?: $today),
+            ],
             default => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
         };
         $this->datePreset = $preset;
         $this->dateFrom = $from->toDateString();
         $this->dateTo = $to->toDateString();
+
+        if ($preset !== 'custom') {
+            $this->appliedDateFrom = $this->dateFrom;
+            $this->appliedDateTo = $this->dateTo;
+        }
         $this->followUpPage = 1;
     }
 
     private function range(): array
     {
-        try { $from = Carbon::parse($this->dateFrom)->startOfDay(); } catch (\Throwable) { $from = today()->startOfMonth(); }
-        try { $to = Carbon::parse($this->dateTo)->endOfDay(); } catch (\Throwable) { $to = today()->endOfMonth(); }
+        try { $from = Carbon::parse($this->appliedDateFrom ?: $this->dateFrom)->startOfDay(); } catch (\Throwable) { $from = today()->startOfMonth(); }
+        try { $to = Carbon::parse($this->appliedDateTo ?: $this->dateTo)->endOfDay(); } catch (\Throwable) { $to = today()->endOfMonth(); }
         if ($from->gt($to)) [$from, $to] = [$to, $from];
         return [$from, $to];
     }

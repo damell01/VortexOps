@@ -71,20 +71,31 @@ class StreamerHub extends Page
     {
         $streamer = $this->getStreamer();
 
-        return [
-            'total_shows' => $streamer->shows()->count(),
-            'upcoming_shows' => $streamer->shows()->where('show_date', '>', now())->count(),
-            'logs_pending' => $streamer->shows()
+        return \Illuminate\Support\Facades\Cache::remember("streamer_hub:stats:{$streamer->id}", 60, function () use ($streamer): array {
+            $showStats = $streamer->shows()
+                ->selectRaw('COUNT(*) as total_shows')
+                ->selectRaw('SUM(CASE WHEN show_date > ? THEN 1 ELSE 0 END) as upcoming_shows', [now()])
+                ->selectRaw('COALESCE(SUM(gross_revenue), 0) as total_revenue')
+                ->first();
+
+            $logsPending = $streamer->shows()
                 ->where('show_date', '<=', now())
                 ->doesntHave('streamerLogEntry')
-                ->count(),
-            'total_revenue' => $streamer->shows()->sum('gross_revenue'),
-            'profit_share_pending' => $streamer->profitSharePackets()
-                ->where('status', 'submitted')
-                ->count(),
-            'profit_share_approved' => $streamer->profitSharePackets()
-                ->where('status', 'approved')
-                ->count(),
-        ];
+                ->count();
+
+            $packetStats = $streamer->profitSharePackets()
+                ->selectRaw("SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as pending_count")
+                ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count")
+                ->first();
+
+            return [
+                'total_shows' => (int) ($showStats->total_shows ?? 0),
+                'upcoming_shows' => (int) ($showStats->upcoming_shows ?? 0),
+                'logs_pending' => $logsPending,
+                'total_revenue' => (float) ($showStats->total_revenue ?? 0),
+                'profit_share_pending' => (int) ($packetStats->pending_count ?? 0),
+                'profit_share_approved' => (int) ($packetStats->approved_count ?? 0),
+            ];
+        });
     }
 }

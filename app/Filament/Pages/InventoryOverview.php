@@ -56,9 +56,10 @@ class InventoryOverview extends Page
     #[Computed]
     public function inventorySnapshot(): array
     {
+        // The overview only needs stock, reorder level and cost. Avoid eager
+        // loading vendor models and wide product rows on every dashboard visit.
         $items = InventoryItemResource::getEloquentQuery()
-            ->with('preferredVendor')
-            ->get();
+            ->get(['products.id', 'products.reorder_level', 'products.average_cost', 'products.unit_cost']);
 
         $total = $items->count();
         $out = 0;

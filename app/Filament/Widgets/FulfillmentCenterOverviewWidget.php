@@ -22,7 +22,13 @@ class FulfillmentCenterOverviewWidget extends Widget
 
     protected function getViewData(): array
     {
-        $shows = FulfillmentResource::getEloquentQuery()->limit(80)->get();
+        // This widget only renders 12 queue cards and 6 focus cards. Keep a
+        // bounded working set so we do not hydrate 80 shows and all of their
+        // log items on every fulfillment landing-page load.
+        $shows = FulfillmentResource::getEloquentQuery()
+            ->latest('show_date')
+            ->limit(30)
+            ->get();
 
         $queue = $shows->map(function (Show $show) {
             $items = $show->streamerLogEntry?->items ?? collect();

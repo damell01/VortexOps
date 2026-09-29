@@ -34,38 +34,36 @@ class ShowQueueCountsWidget extends Widget
 
     public function getCountsProperty(): array
     {
-        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
+        $channelScope = fn ($q) => $q->whereHas('show', fn ($show) => $show->inChannelContext());
 
-        return \Illuminate\Support\Facades\Cache::remember("widget:show_queue_counts:{$channel}", 60, function (): array {
-            $pendingReports = StreamerLogEntry::query()
-                ->whereIn('status', ['pending', 'streamer_reviewed'])
-                ->whereHas('show', fn ($show) => $show->inChannelContext())
-                ->count();
+        $pendingReports = StreamerLogEntry::query()
+            ->whereIn('status', ['pending', 'streamer_reviewed'])
+            ->where($channelScope)
+            ->count();
 
-            $unmatchedLines = StreamerLogItem::query()
-                ->whereNull('inventory_item_id')
-                ->whereHas('logEntry.show', fn ($show) => $show->inChannelContext())
-                ->count();
+        $unmatchedLines = StreamerLogItem::query()
+            ->whereNull('inventory_item_id')
+            ->whereHas('logEntry.show', fn ($show) => $show->inChannelContext())
+            ->count();
 
-            $unassignedFulfillment = Show::query()
-                ->inChannelContext()
-                ->whereDate('show_date', '<=', today())
-                ->whereNotIn('status', ['closed', 'cancelled'])
-                ->whereHas('shipments')
-                ->whereDoesntHave('fulfillmentUsers')
-                ->count();
+        $unassignedFulfillment = Show::query()
+            ->inChannelContext()
+            ->whereDate('show_date', '<=', today())
+            ->whereNotIn('status', ['closed', 'cancelled'])
+            ->whereHas('shipments')
+            ->whereDoesntHave('fulfillmentUsers')
+            ->count();
 
-            $openShipments = \App\Models\Shipment::query()
-                ->whereHas('show', fn ($show) => $show->inChannelContext())
-                ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
-                ->count();
+        $openShipments = \App\Models\Shipment::query()
+            ->whereHas('show', fn ($show) => $show->inChannelContext())
+            ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
+            ->count();
 
-            return [
-                'pending_reports' => $pendingReports,
-                'unmatched_lines' => $unmatchedLines,
-                'unassigned_fulfillment' => $unassignedFulfillment,
-                'open_shipments' => $openShipments,
-            ];
-        });
+        return [
+            'pending_reports' => $pendingReports,
+            'unmatched_lines' => $unmatchedLines,
+            'unassigned_fulfillment' => $unassignedFulfillment,
+            'open_shipments' => $openShipments,
+        ];
     }
 }

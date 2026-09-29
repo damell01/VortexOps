@@ -1,5 +1,5 @@
 @php
-    $d = $this->getAuditData();
+    $d = $this->auditData;
     $labels = ['gross_revenue'=>'Gross Revenue','whatnot_net'=>'Estimated Net','show_duration'=>'Stream Duration'];
     $statusMeta = [
         'partial' => ['label' => 'Partial', 'desc' => 'has some analytics, not all', 'pill' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300'],

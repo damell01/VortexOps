@@ -416,7 +416,7 @@ class EndOfStreamForm extends Page implements HasForms
         foreach ($lines as $line) {
             if (! $line->inventoryItem) { $problems[] = "\"{$line->item_name}\" is not linked to an inventory product."; continue; }
             $onHand = (float) ($stock[$line->inventory_item_id] ?? 0);
-            if ($onHand < (int) $line->quantity) $problems[] = "\"{$line->item_name}\" needs {$line->quantity} but only {$onHand} is available in Main Warehouse / show inventory.';
+            if ($onHand < (int) $line->quantity) $problems[] = "\"{$line->item_name}\" needs {$line->quantity} but only {$onHand} is available in Main Warehouse / show inventory.";
         }
         return $problems;
     }

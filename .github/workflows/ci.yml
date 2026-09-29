@@ -9,6 +9,7 @@ on:
       - Dev
       - 'claude/**'
       - 'feature/**'
+      - ui-redesign
   pull_request:
     branches:
       - main

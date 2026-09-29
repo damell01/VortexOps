@@ -54,19 +54,18 @@ function normalizeWhatnotFinancialLabels(root = document.body) {
 function startFinancialTerminologyObserver() {
     normalizeWhatnotFinancialLabels();
 
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            for (const added of mutation.addedNodes) {
-                if (added.nodeType === Node.TEXT_NODE) {
-                    normalizeWhatnotFinancialLabels(added.parentNode);
-                } else if (added.nodeType === Node.ELEMENT_NODE) {
-                    normalizeWhatnotFinancialLabels(added);
-                }
-            }
-        }
+    let pending = false;
+    const observer = new MutationObserver(() => {
+        if (pending) return;
+        pending = true;
+
+        requestAnimationFrame(() => {
+            pending = false;
+            normalizeWhatnotFinancialLabels(document.body);
+        });
     });
 
-    observer.observe(document.documentElement, {
+    observer.observe(document.body, {
         childList: true,
         subtree: true,
     });

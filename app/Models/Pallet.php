@@ -149,27 +149,50 @@ class Pallet extends Model
 
     public function receivingProgress(): array
     {
-        $this->loadMissing('lines.cases');
+        $lineIds = $this->lines()->pluck('id');
+        $expected = (int) $this->lines()->sum('case_count');
 
-        // This method is called after each receiving action to refresh the UI,
-        // making it the common reconciliation point even for bulk case updates.
-        $this->syncReceivingCompletion();
-        $this->loadMissing('lines.cases');
+        $receivedQuery = InventoryCase::query()
+            ->whereIn('pallet_line_id', $lineIds)
+            ->where('status', '!=', 'expected');
 
-        $expected = (int) $this->lines->sum(fn (PalletLine $line) => (int) $line->case_count);
-        $received = $this->lines->sum(fn (PalletLine $line) => $line->cases->where('status', '!=', 'expected')->count());
-        $receivedCases = $this->lines
-            ->flatMap(fn (PalletLine $line) => $line->cases->where('status', '!=', 'expected'))
-            ->filter(fn ($case) => $case->received_at !== null);
-        $linesOutstanding = $this->lines->filter(
-            fn (PalletLine $line) => $line->cases->where('status', '!=', 'expected')->count() < (int) $line->case_count,
-        )->count();
+        $received = (int) (clone $receivedQuery)->count();
+        $receivedTimes = (clone $receivedQuery)
+            ->whereNotNull('received_at')
+            ->selectRaw('MIN(received_at) as first_received_at, MAX(received_at) as last_received_at')
+            ->first();
+
+        $receivedByLine = InventoryCase::query()
+            ->selectRaw('pallet_line_id, COUNT(*) as received_count')
+            ->whereIn('pallet_line_id', $lineIds)
+            ->where('status', '!=', 'expected')
+            ->groupBy('pallet_line_id')
+            ->pluck('received_count', 'pallet_line_id');
+
+        $linesOutstanding = $this->lines()
+            ->get(['id', 'case_count'])
+            ->filter(fn (PalletLine $line) => (int) ($receivedByLine[$line->id] ?? 0) < (int) $line->case_count)
+            ->count();
+
+        $complete = $expected > 0 && $received >= $expected;
+
+        if ($complete && $this->status !== 'received') {
+            $this->forceFill([
+                'status' => 'received',
+                'received_date' => $this->received_date ?? today(),
+            ])->save();
+        }
 
         return [
-            'expected'=>(int)$expected,'received'=>(int)$received,'outstanding'=>max(0,$expected-(int)$received),
-            'complete'=>$expected>0 && $received>=$expected,'started'=>$received>0 || $this->receiving_started_at!==null,
-            'started_at'=>$this->receiving_started_at,'first_received_at'=>$receivedCases->min('received_at'),
-            'last_received_at'=>$receivedCases->max('received_at'),'lines_outstanding'=>$linesOutstanding,
+            'expected' => $expected,
+            'received' => $received,
+            'outstanding' => max(0, $expected - $received),
+            'complete' => $complete,
+            'started' => $received > 0 || $this->receiving_started_at !== null,
+            'started_at' => $this->receiving_started_at,
+            'first_received_at' => $receivedTimes?->first_received_at,
+            'last_received_at' => $receivedTimes?->last_received_at,
+            'lines_outstanding' => $linesOutstanding,
         ];
     }
 

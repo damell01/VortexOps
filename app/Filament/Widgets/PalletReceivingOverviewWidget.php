@@ -25,7 +25,8 @@ class PalletReceivingOverviewWidget extends BaseWidget
                 ->sum('pallet_lines.case_count');
 
             $activeReceived = (int) \Illuminate\Support\Facades\DB::table('inventory_cases')
-                ->join('pallets', 'pallets.id', '=', 'inventory_cases.pallet_id')
+                ->join('pallet_lines', 'pallet_lines.id', '=', 'inventory_cases.pallet_line_id')
+                ->join('pallets', 'pallets.id', '=', 'pallet_lines.pallet_id')
                 ->whereIn('pallets.status', ['staged', 'receiving'])
                 ->where('inventory_cases.status', '!=', 'expected')
                 ->count();

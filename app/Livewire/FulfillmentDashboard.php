@@ -7,6 +7,8 @@ use App\Models\FulfillmentPackageItem;
 use App\Models\Shipment;
 use App\Models\Show;
 use App\Models\StreamerLogItem;
+use App\Models\InventoryStock;
+use App\Services\InventoryService;
 use Livewire\Component;
 
 class FulfillmentDashboard extends Component
@@ -218,6 +220,47 @@ class FulfillmentDashboard extends Component
         ]);
         $this->markFulfillmentDirty();
         $this->dispatch('notify', message: 'Item flagged for review');
+    }
+
+    public function reverseInventoryItem(StreamerLogItem $line): void
+    {
+        $this->authorizeLine($line);
+        $user = auth()->user();
+        abort_unless($user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin()), 403);
+
+        $line->loadMissing(['inventoryItem', 'location']);
+        $quantity = max(0, (int) $line->deducted_quantity);
+        abort_if($quantity === 0, 422, 'This line has no posted inventory to reverse.');
+        abort_unless($line->inventoryItem && $line->inventory_location_id, 422, 'This line is missing its inventory item or stock location.');
+
+        $stock = InventoryStock::firstOrCreate(
+            [
+                'inventory_item_id' => $line->inventory_item_id,
+                'inventory_location_id' => $line->inventory_location_id,
+            ],
+            ['quantity' => 0]
+        );
+
+        app(InventoryService::class)->adjustStock(
+            $line->inventoryItem,
+            $line->location,
+            (float) $stock->quantity + $quantity,
+            "Admin item reversal - show: {$this->show->title}",
+            'show_reversal',
+            'show',
+            $this->show->id,
+        );
+
+        $line->update([
+            'deducted_quantity' => 0,
+            'fulfillment_status' => StreamerLogItem::FULFILLMENT_NOT_FULFILLED,
+            'fulfillment_note' => trim((string) ($this->notes[$line->id] ?? 'Inventory deduction reversed for review.')),
+            'fulfilled_by' => auth()->id(),
+            'fulfilled_at' => now(),
+        ]);
+
+        $this->markFulfillmentDirty();
+        $this->dispatch('notify', message: "Returned {$quantity} unit(s) to inventory and flagged the line for review");
     }
 
     public function resetFulfillment(StreamerLogItem $line): void

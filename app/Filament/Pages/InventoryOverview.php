@@ -111,7 +111,7 @@ class InventoryOverview extends Page
             // Pull extra raw rows because one pallet receipt may have hundreds
             // of one-case movement rows. The dashboard shows business actions,
             // while the full movement history remains available for audit.
-            ->limit(120)
+            ->limit(40)
             ->get();
 
         return $this->collapsePalletReceiptMovements($movements)->take(8)->values();
@@ -125,7 +125,7 @@ class InventoryOverview extends Page
             ->whereIn('movement_type', ['opening', 'return'])
             ->with(['item', 'toLocation', 'createdByUser'])
             ->latest()
-            ->limit(80)
+            ->limit(30)
             ->get();
 
         return $this->collapsePalletReceiptMovements($movements)->take(5)->values();

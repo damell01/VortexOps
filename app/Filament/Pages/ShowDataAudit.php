@@ -51,8 +51,17 @@ class ShowDataAudit extends Page
         if ($value !== 'custom') $this->applyDatePreset($value);
     }
 
-    public function updatedDateFrom(): void { $this->followUpPage = 1; }
-    public function updatedDateTo(): void { $this->followUpPage = 1; }
+    public function updatedDateFrom(): void
+    {
+        $this->datePreset = 'custom';
+        $this->followUpPage = 1;
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->datePreset = 'custom';
+        $this->followUpPage = 1;
+    }
 
     public function applyDatePreset(string $preset): void
     {

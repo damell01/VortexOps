@@ -178,7 +178,13 @@ class StreamerResource extends Resource
                 ->icon('heroicon-o-banknotes')->columns(3)->columnSpanFull()
                 ->schema([
                     Select::make('payout_type')->label('Pay Type')->options(Streamer::payoutTypeLabels())->native(false),
-                    TextInput::make('hourly_rate')->label('Hourly Rate')->numeric()->prefix('
+                    TextInput::make('hourly_rate')->label('Hourly Rate')->numeric()->prefix('$')->suffix('/hr'),
+                    TextInput::make('payout_percentage')->label('Payout %')->numeric()->suffix('%'),
+                    TextInput::make('package_rate')->label('Package Rate')->numeric()->prefix('$'),
+                    Toggle::make('include_tips')->label('Include Tips')->default(true),
+                ]),
+
+            Section::make('Channel Routing')
                 ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
                 ->collapsed()
                 ->columnSpanFull()

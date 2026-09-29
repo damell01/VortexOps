@@ -46,13 +46,16 @@ class DashboardShowsKpiWidget extends BaseWidget
                     ->map(fn ($rows) => (float) $rows->last()->total_value)
                     ->values()->all();
 
+                $salesByDay = Show::query()
+                    ->inChannelContext()
+                    ->whereBetween('show_date', [now()->subDays(6)->startOfDay(), now()->endOfDay()])
+                    ->selectRaw('DATE(show_date) as day, COALESCE(SUM(gross_revenue), 0) as gross_total')
+                    ->groupByRaw('DATE(show_date)')
+                    ->pluck('gross_total', 'day');
+
                 $salesTrend = [];
                 for ($i = 6; $i >= 0; $i--) {
-                    $date = now()->subDays($i)->toDateString();
-                    $salesTrend[] = (float) Show::query()->inChannelContext()
-                        ->whereDate('show_date', $date)
-                        ->whereNotNull('gross_revenue')
-                        ->sum('gross_revenue');
+                    $salesTrend[] = (float) ($salesByDay[now()->subDays($i)->toDateString()] ?? 0);
                 }
 
                 return [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend];

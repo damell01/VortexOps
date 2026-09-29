@@ -544,10 +544,13 @@ class ReceivePallet extends Page
     public function finalizePallet(): void
     {
         try {
-            // receivePallet() intentionally supports two workflows:
-            // scan every case, or visually verify the delivery and receive the
-            // remaining mapped cases in one operation.
-            app(ReceivingService::class)->receivePallet($this->record);
+            $progress = $this->record->receivingProgress();
+
+            if (! $progress['complete']) {
+                throw new \RuntimeException(
+                    "This pallet still has {$progress['outstanding']} case(s) outstanding. Receive them when they arrive, or mark the missing quantity as short."
+                );
+            }
 
             $this->record->update([
                 'status'              => 'received',
@@ -582,12 +585,13 @@ class ReceivePallet extends Page
                     $left = max(0, (int) $progress['expected'] - (int) $progress['received']);
 
                     return $left > 0
-                        ? "There are {$left} unscanned case(s). Confirm only if you physically verified they are here. The remaining mapped cases will be received into inventory."
+                        ? "There are {$left} case(s) still outstanding. Keep this pallet open and receive them when they arrive, or mark them short if they will not arrive."
                         : 'All expected cases are accounted for. This will finalize the pallet and move it to Received / Complete.';
                 })
                 ->modalSubmitActionLabel('Yes, complete pallet')
                 ->action(fn () => $this->finalizePallet())
-                ->visible(fn () => ! in_array($this->record->status, ['received', 'processed'], true)),
+                ->visible(fn () => ! in_array($this->record->status, ['received', 'processed'], true)
+                    && $this->record->receivingProgress()['complete']),
 
             // Leaving is not abandoning. A shipment turns up over days — half a
             // pallet on Tuesday, the rest on Friday — and every case scanned is

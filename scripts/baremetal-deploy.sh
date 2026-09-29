@@ -50,7 +50,14 @@ rm -rf node_modules
 php artisan migrate --force
 php artisan storage:link >/dev/null 2>&1 || true
 php artisan filament:clear-cached-components || true
-php artisan optimize
+
+# Laravel's global `optimize` command also runs view:cache. Livewire's
+# morph-aware Blade compiler can exceed PCRE's regex-size limit on this app,
+# which makes an otherwise healthy production deploy fail. Cache the safe
+# framework artifacts individually and let Blade compile views on demand.
+php artisan config:cache
+php artisan event:cache
+php artisan route:cache
 php artisan filament:optimize
 
 # queue:restart uses each environment's configured cache namespace, so Dev and

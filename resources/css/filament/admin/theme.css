@@ -64,3 +64,72 @@ html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale} body.
 .vx-tabbar{position:fixed;inset-inline:0;bottom:0;z-index:30;display:flex;padding:.25rem .5rem var(--vo-safe-bottom);background:var(--vo-surface);border-top:1px solid var(--vo-border)}
 .vx-tabbar-item{flex:1 1 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1875rem;height:3.5rem;border:0;background:transparent;color:var(--vo-faint);font-size:.6875rem;font-weight:500;text-decoration:none;cursor:pointer}
 .vx-tabbar-item svg{width:1.3125rem;height:1.3125rem}.vx-tabbar-item[aria-current=page]{color:var(--primary-600);font-weight:600}.dark .vx-tabbar-item[aria-current=page]{color:var(--primary-400)}@media(min-width:1024px){.vx-tabbar{display:none}}
+
+
+/* VortexOps redesign alignment — uploaded mockups */
+:root{
+  --vo-bg:#fafafc;--vo-surface:#ffffff;--vo-surface-2:#fafafc;--vo-border:#e3e3ea;--vo-border-soft:#efeff4;
+  --vo-text:#16161d;--vo-muted:#5a5a68;--vo-faint:#8a8a98;--vo-side-bg:#16161d;--vo-side-bg-2:#1f1f29;
+  --vo-side-text:#aab1c8;--vo-side-muted:#6b7392;--vo-radius:12px;--vo-radius-sm:8px;
+}
+body.fi-body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.fi-sidebar{width:15.5rem!important;background:#16161d}
+.fi-sidebar-header{min-height:4rem;padding-inline:1.25rem;border-bottom:1px solid rgb(255 255 255/.06)}
+.fi-sidebar-nav{padding:.9rem .75rem 1.25rem;gap:1.1rem}
+.fi-sidebar-group-label{font-size:.625rem!important;letter-spacing:.11em!important;color:#6b7392!important}
+.fi-sidebar-item-btn{min-height:2.25rem;padding:.45rem .65rem;border-radius:8px}
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn{background:rgb(124 58 237/.18)}
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn .fi-sidebar-item-icon{color:#a78bfa}
+.fi-topbar,nav.fi-topbar{min-height:4rem;padding-inline:1.5rem;background:#fff}
+.fi-main{padding:1.75rem 2rem 2.5rem}
+.fi-main-ctn{background:#fafafc}
+.fi-header{margin-bottom:.25rem}
+.fi-header-heading{font-size:1.5rem;font-weight:700;letter-spacing:-.025em}
+.fi-header-subheading{font-size:.8125rem;max-width:52rem}
+.fi-section,.fi-ta-ctn,.fi-wi-stats-overview-stat,.vx-card,.vx-product-card{border-radius:12px!important;border-color:#e3e3ea!important;box-shadow:none!important}
+.fi-section-header{padding:1rem 1.125rem}
+.fi-section-content{padding:1.125rem}
+.fi-wi-stats-overview-stats-ctn{gap:.75rem}
+.fi-wi-stats-overview-stat{padding:1rem 1.125rem}
+.fi-wi-stats-overview-stat-value{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:1.5rem;font-weight:700}
+.fi-ta-header-toolbar{padding:.75rem 1rem}
+.fi-ta-header-cell{background:#fafafc;height:2.375rem;color:#5a5a68}
+.fi-ta-cell{padding-block:.75rem}
+.fi-ta-row:hover{background:#fafafc}
+.fi-btn{border-radius:8px;min-height:2.375rem}
+.fi-btn.fi-color-primary{background:#7c3aed}
+.fi-input-wrp{border-radius:8px;min-height:2.5rem}
+.fi-tabs{gap:1.25rem}.fi-tabs-item{height:2.375rem}
+.fi-badge{font-size:.6875rem;min-height:1.375rem;padding-inline:.5rem}
+.fi-pagination{background:#fff;border-top:1px solid #efeff4}
+.vx-card{background:#fff!important;border:1px solid #e3e3ea!important}
+.vx-pad{padding:16px!important}
+.vx-kpis{gap:10px!important}.vx-kpi{background:#fafafc!important;border:1px solid #efeff4;border-radius:10px!important}
+.vx-kpi label{color:#6b7392!important}.vx-kpi strong{color:#16161d!important;font-size:18px!important}
+.vx-btn{border-radius:8px!important;border-color:#e3e3ea!important;color:#46465a!important;background:#fff!important}
+.vx-btn.primary{background:#7c3aed!important;border-color:#7c3aed!important;color:#fff!important}
+.vx-btn.success{background:#05603f!important;border-color:#05603f!important;color:#fff!important}
+.vx-flow a{border-color:#e3e3ea!important;border-radius:10px!important}.vx-flow .active{border-color:#7c3aed!important;background:#f5f3ff!important}
+.vx-show{border-color:#efeff4!important}.vx-money div,.vx-next{background:#fafafc!important}
+.vx-chip{background:#efeff4!important;color:#5a5a68!important}.vx-chip.ready{background:#e5f5ee!important;color:#05603f!important}.vx-chip.blocked{background:#fff4e5!important;color:#8a4a06!important}
+.vx-catalog-input,.vx-catalog-select{min-height:40px!important;border-color:#e3e3ea!important;border-radius:8px!important;background:#fff!important}
+.vx-product-card:hover{transform:none!important;border-color:#d6d6de!important;box-shadow:0 4px 16px rgb(22 22 29/.06)!important}
+.vx-product-image{background:#fafafc!important;border-color:#efeff4!important}
+.vx-product-title{color:#16161d!important;font-weight:650!important}.vx-product-meta,.vx-catalog-note{color:#6b7392!important}
+.vx-stock-in{background:#e5f5ee!important;color:#05603f!important}.vx-stock-low{background:#fff4e5!important;color:#8a4a06!important}
+@media(min-width:1024px){.fi-main{max-width:none!important}}
+@media(max-width:1023px){
+ .fi-main{padding:.9rem .85rem calc(1.25rem + var(--vo-tabbar-h))}
+ .fi-topbar,nav.fi-topbar{min-height:3.5rem;padding-inline:.75rem}
+ .fi-header-heading{font-size:1.25rem}
+ .fi-section-header,.fi-section-content{padding:.9rem}
+ .fi-wi-stats-overview-stats-ctn{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.6rem}
+ .fi-wi-stats-overview-stat{padding:.85rem}
+ .fi-wi-stats-overview-stat-value{font-size:1.25rem}
+ .vx-card{border-radius:10px!important}.vx-pad{padding:13px!important}
+ .vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .vx-flow{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .vx-grid,.vx-lab{grid-template-columns:1fr!important}
+ .vx-money{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:.6rem!important}
+}

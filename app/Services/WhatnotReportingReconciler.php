@@ -695,9 +695,73 @@ class WhatnotReportingReconciler
 
     private function liveId(Show $show): ?string
     {
-        foreach ([$show->whatnot_show_id, $show->detail_url] as $value) {
-            if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', (string) $value, $m)) {
-                return strtolower($m[0]);
+        foreach ([$show->whatnot_show_id, $show->detail_url, $show->raw_import_payload] as $value) {
+            if ($liveId = $this->findLiveId($value)) {
+                return $liveId;
+            }
+        }
+
+        // Older imports sometimes stored the Whatnot identity only in their
+        // ingestion log. A log attached to this exact show is safe evidence.
+        $payloads = ShowIngestionLog::query()
+            ->where('show_id', $show->id)
+            ->whereNotNull('raw_payload')
+            ->orderByDesc('id')
+            ->limit(25)
+            ->pluck('raw_payload');
+
+        foreach ($payloads as $payload) {
+            if ($liveId = $this->findLiveId($payload)) {
+                // Persist recovered identity only when another canonical show
+                // does not already own it. Collision handling remains fail-closed.
+                $owner = Show::query()
+                    ->where('whatnot_show_id', $liveId)
+                    ->where('id', '<>', $show->id)
+                    ->first();
+
+                if (! $owner) {
+                    $show->forceFill([
+                        'whatnot_show_id' => $liveId,
+                        'detail_url' => $show->detail_url ?: 'https://www.whatnot.com/dashboard/live/'.$liveId,
+                    ])->saveQuietly();
+
+                    ShowIngestionLog::create([
+                        'show_id' => $show->id,
+                        'whatnot_channel_id' => $show->whatnot_channel_id,
+                        'source' => 'whatnot_identity_recovery',
+                        'status' => 'success',
+                        'raw_payload' => ['event' => 'uuid_recovered_from_show_history', 'live_id' => $liveId],
+                    ]);
+                }
+
+                return $liveId;
+            }
+        }
+
+        return null;
+    }
+
+    private function findLiveId(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $value, $m)
+                ? strtolower($m[0])
+                : null;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        foreach (['whatnot_live_id', 'live_id', 'whatnot_show_id', 'show_id', 'detail_url', 'open_url', 'url', 'href'] as $key) {
+            if (array_key_exists($key, $value) && ($liveId = $this->findLiveId($value[$key]))) {
+                return $liveId;
+            }
+        }
+
+        foreach ($value as $item) {
+            if ($liveId = $this->findLiveId($item)) {
+                return $liveId;
             }
         }
 

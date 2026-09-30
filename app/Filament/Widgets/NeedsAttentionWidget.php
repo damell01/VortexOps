@@ -28,7 +28,7 @@ class NeedsAttentionWidget extends Widget
 {
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
     protected static ?string $heading = 'Needs Attention';
     protected string $view = 'filament.widgets.needs-attention';
 

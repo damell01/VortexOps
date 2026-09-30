@@ -201,6 +201,11 @@ class InventoryOverview extends Page
         return InventoryItemResource::getUrl('quick-add');
     }
 
+    public function addItemUrl(): string
+    {
+        return InventoryItemResource::getUrl('create');
+    }
+
     public function importUrl(): string
     {
         return ImportInventorySheet::getUrl();

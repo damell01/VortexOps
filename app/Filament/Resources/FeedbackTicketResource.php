@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\Cache;
 
 class FeedbackTicketResource extends Resource
 {
+    public static function shouldRegisterNavigation(): bool { return false; }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'operations';

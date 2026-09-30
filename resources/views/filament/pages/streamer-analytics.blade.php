@@ -110,6 +110,34 @@
             </div>
         </div>
 
+        {{-- Visual comparison cards — uses the analytics rows already loaded above. --}}
+        @php
+            $cardRows = collect($rows)->take(6);
+            $maxCardGross = max(1, (float) collect($rows)->max('gross_revenue'));
+        @endphp
+        <section class="vx-streamer-cards">
+            <div class="vx-section-heading">
+                <div><h3>Streamer Performance</h3><p>Quick comparison of revenue, net earnings, efficiency and hours.</p></div>
+                <span>{{ count($rows) }} active in this view</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                @foreach($cardRows as $row)
+                    <article class="vx-person-card">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="vx-avatar">{{ mb_strtoupper(mb_substr($row['name'],0,1)) }}</div>
+                                <div class="min-w-0"><strong class="block truncate">{{ $row['name'] }}</strong><span>{{ number_format($row['show_count']) }} shows</span></div>
+                            </div>
+                            @if($row['trend_gross'] !== null)<span class="vx-trend {{ $row['trend_gross'] >= 0 ? 'is-up' : 'is-down' }}">{{ $row['trend_gross'] >= 0 ? '+' : '' }}{{ $row['trend_gross'] }}%</span>@endif
+                        </div>
+                        <div class="vx-person-money"><div><span>Gross Revenue</span><strong>${{ number_format($row['gross_revenue'],0) }}</strong></div><div><span>Net Earnings</span><strong>${{ number_format($row['net_revenue'],0) }}</strong></div></div>
+                        <div class="vx-mini-track"><i style="width:{{ max(4,($row['gross_revenue']/$maxCardGross)*100) }}%"></i></div>
+                        <div class="vx-person-foot"><div><strong>${{ number_format($row['gmv_per_hour'],0) }}</strong><span>Sales / Hour</span></div><div><strong>{{ number_format($row['total_hours'],1) }}h</strong><span>Total Hours</span></div></div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+
         {{-- Streamer Performance Table --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

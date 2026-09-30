@@ -13,8 +13,6 @@ use Filament\Pages\Page;
 
 class Handbook extends Page
 {
-    public static function shouldRegisterNavigation(): bool { return false; }
-
     use HasAdminNavVisibility;
     use RespectsRoleVisibility;
 

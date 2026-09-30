@@ -22,6 +22,8 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\FontProviders\GoogleFontProvider;
 use Filament\View\PanelsRenderHook;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationItem;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -69,7 +71,10 @@ class AdminPanelProvider extends PanelProvider
             // renders this as a chevron next to the drawer hamburger; the
             // stylesheet hides the duplicate and redraws the remaining control
             // as a hamburger so there is exactly one, consistent toggle.
-            ->sidebarCollapsibleOnDesktop()
+            // Desktop uses a consolidated top navigation with dropdown groups.
+            // Filament still provides its native mobile navigation drawer.
+            ->topNavigation()
+            ->navigation(fn (NavigationBuilder $builder): NavigationBuilder => static::buildTopNavigation($builder))
             // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->globalSearchKeyBindings(['mod+k', '/'])
@@ -395,6 +400,87 @@ class AdminPanelProvider extends PanelProvider
                 // live in each class's canAccess().
                 EnforceNavVisibility::class,
             ]);
+    }
+
+
+    /**
+     * Consolidated desktop navigation. Each top-level item is a real landing
+     * page and its children become Filament's native dropdown menu. Existing
+     * canAccess()/module checks remain the source of truth for visibility.
+     */
+    private static function buildTopNavigation(NavigationBuilder $builder): NavigationBuilder
+    {
+        $items = [];
+
+        $add = static function (string $label, string $icon, string $url, ?string $parent = null, bool $visible = true) use (&$items): void {
+            if (! $visible) return;
+            $item = NavigationItem::make($label)->icon($icon)->url($url);
+            if ($parent !== null) $item->parentItem($parent);
+            $items[] = $item;
+        };
+
+        $dashboardUrl = DashboardImproved::getUrl(panel: 'admin');
+        $add('Dashboard', 'heroicon-o-home', $dashboardUrl);
+
+        $showsVisible = AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess();
+        if ($showsVisible) {
+            $showsUrl = \App\Filament\Pages\Shows::getUrl(panel: 'admin');
+            $add('Shows', 'heroicon-o-video-camera', $showsUrl);
+            $add('Shows Overview', 'heroicon-o-squares-2x2', $showsUrl, 'Shows');
+            if (\App\Filament\Resources\ShowResource::canAccess()) $add('All Shows', 'heroicon-o-calendar-days', \App\Filament\Resources\ShowResource::getUrl('index'), 'Shows');
+            if (\App\Filament\Pages\EndOfStreamForm::canAccess()) $add('End of Stream', 'heroicon-o-clipboard-document-check', \App\Filament\Pages\EndOfStreamForm::getUrl(panel: 'admin'), 'Shows');
+            if (\App\Filament\Resources\StreamerResource::canAccess()) $add('Team / Streamers', 'heroicon-o-users', \App\Filament\Resources\StreamerResource::getUrl('index'), 'Shows');
+            if (\App\Filament\Pages\ShowDataAudit::canAccess()) $add('Show Data Audit', 'heroicon-o-chart-bar-square', \App\Filament\Pages\ShowDataAudit::getUrl(panel: 'admin'), 'Shows');
+        }
+
+        $inventoryVisible = AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess();
+        if ($inventoryVisible) {
+            $inventoryUrl = \App\Filament\Pages\InventoryOverview::getUrl(panel: 'admin');
+            $add('Inventory', 'heroicon-o-cube', $inventoryUrl);
+            $add('Inventory Overview', 'heroicon-o-squares-2x2', $inventoryUrl, 'Inventory');
+            $add('All Inventory', 'heroicon-o-archive-box', \App\Filament\Resources\InventoryItemResource::getUrl('index'), 'Inventory');
+            $add('Quick Add Stock', 'heroicon-o-plus-circle', \App\Filament\Resources\InventoryItemResource::getUrl('quick-add'), 'Inventory');
+            if (\App\Filament\Pages\InventoryScanner::canAccess()) $add('Scan Inventory', 'heroicon-o-qr-code', \App\Filament\Pages\InventoryScanner::getUrl(panel: 'admin'), 'Inventory');
+            if (\App\Filament\Pages\InventoryReport::canAccess()) $add('Inventory Reports', 'heroicon-o-chart-bar', \App\Filament\Pages\InventoryReport::getUrl(panel: 'admin'), 'Inventory');
+        }
+
+        $fulfillmentVisible = AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess();
+        if ($fulfillmentVisible) {
+            $fulfillmentUrl = \App\Filament\Resources\FulfillmentResource::getUrl('index');
+            $add('Fulfillment', 'heroicon-o-truck', $fulfillmentUrl);
+            $add('Fulfillment Dashboard', 'heroicon-o-squares-2x2', $fulfillmentUrl, 'Fulfillment');
+            $add('Orders & Shipments', 'heroicon-o-clipboard-document-list', $fulfillmentUrl, 'Fulfillment');
+        }
+
+        $payrollVisible = AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess();
+        if ($payrollVisible) {
+            $payrollUrl = \App\Filament\Pages\PayrollOverview::getUrl(panel: 'admin');
+            $add('Finance', 'heroicon-o-banknotes', $payrollUrl);
+            $add('Payroll', 'heroicon-o-banknotes', $payrollUrl, 'Finance');
+            if (\App\Filament\Resources\PayoutResource::canAccess()) $add('Payouts', 'heroicon-o-currency-dollar', \App\Filament\Resources\PayoutResource::getUrl('index'), 'Finance');
+            if (\App\Filament\Resources\WeeklyPayoutBatchResource::canAccess()) $add('Pay Runs', 'heroicon-o-calendar-days', \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index'), 'Finance');
+        }
+
+        $reportsVisible = AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess();
+        if ($reportsVisible) {
+            $reportsUrl = \App\Filament\Pages\Reports::getUrl(panel: 'admin');
+            $add('Reports', 'heroicon-o-chart-bar', $reportsUrl);
+            $add('Reports & Analytics', 'heroicon-o-chart-bar-square', $reportsUrl, 'Reports');
+            if (\App\Filament\Pages\StreamerAnalytics::canAccess()) $add('Streamer Analytics', 'heroicon-o-users', \App\Filament\Pages\StreamerAnalytics::getUrl(panel: 'admin'), 'Reports');
+            if (\App\Filament\Pages\InventoryReport::canAccess()) $add('Inventory Reports', 'heroicon-o-cube', \App\Filament\Pages\InventoryReport::getUrl(panel: 'admin'), 'Reports');
+            if (\App\Filament\Resources\WhatnotLedgerResource::canAccess()) $add('Ledger', 'heroicon-o-book-open', \App\Filament\Resources\WhatnotLedgerResource::getUrl('index'), 'Reports');
+        }
+
+        $adminVisible = auth()->user()?->isAdmin() || auth()->user()?->isOwner();
+        if ($adminVisible) {
+            $adminUrl = \App\Filament\Resources\UserResource::getUrl('index');
+            $add('Admin', 'heroicon-o-cog-6-tooth', $adminUrl);
+            if (\App\Filament\Resources\UserResource::canAccess()) $add('Users', 'heroicon-o-users', $adminUrl, 'Admin');
+            if (\App\Filament\Pages\ShowDataAudit::canAccess()) $add('Show Data Audit', 'heroicon-o-shield-check', \App\Filament\Pages\ShowDataAudit::getUrl(panel: 'admin'), 'Admin');
+            if (\App\Filament\Pages\AppSettings::canAccess()) $add('Settings', 'heroicon-o-cog-6-tooth', \App\Filament\Pages\AppSettings::getUrl(panel: 'admin'), 'Admin');
+        }
+
+        return $builder->items($items);
     }
 
     /**

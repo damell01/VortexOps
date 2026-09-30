@@ -15,6 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Pages\Page;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use League\Csv\Writer;
 use SplTempFileObject;
 use App\Support\NavVisibility;
@@ -792,15 +793,19 @@ class InventoryReport extends Page
             'aging_90' => $grouped['aging_90'] ?? ['label' => '90+ days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
         ];
     }
-    public function exportPdf(): Response
+    public function exportPdf(): StreamedResponse
     {
-        $data = $this->sanitizeUtf8($this->getData());
-
+        $data = $this->sanitizeUtf8($this->getViewerData());
         $pdf = Pdf::loadView('filament.pages.inventory-report-pdf', $data)
             ->setPaper('a4', 'landscape')
             ->setOption('enable-local-file-access', true);
+        $contents = $pdf->output();
 
-        return $pdf->download('inventory-report-' . now()->format('Y-m-d-His') . '.pdf');
+        return response()->streamDownload(
+            static function () use ($contents): void { echo $contents; },
+            'inventory-report-' . now()->format('Y-m-d-His') . '.pdf',
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     private function sanitizeUtf8($data): mixed
@@ -813,57 +818,23 @@ class InventoryReport extends Page
         return $data;
     }
 
-    public function exportCsv(): Response
+    public function exportCsv(): StreamedResponse
     {
-        $csv = Writer::createFromFileObject(new SplTempFileObject());
+        $items = $this->getViewerData()['items'];
 
-        $products = Product::with(['stock.location.streamer', 'lots'])->where('is_active', true)->get();
-
-        $csv->insertOne([
-            'SKU',
-            'Product Name',
-            'Category',
-            'Total Quantity',
-            'Unit Cost',
-            'Average Cost',
-            'Total Value',
-            'Active Lots',
-            'Reorder Level',
-            'Status',
-        ]);
-
-        foreach ($products as $product) {
-            $qty = (float) $product->totalQuantity();
-            $avgCost = (float) $product->average_cost;
-            $totalValue = $qty * $avgCost;
-            $activeLots = $product->lots()->where('status', 'active')->count();
-
-            $status = 'Healthy';
-            if ($qty <= 0) {
-                $status = 'Out of Stock';
-            } elseif ($product->reorder_level && $qty < $product->reorder_level) {
-                $status = 'Low Stock';
-            } elseif ($product->reorder_level && $qty > ($product->reorder_level * 3)) {
-                $status = 'Overstock';
+        return response()->streamDownload(function () use ($items): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['SKU','Product Name','Category','Location','Quantity','Unit Cost','Total Value','Reorder Level','Status']);
+            foreach ($items as $item) {
+                $status = $item['is_out_stock'] ? 'Out of Stock' : ($item['is_low_stock'] ? 'Low Stock' : 'In Stock');
+                fputcsv($out, [
+                    $item['sku'], $item['name'], $item['category'], $item['locations'],
+                    $item['quantity'], number_format($item['unit_cost'], 2, '.', ''),
+                    number_format($item['total_value'], 2, '.', ''), $item['reorder_level'], $status,
+                ]);
             }
-
-            $csv->insertOne([
-                $product->sku,
-                $product->name,
-                $product->category ?? '',
-                number_format($qty),
-                number_format($product->unit_cost ?? 0, 2),
-                number_format($avgCost, 4),
-                number_format($totalValue, 2),
-                $activeLots,
-                $product->reorder_level ?? 0,
-                $status,
-            ]);
-        }
-
-        return response()->streamDownload(function () use ($csv) {
-            echo $csv->getContent();
-        }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv');
+            fclose($out);
+        }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function exportBreakdown(): Response

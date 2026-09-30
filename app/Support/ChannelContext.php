@@ -31,9 +31,7 @@ class ChannelContext
     /** @return Collection<int, WhatnotChannel> */
     public static function available(): Collection
     {
-        return cache()->remember('admin:active_whatnot_channels', 300, fn () =>
-            WhatnotChannel::where('status', 'active')->orderBy('name')->get()
-        );
+        return WhatnotChannel::where('status', 'active')->orderBy('name')->get();
     }
 
     public static function current(): ?WhatnotChannel

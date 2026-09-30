@@ -24,7 +24,6 @@ use Filament\FontProviders\GoogleFontProvider;
 use Filament\View\PanelsRenderHook;
 use Filament\Navigation\NavigationBuilder;
 use Filament\Navigation\NavigationItem;
-use Filament\Navigation\NavigationGroup;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;

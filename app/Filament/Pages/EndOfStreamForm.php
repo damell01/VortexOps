@@ -22,8 +22,6 @@ use Illuminate\Contracts\Support\Htmlable;
 
 class EndOfStreamForm extends Page implements HasForms
 {
-    public static function shouldRegisterNavigation(): bool { return false; }
-
     use InteractsWithForms;
 
     protected static string $moduleSlug = 'streams';

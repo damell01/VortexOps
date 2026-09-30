@@ -305,6 +305,21 @@ class InventoryOverview extends Page
         return InventoryReport::getUrl();
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('inventory_report')
+                ->label('Inventory Report')
+                ->icon('heroicon-o-chart-bar')
+                ->color('gray')
+                ->url(fn () => $this->reportUrl()),
+            \Filament\Actions\Action::make('scan_inventory')
+                ->label('Scan Inventory')
+                ->icon('heroicon-o-qr-code')
+                ->url(fn () => \App\Filament\Pages\InventoryScanner::getUrl()),
+        ];
+    }
+
     public function ageUrl(): string
     {
         return InventoryAge::getUrl();

@@ -105,9 +105,15 @@ function runScraplingStealthy() {
   if (mode === 'orders-batch') process.stderr.write(`[whatnot] ORDER_DETAIL_ENRICH=${env.WHATNOT_ORDER_DETAIL_ENRICH}\n`);
   if (mode === 'shipments-batch') process.stderr.write('[whatnot] SHIPMENT_EXTRACTOR=hardened+progress\n');
   process.stderr.write(`[whatnot] BROWSER_LOCK_WAIT file=${lockFile} timeout=${lockWait}s\n`);
-  const result=spawnSync('flock',['-w',String(lockWait),lockFile,python,scraperScript],{env,cwd:projectRoot,stdio:'inherit'});
+  const timeoutSeconds=Math.max(60,parseInt(String(env.WHATNOT_BROWSER_HARD_TIMEOUT||'1200'),10)||1200);
+  process.stderr.write(`[whatnot] BROWSER_HARD_TIMEOUT timeout=${timeoutSeconds}s\n`);
+  // Run browser extraction at low CPU priority and put a hard wall-clock ceiling
+  // around the complete browser tree. timeout sends TERM and then KILL after the
+  // grace period so a stuck renderer cannot consume the web server indefinitely.
+  const result=spawnSync('flock',['-w',String(lockWait),lockFile,'timeout','--signal=TERM','--kill-after=20s',String(timeoutSeconds),'nice','-n','15',python,scraperScript],{env,cwd:projectRoot,stdio:'inherit'});
   if(result.status===0) process.stderr.write('[whatnot] BROWSER_LOCK_RELEASED\n');
   else if(result.status===1) process.stderr.write(`[whatnot] BROWSER_LOCK_TIMEOUT waited=${lockWait}s\n`);
+  else if(result.status===124 || result.status===137) process.stderr.write(`[whatnot] BROWSER_HARD_TIMEOUT_REACHED status=${result.status}; browser tree terminated\n`);
   return result;
 }
 function runAttachedBrowser() {

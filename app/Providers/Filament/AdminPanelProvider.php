@@ -91,7 +91,7 @@ class AdminPanelProvider extends PanelProvider
             // 300s meant a streamer could sit for five minutes after an admin
             // requested changes before the bell showed anything, which read as
             // "no notification was sent" when one had been written instantly.
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling('60s')
             ->navigationGroups(array_map(
                 // Collapse every group except the primary "Streams" workflow, so the
                 // sidebar stays compact — you expand the group you need.
@@ -158,12 +158,6 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render('@include(\'filament.components.sidebar-feedback\')'),
-            )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn (): string => ! $isAuthenticatedAdminView()
-                    ? ''
-                    : Blade::render("@livewire('feedback-widget')"),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
@@ -264,12 +258,12 @@ class AdminPanelProvider extends PanelProvider
                     setTimeout(initMobileSidebarGestures, 100);
                 });
 
-                // Reinitialize on Livewire updates
-                if (window.Livewire) {
-                    Livewire.hook('morph.updated', () => {
-                        setTimeout(initMobileSidebarGestures, 100);
-                    });
-                }
+                // Filament SPA navigation replaces page content without needing
+                // a listener after every Livewire morph. Re-bind only after a
+                // completed page navigation so routine component updates stay cheap.
+                document.addEventListener('livewire:navigated', () => {
+                    setTimeout(initMobileSidebarGestures, 100);
+                });
                 </script>
                 HTML,
             )

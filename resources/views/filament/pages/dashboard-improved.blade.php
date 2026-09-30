@@ -55,47 +55,7 @@
         class="space-y-3 sm:space-y-5"
         @if($pageMode === 'streamer') data-vx-page="streamer-dashboard"
         @elseif($pageMode === 'fulfillment') data-vx-page="fulfillment-dashboard"
-        @elseif($pageMode === 'admin')
-            @php($s = $adminSummary ?? [])
-            <section class="grid grid-cols-2 gap-3 xl:grid-cols-5">
-                @foreach([
-                    ['Total Shows', number_format($s['shows'] ?? 0), 'heroicon-o-video-camera', 'text-violet-600 bg-violet-50'],
-                    ['Gross Sales', '$'.number_format($s['gross'] ?? 0, 0), 'heroicon-o-banknotes', 'text-emerald-600 bg-emerald-50'],
-                    ['Net Earnings', '$'.number_format($s['net'] ?? 0, 0), 'heroicon-o-currency-dollar', 'text-blue-600 bg-blue-50'],
-                    ['Inventory Value', '$'.number_format($s['inventory_value'] ?? 0, 0), 'heroicon-o-archive-box', 'text-amber-600 bg-amber-50'],
-                    ['Needs Assignment', number_format($s['unassigned'] ?? 0), 'heroicon-o-user-plus', 'text-rose-600 bg-rose-50'],
-                ] as [$label,$value,$icon,$tone])
-                    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                        <div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-xl {{ $tone }}"><x-filament::icon :icon="$icon" class="h-5 w-5"/></span><div class="min-w-0"><div class="text-xs font-medium text-gray-500">{{ $label }}</div><div class="mt-1 truncate text-xl font-bold text-gray-950 dark:text-white">{{ $value }}</div></div></div>
-                    </div>
-                @endforeach
-            </section>
-
-            @if(($s['unassigned'] ?? 0) > 0)
-                <section class="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
-                    <div><div class="font-semibold text-amber-950 dark:text-amber-100">{{ number_format($s['unassigned']) }} show{{ $s['unassigned']==1?'':'s' }} need a streamer</div><div class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">Open Shows Overview to assign streamers without opening each show.</div></div>
-                    <a href="{{ \App\Filament\Pages\Shows::getUrl(panel:'admin') }}" class="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Assign Streamers</a>
-                </section>
-            @endif
-
-            <section class="grid gap-3 xl:grid-cols-[1.15fr_.85fr]">
-                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                    <div class="flex items-center justify-between"><div><h2 class="text-sm font-semibold text-gray-950 dark:text-white">Inventory Health</h2><p class="mt-0.5 text-xs text-gray-500">{{ number_format($s['units'] ?? 0) }} units across inventory.</p></div><a href="{{ \App\Filament\Pages\InventoryOverview::getUrl(panel:'admin') }}" class="text-xs font-semibold text-primary-600">View Inventory →</a></div>
-                    <div class="mt-4 grid grid-cols-3 gap-3">
-                        <div class="rounded-xl bg-emerald-50 p-3"><div class="text-xs text-gray-500">In Stock</div><div class="mt-1 text-2xl font-bold text-emerald-600">{{ number_format($inventoryHealth['in'] ?? 0) }}</div></div>
-                        <div class="rounded-xl bg-amber-50 p-3"><div class="text-xs text-gray-500">Low Stock</div><div class="mt-1 text-2xl font-bold text-amber-600">{{ number_format($inventoryHealth['low'] ?? 0) }}</div></div>
-                        <div class="rounded-xl bg-rose-50 p-3"><div class="text-xs text-gray-500">Out of Stock</div><div class="mt-1 text-2xl font-bold text-rose-600">{{ number_format($inventoryHealth['out'] ?? 0) }}</div></div>
-                    </div>
-                </div>
-                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                    <div class="flex items-center justify-between"><div><h2 class="text-sm font-semibold text-gray-950 dark:text-white">Recent Inventory Activity</h2><p class="mt-0.5 text-xs text-gray-500">Latest stock changes.</p></div></div>
-                    <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
-                        @forelse(($recentInventoryActivity ?? []) as $activity)
-                            <div class="flex items-center gap-3 py-2.5"><span class="w-14 shrink-0 text-[11px] text-gray-400">{{ $activity['time'] }}</span><span class="min-w-0 flex-1 truncate text-xs font-medium">{{ $activity['name'] }}</span><span class="text-xs font-semibold {{ $activity['qty'] >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">{{ $activity['qty'] >= 0 ? '+' : '' }}{{ number_format($activity['qty']) }}</span></div>
-                        @empty<div class="py-8 text-center text-xs text-gray-500">No recent inventory activity.</div>@endforelse
-                    </div>
-                </div>
-            </section>
+        @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
         @endif
     >
         @if($pageMode === 'streamer')

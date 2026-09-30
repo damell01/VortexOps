@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-@php $s=$this->inventorySnapshot; @endphp
+@php $s=$this->inventorySnapshot; $trend=$this->valueTrend; $maxTrend=max(1,(float)$trend->max('value')); $axisMax=max(1,ceil($maxTrend/100000)*100000); $midIndex=(int) floor(max(0,$trend->count()-1)/2); @endphp
 <style>
 .vx-inventory-shell a{transition:border-color .15s,box-shadow .15s,transform .15s}.vx-inventory-shell a:hover{border-color:#8b5cf6;box-shadow:0 5px 18px rgba(109,40,217,.08)}.vx-inventory-shell .fi-section{border-color:#e6e1f2}.vx-inventory-shell .vx-progress span{background:#7c3aed}.dark .vx-inventory-shell .fi-section{border-color:#342b4a}
 @media(max-width:640px){.vx-inventory-shell{gap:12px}.vx-inventory-shell .fi-section-content{padding:14px}}
@@ -21,6 +21,14 @@
   <x-filament::section><div class="flex items-start justify-between"><div><div class="text-sm text-[var(--vx-muted)]">{{ $label }}</div><div class="vx-kpi-value mt-2">{{ $value }}</div></div><x-filament::icon :icon="$icon" class="h-5 w-5 text-[var(--vx-faint)]"/></div></x-filament::section>
   @endforeach
  </div>
+ <x-filament::section heading="Inventory Value Trend" description="On-hand inventory value over the last 30 days.">
+  @if($trend->isNotEmpty())
+   <div class="grid grid-cols-[54px_minmax(0,1fr)] gap-2">
+    <div class="flex h-44 flex-col justify-between pb-5 text-right text-[10px] text-[var(--vx-muted)]"><span>${{ number_format($axisMax/1000,0) }}K</span><span>${{ number_format(($axisMax*.66)/1000,0) }}K</span><span>${{ number_format(($axisMax*.33)/1000,0) }}K</span><span>$0</span></div>
+    <div><div class="flex h-40 items-end gap-1 border-b border-[var(--vx-divider)]">@foreach($trend as $point)<div class="group relative flex-1 rounded-t bg-violet-500 hover:bg-violet-600" style="height:{{ max(7,($point['value']/$axisMax)*100) }}%" tabindex="0"><span class="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-gray-950 px-2 py-1.5 text-[10px] font-bold text-white group-hover:block group-focus:block">{{ $point['date'] }} · ${{ number_format($point['value'],2) }}</span></div>@endforeach</div><div class="flex justify-between pt-1.5 text-[10px] text-[var(--vx-muted)]"><span>{{ $trend->first()['date'] }}</span>@if($trend->count()>2)<span>{{ $trend[$midIndex]['date'] }}</span>@endif<span>{{ $trend->last()['date'] }}</span></div></div>
+   </div>
+  @else<div class="py-10 text-center text-sm text-[var(--vx-muted)]">Trend data will appear as snapshots accumulate.</div>@endif
+ </x-filament::section>
  <div class="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
   <x-filament::section heading="Stock Status" description="Current catalog health across active SKUs.">
    <div class="space-y-5">@foreach([['In stock',$s['in'],$s['percentages']['in']],['Low stock',$s['low'],$s['percentages']['low']],['Out of stock',$s['out'],$s['percentages']['out']]] as [$label,$count,$pct])<div><div class="mb-2 flex justify-between gap-4 text-sm"><span class="font-medium">{{ $label }}</span><span class="vx-mono">{{ number_format($count) }} items</span></div><div class="vx-progress"><span style="width:{{ $pct }}%"></span></div></div>@endforeach</div>

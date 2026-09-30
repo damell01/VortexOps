@@ -1,6 +1,17 @@
 <x-filament-panels::page>
 @php $s=$this->inventorySnapshot; @endphp
 <div class="space-y-6">
+ <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   <a href="{{ $this->receiveUrl() }}" class="rounded-xl border border-primary-500 bg-primary-600 p-4 text-white shadow-sm"><div class="flex items-center gap-3"><x-heroicon-o-inbox-arrow-down class="h-6 w-6"/><div><div class="font-bold">Receive Inventory</div><div class="text-xs opacity-80">Pallets & receiving</div></div></div></a>
+   <a href="{{ $this->quickAddUrl() }}" class="rounded-xl border border-[var(--vx-divider)] bg-[var(--vx-surface)] p-4"><div class="flex items-center gap-3"><x-heroicon-o-plus-circle class="h-6 w-6 text-primary-600"/><div><div class="font-bold">Quick Add Stock</div><div class="text-xs text-[var(--vx-muted)]">Add quantity fast</div></div></div></a>
+   <a href="{{ $this->scanUrl() }}" class="rounded-xl border border-[var(--vx-divider)] bg-[var(--vx-surface)] p-4"><div class="flex items-center gap-3"><x-heroicon-o-qr-code class="h-6 w-6 text-primary-600"/><div><div class="font-bold">Scan Inventory</div><div class="text-xs text-[var(--vx-muted)]">Barcode workflow</div></div></div></a>
+   <a href="{{ $this->addItemUrl() }}" class="rounded-xl border border-[var(--vx-divider)] bg-[var(--vx-surface)] p-4"><div class="flex items-center gap-3"><x-heroicon-o-cube class="h-6 w-6 text-primary-600"/><div><div class="font-bold">Add Item</div><div class="text-xs text-[var(--vx-muted)]">Create new SKU</div></div></div></a>
+   <a href="{{ $this->transferUrl() }}" class="rounded-xl border border-[var(--vx-divider)] bg-[var(--vx-surface)] p-4"><div class="flex items-center gap-3"><x-heroicon-o-arrows-right-left class="h-6 w-6 text-primary-600"/><div><div class="font-bold">Transfer Stock</div><div class="text-xs text-[var(--vx-muted)]">Move between locations</div></div></div></a>
+   <a href="{{ $this->countUrl() }}" class="rounded-xl border border-[var(--vx-divider)] bg-[var(--vx-surface)] p-4"><div class="flex items-center gap-3"><x-heroicon-o-clipboard-document-check class="h-6 w-6 text-primary-600"/><div><div class="font-bold">Inventory Count</div><div class="text-xs text-[var(--vx-muted)]">Count & reconcile</div></div></div></a>
+  </div>
+  <div class="rounded-xl border border-[var(--vx-divider)] bg-[var(--vx-surface)] p-4"><div class="font-bold">Inventory tools</div><div class="mt-3 grid gap-2 text-sm"><a href="{{ $this->reportUrl() }}" class="flex justify-between rounded-lg border border-[var(--vx-divider)] p-2.5"><span>Inventory Report</span><span>→</span></a><a href="{{ $this->movementsUrl() }}" class="flex justify-between rounded-lg border border-[var(--vx-divider)] p-2.5"><span>Activity History</span><span>→</span></a><a href="{{ $this->locationsUrl() }}" class="flex justify-between rounded-lg border border-[var(--vx-divider)] p-2.5"><span>Locations</span><span>→</span></a><a href="{{ $this->vendorsUrl() }}" class="flex justify-between rounded-lg border border-[var(--vx-divider)] p-2.5"><span>Vendors</span><span>→</span></a></div></div>
+ </div>
  <x-filament::section>
   <div class="flex flex-wrap items-center justify-between gap-3">
    <div><div class="text-sm font-bold text-gray-950 dark:text-white">Quick actions</div><div class="mt-1 text-xs text-[var(--vx-muted)]">Receive, add, scan, move, or count inventory without hunting through menus.</div></div>

@@ -30,10 +30,10 @@
 
 <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div><h2 class="text-sm font-semibold">Show period</h2><p class="text-xs text-gray-500">Choose the period you want to review.</p></div>
-        <div class="flex rounded-lg border dark:border-gray-700">
-            <button wire:click="$set('viewMode','list')" class="px-3 py-2 text-sm {{ $viewMode==='list'?'bg-primary-600 text-white':'' }}">List</button>
-            <button wire:click="$set('viewMode','calendar')" class="px-3 py-2 text-sm {{ $viewMode==='calendar'?'bg-primary-600 text-white':'' }}">Calendar</button>
+        <div><div class="text-[10px] font-extrabold uppercase tracking-[.12em] text-primary-600">Shows workspace</div><h2 class="mt-1 text-lg font-bold">Find and work shows</h2><p class="text-xs text-gray-500">Period, filters, assignment, and show actions in one place.</p></div>
+        <div class="flex rounded-lg border bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
+            <button wire:click="$set('viewMode','list')" class="rounded-md px-3 py-1.5 text-xs font-bold {{ $viewMode==='list'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900':'' }}">Cards</button>
+            <button wire:click="$set('viewMode','calendar')" class="rounded-md px-3 py-1.5 text-xs font-bold {{ $viewMode==='calendar'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900':'' }}">Calendar</button>
         </div>
     </div>
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[auto_180px_160px_160px_auto_minmax(180px,1fr)] lg:items-end">

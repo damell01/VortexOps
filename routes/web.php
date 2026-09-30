@@ -23,6 +23,18 @@ Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(funct
         ->middleware('throttle:10,1')
         ->name('feedback.store');
 
+    Route::post('timezone', function (\Illuminate\Http\Request $request) {
+        $data = $request->validate([
+            'timezone' => ['required', 'string', 'timezone:all'],
+        ]);
+
+        if ($request->user()->timezone !== $data['timezone']) {
+            $request->user()->forceFill(['timezone' => $data['timezone']])->save();
+        }
+
+        return response()->noContent();
+    })->middleware('throttle:6,1')->name('timezone.update');
+
     Route::get('ai-tasks/{task}/source', function (AiTask $task) {
         abort_unless($task->type === 'parse_pallet_slip', 404);
 

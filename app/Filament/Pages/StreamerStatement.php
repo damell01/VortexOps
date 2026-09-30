@@ -11,6 +11,7 @@ use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use Filament\Pages\Page;
 use App\Filament\Concerns\HasAdminNavVisibility;
+use Livewire\Attributes\Url;
 
 class StreamerStatement extends Page
 {
@@ -79,6 +80,7 @@ class StreamerStatement extends Page
             : 'Your show reporting and payout history in one place.';
     }
 
+    #[Url(as: 'streamer')]
     public ?int $streamerId = null;
     public string $dateFrom = '';
     public string $dateTo   = '';

@@ -19,42 +19,9 @@
         ];
     @endphp
 
-    <div class="space-y-6">
+    <div class="space-y-5">
 
-        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 shadow-sm dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20"><div class="flex flex-wrap items-end justify-between gap-4"><div><div class="mb-2 inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Business intelligence</div><h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">Performance at a glance</h2><p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Revenue, show volume and operating performance for the selected period.</p></div><div class="rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-right shadow-sm dark:border-white/10 dark:bg-gray-900/70"><div class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Current range</div><div class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $dateFrom }} → {{ $dateTo }}</div></div></div></section>
-
-        {{-- Prebuilt report hub: choose a useful report, filter it, then export. --}}
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                    <h2 class="text-base font-bold text-gray-950 dark:text-white">Reports & Analytics</h2>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Open a ready-to-use report, filter the data you need, then export it.</p>
-                </div>
-                <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">Prebuilt reports</span>
-            </div>
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                @php
-                    $reportCards = array_filter([
-                        ['Show Performance', 'Revenue, net, margin, trends and channel results', '#show-performance', 'heroicon-o-presentation-chart-line'],
-                        $this->inventoryReportUrl() ? ['Inventory', 'Value, stock, movement and aging', $this->inventoryReportUrl(), 'heroicon-o-cube'] : null,
-                        $this->streamerAnalyticsUrl() ? ['Streamer Analytics', 'Revenue, hours, margin and payouts', $this->streamerAnalyticsUrl(), 'heroicon-o-users'] : null,
-                        $this->streamerStatementUrl() ? ['Streamer Statements', 'Show-by-show pay statements', $this->streamerStatementUrl(), 'heroicon-o-document-text'] : null,
-                        $this->financeLedgerUrl() ? ['Whatnot Ledger', 'Channel transactions, status and net activity', $this->financeLedgerUrl(), 'heroicon-o-banknotes'] : null,
-                        $this->productInsightsUrl() ? ['Product Insights', 'Velocity, value and product performance', $this->productInsightsUrl(), 'heroicon-o-chart-bar-square'] : null,
-                    ]);
-                @endphp
-                @foreach($reportCards as [$label,$description,$url,$icon])
-                    <a href="{{ $url }}" class="group rounded-xl border border-gray-200 p-4 transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md dark:border-gray-700 dark:hover:border-primary-700">
-                        <div class="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
-                            <x-dynamic-component :component="$icon" class="h-5 w-5"/>
-                        </div>
-                        <div class="text-sm font-bold text-gray-900 dark:text-white">{{ $label }}</div>
-                        <div class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $description }}</div>
-                        <div class="mt-3 text-xs font-semibold text-primary-600 dark:text-primary-400">Open report →</div>
-                    </a>
-                @endforeach
-            </div>
-        </section>
+        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 shadow-sm dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20"><div class="flex flex-wrap items-end justify-between gap-4"><div><div class="mb-2 inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Reports overview</div><h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">Business performance</h2><p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">A quick read on revenue, shows and operating performance. Use the Reports menu for deeper analysis.</p></div><div class="rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-right shadow-sm dark:border-white/10 dark:bg-gray-900/70"><div class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Current range</div><div class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $dateFrom }} → {{ $dateTo }}</div></div></div></section>
 
         {{-- Period selector + date range + export --}}
         <div id="show-performance" class="scroll-mt-6 flex flex-wrap items-center gap-2 gap-y-2">
@@ -138,15 +105,13 @@
 
         {{-- Revenue KPI tiles --}}
         @php $rev = $this->revenueSummary; @endphp
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
             @foreach ([
                 ['label' => 'Shows',       'value' => number_format($rev['shows']),          'trend' => $rev['trend_shows'], 'icon' => 'heroicon-o-video-camera',   'accent' => 'border-violet-500'],
-                ['label' => 'Units Sold',  'value' => number_format($rev['units']),           'trend' => null,                'icon' => 'heroicon-o-shopping-bag',   'accent' => 'border-sky-500'],
                 ['label' => 'Gross Rev',   'value' => '$'.number_format($rev['gross'], 0),   'trend' => $rev['trend_gross'], 'icon' => 'heroicon-o-banknotes',      'accent' => 'border-emerald-500'],
                 ['label' => 'Whatnot Net', 'value' => '$'.number_format($rev['net'], 0),     'trend' => $rev['trend_net'],   'icon' => 'heroicon-o-arrow-trending-up','accent' => 'border-green-500'],
                 ['label' => 'Margin',      'value' => '$'.number_format($rev['margin'], 0),  'trend' => $rev['trend_margin'],'icon' => 'heroicon-o-scale',          'accent' => 'border-indigo-500', 'sub' => $rev['margin_pct'] !== null ? $rev['margin_pct'].'% of gross' : null],
-                ['label' => 'Tips',        'value' => '$'.number_format($rev['tips'], 0),    'trend' => null,                'icon' => 'heroicon-o-star',           'accent' => 'border-amber-500'],
-                ['label' => 'Paper Sales', 'value' => '$'.number_format($rev['paper'], 0),   'trend' => null,                'icon' => 'heroicon-o-document-text',  'accent' => 'border-rose-500'],
+                ['label' => 'Units Sold',  'value' => number_format($rev['units']),           'trend' => null,                'icon' => 'heroicon-o-shopping-bag',   'accent' => 'border-sky-500'],
             ] as $tile)
                 <div class="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
                     <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">

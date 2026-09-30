@@ -1,5 +1,10 @@
 @php
 $user=auth()->user(); $groups=[];
+$channel=\App\Support\ChannelContext::current();
+try { $globalLogo=\App\Models\Setting::get('logo_path'); } catch (\Throwable) { $globalLogo=null; }
+$navLogo=null;
+if($channel?->logo_path && file_exists(storage_path('app/public/'.$channel->logo_path))) $navLogo=asset('storage/'.$channel->logo_path);
+elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $navLogo=asset('storage/'.$globalLogo);
 if(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
 ];
@@ -29,6 +34,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 ];
 @endphp
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
+@if($navLogo)<a class="vx-mega-brand" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
 @foreach($groups as $label=>$links)
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">

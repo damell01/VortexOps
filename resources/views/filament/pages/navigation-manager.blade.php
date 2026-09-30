@@ -28,7 +28,7 @@
     </div>
 
     <div class="vx-help">
-        <strong>One source of truth:</strong> Role Access writes to the same visible/read-only settings used by Roles & Permissions. It does not create a second permission system. Detailed action permissions still belong on Roles & Permissions. Owner access remains protected even when an item is removed from the visible sidebar.
+        <strong>Live navigation builder:</strong> drag groups to reorder them, drag links within or between groups, rename either one, then Save Layout. The preview updates immediately before saving. Role Access controls what each role sees; detailed create/edit/delete permissions remain in Roles & Permissions.
     </div>
 
     <div class="vx-manager-grid">
@@ -40,7 +40,8 @@
                             <h3 class="font-bold text-gray-950 dark:text-white">Sidebar structure</h3>
                             <p class="mt-1 text-xs text-gray-500">Drag modules and pages into the order you want. You can also rename labels without renaming routes or code.</p>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" wire:click="createGroup" class="vx-btn">+ Add Group</button>
                             <button type="button" wire:click="resetLayout" wire:confirm="Reset the sidebar back to the code-defined layout?" class="vx-btn danger">Reset Layout</button>
                             <button type="button" wire:click="saveLayout" class="vx-btn primary">Save Layout</button>
                         </div>
@@ -62,14 +63,17 @@
                                     <input class="vx-mini-input" value="{{ $group['label'] }}"
                                            x-on:change="$wire.renameGroup('{{ $group['id'] }}',$event.target.value)" />
                                     <span class="text-[11px] font-semibold text-gray-400">{{ $groupItems->count() }} items</span>
+                                    @if(count($layoutGroups) > 1)
+                                        <button type="button" wire:click.stop="deleteGroup('{{ $group['id'] }}')" wire:confirm="Remove this group? Its links will move to another group." class="text-[10px] font-bold text-rose-500">Remove</button>
+                                    @endif
                                 </div>
 
                                 <div>
                                     @forelse($groupItems as $class => $item)
                                         @php $itemIndex = $loop->index; @endphp
-                                        <div class="vx-drop" @dragover.prevent @drop.prevent="dropItem('{{ addslashes($group['label']) }}',{{ $itemIndex }})"></div>
+                                        <div class="vx-drop" @dragover.prevent @drop.prevent="dropItem(@js($group['label']),{{ $itemIndex }})"></div>
                                         <div class="vx-item" draggable="true"
-                                             x-on:dragstart.stop="draggingItem='{{ addslashes($class) }}'; draggingGroup=null; $el.classList.add('dragging')"
+                                             x-on:dragstart.stop="draggingItem=@js($class); draggingGroup=null; $el.classList.add('dragging')"
                                              x-on:dragend="$el.classList.remove('dragging')">
                                             <span class="vx-grip">⋮⋮</span>
                                             <div class="min-w-0">
@@ -82,7 +86,7 @@
                                     @empty
                                         <div class="vx-empty">Drop a page into this module.</div>
                                     @endforelse
-                                    <div class="vx-drop h-4" @dragover.prevent @drop.prevent="dropItem('{{ addslashes($group['label']) }}',{{ $groupItems->count() }})"></div>
+                                    <div class="vx-drop h-4" @dragover.prevent @drop.prevent="dropItem(@js($group['label']),{{ $groupItems->count() }})"></div>
                                 </div>
                             </div>
                         @endforeach

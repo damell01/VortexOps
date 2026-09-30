@@ -246,7 +246,47 @@ class NavigationManager extends Page
     public function saveLayout(): void
     {
         NavLayout::set($this->layoutGroups, $this->layoutItems);
-        Notification::make()->title('Navigation layout saved')->body('The sidebar will use the new module and item order on the next navigation render.')->success()->send();
+        $this->catalog = $this->discoverNavigation();
+        $this->loadLayout();
+        Notification::make()->title('Navigation layout saved')->body('The sidebar now uses this exact group and link order.')->success()->send();
+    }
+
+    public function createGroup(): void
+    {
+        $base = 'New Group';
+        $label = $base;
+        $used = collect($this->layoutGroups)->pluck('label')->all();
+        $n = 2;
+        while (in_array($label, $used, true)) {
+            $label = $base . ' ' . $n++;
+        }
+
+        $this->layoutGroups[] = [
+            'id' => (string) str($label)->slug() . '-' . count($this->layoutGroups),
+            'label' => $label,
+            'sort' => (count($this->layoutGroups) + 1) * 10,
+        ];
+    }
+
+    public function deleteGroup(string $groupId): void
+    {
+        $group = collect($this->layoutGroups)->firstWhere('id', $groupId);
+        if (! $group) return;
+
+        $label = $group['label'];
+        $fallback = collect($this->layoutGroups)->first(fn ($g) => ($g['id'] ?? '') !== $groupId);
+        if (! $fallback) return;
+
+        foreach ($this->layoutItems as &$item) {
+            if (($item['group'] ?? '') === $label) {
+                $item['group'] = $fallback['label'];
+            }
+        }
+
+        $this->layoutGroups = array_values(array_filter(
+            $this->layoutGroups,
+            fn ($g) => ($g['id'] ?? '') !== $groupId
+        ));
     }
 
     public function resetLayout(): void

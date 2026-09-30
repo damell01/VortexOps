@@ -762,3 +762,13 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .vx-person-money{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.vx-person-money span,.vx-person-money strong{display:block}.vx-person-money strong{margin-top:2px;font-size:15px}
 .vx-mini-track{height:3px;margin:13px 0;background:#f1f3f8;border-radius:999px;overflow:hidden}.dark .vx-mini-track{background:#253047}.vx-mini-track i{display:block;height:100%;border-radius:inherit;background:#7c3aed}
 .vx-person-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vx-person-foot strong,.vx-person-foot span{display:block}.vx-person-foot strong{font-size:12px}.vx-person-foot span{margin-top:1px}
+
+/* Finance reports keep the same clean mockup language without replacing
+   Filament's deferred/paginated table implementation. */
+.vx-finance-table{border:1px solid #e7e9f2!important;border-radius:14px!important;box-shadow:0 1px 3px rgba(15,23,42,.04)!important;overflow:hidden}
+.dark .vx-finance-table{border-color:#293247!important}
+.vx-finance-table .fi-ta-header{padding:16px 18px!important;background:#fff}.dark .vx-finance-table .fi-ta-header{background:#111827}
+.vx-finance-table .fi-ta-header-heading{font-size:15px!important;font-weight:800!important;letter-spacing:-.02em}
+.vx-finance-table .fi-ta-header-description{font-size:11px!important;color:#98a2b3!important}
+.vx-finance-table .fi-ta-table thead{background:#f8fafc}.dark .vx-finance-table .fi-ta-table thead{background:#182235}
+.vx-finance-table .fi-ta-table th{font-size:10px!important;text-transform:uppercase;letter-spacing:.045em}

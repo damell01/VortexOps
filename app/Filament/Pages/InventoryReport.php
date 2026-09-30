@@ -237,7 +237,10 @@ class InventoryReport extends Page
 
     public function getViewerData(): array
     {
-        $data = $this->getData();
+        // A Livewire render can reference viewer data several times. Build the
+        // expensive product/stock/snapshot dataset once per request/render and
+        // reuse it while applying lightweight in-memory filters below.
+        $data = $this->viewerDataCache ??= $this->getData();
         $items = collect($data['items']);
 
         if ($this->reportSearch !== '') {

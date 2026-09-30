@@ -91,6 +91,7 @@ class DashboardImproved extends Dashboard
             $data['roleMode'] = 'admin';
             $data['inventoryHealth'] = $this->inventoryHealth();
             $data['recentInventoryActivity'] = $this->recentInventoryActivity();
+            $data['adminSummary'] = $this->adminSummary();
         }
 
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
@@ -155,6 +156,33 @@ class DashboardImproved extends Dashboard
         return $data;
     }
 
+    private function adminSummary(): array
+    {
+        try {
+            $start = now()->subDays(29)->startOfDay();
+            $shows = Show::query()->inChannelContext()
+                ->whereBetween('show_date', [$start->toDateString(), now()->endOfDay()->toDateTimeString()])
+                ->whereNotIn('status', ['cancelled'])->get();
+
+            $inventoryValue = InventoryStock::query()
+                ->with('item:id,average_cost,unit_cost')
+                ->get()
+                ->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->average_cost ?: $stock->item?->unit_cost ?: 0));
+
+            return [
+                'shows' => $shows->count(),
+                'gross' => (float) $shows->sum('gross_revenue'),
+                'net' => (float) $shows->sum('whatnot_net'),
+                'inventory_value' => $inventoryValue,
+                'units' => (float) InventoryStock::query()->sum('quantity'),
+                'unassigned' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereDoesntHave('streamers')->whereNotIn('status', ['cancelled','closed'])->count(),
+                'upcoming' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereNotIn('status', ['cancelled','closed'])->orderBy('show_date')->limit(5)->get(['id','title','show_date','start_time']),
+            ];
+        } catch (\Throwable) {
+            return ['shows'=>0,'gross'=>0,'net'=>0,'inventory_value'=>0,'units'=>0,'unassigned'=>0,'upcoming'=>collect()];
+        }
+    }
+
     private function inventoryHealth(): array
     {
         try {
@@ -212,4 +240,3 @@ class DashboardImproved extends Dashboard
         } catch (\Throwable) { return []; }
     }
 }
-

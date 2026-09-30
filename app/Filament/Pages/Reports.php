@@ -43,6 +43,30 @@ class Reports extends Page
         return InventoryReport::canAccess() ? InventoryReport::getUrl() : null;
     }
 
+    /** Central report-hub destinations. Keep report discovery here while
+     * operational pages link directly to the relevant prebuilt report. */
+    public function streamerAnalyticsUrl(): ?string
+    {
+        return StreamerAnalytics::canAccess() ? StreamerAnalytics::getUrl() : null;
+    }
+
+    public function streamerStatementUrl(): ?string
+    {
+        return StreamerStatement::canAccess() ? StreamerStatement::getUrl() : null;
+    }
+
+    public function financeLedgerUrl(): ?string
+    {
+        return \App\Filament\Resources\LedgerResource::canAccess()
+            ? \App\Filament\Resources\LedgerResource::getUrl('index')
+            : null;
+    }
+
+    public function productInsightsUrl(): ?string
+    {
+        return ProductInsights::canAccess() ? ProductInsights::getUrl() : null;
+    }
+
     // ── Period ────────────────────────────────────────────────────────────────
 
     public string $period    = '30';

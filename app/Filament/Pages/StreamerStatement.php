@@ -67,7 +67,7 @@ class StreamerStatement extends Page
                 ->icon('heroicon-o-chart-bar')
                 ->color('gray')
                 ->visible(fn () => StreamerAnalytics::canAccess())
-                ->url(fn () => StreamerAnalytics::getUrl()),
+                ->url(fn () => StreamerAnalytics::getUrl($this->effectiveStreamerId() ? ['streamer' => $this->effectiveStreamerId()] : [])),
         ];
     }
 

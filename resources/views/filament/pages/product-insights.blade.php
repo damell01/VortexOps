@@ -47,7 +47,7 @@
         </div>
 
         {{-- View filter chips --}}
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="sticky top-[64px] z-20 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
             @foreach ($views as $key => $label)
                 <button type="button" wire:click="setView('{{ $key }}')"
                     @class([

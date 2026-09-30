@@ -12,8 +12,8 @@
     </div>
 
         {{-- Filters --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="sticky top-[64px] z-20 rounded-xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date From</label>
                     <input
@@ -29,7 +29,7 @@
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streamers (overview)</label>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Compare Streamers</label>
                     <select
                         wire:model.live="selectedStreamers"
                         multiple
@@ -38,7 +38,7 @@
                             <option value="{{ $streamer->id }}">{{ $streamer->name }}</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">Leave blank for all · Ctrl/Cmd to multi-select</p>
+                    <p class="text-xs text-gray-400 mt-1">Leave blank for the full team · Ctrl/Cmd to multi-select</p>
                 </div>
             </div>
             <div class="mt-3 flex justify-end">

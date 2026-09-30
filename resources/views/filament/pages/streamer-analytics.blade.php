@@ -12,8 +12,8 @@
     </div>
 
         {{-- Filters --}}
-        <div class="sticky top-[64px] z-20 rounded-xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date From</label>
                     <input
@@ -29,7 +29,7 @@
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Compare Streamers</label>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streamers (overview)</label>
                     <select
                         wire:model.live="selectedStreamers"
                         multiple
@@ -38,7 +38,7 @@
                             <option value="{{ $streamer->id }}">{{ $streamer->name }}</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">Leave blank for the full team. Select people only when you want a focused comparison.</p>
+                    <p class="text-xs text-gray-400 mt-1">Leave blank for all · Ctrl/Cmd to multi-select</p>
                 </div>
             </div>
             <div class="mt-3 flex justify-end">
@@ -82,7 +82,7 @@
             $avgSph      = $totalHrs > 0 ? round($totalGross / $totalHrs, 2) : 0;
         @endphp
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
                 <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Shows</p>
                 <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{{ number_format($totalShows) }}</p>
@@ -108,15 +108,6 @@
                     </p>
                 @endif
             </div>
-        </div>
-
-        <div class="grid gap-4 lg:grid-cols-5">
-            <div class="lg:col-span-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-4"><h3 class="text-sm font-bold text-gray-900 dark:text-white">Gross revenue by streamer</h3><p class="text-xs text-gray-400">Quick team comparison for the selected period.</p></div>
-                @php $maxStreamerGross=max(1,collect($rows)->max('gross_revenue')); @endphp
-                <div class="space-y-3">@forelse(collect($rows)->take(8) as $row)<div><div class="mb-1 flex items-center justify-between gap-3 text-xs"><span class="truncate font-semibold text-gray-700 dark:text-gray-300">{{ $row['name'] }}</span><span class="shrink-0 font-bold tabular-nums text-gray-900 dark:text-white">${{ number_format($row['gross_revenue'],0) }}</span></div><div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-2 rounded-full bg-violet-500" style="width:{{ round(($row['gross_revenue']/$maxStreamerGross)*100,1) }}%"></div></div></div>@empty<div class="py-10 text-center text-sm text-gray-400">No streamer data for this period.</div>@endforelse</div>
-            </div>
-            <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"><h3 class="text-sm font-bold text-gray-900 dark:text-white">Team snapshot</h3><div class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[11px] font-bold uppercase text-gray-400">Hours</div><div class="mt-1 text-xl font-bold">{{ number_format($totalHrs,1) }}</div></div><div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[11px] font-bold uppercase text-gray-400">Margin</div><div class="mt-1 text-xl font-bold">${{ number_format($totalMargin,0) }}</div></div><div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[11px] font-bold uppercase text-gray-400">Net</div><div class="mt-1 text-xl font-bold">${{ number_format($totalNet,0) }}</div></div><div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[11px] font-bold uppercase text-gray-400">People</div><div class="mt-1 text-xl font-bold">{{ count($rows) }}</div></div></div></div>
         </div>
 
         {{-- Streamer Performance Table --}}

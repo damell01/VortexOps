@@ -24,16 +24,12 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
 ];
-if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) {
- $reportLinks=[['Reports Overview',\App\Filament\Pages\Reports::getUrl(panel:'admin')],['Show Performance',\App\Filament\Pages\Reports::getUrl(panel:'admin').'#show-performance']];
- if(\App\Filament\Pages\StreamerAnalytics::canAccess()) $reportLinks[]=['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin')];
- if(\App\Filament\Pages\InventoryReport::canAccess()) $reportLinks[]=['Inventory Report',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')];
- if(\App\Filament\Pages\ProductInsights::canAccess()) $reportLinks[]=['Product Insights',\App\Filament\Pages\ProductInsights::getUrl(panel:'admin')];
- if(\App\Filament\Resources\WhatnotLedgerResource::canAccess()) $reportLinks[]=['Channel Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index')];
- if(\App\Filament\Pages\StreamerStatement::canAccess()) $reportLinks[]=['Streamer Statements',\App\Filament\Pages\StreamerStatement::getUrl(panel:'admin')];
- if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $reportLinks[]=['Pay Run History',\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')];
- $groups['Reports']=$reportLinks;
-}
+if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
+ ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],
+ ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin')],
+ ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
+ ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index')],
+];
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
  ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],

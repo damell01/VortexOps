@@ -12,14 +12,12 @@ class ListWeeklyPayoutBatches extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Payroll history by week — review totals and status, then open a run for the payout-level detail.';
+        return 'Weekly pay runs group each streamer\'s payouts. Preview before finalizing, then export for payment.';
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            \Filament\Actions\Action::make('payroll_center')->label('Payroll Center')->icon('heroicon-o-banknotes')->color('gray')->url(\App\Filament\Pages\PayrollOverview::getUrl()),
-            \Filament\Actions\Action::make('reports')->label('Reports Overview')->icon('heroicon-o-chart-bar-square')->color('gray')->url(\App\Filament\Pages\Reports::getUrl()),
             CreateAction::make()->label('New Pay Run'),
         ];
     }

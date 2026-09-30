@@ -172,15 +172,43 @@ class DashboardImproved extends Dashboard
     private function recentInventoryActivity(): array
     {
         try {
-            return InventoryMovement::query()->with('item')->latest()->limit(5)->get()->map(function ($m) {
-                $qty = (float) ($m->quantity ?? 0);
-                return [
-                    'name' => $m->item?->name ?: 'Inventory item',
-                    'qty' => $qty,
-                    'type' => ucfirst(str_replace('_', ' ', (string) $m->movement_type)),
-                    'time' => $m->created_at?->diffForHumans(),
-                ];
-            })->all();
+            $movements = InventoryMovement::query()
+                ->with('item')
+                ->latest()
+                ->limit(100)
+                ->get();
+
+            return $movements
+                ->groupBy(function (InventoryMovement $m): string {
+                    // Rows written by the same stock operation belong together
+                    // in activity UI. Keep the raw movement rows untouched for
+                    // audit/history, but show the user the business quantity.
+                    return implode('|', [
+                        $m->inventory_item_id,
+                        $m->movement_type,
+                        $m->from_location_id,
+                        $m->to_location_id,
+                        trim((string) $m->reason),
+                        $m->created_by,
+                        $m->created_at?->format('Y-m-d H:i') ?? 'unknown',
+                    ]);
+                })
+                ->map(function ($group) {
+                    /** @var InventoryMovement $m */
+                    $m = $group->first();
+                    return [
+                        'name' => $m->item?->name ?: 'Inventory item',
+                        'qty' => (float) $group->sum(fn (InventoryMovement $row) => (float) ($row->quantity ?? 0)),
+                        'type' => ucfirst(str_replace('_', ' ', (string) $m->movement_type)),
+                        'time' => $m->created_at?->diffForHumans(),
+                        '_at' => $m->created_at,
+                    ];
+                })
+                ->sortByDesc('_at')
+                ->take(5)
+                ->map(fn (array $row) => collect($row)->except('_at')->all())
+                ->values()
+                ->all();
         } catch (\Throwable) { return []; }
     }
 }

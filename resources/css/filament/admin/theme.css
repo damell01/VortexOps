@@ -713,3 +713,38 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
     overflow-x:hidden !important;
   }
 }
+
+
+/* Reports mockup system — compact, visual, and intentionally CSS-first so
+   redesigns do not add database work or Livewire round trips. */
+.vx-report{--vx-purple:#7c3aed;--vx-border:#e7e9f2;--vx-muted:#667085;max-width:1500px;margin-inline:auto}
+.vx-report>section,.vx-report>div{min-width:0}
+.vx-report .rounded-xl,.vx-report .rounded-2xl{border-color:var(--vx-border);box-shadow:0 1px 3px rgba(15,23,42,.035)}
+.dark .vx-report{--vx-border:#293247;--vx-muted:#94a3b8}
+.vx-report-overview>section:first-child,
+.vx-streamer-report>section:first-child,
+.vx-product-report>section:first-child{
+  padding:18px 20px!important;border:1px solid var(--vx-border)!important;border-radius:14px!important;
+  background:#fff!important;box-shadow:0 1px 3px rgba(15,23,42,.035)!important
+}
+.dark .vx-report-overview>section:first-child,
+.dark .vx-streamer-report>section:first-child,
+.dark .vx-product-report>section:first-child{background:#111827!important}
+.vx-report h2{letter-spacing:-.025em}
+.vx-report input,.vx-report select{min-height:36px}
+.vx-report table{font-size:12px}
+.vx-report th{font-size:10px!important;letter-spacing:.045em}
+.vx-report td,.vx-report th{padding-top:9px!important;padding-bottom:9px!important}
+.vx-report-overview .grid>div,.vx-streamer-report .grid>div,.vx-inventory-report .grid>div,.vx-product-report .grid>div{min-width:0}
+.vx-report-overview [class*="text-xl"],.vx-streamer-report [class*="text-2xl"],.vx-inventory-report [class*="text-2xl"],.vx-product-report [class*="text-2xl"]{letter-spacing:-.035em}
+@media(min-width:1024px){
+ .vx-report{font-size:13px}
+ .vx-report-overview{padding-inline:2px}
+ .vx-report-overview>section:first-child{padding-block:14px!important}
+ .vx-report .sticky{top:84px!important}
+}
+@media(max-width:767px){
+ .vx-report{gap:12px!important}
+ .vx-report .sticky{position:static!important}
+ .vx-report table{min-width:760px}
+}

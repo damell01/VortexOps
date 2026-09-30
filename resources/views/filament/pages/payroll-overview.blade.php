@@ -50,7 +50,7 @@
             <div class="vx-kpi"><label>Payroll Total</label><strong>${{ number_format((float)($current?->total_payout ?? 0),2) }}</strong></div>
             <div class="vx-kpi"><label>People</label><strong>{{ $breakdown['people'] }}</strong></div>
             <div class="vx-kpi"><label>Ready / In Run / Paid</label><strong class="text-emerald-600">{{ $readiness['ready'] }}</strong></div>
-            <div class="vx-kpi"><label>Blocked</label><strong class="{{ $readiness['review'] ? 'text-amber-600' : 'text-emerald-600' }}">{{ $readiness['review'] }}</strong></div>
+            <div class="vx-kpi"><label>Blocked Shows</label><strong class="{{ $readiness['review'] ? 'text-amber-600' : 'text-emerald-600' }}">{{ $readiness['review'] }}</strong></div>
         </div>
     </section>
 
@@ -88,7 +88,23 @@
                             <div class="text-right"><div class="text-[9px] font-bold uppercase tracking-wide text-gray-400">Show Net</div><div class="mt-1 text-lg font-bold {{ ($pnl['margin']??0)<0?'text-red-600':'text-emerald-600' }}">${{ number_format((float)($pnl['margin']??0),0) }}</div></div>
                         </div>
                         <div class="vx-money"><div><label>Sales</label><strong>${{ number_format((float)($pnl['gross']??0),0) }}</strong></div><div><label>Whatnot Net</label><strong>${{ number_format((float)($pnl['net']??0),0) }}</strong></div><div><label>COGS</label><strong>${{ number_format((float)($pnl['cogs']??0),0) }}</strong></div><div><label>Payroll</label><strong>${{ number_format((float)($pnl['payouts']??0),0) }}</strong></div><div><label>Margin</label><strong>{{ number_format((float)($pnl['margin_pct']??0),1) }}%</strong></div></div>
-                        <div class="vx-next"><div><div class="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400">Next step</div><div class="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $nextText }}</div></div><a class="vx-btn {{ $resolution['tone']==='primary'?'primary':($resolution['tone']==='success'?'success':'') }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a></div>
+                        <div class="vx-next">
+                            <div class="min-w-0 flex-1"><div class="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400">Next step</div><div class="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $nextText }}</div></div>
+                            <div class="vx-inline-fix">
+                                @if($show->streamers->isEmpty())
+                                    <select class="vx-inline-select" aria-label="Assign streamer to {{ $show->title }}" onchange="if(this.value){ $wire.assignStreamerToShow({{ $show->id }}, Number(this.value)); this.value=''; }">
+                                        <option value="">Assign streamer…</option>
+                                        @foreach($this->streamerOptions() as $streamerId=>$streamerName)<option value="{{ $streamerId }}">{{ $streamerName }}</option>@endforeach
+                                    </select>
+                                @elseif($show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')
+                                    <button type="button" wire:click="approveReportInline({{ $show->id }})" wire:confirm="Approve this streamer report?" class="vx-btn success">Approve Report</button>
+                                @elseif(str_contains(strtolower($nextText), 'payment structure') || str_contains(strtolower($nextText), 'compensation') || str_contains(strtolower($nextText), 'pay rate'))
+                                    <a class="vx-btn" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit',['record'=>$show->streamers->first()]) }}">Fix Pay Setup</a>
+                                @else
+                                    <a class="vx-btn {{ $resolution['tone']==='primary'?'primary':($resolution['tone']==='success'?'success':'') }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
+                                @endif
+                            </div>
+                        </div>
                     </article>
                 @empty<div class="p-8 text-center text-sm text-gray-500">No shows in this pay period.</div>@endforelse
             </div>

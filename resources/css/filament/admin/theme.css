@@ -702,3 +702,8 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
  .vx-run-stage::after{display:none}
  .vx-run-stage b{font-size:9px}
 }
+/* Payroll inline blocker resolution */
+.vx-inline-fix{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto}
+.vx-inline-select{min-width:170px;max-width:230px;min-height:40px;border:1px solid var(--vx-border,#d1d5db);border-radius:10px;background:var(--vx-surface,#fff);padding:7px 30px 7px 10px;font-size:11px;font-weight:700;color:inherit}
+.dark .vx-inline-select{background:#111827;border-color:#475569;color:#f8fafc}
+@media(max-width:640px){.vx-inline-fix,.vx-inline-select{width:100%;max-width:none}.vx-inline-fix .vx-btn{width:100%}}

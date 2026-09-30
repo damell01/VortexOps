@@ -132,7 +132,6 @@
                     </article>
                 @empty<div class="p-8 text-center text-sm text-gray-500">No shows in this pay period.</div>@endforelse
             </div>
-        </section>
 
             @if($totalFilteredShows > 0)
                 <div class="vx-pager">

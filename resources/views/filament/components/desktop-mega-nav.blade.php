@@ -47,4 +47,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 @foreach($links as [$text,$url])<a href="{{ $url }}" @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
 </div></div>
 @endforeach
+@if($user?->canSwitchChannels())
+<div class="vx-mega-channel">@livewire('channel-switcher')</div>
+@endif
 </nav>

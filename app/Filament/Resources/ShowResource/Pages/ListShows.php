@@ -107,13 +107,24 @@ class ListShows extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        $base = fn () => ShowResource::getEloquentQuery()->where('is_operational', true)->whereNotIn('status', ['cancelled']);
+        // One aggregate query instead of five separate COUNT/SUM round trips.
+        // Strip eager loads because KPI aggregation does not hydrate show relations.
+        $stats = ShowResource::getEloquentQuery()
+            ->setEagerLoads([])
+            ->where('is_operational', true)
+            ->whereNotIn('status', ['cancelled'])
+            ->selectRaw("COUNT(*) as counted")
+            ->selectRaw("COALESCE(SUM(gross_revenue), 0) as revenue")
+            ->selectRaw("SUM(CASE WHEN status IN ('draft','mapping') THEN 1 ELSE 0 END) as active_count")
+            ->selectRaw("SUM(CASE WHEN status IN ('reconciled','closed') THEN 1 ELSE 0 END) as completed_count")
+            ->selectRaw("SUM(CASE WHEN status IN ('pending_review','pending_approval') THEN 1 ELSE 0 END) as pending_count")
+            ->first();
 
-        $active    = $base()->whereIn('status', ['draft', 'mapping'])->count();
-        $completed = $base()->whereIn('status', ['reconciled', 'closed'])->count();
-        $pending   = $base()->whereIn('status', ['pending_review', 'pending_approval'])->count();
-        $revenue   = (float) $base()->sum('gross_revenue');
-        $counted   = $base()->count();
+        $active = (int) ($stats?->active_count ?? 0);
+        $completed = (int) ($stats?->completed_count ?? 0);
+        $pending = (int) ($stats?->pending_count ?? 0);
+        $revenue = (float) ($stats?->revenue ?? 0);
+        $counted = (int) ($stats?->counted ?? 0);
         $money = fn (float $v) => '$' . number_format($v, 2);
 
         return $this->statsMemo = [

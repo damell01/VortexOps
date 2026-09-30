@@ -33,6 +33,7 @@ class Shows extends Page
     #[Url(as:'from')] public string $dateFrom='';
     #[Url(as:'to')] public string $dateTo='';
     #[Url(as:'view')] public string $viewMode='list';
+    #[Url(as:'page')] public int $showPage=1;
 
     public function mount(): void { if($this->dateFrom===''||$this->dateTo==='') $this->applyDatePreset($this->datePreset); }
     public function updatedDatePreset(string $value): void { if($value!=='custom') $this->applyDatePreset($value); }
@@ -128,7 +129,10 @@ class Shows extends Page
         unset($this->shows,$this->unassignedShows);
     }
 
-    public function clearFilters():void{$this->filterStatus='all';$this->filterTimeframe='all';$this->filterStreamer='';$this->searchQuery='';$this->sortBy='date';$this->applyDatePreset('this_month');}
+    public function paginatedShows(): array { $perPage=12;$total=$this->shows->count();$lastPage=max(1,(int)ceil($total/$perPage));$this->showPage=min(max(1,$this->showPage),$lastPage);return ['items'=>$this->shows->forPage($this->showPage,$perPage)->values(),'total'=>$total,'page'=>$this->showPage,'lastPage'=>$lastPage]; }
+    public function setShowPage(int $page):void{$this->showPage=max(1,$page);}
+    public function updatedFilterStatus():void{$this->showPage=1;} public function updatedFilterTimeframe():void{$this->showPage=1;} public function updatedFilterStreamer():void{$this->showPage=1;} public function updatedSearchQuery():void{$this->showPage=1;} public function updatedSortBy():void{$this->showPage=1;}
+    public function clearFilters():void{$this->filterStatus='all';$this->filterTimeframe='all';$this->filterStreamer='';$this->searchQuery='';$this->sortBy='date';$this->showPage=1;$this->applyDatePreset('this_month');}
     public function showUrl(int $id):string{return ShowResource::getUrl('view',['record'=>$id]);} public function editUrl(int $id):string{return ShowResource::getUrl('edit',['record'=>$id]);}
     public function isShowDue(Show $s):bool{if($s->show_date?->isFuture())return false;if($s->start_time&&$s->start_time->isFuture())return false;return true;}
     public function requestFormSubmission($id):void{$s=Show::with('streamers.user')->findOrFail((int)$id);if(!$this->isShowDue($s)){Notification::make()->title('Show has not happened yet')->warning()->send();return;}foreach($s->streamers as $st)if($st->user)Notification::make()->title('Form Submission Requested')->body("Admin is requesting you submit the end-of-stream form for \"{$s->title}\"")->info()->sendToDatabase($st->user);Notification::make()->title('Submission request sent')->success()->send();unset($this->shows);}

@@ -1,51 +1,10 @@
-<svg viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!--
-    Vortex Breaks horizontal logo for the dark sidebar.
-    Mark on the left, "VORTEX" + "BREAKS" text on the right.
-  -->
-
-  <!-- ── Logo mark (scaled to 48×48, left-aligned) ── -->
-  <g transform="translate(4, 4) scale(0.4)">
-    <defs>
-      <mask id="sm">
-        <rect width="100" height="100" fill="white"/>
-        <rect x="0" y="19.5" width="100" height="9" fill="black"/>
-      </mask>
-    </defs>
-    <!-- Outer triangle (masked so inner top bar goes over it) -->
-    <path
-      mask="url(#sm)"
-      d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z"
-      stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"
-    />
-    <!-- Inner triangle -->
-    <path
-      d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z"
-      stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"
-    />
-    <!-- Outer top bar on top -->
-    <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
-    <!-- Inner top bar on top (key interlocking layer) -->
-    <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
-  </g>
-
-  <!-- ── Text: VORTEX ── -->
-  <text
-    x="52" y="22"
-    font-family="Inter, ui-sans-serif, system-ui, sans-serif"
-    font-size="15"
-    font-weight="800"
-    letter-spacing="-0.5"
-    fill="#ffffff"
-  >VORTEX</text>
-
-  <!-- ── Text: BREAKS ── -->
-  <text
-    x="53" y="37"
-    font-family="Inter, ui-sans-serif, system-ui, sans-serif"
-    font-size="11"
-    font-weight="600"
-    letter-spacing="2"
-    fill="#c4b5fd"
-  >BREAKS</text>
+<svg viewBox="0 0 260 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="v" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8B5CF6"/><stop offset="1" stop-color="#6D28D9"/></linearGradient></defs>
+<g transform="translate(2 3) scale(.46)">
+<path d="M23 15h54c8 0 11 6 7 13L54 82c-3 6-7 6-10 0L16 28c-4-7-1-13 7-13Z" stroke="url(#v)" stroke-width="7" stroke-linejoin="round"/>
+<path d="M30 25h40c7 0 9 5 6 11L54 76c-3 5-6 5-9 0L24 36c-3-6-1-11 6-11Z" stroke="url(#v)" stroke-width="6" stroke-linejoin="round"/>
+</g>
+<text x="54" y="25" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="-.7" fill="#fff">VORTEX</text>
+<text x="142" y="25" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="-.7" fill="#7C3AED">OPS</text>
+<text x="55" y="41" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="600" letter-spacing="2.6" fill="#B8BED2">OPERATIONS PLATFORM</text>
 </svg>

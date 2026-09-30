@@ -115,6 +115,15 @@ class AdminPanelProvider extends PanelProvider
                     ? Blade::render("@vite(['resources/js/app.js'])")
                     : '',
             )
+            // Desktop mega navigation is rendered as presentation only, rather than
+            // replacing Filament's navigation builder. This keeps route discovery,
+            // permissions, and mobile navigation on Filament's stable native path.
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.desktop-mega-nav'),
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 function () use ($brandName, $primaryColor, $pwaIconsExist): string {

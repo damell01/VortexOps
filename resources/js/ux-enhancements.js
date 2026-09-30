@@ -238,10 +238,12 @@ if (window.matchMedia('(pointer: coarse)').matches) {
 function prefetchCriticalPages() {
     // The dashboard lives at /admin, not /admin/dashboard — the old path
     // prefetched a 404 on every page load.
+    // Keep this intentionally tiny. Prefetching admin pages executes their
+    // server-side Filament/Livewire boot path even when the user never opens
+    // them. Heavy operational/report pages should load only on intent.
     const links = [
         '/admin',
         '/admin/shows',
-        '/admin/streamers',
     ];
 
     links.forEach(href => {

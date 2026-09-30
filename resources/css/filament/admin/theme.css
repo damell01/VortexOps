@@ -508,3 +508,30 @@ body:has(.vx-login-showcase) .vx-login-showcase-inner{
   body:has(.vx-login-showcase) .fi-simple-main-ctn{width:min(100%,540px)!important;min-height:auto!important;margin:0!important;padding:0!important}
   body:has(.vx-login-showcase) .fi-simple-main-ctn>div{width:100%!important;padding:32px 24px!important}
 }
+
+/* Temporary header cleanup: no brand artwork until final logo asset is supplied. */
+@media(min-width:1024px){
+  .fi-topbar .fi-sidebar-open-btn,
+  .fi-topbar .fi-sidebar-close-btn,
+  .fi-topbar .fi-sidebar-collapse-btn,
+  .fi-topbar .fi-sidebar-expand-btn,
+  .fi-topbar .fi-icon-btn[aria-label*="menu" i],
+  .fi-topbar .fi-icon-btn[aria-label*="sidebar" i],
+  .fi-topbar button[aria-label*="menu" i],
+  .fi-topbar button[aria-label*="sidebar" i],
+  .fi-topbar button[title*="menu" i],
+  .fi-topbar button[title*="sidebar" i],
+  .fi-topbar button[x-data*="sidebar"],
+  .fi-topbar button[x-on\:click*="sidebar"],
+  .fi-topbar [class*="sidebar"][class*="toggle"],
+  .fi-topbar [class*="sidebar"][class*="open"],
+  .fi-topbar [class*="sidebar"][class*="close"]{
+    display:none!important;
+  }
+}
+
+/* Login has been restored to Filament's basic auth screen. Neutralize every
+   custom split-login rule without deleting historical CSS in this hotfix. */
+body:not(:has(.vx-login-showcase)) .fi-simple-layout{
+  background:#f6f7fb!important;
+}

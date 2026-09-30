@@ -189,7 +189,9 @@ class WhatnotChannelResource extends Resource
                     ->iconButton()
                     ->tooltip('View channel ledger')
                     ->visible(fn () => \App\Filament\Resources\WhatnotLedgerResource::canAccess())
-                    ->url(fn (WhatnotChannel $record) => \App\Filament\Resources\WhatnotLedgerResource::getUrl('index') . '?tableFilters[whatnot_channel_id][value]=' . $record->id),
+                    ->url(fn (WhatnotChannel $record) => \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', [
+                        'tableFilters' => ['whatnot_channel_id' => ['value' => $record->id]],
+                    ])),
                 ViewAction::make()
                     ->size('sm')
                     ->iconButton(),

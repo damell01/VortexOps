@@ -678,3 +678,38 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .vx-inline-select{min-width:170px;max-width:230px;min-height:40px;border:1px solid var(--vx-border,#d1d5db);border-radius:10px;background:var(--vx-surface,#fff);padding:7px 30px 7px 10px;font-size:11px;font-weight:700;color:inherit}
 .dark .vx-inline-select{background:#111827;border-color:#475569;color:#f8fafc}
 @media(max-width:640px){.vx-inline-fix,.vx-inline-select{width:100%;max-width:none}.vx-inline-fix .vx-btn{width:100%}}
+
+
+/* Desktop channel switcher belongs with the custom top navigation. */
+@media(min-width:1024px){
+  .vx-desktop-mega-nav .vx-mega-channel{margin-left:auto;display:flex;align-items:center;min-width:190px}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher{width:100%;padding:0;border:0;background:transparent}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-label{display:none}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select-wrp{min-height:34px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(255,255,255,.06)}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select{color:#e5e7eb;font-size:12px}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-icon,.vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-chevron{color:#9ca3af}
+  .fi-sidebar .vx-channel-switcher{display:none}
+}
+
+/* Notifications: keep the desktop center deliberately compact even if a stale
+   built asset still carries the old wide-modal rules. These selectors come last
+   and use !important so deployment order cannot restore the 1100px takeover. */
+@media(min-width:641px){
+  .fi-modal-window:has(.fi-database-notifications),
+  .fi-modal-window:has([wire\\:key*="database-notification"]),
+  .fi-modal-window:has([class*="database-notification"]){
+    width:min(440px,calc(100vw - 32px)) !important;
+    max-width:440px !important;
+    height:min(680px,calc(100dvh - 32px)) !important;
+    max-height:calc(100dvh - 32px) !important;
+    margin:16px 16px 16px auto !important;
+    border-radius:14px !important;
+    overflow:hidden !important;
+  }
+  .fi-modal-window:has(.fi-database-notifications) .fi-modal-content,
+  .fi-modal-window:has([wire\\:key*="database-notification"]) .fi-modal-content,
+  .fi-modal-window:has([class*="database-notification"]) .fi-modal-content{
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+  }
+}

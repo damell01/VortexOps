@@ -404,3 +404,107 @@ body:has(.vx-login-showcase) .fi-simple-main-ctn .fi-btn{min-height:54px;border-
  body:has(.vx-login-showcase) .fi-simple-main-ctn{width:min(100%,540px)!important;padding:0!important}
  body:has(.vx-login-showcase) .fi-simple-main-ctn>div{padding:34px 26px!important;border-radius:20px!important}
 }
+
+/* Sep 30 UI polish: prevent dashboard KPI values from escaping their cards. */
+.fi-wi-stats-overview-stats-ctn{
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr))!important;
+}
+.fi-wi-stats-overview-stat{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+.fi-wi-stats-overview-stat-value{
+  min-width:0!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:clamp(1.45rem,1.7vw,2rem)!important;
+  line-height:1.12!important;
+  letter-spacing:-.035em!important;
+}
+.fi-wi-stats-overview-stat-description{
+  overflow-wrap:anywhere;
+}
+
+/* Desktop header: full Vortex Ops wordmark, no Filament drawer/collapse affordance. */
+@media(min-width:1024px){
+  .vx-mega-brand{
+    width:220px!important;
+    flex:0 0 220px!important;
+    height:54px!important;
+    margin-right:8px!important;
+  }
+  .vx-mega-brand img{
+    width:210px!important;
+    height:48px!important;
+    object-fit:contain!important;
+    object-position:left center!important;
+  }
+  .fi-topbar .fi-sidebar-open-btn,
+  .fi-topbar .fi-sidebar-close-btn,
+  .fi-topbar .fi-sidebar-collapse-btn,
+  .fi-topbar .fi-sidebar-expand-btn,
+  .fi-topbar [data-sidebar-toggle],
+  .fi-topbar button[class*="sidebar"]{
+    display:none!important;
+  }
+}
+@media(min-width:1024px) and (max-width:1320px){
+  .vx-mega-brand{width:170px!important;flex-basis:170px!important}
+  .vx-mega-brand img{width:164px!important}
+  .vx-mega-home,.vx-mega-trigger{padding-inline:7px!important;font-size:12px!important}
+}
+
+/* Login layout final pass. The showcase is fixed; the auth card owns the
+   right half explicitly instead of relying on a shrinking flex child. */
+body:has(.vx-login-showcase) .fi-simple-main{
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  max-width:none!important;
+  min-height:100dvh!important;
+  margin:0!important;
+  padding:0!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main-ctn{
+  box-sizing:border-box!important;
+  width:50%!important;
+  max-width:none!important;
+  min-height:100dvh!important;
+  margin:0 0 0 50%!important;
+  padding:clamp(28px,5vw,72px)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  position:relative!important;
+  z-index:3!important;
+  overflow:visible!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main-ctn>div{
+  box-sizing:border-box!important;
+  width:min(100%,560px)!important;
+  max-width:560px!important;
+  margin:0 auto!important;
+  padding:40px 44px 32px!important;
+}
+body:has(.vx-login-showcase) .vx-login-showcase{
+  inset:0 50% 0 0!important;
+  width:50vw!important;
+  z-index:1!important;
+}
+body:has(.vx-login-showcase) .vx-login-showcase-inner{
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:760px!important;
+}
+@media(max-width:1100px) and (min-width:801px){
+  body:has(.vx-login-showcase) .vx-login-showcase{inset:0 52% 0 0!important;width:48vw!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn{width:52%!important;margin-left:48%!important;padding:28px!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn>div{padding:34px 30px 28px!important}
+}
+@media(max-width:800px){
+  body:has(.vx-login-showcase) .fi-simple-main{display:flex!important;align-items:center!important;justify-content:center!important;padding:20px!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn{width:min(100%,540px)!important;min-height:auto!important;margin:0!important;padding:0!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn>div{width:100%!important;padding:32px 24px!important}
+}

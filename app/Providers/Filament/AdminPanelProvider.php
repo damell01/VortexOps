@@ -65,11 +65,8 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
             ->viteTheme('resources/css/filament/admin/theme.css')
-            // Needed so the sidebar can be opened/closed on desktop. Filament
-            // renders this as a chevron next to the drawer hamburger; the
-            // stylesheet hides the duplicate and redraws the remaining control
-            // as a hamburger so there is exactly one, consistent toggle.
-            ->sidebarCollapsibleOnDesktop()
+            // Desktop uses the custom top navigation. Keep Filament's native
+            // sidebar behavior for mobile only; do not render a desktop toggle.
             // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->globalSearchKeyBindings(['mod+k', '/'])

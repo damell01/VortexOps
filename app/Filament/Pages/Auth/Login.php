@@ -9,6 +9,15 @@ use Filament\Schemas\Components\Component;
 
 class Login extends BaseLogin
 {
+    public function getHeading(): string
+    {
+        return 'Welcome back';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Sign in to Vortex Ops to manage shows, inventory, fulfillment, and payroll.';
+    }
     protected function getRememberFormComponent(): Component
     {
         return Checkbox::make('remember')

@@ -86,48 +86,57 @@ class WhatnotLedgerResource extends Resource
                 TextColumn::make('created_date')
                     ->label('Created')
                     ->dateTime('M j, Y g:i A')
-                    ->sortable(),
+                    ->sortable()
+                    ->width('170px'),
 
                 TextColumn::make('amount')
                     ->label('Amount')
                     ->money('USD')
                     ->sortable()
+                    ->width('110px')
                     ->color(fn ($state) => (float) $state < 0 ? 'danger' : 'success')
                     ->summarize(\Filament\Tables\Columns\Summarizers\Sum::make()->money('USD')->label('Net')),
 
                 TextColumn::make('transaction_type')
                     ->label('Type')
                     ->badge()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->width('110px'),
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn ($state) => StatusColor::for($state)),
+                    ->color(fn ($state) => StatusColor::for($state))
+                    ->width('120px'),
 
                 TextColumn::make('whatnot_order_id')
                     ->label('Order ID')
                     ->searchable()
+                    ->width('145px')
                     ->placeholder('—')
                     ->url(fn (WhatnotLedgerEntry $r) => $r->order_hash
                         ? "https://www.whatnot.com/dashboard/orders/{$r->order_hash}" : null, true),
 
                 TextColumn::make('message')
                     ->label('Details')
-                    ->wrap()
-                    ->limit(80)
+                    ->limit(70)
+                    ->tooltip(fn (?string $state): ?string => $state && mb_strlen($state) > 70 ? $state : null)
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->width('360px')
+                    ->extraAttributes(['class' => 'max-w-[360px] whitespace-normal break-words leading-5']),
 
                 TextColumn::make('channel.name')
                     ->label('Channel')
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->width('150px'),
 
                 TextColumn::make('completed_date')
                     ->label('Completed')
                     ->dateTime('M j, Y g:i A')
-                    ->toggleable()
-                    ->sortable(),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->sortable()
+                    ->width('170px'),
             ])
             ->filters([
                 SelectFilter::make('transaction_type')

@@ -1,6 +1,16 @@
 <x-filament-panels::page>
     <div class="space-y-6">
 
+    <div class="mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">People performance</div>
+                <h2 class="text-xl font-bold tracking-tight text-gray-950 dark:text-white">Streamer Performance</h2>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Compare show volume, revenue efficiency, margin and payout activity without leaving the reporting workspace.</p>
+            </div>
+        </div>
+    </div>
+
         {{-- Filters --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">

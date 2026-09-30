@@ -71,6 +71,8 @@ class WhatnotLedgerResource extends Resource
     {
         return $table
             ->striped()
+            ->heading('Transaction ledger')
+            ->description('Review imported Whatnot credits, debits, order references and completion status. Filters apply to the ledger below.')
             ->persistFiltersInSession()
             ->deferLoading()
             ->emptyStateHeading('No Whatnot ledger entries')
@@ -84,6 +86,7 @@ class WhatnotLedgerResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('amount')
+                    ->label('Amount')
                     ->money('USD')
                     ->sortable()
                     ->color(fn ($state) => (float) $state < 0 ? 'danger' : 'success')
@@ -106,6 +109,7 @@ class WhatnotLedgerResource extends Resource
                         ? "https://www.whatnot.com/dashboard/orders/{$r->order_hash}" : null, true),
 
                 TextColumn::make('message')
+                    ->label('Details')
                     ->wrap()
                     ->limit(80)
                     ->searchable()

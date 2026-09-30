@@ -13,6 +13,13 @@
 
     <div class="space-y-5">
 
+        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
+            <div class="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Inventory intelligence</div>
+            <h2 class="mt-3 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Product Insights</h2>
+            <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">See what is moving, what is tying up capital, and which products may need attention.</p>
+        </section>
+
+
         {{-- KPI cards --}}
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">

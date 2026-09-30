@@ -21,6 +21,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Facades\Cache;
 
 class ShowIngestionLogResource extends Resource
 {
@@ -44,9 +45,9 @@ class ShowIngestionLogResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = ShowIngestionLog::whereIn('status', ['failed', 'partial'])
+        $count = Cache::remember('nav_badge:show_ingestion_problem_7d', 60, fn () => ShowIngestionLog::whereIn('status', ['failed', 'partial'])
             ->where('created_at', '>=', now()->subDays(7))
-            ->count();
+            ->count());
 
         return $count > 0 ? (string) $count : null;
     }

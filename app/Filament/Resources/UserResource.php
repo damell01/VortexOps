@@ -12,6 +12,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TagsInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -158,9 +159,6 @@ class UserResource extends Resource
                     // anyone. Enforced again on save below.
                     ->relationship('roles', 'name', modifyQueryUsing: function ($query) {
                         $query->whereNotIn('name', UserResource::UNGRANTABLE_ROLES);
-                        if (! (auth()->user()?->isOwner() ?? false)) {
-                            $query->whereNotIn('name', UserResource::PRIVILEGED_ROLES);
-                        }
                     })
                     ->getOptionLabelFromRecordUsing(fn ($record): string => match ($record->name) {
                         'admin' => 'Admin',
@@ -171,6 +169,17 @@ class UserResource extends Resource
                     })
                     ->preload()
                     ->helperText('Admin — full access. Streamer — scoped to their own inventory locations. Fulfillment — scoped to their assigned shows. Fulfillment Admin — sees every channel\'s fulfillment work.'),
+
+                TagsInput::make('streamer_aliases')
+                    ->label('Streamer Aliases')
+                    ->placeholder('Add Whatnot username or show-name alias')
+                    ->dehydrated(false)
+                    ->visible(function (Get $get): bool {
+                        $roleIds = collect($get('roles') ?? [])->filter();
+                        return $roleIds->isNotEmpty()
+                            && Role::query()->whereIn('id', $roleIds)->where('name', 'streamer')->exists();
+                    })
+                    ->helperText('Add every handle or name this streamer may appear under. These aliases are used to match imported shows automatically.'),
 
                 Select::make('streamer_type')
                     ->label('Streamer Type')

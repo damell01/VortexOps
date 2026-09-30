@@ -43,6 +43,7 @@ class Streamer extends Model
 
     public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll()->logOnlyDirty(); }
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(User::class); }
+    public function aliases(): HasMany { return $this->hasMany(StreamerAlias::class); }
     public function channel(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id'); }
 
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder

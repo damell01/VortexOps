@@ -20,15 +20,8 @@ class CreateUser extends CreateRecord
             }
         }
 
-        // Defense in depth: a non-owner can never create a user with a privileged
-        // role, even via a crafted request that bypasses the restricted options.
-        if (! auth()->user()?->isOwner()) {
-            foreach (UserResource::PRIVILEGED_ROLES as $role) {
-                if ($this->record->hasRole($role)) {
-                    $this->record->removeRole($role);
-                }
-            }
-        }
+        // Admin and Fulfillment Admin are intentionally assignable from Users.
+        // super_admin remains blocked above.
 
         // Users is the single setup flow for operational staff. Streamer and
         // fulfillment roles automatically receive the backing team profile used
@@ -36,6 +29,7 @@ class CreateUser extends CreateRecord
         app(UserTeamProfileService::class)->sync(
             $this->record,
             $this->data['streamer_type'] ?? 'in_house',
+            $this->data['streamer_aliases'] ?? [],
         );
     }
 }

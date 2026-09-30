@@ -163,43 +163,7 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
-                    : Blade::render(<<<'HTML'
-                    @livewire('feedback-widget')
-                    <script>
-                    (function() {
-                        let notificationPanelOpen = false;
-                        const notificationBtn = document.querySelector('[aria-label*="notification"], [aria-label*="Notification"]');
-
-                        if (notificationBtn) {
-                            notificationBtn.addEventListener('click', function(e) {
-                                // Let the click propagate first to open the panel
-                                setTimeout(() => {
-                                    const panel = document.querySelector('[role="dialog"]') ||
-                                                  document.querySelector('.fi-dropdown-panel') ||
-                                                  document.querySelector('[class*="notification"]');
-
-                                    if (panel && panel.offsetParent !== null) {
-                                        notificationPanelOpen = true;
-                                    } else if (notificationPanelOpen) {
-                                        // If panel is closing, toggle the button to close it
-                                        notificationBtn.click();
-                                        notificationPanelOpen = false;
-                                    }
-                                }, 10);
-                            });
-                        }
-
-                        // Alternative: Listen for panel visibility changes
-                        document.addEventListener('click', function(e) {
-                            const notificationPanel = document.querySelector('[class*="notification"]');
-                            if (notificationPanel && !notificationPanel.contains(e.target) &&
-                                e.target !== notificationBtn && !notificationBtn.contains(e.target)) {
-                                notificationPanelOpen = false;
-                            }
-                        });
-                    })();
-                    </script>
-                    HTML),
+                    : Blade::render("@livewire('feedback-widget')"),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

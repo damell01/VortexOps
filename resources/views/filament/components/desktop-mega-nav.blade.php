@@ -33,9 +33,10 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 ];
 @endphp
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
+<a class="vx-mega-brand" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}"><img src="{{ asset('images/vb-logo-sidebar.svg') }}" alt="Vortex Ops"></a>
 <a class="vx-mega-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
 @foreach($groups as $label=>$links)
-<div class="vx-mega-group" x-data="{open:false}" @click.outside="open=false" @keydown.escape.window="open=false">
+<div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
 <button type="button" class="vx-mega-trigger" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>
 <div class="vx-mega-menu-title">{{ $label }}</div>

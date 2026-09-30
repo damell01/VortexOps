@@ -309,3 +309,16 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .vx-mega-home,.vx-mega-trigger{padding:0 8px;font-size:13px}
   .vx-desktop-mega-nav{gap:1px;margin-left:2px}
 }
+/* Mockup alignment: brand first, then hover navigation. */
+@media(min-width:1024px){
+  .fi-topbar nav>.fi-logo{display:none!important}
+  .vx-desktop-mega-nav{order:-10;margin-left:0!important;gap:5px!important}
+  .vx-mega-brand{display:flex;align-items:center;width:235px;height:54px;margin-right:8px;flex:0 0 235px}
+  .vx-mega-brand img{display:block;width:220px;height:48px;object-fit:contain;object-position:left center}
+  .vx-mega-group{padding-block:12px;margin-block:-12px}
+  .vx-mega-menu{top:calc(100% - 1px)!important}
+}
+@media(min-width:1024px) and (max-width:1250px){
+  .vx-mega-brand{width:180px;flex-basis:180px}
+  .vx-mega-brand img{width:172px}
+}

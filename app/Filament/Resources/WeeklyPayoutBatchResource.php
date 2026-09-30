@@ -148,6 +148,9 @@ class WeeklyPayoutBatchResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->extraAttributes(['class' => 'vx-finance-table'])
+            ->heading('Pay Run History')
+            ->description('Completed and in-progress weekly payroll runs, newest first.')
             ->emptyStateHeading('No pay runs')
             ->emptyStateDescription('Weekly pay runs are created when payouts are grouped for payment.')
             ->emptyStateIcon('heroicon-o-queue-list')

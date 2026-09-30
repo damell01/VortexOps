@@ -79,7 +79,6 @@ class Streamer extends Model
     public function loans(): HasMany { return $this->hasMany(StreamerLoan::class); }
     public function streamerLogEntries(): HasMany { return $this->hasMany(StreamerLogEntry::class); }
     public function profitSharePackets(): HasMany { return $this->hasMany(ProfitSharePacket::class); }
-    public function aliases(): HasMany { return $this->hasMany(StreamerAlias::class); }
 
     public function outstandingBalance(): float { return max(0, (float) $this->total_earnings_due - (float) $this->total_earnings_paid); }
     public function effectiveCompensation(): array { return \App\Support\PaymentStructure::resolve($this); }

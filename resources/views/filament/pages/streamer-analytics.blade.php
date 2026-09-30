@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="vx-report-workspace vx-streamer-report space-y-6">
 
     <div class="mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
         <div class="flex flex-wrap items-end justify-between gap-4">
@@ -13,7 +13,7 @@
 
         {{-- Filters --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="vx-report-filter-grid grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date From</label>
                     <input

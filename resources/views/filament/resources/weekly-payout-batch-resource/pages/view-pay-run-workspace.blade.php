@@ -5,6 +5,10 @@
     $payouts = $run->payouts;
     $problems = $run->status === 'draft' ? app(\App\Services\PayRunReadinessService::class)->problems($run) : [];
     $byPerson = $payouts->groupBy('streamer_id');
+    $peopleSearch = trim($this->peopleSearch);
+    if ($peopleSearch !== '') {
+        $byPerson = $byPerson->filter(fn($rows) => str_contains(strtolower((string)($rows->first()?->streamer?->name ?? '')), strtolower($peopleSearch)));
+    }
     $peopleTotal = $byPerson->count();
     $peopleLastPage = max(1, (int) ceil($peopleTotal / $this::PEOPLE_PER_PAGE));
     $peoplePage = min(max(1, $this->peoplePage), $peopleLastPage);
@@ -34,7 +38,7 @@
                 <h1 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j, Y') }}</h1>
                 <div class="mt-2 flex flex-wrap gap-2"><span class="vx-status vx-status--draft {{ $run->status==='paid'?'ready':($run->status==='draft'&&count($problems)?'warn':'run') }}">{{ $statusLabel }}</span><span class="vx-status vx-status--draft">{{ $byPerson->count() }} people</span><span class="vx-status vx-status--draft">{{ $showCount }} shows</span><span class="vx-status vx-status--draft">{{ $payouts->count() }} payout entries</span></div>
             </div>
-            <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold">← Payroll Command Center</a>
+            <div class="flex flex-wrap gap-2"><a href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold">← Payroll Center</a><a href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold">Pay Run History</a></div>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Total Payroll</label><strong>${{ number_format((float)$run->total_payout,2) }}</strong></div>
@@ -71,7 +75,7 @@
 
     <div class="vx-grid">
         <section class="vx-card p-5">
-            <div class="flex items-start justify-between gap-3"><div><h3>People in This Pay Run</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">Person total first. Expand only when you need the lines that built it.</div></div><span class="vx-status vx-status--draft">{{ $byPerson->count() }} people</span></div>
+            <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><h3>People in This Pay Run</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">Review totals first. Expand a person only when you need the payout lines behind the total.</div></div><div class="flex items-center gap-2"><input type="search" wire:model.live.debounce.300ms="peopleSearch" placeholder="Search people..." class="min-h-10 w-full rounded-[10px] border border-[var(--vx-border)] bg-transparent px-3 text-xs md:w-52"><span class="vx-status vx-status--draft whitespace-nowrap">{{ $peopleTotal }} people</span></div></div>
             @forelse($visiblePeople as $streamerId=>$rows)
                 @php $person=$rows->first()->streamer; $personTotal=(float)$rows->sum('calculated_payout'); $hours=(float)$rows->sum('hours_worked'); $labels=(int)$rows->sum('label_count'); $pwe=(int)$rows->sum('pwe_count'); @endphp
                 <details class="vx-person">
@@ -87,7 +91,7 @@
                         @foreach($rows as $payout)<div class="vx-payrow"><div><div class="vx-value truncate">{{ $payout->show?->title ?? 'General payroll line' }}</div><div class="vx-meta">{{ \App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? '')) }}</div></div><div class="vx-num"><span class="vx-meta">Hours</span><br>{{ number_format((float)$payout->hours_worked,2) }}</div><div class="vx-num"><span class="vx-meta">Shipments</span><br>{{ number_format((int)$payout->shipments_count) }}</div><div class="vx-num"><span class="vx-meta">Labels</span><br>{{ number_format((int)$payout->label_count) }}</div><div class="vx-num"><span class="vx-meta">PWE</span><br>{{ number_format((int)$payout->pwe_count) }}</div><div class="vx-num"><strong>${{ number_format((float)$payout->calculated_payout,2) }}</strong></div></div>@endforeach
                     </div>
                 </details>
-            @empty<div class="py-10 text-center text-sm text-gray-500">No payout entries are attached to this run yet.</div>@endforelse
+            @empty<div class="py-10 text-center text-sm text-gray-500">{{ $peopleSearch !== '' ? 'No people match your search.' : 'No payout entries are attached to this run yet.' }}</div>@endforelse
             @if($peopleLastPage > 1)
                 <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-800">
                     <button type="button" wire:click="previousPeoplePage" @disabled($peoplePage <= 1) class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40">← Previous</button>

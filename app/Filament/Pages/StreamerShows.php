@@ -64,7 +64,23 @@ class StreamerShows extends Page
             return null;
         }
 
-        $count = count((new static())->groups()['needs_you']);
+        $streamerId = auth()->user()?->streamer?->id;
+        if (! $streamerId) return null;
+
+        // Navigation badges are evaluated while building navigation on every
+        // request. Do not hydrate up to 60 shows + relations just to display a
+        // number in the sidebar.
+        $count = Show::query()
+            ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId))
+            ->where('status', '!=', 'cancelled')
+            ->whereDate('show_date', '<=', today())
+            ->where(function ($q) {
+                $q->whereDoesntHave('streamerLogEntry')
+                    ->orWhereHas('streamerLogEntry', fn ($entry) => $entry
+                        ->whereNull('submitted_at')
+                        ->orWhere('status', 'changes_requested'));
+            })
+            ->count();
 
         return $count > 0 ? (string) $count : null;
     }

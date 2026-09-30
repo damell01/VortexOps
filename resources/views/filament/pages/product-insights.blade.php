@@ -11,7 +11,7 @@
         ];
     @endphp
 
-    <div class="space-y-5">
+    <div class="vx-report-workspace vx-product-report space-y-5">
 
         <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
             <div class="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Inventory intelligence</div>
@@ -21,7 +21,7 @@
 
 
         {{-- KPI cards --}}
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="vx-report-kpi-grid grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Inventory Value</p>
                 <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($kpis['inventory_value'], 0) }}</p>
@@ -101,7 +101,7 @@
         @endif
 
         {{-- Metrics table --}}
-        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">
+        <div class="vx-report-data-card overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">
             <table class="w-full text-sm whitespace-nowrap">
                 <thead class="bg-gray-50 dark:bg-white/5 text-xs uppercase text-gray-500 dark:text-gray-400">
                     <tr>

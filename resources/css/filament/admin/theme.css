@@ -280,3 +280,85 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .fi-simple-layout:has(.vx-login-showcase) .fi-simple-main{width:min(100%,500px);padding:34px 26px;border-radius:20px}
   .vx-login-card-brand img{width:205px}.vx-login-heading h1{font-size:28px}
 }
+
+/* Reports workspace — shared visual system for prebuilt analytics. */
+.vx-report-workspace{
+  --vx-report-radius:16px;
+  --vx-report-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px rgba(15,23,42,.035);
+  max-width:1600px;
+  margin-inline:auto;
+}
+.vx-report-workspace>section:first-child{
+  position:relative;
+  padding:24px 26px!important;
+  border:1px solid #ddd6fe!important;
+  border-radius:18px!important;
+  background:linear-gradient(115deg,#fff 0%,#faf8ff 58%,#f3efff 100%)!important;
+  box-shadow:var(--vx-report-shadow);
+}
+.vx-report-workspace>section:first-child:after{
+  content:"";position:absolute;right:-40px;top:-70px;width:220px;height:220px;border-radius:999px;
+  background:radial-gradient(circle,rgba(124,58,237,.12),transparent 68%);pointer-events:none;
+}
+.dark .vx-report-workspace>section:first-child{border-color:rgba(139,92,246,.22)!important;background:linear-gradient(115deg,#111827,#17152a)!important}
+.vx-report-launcher-grid>a{
+  min-height:142px;padding:18px!important;border-radius:14px!important;background:#fff;
+  box-shadow:0 1px 2px rgba(15,23,42,.03);display:flex;flex-direction:column;
+}
+.vx-report-launcher-grid>a>div:last-child{margin-top:auto}
+.dark .vx-report-launcher-grid>a{background:#111827}
+.vx-report-workspace table{font-variant-numeric:tabular-nums}
+.vx-report-workspace thead{position:sticky;top:0;z-index:2}
+.vx-report-workspace tbody tr{transition:background-color .15s ease}
+.vx-report-workspace tbody tr:hover{background:rgba(124,58,237,.035)}
+.dark .vx-report-workspace tbody tr:hover{background:rgba(139,92,246,.07)}
+.vx-report-workspace th{white-space:nowrap}
+.vx-report-workspace .vx-report-data-card{background:#fff;box-shadow:var(--vx-report-shadow)}
+.dark .vx-report-workspace .vx-report-data-card{background:#111827}
+.vx-report-filter-grid{
+  align-items:end;
+}
+.vx-streamer-report>div.rounded-xl,
+.vx-product-report>div.rounded-xl{
+  box-shadow:var(--vx-report-shadow);
+}
+.vx-streamer-report .grid.grid-cols-2.sm\\:grid-cols-4>div,
+.vx-report-kpi-grid>div{
+  min-height:116px;border-radius:14px!important;box-shadow:0 1px 2px rgba(15,23,42,.035);
+}
+.vx-streamer-report .grid.grid-cols-2.sm\\:grid-cols-4>div p:nth-child(2),
+.vx-report-kpi-grid>div p:nth-child(2){letter-spacing:-.035em}
+.vx-product-report .vx-report-data-card table tbody td:first-child{min-width:220px}
+.vx-product-report .vx-report-data-card{max-height:68vh}
+.vx-product-report .vx-report-data-card thead{top:0}
+.vx-report-workspace button,.vx-report-workspace a{transition:all .15s ease}
+.vx-report-workspace button:focus-visible,.vx-report-workspace a:focus-visible{outline:2px solid #8b5cf6;outline-offset:2px}
+
+/* Inventory report: flatten the old builder feel into a compact analytics workspace. */
+.vx-report{max-width:1600px;margin-inline:auto}
+.vx-report .vx-report-head{
+  padding:4px 2px 8px;
+}
+.vx-report .vx-report-head h2{font-size:1.65rem;letter-spacing:-.035em}
+.vx-report .vx-quick-reports{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.vx-report .vx-quick{min-height:84px;border-radius:13px}
+.vx-report .vx-dashboard-layout{gap:14px}
+.vx-report .vx-builder-panel{border-radius:14px}
+.vx-report .vx-report-sheet{border:1px solid var(--vx-border);border-radius:15px;overflow:hidden;background:var(--vx-surface);box-shadow:0 1px 2px rgba(15,23,42,.035)}
+.vx-report .vx-sheet-toolbar{padding:10px 12px;background:#fff}
+.dark .vx-report .vx-sheet-toolbar{background:#111827}
+.vx-report .vx-table tbody tr:hover{background:rgba(124,58,237,.035)}
+.vx-report .vx-table th{position:sticky;top:0;z-index:2}
+@media(max-width:1100px){
+  .vx-report .vx-quick-reports{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .vx-report-launcher-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:700px){
+  .vx-report-workspace>section:first-child{padding:18px!important}
+  .vx-report-launcher-grid{grid-template-columns:1fr!important}
+  .vx-report-workspace .grid.grid-cols-2{gap:10px}
+  .vx-report-workspace .overflow-x-auto{border-radius:13px}
+  .vx-report .vx-quick-reports{grid-template-columns:1fr 1fr}
+  .vx-report .vx-quick{min-height:76px;padding:10px}
+  .vx-report .vx-report-head h2{font-size:1.35rem}
+}

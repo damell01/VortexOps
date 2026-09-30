@@ -26,10 +26,10 @@ use App\Support\NavVisibility;
 
 class InventoryScanner extends Page
 {
-    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
+    /** Primary inventory action for admins/owners. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return static::canAccess();
     }
 
     use HasModuleAccess, WithFileUploads;

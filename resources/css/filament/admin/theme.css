@@ -101,3 +101,52 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
 .vx-channel-switcher-icon,.vx-channel-switcher-chevron { position:absolute; top:50%; z-index:1; width:16px; height:16px; transform:translateY(-50%); pointer-events:none; color:var(--vx-sidebar-muted); }
 .vx-channel-switcher-icon { left:10px; }
 .vx-channel-switcher-chevron { right:10px; }
+
+
+/* Auth: compact, intentional sign-in card instead of the default oversized simple page. */
+.fi-simple-layout {
+  background:var(--vx-page);
+}
+.fi-simple-main {
+  width:min(100% - 32px, 440px);
+  margin-inline:auto;
+}
+.fi-simple-main-ctn {
+  min-height:100dvh;
+  padding:clamp(32px,8vh,88px) 0;
+  align-items:center;
+}
+.fi-simple-header {
+  margin-bottom:22px;
+}
+.fi-simple-header-heading {
+  font-size:28px;
+  font-weight:700;
+  letter-spacing:-.025em;
+}
+.fi-simple-header-subheading {
+  max-width:360px;
+  margin:8px auto 0;
+  color:var(--vx-muted);
+  line-height:1.5;
+}
+.fi-simple-main .fi-form {
+  gap:18px;
+}
+.fi-simple-main .fi-section,
+.fi-simple-main form {
+  border-radius:18px;
+}
+.fi-simple-main .fi-btn {
+  min-height:48px;
+  border-radius:12px;
+}
+.fi-simple-main .fi-input-wrp {
+  min-height:48px;
+  border-radius:12px;
+}
+@media(max-width:640px){
+  .fi-simple-main{width:min(100% - 28px,440px)}
+  .fi-simple-main-ctn{padding:28px 0 48px}
+  .fi-simple-header-heading{font-size:25px}
+}

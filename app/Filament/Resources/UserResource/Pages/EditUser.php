@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
+use App\Services\UserTeamProfileService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -12,6 +13,12 @@ class EditUser extends EditRecord
 
     /** @var array<int,string> privileged roles the target held before this edit */
     private array $privilegedBefore = [];
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $data['streamer_type'] = $this->record->streamer?->streamer_type ?? 'in_house';
+        return $data;
+    }
 
     protected function beforeSave(): void
     {
@@ -43,6 +50,10 @@ class EditUser extends EditRecord
         // so an admin can neither escalate an account nor demote a super admin,
         // even via a crafted request.
         if (auth()->user()?->isOwner()) {
+            app(UserTeamProfileService::class)->sync(
+                $this->record,
+                $this->data['streamer_type'] ?? $this->record->streamer?->streamer_type ?? 'in_house',
+            );
             return;
         }
 
@@ -57,6 +68,11 @@ class EditUser extends EditRecord
         foreach (array_diff($this->privilegedBefore, $current) as $illegitimatelyRemoved) {
             $this->record->assignRole($illegitimatelyRemoved);
         }
+
+        app(UserTeamProfileService::class)->sync(
+            $this->record,
+            $this->data['streamer_type'] ?? $this->record->streamer?->streamer_type ?? 'in_house',
+        );
     }
 
     protected function getHeaderActions(): array

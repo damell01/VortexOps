@@ -110,6 +110,15 @@ final class NavLayout
             'Reports', 'InventoryReport' => ['group' => 'Reports', 'sort' => 10, 'label' => 'Reports'],
             'StreamerAnalytics', 'InventoryAnalytics', 'ProductInsights', 'ShowFormatComparison' => ['group' => 'Reports', 'sort' => 20, 'label' => 'Analytics'],
 
+            // Secondary tools stay directly accessible from their workflow
+            // hubs/settings, but do not occupy primary sidebar space.
+            'Handbook', 'QuickAddStock', 'TwoFactorAuth', 'ShippingSurchargeResource',
+            'StreamerLoanResource', 'Timekeeping', 'FeedbackTicketResource',
+            'EndOfStreamForm', 'StreamerLogResource', 'ShowDataAudit',
+            'InventoryMovementResource', 'InventoryStockResource', 'InventoryLocationResource',
+            'VendorResource', 'InventoryReconciliation', 'InventoryAge', 'InventoryGuide',
+            'DuplicateProductDetector', 'ImportInventorySheet' => ['hidden' => true],
+
             // Administration
             'UserResource' => ['group' => 'Settings', 'sort' => 10, 'label' => 'Users'],
             'RoleResource' => ['group' => 'Settings', 'sort' => 20, 'label' => 'Roles & Permissions'],
@@ -138,6 +147,10 @@ final class NavLayout
         }
 
         foreach ($navigationItems as $item) {
+            if (($override['hidden'] ?? false) === true && method_exists($item, 'visible')) {
+                $item->visible(false);
+                continue;
+            }
             if (method_exists($item, 'group')) {
                 $item->group($override['group'] ?? null);
             }

@@ -132,12 +132,10 @@ class InventoryOverview extends Page
     }
 
     /**
-     * Receiving historically wrote one `opening` movement per case. That is
-     * useful as raw audit evidence but terrible dashboard UX: receiving 200
-     * single units became 200 separate +1 rows. Collapse only movements that
-     * explicitly came from the same pallet/line, item, location and minute.
-     * Every unrelated adjustment, sale, return or manual opening remains its
-     * own row.
+     * Inventory additions can be written as one movement per unit/case.
+     * Preserve those raw rows for audit, but collapse additions that share the
+     * same item, location, reason and minute into one business action. Thus a
+     * +30 receipt/addition is shown as +30 rather than thirty +1 rows.
      */
     private function collapsePalletReceiptMovements(Collection $movements): Collection
     {
@@ -145,10 +143,10 @@ class InventoryOverview extends Page
         $groups = [];
 
         foreach ($movements as $movement) {
-            $isPalletReceipt = $movement->movement_type === 'opening'
-                && str_starts_with((string) $movement->reason, 'Received via pallet #');
+            $isBatchAddition = in_array($movement->movement_type, ['opening', 'return'], true)
+                && (float) $movement->quantity > 0;
 
-            if (! $isPalletReceipt) {
+            if (! $isBatchAddition) {
                 $output->push($movement);
                 continue;
             }

@@ -47,7 +47,7 @@
         </div>
 
         {{-- View filter chips --}}
-        <div class="sticky top-[64px] z-20 flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
+        <div class="flex flex-wrap items-center gap-2">
             @foreach ($views as $key => $label)
                 <button type="button" wire:click="setView('{{ $key }}')"
                     @class([
@@ -99,17 +99,6 @@
                 {{ $narrative }}
             </div>
         @endif
-
-        @php
-            $topProducts = $rows->sortByDesc('revenue')->take(6);
-            $maxProductRevenue = max(1, (float) $topProducts->max('revenue'));
-            $reorderCount = $rows->where('needs_reorder', true)->count();
-            $deadCount = $rows->where('is_dead', true)->count();
-        @endphp
-        <div class="grid gap-4 lg:grid-cols-5">
-            <div class="lg:col-span-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900"><div class="mb-4"><h3 class="text-sm font-bold text-gray-900 dark:text-white">Top products by revenue</h3><p class="text-xs text-gray-400">Products contributing the most revenue in the current view.</p></div><div class="space-y-3">@forelse($topProducts as $r)<div><div class="mb-1 flex justify-between gap-3 text-xs"><span class="truncate font-semibold text-gray-700 dark:text-gray-300">{{ $r['name'] }}</span><span class="shrink-0 font-bold tabular-nums">${{ number_format($r['revenue'],0) }}</span></div><div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-2 rounded-full bg-violet-500" style="width:{{ round(($r['revenue']/$maxProductRevenue)*100,1) }}%"></div></div></div>@empty<div class="py-10 text-center text-sm text-gray-400">No product revenue in this view.</div>@endforelse</div></div>
-            <div class="lg:col-span-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-1"><div class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10"><div class="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Reorder attention</div><div class="mt-2 text-2xl font-bold">{{ number_format($reorderCount) }}</div><div class="text-xs text-amber-700/70 dark:text-amber-300/70">products in this view may need replenishment</div></div><div class="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-500/20 dark:bg-rose-500/10"><div class="text-xs font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300">Dead stock</div><div class="mt-2 text-2xl font-bold">{{ number_format($deadCount) }}</div><div class="text-xs text-rose-700/70 dark:text-rose-300/70">products in the current result set</div></div></div>
-        </div>
 
         {{-- Metrics table --}}
         <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">

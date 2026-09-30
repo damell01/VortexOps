@@ -646,3 +646,24 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .vx-kpi-value{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(1.25rem,1.7vw,1.55rem)!important}
 @media(max-width:1300px){.vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:700px){.vx-kpis{grid-template-columns:1fr!important}}
+
+/* Detailed mockup pass: card-first Shows and report density. */
+.vx-shows-redesign>section{box-shadow:0 1px 2px rgba(15,23,42,.03)}
+.vx-shows-redesign table th{font-size:10px;letter-spacing:.04em}
+.vx-shows-redesign table td{padding-top:11px!important;padding-bottom:11px!important}
+.vx-shows-redesign select,.vx-shows-redesign input{min-height:40px!important;border-radius:9px!important}
+.vx-shows-redesign .grid.grid-cols-2>div{overflow:hidden}
+.vx-pay .vx-card{border-radius:14px!important}
+.vx-pay .vx-pad{padding:16px!important}
+.vx-pay .vx-grid{gap:12px!important}
+.vx-pay .vx-show{padding:12px 14px!important}
+.vx-pay .vx-money{margin-top:8px!important}
+.vx-pay .vx-next{margin-top:8px!important}
+.vx-report-sheet,.vx-r-card{border-radius:12px!important}
+.vx-report-grid{gap:10px!important}
+.vx-report-grid>.vx-r-card{padding:14px!important}
+@media(min-width:1400px){
+ .vx-shows-redesign{max-width:1540px;margin-inline:auto}
+ .vx-pay{max-width:1540px!important}
+ .vx-report{max-width:1540px;margin-inline:auto}
+}

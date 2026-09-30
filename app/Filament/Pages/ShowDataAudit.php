@@ -50,7 +50,7 @@ class ShowDataAudit extends Page
     }
 
     public static function canAccess(): bool { return auth()->user()?->isAdmin() ?? false; }
-    public static function shouldRegisterNavigation(): bool { return false; }
+    public static function shouldRegisterNavigation(): bool { return auth()->user()?->isAdmin() ?? false; }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-chart-bar-square'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Super Admin'; }
     public static function getNavigationSort(): ?int { return 21; }

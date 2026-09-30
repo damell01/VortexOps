@@ -13,8 +13,6 @@ use Laravel\Fortify\Actions\GenerateNewRecoveryCodes;
 
 class TwoFactorAuth extends Page
 {
-    public static function shouldRegisterNavigation(): bool { return false; }
-
     protected static ?string $title          = 'Two-Factor Authentication';
     protected static ?string $slug           = 'two-factor';
     protected static ?int    $navigationSort = 90;

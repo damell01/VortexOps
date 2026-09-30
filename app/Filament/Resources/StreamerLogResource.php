@@ -96,7 +96,7 @@ class StreamerLogResource extends Resource
     /** Secondary Shows workspace screen; permissions and direct access remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()) ?? false;
     }
 
     /**

@@ -15,8 +15,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Timekeeping extends Page
 {
-    public static function shouldRegisterNavigation(): bool { return false; }
-
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'timekeeping';

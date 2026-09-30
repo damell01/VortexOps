@@ -32,7 +32,7 @@ class Shows extends Page
     #[Url(as:'range')] public string $datePreset='this_month';
     #[Url(as:'from')] public string $dateFrom='';
     #[Url(as:'to')] public string $dateTo='';
-    #[Url(as:'view')] public string $viewMode='list';
+    #[Url(as:'view')] public string $viewMode='calendar';
     #[Url(as:'page')] public int $showPage=1;
 
     public function mount(): void { if($this->dateFrom===''||$this->dateTo==='') $this->applyDatePreset($this->datePreset); }

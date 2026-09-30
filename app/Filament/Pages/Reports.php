@@ -57,8 +57,8 @@ class Reports extends Page
 
     public function financeLedgerUrl(): ?string
     {
-        return \App\Filament\Resources\LedgerResource::canAccess()
-            ? \App\Filament\Resources\LedgerResource::getUrl('index')
+        return \App\Filament\Resources\WhatnotLedgerResource::canAccess()
+            ? \App\Filament\Resources\WhatnotLedgerResource::getUrl('index')
             : null;
     }
 

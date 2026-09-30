@@ -329,3 +329,16 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .fi-topbar [class*="sidebar-close"]{display:none!important}
   .vx-mega-brand{order:-20!important}
 }
+/* Header cleanup from Sep 30 mockup review. */
+@media(min-width:1024px){
+  /* Hide every Filament desktop sidebar toggle variant; mobile remains native. */
+  .fi-topbar-open-sidebar-btn,.fi-topbar-close-sidebar-btn,
+  .fi-topbar .fi-icon-btn[x-on*="sidebar"],
+  .fi-topbar button[x-on*="sidebar"],
+  .fi-topbar button[aria-label*="sidebar" i],
+  .fi-topbar button[aria-label*="navigation" i]{display:none!important}
+  /* The custom nav owns branding; suppress any native Filament brand duplicate. */
+  .fi-topbar .fi-logo,.fi-topbar a.fi-logo{display:none!important}
+  .vx-mega-brand{width:72px!important;flex-basis:72px!important;margin-right:10px!important;justify-content:flex-start}
+  .vx-mega-brand img{width:58px!important;height:58px!important;object-fit:contain!important;object-position:left center!important}
+}

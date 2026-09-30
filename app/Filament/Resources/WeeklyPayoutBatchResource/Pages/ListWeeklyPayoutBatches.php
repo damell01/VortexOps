@@ -12,7 +12,7 @@ class ListWeeklyPayoutBatches extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Weekly pay runs group each streamer\'s payouts. Preview before finalizing, then export for payment.';
+        return 'Payroll history by week — review totals and status, then open a pay run for payout-level detail.';
     }
 
     protected function getHeaderActions(): array

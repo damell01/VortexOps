@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -182,6 +183,13 @@ class WhatnotChannelResource extends Resource
                     ->options(WhatnotChannel::statusLabels()),
             ])
             ->actions([
+                Action::make('ledger')
+                    ->label('Ledger')
+                    ->icon('heroicon-o-document-currency-dollar')
+                    ->iconButton()
+                    ->tooltip('View channel ledger')
+                    ->visible(fn () => \App\Filament\Resources\WhatnotLedgerResource::canAccess())
+                    ->url(fn (WhatnotChannel $record) => \App\Filament\Resources\WhatnotLedgerResource::getUrl('index') . '?tableFilters[whatnot_channel_id][value]=' . $record->id),
                 ViewAction::make()
                     ->size('sm')
                     ->iconButton(),

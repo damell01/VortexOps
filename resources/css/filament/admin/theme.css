@@ -280,3 +280,24 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .fi-simple-layout:has(.vx-login-showcase) .fi-simple-main{width:min(100%,500px);padding:34px 26px;border-radius:20px}
   .vx-login-card-brand img{width:205px}.vx-login-heading h1{font-size:28px}
 }
+
+/* Consolidated desktop top navigation */
+@media(min-width:1024px){
+  .fi-topbar{height:76px;background:#090d22;border:0;color:#fff;box-shadow:0 8px 24px rgba(15,23,42,.12)}
+  .fi-topbar nav{height:76px;max-width:none;padding-inline:24px}
+  .fi-topbar .fi-logo{filter:brightness(0) invert(1)}
+  .fi-topbar .fi-topbar-item>a,
+  .fi-topbar .fi-topbar-item>button{min-height:42px;border-radius:10px;padding:0 13px;color:#eef2ff;font-size:14px;font-weight:650}
+  .fi-topbar .fi-topbar-item>a:hover,
+  .fi-topbar .fi-topbar-item>button:hover{background:rgba(124,58,237,.18);color:#fff}
+  .fi-topbar .fi-topbar-item.fi-active>a,
+  .fi-topbar .fi-topbar-item.fi-active>button{background:linear-gradient(135deg,#5b21b6,#6d28d9);color:#fff;box-shadow:0 7px 18px rgba(91,33,182,.28)}
+  .fi-topbar .fi-dropdown-panel{min-width:250px;padding:8px;border:1px solid #e6e7ef;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.18)}
+  .dark .fi-topbar .fi-dropdown-panel{border-color:#2f354c;background:#12182c}
+  .fi-topbar .fi-dropdown-list-item{border-radius:9px}
+  .fi-topbar .fi-dropdown-list-item a,
+  .fi-topbar .fi-dropdown-list-item button{min-height:42px;border-radius:9px;font-size:13px}
+  .fi-topbar .fi-global-search-field{border-radius:999px;background:rgba(255,255,255,.07);color:#fff}
+  .fi-main{padding-top:0}
+  .fi-page-content{padding-top:28px}
+}

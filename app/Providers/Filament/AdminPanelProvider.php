@@ -325,35 +325,47 @@ class AdminPanelProvider extends PanelProvider
                     </script>
                     HTML : '',
             )
-            // ── Login page: soft gradient background + light glassmorphic card ───
-            // Everything lives inside AUTH_LOGIN_FORM_BEFORE/AFTER — the only hooks
-            // confirmed to actually render on this page — rather than
-            // SIMPLE_LAYOUT_START/END, which don't fire reliably here.
-            // ── Login page: gradient banner + heading inside the card ────────────
+            // Login: render one self-contained shell. Filament's native simple
+            // header is hidden by the auth CSS so there is no duplicate welcome.
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
-                <div class="vx-login-hero">
-                    <div class="vx-wave-banner">
-                        <div class="vx-wave-banner-inner">
-                            <svg viewBox="0 0 100 100" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                                <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
-                                <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#fff" stroke-width="6" stroke-linejoin="round" fill="none"/>
-                                <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#fff" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
-                                <path d="M 23,15 L 77,15" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
-                                <path d="M 30,24 L 70,24" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
-                            </svg>
-                            <div class="vx-wave-banner-word">VORTEX<span>Operations Platform</span></div>
+                <div class="vx-login-showcase" aria-hidden="true">
+                    <div class="vx-login-showcase-inner">
+                        <div class="vx-login-brand">
+                            <img src="/images/vb-logo-sidebar.svg" alt="">
+                        </div>
+                        <div class="vx-login-eyebrow">STREAMS <span>•</span> INVENTORY <span>•</span> FULFILLMENT <span>•</span> PAYROLL</div>
+                        <h2>Manage Your<br><strong>Whatnot Operations</strong></h2>
+                        <p>Track shows, manage inventory, handle fulfillment, and streamline payroll — all in one place.</p>
+                        <div class="vx-login-features">
+                            <div><b>▣</b><span><strong>Show Management</strong><small>Track and analyze your live shows</small></span></div>
+                            <div><b>◇</b><span><strong>Inventory Control</strong><small>Keep your stock synced and updated</small></span></div>
+                            <div><b>▰</b><span><strong>Fulfillment</strong><small>Manage orders and shipments</small></span></div>
+                            <div><b>▥</b><span><strong>Reports & Analytics</strong><small>Get insights and grow your business</small></span></div>
+                        </div>
+                        <div class="vx-login-preview">
+                            <div class="vx-preview-bar"><span>VORTEX <em>OPS</em></span><i></i></div>
+                            <div class="vx-preview-title">Performance Overview</div>
+                            <div class="vx-preview-cards">
+                                <div><small>Total Sales</small><strong>$447,693</strong><span>↗ 12%</span></div>
+                                <div><small>Orders</small><strong>17,130</strong><span>↗ 8%</span></div>
+                                <div><small>Avg Order Value</small><strong>$26.14</strong><span>↗ 5%</span></div>
+                            </div>
                         </div>
                     </div>
+                </div>
+                <div class="vx-login-hero">
+                    <div class="vx-login-card-brand">
+                        <img src="/images/vb-logo-sidebar.svg" alt="Vortex Ops">
+                    </div>
                     <div class="vx-login-heading">
-                        <h1>Welcome Back!</h1>
-                        <p>Sign in to manage your operations hub.</p>
+                        <h1>Welcome back</h1>
+                        <p>Sign in to your account to manage shows, inventory, fulfillment, and payroll.</p>
                     </div>
                 </div>
                 HTML,
             )
-            // ── Login page: footer credit inside the card, below the form ────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
                 fn (): string => <<<'HTML'

@@ -364,6 +364,31 @@ class Reports extends Page
         });
     }
 
+    // ── Show performance snapshots ───────────────────────────────────────────
+
+    public function getTopShowsProperty(): array
+    {
+        return Cache::remember($this->cacheKey('top_shows'), 60, function () {
+            return Show::query()
+                ->with(['whatnotChannel:id,name', 'streamers:id,name'])
+                ->whereBetween('show_date', [$this->periodStart(), $this->periodEnd()])
+                ->whereNotIn('status', ['cancelled'])
+                ->inChannelContext()
+                ->orderByDesc('gross_revenue')
+                ->limit(6)
+                ->get(['id','title','show_date','gross_revenue','whatnot_net','units_sold','whatnot_channel_id'])
+                ->map(fn (Show $show) => [
+                    'title' => $show->title,
+                    'date' => $show->show_date?->format('M j'),
+                    'channel' => $show->whatnotChannel?->name,
+                    'streamers' => $show->streamers->pluck('name')->join(', '),
+                    'gross' => (float) $show->gross_revenue,
+                    'net' => (float) $show->whatnot_net,
+                    'units' => (int) $show->units_sold,
+                ])->all();
+        });
+    }
+
     // ── Payout summary by status ──────────────────────────────────────────────
 
     public function getPayoutStatusSummaryProperty(): array

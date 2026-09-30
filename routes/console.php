@@ -77,24 +77,24 @@ $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 // If the browser/pipeline is busy it skips cleanly and the next cadence catches up.
 // Operational priority: show discovery + analytics freshness. Shipment scraping
 // is intentionally paused so browser time goes to yesterday/today show data.
-Schedule::command('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --analytics-only --analytics-limit=12 --max-runtime=900 --skip-if-busy')
+Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --analytics-only --analytics-limit=8 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('15 */2 * * *')
+    ->cron('15 */3 * * *')
     ->name('whatnot-recent-analytics-refresh')
     ->withoutOverlapping(120);
 
 // Discovery pass keeps newly ended shows/UUIDs current without spending runtime
 // on orders or shipments. Analytics refresh above then fills their show metrics.
-Schedule::command('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --show-limit=10 --order-batch=0 --analytics-limit=10 --shipment-batch=0 --max-runtime=900 --skip-if-busy')
+Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --show-limit=8 --without-orders --analytics-limit=6 --shipment-batch=1 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('45 */4 * * *')
+    ->cron('45 */6 * * *')
     ->name('whatnot-recent-show-discovery')
     ->withoutOverlapping(180);
 
 // Nightly historical analytics completeness pass. Shipments stay paused.
-Schedule::command('nice -n 15 php artisan whatnot:sync-reporting --since=2026-07-01 --analytics-only --analytics-limit=40 --max-runtime=3600 --skip-if-busy')
+Schedule::exec('nice -n 15 php artisan whatnot:sync-reporting --since=2026-07-01 --analytics-only --analytics-limit=20 --max-runtime=1800 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->dailyAt('01:30')

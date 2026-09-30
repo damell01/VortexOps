@@ -234,29 +234,10 @@ if (window.matchMedia('(pointer: coarse)').matches) {
     });
 }
 
-// ── Prefetch critical pages ────────────────────────────────────────
-function prefetchCriticalPages() {
-    // The dashboard lives at /admin, not /admin/dashboard — the old path
-    // prefetched a 404 on every page load.
-    const links = [
-        '/admin',
-        '/admin/shows',
-        '/admin/streamers',
-    ];
-
-    links.forEach(href => {
-        const link = document.createElement('link');
-        link.rel = 'prefetch';
-        link.href = href;
-        document.head.appendChild(link);
-    });
-}
-
-if ('requestIdleCallback' in window) {
-    requestIdleCallback(prefetchCriticalPages);
-} else {
-    setTimeout(prefetchCriticalPages, 2000);
-}
+// ── Navigation prefetch ─────────────────────────────────────────────
+// Do not issue speculative authenticated page requests from every screen.
+// Livewire navigation already keeps transitions fast; prefetching heavy admin
+// pages consumed PHP-FPM/MySQL capacity even when the user never opened them.
 
 // ── Export for use ────────────────────────────────────────────────
 window.VortexOpsUX = {

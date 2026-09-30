@@ -8,13 +8,13 @@
 </style>
 </head>
 <body>
-@php $snapshot=$summary['currentSnapshot']; $items=$summary['itemDetails']; @endphp
+@php $snapshot=$summary; @endphp
 <div class="page">
 @include('pdf.partials.brand-header',['reportTitle'=>'Comprehensive Inventory Report','reportSubtitle'=>'Inventory value, stock health, velocity and coverage'])
 <table class="metrics"><tr>
-<td><div class="metric-label">Inventory Value</div><div class="metric-value">${{ number_format((float)$snapshot->total_value,2) }}</div></td>
-<td><div class="metric-label">Active SKUs</div><div class="metric-value">{{ number_format((int)$snapshot->total_items) }}</div></td>
-<td><div class="metric-label">Units On Hand</div><div class="metric-value">{{ number_format((float)$snapshot->total_quantity,0) }}</div></td>
+<td><div class="metric-label">Inventory Value</div><div class="metric-value">${{ number_format((float)$snapshot['value'],2) }}</div></td>
+<td><div class="metric-label">Active SKUs</div><div class="metric-value">{{ number_format((int)$snapshot['items']) }}</div></td>
+<td><div class="metric-label">Units On Hand</div><div class="metric-value">{{ number_format((float)$snapshot['quantity'],0) }}</div></td>
 <td><div class="metric-label">Out of Stock</div><div class="metric-value red">{{ $health['out_of_stock'] }}</div></td>
 </tr></table>
 <div class="section"><div class="section-title">Stock Health</div><table class="metrics"><tr>
@@ -23,10 +23,10 @@
 <td><div class="metric-label">Out of Stock</div><div class="metric-value red">{{ $health['out_of_stock'] }}</div></td>
 <td><div class="metric-label">Overstock</div><div class="metric-value purple">{{ $health['over_stock'] }}</div></td>
 </tr></table></div>
-@if($snapshot->location_breakdown)
-<div class="section"><div class="section-title">Inventory by Location</div><table class="data"><thead><tr><th>Location</th><th class="right">Units</th><th class="right">Value</th></tr></thead><tbody>@foreach($snapshot->location_breakdown as $loc)<tr><td>{{ $loc['name']??'—' }}</td><td class="right">{{ number_format($loc['quantity']??0,0) }}</td><td class="right">${{ number_format($loc['value']??0,2) }}</td></tr>@endforeach</tbody></table></div>
+@if(count($locations))
+<div class="section"><div class="section-title">Inventory by Location</div><table class="data"><thead><tr><th>Location</th><th class="right">Units</th><th class="right">Value</th></tr></thead><tbody>@foreach($locations as $loc)<tr><td>{{ $loc['name']??'—' }}</td><td class="right">{{ number_format($loc['quantity']??0,0) }}</td><td class="right">${{ number_format($loc['value']??0,2) }}</td></tr>@endforeach</tbody></table></div>
 @endif
-<div class="section"><div class="section-title">Highest-Value Inventory</div><table class="data"><thead><tr><th>SKU</th><th style="width:32%">Item</th><th>Location</th><th class="right">Qty</th><th class="right">Avg Cost</th><th class="right">Value</th></tr></thead><tbody>@foreach(collect($items)->take(20) as $item)<tr><td>{{ $item['sku'] }}</td><td>{{ $item['name'] }}</td><td>{{ $item['location'] }}</td><td class="right">{{ number_format($item['quantity'],0) }}</td><td class="right">${{ number_format($item['unit_cost'],2) }}</td><td class="right">${{ number_format($item['total_value'],2) }}</td></tr>@endforeach</tbody></table></div>
+<div class="section"><div class="section-title">Highest-Value Inventory</div><table class="data"><thead><tr><th>SKU</th><th style="width:32%">Item</th><th>Location</th><th class="right">Qty</th><th class="right">Avg Cost</th><th class="right">Value</th></tr></thead><tbody>@foreach(collect($items)->take(20) as $item)<tr><td>{{ $item['sku'] }}</td><td>{{ $item['name'] }}</td><td>{{ $item['locations'] }}</td><td class="right">{{ number_format($item['quantity'],0) }}</td><td class="right">${{ number_format($item['unit_cost'],2) }}</td><td class="right">${{ number_format($item['total_value'],2) }}</td></tr>@endforeach</tbody></table></div>
 @include('pdf.partials.brand-footer',['footerLabel'=>'Comprehensive Inventory Report'])
 </div>
 

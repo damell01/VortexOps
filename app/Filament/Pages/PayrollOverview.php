@@ -100,18 +100,9 @@ class PayrollOverview extends Page
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('prepare_pay_run')
-                ->label('Prepare Current Pay Run')
-                ->icon('heroicon-o-play')
-                ->color('primary')
-                ->action('prepareCurrentPayRun'),
-            Action::make('pay_runs')
-                ->label('Pay Runs')
-                ->icon('heroicon-o-queue-list')
-                ->color('gray')
-                ->url(WeeklyPayoutBatchResource::getUrl()),
-        ];
+        // Payroll actions live inside the workspace so the admin has one
+        // obvious workflow and no duplicate CTAs in the page header.
+        return [];
     }
 
     public function currentPayRun(): ?WeeklyPayoutBatch

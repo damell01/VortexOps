@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerAlias;
 use App\Models\WhatnotBuyer;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
@@ -112,28 +113,25 @@ class WhatnotSyncEngine
      */
     private function applyKnownStreamerAliases(WhatnotChannel $channel): int
     {
-        $knownAliases = [
-            'dennis_vortexcollects' => 'Dennis',
-        ];
-
         $applied = 0;
+        $aliases = StreamerAlias::query()
+            ->with('streamer')
+            ->whereHas('streamer', fn ($query) => $query->where('status', 'active'))
+            ->get();
 
-        foreach ($knownAliases as $alias => $streamerName) {
-            $streamer = Streamer::query()
-                ->whereRaw('LOWER(name) = ?', [strtolower($streamerName)])
-                ->first();
-
+        foreach ($aliases as $streamerAlias) {
+            $streamer = $streamerAlias->streamer;
             if (! $streamer) {
-                Log::warning("WhatnotSyncEngine: confirmed streamer alias @{$alias} could not be applied because streamer {$streamerName} was not found");
                 continue;
             }
 
+            $needle = '%' . strtolower($streamerAlias->alias) . '%';
             $shows = Show::query()
                 ->where('whatnot_channel_id', $channel->id)
                 ->whereDoesntHave('streamers')
-                ->where(function ($q) use ($alias) {
-                    $q->whereRaw('LOWER(COALESCE(title, \'\')) LIKE ?', ['%' . strtolower($alias) . '%'])
-                        ->orWhereRaw('LOWER(CAST(raw_import_payload AS CHAR)) LIKE ?', ['%' . strtolower($alias) . '%']);
+                ->where(function ($query) use ($needle) {
+                    $query->whereRaw('LOWER(COALESCE(title, \'\')) LIKE ?', [$needle])
+                        ->orWhereRaw('LOWER(CAST(raw_import_payload AS CHAR)) LIKE ?', [$needle]);
                 })
                 ->get();
 
@@ -146,7 +144,7 @@ class WhatnotSyncEngine
                         'streamer_id' => $streamer->id,
                         'streamer_name' => $streamer->name,
                         'confidence' => 'high',
-                        'reason' => "Confirmed Whatnot alias @{$alias}",
+                        'reason' => "Saved streamer alias @{$streamerAlias->alias}",
                     ]],
                 ]);
                 $applied++;

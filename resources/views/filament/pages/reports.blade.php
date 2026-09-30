@@ -21,6 +21,38 @@
 
     <div class="space-y-6">
 
+        {{-- Prebuilt report hub: users choose a useful report, not build one. --}}
+        <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-bold text-gray-950 dark:text-white">Reports & Analytics</h2>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Open a ready-to-use report, filter the data you need, then export it.</p>
+                </div>
+                <span class="rounded-full bg-primary-50 px-3 py-1 text-[11px] font-semibold text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">Prebuilt reports</span>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                @php
+                    $reportCards = array_filter([
+                        $this->inventoryReportUrl() ? ['Inventory', 'Value, stock, movement and aging', $this->inventoryReportUrl(), 'heroicon-o-cube'] : null,
+                        $this->streamerAnalyticsUrl() ? ['Streamer Analytics', 'Revenue, hours, margin and payouts', $this->streamerAnalyticsUrl(), 'heroicon-o-users'] : null,
+                        $this->streamerStatementUrl() ? ['Streamer Statements', 'Show-by-show pay statements', $this->streamerStatementUrl(), 'heroicon-o-document-text'] : null,
+                        $this->financeLedgerUrl() ? ['Finance Ledger', 'Credits, debits and running balance', $this->financeLedgerUrl(), 'heroicon-o-banknotes'] : null,
+                        $this->productInsightsUrl() ? ['Product Insights', 'Velocity, value and product performance', $this->productInsightsUrl(), 'heroicon-o-chart-bar-square'] : null,
+                    ]);
+                @endphp
+                @foreach($reportCards as [$label,$description,$url,$icon])
+                    <a href="{{ $url }}" class="group rounded-xl border border-gray-200 p-4 transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md dark:border-gray-700 dark:hover:border-primary-700">
+                        <div class="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-300">
+                            <x-dynamic-component :component="$icon" class="h-5 w-5"/>
+                        </div>
+                        <div class="text-sm font-bold text-gray-900 dark:text-white">{{ $label }}</div>
+                        <div class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $description }}</div>
+                        <div class="mt-3 text-xs font-semibold text-primary-600 dark:text-primary-400">Open report →</div>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+
         @if ($this->inventoryReportUrl())
             <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="min-w-0">

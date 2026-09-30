@@ -107,29 +107,13 @@ class ListShows extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
-        $user = auth()->user();
-        $scope = $user?->isStreamer() && ! $user?->isAdmin() ? 'streamer:' . ($user->streamer?->id ?? 0) : 'admin';
+        $base = fn () => ShowResource::getEloquentQuery()->where('is_operational', true)->whereNotIn('status', ['cancelled']);
 
-        $row = Cache::remember("shows:command_stats:{$channel}:{$scope}", 30, function () {
-            $query = ShowResource::getEloquentQuery()
-                ->where('is_operational', true)
-                ->whereNotIn('status', ['cancelled']);
-
-            return $query
-                ->selectRaw("SUM(CASE WHEN status IN ('draft','mapping') THEN 1 ELSE 0 END) as active_count")
-                ->selectRaw("SUM(CASE WHEN status IN ('reconciled','closed') THEN 1 ELSE 0 END) as completed_count")
-                ->selectRaw("SUM(CASE WHEN status IN ('pending_review','pending_approval') THEN 1 ELSE 0 END) as pending_count")
-                ->selectRaw('COALESCE(SUM(gross_revenue), 0) as revenue_total')
-                ->selectRaw('COUNT(*) as show_count')
-                ->first();
-        });
-
-        $active = (int) ($row->active_count ?? 0);
-        $completed = (int) ($row->completed_count ?? 0);
-        $pending = (int) ($row->pending_count ?? 0);
-        $revenue = (float) ($row->revenue_total ?? 0);
-        $counted = (int) ($row->show_count ?? 0);
+        $active    = $base()->whereIn('status', ['draft', 'mapping'])->count();
+        $completed = $base()->whereIn('status', ['reconciled', 'closed'])->count();
+        $pending   = $base()->whereIn('status', ['pending_review', 'pending_approval'])->count();
+        $revenue   = (float) $base()->sum('gross_revenue');
+        $counted   = $base()->count();
         $money = fn (float $v) => '$' . number_format($v, 2);
 
         return $this->statsMemo = [

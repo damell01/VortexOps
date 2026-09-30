@@ -5,10 +5,10 @@
 @endif
 
 @if(auth()->user()->isAdmin())
-<section class="vx-assignment-queue rounded-xl border p-4">
+<section id="unassigned-shows" class="vx-assignment-queue rounded-xl border p-4">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div><h2 class="font-bold">Quick Assign Streamers</h2><p class="text-xs text-gray-500">Shows in this period that still need a streamer.</p></div>
-        <button wire:click="$set('filterStreamer','')" class="rounded-lg border bg-white px-3 py-2 text-xs font-semibold dark:bg-gray-900">View all shows</button>
+        <div class="flex items-center gap-3"><div><h2 class="font-bold">Unassigned Shows</h2><p class="text-xs text-gray-500">Shows in this period that still need a streamer. Assigning one removes it from this queue automatically.</p></div><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ $this->unassignedShows->count() }}</span></div>
+        <button type="button" onclick="document.getElementById('unassigned-shows')?.scrollIntoView({behavior:'smooth'})" class="rounded-lg border bg-white px-3 py-2 text-xs font-semibold dark:bg-gray-900">Review unassigned</button>
     </div>
     @if($this->unassignedShows->isEmpty())
         <div class="rounded-lg border border-dashed bg-white p-5 text-center text-sm text-gray-500 dark:bg-gray-900">All shows in this period have a streamer assigned.</div>

@@ -21,6 +21,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\HtmlString;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
 class UserResource extends Resource
@@ -172,14 +173,17 @@ class UserResource extends Resource
 
                 TagsInput::make('streamer_aliases')
                     ->label('Streamer Aliases')
-                    ->placeholder('Add Whatnot username or show-name alias')
+                    ->placeholder('Type an alias, then press Enter')
+                    ->splitKeys(['Tab', 'Enter'])
+                    ->nestedRecursiveRules(['string', 'max:255'])
+                    ->afterContent(new HtmlString('<button type="button" class="mt-2 inline-flex min-h-10 items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-primary-500" onclick="const field=this.closest(\'[data-field-wrapper]\')||this.parentElement;const input=field?.querySelector(\'input\');if(input&&input.value.trim()){input.dispatchEvent(new KeyboardEvent(\'keydown\',{key:\'Enter\',code:\'Enter\',keyCode:13,which:13,bubbles:true}));input.focus();}">+ Add alias</button>'))
                     ->dehydrated(false)
                     ->visible(function (Get $get): bool {
                         $roleIds = collect($get('roles') ?? [])->filter();
                         return $roleIds->isNotEmpty()
                             && Role::query()->whereIn('id', $roleIds)->where('name', 'streamer')->exists();
                     })
-                    ->helperText('Add every handle or name this streamer may appear under. These aliases are used to match imported shows automatically.'),
+                    ->helperText('Type a handle or show name, then tap Add alias or press Enter/Tab. Each added alias appears as a removable tag and is used to match imported shows automatically.'),
 
                 Select::make('streamer_type')
                     ->label('Streamer Type')

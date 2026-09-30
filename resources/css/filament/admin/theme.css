@@ -592,3 +592,78 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   overflow-wrap:anywhere!important;
   word-break:normal!important;
 }
+
+/* Page redesign foundation — dense operations UI matching approved mockups. */
+.fi-main{min-width:0!important}
+.fi-page{min-width:0}
+.fi-page-header{margin-bottom:14px!important}
+.fi-page-header-main-ctn{gap:8px!important}
+.fi-header-heading{font-size:1.55rem!important;line-height:1.15!important;letter-spacing:-.035em!important}
+.fi-header-subheading{margin-top:3px!important;font-size:.78rem!important;line-height:1.35!important}
+.fi-page-content{min-width:0!important}
+.fi-section{border-radius:14px!important}
+.fi-section-content{min-width:0}
+.fi-btn{border-radius:9px!important}
+.fi-input-wrp{border-radius:9px!important}
+.fi-ta-ctn{border-radius:14px!important;overflow:hidden}
+.fi-ta-header{padding:12px 14px!important}
+.fi-ta-row{min-width:0}
+.fi-ta-text{overflow-wrap:anywhere}
+@media(min-width:1024px){
+ .fi-page{padding-inline:20px!important}
+ .fi-page-content{padding-top:18px!important}
+}
+
+/* Admin dashboard: compact KPI rail and balanced operations cards. */
+[data-vx-page="admin-dashboard"]{gap:14px!important}
+[data-vx-page="admin-dashboard"]>section{border-radius:14px!important;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+[data-vx-page="admin-dashboard"] .grid{min-width:0}
+[data-vx-page="admin-dashboard"] [class*="text-3xl"],
+[data-vx-page="admin-dashboard"] [class*="text-4xl"]{font-size:clamp(1.35rem,2vw,1.9rem)!important;line-height:1.1!important;overflow-wrap:anywhere}
+
+/* Shows: assignment queue becomes a compact work queue rather than a large banner. */
+.vx-shows-redesign .vx-assignment-queue{background:#fff!important;border-color:#e5e7eb!important;padding:14px!important}
+.dark .vx-shows-redesign .vx-assignment-queue{background:#111827!important;border-color:#374151!important}
+.vx-shows-redesign .vx-assignment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vx-shows-redesign .vx-assignment-item{min-width:0;border:1px solid #e5e7eb;border-radius:11px;background:#f8fafc;padding:10px}
+.dark .vx-shows-redesign .vx-assignment-item{background:#182235;border-color:#374151}
+@media(max-width:1200px){.vx-shows-redesign .vx-assignment-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.vx-shows-redesign .vx-assignment-grid{grid-template-columns:1fr}}
+
+/* Payroll: tighter command-center cards so the actual show queue stays above fold. */
+.vx-payroll-redesign{gap:12px!important}
+.vx-payroll-redesign>section{border-radius:14px!important}
+.vx-payroll-redesign .vx-payroll-hero{padding:16px 20px!important}
+.vx-payroll-redesign .vx-payroll-kpis{gap:8px!important}
+.vx-payroll-redesign .vx-payroll-kpis>div{padding:12px 14px!important}
+
+/* Reports/inventory: prevent cards and filters from forcing horizontal overflow. */
+.vx-report,.vx-report *{box-sizing:border-box}
+.vx-report{min-width:0;max-width:100%}
+.vx-report-head,.vx-builder-head,.vx-sheet-toolbar{min-width:0}
+.vx-quick-reports{max-width:100%;scrollbar-width:thin}
+.vx-kpi{overflow:hidden}
+.vx-kpi-value{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(1.25rem,1.7vw,1.55rem)!important}
+@media(max-width:1300px){.vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:700px){.vx-kpis{grid-template-columns:1fr!important}}
+
+/* Detailed mockup pass: card-first Shows and report density. */
+.vx-shows-redesign>section{box-shadow:0 1px 2px rgba(15,23,42,.03)}
+.vx-shows-redesign table th{font-size:10px;letter-spacing:.04em}
+.vx-shows-redesign table td{padding-top:11px!important;padding-bottom:11px!important}
+.vx-shows-redesign select,.vx-shows-redesign input{min-height:40px!important;border-radius:9px!important}
+.vx-shows-redesign .grid.grid-cols-2>div{overflow:hidden}
+.vx-pay .vx-card{border-radius:14px!important}
+.vx-pay .vx-pad{padding:16px!important}
+.vx-pay .vx-grid{gap:12px!important}
+.vx-pay .vx-show{padding:12px 14px!important}
+.vx-pay .vx-money{margin-top:8px!important}
+.vx-pay .vx-next{margin-top:8px!important}
+.vx-report-sheet,.vx-r-card{border-radius:12px!important}
+.vx-report-grid{gap:10px!important}
+.vx-report-grid>.vx-r-card{padding:14px!important}
+@media(min-width:1400px){
+ .vx-shows-redesign{max-width:1540px;margin-inline:auto}
+ .vx-pay{max-width:1540px!important}
+ .vx-report{max-width:1540px;margin-inline:auto}
+}

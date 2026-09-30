@@ -9,6 +9,10 @@
             'dead_stock'  => 'Dead Stock (' . \App\Filament\Pages\ProductInsights::DEAD_DAYS . 'd+)',
             'never_sold'  => 'Never Sold',
         ];
+        $topProducts = $rows->sortByDesc('revenue')->take(6);
+        $maxProductRevenue = max(1, (float) $topProducts->max('revenue'));
+        $reorderCount = $rows->where('needs_reorder', true)->count();
+        $deadCount = $rows->where('is_dead', true)->count();
     @endphp
 
     <div class="space-y-5">
@@ -99,6 +103,17 @@
                 {{ $narrative }}
             </div>
         @endif
+
+        <div class="grid gap-4 lg:grid-cols-[1.5fr_.8fr]">
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                <div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-bold text-gray-950 dark:text-white">Top products by revenue</h3><p class="mt-1 text-xs text-gray-500">Highest-revenue products in the current view.</p></div><span class="rounded-full bg-primary-50 px-2.5 py-1 text-[11px] font-bold text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">{{ number_format($rows->sum('revenue'),0) }} total</span></div>
+                <div class="mt-5 space-y-3">@forelse($topProducts as $product)<div><div class="mb-1 flex items-center justify-between gap-3 text-xs"><span class="truncate font-semibold text-gray-700 dark:text-gray-200">{{ $product['name'] }}</span><span class="font-bold tabular-nums text-gray-950 dark:text-white">${{ number_format($product['revenue'],0) }}</span></div><div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5"><div class="h-full rounded-full bg-primary-500" style="width:{{ max(4,($product['revenue']/$maxProductRevenue)*100) }}%"></div></div></div>@empty<p class="text-sm text-gray-400">No product revenue in this view.</p>@endforelse</div>
+            </section>
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                <button type="button" wire:click="setView('reorder')" class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-500/20 dark:bg-amber-950/20"><div class="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Reorder attention</div><div class="mt-2 text-3xl font-black text-amber-800 dark:text-amber-200">{{ number_format($reorderCount) }}</div><p class="mt-1 text-xs text-amber-700/80 dark:text-amber-300/70">Products in this view that may need replenishment.</p></button>
+                <button type="button" wire:click="setView('dead_stock')" class="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-left shadow-sm transition hover:border-rose-300 dark:border-rose-500/20 dark:bg-rose-950/20"><div class="text-xs font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300">Dead stock</div><div class="mt-2 text-3xl font-black text-rose-800 dark:text-rose-200">{{ number_format($deadCount) }}</div><p class="mt-1 text-xs text-rose-700/80 dark:text-rose-300/70">Products in this view with no sale inside the dead-stock window.</p></button>
+            </div>
+        </div>
 
         {{-- Metrics table --}}
         <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">

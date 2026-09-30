@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Streamer;
+use App\Models\StreamerAlias;
 use App\Models\User;
 
 class UserTeamProfileService
@@ -12,7 +13,7 @@ class UserTeamProfileService
      * Users is the source of truth; Streamer remains the existing backing model
      * used by shows, payroll, inventory and fulfillment.
      */
-    public function sync(User $user, string $streamerType = 'in_house'): ?Streamer
+    public function sync(User $user, string $streamerType = 'in_house', ?array $aliases = null): ?Streamer
     {
         $memberType = $user->hasRole('streamer')
             ? 'streamer'
@@ -32,6 +33,22 @@ class UserTeamProfileService
             'streamer_type' => $memberType === 'streamer' ? $streamerType : ($profile->streamer_type ?: 'in_house'),
         ]);
         $profile->save();
+
+        if ($memberType === 'streamer' && $aliases !== null) {
+            $normalized = collect($aliases)
+                ->map(fn ($alias) => trim((string) $alias))
+                ->filter()
+                ->unique(fn ($alias) => StreamerAlias::normalize($alias))
+                ->values();
+
+            $profile->aliases()->where('source', 'manual')->delete();
+            foreach ($normalized as $alias) {
+                $profile->aliases()->create([
+                    'alias' => $alias,
+                    'source' => 'manual',
+                ]);
+            }
+        }
 
         return $profile;
     }

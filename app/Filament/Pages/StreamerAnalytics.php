@@ -68,7 +68,7 @@ class StreamerAnalytics extends Page
                 ->icon('heroicon-o-document-text')
                 ->color('gray')
                 ->visible(fn () => StreamerStatement::canAccess())
-                ->url(fn () => StreamerStatement::getUrl()),
+                ->url(fn () => StreamerStatement::getUrl($this->selectedStreamers && count($this->selectedStreamers) === 1 ? ['streamer' => $this->selectedStreamers[0]] : [])),
         ];
     }
 

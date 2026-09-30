@@ -71,9 +71,12 @@ class WhatnotLedgerResource extends Resource
     {
         return $table
             ->striped()
-            ->heading('Transaction ledger')
+            ->extraAttributes(['class' => 'vx-finance-table'])
+            ->heading('Channel Ledger')
             ->description('Review imported Whatnot credits, debits, order references and completion status. Filters apply to the ledger below.')
             ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->emptyStateHeading('No Whatnot ledger entries')
             ->emptyStateDescription('Entries arrive via the nightly ledger import from Whatnot.')

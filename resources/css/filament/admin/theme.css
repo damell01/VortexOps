@@ -713,3 +713,62 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
     overflow-x:hidden !important;
   }
 }
+
+
+/* Reports mockup system — compact, visual, and intentionally CSS-first so
+   redesigns do not add database work or Livewire round trips. */
+.vx-report{--vx-purple:#7c3aed;--vx-border:#e7e9f2;--vx-muted:#667085;max-width:1500px;margin-inline:auto}
+.vx-report>section,.vx-report>div{min-width:0}
+.vx-report .rounded-xl,.vx-report .rounded-2xl{border-color:var(--vx-border);box-shadow:0 1px 3px rgba(15,23,42,.035)}
+.dark .vx-report{--vx-border:#293247;--vx-muted:#94a3b8}
+.vx-report-overview>section:first-child,
+.vx-streamer-report>section:first-child,
+.vx-product-report>section:first-child{
+  padding:18px 20px!important;border:1px solid var(--vx-border)!important;border-radius:14px!important;
+  background:#fff!important;box-shadow:0 1px 3px rgba(15,23,42,.035)!important
+}
+.dark .vx-report-overview>section:first-child,
+.dark .vx-streamer-report>section:first-child,
+.dark .vx-product-report>section:first-child{background:#111827!important}
+.vx-report h2{letter-spacing:-.025em}
+.vx-report input,.vx-report select{min-height:36px}
+.vx-report table{font-size:12px}
+.vx-report th{font-size:10px!important;letter-spacing:.045em}
+.vx-report td,.vx-report th{padding-top:9px!important;padding-bottom:9px!important}
+.vx-report-overview .grid>div,.vx-streamer-report .grid>div,.vx-inventory-report .grid>div,.vx-product-report .grid>div{min-width:0}
+.vx-report-overview [class*="text-xl"],.vx-streamer-report [class*="text-2xl"],.vx-inventory-report [class*="text-2xl"],.vx-product-report [class*="text-2xl"]{letter-spacing:-.035em}
+@media(min-width:1024px){
+ .vx-report{font-size:13px}
+ .vx-report-overview{padding-inline:2px}
+ .vx-report-overview>section:first-child{padding-block:14px!important}
+ .vx-report .sticky{top:84px!important}
+}
+@media(max-width:767px){
+ .vx-report{gap:12px!important}
+ .vx-report .sticky{position:static!important}
+ .vx-report table{min-width:760px}
+}
+
+.vx-section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.vx-section-heading h3{margin:0;font-size:14px;font-weight:800;color:#101828}.dark .vx-section-heading h3{color:#fff}
+.vx-section-heading p{margin:2px 0 0;font-size:11px;color:#98a2b3}.vx-section-heading>span{font-size:11px;font-weight:700;color:#7c3aed}
+.vx-streamer-cards{padding:2px}
+.vx-person-card{padding:15px;border:1px solid var(--vx-border);border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.035);transition:transform .15s ease,box-shadow .15s ease}
+.vx-person-card:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,23,42,.07)}
+.dark .vx-person-card{background:#111827}
+.vx-avatar{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-size:13px;font-weight:800}
+.vx-person-card strong{color:#101828}.dark .vx-person-card strong{color:#f8fafc}.vx-person-card span{font-size:10px;color:#98a2b3}
+.vx-trend{padding:3px 7px;border-radius:999px;font-size:10px!important;font-weight:800}.vx-trend.is-up{background:#ecfdf3;color:#027a48}.vx-trend.is-down{background:#fff1f2;color:#e11d48}
+.vx-person-money{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.vx-person-money span,.vx-person-money strong{display:block}.vx-person-money strong{margin-top:2px;font-size:15px}
+.vx-mini-track{height:3px;margin:13px 0;background:#f1f3f8;border-radius:999px;overflow:hidden}.dark .vx-mini-track{background:#253047}.vx-mini-track i{display:block;height:100%;border-radius:inherit;background:#7c3aed}
+.vx-person-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vx-person-foot strong,.vx-person-foot span{display:block}.vx-person-foot strong{font-size:12px}.vx-person-foot span{margin-top:1px}
+
+/* Finance reports keep the same clean mockup language without replacing
+   Filament's deferred/paginated table implementation. */
+.vx-finance-table{border:1px solid #e7e9f2!important;border-radius:14px!important;box-shadow:0 1px 3px rgba(15,23,42,.04)!important;overflow:hidden}
+.dark .vx-finance-table{border-color:#293247!important}
+.vx-finance-table .fi-ta-header{padding:16px 18px!important;background:#fff}.dark .vx-finance-table .fi-ta-header{background:#111827}
+.vx-finance-table .fi-ta-header-heading{font-size:15px!important;font-weight:800!important;letter-spacing:-.02em}
+.vx-finance-table .fi-ta-header-description{font-size:11px!important;color:#98a2b3!important}
+.vx-finance-table .fi-ta-table thead{background:#f8fafc}.dark .vx-finance-table .fi-ta-table thead{background:#182235}
+.vx-finance-table .fi-ta-table th{font-size:10px!important;text-transform:uppercase;letter-spacing:.045em}

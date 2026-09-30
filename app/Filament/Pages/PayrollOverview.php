@@ -309,6 +309,7 @@ class PayrollOverview extends Page
             $key = $show->getAttribute('workflow_state')['key'] ?? '';
             $hasPayRunProblems = ($show->getAttribute('payrun_problems') ?? []) !== [];
             return match ($filter) {
+                'needs_assignment' => $this->showIsDueForPayroll($show) && $show->streamers->isEmpty(),
                 'blocked' => $this->showIsDueForPayroll($show) && ($hasPayRunProblems || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true)),
                 'needs_log' => $this->showIsDueForPayroll($show) && ! $show->streamerLogEntry?->isSubmitted(),
                 'review' => $this->showIsDueForPayroll($show) && $show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved',
@@ -326,6 +327,7 @@ class PayrollOverview extends Page
         $shows = $this->allCurrentWeekShows();
         return [
             'all' => $shows->count(),
+            'needs_assignment' => $shows->filter(fn (Show $show): bool => $this->showIsDueForPayroll($show) && $show->streamers->isEmpty())->count(),
             'blocked' => $shows->filter(function (Show $show): bool {
                 if (! $this->showIsDueForPayroll($show)) return false;
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';

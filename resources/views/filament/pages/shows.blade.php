@@ -1,11 +1,11 @@
 <x-filament-panels::page>
-<div class="space-y-5 min-w-0">
+<div class="vx-shows-redesign space-y-4 min-w-0">
 @if(auth()->user()->isStreamer() && !auth()->user()->isAdmin() && auth()->user()->streamer)
     @livewire('create-manual-show',['streamer'=>auth()->user()->streamer])
 @endif
 
 @if(auth()->user()->isAdmin())
-<section class="rounded-xl border border-violet-200 bg-violet-50/70 p-4 dark:border-violet-900 dark:bg-violet-950/20">
+<section class="vx-assignment-queue rounded-xl border p-4">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div><h2 class="font-bold">Quick Assign Streamers</h2><p class="text-xs text-gray-500">Shows in this period that still need a streamer.</p></div>
         <button wire:click="$set('filterStreamer','')" class="rounded-lg border bg-white px-3 py-2 text-xs font-semibold dark:bg-gray-900">View all shows</button>
@@ -13,9 +13,9 @@
     @if($this->unassignedShows->isEmpty())
         <div class="rounded-lg border border-dashed bg-white p-5 text-center text-sm text-gray-500 dark:bg-gray-900">All shows in this period have a streamer assigned.</div>
     @else
-        <div class="grid gap-2 lg:grid-cols-2">
+        <div class="vx-assignment-grid">
         @foreach($this->unassignedShows as $show)
-            <div class="flex min-w-0 flex-wrap items-center gap-3 rounded-lg border bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+            <div class="vx-assignment-item flex min-w-0 flex-wrap items-center gap-3">
                 <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $show->title }}</div><div class="text-xs text-gray-500">{{ $show->show_date?->format('M j, Y') }} · {{ $show->start_time?->format('g:i A') ?: 'Time not set' }}</div></div>
                 <select aria-label="Assign streamer to {{ $show->title }}" onchange="if(this.value){$wire.assignStreamer({{ $show->id }}, this.value)}" class="min-w-[180px] rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
                     <option value="">Assign streamer…</option>

@@ -123,10 +123,10 @@ class Shows extends Page
     {
         abort_unless(auth()->user()?->isAdmin(),403);
         $show=Show::query()->inChannelContext()->findOrFail($showId);
-        $streamer=Streamer::findOrFail($streamerId);
+        $streamer=Streamer::query()->inChannelContext()->where('status','active')->findOrFail($streamerId);
         $show->streamers()->sync([$streamer->id=>['is_primary'=>true]]);
         Notification::make()->title('Streamer assigned')->body($streamer->name.' → '.$show->title)->success()->send();
-        unset($this->shows,$this->unassignedShows);
+        unset($this->shows,$this->unassignedShows,$this->calendarWeeks);
     }
 
     public function paginatedShows(): array { $perPage=12;$total=$this->shows->count();$lastPage=max(1,(int)ceil($total/$perPage));$this->showPage=min(max(1,$this->showPage),$lastPage);return ['items'=>$this->shows->forPage($this->showPage,$perPage)->values(),'total'=>$total,'page'=>$this->showPage,'lastPage'=>$lastPage]; }

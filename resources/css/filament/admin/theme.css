@@ -535,3 +535,60 @@ body:has(.vx-login-showcase) .vx-login-showcase-inner{
 body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   background:#f6f7fb!important;
 }
+
+/* Topbar/profile recovery: keep native user menu visible and reserve room for
+   right-side account controls instead of letting custom nav consume the row. */
+@media(min-width:1024px){
+  .fi-topbar nav{display:flex!important;min-width:0!important;overflow:visible!important;padding-inline:20px!important;gap:8px!important}
+  .vx-desktop-mega-nav{flex:0 1 auto!important;min-width:0!important;margin-right:auto!important}
+  .vx-mega-home,.vx-mega-trigger{padding-inline:9px!important}
+  .fi-topbar .fi-global-search{flex:0 1 285px!important;min-width:180px!important;max-width:285px!important}
+  .fi-topbar .fi-user-menu,
+  .fi-topbar [class*="user-menu"]{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    flex:0 0 auto!important;
+    position:relative!important;
+    inset:auto!important;
+  }
+  .fi-topbar .fi-user-menu button,
+  .fi-topbar [class*="user-menu"] button{
+    display:inline-flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+}
+@media(min-width:1024px) and (max-width:1280px){
+  .vx-mega-home,.vx-mega-trigger{padding-inline:6px!important;font-size:12px!important}
+  .fi-topbar .fi-global-search{flex-basis:220px!important;max-width:220px!important}
+}
+
+/* Database notification center: never create a page-width horizontal scroller. */
+.fi-modal-window:has(.fi-database-notifications),
+.fi-modal-window:has([wire\:key*="database-notification"]),
+.fi-modal-window:has([class*="database-notification"]){
+  width:min(960px,calc(100vw - 48px))!important;
+  max-width:calc(100vw - 48px)!important;
+  overflow:hidden!important;
+}
+.fi-modal-window:has(.fi-database-notifications) *,
+.fi-modal-window:has([wire\:key*="database-notification"]) *,
+.fi-modal-window:has([class*="database-notification"]) *{
+  min-width:0;
+}
+.fi-modal-window:has(.fi-database-notifications) .fi-modal-content,
+.fi-modal-window:has([wire\:key*="database-notification"]) .fi-modal-content,
+.fi-modal-window:has([class*="database-notification"]) .fi-modal-content{
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+}
+.fi-modal-window:has(.fi-database-notifications) p,
+.fi-modal-window:has([wire\:key*="database-notification"]) p,
+.fi-modal-window:has([class*="database-notification"]) p{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+}

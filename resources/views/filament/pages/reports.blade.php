@@ -19,9 +19,9 @@
         ];
     @endphp
 
-    <div class="space-y-6">
+    <div class="space-y-5">
 
-        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 shadow-sm dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20"><div class="flex flex-wrap items-end justify-between gap-4"><div><div class="mb-2 inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Business intelligence</div><h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">Performance at a glance</h2><p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Revenue, show volume and operating performance for the selected period.</p></div><div class="rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-right shadow-sm dark:border-white/10 dark:bg-gray-900/70"><div class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Current range</div><div class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $dateFrom }} → {{ $dateTo }}</div></div></div></section>
+        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 shadow-sm dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20"><div class="flex flex-wrap items-end justify-between gap-4"><div><div class="mb-2 inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Reports overview</div><h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">Business Performance</h2><p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Revenue, show volume and operating performance for the selected period.</p></div><div class="rounded-xl border border-white/70 bg-white/80 px-4 py-3 text-right shadow-sm dark:border-white/10 dark:bg-gray-900/70"><div class="text-[11px] font-bold uppercase tracking-wide text-gray-400">Current range</div><div class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $dateFrom }} → {{ $dateTo }}</div></div></div></section>
 
         {{-- Prebuilt report hub: choose a useful report, filter it, then export. --}}
         <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -57,7 +57,7 @@
         </section>
 
         {{-- Period selector + date range + export --}}
-        <div id="show-performance" class="scroll-mt-6 flex flex-wrap items-center gap-2 gap-y-2">
+        <div id="show-performance" class="sticky top-[64px] z-20 scroll-mt-6 flex flex-wrap items-center gap-2 gap-y-2 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
             <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Period:</span>
             @foreach ($this->getPeriodOptions() as $days => $label)
                 <button

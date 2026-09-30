@@ -667,3 +667,38 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
  .vx-pay{max-width:1540px!important}
  .vx-report{max-width:1540px;margin-inline:auto}
 }
+
+/* Payroll workflow redesign — one-screen admin flow. */
+.vx-payroll-control .vx-kpis{margin-top:12px!important}
+.vx-payroll-control .vx-kpi{padding:10px 12px!important}
+.vx-payroll-statusbar{padding:12px 14px!important}
+.vx-payroll-statusbar .vx-flow{margin:0!important}
+.vx-payroll-statusbar .vx-flow a{padding:9px 11px!important;border-radius:10px!important}
+.vx-payroll-statusbar .vx-flow strong{font-size:16px!important}
+.vx-payroll-side{min-width:0}
+@media(min-width:1001px){
+ .vx-readiness-sticky{position:sticky;top:88px;max-height:calc(100vh - 108px);overflow:auto}
+}
+.vx-payrun-workspace{max-width:1540px;margin-inline:auto}
+.vx-payrun-summary .grid{margin-top:12px!important}
+.vx-payrun-summary .grid>div{padding:11px 13px!important;min-width:0;overflow:hidden}
+.vx-payrun-summary .grid strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vx-run-progress{display:flex;align-items:center;min-width:0;flex:1}
+.vx-run-stage{display:flex;align-items:center;gap:7px;min-width:0;flex:1;color:#94a3b8;font-size:11px;font-weight:700}
+.vx-run-stage:not(:last-child)::after{content:"";height:2px;background:#e5e7eb;flex:1;margin-inline:8px}
+.dark .vx-run-stage:not(:last-child)::after{background:#334155}
+.vx-run-stage span{display:grid;place-items:center;width:26px;height:26px;flex:0 0 26px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:10px}
+.vx-run-stage.current{color:#2563eb}.vx-run-stage.current span{background:#2563eb;color:#fff}
+.vx-run-stage.done{color:#059669}.vx-run-stage.done span{background:#059669;color:#fff}
+.vx-run-stage.done::after{background:#10b981!important}
+.vx-payrun-workspace .vx-grid{align-items:start}
+@media(min-width:1001px){.vx-payrun-side{position:sticky;top:88px}}
+.vx-payrun-workspace .vx-person{margin-top:8px!important;border-radius:11px!important}
+.vx-payrun-workspace .vx-person-head{padding:11px 12px!important}
+.vx-payrun-workspace .vx-breakdown{max-height:320px;overflow:auto}
+@media(max-width:800px){
+ .vx-run-progress{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+ .vx-run-stage{display:grid;justify-items:center;text-align:center;gap:4px}
+ .vx-run-stage::after{display:none}
+ .vx-run-stage b{font-size:9px}
+}

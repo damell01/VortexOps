@@ -22,6 +22,8 @@ use Filament\Tables\Table;
 
 class StreamerLoanResource extends Resource
 {
+    public static function shouldRegisterNavigation(): bool { return false; }
+
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'operations';

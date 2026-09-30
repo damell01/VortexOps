@@ -13,6 +13,8 @@ use Livewire\Attributes\On;
 
 class QuickAddStock extends Page
 {
+    public static function shouldRegisterNavigation(): bool { return false; }
+
     use RespectsRoleVisibility;
 
     use \App\Filament\Concerns\HasAdminNavVisibility;

@@ -49,7 +49,23 @@ class Shows extends Page
     public static function getNavigationSort():?int{return 20;}
     public static function getNavigationLabel():string{return 'Shows';}
     public static function getSlug(?Panel $panel=null):string{return 'shows-overview';}
-    protected function getHeaderActions():array{return[Action::make('create_show')->label('Add Show')->icon('heroicon-o-plus')->color('primary')->visible(fn()=>auth()->user()?->isAdmin()??false)->url(fn()=>ShowResource::getUrl('create'))];}
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('show_performance')
+                ->label('Show Performance')
+                ->icon('heroicon-o-chart-bar')
+                ->color('gray')
+                ->visible(fn () => \App\Filament\Pages\Reports::canAccess())
+                ->url(fn () => \App\Filament\Pages\Reports::getUrl()),
+            Action::make('create_show')
+                ->label('Add Show')
+                ->icon('heroicon-o-plus')
+                ->color('primary')
+                ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+                ->url(fn () => ShowResource::getUrl('create')),
+        ];
+    }
     public static function canAccess():bool{if(\App\Support\RoleAccess::grants(static::class))return true;$u=auth()->user();return AdminModules::isEnabled('streams')&&($u?->isAdmin()||$u?->isStreamer());}
 
     #[Computed] public function streamers():Collection{$u=auth()->user();if($u?->isAdmin())return Streamer::orderBy('name')->get();return $u?->streamer?collect([$u->streamer]):collect();}

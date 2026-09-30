@@ -16,7 +16,7 @@
         <div class="vx-assignment-grid">
         @foreach($this->unassignedShows as $show)
             <div class="vx-assignment-item flex min-w-0 flex-wrap items-center gap-3">
-                <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $show->title }}</div><div class="text-xs text-gray-500">{{ $show->show_date?->format('M j, Y') }} · {{ $show->start_time?->format('g:i A') ?: 'Time not set' }}</div></div>
+                <div class="min-w-0 flex-1"><div class="break-words font-semibold leading-snug">{{ $show->title }}</div><div class="mt-1 text-xs text-gray-500">{{ $show->show_date?->format('M j, Y') }} · {{ $show->start_time?->format('g:i A') ?: 'Time not set' }}</div></div>
                 <select aria-label="Assign streamer to {{ $show->title }}" onchange="if(this.value){$wire.assignStreamer({{ $show->id }}, this.value)}" class="min-w-[180px] rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
                     <option value="">Assign streamer…</option>
                     @foreach($this->streamers as $st)<option value="{{ $st->id }}">{{ $st->name }}</option>@endforeach

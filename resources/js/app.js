@@ -1,4 +1,41 @@
 
+// Keep each user's timezone aligned with the browser they actually sign in
+// from. This removes timezone setup from admin user creation.
+async function syncBrowserTimezone() {
+    if (!location.pathname.startsWith('/admin')) return;
+
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!timezone || !csrf) return;
+
+    const cacheKey = 'vortexops-timezone';
+    if (localStorage.getItem(cacheKey) === timezone) return;
+
+    try {
+        const response = await fetch('/admin/timezone', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf,
+            },
+            body: JSON.stringify({ timezone }),
+        });
+
+        if (response.ok) localStorage.setItem(cacheKey, timezone);
+    } catch (_) {
+        // Non-blocking: timezone will retry on a later page load.
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncBrowserTimezone, { once: true });
+} else {
+    syncBrowserTimezone();
+}
+
+
 // Shared lazy script loader for heavy, optional operational tools (camera,
 // scanners, etc.). The promise is cached so repeat opens never redownload it.
 const vxScriptLoads = new Map();

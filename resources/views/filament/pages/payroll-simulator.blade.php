@@ -5,7 +5,7 @@
     $streamerOptions = $this->streamerOptions();
 @endphp
 
-<div class="space-y-6">
+<div class="space-y-4">
     <section class="vx-card p-5">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
@@ -24,21 +24,21 @@
         </div>
     </section>
 
-    <section class="vx-card p-5">
-        <div class="flex items-start justify-between gap-4">
-            <div><h2 class="text-sm font-bold text-gray-950 dark:text-white">How the weekly calculation works</h2><p class="mt-1 text-xs text-gray-500">This follows the spreadsheet logic, but combines the week before calculating pay.</p></div><span class="vx-status vx-status--draft">Weekly cadence</span>
-        </div>
+    <details class="vx-card p-4">
+        <summary class="cursor-pointer list-none flex items-center justify-between gap-4">
+            <div><h2 class="text-sm font-bold text-gray-950 dark:text-white">How the weekly calculation works</h2><p class="mt-1 text-xs text-gray-500">This follows the spreadsheet logic, but combines the week before calculating pay.</p></div><span class="text-xs font-semibold text-violet-600">View formula ↓</span>
+        </summary>
         <div class="mt-4 grid gap-3 md:grid-cols-4 text-xs">
             <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/70"><div class="font-bold">1. Combine the week</div><div class="mt-1 text-gray-500">Add Gross, Product Cost, Hours, Shipments and Tips from all shows assigned to that streamer during the week.</div></div>
             <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/70"><div class="font-bold">2. Calculate burden</div><div class="mt-1 text-gray-500">Burden = weekly shipments × shipment rate + weekly hours × hourly burden rate.</div></div>
             <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/70"><div class="font-bold">3. Calculate weekly net</div><div class="mt-1 text-gray-500">Weekly Net = Gross − Product Cost − Burden.</div></div>
             <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800/70"><div class="font-bold">4. Calculate streamer pay</div><div class="mt-1 text-gray-500">Streamer Pay = Weekly Net × configured pay % + weekly tips when tips are included.</div></div>
         </div>
-    </section>
+    </details>
 
     <section class="vx-card p-5">
         <h2 class="text-sm font-bold text-gray-950 dark:text-white">Scenario Summary</h2>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mt-3">
+        <div class="grid grid-cols-2 gap-2 lg:grid-cols-5 mt-3">
             <div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Mock Gross</label><strong>${{ number_format($sim['gross'],2) }}</strong></div>
             <div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Product Cost</label><strong>${{ number_format($sim['cogs'],2) }}</strong></div>
             <div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Operating Burden</label><strong>${{ number_format($sim['burden'],2) }}</strong></div>
@@ -49,7 +49,7 @@
 
     <section class="vx-card p-5">
         <div><h2 class="text-sm font-bold text-gray-950 dark:text-white">Projected Weekly Pay Runs</h2><p class="mt-1 text-xs text-gray-500">Each card is one weekly pay run. Streamer pay is not calculated show-by-show.</p></div>
-        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             @foreach($sim['weeks'] as $week)
                 <div class="vx-week">
                     <div class="flex items-start justify-between gap-3"><div><div class="text-sm font-bold text-gray-950 dark:text-white">{{ $week['label'] }}</div><div class="mt-1 text-[10px] text-gray-500">{{ $week['shows'] }} shows · {{ $week['people'] }} streamer{{ $week['people']===1?'':'s' }}</div></div><div class="text-right"><div class="text-[9px] uppercase text-gray-400">Weekly Payroll</div><div class="text-lg font-bold text-violet-600">${{ number_format($week['streamer_pay'],2) }}</div></div></div>
@@ -79,8 +79,8 @@
     </section>
 
     <section class="vx-card overflow-hidden">
-        <details class="vx-details" open>
-            <summary class="vx-pad flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">Mock Show Inputs</h2><p class="mt-1 text-xs text-gray-500">These are only building blocks for each weekly pay run. Edit anything to test a different scenario.</p></div><span class="vx-chevron text-gray-400 transition">⌄</span></summary>
+        <details class="vx-details">
+            <summary class="vx-pad flex items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-800"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">Mock Show Inputs</h2><p class="mt-1 text-xs text-gray-500">These are only building blocks for each weekly pay run. Open this only when you want to change the mock show inputs.</p></div><span class="vx-chevron text-gray-400 transition">⌄</span></summary>
             @foreach($shows as $i => $show)
                 <div class="border-b border-gray-100 p-4 last:border-b-0 dark:border-gray-800" wire:key="mock-show-{{ $i }}">
                     <div class="flex items-start justify-between gap-3">

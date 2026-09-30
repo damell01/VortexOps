@@ -20,6 +20,8 @@ if(\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resource
 ];
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Finance']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
+ ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
+ ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
 ];
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
  ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],

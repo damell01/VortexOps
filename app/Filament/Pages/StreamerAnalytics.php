@@ -59,6 +59,18 @@ class StreamerAnalytics extends Page
         return 'filament.pages.streamer-analytics';
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('statements')
+                ->label('Streamer Statements')
+                ->icon('heroicon-o-document-text')
+                ->color('gray')
+                ->visible(fn () => StreamerStatement::canAccess())
+                ->url(fn () => StreamerStatement::getUrl()),
+        ];
+    }
+
     public function getSubheading(): ?string
     {
         return $this->restrictedToOwnFigures()

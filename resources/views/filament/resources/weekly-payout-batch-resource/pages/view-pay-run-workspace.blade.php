@@ -26,8 +26,8 @@
     };
 @endphp
 
-<div class="space-y-6">
-    <section class="vx-card p-5">
+<div class="vx-payrun-workspace space-y-4">
+    <section class="vx-card p-4 vx-payrun-summary">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">Pay Run Workspace</div>
@@ -44,26 +44,26 @@
         </div>
     </section>
 
-    <section class="vx-card">
-        <div class="vx-flow">
-            @foreach($statusSteps as $key=>$label) @php $i=array_search($key,$statusKeys,true); @endphp
-                <div class="vx-step {{ $i < $statusIndex ? 'done' : ($i === $statusIndex ? 'current' : '') }}"><div class="vx-dot">{{ $i < $statusIndex ? '✓' : $i+1 }}</div>{{ $label }}</div>
-            @endforeach
-        </div>
-        <div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5">
-            <div class="vx-next {{ $nextAction['tone'] }}">
+    <section class="vx-card p-4">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div class="vx-run-progress">
+                @foreach(['draft'=>'Fix & Review','finalized'=>'Finalized','submitted_to_adp'=>'Submitted','paid'=>'Paid'] as $key=>$label)
+                    @php $i=array_search($key,$statusKeys,true); @endphp
+                    <div class="vx-run-stage {{ $i < $statusIndex ? 'done' : ($i === $statusIndex ? 'current' : '') }}">
+                        <span>{{ $i < $statusIndex ? '✓' : $i+1 }}</span><b>{{ $label }}</b>
+                    </div>
+                @endforeach
+            </div>
+            <div class="vx-next {{ $nextAction['tone'] }} !mt-0 xl:min-w-[360px]">
                 <div><div class="text-[9px] font-bold uppercase tracking-[.12em] opacity-70">Next action</div><div class="mt-1 text-sm font-bold">{{ $nextAction['label'] }}</div><div class="mt-1 text-[11px] opacity-90">{{ $nextAction['detail'] }}</div></div>
                 @if($run->status === 'draft' && count($problems))
-                    <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl(['workflow'=>'blocked']) }}" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold warning">Fix {{ count($problems) }} Blocker{{ count($problems)===1?'':'s' }}</a>
+                    <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl(['workflow'=>'blocked']) }}" class="inline-flex min-h-9 items-center justify-center rounded-lg border border-[var(--vx-border)] px-3 text-xs font-semibold">Fix Issues</a>
                 @elseif($run->status === 'draft')
-                    <button type="button" wire:click="mountAction('finalize')" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold success">Finalize Pay Run</button>
+                    <button type="button" wire:click="mountAction('finalize')" class="inline-flex min-h-9 items-center justify-center rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white">Finalize</button>
                 @elseif($run->status === 'finalized')
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" wire:click="mountAction('export_adp')" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold">Export ADP CSV</button>
-                        <button type="button" wire:click="mountAction('mark_submitted')" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold primary">Mark Submitted</button>
-                    </div>
+                    <div class="flex flex-wrap gap-2"><button type="button" wire:click="mountAction('export_adp')" class="vx-btn">Export ADP CSV</button><button type="button" wire:click="mountAction('mark_submitted')" class="vx-btn primary">Mark Submitted</button></div>
                 @elseif($run->status === 'submitted_to_adp')
-                    <button type="button" wire:click="mountAction('mark_paid')" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold success">Mark Paid</button>
+                    <button type="button" wire:click="mountAction('mark_paid')" class="vx-btn success">Mark Paid</button>
                 @endif
             </div>
         </div>
@@ -97,7 +97,7 @@
             @endif
         </section>
 
-        <aside class="space-y-3">
+        <aside class="vx-payrun-side space-y-3">
             <section class="vx-card p-5"><div class="flex items-center justify-between gap-3"><div><h3>Readiness</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">What prevents this run from moving forward.</div></div><span class="vx-status vx-status--draft {{ count($problems)?'warn':'ready' }}">{{ count($problems) }} issue{{ count($problems)===1?'':'s' }}</span></div><div class="mt-3">@forelse($problems as $problem)<div class="vx-alert">{{ $problem }}</div>@empty<div class="vx-ok">✓ This pay run has no readiness blockers.</div>@endforelse</div></section>
             <section class="vx-card p-5"><h3>Run Total</h3><div class="vx-money-card mt-3"><span class="text-[9px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-300">Total payroll</span><strong>${{ number_format((float)$run->total_payout,2) }}</strong><div class="mt-3 grid grid-cols-2 gap-2 text-xs"><div><span class="text-blue-600/70 dark:text-blue-300/70">Streamer</span><div class="font-bold text-blue-900 dark:text-blue-100">${{ number_format($streamerTotal,2) }}</div></div><div><span class="text-blue-600/70 dark:text-blue-300/70">Fulfillment</span><div class="font-bold text-blue-900 dark:text-blue-100">${{ number_format($fulfillmentTotal,2) }}</div></div></div></div></section>
             <section class="vx-card p-5"><details><summary class="cursor-pointer list-none"><div class="flex items-center justify-between"><div><h3>Run Details</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">Audit and administrative details.</div></div><span class="text-xs font-bold text-primary-600">View</span></div></summary><div class="mt-3">@foreach([['Status',$statusLabel],['Created by',$run->createdBy?->name],['Finalized by',$run->finalizedBy?->name],['Finalized at',$run->finalized_at?->format('M j, Y g:i A')],['Notes',$run->notes]] as [$label,$value])<div class="vx-fin"><span class="text-gray-500">{{ $label }}</span><strong class="text-right">{{ $value ?: '—' }}</strong></div>@endforeach</div></details></section>

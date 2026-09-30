@@ -33,19 +33,23 @@
     };
     $blocker = $workflow['blockers'][0] ?? ($workflow['description'] ?? 'No active blocker.');
 @endphp
-<div class="space-y-6">
-    <section class="vx-card p-5">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div class="min-w-0">
-                <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">Show Workspace</div>
-                <h1 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ $show->title ?: 'Show #'.$show->id }}</h1>
-                <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-gray-500"><span>{{ $show->show_date?->format('M j, Y') ?? 'Date not set' }}</span>@if($show->start_time)<span>· {{ $show->start_time->format('g:i A') }}</span>@endif @if($show->channel)<span>· {{ $show->channel->name }}</span>@endif</div>
-                <div class="mt-3 flex flex-wrap gap-2"><span class="rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus--draft run">{{ $workflow['label'] ?? ucfirst(str_replace('_',' ',$workflowKey)) }}</span><span class="rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus--draft">{{ ucfirst(str_replace('_',' ',$show->status ?? 'unknown')) }}</span>@foreach($show->streamers as $streamer)<span class="rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus--draft">{{ $streamer->name }}</span>@endforeach @if($analyticsMissing)<span class="rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus rounded-[10px] border border-[var(--vx-divider)] p-3 text-centerus--draft warn">Whatnot analytics missing</span>@endif</div>
-            </div>
-            <div class="vx-actions flex flex-wrap gap-2"><a class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold" href="{{ \App\Filament\Resources\ShipmentResource::getUrl('index',['show'=>$show->id]) }}">Shipments</a><a class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('inventory',['record'=>$show]) }}">Inventory / COGS</a></div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 xl:grid-cols-4"><div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Gross Sales</label><strong>${{ number_format((float)$pnl['gross'],2) }}</strong></div><div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Shipments</label><strong>{{ number_format($shipments->count()) }}</strong></div><div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Payroll</label><strong>${{ number_format((float)$pnl['payouts'],2) }}</strong></div><div class="rounded-[10px] border border-[var(--vx-divider)] p-4"><label>Show Net</label><strong class="{{ $pnl['margin']<0?'vx-bad':'vx-good' }}">${{ number_format((float)$pnl['margin'],2) }}</strong></div></div>
-    </section>
+<div class="vx-show-detail space-y-5">
+<section class="vx-card overflow-hidden">
+<div class="p-5 sm:p-6"><div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+<div class="min-w-0"><div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500">@if($show->channel)<span>{{ $show->channel->name }}</span><span>•</span>@endif<span class="text-primary-600">Show #{{ $show->id }}</span></div>
+<h1 class="mt-1 text-2xl font-black tracking-tight text-gray-950 dark:text-white sm:text-3xl">{{ $show->title ?: 'Show #'.$show->id }}</h1>
+<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500"><span>{{ $show->show_date?->format('M j, Y') ?? 'Date not set' }}</span>@if($show->start_time)<span>• {{ $show->start_time->format('g:i A') }}</span>@endif<span>• {{ ucfirst(str_replace('_',' ',$show->status ?? 'unknown')) }}</span></div>
+<div class="mt-3 flex flex-wrap gap-2"><span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{{ $workflow['label'] ?? ucfirst(str_replace('_',' ',$workflowKey)) }}</span>@foreach($show->streamers as $streamer)<span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{{ $streamer->name }}</span>@endforeach @if($analyticsMissing)<span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Whatnot analytics missing</span>@endif</div></div>
+<div class="flex shrink-0 flex-wrap gap-2"><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('edit',['record'=>$show]) }}">Edit Show</a><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShipmentResource::getUrl('index',['show'=>$show->id]) }}">Shipments</a><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('inventory',['record'=>$show]) }}">Inventory / COGS</a></div>
+</div></div>
+<div class="grid grid-cols-2 gap-px border-t border-[var(--vx-divider)] md:grid-cols-3 xl:grid-cols-6">
+<div class="p-4"><label>Gross Sales</label><strong>USD {{ number_format((float)$pnl['gross'],2) }}</strong></div>
+<div class="p-4"><label>Orders</label><strong>{{ number_format((int)($show->units_sold ?? 0)) }}</strong></div>
+<div class="p-4"><label>Shipments</label><strong>{{ $shipments->count() }}</strong></div>
+<div class="p-4"><label>Whatnot Net</label><strong>USD {{ number_format((float)$pnl['net'],2) }}</strong></div>
+<div class="p-4"><label>Payroll</label><strong>USD {{ number_format((float)$pnl['payouts'],2) }}</strong></div>
+<div class="p-4"><label>Show Net</label><strong class="{{ $pnl['margin']<0?'vx-bad':'vx-good' }}">USD {{ number_format((float)$pnl['margin'],2) }}</strong></div>
+</div></section>
 
     <section class="vx-card">
         <div class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:overflow-x-auto" aria-label="Show workflow">@foreach($workflowSteps as $key=>$label)@php $idx=array_search($key,$stepKeys,true);$cls=$idx<$currentStep?'done':($idx===$currentStep?'current':'');@endphp<div class="flex min-h-10 items-center gap-2 text-xs font-semibold text-[var(--vx-muted)] {{ $cls }}"><span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--vx-gray-bg)] vx-mono">{{ $idx<$currentStep?'✓':$idx+1 }}</span><span>{{ $label }}</span></div>@if(!$loop->last)<span class="hidden text-[var(--vx-faint)] lg:inline">›</span>@endif @endforeach</div>

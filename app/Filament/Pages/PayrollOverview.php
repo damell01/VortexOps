@@ -9,6 +9,7 @@ use App\Models\Payout;
 use App\Models\Product;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayRunReadinessService;
 use App\Services\PayRunAutomationService;
@@ -323,6 +324,7 @@ class PayrollOverview extends Page
         return [
             'all' => $shows->count(),
             'blocked' => $shows->filter(function (Show $show): bool {
+                if (! $this->showIsDueForPayroll($show)) return false;
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
                 return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
@@ -330,6 +332,42 @@ class PayrollOverview extends Page
             'in_run' => $shows->filter(fn (Show $show) => ($show->getAttribute('payrun_problems') ?? []) === [] && ($show->getAttribute('workflow_state')['key'] ?? '') === 'payroll')->count(),
             'paid' => $shows->filter(fn (Show $show) => ($show->getAttribute('workflow_state')['key'] ?? '') === 'paid')->count(),
         ];
+    }
+
+    public function streamerOptions(): array
+    {
+        return Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function assignStreamerToShow(int $showId, int $streamerId): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $show = Show::query()->inChannelContext()->findOrFail($showId);
+        $streamer = Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->findOrFail($streamerId);
+        $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);
+        Notification::make()->title('Streamer assigned')->body($streamer->name . ' → ' . ($show->title ?: 'Show #' . $show->id))->success()->send();
+    }
+
+    public function approveReportInline(int $showId): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $show = Show::query()->inChannelContext()->with('streamerLogEntry')->findOrFail($showId);
+        $report = $show->streamerLogEntry;
+        if (! $report || ! $report->isSubmitted() || $report->approval_status === 'approved') {
+            Notification::make()->title('Report is not awaiting approval')->warning()->send();
+            return;
+        }
+        $problems = $report->approveByAdmin();
+        $notification = Notification::make()->title($problems === [] ? 'Report approved' : 'Report approved with inventory exceptions');
+        if ($problems !== []) $notification->body(implode(' · ', $problems))->warning(); else $notification->success();
+        $notification->send();
+    }
+
+    private function showIsDueForPayroll(Show $show): bool
+    {
+        if (! $show->show_date || $show->show_date->isFuture()) return false;
+        if ($show->show_date->isToday() && $show->start_time && $show->start_time->isFuture()) return false;
+        return true;
     }
 
     public function showResolution(Show $show): array
@@ -360,6 +398,7 @@ class PayrollOverview extends Page
                 return ($show->getAttribute('payrun_problems') ?? []) === [] && in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
             'review' => $shows->filter(function (Show $show): bool {
+                if (! $this->showIsDueForPayroll($show)) return false;
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
                 return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),

@@ -1,3 +1,252 @@
+<?php
+
+namespace App\Providers\Filament;
+
+use App\Models\Setting;
+use App\Models\WhatnotChannel;
+use App\Support\ChannelContext;
+use App\Filament\Plugins\ScopedQuickCreatePlugin;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use App\Support\AdminModules;
+use App\Http\Middleware\EnforceNavVisibility;
+use App\Http\Middleware\RequireTwoFactorAuthentication;
+use Filament\Http\Middleware\Authenticate;
+use Filament\Http\Middleware\AuthenticateSession;
+use Filament\Http\Middleware\DisableBladeIconComponents;
+use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
+use App\Filament\Pages\DashboardImproved;
+use App\Filament\Pages\Auth\Login;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Filament\Support\Colors\Color;
+use Filament\FontProviders\GoogleFontProvider;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
+
+class AdminPanelProvider extends PanelProvider
+{
+    public function panel(Panel $panel): Panel
+    {
+        // Read branding from settings (cached 1hr), fall back to defaults on fresh install
+        try {
+            $brandName    = Setting::get('brand_name',    'VortexOps');
+            $primaryColor = Setting::get('primary_color', '#7c3aed');
+            $logoPath     = Setting::get('logo_path');
+        } catch (\Exception) {
+            $brandName    = 'VortexOps';
+            $primaryColor = '#7c3aed';
+            $logoPath     = null;
+        }
+
+        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
+            $primaryColor = '#7c3aed';
+        }
+
+        // Both resolved as Closures (not plain strings) so they're evaluated at
+        // render time rather than here at panel-registration time — registration
+        // runs before the session middleware boots, so ChannelContext (session-
+        // backed) would always read as unscoped if resolved eagerly here.
+        $panel = $panel
+            ->default()
+            ->id('admin')
+            ->path('admin')
+            ->login(Login::class)
+            ->passwordReset()
+            ->profile(isSimple: false)
+            ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
+            ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
+            ->brandLogoHeight('2.75rem')
+            ->font('Geist', provider: GoogleFontProvider::class)
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            // Needed so the sidebar can be opened/closed on desktop. Filament
+            // renders this as a chevron next to the drawer hamburger; the
+            // stylesheet hides the duplicate and redraws the remaining control
+            // as a hamburger so there is exactly one, consistent toggle.
+            ->sidebarCollapsibleOnDesktop()
+            // Mobile-optimized: 6xl on desktop, full width on mobile
+            ->maxContentWidth(\Filament\Support\Enums\Width::Full)
+            ->globalSearchKeyBindings(['mod+k', '/'])
+            ->globalSearchDebounce('200ms')
+            ->colors([
+                'primary' => Color::hex($primaryColor),
+                'gray'    => Color::Zinc,
+                'info'    => Color::Sky,
+                'success' => Color::Emerald,
+                'warning' => Color::Amber,
+                'danger'  => Color::Rose,
+            ]);
+
+        $isAuthenticatedAdminView = fn (): bool => auth()->check();
+        $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
+
+        $pwaIconsExist = fn (): bool => file_exists(public_path('icons/icon-192.png'));
+
+        return $panel
+            ->spa(hasPrefetching: false)
+            ->databaseNotifications()
+            // 300s meant a streamer could sit for five minutes after an admin
+            // requested changes before the bell showed anything, which read as
+            // "no notification was sent" when one had been written instantly.
+            ->databaseNotificationsPolling('30s')
+            ->navigationGroups(array_map(
+                // Collapse every group except the primary "Streams" workflow, so the
+                // sidebar stays compact — you expand the group you need.
+                fn (string $group): NavigationGroup => $group === 'Streams'
+                    ? NavigationGroup::make($group)
+                    : NavigationGroup::make($group)->collapsed(),
+                AdminModules::visibleNavigationGroups(),
+            ))
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+                HTML,
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => $hasViteManifest() && $isAuthenticatedAdminView()
+                    ? Blade::render("@vite(['resources/js/app.js'])")
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                function () use ($brandName, $primaryColor, $pwaIconsExist): string {
+                    $color  = htmlspecialchars($primaryColor, ENT_QUOTES);
+                    $bname  = htmlspecialchars($brandName, ENT_QUOTES);
+                    $icons  = $pwaIconsExist();
+                    $touch  = $icons ? '<link rel="apple-touch-icon" href="/icons/icon-180.png">' : '';
+                    $favicon = $icons ? '<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">' : '';
+                    return implode('', [
+                        '<link rel="manifest" href="/manifest.json">',
+                        "<meta name=\"theme-color\" content=\"{$color}\">",
+                        '<meta name="mobile-web-app-capable" content="yes">',
+                        '<meta name="apple-mobile-web-app-capable" content="yes">',
+                        '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+                        "<meta name=\"apple-mobile-web-app-title\" content=\"{$bname}\">",
+                        $touch,
+                        $favicon,
+                    ]);
+                },
+            )
+            // Account card pinned to the bottom of the sidebar. Filament renders
+            // no sidebar footer in this panel (.fi-sidebar-footer was absent from
+            // the DOM), so the design's user block is supplied through this hook.
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_FOOTER,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render('@include(\'filament.components.sidebar-account\')'),
+            )
+            // Feedback as a navigation item rather than a button floating over
+            // every page. SIDEBAR_NAV_END so it sits under the real links
+            // instead of competing with them for the top of the list.
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_END,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render('@include(\'filament.components.sidebar-feedback\')'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render(<<<'HTML'
+                    @livewire('feedback-widget')
+                    <script>
+                    (function() {
+                        let notificationPanelOpen = false;
+                        const notificationBtn = document.querySelector('[aria-label*="notification"], [aria-label*="Notification"]');
+
+                        if (notificationBtn) {
+                            notificationBtn.addEventListener('click', function(e) {
+                                // Let the click propagate first to open the panel
+                                setTimeout(() => {
+                                    const panel = document.querySelector('[role="dialog"]') ||
+                                                  document.querySelector('.fi-dropdown-panel') ||
+                                                  document.querySelector('[class*="notification"]');
+
+                                    if (panel && panel.offsetParent !== null) {
+                                        notificationPanelOpen = true;
+                                    } else if (notificationPanelOpen) {
+                                        // If panel is closing, toggle the button to close it
+                                        notificationBtn.click();
+                                        notificationPanelOpen = false;
+                                    }
+                                }, 10);
+                            });
+                        }
+
+                        // Alternative: Listen for panel visibility changes
+                        document.addEventListener('click', function(e) {
+                            const notificationPanel = document.querySelector('[class*="notification"]');
+                            if (notificationPanel && !notificationPanel.contains(e.target) &&
+                                e.target !== notificationBtn && !notificationBtn.contains(e.target)) {
+                                notificationPanelOpen = false;
+                            }
+                        });
+                    })();
+                    </script>
+                    HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
+            )
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_START,
+                fn (): string => (auth()->user()?->canSwitchChannels() ?? false)
+                    ? Blade::render("@livewire('channel-switcher')")
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('components.toast-container'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render(<<<'HTML'
+                    <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        // Show keyboard shortcuts hint in console
+                        const shortcuts = 'Press ? to see keyboard shortcuts';
+                        console.info('%c' + shortcuts, 'color: #7c3aed; font-size: 12px; font-weight: bold;');
+                    });
+                    </script>
+                    HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.camera-barcode-scanner'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.camera-photo-capture'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => <<<'HTML'
+                <script>
+                // Mobile sidebar touch/swipe gesture handler
+                // Note: Filament v5 uses Alpine.js for sidebar state ($store.sidebar.isOpen)
+                // The toggle buttons already have x-on:click handlers, so we just add swipe support
+                function initMobileSidebarGestures() {
+                    const sidebar = document.querySelector('.fi-sidebar');
+                    if (!sidebar) return;
 
                     let touchStartX = 0;
                     let touchEndX = 0;
@@ -75,38 +324,22 @@
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
-                <div class="vx-login-showcase" aria-hidden="true">
-                    <div class="vx-login-showcase-inner">
-                        <div class="vx-login-brand">
-                            <img src="/images/vb-logo-sidebar.svg" alt="">
-                        </div>
-                        <div class="vx-login-eyebrow">STREAMS <span>•</span> INVENTORY <span>•</span> FULFILLMENT <span>•</span> PAYROLL</div>
-                        <h2>Manage Your<br><strong>Whatnot Operations</strong></h2>
-                        <p>Track shows, manage inventory, handle fulfillment, and streamline payroll — all in one place.</p>
-                        <div class="vx-login-features">
-                            <div><b>▣</b><span><strong>Show Management</strong><small>Track and analyze your live shows</small></span></div>
-                            <div><b>◇</b><span><strong>Inventory Control</strong><small>Keep your stock synced and updated</small></span></div>
-                            <div><b>▰</b><span><strong>Fulfillment</strong><small>Manage orders and shipments</small></span></div>
-                            <div><b>▥</b><span><strong>Reports & Analytics</strong><small>Get insights and grow your business</small></span></div>
-                        </div>
-                        <div class="vx-login-preview">
-                            <div class="vx-preview-bar"><span>VORTEX <em>OPS</em></span><i></i></div>
-                            <div class="vx-preview-title">Performance Overview</div>
-                            <div class="vx-preview-cards">
-                                <div><small>Total Sales</small><strong>$447,693</strong><span>↗ 12%</span></div>
-                                <div><small>Orders</small><strong>17,130</strong><span>↗ 8%</span></div>
-                                <div><small>Avg Order Value</small><strong>$26.14</strong><span>↗ 5%</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div class="vx-login-hero">
-                    <div class="vx-login-card-brand">
-                        <img src="/images/vb-logo-sidebar.svg" alt="Vortex Ops">
+                    <div class="vx-wave-banner">
+                        <div class="vx-wave-banner-inner">
+                            <svg viewBox="0 0 100 100" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                                <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
+                                <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#fff" stroke-width="6" stroke-linejoin="round" fill="none"/>
+                                <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#fff" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+                                <path d="M 23,15 L 77,15" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+                                <path d="M 30,24 L 70,24" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+                            </svg>
+                            <div class="vx-wave-banner-word">VORTEX<span>Operations Platform</span></div>
+                        </div>
                     </div>
                     <div class="vx-login-heading">
-                        <h1>Welcome back</h1>
-                        <p>Sign in to your account to manage shows, inventory, fulfillment, and payroll.</p>
+                        <h1>Welcome Back!</h1>
+                        <p>Sign in to manage your operations hub.</p>
                     </div>
                 </div>
                 HTML,
@@ -174,3 +407,29 @@
         if ($channel?->display_title) {
             return $channel->display_title;
         }
+
+        if (! $channel?->logo_path && ! $logoPath && file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            return '';
+        }
+
+        return $brandName;
+    }
+
+    /** Precedence: the active channel's own logo, else the global logo, else the built-in SVG. */
+    public static function resolveBrandLogo(?WhatnotChannel $channel, ?string $logoPath): ?string
+    {
+        if ($channel?->logo_path && file_exists(storage_path('app/public/' . $channel->logo_path))) {
+            return asset('storage/' . $channel->logo_path);
+        }
+
+        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
+            return asset('storage/' . $logoPath);
+        }
+
+        if (file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            return asset('images/vb-logo-sidebar.svg');
+        }
+
+        return null;
+    }
+}

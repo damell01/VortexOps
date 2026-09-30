@@ -20,9 +20,8 @@
         </div>
     @endif
 
-    <div class="space-y-5">
-        <section class="overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 shadow-sm dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20 print:hidden"><div class="inline-flex rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">Financial statement</div><h2 class="mt-3 text-xl font-bold tracking-tight text-gray-950 dark:text-white">Streamer Statement</h2><p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Show-by-show earnings, payments and outstanding balance for the selected period.</p></section>
-        <div class="sticky top-[64px] z-20 rounded-xl border border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 print:static print:hidden">
+    <div class="space-y-6">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streamer</label>
@@ -59,7 +58,7 @@
                 <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20"><div class="text-xs font-semibold text-amber-700 dark:text-amber-300">Outstanding</div><div class="mt-1 text-xl font-bold tabular-nums text-amber-700 dark:text-amber-300">${{ number_format($data['totals']['outstanding'], 2) }}</div></div>
             </div>
 
-            <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" id="printable-statement">
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden" id="printable-statement">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <div>
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Statement: {{ $this->selectedStreamer?->name }}</h2>

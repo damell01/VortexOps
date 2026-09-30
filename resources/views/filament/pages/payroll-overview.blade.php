@@ -20,12 +20,12 @@
 </style>
 
 <div class="vx-pay">
-    <section class="vx-card vx-pad">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section class="vx-card vx-pad vx-payroll-control">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">Payroll Command Center</div>
                 <h1 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ ($current?->week_start ?? now()->startOfWeek())->format('M j') }} – {{ ($current?->week_end ?? now()->endOfWeek())->format('M j, Y') }}</h1>
-                <p class="mt-1 max-w-2xl text-xs text-gray-500">See what is blocked, what is payroll-ready, what is already in the run, and the one action needed to move each show forward.</p>
+                <p class="mt-1 max-w-2xl text-xs text-gray-500">Fix issues, review the week, and move payroll forward from one screen.</p>
             </div>
             <div class="vx-actions">
                 @if($current)
@@ -54,12 +54,17 @@
         </div>
     </section>
 
-    <section class="vx-card vx-pad">
-        <div class="flex items-center justify-between gap-3"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">This Week's Payroll Flow</h2><div class="vx-sub">Jump directly to the stage you need.</div></div><span class="vx-chip {{ $current ? 'run' : 'blocked' }}">{{ $runStatus }}</span></div>
-        <div class="vx-flow mt-3">
-            @foreach(['blocked'=>['Needs Attention',$workflow['blocked']],'ready'=>['Payroll Ready',$workflow['ready']],'in_run'=>['In Pay Run',$workflow['in_run']],'paid'=>['Paid',$workflow['paid']]] as $key=>[$label,$count])
-                <a class="{{ $activeWorkflow===$key?'active':'' }}" href="{{ $baseUrl.'?workflow='.$key }}"><label>{{ $label }}</label><strong>{{ $count }}</strong></a>
-            @endforeach
+    <section class="vx-card vx-pad vx-payroll-statusbar">
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div class="min-w-0">
+                <div class="text-[10px] font-extrabold uppercase tracking-[.12em] text-gray-400">Work queue</div>
+                <div class="mt-1 text-sm font-bold text-gray-950 dark:text-white">Start with anything blocked, then move the week into the Pay Run.</div>
+            </div>
+            <div class="vx-flow flex-1 xl:max-w-4xl">
+                @foreach(['blocked'=>['Needs Attention',$workflow['blocked']],'ready'=>['Ready',$workflow['ready']],'in_run'=>['In Pay Run',$workflow['in_run']],'paid'=>['Paid',$workflow['paid']]] as $key=>[$label,$count])
+                    <a class="{{ $activeWorkflow===$key?'active':'' }}" href="{{ $baseUrl.'?workflow='.$key }}"><label>{{ $label }}</label><strong>{{ $count }}</strong></a>
+                @endforeach
+            </div>
         </div>
     </section>
 
@@ -89,8 +94,8 @@
             </div>
         </section>
 
-        <aside class="space-y-3">
-            <section class="vx-card vx-pad"><div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-bold text-gray-950 dark:text-white">Run Readiness</h3><div class="vx-sub">Clear these before finalizing.</div></div><span class="vx-chip {{ count($attention)?'blocked':'ready' }}">{{ count($attention) }} issue{{ count($attention)===1?'':'s' }}</span></div>@forelse($attention as $warning)<div class="vx-alert"><strong>!</strong><span>{{ $warning }}</span></div>@empty<div class="vx-ok">✓ Current week is clear of payroll readiness issues.</div>@endforelse</section>
+        <aside class="vx-payroll-side space-y-3">
+            <section class="vx-card vx-pad vx-readiness-sticky"><div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-bold text-gray-950 dark:text-white">Run Readiness</h3><div class="vx-sub">Clear these before finalizing.</div></div><span class="vx-chip {{ count($attention)?'blocked':'ready' }}">{{ count($attention) }} issue{{ count($attention)===1?'':'s' }}</span></div>@forelse($attention as $warning)<div class="vx-alert"><strong>!</strong><span>{{ $warning }}</span></div>@empty<div class="vx-ok">✓ Current week is clear of payroll readiness issues.</div>@endforelse</section>
             <section class="vx-card vx-pad"><h3 class="text-sm font-bold text-gray-950 dark:text-white">Current Run</h3><div class="mt-3 rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/30"><div class="text-[9px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-300">Total payroll</div><div class="mt-1 text-3xl font-bold text-blue-700 dark:text-blue-200">${{ number_format((float)($current?->total_payout ?? 0),2) }}</div><div class="mt-1 text-xs text-blue-700 dark:text-blue-300">{{ $runStatus }}</div><div class="mt-3 grid grid-cols-2 gap-2 text-xs"><div><span class="text-gray-500">Streamers</span><div class="font-bold">${{ number_format($breakdown['streamer_total'],0) }}</div></div><div><span class="text-gray-500">Fulfillment</span><div class="font-bold">${{ number_format($breakdown['fulfillment_total'],0) }}</div></div></div></div>@if($current)<a class="vx-btn primary mt-3 w-full" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review Pay Run</a>@endif</section>
             <section class="vx-card vx-pad"><h3 class="text-sm font-bold text-gray-950 dark:text-white">Recent Pay Runs</h3>@forelse($recent as $run)<a href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$run]) }}" class="vx-runrow"><div><strong>{{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}</strong><br><span>{{ \App\Models\WeeklyPayoutBatch::statusLabels()[$run->status] ?? ucfirst($run->status) }} · {{ $run->payouts_count }} entries</span></div><strong>${{ number_format((float)$run->total_payout,2) }}</strong></a>@empty<div class="py-5 text-center text-xs text-gray-500">No prior pay runs.</div>@endforelse</section>
         </aside>

@@ -313,8 +313,8 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
 @media(min-width:1024px){
   .fi-topbar nav>.fi-logo{display:none!important}
   .vx-desktop-mega-nav{order:-10;margin-left:0!important;gap:5px!important}
-  .vx-mega-brand{display:flex;align-items:center;width:235px;height:54px;margin-right:8px;flex:0 0 235px}
-  .vx-mega-brand img{display:block;width:220px;height:48px;object-fit:contain;object-position:left center}
+  .vx-mega-brand{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin-right:8px;flex:0 0 44px;border-radius:11px;overflow:hidden}
+  .vx-mega-brand img{display:block;width:38px;height:38px;object-fit:contain;object-position:center}
   .vx-mega-group{padding-block:12px;margin-block:-12px}
   .vx-mega-menu{top:calc(100% - 1px)!important}
 }

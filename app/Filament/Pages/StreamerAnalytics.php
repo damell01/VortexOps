@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Livewire\Attributes\Url;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
 class StreamerAnalytics extends Page
@@ -119,6 +120,9 @@ class StreamerAnalytics extends Page
     public string $dateTo   = '';
     public string $activeTab = 'overview';
 
+    #[Url(as: 'streamer')]
+    public ?int $streamer = null;
+
     /** @var array<int> */
     public array $selectedStreamers = [];
 
@@ -126,6 +130,10 @@ class StreamerAnalytics extends Page
     {
         $this->dateFrom = now()->startOfYear()->toDateString();
         $this->dateTo   = now()->toDateString();
+
+        if ($this->streamer) {
+            $this->selectedStreamers = [$this->streamer];
+        }
     }
 
     public function refreshData(): void {}

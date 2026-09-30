@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\UserResource\Pages;
 
 use App\Filament\Resources\UserResource;
-use App\Models\Streamer;
+use App\Services\UserTeamProfileService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateUser extends CreateRecord
@@ -30,17 +30,12 @@ class CreateUser extends CreateRecord
             }
         }
 
-        // A streamer login and streamer profile are one concept operationally.
-        // Creating the user with the streamer role should be the only setup step.
-        if ($this->record->hasRole('streamer') && ! $this->record->streamer) {
-            Streamer::create([
-                'user_id' => $this->record->id,
-                'name' => $this->record->name,
-                'legal_name' => $this->record->name,
-                'email' => $this->record->email,
-                'status' => 'active',
-                'member_type' => 'streamer',
-            ]);
-        }
+        // Users is the single setup flow for operational staff. Streamer and
+        // fulfillment roles automatically receive the backing team profile used
+        // by shows, payroll, inventory and fulfillment.
+        app(UserTeamProfileService::class)->sync(
+            $this->record,
+            $this->data['streamer_type'] ?? 'in_house',
+        );
     }
 }

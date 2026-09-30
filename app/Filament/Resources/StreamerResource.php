@@ -46,6 +46,13 @@ class StreamerResource extends Resource
     public static function getModelLabel(): string { return 'team member'; }
     public static function getPluralModelLabel(): string { return 'Team'; }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-user-group'; }
+    public static function shouldRegisterNavigation(): bool
+    {
+        // People are managed from Users. Keep this resource/routes available
+        // for the detailed operational workspace without a duplicate Team tab.
+        return false;
+    }
+
     public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('operations'); }
     public static function getNavigationSort(): ?int { return 1; }
 

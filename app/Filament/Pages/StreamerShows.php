@@ -64,20 +64,7 @@ class StreamerShows extends Page
             return null;
         }
 
-        $streamer = auth()->user()?->streamer;
-        if (! $streamer) {
-            return null;
-        }
-
-        $count = \Illuminate\Support\Facades\Cache::remember(
-            "nav_badge:streamer_shows_needs_you:{$streamer->id}",
-            60,
-            fn () => Show::query()
-                ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
-                ->where('status', '!=', 'cancelled')
-                ->whereHas('streamerLogEntry', fn ($q) => $q->whereIn('status', ['draft', 'changes_requested']))
-                ->count()
-        );
+        $count = count((new static())->groups()['needs_you']);
 
         return $count > 0 ? (string) $count : null;
     }

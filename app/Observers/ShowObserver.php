@@ -6,6 +6,7 @@ use App\Jobs\NotifyShowPendingReview;
 use App\Models\Show;
 use App\Models\ShowChangeLog;
 use App\Models\Streamer;
+use App\Models\StreamerAlias;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
 use App\Services\AI\Ops\AiOpsDispatcher;
@@ -25,14 +26,6 @@ class ShowObserver
         'giveaway_spend', 'giveaways_count', 'buyers_count', 'first_time_buyers',
         'returning_buyers', 'shares_count', 'show_duration', 'max_concurrent_viewers',
         'total_views', 'avg_order_rating',
-    ];
-
-    /**
-     * Whatnot usernames/handles that should resolve to a known streamer even
-     * when the show title does not contain their display name verbatim.
-     */
-    private const STREAMER_ALIASES = [
-        'dennis_vortexcollects' => 'Dennis',
     ];
 
     public function updating(Show $show): void
@@ -144,19 +137,21 @@ class ShowObserver
     {
         $title = strtolower((string) $show->title);
 
-        foreach (self::STREAMER_ALIASES as $alias => $streamerName) {
+        $aliases = StreamerAlias::query()
+            ->with('streamer')
+            ->whereHas('streamer', fn ($query) => $query->where('status', 'active'))
+            ->get();
+
+        foreach ($aliases as $streamerAlias) {
+            $alias = $streamerAlias->alias;
             $pattern = '/(?<![a-z0-9])' . preg_quote(strtolower($alias), '/') . '(?![a-z0-9])/i';
             if (preg_match($pattern, $title) !== 1) {
                 continue;
             }
 
-            $streamer = Streamer::query()
-                ->where('status', 'active')
-                ->whereRaw('LOWER(name) = ?', [strtolower($streamerName)])
-                ->first();
-
+            $streamer = $streamerAlias->streamer;
             if (! $streamer) {
-                return false;
+                continue;
             }
 
             $show->streamers()->syncWithoutDetaching([

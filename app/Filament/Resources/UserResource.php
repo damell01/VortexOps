@@ -4,6 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
+use App\Models\Streamer;
+use Filament\Schemas\Components\Utilities\Get;
+use Spatie\Permission\Models\Role;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -159,6 +162,7 @@ class UserResource extends Resource
             Section::make('Roles & Access')->columnSpanFull()->schema([
                 Select::make('roles')
                     ->multiple()
+                    ->live()
                     // Options come from the relationship (keyed by id, labelled by
                     // name). Only the owner sees the privileged roles, so other
                     // admins can manage non-privileged roles (e.g. streamer) but
@@ -173,13 +177,26 @@ class UserResource extends Resource
                     ->preload()
                     ->helperText('Admin — full access. Streamer — scoped to their own inventory locations. Fulfillment — scoped to their assigned shows. Fulfillment Admin — sees every channel\'s fulfillment work.'),
 
+                Select::make('streamer_type')
+                    ->label('Streamer Type')
+                    ->options(Streamer::streamerTypeLabels())
+                    ->default('in_house')
+                    ->native(false)
+                    ->dehydrated(false)
+                    ->visible(function (Get $get): bool {
+                        $roleIds = collect($get('roles') ?? [])->filter();
+                        return $roleIds->isNotEmpty()
+                            && Role::query()->whereIn('id', $roleIds)->where('name', 'streamer')->exists();
+                    })
+                    ->helperText('In-House works on site. Remote uses the same show and payroll workflow but is identified separately.'),
+
                 Select::make('streamer_id')
                     ->label('Linked Streamer Profile')
                     ->relationship('streamer', 'name')
                     ->searchable()
                     ->preload()
                     ->nullable()
-                    ->visible(fn (string $operation): bool => $operation === 'edit')
+                    ->visible(fn (string $operation): bool => $operation === 'edit' && false)
                     ->helperText('Normally created and linked automatically when the Streamer role is assigned. Use this only to repair an existing account.'),
             ]),
         ]);
@@ -212,11 +229,17 @@ class UserResource extends Resource
                     })
                     ->formatStateUsing(fn (string $state): string => str($state)->replace('_', ' ')->title())
                     ->separator(', '),
-                TextColumn::make('streamer.name')
-                    ->label('Streamer profile')
-                    ->default('Not linked')
-                    ->placeholder('Not linked')
-                    ->icon('heroicon-o-video-camera'),
+                TextColumn::make('streamer.member_type')
+                    ->label('Team profile')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state === 'fulfillment' ? 'Fulfillment' : ($state === 'streamer' ? 'Streamer' : '—'))
+                    ->default('—')
+                    ->placeholder('—'),
+                TextColumn::make('streamer.streamer_type')
+                    ->label('Streamer type')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state ? (Streamer::streamerTypeLabels()[$state] ?? $state) : '—')
+                    ->placeholder('—'),
                 TextColumn::make('created_at')
                     ->label('Joined')
                     ->date('M j, Y')

@@ -9,6 +9,8 @@ use App\Filament\Resources\InventoryStockResource;
 use App\Filament\Resources\PalletResource;
 use App\Filament\Resources\VendorResource;
 use App\Models\InventoryMovement;
+use App\Models\InventorySnapshot;
+use App\Models\InventoryStock;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -173,6 +175,58 @@ class InventoryOverview extends Page
         }
 
         return $output->sortByDesc(fn (InventoryMovement $movement) => $movement->created_at?->getTimestamp() ?? 0)->values();
+    }
+
+    #[Computed]
+    public function valueTrend(): Collection
+    {
+        return InventorySnapshot::query()
+            ->where('snapshot_date', '>=', now()->subDays(30))
+            ->orderBy('snapshot_date')
+            ->get()
+            ->groupBy(fn ($snapshot) => $snapshot->snapshot_date->format('Y-m-d'))
+            ->map(fn ($rows) => $rows->last())
+            ->values()
+            ->map(fn ($snapshot) => [
+                'date' => $snapshot->snapshot_date->format('M j'),
+                'value' => (float) $snapshot->total_value,
+            ]);
+    }
+
+    #[Computed]
+    public function categoryBreakdown(): Collection
+    {
+        return InventoryItemResource::getEloquentQuery()
+            ->get(['products.id', 'products.category'])
+            ->groupBy(fn ($item) => filled($item->category) ? $item->category : 'Other')
+            ->map(fn ($rows, $name) => [
+                'name' => $name,
+                'count' => $rows->count(),
+            ])
+            ->sortByDesc('count')
+            ->values();
+    }
+
+    #[Computed]
+    public function topValueItems(): Collection
+    {
+        return InventoryItemResource::getEloquentQuery()
+            ->get(['products.id', 'products.name', 'products.sku', 'products.average_cost', 'products.unit_cost'])
+            ->map(function ($item) {
+                $quantity = max(0, (float) ($item->stock_sum_quantity ?? 0));
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'sku' => $item->sku,
+                    'quantity' => $quantity,
+                    'cost' => $item->effectiveCost(),
+                    'value' => $quantity * $item->effectiveCost(),
+                ];
+            })
+            ->filter(fn ($item) => $item['value'] > 0)
+            ->sortByDesc('value')
+            ->take(5)
+            ->values();
     }
 
     public function inventoryUrl(?string $stock = null): string

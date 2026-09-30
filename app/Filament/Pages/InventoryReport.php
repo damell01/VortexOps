@@ -879,12 +879,12 @@ class InventoryReport extends Page
             'Total Value',
         ]);
 
-        $itemDetails = $this->getData()['itemDetails'];
+        $itemDetails = $this->getViewerData()['items'];
         foreach ($itemDetails as $item) {
             $csv->insertOne([
                 $item['sku'],
                 $item['name'],
-                $item['location'],
+                $item['locations'],
                 number_format($item['quantity']),
                 number_format($item['unit_cost'], 2),
                 number_format($item['total_value'], 2),
@@ -902,7 +902,9 @@ class InventoryReport extends Page
             'title' => 'Comprehensive Inventory Report',
             'date' => now()->format('F j, Y'),
             'time' => now()->format('H:i'),
-            'summary' => $this->getData(),
+            'summary' => $this->getData()['summary'],
+            'items' => $this->getData()['items'],
+            'locations' => $this->getData()['locations'],
             'health' => $this->getStockHealthProperty(),
             'fastMovers' => $this->getFastMoversProperty(),
             'slowMovers' => $this->getSlowMoversProperty(),

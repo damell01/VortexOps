@@ -105,9 +105,7 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
 
 /* Auth: compact, intentional sign-in card instead of the default oversized simple page. */
 .fi-simple-layout {
-  background:
-    radial-gradient(circle at 50% 0%, rgb(124 58 237 / .10), transparent 34rem),
-    var(--vx-page);
+  background:var(--vx-page);
 }
 .fi-simple-main {
   width:min(100% - 32px, 440px);

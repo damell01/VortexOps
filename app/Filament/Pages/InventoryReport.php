@@ -237,7 +237,7 @@ class InventoryReport extends Page
 
     public function getViewerData(): array
     {
-        $data = $this->getData();
+        $data = $this->viewerDataCache ??= $this->getData();
         $items = collect($data['items']);
 
         if ($this->reportSearch !== '') {

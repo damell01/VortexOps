@@ -218,14 +218,17 @@ class StreamerAnalytics extends Page
             ->inChannelContext()
             ->with([
                 'shows' => function ($q) use ($from, $toBound) {
-                    $q->whereBetween('show_date', [$from, $toBound]);
+                    $q->select(['shows.id', 'show_date', 'gross_revenue', 'whatnot_net', 'units_sold', 'show_duration'])
+                        ->whereBetween('show_date', [$from, $toBound]);
                 },
                 'shows.orders:id,show_id,total_cost',
                 'payouts' => function ($q) use ($from, $toBound) {
-                    $q->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
+                    $q->select(['id', 'show_id', 'streamer_id', 'tips', 'calculated_payout', 'status'])
+                        ->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
                 },
                 'streamerLogEntries' => function ($q) use ($from, $toBound) {
-                    $q->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
+                    $q->select(['id', 'show_id', 'streamer_id', 'hours_streamed', 'gross_revenue'])
+                        ->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
                 },
             ]);
 
@@ -352,9 +355,11 @@ class StreamerAnalytics extends Page
         $to   = $this->dateTo   ?: now()->toDateString();
         $toBound = Carbon::parse($to)->endOfDay()->toDateTimeString();
 
-        $shows = Show::whereBetween('show_date', [$from, $toBound])
+        $shows = Show::query()
+            ->select(['id', 'show_date', 'gross_revenue', 'whatnot_net', 'show_duration', 'whatnot_channel_id'])
+            ->whereBetween('show_date', [$from, $toBound])
             ->inChannelContext()
-            ->with('streamerLogEntry')
+            ->with('streamerLogEntry:id,show_id,hours_streamed')
             ->when(
                 $this->visibleStreamerIds() !== null,
                 // Without this the weekly table was every show in the business,

@@ -19,6 +19,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Cache;
 
 class StreamerLoanResource extends Resource
 {
@@ -35,7 +36,7 @@ class StreamerLoanResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = StreamerLoan::where('status', 'active')->count();
+        $count = Cache::remember('nav_badge:streamer_loans_active', 60, fn () => StreamerLoan::where('status', 'active')->count());
         return $count > 0 ? (string) $count : null;
     }
 

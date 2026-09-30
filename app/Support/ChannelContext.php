@@ -27,11 +27,14 @@ class ChannelContext
      */
     private static bool $memoized = false;
     private static ?WhatnotChannel $currentMemo = null;
+    private static ?Collection $availableMemo = null;
 
     /** @return Collection<int, WhatnotChannel> */
     public static function available(): Collection
     {
-        return WhatnotChannel::where('status', 'active')->orderBy('name')->get();
+        // The channel switcher exists in both desktop and mobile navigation and
+        // can render more than once during a request. Query active channels once.
+        return self::$availableMemo ??= WhatnotChannel::where('status', 'active')->orderBy('name')->get();
     }
 
     public static function current(): ?WhatnotChannel
@@ -74,7 +77,8 @@ class ChannelContext
 
     public static function flushMemo(): void
     {
-        self::$memoized    = false;
-        self::$currentMemo = null;
+        self::$memoized     = false;
+        self::$currentMemo  = null;
+        self::$availableMemo = null;
     }
 }

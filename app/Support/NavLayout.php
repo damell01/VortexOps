@@ -82,10 +82,40 @@ final class NavLayout
         // Navigation Manager layout still says "Streams". Technical utility
         // pages remain configurable/access-controlled but are hidden elsewhere.
         $canonical = match (class_basename($class)) {
-            'StreamsOverview' => ['group' => 'Shows', 'sort' => 10, 'label' => 'Shows Overview'],
-            'Shows' => ['group' => 'Shows', 'sort' => 20, 'label' => 'Shows'],
-            'ShowShipments' => ['group' => 'Shows', 'sort' => 30, 'label' => 'Show Shipments'],
-            'FulfillmentCenter' => ['group' => 'Fulfillment', 'sort' => 10, 'label' => 'Fulfillment Center'],
+            // Shows
+            'StreamsOverview' => ['group' => 'Shows', 'sort' => 10, 'label' => 'Overview'],
+            'Shows', 'ShowResource' => ['group' => 'Shows', 'sort' => 20, 'label' => 'Shows'],
+            'StreamerShows' => ['group' => 'Shows', 'sort' => 30, 'label' => 'My Shows'],
+            'ShowShipments' => ['group' => 'Shows', 'sort' => 40, 'label' => 'Shipments'],
+
+            // Inventory & receiving
+            'InventoryOverview' => ['group' => 'Inventory', 'sort' => 10, 'label' => 'Overview'],
+            'InventoryScanner' => ['group' => 'Inventory', 'sort' => 20, 'label' => 'Scan Inventory'],
+            'InventoryItemResource', 'InventoryCatalog' => ['group' => 'Inventory', 'sort' => 30, 'label' => 'Items'],
+            'PalletResource' => ['group' => 'Inventory', 'sort' => 40, 'label' => 'Pallets & Receiving'],
+            'InventoryCount' => ['group' => 'Inventory', 'sort' => 50, 'label' => 'Inventory Count'],
+            'StockTransfer' => ['group' => 'Inventory', 'sort' => 60, 'label' => 'Transfers'],
+
+            // Fulfillment
+            'FulfillmentCenter', 'FulfillmentResource' => ['group' => 'Fulfillment', 'sort' => 10, 'label' => 'Fulfillment Center'],
+
+            // Payroll
+            'PayrollOverview' => ['group' => 'Payroll', 'sort' => 10, 'label' => 'Overview'],
+            'WeeklyPayoutBatchResource' => ['group' => 'Payroll', 'sort' => 20, 'label' => 'Pay Runs'],
+            'PayoutResource' => ['group' => 'Payroll', 'sort' => 30, 'label' => 'Payouts'],
+            'StreamerStatement' => ['group' => 'Payroll', 'sort' => 40, 'label' => 'Statements'],
+            'ManagerProfitShare', 'StreamerProfitShare', 'ProfitSharePacket' => ['group' => 'Payroll', 'sort' => 50, 'label' => 'Profit Share'],
+
+            // Reporting
+            'Reports', 'InventoryReport' => ['group' => 'Reports', 'sort' => 10, 'label' => 'Reports'],
+            'StreamerAnalytics', 'InventoryAnalytics', 'ProductInsights', 'ShowFormatComparison' => ['group' => 'Reports', 'sort' => 20, 'label' => 'Analytics'],
+
+            // Administration
+            'UserResource' => ['group' => 'Settings', 'sort' => 10, 'label' => 'Users'],
+            'RoleResource' => ['group' => 'Settings', 'sort' => 20, 'label' => 'Roles & Permissions'],
+            'WhatnotChannelResource' => ['group' => 'Settings', 'sort' => 30, 'label' => 'Channels'],
+            'AppSettings' => ['group' => 'Settings', 'sort' => 40, 'label' => 'App Settings'],
+            'NavigationManager' => ['group' => 'Settings', 'sort' => 50, 'label' => 'Navigation'],
             default => null,
         };
 

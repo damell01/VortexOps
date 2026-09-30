@@ -21,6 +21,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -320,6 +321,20 @@ class StreamerResource extends Resource
                 SelectFilter::make('whatnot_channel_id')->label('Channel')->relationship('channel', 'name'),
             ])
             ->actions([
+                Action::make('analytics')
+                    ->label('Analytics')
+                    ->icon('heroicon-o-chart-bar')
+                    ->iconButton()
+                    ->tooltip('View analytics')
+                    ->visible(fn () => \App\Filament\Pages\StreamerAnalytics::canAccess())
+                    ->url(fn (Streamer $record) => \App\Filament\Pages\StreamerAnalytics::getUrl(['streamer' => $record->id])),
+                Action::make('statement')
+                    ->label('Statement')
+                    ->icon('heroicon-o-document-text')
+                    ->iconButton()
+                    ->tooltip('View statement')
+                    ->visible(fn () => \App\Filament\Pages\StreamerStatement::canAccess())
+                    ->url(fn (Streamer $record) => \App\Filament\Pages\StreamerStatement::getUrl(['streamer' => $record->id])),
                 ViewAction::make()->size('sm')->iconButton(),
                 EditAction::make()->size('sm')->iconButton(),
                 DeleteAction::make()

@@ -11,6 +11,7 @@ use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use Filament\Pages\Page;
 use App\Filament\Concerns\HasAdminNavVisibility;
+use Livewire\Attributes\Url;
 
 class StreamerStatement extends Page
 {
@@ -58,6 +59,18 @@ class StreamerStatement extends Page
         return 'filament.pages.streamer-statement';
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('analytics')
+                ->label('Streamer Analytics')
+                ->icon('heroicon-o-chart-bar')
+                ->color('gray')
+                ->visible(fn () => StreamerAnalytics::canAccess())
+                ->url(fn () => StreamerAnalytics::getUrl($this->effectiveStreamerId() ? ['streamer' => $this->effectiveStreamerId()] : [])),
+        ];
+    }
+
     public function getSubheading(): ?string
     {
         $user = auth()->user();
@@ -67,6 +80,7 @@ class StreamerStatement extends Page
             : 'Your show reporting and payout history in one place.';
     }
 
+    #[Url(as: 'streamer')]
     public ?int $streamerId = null;
     public string $dateFrom = '';
     public string $dateTo   = '';

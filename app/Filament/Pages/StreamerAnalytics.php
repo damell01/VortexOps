@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Livewire\Attributes\Url;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
 class StreamerAnalytics extends Page
@@ -57,6 +58,18 @@ class StreamerAnalytics extends Page
     public function getView(): string
     {
         return 'filament.pages.streamer-analytics';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('statements')
+                ->label('Streamer Statements')
+                ->icon('heroicon-o-document-text')
+                ->color('gray')
+                ->visible(fn () => StreamerStatement::canAccess())
+                ->url(fn () => StreamerStatement::getUrl($this->selectedStreamers && count($this->selectedStreamers) === 1 ? ['streamer' => $this->selectedStreamers[0]] : [])),
+        ];
     }
 
     public function getSubheading(): ?string
@@ -107,6 +120,9 @@ class StreamerAnalytics extends Page
     public string $dateTo   = '';
     public string $activeTab = 'overview';
 
+    #[Url(as: 'streamer')]
+    public ?int $streamer = null;
+
     /** @var array<int> */
     public array $selectedStreamers = [];
 
@@ -114,6 +130,10 @@ class StreamerAnalytics extends Page
     {
         $this->dateFrom = now()->startOfYear()->toDateString();
         $this->dateTo   = now()->toDateString();
+
+        if ($this->streamer) {
+            $this->selectedStreamers = [$this->streamer];
+        }
     }
 
     public function refreshData(): void {}

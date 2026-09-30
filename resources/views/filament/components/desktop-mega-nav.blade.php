@@ -2,8 +2,6 @@
 $user=auth()->user(); $groups=[];
 if(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
- ['End of Stream',\App\Filament\Pages\EndOfStreamForm::getUrl(panel:'admin')],
- ['Team / Streamers',\App\Filament\Resources\StreamerResource::getUrl('index')],
 ];
 if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess()) $groups['Inventory']=[
  ['Inventory Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin')],
@@ -16,9 +14,7 @@ if(\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resource
  ['Fulfillment Dashboard',\App\Filament\Resources\FulfillmentResource::getUrl('index')],
 ];
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Finance']=[
- ['Payroll',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
- ['Payouts',\App\Filament\Resources\PayoutResource::getUrl('index')],
- ['Pay Runs',\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')],
+ ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
 ];
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
  ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],

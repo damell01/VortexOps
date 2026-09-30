@@ -107,6 +107,27 @@ class Shows extends Page
         return 'Completed';
     }
 
+    #[Computed] public function unassignedShows():Collection
+    {
+        if (! auth()->user()?->isAdmin()) return collect();
+        [$from,$to]=$this->dateRange();
+        return Show::query()->inChannelContext()
+            ->whereBetween('show_date',[$from->toDateString(),$to->toDateString()])
+            ->whereDoesntHave('streamers')
+            ->whereNotIn('status',['cancelled','closed'])
+            ->orderBy('show_date')->orderBy('start_time')->limit(25)->get();
+    }
+
+    public function assignStreamer(int $showId, int $streamerId):void
+    {
+        abort_unless(auth()->user()?->isAdmin(),403);
+        $show=Show::query()->inChannelContext()->findOrFail($showId);
+        $streamer=Streamer::findOrFail($streamerId);
+        $show->streamers()->sync([$streamer->id=>['is_primary'=>true]]);
+        Notification::make()->title('Streamer assigned')->body($streamer->name.' → '.$show->title)->success()->send();
+        unset($this->shows,$this->unassignedShows);
+    }
+
     public function clearFilters():void{$this->filterStatus='all';$this->filterTimeframe='all';$this->filterStreamer='';$this->searchQuery='';$this->sortBy='date';$this->applyDatePreset('this_month');}
     public function showUrl(int $id):string{return ShowResource::getUrl('view',['record'=>$id]);} public function editUrl(int $id):string{return ShowResource::getUrl('edit',['record'=>$id]);}
     public function isShowDue(Show $s):bool{if($s->show_date?->isFuture())return false;if($s->start_time&&$s->start_time->isFuture())return false;return true;}

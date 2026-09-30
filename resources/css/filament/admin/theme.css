@@ -322,3 +322,10 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .vx-mega-brand{width:180px;flex-basis:180px}
   .vx-mega-brand img{width:172px}
 }
+/* Final desktop header cleanup: custom brand is authoritative. */
+@media(min-width:1024px){
+  .fi-topbar .fi-logo,
+  .fi-topbar [class*="sidebar-open"],
+  .fi-topbar [class*="sidebar-close"]{display:none!important}
+  .vx-mega-brand{order:-20!important}
+}

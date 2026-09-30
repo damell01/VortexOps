@@ -1,6 +1,30 @@
 <x-filament-panels::page>
 @php $s=$this->inventorySnapshot; @endphp
 <div class="space-y-6">
+ <x-filament::section>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+   <div><div class="text-sm font-bold text-gray-950 dark:text-white">Quick actions</div><div class="mt-1 text-xs text-[var(--vx-muted)]">Receive, add, scan, move, or count inventory without hunting through menus.</div></div>
+   <div class="flex flex-wrap gap-2">
+    <x-filament::button tag="a" :href="$this->receiveUrl()" icon="heroicon-o-inbox-arrow-down">Receive Inventory</x-filament::button>
+    <x-filament::button tag="a" :href="$this->quickAddUrl()" icon="heroicon-o-plus-circle" color="gray">Quick Add Stock</x-filament::button>
+    <x-filament::button tag="a" :href="$this->scanUrl()" icon="heroicon-o-qr-code" color="gray">Scan Inventory</x-filament::button>
+    <x-filament::button tag="a" :href="$this->addItemUrl()" icon="heroicon-o-cube" color="gray">Add Item</x-filament::button>
+    <x-filament::button tag="a" :href="$this->transferUrl()" icon="heroicon-o-arrows-right-left" color="gray">Transfer Stock</x-filament::button>
+    <x-filament::button tag="a" :href="$this->countUrl()" icon="heroicon-o-clipboard-document-check" color="gray">Inventory Count</x-filament::button>
+    <x-filament::dropdown placement="bottom-end">
+     <x-slot name="trigger"><x-filament::button icon="heroicon-o-ellipsis-horizontal" color="gray">More</x-filament::button></x-slot>
+     <x-filament::dropdown.list>
+      <x-filament::dropdown.list.item tag="a" :href="$this->importUrl()" icon="heroicon-o-arrow-up-tray">Import Inventory</x-filament::dropdown.list.item>
+      <x-filament::dropdown.list.item tag="a" :href="$this->locationsUrl()" icon="heroicon-o-map-pin">Locations</x-filament::dropdown.list.item>
+      <x-filament::dropdown.list.item tag="a" :href="$this->vendorsUrl()" icon="heroicon-o-building-storefront">Vendors</x-filament::dropdown.list.item>
+      <x-filament::dropdown.list.item tag="a" :href="$this->movementsUrl()" icon="heroicon-o-clock">Movement History</x-filament::dropdown.list.item>
+      <x-filament::dropdown.list.item tag="a" :href="$this->reconciliationUrl()" icon="heroicon-o-scale">Reconciliation</x-filament::dropdown.list.item>
+      <x-filament::dropdown.list.item tag="a" :href="$this->reportUrl()" icon="heroicon-o-chart-bar-square">Inventory Report</x-filament::dropdown.list.item>
+     </x-filament::dropdown.list>
+    </x-filament::dropdown>
+   </div>
+  </div>
+ </x-filament::section>
  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
   @foreach([['Inventory value','$'.number_format($s['value'],2),'heroicon-o-banknotes'],['Total items',number_format($s['total']),'heroicon-o-cube'],['Low stock',number_format($s['low']),'heroicon-o-exclamation-triangle'],['Out of stock',number_format($s['out']),'heroicon-o-x-circle']] as [$label,$value,$icon])
   <x-filament::section><div class="flex items-start justify-between"><div><div class="text-sm text-[var(--vx-muted)]">{{ $label }}</div><div class="vx-kpi-value mt-2">{{ $value }}</div></div><x-filament::icon :icon="$icon" class="h-5 w-5 text-[var(--vx-faint)]"/></div></x-filament::section>

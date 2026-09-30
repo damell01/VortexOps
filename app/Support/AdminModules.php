@@ -161,12 +161,15 @@ class AdminModules
             ->values()
             ->all();
 
+        if (! empty($custom)) {
+            return $custom;
+        }
+
         $defaults = count(static::visibleOperationalGroups()) <= 1
             ? []
             : static::visibleOperationalGroups();
 
-        $groups = array_values(array_unique(array_merge($custom, $defaults, ['System'])));
-        return $groups;
+        return array_values(array_unique(array_merge($defaults, ['System'])));
     }
 
     public static function navigationGroupFor(string $slug): string|\UnitEnum|null

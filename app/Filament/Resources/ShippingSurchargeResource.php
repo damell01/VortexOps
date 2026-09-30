@@ -20,8 +20,6 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 
 class ShippingSurchargeResource extends Resource
 {
-    public static function shouldRegisterNavigation(): bool { return false; }
-
     use HasAdminNavVisibility;
 
     protected static ?string $model = ShippingSurcharge::class;

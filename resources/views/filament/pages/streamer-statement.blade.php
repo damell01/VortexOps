@@ -51,6 +51,13 @@
 
         @if($streamerId)
             @php $data = $this->statementData; @endphp
+            <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 print:hidden">
+                <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"><div class="text-xs font-semibold text-gray-500">Gross sales</div><div class="mt-1 text-xl font-bold tabular-nums">${{ number_format($data['totals']['gross'], 2) }}</div></div>
+                <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"><div class="text-xs font-semibold text-gray-500">Payout due</div><div class="mt-1 text-xl font-bold tabular-nums">${{ number_format($data['totals']['due'], 2) }}</div></div>
+                <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"><div class="text-xs font-semibold text-gray-500">Paid</div><div class="mt-1 text-xl font-bold tabular-nums text-emerald-600">${{ number_format($data['totals']['paid'], 2) }}</div></div>
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm dark:border-amber-500/20 dark:bg-amber-950/20"><div class="text-xs font-semibold text-amber-700 dark:text-amber-300">Outstanding</div><div class="mt-1 text-xl font-bold tabular-nums text-amber-700 dark:text-amber-300">${{ number_format($data['totals']['outstanding'], 2) }}</div></div>
+            </div>
+
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden" id="printable-statement">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <div>

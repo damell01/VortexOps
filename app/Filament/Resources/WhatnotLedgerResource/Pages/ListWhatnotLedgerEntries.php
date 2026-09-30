@@ -14,7 +14,7 @@ class ListWhatnotLedgerEntries extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Line-by-line financial ledger pulled directly from Whatnot, per show — use the channel buttons to jump between storefronts quickly.';
+        return 'Reconcile Whatnot financial activity by channel, transaction type, status and date. Use the channel tabs to move between storefronts quickly.';
     }
 
     public function getDefaultActiveTab(): string|int|null

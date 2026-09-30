@@ -9,7 +9,7 @@
     $failed    = $this->failedJobs;
 @endphp
 
-<div class="space-y-6" wire:poll.30000ms>
+<div class="space-y-6" wire:poll.60000ms>
 
     {{-- ── Status Cards Grid ───────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -271,7 +271,7 @@
         </div>
     </div>
 
-    <p class="text-xs text-gray-400 text-right">Auto-refreshes every 30 s</p>
+    <p class="text-xs text-gray-400 text-right">Auto-refreshes every 60 s</p>
 
     {{-- ── Danger Zone — Clear Demo Data ──────────────────────────────────── --}}
     @if (auth()->user()?->isAdmin() || auth()->user()?->isOwner())

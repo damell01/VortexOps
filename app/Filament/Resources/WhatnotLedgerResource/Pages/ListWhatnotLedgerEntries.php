@@ -14,18 +14,7 @@ class ListWhatnotLedgerEntries extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Reconcile Whatnot financial activity by channel, transaction type, status and date without leaving the reporting workspace.';
-    }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            \Filament\Actions\Action::make('reports')
-                ->label('Reports Overview')
-                ->icon('heroicon-o-chart-bar-square')
-                ->color('gray')
-                ->url(\App\Filament\Pages\Reports::getUrl()),
-        ];
+        return 'Line-by-line financial ledger pulled directly from Whatnot, per show — use the channel buttons to jump between storefronts quickly.';
     }
 
     public function getDefaultActiveTab(): string|int|null

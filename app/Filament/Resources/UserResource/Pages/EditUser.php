@@ -17,6 +17,7 @@ class EditUser extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['streamer_type'] = $this->record->streamer?->streamer_type ?? 'in_house';
+        $data['streamer_aliases'] = $this->record->streamer?->aliases()->orderBy('alias')->pluck('alias')->all() ?? [];
         return $data;
     }
 
@@ -45,33 +46,11 @@ class EditUser extends EditRecord
             }
         }
 
-        // Only the owner may add or remove privileged roles. For anyone else,
-        // restore the exact privileged-role set the target had before this edit —
-        // so an admin can neither escalate an account nor demote a super admin,
-        // even via a crafted request.
-        if (auth()->user()?->isOwner()) {
-            app(UserTeamProfileService::class)->sync(
-                $this->record,
-                $this->data['streamer_type'] ?? $this->record->streamer?->streamer_type ?? 'in_house',
-            );
-            return;
-        }
-
-        $current = $this->record->getRoleNames()
-            ->intersect(UserResource::PRIVILEGED_ROLES)
-            ->values()
-            ->all();
-
-        foreach (array_diff($current, $this->privilegedBefore) as $illegitimatelyAdded) {
-            $this->record->removeRole($illegitimatelyAdded);
-        }
-        foreach (array_diff($this->privilegedBefore, $current) as $illegitimatelyRemoved) {
-            $this->record->assignRole($illegitimatelyRemoved);
-        }
-
+        // Admin and Fulfillment Admin are managed from this single Users flow.
         app(UserTeamProfileService::class)->sync(
             $this->record,
             $this->data['streamer_type'] ?? $this->record->streamer?->streamer_type ?? 'in_house',
+            $this->data['streamer_aliases'] ?? null,
         );
     }
 

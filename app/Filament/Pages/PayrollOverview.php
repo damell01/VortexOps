@@ -310,9 +310,12 @@ class PayrollOverview extends Page
             $hasPayRunProblems = ($show->getAttribute('payrun_problems') ?? []) !== [];
             return match ($filter) {
                 'blocked' => $this->showIsDueForPayroll($show) && ($hasPayRunProblems || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true)),
+                'needs_log' => $this->showIsDueForPayroll($show) && ! $show->streamerLogEntry?->isSubmitted(),
+                'review' => $this->showIsDueForPayroll($show) && $show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved',
                 'ready' => ! $hasPayRunProblems && $key === 'payroll_ready',
                 'in_run' => ! $hasPayRunProblems && $key === 'payroll',
                 'paid' => $key === 'paid',
+                'upcoming' => ! $this->showIsDueForPayroll($show),
                 default => $key === $filter,
             };
         })->values();
@@ -331,6 +334,26 @@ class PayrollOverview extends Page
             'ready' => $shows->filter(fn (Show $show) => ($show->getAttribute('payrun_problems') ?? []) === [] && ($show->getAttribute('workflow_state')['key'] ?? '') === 'payroll_ready')->count(),
             'in_run' => $shows->filter(fn (Show $show) => ($show->getAttribute('payrun_problems') ?? []) === [] && ($show->getAttribute('workflow_state')['key'] ?? '') === 'payroll')->count(),
             'paid' => $shows->filter(fn (Show $show) => ($show->getAttribute('workflow_state')['key'] ?? '') === 'paid')->count(),
+        ];
+    }
+
+    public function periodProgress(): array
+    {
+        $shows = $this->allCurrentWeekShows();
+
+        $logged = $shows->filter(fn (Show $show): bool => (bool) $show->streamerLogEntry?->isSubmitted())->count();
+        $approved = $shows->filter(fn (Show $show): bool => $show->streamerLogEntry?->approval_status === 'approved')->count();
+        $upcoming = $shows->filter(fn (Show $show): bool => ! $this->showIsDueForPayroll($show))->count();
+        $needsLog = $shows->filter(fn (Show $show): bool => $this->showIsDueForPayroll($show) && ! $show->streamerLogEntry?->isSubmitted())->count();
+        $needsReview = $shows->filter(fn (Show $show): bool => $this->showIsDueForPayroll($show) && $show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')->count();
+
+        return [
+            'total' => $shows->count(),
+            'logged' => $logged,
+            'approved' => $approved,
+            'needs_log' => $needsLog,
+            'needs_review' => $needsReview,
+            'upcoming' => $upcoming,
         ];
     }
 
@@ -434,6 +457,23 @@ class PayrollOverview extends Page
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
                 $show->setAttribute('payrun_problems', array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix))));
                 return $show;
-            });
+            })
+            ->sortBy(function (Show $show): string {
+                $due = $this->showIsDueForPayroll($show);
+                $log = $show->streamerLogEntry;
+                $key = $show->getAttribute('workflow_state')['key'] ?? '';
+                $problems = $show->getAttribute('payrun_problems') ?? [];
+
+                $priority = ! $due ? 6
+                    : (! $log?->isSubmitted() ? 0
+                    : ($log->approval_status !== 'approved' ? 1
+                    : ($problems !== [] ? 2
+                    : ($key === 'payroll_ready' ? 3
+                    : ($key === 'payroll' ? 4 : ($key === 'paid' ? 5 : 2))))));
+
+                $timestamp = $show->show_date?->timestamp ?? 0;
+                return sprintf('%02d-%010d', $priority, 9999999999 - $timestamp);
+            })
+            ->values();
     }
 }

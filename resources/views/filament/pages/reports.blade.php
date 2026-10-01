@@ -237,9 +237,9 @@
                                         </div>
                                         {{-- Gross bar --}}
                                         <div class="w-full flex gap-2.5 items-end" style="height: {{ $grossPct }}%">
-                                            <div class="flex-1 rounded-t bg-violet-500 opacity-90 group-hover:opacity-100 transition-opacity min-h-[2px]"></div>
+                                            <div class="flex-1 rounded-t bg-violet-500 opacity-90 group-hover:opacity-100 transition-opacity" style="height: 100%"></div>
                                             <div class="flex-1 rounded-t bg-emerald-500 opacity-80 group-hover:opacity-100 transition-opacity min-h-[2px]"
-                                                 style="height: {{ $grossPct > 0 ? round(($netPct / $grossPct) * 100, 1) : 0 }}%"></div>
+                                                 style="height: {{ $grossPct > 0 ? min(100, round(($netPct / $grossPct) * 100, 1)) : 0 }}%"></div>
                                         </div>
                                     </div>
                                 @endforeach
@@ -293,9 +293,9 @@
             <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Channel Performance</h3>
             </div>
-            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            <div class="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-4">
                 @forelse ($this->revenueByChannel as $row)
-                    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3">
+                    <div class="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/40">
                         <span class="font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</span>
                         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($row['shows']) }} shows</span>

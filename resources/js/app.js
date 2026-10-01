@@ -42,97 +42,82 @@ if (document.readyState === 'loading') {
 // branded collectible-card loading state without delaying the destination.
 function installVortexNavigationLoader() {
     if (!location.pathname.startsWith('/admin')) return;
-
     document.getElementById('vx-nav-loader')?.remove();
     document.getElementById('vx-nav-loader-styles')?.remove();
 
-    const asset = (name) => `/images/${name}.webp`;
-    const style = document.createElement('style');
-    style.id = 'vx-nav-loader-styles';
-    style.textContent = `
-      #vx-nav-loader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(5,5,18,.86);backdrop-filter:blur(12px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .14s ease,visibility .14s ease;overflow:hidden}
+    const style=document.createElement('style');
+    style.id='vx-nav-loader-styles';
+    style.textContent=`
+      #vx-nav-loader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#24104a 0,#0b0718 42%,#05040c 76%);opacity:0;visibility:hidden;pointer-events:none;transition:.14s ease;overflow:hidden}
       #vx-nav-loader.vx-show{opacity:1;visibility:visible;pointer-events:auto}
-      .vx-loader-stage{position:relative;width:min(96vw,780px);height:min(86vh,720px);display:grid;place-items:center;overflow:hidden}
-      .vx-loader-stage:before{content:"";position:absolute;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,.24),rgba(88,28,135,.1) 42%,transparent 70%);filter:blur(14px);animation:vxPulse 2.4s ease-in-out infinite}
-      .vx-loader-shelf{position:absolute;inset:5% 0 17%;opacity:.32;filter:blur(2.5px)}
-      .vx-loader-bgslab{position:absolute;width:126px;height:178px;border:3px solid rgba(236,232,255,.26);border-radius:12px;background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(88,28,135,.18));box-shadow:0 0 32px rgba(168,85,247,.16);transform:rotate(var(--r));left:var(--x);top:var(--y)}
-      .vx-loader-bgslab:before{content:"GEM 10";position:absolute;top:8px;left:8px;right:8px;height:26px;border-radius:4px;background:rgba(245,245,255,.22);color:rgba(255,255,255,.52);font:900 9px/26px ui-sans-serif;text-align:center;letter-spacing:.08em}
-      .vx-loader-scene{position:relative;width:390px;height:460px;transform:translateY(-18px);filter:drop-shadow(0 30px 60px rgba(0,0,0,.58))}
-      .vx-loader-img{position:absolute;left:50%;top:50%;object-fit:contain;transform-origin:center;will-change:transform,opacity;user-select:none;pointer-events:none}
-      .vx-pack-closed{width:285px;height:335px;margin:-168px 0 0 -143px;animation:vxClosed 3.2s ease-in-out infinite}
-      .vx-pack-open{width:350px;height:330px;margin:-165px 0 0 -175px;opacity:0;animation:vxOpen 3.2s ease-in-out infinite}
-      .vx-pack-cards{width:295px;height:360px;margin:-195px 0 0 -148px;opacity:0;animation:vxCards 3.2s ease-in-out infinite}
-      .vx-hit-card{width:235px;height:320px;margin:-174px 0 0 -118px;opacity:0;animation:vxHit 3.2s ease-in-out infinite}
-      .vx-hit-slab{width:245px;height:345px;margin:-188px 0 0 -123px;opacity:0;animation:vxSlab 3.2s ease-in-out infinite;filter:drop-shadow(0 0 28px rgba(168,85,247,.8))}
-      .vx-loader-spark{position:absolute;left:50%;top:43%;width:320px;height:320px;margin:-160px;border-radius:50%;opacity:0;background:radial-gradient(circle,rgba(255,255,255,.8),rgba(192,132,252,.35) 25%,transparent 66%);filter:blur(7px);animation:vxSpark 3.2s ease-in-out infinite}
-      .vx-loader-copy{position:absolute;left:50%;bottom:2%;transform:translateX(-50%);width:min(90vw,520px);text-align:center;color:#fff;font:800 20px/1.3 ui-sans-serif;text-shadow:0 2px 18px rgba(0,0,0,.55)}
-      .vx-loader-status{display:block;min-height:27px}.vx-loader-sub{display:block;margin-top:8px;color:#c4b5fd;font-size:9px;letter-spacing:.24em;text-transform:uppercase}
-      .vx-loader-progress{height:8px;margin:15px auto 0;width:min(76vw,360px);border:1px solid rgba(216,180,254,.9);border-radius:999px;padding:2px;background:rgba(9,5,22,.72);box-shadow:0 0 18px rgba(168,85,247,.28)}.vx-loader-progress:before{content:"";display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7c3aed,#d946ef,#fff);box-shadow:0 0 12px #a855f7;animation:vxProgress 3.2s linear infinite}
-      .vx-loader-dots{display:flex;gap:9px;justify-content:center;margin-top:12px}.vx-loader-dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);animation:vxDot 3.2s linear infinite}.vx-loader-dots i:nth-child(2){animation-delay:.2s}.vx-loader-dots i:nth-child(3){animation-delay:.4s}.vx-loader-dots i:nth-child(4){animation-delay:.6s}.vx-loader-dots i:nth-child(5){animation-delay:.8s}
-      @keyframes vxClosed{0%,17%{opacity:1;transform:scale(.96)}24%,100%{opacity:0;transform:scale(1.04)}}
-      @keyframes vxOpen{0%,14%{opacity:0;transform:scale(.94)}21%,33%{opacity:1;transform:scale(1.02)}40%,100%{opacity:0;transform:scale(1.08)}}
-      @keyframes vxCards{0%,25%{opacity:0;transform:translateY(45px) scale(.9)}34%,48%{opacity:1;transform:translateY(-10px) scale(1.03)}57%,100%{opacity:0;transform:translateY(-35px) scale(1.08)}}
-      @keyframes vxHit{0%,42%{opacity:0;transform:translateY(45px) rotate(-5deg) scale(.88)}52%,66%{opacity:1;transform:translateY(-6px) rotate(2deg) scale(1.08)}74%,100%{opacity:0;transform:translateY(-12px) scale(.98)}}
-      @keyframes vxSlab{0%,61%{opacity:0;transform:scale(.88) rotate(-2deg)}70%,94%{opacity:1;transform:scale(1.08) rotate(0)}100%{opacity:0;transform:scale(.98)}}
-      @keyframes vxSpark{0%,45%{opacity:0;transform:scale(.3)}55%{opacity:.9;transform:scale(1.2)}75%{opacity:.25;transform:scale(1.55)}100%{opacity:0;transform:scale(1.8)}}
-      @keyframes vxProgress{0%{width:6%}20%{width:25%}40%{width:48%}62%{width:72%}84%{width:92%}100%{width:100%}}
-      @keyframes vxDot{0%,12%,100%{background:rgba(255,255,255,.2);box-shadow:none}18%,55%{background:#a855f7;box-shadow:0 0 10px #a855f7}}
-      @keyframes vxPulse{0%,100%{transform:scale(.92);opacity:.7}50%{transform:scale(1.08);opacity:1}}
-      @media(max-width:640px){.vx-loader-stage{transform:scale(.84);width:118vw}.vx-loader-copy{bottom:1%;font-size:18px}.vx-loader-shelf{opacity:.18}}
-      @media(prefers-reduced-motion:reduce){.vx-loader-img,.vx-loader-spark,.vx-loader-progress:before,.vx-loader-dots i{animation:none}.vx-hit-slab{opacity:1;transform:scale(1)}.vx-pack-closed,.vx-pack-open,.vx-pack-cards,.vx-hit-card{display:none}}
+      .vx-loader-wrap{position:relative;width:min(94vw,620px);height:min(88vh,650px);display:grid;place-items:center}
+      .vx-loader-glow{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(216,180,254,.26),rgba(126,34,206,.11) 45%,transparent 72%);filter:blur(10px);animation:vxSvgPulse 2s ease-in-out infinite}
+      .vx-loader-bgcard{position:absolute;width:105px;height:150px;border:3px solid rgba(216,180,254,.22);border-radius:12px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(88,28,135,.16));box-shadow:0 0 24px rgba(168,85,247,.14);transform:rotate(var(--r));left:var(--x);top:var(--y)}
+      .vx-loader-bgcard:before{content:"10";position:absolute;inset:7px 7px auto;height:22px;border-radius:4px;background:rgba(255,255,255,.12);color:#c4b5fd;font:900 9px/22px sans-serif;text-align:right;padding-right:7px}
+      .vx-loader-svg{position:relative;width:min(78vw,370px);height:auto;filter:drop-shadow(0 24px 35px rgba(0,0,0,.55));overflow:visible}
+      .vx-svg-pack{transform-origin:180px 260px;animation:vxSvgPack 3.15s ease-in-out infinite}.vx-svg-tear{transform-origin:180px 133px;animation:vxSvgTear 3.15s ease-in-out infinite}
+      .vx-svg-card-a,.vx-svg-card-b,.vx-svg-card-c{transform-origin:180px 210px;opacity:0}.vx-svg-card-a{animation:vxSvgCardA 3.15s ease-in-out infinite}.vx-svg-card-b{animation:vxSvgCardB 3.15s ease-in-out infinite}.vx-svg-card-c{animation:vxSvgCardC 3.15s ease-in-out infinite}
+      .vx-svg-hit{transform-origin:180px 205px;opacity:0;animation:vxSvgHit 3.15s ease-in-out infinite}.vx-svg-slab{transform-origin:180px 205px;opacity:0;animation:vxSvgSlab 3.15s ease-in-out infinite}
+      .vx-svg-burst{transform-origin:180px 210px;opacity:0;animation:vxSvgBurst 3.15s ease-out infinite}.vx-svg-shine{animation:vxSvgShine 1.2s linear infinite}
+      .vx-loader-copy{position:absolute;bottom:1%;width:100%;text-align:center;color:#fff;font:800 20px/1.25 ui-sans-serif,system-ui;text-shadow:0 2px 16px #000}.vx-loader-sub{display:block;margin-top:8px;color:#c4b5fd;font-size:9px;letter-spacing:.25em;text-transform:uppercase}
+      .vx-loader-progress{height:7px;margin:15px auto 0;width:min(70vw,330px);border:1px solid #c084fc;border-radius:999px;padding:2px;background:#0b0718}.vx-loader-progress:before{content:"";display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7c3aed,#d946ef,#fff);box-shadow:0 0 13px #a855f7;animation:vxSvgProgress 3.15s linear infinite}
+      .vx-loader-dots{display:flex;gap:9px;justify-content:center;margin-top:12px}.vx-loader-dots i{width:7px;height:7px;border-radius:50%;background:#34264b;animation:vxSvgDot 3.15s linear infinite}.vx-loader-dots i:nth-child(2){animation-delay:.2s}.vx-loader-dots i:nth-child(3){animation-delay:.4s}.vx-loader-dots i:nth-child(4){animation-delay:.6s}.vx-loader-dots i:nth-child(5){animation-delay:.8s}
+      @keyframes vxSvgPack{0%,18%{transform:translateY(0) scale(.98)}27%,38%{transform:translateY(18px) scale(1.03)}48%,100%{transform:translateY(45px) scale(.9);opacity:0}}
+      @keyframes vxSvgTear{0%,16%{transform:translate(0,0) rotate(0)}25%,38%{transform:translate(46px,-32px) rotate(15deg);opacity:0}39%,100%{opacity:0}}
+      @keyframes vxSvgCardA{0%,27%{opacity:0;transform:translateY(90px)}37%,51%{opacity:1;transform:translate(-72px,-40px) rotate(-13deg)}61%,100%{opacity:0;transform:translate(-90px,-65px) rotate(-18deg)}}
+      @keyframes vxSvgCardB{0%,30%{opacity:0;transform:translateY(90px)}40%,53%{opacity:1;transform:translate(70px,-48px) rotate(13deg)}62%,100%{opacity:0;transform:translate(92px,-70px) rotate(18deg)}}
+      @keyframes vxSvgCardC{0%,32%{opacity:0;transform:translateY(90px)}42%,54%{opacity:1;transform:translate(0,-76px) rotate(2deg)}62%,100%{opacity:0;transform:translateY(-100px)}}
+      @keyframes vxSvgHit{0%,47%{opacity:0;transform:translateY(55px) scale(.75) rotate(-4deg)}56%,70%{opacity:1;transform:translateY(-18px) scale(1.08) rotate(1deg)}77%,100%{opacity:0;transform:translateY(-18px) scale(.98)}}
+      @keyframes vxSvgSlab{0%,67%{opacity:0;transform:scale(.82)}76%,96%{opacity:1;transform:scale(1.07)}100%{opacity:0;transform:scale(.98)}}
+      @keyframes vxSvgBurst{0%,46%{opacity:0;transform:scale(.2) rotate(0)}57%{opacity:1;transform:scale(1.2) rotate(20deg)}78%,100%{opacity:0;transform:scale(1.65) rotate(35deg)}}
+      @keyframes vxSvgShine{0%{transform:translateX(-190px) skewX(-18deg)}100%{transform:translateX(390px) skewX(-18deg)}}@keyframes vxSvgPulse{50%{transform:scale(1.08);opacity:.7}}
+      @keyframes vxSvgProgress{0%{width:5%}25%{width:27%}50%{width:53%}75%{width:78%}100%{width:100%}}@keyframes vxSvgDot{0%,15%,100%{background:#34264b}20%,58%{background:#c084fc;box-shadow:0 0 10px #a855f7}}
+      @media(max-width:640px){.vx-loader-wrap{height:82vh}.vx-loader-svg{width:min(86vw,340px)}.vx-loader-bgcard{opacity:.45}.vx-loader-copy{font-size:18px}}
+      @media(prefers-reduced-motion:reduce){.vx-loader-svg *,.vx-loader-glow,.vx-loader-progress:before,.vx-loader-dots i{animation:none!important}.vx-svg-pack,.vx-svg-tear,.vx-svg-card-a,.vx-svg-card-b,.vx-svg-card-c,.vx-svg-hit{display:none}.vx-svg-slab{opacity:1}}
     `;
     document.head.appendChild(style);
 
-    const loader=document.createElement('div');
-    loader.id='vx-nav-loader'; loader.setAttribute('role','status'); loader.setAttribute('aria-live','polite');
-    loader.innerHTML=`<div class="vx-loader-stage">
-      <div class="vx-loader-shelf" aria-hidden="true">
-        <div class="vx-loader-bgslab" style="--x:4%;--y:15%;--r:-9deg"></div>
-        <div class="vx-loader-bgslab" style="--x:78%;--y:8%;--r:8deg"></div>
-        <div class="vx-loader-bgslab" style="--x:10%;--y:59%;--r:7deg"></div>
-        <div class="vx-loader-bgslab" style="--x:75%;--y:58%;--r:-7deg"></div>
-      </div>
-      <div class="vx-loader-scene">
-        <div class="vx-loader-spark"></div>
-        <img class="vx-loader-img vx-pack-closed" src="${asset('pack-closed')}" alt="">
-        <img class="vx-loader-img vx-pack-open" src="${asset('pack-open')}" alt="">
-        <img class="vx-loader-img vx-pack-cards" src="${asset('pack-cards')}" alt="">
-        <img class="vx-loader-img vx-hit-card" src="${asset('hit-card')}" alt="">
-        <img class="vx-loader-img vx-hit-slab" src="${asset('hit-slab')}" alt="">
-      </div>
+    const loader=document.createElement('div');loader.id='vx-nav-loader';loader.setAttribute('role','status');loader.setAttribute('aria-live','polite');
+    loader.innerHTML=`<div class="vx-loader-wrap">
+      <div class="vx-loader-glow"></div>
+      <div class="vx-loader-bgcard" style="--x:3%;--y:17%;--r:-10deg"></div><div class="vx-loader-bgcard" style="--x:78%;--y:12%;--r:9deg"></div><div class="vx-loader-bgcard" style="--x:7%;--y:55%;--r:7deg"></div><div class="vx-loader-bgcard" style="--x:80%;--y:54%;--r:-8deg"></div>
+      <svg class="vx-loader-svg" viewBox="0 0 360 430" aria-hidden="true">
+        <defs>
+          <linearGradient id="vxP" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#090612"/><stop offset=".48" stop-color="#1b0b32"/><stop offset="1" stop-color="#05040b"/></linearGradient>
+          <linearGradient id="vxN" x1="0" x2="1"><stop stop-color="#7c3aed"/><stop offset=".5" stop-color="#e879f9"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient>
+          <linearGradient id="vxH" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#111827"/><stop offset=".3" stop-color="#6d28d9"/><stop offset=".58" stop-color="#f59e0b"/><stop offset=".78" stop-color="#06b6d4"/><stop offset="1" stop-color="#111827"/></linearGradient>
+          <filter id="vxG"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <clipPath id="vxClip"><rect x="112" y="91" width="136" height="215" rx="11"/></clipPath>
+        </defs>
+        <g class="vx-svg-burst" stroke="#d946ef" stroke-width="3" filter="url(#vxG)"><path d="M180 205L180 30M180 205L300 70M180 205L340 200M180 205L290 340M180 205L180 395M180 205L65 350M180 205L20 210M180 205L60 70"/></g>
+        <g class="vx-svg-card-a"><rect x="118" y="88" width="124" height="184" rx="11" fill="#080713" stroke="#a855f7" stroke-width="4"/><path d="M180 130l35 30-35 31-35-31z" fill="none" stroke="#d8b4fe" stroke-width="7"/></g>
+        <g class="vx-svg-card-b"><rect x="118" y="88" width="124" height="184" rx="11" fill="#080713" stroke="#d946ef" stroke-width="4"/><path d="M180 130l35 30-35 31-35-31z" fill="none" stroke="#c084fc" stroke-width="7"/></g>
+        <g class="vx-svg-card-c"><rect x="118" y="88" width="124" height="184" rx="11" fill="#080713" stroke="#8b5cf6" stroke-width="4"/><path d="M180 130l35 30-35 31-35-31z" fill="none" stroke="#e879f9" stroke-width="7"/></g>
+        <g class="vx-svg-pack" filter="url(#vxG)">
+          <path d="M86 105h188l-9 218-18 21H112l-18-21z" fill="url(#vxP)" stroke="#8b5cf6" stroke-width="3"/>
+          <path d="M86 105l12-18h164l12 18-10 17H96z" fill="#080713" stroke="#a855f7" stroke-width="3"/>
+          <path d="M102 318h156l-10 24H112z" fill="#080713" stroke="#7c3aed" stroke-width="3"/>
+          <path d="M180 154l43 37-43 42-43-42z" fill="none" stroke="url(#vxN)" stroke-width="9"/><path d="M180 170l23 21-23 23-23-23z" fill="#080713"/>
+          <text x="180" y="270" text-anchor="middle" fill="#fff" font-size="23" font-weight="900" font-family="sans-serif">VortexOps</text><text x="180" y="289" text-anchor="middle" fill="#c4b5fd" font-size="8" letter-spacing="2" font-family="sans-serif">COLLECT • SELL • GROW</text>
+        </g>
+        <g class="vx-svg-tear"><path d="M91 105l25-17 20 14 21-14 23 15 24-15 20 14 21-14 27 17-13 19H103z" fill="#120a20" stroke="#e879f9" stroke-width="3"/></g>
+        <g class="vx-svg-hit" filter="url(#vxG)"><rect x="106" y="74" width="148" height="222" rx="12" fill="url(#vxH)" stroke="#f5d0fe" stroke-width="5"/><rect x="115" y="84" width="130" height="202" rx="8" fill="none" stroke="#fbbf24" stroke-width="2"/><path d="M180 125l42 37-42 42-42-42z" fill="#100820" stroke="#fff" stroke-width="7"/><text x="180" y="242" text-anchor="middle" fill="#fff" font-size="19" font-weight="900" font-family="sans-serif">VORTEX HIT</text><rect class="vx-svg-shine" x="115" y="70" width="38" height="235" fill="rgba(255,255,255,.28)" clip-path="url(#vxClip)"/></g>
+        <g class="vx-svg-slab" filter="url(#vxG)"><rect x="92" y="48" width="176" height="286" rx="16" fill="rgba(220,215,255,.11)" stroke="#ede9fe" stroke-width="5"/><rect x="102" y="60" width="156" height="48" rx="7" fill="#f5f3ff"/><text x="113" y="79" fill="#2e1065" font-size="9" font-weight="900" font-family="sans-serif">VORTEX GRADE</text><text x="113" y="94" fill="#6d28d9" font-size="8" font-weight="800" font-family="sans-serif">GEM MINT</text><text x="238" y="92" text-anchor="end" fill="#2e1065" font-size="30" font-weight="900" font-family="sans-serif">10</text><rect x="109" y="119" width="142" height="200" rx="9" fill="url(#vxH)" stroke="#c084fc" stroke-width="3"/><path d="M180 163l39 34-39 39-39-39z" fill="#100820" stroke="#fff" stroke-width="7"/><text x="180" y="273" text-anchor="middle" fill="#fff" font-size="17" font-weight="900" font-family="sans-serif">VortexOps</text></g>
+      </svg>
       <div class="vx-loader-copy"><span class="vx-loader-status">Loading VortexOps…</span><small class="vx-loader-sub">Rip • Reveal • Grade • Inventory</small><div class="vx-loader-progress"></div><div class="vx-loader-dots"><i></i><i></i><i></i><i></i><i></i></div></div>
     </div>`;
     document.body.appendChild(loader);
-
-    const status = loader.querySelector('.vx-loader-status');
-    let statusTimers = [];
-    const resetStatus = () => { statusTimers.forEach(clearTimeout); statusTimers=[]; if(status) status.textContent='Loading VortexOps…'; };
-    const runStatus = () => {
-      resetStatus();
-      [['Ripping Pack…',520],['Revealing Cards…',1050],['Found a Hit…',1600],['Grading Hit…',2150],['Almost Ready…',2700]].forEach(([copy,ms]) => statusTimers.push(setTimeout(()=>{if(status)status.textContent=copy},ms)));
-    };
-
-    let timer=null, watchdog=null;
+    const status=loader.querySelector('.vx-loader-status');let statusTimers=[];
+    const resetStatus=()=>{statusTimers.forEach(clearTimeout);statusTimers=[];if(status)status.textContent='Loading VortexOps…'};
+    const runStatus=()=>{resetStatus();[['Ripping Pack…',480],['Revealing Cards…',980],['Found a Hit…',1500],['Grading Hit…',2050],['Almost Ready…',2600]].forEach(([copy,ms])=>statusTimers.push(setTimeout(()=>{if(status)status.textContent=copy},ms)))};
+    let timer=null,watchdog=null;
     const show=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();timer=setTimeout(()=>{runStatus();loader.classList.add('vx-show');watchdog=setTimeout(()=>{loader.classList.remove('vx-show');resetStatus()},12000)},75)};
     const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();loader.classList.remove('vx-show')};
-
-    if (!window.__vortexNavLoaderBound) {
-      window.__vortexNavLoaderBound=true;
-      document.addEventListener('livewire:navigating',()=>window.__vortexNavLoader?.show());
-      document.addEventListener('livewire:navigated',()=>window.__vortexNavLoader?.hide());
-    }
-    window.__vortexNavLoader={show,hide};
-    window.addEventListener('pageshow',hide,{once:true});
-    document.addEventListener('click',(event)=>{
-      const link=event.target.closest?.('a[href]');
-      if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download'))return;
-      const url=new URL(link.href,location.href);
-      if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;
-      show();
-    },{capture:true});
+    if(!window.__vortexNavLoaderBound){window.__vortexNavLoaderBound=true;document.addEventListener('livewire:navigating',()=>window.__vortexNavLoader?.show());document.addEventListener('livewire:navigated',()=>window.__vortexNavLoader?.hide())}
+    window.__vortexNavLoader={show,hide};window.addEventListener('pageshow',hide,{once:true});
+    document.addEventListener('click',(event)=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download'))return;const url=new URL(link.href,location.href);if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;show()},{capture:true});
     requestAnimationFrame(hide);
 }
-
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installVortexNavigationLoader,{once:true});else installVortexNavigationLoader();
 
 // Shared lazy script loader for heavy, optional operational tools (camera,

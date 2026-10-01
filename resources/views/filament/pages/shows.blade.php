@@ -15,6 +15,50 @@
 
 <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
  <div class="mb-3 flex items-center justify-between"><div><h2 class="text-sm font-semibold">Filter shows</h2><p class="text-xs text-gray-500">These filters apply to both list and calendar.</p></div><button wire:click="clearFilters" class="text-sm font-medium text-primary-600">Reset</button></div>
+ <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"><input type="search" wire:model.live.debounce.300ms="searchQuery" placeholder="Search title or Whatnot ID…" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><select wire:model.live="filterTimeframe" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="all">All in period</option><option value="upcoming">Upcoming</option><option value="past">Past / due</option><option value="attention">Needs submission</option></select><select wire:model.live="filterStatus" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="all">All statuses</option>@foreach(\App\Models\Show::statusLabels() as $v=>$l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>@if(auth()->user()->isAdmin())
+<section id="unassigned-shows" x-data="{ open: false }" class="vx-assignment-queue rounded-xl border p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3" :class="open ? 'mb-3' : ''">
+        <div class="flex items-center gap-3"><div><h2 class="font-bold">Unassigned Shows</h2><p class="text-xs text-gray-500" x-show="open">Shows in this period that still need a streamer. Assigning one removes it from this queue automatically.</p></div><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ $this->unassignedShows->count() }}</span></div>
+        <button type="button" @click="open = !open" :aria-expanded="open.toString()" class="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs font-semibold dark:bg-gray-900">
+            <span x-text="open ? 'Collapse' : 'Review unassigned'">Review unassigned</span>
+            <svg class="h-4 w-4 transition-transform" :class="open ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+        </button>
+    </div>
+    <div x-show="open" x-cloak>
+    @if($this->unassignedShows->isEmpty())
+        <div class="rounded-lg border border-dashed bg-white p-5 text-center text-sm text-gray-500 dark:bg-gray-900">All shows in this period have a streamer assigned.</div>
+    @else
+        <div class="vx-assignment-grid">
+        @foreach($this->unassignedShows as $show)
+            <div class="vx-assignment-item flex min-w-0 flex-wrap items-center gap-3">
+                <div class="min-w-0 flex-1"><div class="break-words font-semibold leading-snug">{{ $show->title }}</div><div class="mt-1 text-xs text-gray-500">{{ $show->show_date?->format('M j, Y') }} · {{ $show->start_time?->format('g:i A') ?: 'Time not set' }}</div></div>
+                <select aria-label="Assign streamer to {{ $show->title }}" wire:change="assignStreamer({{ $show->id }}, $event.target.value)" class="min-w-[180px] rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
+                    <option value="">Assign streamer…</option>
+                    @foreach($this->streamers as $st)<option value="{{ $st->id }}">{{ $st->name }}</option>@endforeach
+                </select>
+            </div>
+        @endforeach
+        </div>
+    @endif
+    </div>
+</section>
+@endifament-panels::page>
+<div class="space-y-5">
+@if(auth()->user()->isStreamer() && !auth()->user()->isAdmin() && auth()->user()->streamer) @livewire('create-manual-show',['streamer'=>auth()->user()->streamer]) @endif
+
+<section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+ <div class="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-sm font-semibold">Show period</h2><p class="text-xs text-gray-500">Choose a week, month, rolling period, or exact dates. Your selection stays in the URL.</p></div><div class="flex rounded-lg border dark:border-gray-700"><button wire:click="$set('viewMode','list')" class="px-3 py-2 text-sm {{ $viewMode==='list'?'bg-primary-600 text-white':'' }}">List</button><button wire:click="$set('viewMode','calendar')" class="px-3 py-2 text-sm {{ $viewMode==='calendar'?'bg-primary-600 text-white':'' }}">Calendar</button></div></div>
+ <div class="flex flex-wrap items-end gap-3">
+  <button wire:click="previousPeriod" class="rounded-lg border px-3 py-2 dark:border-gray-700">‹</button>
+  <div><label class="mb-1 block text-xs text-gray-500">Period</label><select wire:model.live="datePreset" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="this_week">This week</option><option value="last_week">Last week</option><option value="this_month">This month</option><option value="last_month">Last month</option><option value="last_30">Last 30 days</option><option value="custom">Custom</option></select></div>
+  <div><label class="mb-1 block text-xs text-gray-500">From</label><input type="date" wire:model.live="dateFrom" wire:change="$set('datePreset','custom')" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"></div>
+  <div><label class="mb-1 block text-xs text-gray-500">To</label><input type="date" wire:model.live="dateTo" wire:change="$set('datePreset','custom')" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"></div>
+  <button wire:click="nextPeriod" class="rounded-lg border px-3 py-2 dark:border-gray-700">›</button><div class="ml-auto rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold dark:bg-gray-800">{{ $this->dateRangeLabel() }}</div>
+ </div>
+</section>
+
+<section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+ <div class="mb-3 flex items-center justify-between"><div><h2 class="text-sm font-semibold">Filter shows</h2><p class="text-xs text-gray-500">These filters apply to both list and calendar.</p></div><button wire:click="clearFilters" class="text-sm font-medium text-primary-600">Reset</button></div>
  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5"><input type="search" wire:model.live.debounce.300ms="searchQuery" placeholder="Search title or Whatnot ID…" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><select wire:model.live="filterTimeframe" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="all">All in period</option><option value="upcoming">Upcoming</option><option value="past">Past / due</option><option value="attention">Needs submission</option></select><select wire:model.live="filterStatus" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="all">All statuses</option>@foreach(\App\Models\Show::statusLabels() as $v=>$l)<option value="{{ $v }}">{{ $l }}</option>@endforeach</select>@if(auth()->user()->isAdmin())<select wire:model.live="filterStreamer" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="">All streamers</option>@foreach($this->streamers as $st)<option value="{{ $st->id }}">{{ $st->name }}</option>@endforeach</select>@endif<select wire:model.live="sortBy" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="date">Date — newest</option><option value="oldest">Date — oldest</option><option value="revenue">Revenue — highest</option></select></div>
 </section>
 

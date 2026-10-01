@@ -18,6 +18,7 @@ class SyncWhatnotReporting extends Command
 {
     protected $signature = 'whatnot:sync-reporting
         {--since=2026-07-01 : Earliest reporting date to keep fully synced}
+        {--channel= : Only sync one Whatnot channel by username or channel name}
         {--show-limit=25 : Number of shows to pull/update per channel pass}
         {--analytics-limit=0 : Number of incomplete analytics shows per channel run; 0 processes all}
         {--shipment-batch=25 : Number of shows per shipment browser batch}
@@ -71,15 +72,23 @@ class SyncWhatnotReporting extends Command
             $orderBatch = 1;
         }
 
+        $channelFilter = trim((string) $this->option('channel'));
         $channels = WhatnotChannel::query()
             ->where('include_in_import', true)
             ->where('status', 'active')
+            ->when($channelFilter !== '', function ($query) use ($channelFilter) {
+                $normalized = ltrim($channelFilter, '@');
+                $query->where(function ($q) use ($channelFilter, $normalized) {
+                    $q->whereRaw('LOWER(whatnot_username) = ?', [strtolower($normalized)])
+                        ->orWhereRaw('LOWER(name) = ?', [strtolower($channelFilter)]);
+                });
+            })
             ->orderBy('id')
             ->when($testMode, fn ($q) => $q->limit(1))
             ->get();
 
         if ($channels->isEmpty()) {
-            $this->error('No active Whatnot channels are enabled for import.');
+            $this->error($channelFilter !== '' ? "No active Whatnot channel matched --channel={$channelFilter}." : 'No active Whatnot channels are enabled for import.');
             return self::FAILURE;
         }
 

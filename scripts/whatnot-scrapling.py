@@ -309,18 +309,58 @@ def ensure_channel(page, requested: str) -> str:
 
         fail(f"CHANNEL_SWITCH_FAILED: @{requested} was not present in role picker", 3)
 
+    # Selecting a role can trigger a form/navigation that outlives Playwright's
+    # click action. Use a DOM click first and treat the observed account change
+    # as success instead of requiring click() itself to finish.
+    click_error = None
     try:
-        target.click(timeout=8000, force=True)
+        target.evaluate("(el) => el.click()")
     except Exception as exc:
-        fail(f"CHANNEL_SWITCH_FAILED: could not select @{requested}: {exc}", 3)
+        click_error = exc
+        try:
+            target.click(timeout=3000, force=True, no_wait_after=True)
+        except Exception as locator_exc:
+            click_error = locator_exc
 
-    page.wait_for_timeout(1200)
+    verified = None
+    for _ in range(30):
+        check_login(page)
+        verified = active_username(page)
+        if verified and norm(verified) == norm(requested):
+            info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{verified}")
+            return verified
+        page.wait_for_timeout(500)
+
+    # Some role controls are backed by a switch-role form. If the click did not
+    # change context, submit the containing form directly and verify again.
+    try:
+        submitted = bool(target.evaluate(r"""
+        el => {
+          const form = el.closest('form[action*="switch-role"]') || el.form;
+          if (!form) return false;
+          if (form.requestSubmit) form.requestSubmit(el.tagName === 'BUTTON' ? el : undefined);
+          else form.submit();
+          return true;
+        }
+        """))
+    except Exception:
+        submitted = False
+
+    if submitted:
+        for _ in range(30):
+            check_login(page)
+            verified = active_username(page)
+            if verified and norm(verified) == norm(requested):
+                info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{verified}")
+                return verified
+            page.wait_for_timeout(500)
+
+    # Reload only after the role-change action has had a chance to settle.
     try:
         page.goto(f"{BASE}/dashboard/home", wait_until="domcontentloaded", timeout=30000)
     except Exception:
         pass
 
-    verified = None
     for _ in range(20):
         check_login(page)
         verified = active_username(page)
@@ -328,6 +368,9 @@ def ensure_channel(page, requested: str) -> str:
             info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{verified}")
             return verified
         page.wait_for_timeout(500)
+
+    if click_error:
+        info(f"CHANNEL_SWITCH_CLICK_DIAGNOSTIC requested=@{requested} error={click_error}")
 
     fail(
         f"CHANNEL_CONTEXT_MISMATCH: refusing to scrape. "

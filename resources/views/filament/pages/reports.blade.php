@@ -256,7 +256,7 @@
                 </div>
                 <div class="p-5 space-y-3">
                     @forelse (array_slice($streamers, 0, 8) as $i => $row)
-                        @php $barPct = round(($row['total'] / $maxPayout) * 100, 1); @endphp
+                        @php $barPct = $maxPayout > 0 ? round(((float) $row['total'] / $maxPayout) * 100, 1) : 0; @endphp
                         <div>
                             <div class="mb-1 flex items-center justify-between gap-2">
                                 <span class="truncate text-xs font-medium text-gray-700 dark:text-gray-300">

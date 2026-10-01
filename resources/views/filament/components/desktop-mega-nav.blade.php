@@ -15,8 +15,8 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin')],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
 ];
-if(\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) $groups['Fulfillment']=[
- ['Fulfillment Dashboard',\App\Filament\Resources\FulfillmentResource::getUrl('index')],
+$groups['Fulfillment']=[
+ ['Coming Soon','#'],
 ];
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Finance']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
@@ -32,7 +32,7 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
 ];
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
- ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
+ ...($user?->isOwner() ? [['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')]] : []),
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
 @endphp

@@ -633,7 +633,7 @@ def recent_past_analytics(module, session):
 
 
 def historical_analytics(module, session):
-    """Collect eligible DB targets through Seller Hub Past -> See Analytics."""
+    """Scan recent Seller Hub Past rows once, then collect matching DB targets."""
     since = clean(os.getenv("WHATNOT_ANALYTICS_SINCE", ""))
     batch_size = max(1, min(10, int(os.getenv("WHATNOT_ANALYTICS_BATCH_SIZE", "5"))))
     target_ids = [
@@ -649,12 +649,52 @@ def historical_analytics(module, session):
     except Exception:
         target_meta = {}
 
-    rows: list[dict[str, Any]] = []
     targets = target_ids[:batch_size]
+    target_set = set(targets)
+    rows: list[dict[str, Any]] = []
     module.info(
-        f"historical-analytics: Seller Hub Past scan -> See Analytics "
+        f"historical-analytics: recent Past index -> See Analytics "
         f"since={since or 'all'} targets={len(target_ids)} batch={len(targets)}"
     )
+
+    def recent_index(page) -> dict[str, dict[str, Any]]:
+        seen: dict[str, dict[str, Any]] = {}
+        # Recent refreshes should never walk hundreds of historical rows. Seller Hub
+        # initially renders about 50 rows; allow only a few lazy-load passes and stop
+        # immediately once every requested UUID is present.
+        for attempt in range(1, 5):
+            module.check_login(page)
+            visible = extract_show_rows(page)
+            for row in visible:
+                live_id = clean(row.get("live_id")).lower()
+                if live_id:
+                    row["live_id"] = live_id
+                    seen[live_id] = row
+            found = target_set.intersection(seen.keys())
+            module.info(
+                f"historical-analytics: recent Past scan pass {attempt}/4 "
+                f"rows_seen={len(seen)} matched={len(found)}/{len(target_set)}"
+            )
+            if found == target_set or len(seen) >= 150:
+                break
+
+            # Stop once the loaded rows have moved older than all requested target
+            # dates. This keeps yesterday/recent analytics cheap even on huge accounts.
+            target_dates = [
+                clean(target_meta.get(live_id, {}).get("show_date"))
+                for live_id in target_set
+                if clean(target_meta.get(live_id, {}).get("show_date"))
+            ]
+            loaded_dates = [clean(row.get("show_date")) for row in seen.values() if clean(row.get("show_date"))]
+            if target_dates and loaded_dates and min(loaded_dates) < min(target_dates):
+                module.info(
+                    f"historical-analytics: recent Past scan passed oldest target date "
+                    f"loaded={min(loaded_dates)} target={min(target_dates)}; stopping"
+                )
+                break
+            scroll_to_bottom(page)
+            page.wait_for_timeout(900)
+        return seen
 
     def action(page):
         module.prepare(page)
@@ -664,77 +704,100 @@ def historical_analytics(module, session):
         if not select_tab(module, page, "Past"):
             return
 
-        total = len(targets)
-        for index, live_id in enumerate(targets, 1):
+        pending = list(targets)
+        total = len(pending)
+        index = recent_index(page)
+        matched = [live_id for live_id in pending if live_id in index]
+        module.info(
+            f"historical-analytics: recent Past index complete rows={len(index)} "
+            f"matched={len(matched)}/{total}"
+        )
+
+        for position, live_id in enumerate(pending, 1):
             meta = target_meta.get(live_id, {})
             expected_title = clean(meta.get("title"))
             expected_date = clean(meta.get("show_date")) or None
-            module.info(
-                f"historical-analytics [{index}/{total}]: scanning Past for uuid={live_id} "
-                f"date={expected_date or '?'} title={expected_title!r}"
-            )
-            target = find_target_row(module, page, live_id, expected_title, expected_date)
-            if not target:
-                rows.append({
-                    "whatnot_live_id": live_id,
-                    "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Show not found with See Analytics in Seller Hub Past.",
-                })
-            elif not click_target_analytics(module, page, target):
-                rows.append({
-                    "whatnot_live_id": live_id,
-                    "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Past row found but See Analytics could not be opened.",
-                })
-            else:
-                module.info(
-                    f"historical-analytics [{index}/{total}]: See Analytics opened uuid={live_id} url={page.url}"
-                )
-                metric = wait_for_metrics(module, page, timeout_ms=30000)
-                if metric and has_useful_data(metric):
-                    metric["whatnot_live_id"] = live_id
-                    metric["title"] = expected_title or metric.get("title")
-                    metric["show_date"] = expected_date or metric.get("show_date")
-                    metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
-                    metric.pop("_preview", None)
-                    metric.pop("_titles", None)
-                    metric.pop("_dates", None)
-                    rows.append(metric)
-                    module.info(
-                        f"historical-analytics [{index}/{total}]: collected uuid={live_id} "
-                        f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')} "
-                        f"duration_min={metric.get('show_duration')}"
-                    )
-                else:
-                    rows.append({
-                        "whatnot_live_id": live_id,
-                        "_analytics_transient_failure": True,
-                        "_analytics_failure_note": "See Analytics loaded but metrics are not stable/ready yet.",
-                    })
-                    module.info(
-                        f"historical-analytics [{index}/{total}]: metrics not ready uuid={live_id}; leaving due"
-                    )
+            target = index.get(live_id)
 
-            if index < total:
+            if not target:
+                module.info(
+                    f"historical-analytics [{position}/{total}]: uuid={live_id} not in recent Past window; "
+                    "leaving due for later/historical retry"
+                )
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": "Show was not present in the bounded recent Seller Hub Past window.",
+                })
+                continue
+            if not verify_identity(module, target, live_id, expected_title, expected_date):
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": "Seller Hub row identity did not match the database target.",
+                })
+                continue
+
+            # Re-open Past for each matched target because See Analytics navigates away.
+            if position > 1:
                 try:
                     page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
                 except Exception as exc:
-                    module.info(
-                        f"historical-analytics [{index}/{total}]: return to Seller Hub warning={exc}"
-                    )
-                page.wait_for_timeout(1200)
+                    module.info(f"historical-analytics: return to Seller Hub warning={exc}")
+                page.wait_for_timeout(1000)
                 module.check_login(page)
                 if not select_tab(module, page, "Past"):
                     break
 
+            if not click_target_analytics(module, page, target):
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": "Recent Past row found but See Analytics could not be opened.",
+                })
+                continue
+
+            module.info(
+                f"historical-analytics [{position}/{total}]: See Analytics opened uuid={live_id} url={page.url}"
+            )
+            metric = wait_for_metrics(module, page, timeout_ms=30000)
+            if not metric or not has_useful_data(metric):
+                rows.append({
+                    "whatnot_live_id": live_id,
+                    "_analytics_transient_failure": True,
+                    "_analytics_failure_note": "See Analytics loaded but metrics are not stable/ready yet.",
+                })
+                module.info(
+                    f"historical-analytics [{position}/{total}]: metrics not ready uuid={live_id}; leaving due"
+                )
+                continue
+
+            metric["whatnot_live_id"] = live_id
+            metric["title"] = expected_title or metric.get("title")
+            metric["show_date"] = expected_date or metric.get("show_date")
+            metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
+            metric.pop("_preview", None)
+            metric.pop("_titles", None)
+            metric.pop("_dates", None)
+            rows.append(metric)
+            module.info(
+                f"historical-analytics [{position}/{total}]: collected uuid={live_id} "
+                f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')} "
+                f"duration_min={metric.get('show_duration')}"
+            )
+
+        module.info(
+            f"historical-analytics: recent batch finished targets={total} matched={len(matched)} "
+            f"results={len(rows)}"
+        )
+
     session.fetch(
         f"{module.BASE}/dashboard/home",
         page_action=action,
-        timeout=900000,
+        timeout=600000,
         network_idle=False,
         google_search=False,
     )
-    module.info(f"historical-analytics: collected {len(rows)} result row(s)")
     return rows
 
 

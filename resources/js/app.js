@@ -36,6 +36,74 @@ if (document.readyState === 'loading') {
 }
 
 
+
+// Global page-navigation loader. Keep this in the core bundle (not the idle
+// enhancement bundle) so feedback starts immediately on every Filament visit.
+function installVortexNavigationLoader() {
+    if (!location.pathname.startsWith('/admin') || document.getElementById('vx-nav-loader')) return;
+
+    const style = document.createElement('style');
+    style.id = 'vx-nav-loader-styles';
+    style.textContent = `
+        #vx-nav-loader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(7,10,27,.72);backdrop-filter:blur(5px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .14s ease,visibility .14s ease}
+        #vx-nav-loader.vx-show{opacity:1;visibility:visible;pointer-events:auto}
+        .vx-loader-stage{display:flex;flex-direction:column;align-items:center;gap:14px}
+        .vx-loader-card{position:relative;width:94px;height:132px;perspective:700px}
+        .vx-loader-card-inner{position:absolute;inset:0;border-radius:14px;background:linear-gradient(145deg,#7c3aed,#4f46e5);border:3px solid rgba(255,255,255,.88);box-shadow:0 18px 55px rgba(0,0,0,.42),0 0 0 5px rgba(124,58,237,.16);display:grid;place-items:center;animation:vxCardFlip 1.15s ease-in-out infinite}
+        .vx-loader-card-inner:before,.vx-loader-card-inner:after{content:"";position:absolute;inset:8px;border:1px solid rgba(255,255,255,.28);border-radius:9px}.vx-loader-card-inner:after{inset:15px;border-radius:7px}
+        .vx-loader-card img{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,.28))}
+        .vx-loader-shine{position:absolute;inset:0;overflow:hidden;border-radius:12px}.vx-loader-shine:after{content:"";position:absolute;top:-40%;left:-90%;width:55%;height:180%;transform:rotate(20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:vxCardShine 1.15s ease-in-out infinite}
+        .vx-loader-text{color:#fff;font:700 13px/1.2 ui-sans-serif,system-ui,sans-serif;letter-spacing:.02em}.vx-loader-sub{margin-top:-8px;color:rgba(255,255,255,.65);font:500 10px/1.2 ui-sans-serif,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+        @keyframes vxCardFlip{0%,100%{transform:rotateY(0) translateY(0)}45%{transform:rotateY(180deg) translateY(-5px)}55%{transform:rotateY(180deg) translateY(-5px)}}
+        @keyframes vxCardShine{0%{left:-90%}65%,100%{left:150%}}
+        @media(prefers-reduced-motion:reduce){.vx-loader-card-inner,.vx-loader-shine:after{animation:none}}
+    `;
+    document.head.appendChild(style);
+
+    const loader = document.createElement('div');
+    loader.id = 'vx-nav-loader';
+    loader.setAttribute('role', 'status');
+    loader.setAttribute('aria-live', 'polite');
+    loader.innerHTML = `<div class="vx-loader-stage"><div class="vx-loader-card"><div class="vx-loader-card-inner"><img src="/images/vb-logo.svg" alt=""><span class="vx-loader-shine"></span></div></div><div class="vx-loader-text">Loading VortexOps</div><div class="vx-loader-sub">Opening the next card</div></div>`;
+    document.body.appendChild(loader);
+
+    let timer = null;
+    const show = () => {
+        clearTimeout(timer);
+        // Tiny delay avoids flashing the overlay for genuinely instant visits.
+        timer = setTimeout(() => loader.classList.add('vx-show'), 90);
+    };
+    const hide = () => {
+        clearTimeout(timer);
+        loader.classList.remove('vx-show');
+    };
+
+    document.addEventListener('livewire:navigating', show);
+    document.addEventListener('livewire:navigated', hide);
+    window.addEventListener('pageshow', hide);
+    window.addEventListener('popstate', hide);
+    // Normal non-Livewire links / full document navigations.
+    document.addEventListener('click', (event) => {
+        const link = event.target.closest?.('a[href]');
+        if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (link.target === '_blank' || link.hasAttribute('download')) return;
+        const url = new URL(link.href, location.href);
+        if (url.origin !== location.origin || url.href === location.href || url.hash && url.pathname === location.pathname && url.search === location.search) return;
+        show();
+    }, { capture: true });
+    window.addEventListener('beforeunload', () => {
+        clearTimeout(timer);
+        loader.classList.add('vx-show');
+    });
+    setTimeout(hide, 8000);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', installVortexNavigationLoader, { once: true });
+} else {
+    installVortexNavigationLoader();
+}
+
 // Shared lazy script loader for heavy, optional operational tools (camera,
 // scanners, etc.). The promise is cached so repeat opens never redownload it.
 const vxScriptLoads = new Map();

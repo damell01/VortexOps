@@ -206,7 +206,7 @@ class Reports extends Page
 
     public function getRevenueSummaryProperty(): array
     {
-        return Cache::remember($this->cacheKey('summary'), 60, function () {
+        return Cache::remember($this->cacheKey('summary'), 300, function () {
             $start = $this->periodStart();
             $end   = $this->periodEnd();
             $span  = $start->diffInDays($end) ?: 1;
@@ -281,7 +281,7 @@ class Reports extends Page
 
     public function getRevenueByChannelProperty(): array
     {
-        return Cache::remember($this->cacheKey('channel'), 60, function () {
+        return Cache::remember($this->cacheKey('channel'), 300, function () {
             return DB::table('shows')
                 ->leftJoin('whatnot_channels', 'shows.whatnot_channel_id', '=', 'whatnot_channels.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
@@ -306,7 +306,7 @@ class Reports extends Page
 
     public function getRevenueByWeekProperty(): array
     {
-        return Cache::remember($this->cacheKey('week'), 60, function () {
+        return Cache::remember($this->cacheKey('week'), 300, function () {
             $isSqlite = DB::connection()->getDriverName() === 'sqlite';
 
             $weekExpr = $isSqlite
@@ -339,28 +339,20 @@ class Reports extends Page
         });
     }
 
-    // ── Top streamers by payout ───────────────────────────────────────────────
-
+    // ── Streamer performance ─────────────────────────────────────────────────
     public function getTopStreamersByPayoutProperty(): array
     {
-        return Cache::remember($this->cacheKey('streamers'), 60, function () {
-            return DB::table('payouts')
-                ->join('shows', 'payouts.show_id', '=', 'shows.id')
-                ->join('streamers', 'payouts.streamer_id', '=', 'streamers.id')
+        return Cache::remember($this->cacheKey('streamers'), 300, function () {
+            return DB::table('show_streamer')
+                ->join('shows', 'show_streamer.show_id', '=', 'shows.id')
+                ->join('streamers', 'show_streamer.streamer_id', '=', 'streamers.id')
+                ->where('show_streamer.is_primary', true)
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
+                ->whereNotIn('shows.status', ['cancelled'])
                 ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
-                ->selectRaw('
-                    streamers.name as streamer,
-                    COUNT(DISTINCT payouts.show_id) as shows,
-                    COALESCE(SUM(payouts.calculated_payout), 0) as total,
-                    COALESCE(AVG(payouts.calculated_payout), 0) as avg
-                ')
-                ->groupBy('payouts.streamer_id', 'streamers.name')
-                ->orderByDesc('total')
-                ->limit(10)
-                ->get()
-                ->map(fn ($r) => (array) $r)
-                ->all();
+                ->selectRaw('streamers.name as streamer, COUNT(DISTINCT shows.id) as shows, COALESCE(SUM(shows.gross_revenue),0) as gross, COALESCE(SUM(shows.whatnot_net),0) as net')
+                ->groupBy('show_streamer.streamer_id', 'streamers.name')->orderByDesc('gross')->limit(10)->get()
+                ->map(fn ($r) => ['streamer'=>$r->streamer,'shows'=>(int)$r->shows,'gross'=>(float)$r->gross,'net'=>(float)$r->net])->all();
         });
     }
 
@@ -368,7 +360,7 @@ class Reports extends Page
 
     public function getPayoutStatusSummaryProperty(): array
     {
-        return Cache::remember($this->cacheKey('payout_status'), 60, function () {
+        return Cache::remember($this->cacheKey('payout_status'), 300, function () {
             $rows = DB::table('payouts')
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])

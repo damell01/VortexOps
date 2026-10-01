@@ -137,37 +137,37 @@ class ShowDataAudit extends Page
         // Keep the large-range audit cheap: totals and classifications are
         // calculated in SQL. Only the current 50-row follow-up page is hydrated.
         $summary = (clone $base)->selectRaw(
-            'COUNT(*) as total, COALESCE(SUM(gross_revenue),0) as gross, '.
-            'COALESCE(SUM(whatnot_net),0) as estimated_net, '.
-            'COALESCE(SUM(completed_earnings),0) as completed, '.
-            'COALESCE(SUM(show_duration),0) as duration_minutes'
+            'COUNT(*) as total, COALESCE(SUM(shows.gross_revenue),0) as gross, '.
+            'COALESCE(SUM(shows.whatnot_net),0) as estimated_net, '.
+            'COALESCE(SUM(shows.completed_earnings),0) as completed, '.
+            'COALESCE(SUM(shows.show_duration),0) as duration_minutes'
         )->first();
 
-        // raw_import_payload has existed as both JSON and text across imports.
+        // shows.raw_import_payload has existed as both JSON and text across imports.
         // JSON_EXTRACT throws on legacy non-JSON rows and took the entire audit page down.
         // A LIKE check is sufficient for the source stamp and works safely for both formats.
-        $verifiedSql = "(last_analytics_synced_at IS NOT NULL OR analytics_sync_status = 'complete' OR raw_import_payload LIKE '%whatnot_analytics_csv%')";
+        $verifiedSql = "(shows.last_analytics_synced_at IS NOT NULL OR shows.analytics_sync_status = 'complete' OR shows.raw_import_payload LIKE '%whatnot_analytics_csv%')";
         $uuidSql = "CONCAT(COALESCE(whatnot_show_id,''),' ',COALESCE(detail_url,'')) REGEXP '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'";
 
         $fieldCoverage = function (string $field) use ($base, $verifiedSql) {
             $total = (clone $base)->count();
-            $present = $field === 'completed_earnings'
+            $present = $field === 'shows.completed_earnings'
                 ? (clone $base)->whereNotNull($field)->count()
                 : (clone $base)->whereNotNull($field)->whereRaw($verifiedSql)->count();
             return ['present' => $present, 'missing' => $total - $present];
         };
 
         $coverage = [
-            'gross_revenue' => $fieldCoverage('gross_revenue'),
-            'whatnot_net' => $fieldCoverage('whatnot_net'),
-            'show_duration' => $fieldCoverage('show_duration'),
+            'shows.gross_revenue' => $fieldCoverage('shows.gross_revenue'),
+            'shows.whatnot_net' => $fieldCoverage('shows.whatnot_net'),
+            'shows.show_duration' => $fieldCoverage('shows.show_duration'),
         ];
-        $settlementCoverage = $fieldCoverage('completed_earnings');
+        $settlementCoverage = $fieldCoverage('shows.completed_earnings');
 
         $past = (clone $base)->whereDate('show_date', '<=', $pastTo);
-        $completeSql = "$verifiedSql AND gross_revenue IS NOT NULL AND show_duration IS NOT NULL AND (whatnot_net IS NOT NULL OR completed_earnings IS NOT NULL)";
-        $hostedSql = "$completeSql AND show_duration > 0";
-        $excludedSql = "show_duration = 0 AND $verifiedSql";
+        $completeSql = "$verifiedSql AND shows.gross_revenue IS NOT NULL AND shows.show_duration IS NOT NULL AND (shows.whatnot_net IS NOT NULL OR shows.completed_earnings IS NOT NULL)";
+        $hostedSql = "$completeSql AND shows.show_duration > 0";
+        $excludedSql = "shows.show_duration = 0 AND $verifiedSql";
 
         $hostedTotal = (clone $past)->whereRaw($hostedSql)->count();
         $excludedTotal = (clone $past)->whereRaw($excludedSql)->count();
@@ -181,9 +181,9 @@ class ShowDataAudit extends Page
                 "SUM(CASE WHEN $hostedSql THEN 1 ELSE 0 END) as hosted, ".
                 "SUM(CASE WHEN $excludedSql THEN 1 ELSE 0 END) as excluded, ".
                 "SUM(CASE WHEN NOT ($hostedSql) AND NOT ($excludedSql) THEN 1 ELSE 0 END) as unresolved, ".
-                "COALESCE(SUM(CASE WHEN $hostedSql THEN gross_revenue ELSE 0 END),0) as gross, ".
-                "COALESCE(SUM(CASE WHEN $hostedSql THEN whatnot_net ELSE 0 END),0) as net, ".
-                "COALESCE(SUM(CASE WHEN $hostedSql THEN show_duration ELSE 0 END),0) / 60 as hours"
+                "COALESCE(SUM(CASE WHEN $hostedSql THEN shows.gross_revenue ELSE 0 END),0) as gross, ".
+                "COALESCE(SUM(CASE WHEN $hostedSql THEN shows.whatnot_net ELSE 0 END),0) as net, ".
+                "COALESCE(SUM(CASE WHEN $hostedSql THEN shows.show_duration ELSE 0 END),0) / 60 as hours"
             )
             ->groupBy('shows.whatnot_channel_id', 'wc.name')
             ->orderBy('wc.name')
@@ -200,9 +200,9 @@ class ShowDataAudit extends Page
             ]);
 
         $complete = (clone $past)->whereRaw($completeSql)->count();
-        $unavailable = (clone $past)->where('analytics_sync_status', 'unavailable')->whereRaw("NOT ($completeSql)")->count();
-        $partial = (clone $past)->whereNotNull('last_analytics_synced_at')->whereRaw("NOT ($completeSql)")->where(function ($q) {
-            $q->whereNull('analytics_sync_status')->orWhere('analytics_sync_status', '!=', 'unavailable');
+        $unavailable = (clone $past)->where('shows.analytics_sync_status', 'unavailable')->whereRaw("NOT ($completeSql)")->count();
+        $partial = (clone $past)->whereNotNull('shows.last_analytics_synced_at')->whereRaw("NOT ($completeSql)")->where(function ($q) {
+            $q->whereNull('shows.analytics_sync_status')->orWhere('shows.analytics_sync_status', '!=', 'unavailable');
         })->count();
         $unclassified = max(0, $pastTotal - $complete - $unavailable - $partial);
         $statusCounts = compact('complete', 'partial', 'unavailable', 'unclassified');
@@ -214,14 +214,14 @@ class ShowDataAudit extends Page
         if ($this->statusFilter === 'complete') {
             $followBase->whereRaw($completeSql);
         } elseif ($this->statusFilter === 'unavailable') {
-            $followBase->where('analytics_sync_status', 'unavailable');
+            $followBase->where('shows.analytics_sync_status', 'unavailable');
         } elseif ($this->statusFilter === 'partial') {
-            $followBase->whereNotNull('last_analytics_synced_at')->where(function ($q) {
-                $q->whereNull('analytics_sync_status')->orWhere('analytics_sync_status', '!=', 'unavailable');
+            $followBase->whereNotNull('shows.last_analytics_synced_at')->where(function ($q) {
+                $q->whereNull('shows.analytics_sync_status')->orWhere('shows.analytics_sync_status', '!=', 'unavailable');
             });
         } elseif ($this->statusFilter === 'unclassified') {
-            $followBase->whereNull('last_analytics_synced_at')->where(function ($q) {
-                $q->whereNull('analytics_sync_status')->orWhereNotIn('analytics_sync_status', ['complete', 'unavailable']);
+            $followBase->whereNull('shows.last_analytics_synced_at')->where(function ($q) {
+                $q->whereNull('shows.analytics_sync_status')->orWhereNotIn('shows.analytics_sync_status', ['complete', 'unavailable']);
             });
         }
 

@@ -201,10 +201,10 @@
             ];
         @endphp
 
-        {{-- Streamer performance --}}
-        <div class="grid grid-cols-1 gap-4">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
+
             {{-- Top streamers horizontal bars (2 cols) --}}
-            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="lg:col-span-5 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Streamer Performance</h3>
                 </div>
@@ -230,7 +230,6 @@
                     @endforelse
                 </div>
             </div>
-
         </div>
 
         {{-- Revenue by channel --}}

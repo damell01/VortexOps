@@ -32,7 +32,12 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
 ];
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
- ...($user?->isOwner() ? [['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')]] : []),
+ ...($user?->isOwner() ? [
+   ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
+   ['Show Ingestion Logs',\App\Filament\Resources\ShowIngestionLogResource::getUrl('index')],
+   ['Activity Logs',\App\Filament\Resources\ActivityLogResource::getUrl('index')],
+   ['Inventory Logs',\App\Filament\Resources\InventoryMovementResource::getUrl('index')],
+ ] : []),
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
 @endphp

@@ -51,7 +51,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
 </nav>
-<div class="vx-mobile-menu" x-data="{open:false,section:null}" x-cloak>
+<div class="vx-mobile-menu" x-data="{open:false,section:null}" x-on:vx-open-mobile-menu.window="open=true" x-cloak>
 <button type="button" class="vx-mobile-menu-trigger" @click="open=true" aria-label="Open navigation"><x-filament::icon icon="heroicon-o-bars-3"/></button>
 <div class="vx-mobile-menu-backdrop" x-show="open" x-transition.opacity @click="open=false"></div>
 <aside class="vx-mobile-menu-sheet" x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" @keydown.escape.window="open=false">

@@ -390,40 +390,59 @@ def reconcile_index(module, session):
 
 
 def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
+    """Open the analytics action captured from the verified Seller Hub row.
+
+    The row index already verified the exact show UUID/title/date. Prefer its real
+    analytics href directly so we do not depend on the virtualized Past row being
+    rendered again after returning to the tab.
+    """
     open_url = clean(target.get("open_url"))
     expected_href = clean(target.get("analytics_url"))
+    live_id = clean(target.get("live_id"))
     if not open_url or not expected_href:
         return False
 
-    for _ in range(16):
+    if expected_href not in {"__BUTTON__", "__ACTION__"}:
+        href = expected_href
+        if href.startswith("/"):
+            href = f"{module.BASE}{href}"
+        module.info(f"analytics: opening verified See Analytics href uuid={live_id} href={expected_href}")
+        try:
+            page.goto(href, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(1800)
+            module.check_login(page)
+            current = page.url
+            if "dashboard/analytics/overview" in current and (
+                not live_id or f"live_id={live_id}" in current.lower()
+            ):
+                return True
+            module.info(
+                f"analytics: verified See Analytics href did not reach expected destination "
+                f"uuid={live_id} url={current}"
+            )
+        except Exception as exc:
+            module.info(f"analytics: verified See Analytics href navigation failed uuid={live_id} error={exc}")
+
+    # Fallback for Seller Hub variants that expose See Analytics only as a button.
+    for _ in range(6):
         row = page.locator('[data-testid="show-list-item"]', has=page.locator(f'a[href="{open_url}"]')).first
         try:
-            if row.count() and row.is_visible(timeout=400):
+            if row.count():
+                try:
+                    row.scroll_into_view_if_needed(timeout=1500)
+                except Exception:
+                    pass
                 link = row.locator('a,button,[role="button"]', has_text=re.compile(r"^\\s*See Analytics\\s*$", re.I)).first
                 if link.count():
-                    module.info(f"analytics: clicking See Analytics for uuid={target.get('live_id')} action={expected_href}")
-                    before_url = page.url
+                    module.info(f"analytics: clicking rendered See Analytics uuid={live_id}")
                     link.click(timeout=8000, force=True)
-                    # The action may be SPA navigation/modal state, so URL change is optional.
-                    for _ in range(20):
-                        page.wait_for_timeout(250)
-                        if page.url != before_url:
-                            break
-                        try:
-                            if has_useful_data(extract_show(page)):
-                                break
-                        except Exception:
-                            pass
+                    page.wait_for_timeout(1800)
                     return True
-        except Exception:
-            pass
-        try:
-            page.mouse.wheel(0, -1400)
         except Exception:
             pass
         page.wait_for_timeout(400)
 
-    module.info("analytics: exact show row could not be re-rendered for See Analytics click")
+    module.info(f"analytics: verified show analytics action could not be opened uuid={live_id}")
     return False
 
 

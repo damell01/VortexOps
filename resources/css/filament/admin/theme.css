@@ -772,3 +772,58 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .vx-finance-table .fi-ta-header-description{font-size:11px!important;color:#98a2b3!important}
 .vx-finance-table .fi-ta-table thead{background:#f8fafc}.dark .vx-finance-table .fi-ta-table thead{background:#182235}
 .vx-finance-table .fi-ta-table th{font-size:10px!important;text-transform:uppercase;letter-spacing:.045em}
+
+
+/* Mobile app shell — same information architecture as desktop, touch-first. */
+.vx-mobile-menu{display:none}
+@media(max-width:1023px){
+  html,body{max-width:100%;overflow-x:hidden}
+  .fi-main{padding-bottom:82px!important}
+  .fi-page{padding-inline:12px!important}
+  .fi-page-content{padding-top:12px!important}
+  .fi-page-header{margin-bottom:10px!important}
+  .fi-header-heading{font-size:1.25rem!important}
+  .fi-topbar nav{min-height:62px!important;padding-inline:12px!important;gap:6px!important}
+  .fi-topbar .fi-global-search{min-width:0!important;max-width:none!important;flex:1 1 auto!important}
+  .fi-topbar .fi-global-search-field{font-size:13px!important}
+  .fi-topbar .fi-sidebar-open-btn,.fi-topbar button[class*="sidebar"]{display:none!important}
+  .vx-desktop-mega-nav{display:block!important;flex:0 0 42px!important;width:42px!important;min-width:42px!important;margin:0!important}
+  .vx-desktop-mega-nav>.vx-mega-brand,.vx-desktop-mega-nav>.vx-mega-home,.vx-desktop-mega-nav>.vx-mega-group,.vx-desktop-mega-nav>.vx-mega-channel{display:none!important}
+  .vx-mobile-menu{display:block}
+  .vx-mobile-menu-trigger{display:grid;width:40px;height:40px;place-items:center;border-radius:10px;color:#667085}
+  .vx-mobile-menu-trigger svg{width:23px;height:23px}
+  .vx-mobile-menu-backdrop{position:fixed;inset:0;z-index:79;background:rgba(15,23,42,.46);backdrop-filter:blur(2px)}
+  .vx-mobile-menu-sheet{position:fixed;z-index:80;inset:0 auto 0 0;width:min(88vw,360px);overflow-y:auto;background:#fff;padding:14px;box-shadow:20px 0 60px rgba(15,23,42,.18)}
+  .dark .vx-mobile-menu-sheet{background:#0f172a}
+  .vx-mobile-menu-head{display:flex;align-items:center;justify-content:space-between;min-height:54px;padding:4px 4px 12px;border-bottom:1px solid #eef0f5}
+  .vx-mobile-menu-head img{max-width:170px;max-height:42px;object-fit:contain;object-position:left center}
+  .vx-mobile-menu-head button{display:grid;width:38px;height:38px;place-items:center;border-radius:10px;background:#f4f5f8}
+  .vx-mobile-menu-head button svg{width:20px}.dark .vx-mobile-menu-head button{background:#1e293b}
+  .vx-mobile-menu-home{display:flex;align-items:center;gap:10px;margin:12px 0 6px;padding:12px;border-radius:11px;font-size:14px;font-weight:800;background:#f7f5ff;color:#6d28d9}
+  .vx-mobile-menu-home svg{width:19px}
+  .vx-mobile-menu-group{border-bottom:1px solid #eef0f5}
+  .dark .vx-mobile-menu-group,.dark .vx-mobile-menu-head{border-color:#263248}
+  .vx-mobile-menu-group>button{display:flex;width:100%;align-items:center;justify-content:space-between;padding:14px 10px;font-size:14px;font-weight:800;text-align:left}
+  .vx-mobile-menu-group>button svg{width:17px;transition:transform .15s}
+  .vx-mobile-submenu{padding:0 5px 10px}
+  .vx-mobile-submenu a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:10px;color:#667085;font-size:13px;font-weight:650}
+  .vx-mobile-submenu a:active{background:#f5f3ff;color:#6d28d9}.vx-mobile-submenu a svg{width:15px}
+  .vx-mobile-channel{margin-top:14px;padding-top:12px;border-top:1px solid #eef0f5}
+  .vx-tabbar{padding-bottom:max(6px,env(safe-area-inset-bottom))!important}
+  .fi-section,.fi-ta-ctn,.vx-card{max-width:100%;overflow:hidden}
+  .fi-ta-content{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .fi-ta-table{min-width:680px}
+  .fi-modal-window{max-width:calc(100vw - 20px)!important;margin:10px!important}
+  .fi-fo-field-wrp{min-width:0}
+  input,select,textarea{max-width:100%}
+}
+@media(max-width:640px){
+  .fi-page{padding-inline:10px!important}
+  .fi-topbar .fi-global-search{display:none!important}
+  .fi-topbar nav{justify-content:space-between!important}
+  .fi-wi-stats-overview-stats-ctn{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .fi-wi-stats-overview-stat{padding:12px!important}
+  .fi-wi-stats-overview-stat-value{font-size:1.3rem!important}
+  .vx-payroll-redesign .vx-payroll-kpis,.vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .vx-report table{min-width:680px}
+}

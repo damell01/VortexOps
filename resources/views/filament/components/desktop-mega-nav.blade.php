@@ -51,3 +51,15 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
 </nav>
+<div class="vx-mobile-menu" x-data="{open:false,section:null}" x-cloak>
+<button type="button" class="vx-mobile-menu-trigger" @click="open=true" aria-label="Open navigation"><x-filament::icon icon="heroicon-o-bars-3"/></button>
+<div class="vx-mobile-menu-backdrop" x-show="open" x-transition.opacity @click="open=false"></div>
+<aside class="vx-mobile-menu-sheet" x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" @keydown.escape.window="open=false">
+<div class="vx-mobile-menu-head">@if($navLogo)<img src="{{ $navLogo }}" alt="Vortex Ops">@else<span>VortexOps</span>@endif<button @click="open=false" aria-label="Close navigation"><x-filament::icon icon="heroicon-o-x-mark"/></button></div>
+<a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
+@foreach($groups as $label=>$links)
+<div class="vx-mobile-menu-group"><button type="button" @click="section=section==='{{ $label }}'?null:'{{ $label }}'"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" x-bind:class="section==='{{ $label }}'&&'rotate-180'"/></button>
+<div class="vx-mobile-submenu" x-show="section==='{{ $label }}'" x-collapse>@foreach($links as [$text,$url])<a href="{{ $url }}" wire:navigate @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach</div></div>
+@endforeach
+@if($user?->canSwitchChannels())<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif
+</aside></div>

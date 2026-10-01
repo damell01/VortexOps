@@ -164,6 +164,8 @@ log "[whatnot-browser] starting Chromium display=${DISPLAY_VALUE} cdp=${CDP_URL}
 nohup env DISPLAY="$DISPLAY_VALUE" "$CHROME" \
   --no-sandbox \
   --disable-dev-shm-usage \
+  --disable-breakpad \
+  --disable-crash-reporter \
   --remote-debugging-address="$CDP_HOST" \
   --remote-debugging-port="$CDP_PORT" \
   --user-data-dir="$PROFILE_DIR" \

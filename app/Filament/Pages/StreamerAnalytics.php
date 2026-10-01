@@ -223,7 +223,7 @@ class StreamerAnalytics extends Page
                 },
                 'shows.orders:id,show_id,total_cost',
                 'payouts' => function ($q) use ($from, $toBound) {
-                    $q->select(['id', 'show_id', 'streamer_id', 'tips', 'calculated_payout', 'status'])
+                    $q->select(['id', 'show_id', 'streamer_id', 'tips_included', 'calculated_payout', 'status'])
                         ->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
                 },
                 'streamerLogEntries' => function ($q) use ($from, $toBound) {
@@ -254,7 +254,7 @@ class StreamerAnalytics extends Page
             $showCount    = $shows->count();
             $grossRevenue = (float) $shows->sum('gross_revenue');
             $netRevenue   = (float) $shows->sum('whatnot_net');
-            $tips         = (float) $payouts->sum('tips');
+            $tips         = (float) $payouts->sum('tips_included');
             $unitsSold    = (int) $shows->sum('units_sold');
             $totalPayout  = (float) $payouts->sum('calculated_payout');
             $totalPaid    = (float) $payouts->where('status', 'paid')->sum('calculated_payout');

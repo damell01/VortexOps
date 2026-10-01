@@ -41,7 +41,12 @@ if (document.readyState === 'loading') {
 // navigation for wire:navigate links; this gives those transitions an instant,
 // branded collectible-card loading state without delaying the destination.
 function installVortexNavigationLoader() {
-    if (!location.pathname.startsWith('/admin') || document.getElementById('vx-nav-loader')) return;
+    if (!location.pathname.startsWith('/admin')) return;
+
+    // SPA navigation keeps app.js alive while Livewire swaps the page DOM. Remove
+    // any stale loader left by a previous document before creating the current one.
+    document.getElementById('vx-nav-loader')?.remove();
+    document.getElementById('vx-nav-loader-styles')?.remove();
 
     const style = document.createElement('style');
     style.id = 'vx-nav-loader-styles';
@@ -74,17 +79,24 @@ function installVortexNavigationLoader() {
 
     const loader=document.createElement('div');
     loader.id='vx-nav-loader'; loader.setAttribute('role','status'); loader.setAttribute('aria-live','polite');
-    loader.innerHTML=`<div><div class="vx-load-scene"><div class="vx-pack"><img src="/images/vb-logo.svg" alt=""></div><div class="vx-rip"></div><div class="vx-card"><img src="/images/vb-logo.svg" alt=""></div><div class="vx-sleeve"></div><div class="vx-slab"></div><div class="vx-grade"><div>VORTEX GRADE<span>GEM MINT</span></div><b>10</b></div><div class="vx-foil"></div></div><div class="vx-load-copy">Loading VortexOps…<small>Rip • Reveal • Grade</small></div></div>`;
+    loader.innerHTML=`<div><div class="vx-load-scene"><div class="vx-pack"><img src="" data-vx-brand-logo alt=""></div><div class="vx-rip"></div><div class="vx-card"><img src="" data-vx-brand-logo alt=""></div><div class="vx-sleeve"></div><div class="vx-slab"></div><div class="vx-grade"><div>VORTEX GRADE<span>GEM MINT</span></div><b>10</b></div><div class="vx-foil"></div></div><div class="vx-load-copy">Loading VortexOps…<small>Rip • Reveal • Grade</small></div></div>`;
     document.body.appendChild(loader);
+    const configuredLogo = document.querySelector('meta[name="vortex-brand-logo"]')?.content || '/images/vb-logo-sidebar.svg';
+    loader.querySelectorAll('[data-vx-brand-logo]').forEach((img) => { img.src = configuredLogo; });
 
     let timer=null, watchdog=null;
     const show=()=>{clearTimeout(timer);clearTimeout(watchdog);timer=setTimeout(()=>{loader.classList.add('vx-show');watchdog=setTimeout(()=>loader.classList.remove('vx-show'),12000)},75)};
     const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);loader.classList.remove('vx-show')};
 
-    document.addEventListener('livewire:navigating',show);
-    document.addEventListener('livewire:navigated',hide);
-    window.addEventListener('pageshow',hide);
-    window.addEventListener('popstate',hide);
+    // Register once. Reinstalling these listeners after every SPA navigation was
+    // the source of stale overlays and partially morphed pages.
+    if (!window.__vortexNavLoaderBound) {
+      window.__vortexNavLoaderBound = true;
+      document.addEventListener('livewire:navigating',()=>window.__vortexNavLoader?.show());
+      document.addEventListener('livewire:navigated',()=>window.__vortexNavLoader?.hide());
+    }
+    window.__vortexNavLoader={show,hide};
+    window.addEventListener('pageshow',hide,{once:true});
     document.addEventListener('click',(event)=>{
       const link=event.target.closest?.('a[href]');
       if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download'))return;
@@ -92,7 +104,10 @@ function installVortexNavigationLoader() {
       if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;
       show();
     },{capture:true});
-    window.addEventListener('beforeunload',()=>{clearTimeout(timer);loader.classList.add('vx-show')});
+    // Do not force the overlay in beforeunload: full navigations already show
+    // immediately from the click handler, and beforeunload can leave a stale
+    // overlay visible when the browser restores/cancels navigation.
+    requestAnimationFrame(hide);
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installVortexNavigationLoader,{once:true});else installVortexNavigationLoader();

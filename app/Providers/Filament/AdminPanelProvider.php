@@ -112,6 +112,12 @@ class AdminPanelProvider extends PanelProvider
                     ? Blade::render("@vite(['resources/js/app.js'])")
                     : '',
             )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : '<meta name="vortex-brand-logo" content="' . htmlspecialchars(static::resolveBrandLogo(ChannelContext::current(), $logoPath) ?? '', ENT_QUOTES) . '">',
+            )
             // Desktop mega navigation is rendered as presentation only, rather than
             // replacing Filament's navigation builder. This keeps route discovery,
             // permissions, and mobile navigation on Filament's stable native path.

@@ -113,8 +113,9 @@ class WhatnotLedgerResource extends Resource
 
                 TextColumn::make('message')
                     ->label('Details')
-                    ->wrap()
-                    ->limit(80)
+                    ->limit(120)
+                    ->tooltip(fn (WhatnotLedgerEntry $record): ?string => $record->message)
+                    ->extraAttributes(['class' => 'vx-ledger-details'])
                     ->searchable()
                     ->toggleable(),
 

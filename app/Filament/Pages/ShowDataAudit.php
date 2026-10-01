@@ -37,7 +37,7 @@ class ShowDataAudit extends Page
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->isAdmin(), 403);
+        abort_unless(auth()->user()?->isOwner(), 403);
         if ($this->dateFrom === '' || $this->dateTo === '') $this->applyDatePreset($this->datePreset);
         $this->appliedDateFrom = $this->dateFrom;
         $this->appliedDateTo = $this->dateTo;
@@ -49,8 +49,8 @@ class ShowDataAudit extends Page
         $this->followUpPage = 1;
     }
 
-    public static function canAccess(): bool { return auth()->user()?->isAdmin() ?? false; }
-    public static function shouldRegisterNavigation(): bool { return auth()->user()?->isAdmin() ?? false; }
+    public static function canAccess(): bool { return auth()->user()?->isOwner() ?? false; }
+    public static function shouldRegisterNavigation(): bool { return auth()->user()?->isOwner() ?? false; }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-chart-bar-square'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Super Admin'; }
     public static function getNavigationSort(): ?int { return 21; }

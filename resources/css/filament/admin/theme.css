@@ -827,3 +827,32 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   .vx-payroll-redesign .vx-payroll-kpis,.vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
   .vx-report table{min-width:680px}
 }
+
+
+/* Oct 1 desktop header + ledger hotfix. Keep nav compact enough that the
+   channel switcher and Filament search/actions never collide. */
+@media(min-width:1024px){
+  .fi-topbar nav{padding-inline:12px!important;gap:8px!important}
+  .vx-desktop-mega-nav{flex:1 1 auto!important;min-width:0!important;gap:1px!important}
+  .vx-mega-brand{width:58px!important;flex-basis:58px!important;margin-right:2px!important}
+  .vx-mega-brand img{width:50px!important;height:50px!important}
+  .vx-mega-home,.vx-mega-trigger{padding-inline:8px!important;font-size:13px!important}
+  .vx-desktop-mega-nav .vx-mega-channel{margin-left:auto!important;min-width:150px!important;max-width:175px!important;flex:0 1 175px!important}
+  .fi-topbar .fi-global-search{flex:0 1 235px!important;min-width:170px!important;max-width:235px!important}
+}
+@media(min-width:1024px) and (max-width:1280px){
+  .vx-mega-home,.vx-mega-trigger{padding-inline:6px!important;font-size:12px!important}
+  .vx-desktop-mega-nav .vx-mega-channel{min-width:135px!important;max-width:150px!important}
+  .fi-topbar .fi-global-search{flex-basis:190px!important;max-width:190px!important}
+}
+
+/* Ledger: details need a real readable text area, not a column narrow enough
+   to wrap every few characters. The table can scroll horizontally instead. */
+@media(min-width:1024px){
+  .vx-finance-table .fi-ta-content{overflow-x:auto!important}
+  .vx-finance-table .fi-ta-table{min-width:1180px!important;table-layout:auto!important}
+  .vx-finance-table .fi-ta-cell:has(.vx-ledger-details),
+  .vx-finance-table .fi-ta-header-cell:has([data-column="message"]){min-width:300px!important;width:34%!important}
+  .vx-ledger-details{display:block!important;min-width:280px!important;max-width:460px!important;white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;line-height:1.45!important}
+  .vx-ledger-details .fi-ta-text-item-label{white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important}
+}

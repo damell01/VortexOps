@@ -15,8 +15,8 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin')],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
 ];
-if(\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) $groups['Fulfillment']=[
- ['Fulfillment Dashboard',\App\Filament\Resources\FulfillmentResource::getUrl('index')],
+$groups['Fulfillment']=[
+ ['Coming Soon','#'],
 ];
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Finance']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
@@ -32,7 +32,7 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
 ];
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
- ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
+ ...($user?->isOwner() ? [['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')]] : []),
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
 @endphp
@@ -51,7 +51,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
 </nav>
-<div class="vx-mobile-menu" x-data="{open:false,section:null}" x-cloak>
+<div class="vx-mobile-menu" x-data="{open:false,section:null}" x-on:vx-open-mobile-menu.window="open=true" x-cloak>
 <button type="button" class="vx-mobile-menu-trigger" @click="open=true" aria-label="Open navigation"><x-filament::icon icon="heroicon-o-bars-3"/></button>
 <div class="vx-mobile-menu-backdrop" x-show="open" x-transition.opacity @click="open=false"></div>
 <aside class="vx-mobile-menu-sheet" x-show="open" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" @keydown.escape.window="open=false">

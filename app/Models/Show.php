@@ -521,7 +521,11 @@ class Show extends Model
             })
             ->where(function ($notFlagged) {
                 $notFlagged->whereNull('notes')
-                    ->orWhere('notes', 'not like', '%'.self::NO_ACTIVITY_FLAG.'%');
+                    ->orWhere('notes', 'not like', '%'.self::NO_ACTIVITY_FLAG.'%')
+                    // A premature no-activity flag must never suppress the normal
+                    // next-day analytics retry. Only treat the review flag as
+                    // terminal for shows at least two calendar days old.
+                    ->orWhereDate('show_date', '>', today()->subDays(2));
             });
     }
 

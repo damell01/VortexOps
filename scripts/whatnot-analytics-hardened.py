@@ -209,7 +209,10 @@ def extract_show(page) -> dict[str, Any]:
         "whatnot_live_id": raw.get("live_id"),
         "detail_url": f"https://www.whatnot.com/dashboard/live/{raw.get('live_id')}" if raw.get("live_id") else raw.get("url"),
         "gross_revenue": parse_money(labels.get("Estimated Sales") or labels.get("Gross Revenue") or labels.get("Revenue")),
-        "whatnot_net": parse_money(labels.get("Total Estimated Earnings") or labels.get("Estimated Earnings") or labels.get("Est. Earning") or labels.get("Est. Earnings") or labels.get("Net Revenue")),
+        # Current Seller Hub labels the net payout metric "Completed Earnings".
+        # Keep older aliases for compatibility, but treat Completed Earnings as
+        # authoritative for whatnot_net on the livestream analytics page.
+        "whatnot_net": parse_money(labels.get("Completed Earnings") or labels.get("Total Estimated Earnings") or labels.get("Estimated Earnings") or labels.get("Est. Earning") or labels.get("Est. Earnings") or labels.get("Net Revenue")),
         "completed_earnings": parse_money(labels.get("Completed Earnings")),
         "units_sold": parse_int(labels.get("Units Sold") or labels.get("Orders")),
         "buyers_count": parse_int(labels.get("Buyers")),

@@ -57,7 +57,7 @@ class ActivityLogResource extends Resource
         }
 
         $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
+        return $user?->isOwner() ?? false;
     }
 
     // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).

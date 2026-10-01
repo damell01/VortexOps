@@ -558,7 +558,9 @@ class WhatnotReportingReconciler
                 $fresh = $show->fresh();
                 $analyticsComplete = $fresh->gross_revenue !== null
                     && $fresh->show_duration !== null
-                    && ($fresh->whatnot_net !== null || $fresh->completed_earnings !== null);
+                    // Seller Hub's current settled/net metric is Completed Earnings.
+                    // Do not mark a positive-gross show complete until it is captured.
+                    && ((float) $fresh->gross_revenue <= 0 || (float) ($fresh->completed_earnings ?? 0) > 0);
                 $fresh->forceFill([
                     'analytics_sync_status' => $analyticsComplete ? 'complete' : 'partial',
                     'analytics_sync_note' => $analyticsComplete

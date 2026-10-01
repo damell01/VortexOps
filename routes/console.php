@@ -77,27 +77,28 @@ $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 // If the browser/pipeline is busy it skips cleanly and the next cadence catches up.
 // Operational priority: show discovery + analytics freshness. Shipment scraping
 // is intentionally paused so browser time goes to yesterday/today show data.
-Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(3)->toDateString() . ' --analytics-only --analytics-limit=0 --max-runtime=2400 --skip-if-busy')
+Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --analytics-only --analytics-limit=8 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->hourlyAt(15)
+    ->cron('15 */3 * * *')
     ->name('whatnot-recent-analytics-refresh')
     ->withoutOverlapping(120);
 
-// Discovery pass keeps newly ended shows/UUIDs current without spending runtime
-// on orders or shipments. Analytics refresh above then fills their show metrics.
-Schedule::command('whatnot:sync-reporting --since=' . now()->subDays(3)->toDateString() . ' --show-limit=20 --order-batch=0 --analytics-limit=20 --shipment-batch=0 --max-runtime=2700 --skip-if-busy')
+// Discovery pass keeps newly ended shows/UUIDs current. Shipment scraping is
+// disabled for now; this pass discovers shows only and leaves analytics to the
+// dedicated freshness/reconciliation jobs above and below.
+Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --show-limit=8 --without-orders --analytics-limit=6 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->everyThreeHours()
+    ->cron('45 */6 * * *')
     ->name('whatnot-recent-show-discovery')
     ->withoutOverlapping(180);
 
 // Nightly historical analytics completeness pass. Shipments stay paused.
-Schedule::command('whatnot:sync-reporting --since=2026-07-01 --analytics-only --analytics-limit=0 --max-runtime=10800 --skip-if-busy')
+Schedule::exec('nice -n 15 php artisan whatnot:sync-reporting --since=2026-07-01 --analytics-only --analytics-limit=20 --max-runtime=1800 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->dailyAt('00:30')
+    ->dailyAt('01:30')
     ->name('whatnot-nightly-analytics-reconciliation')
     ->withoutOverlapping(480);
 
@@ -105,7 +106,7 @@ Schedule::command('whatnot:sync-reporting --since=2026-07-01 --analytics-only --
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('1,11,21,31,41,51 * * * *')
+    ->hourlyAt(5)
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 

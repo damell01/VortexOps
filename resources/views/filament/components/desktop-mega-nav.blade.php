@@ -36,6 +36,22 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
 @endphp
+<div class="vx-app-nav" x-data="{ mobileOpen:false }">
+<button type="button" class="vx-mobile-menu-btn" @click="mobileOpen=true" aria-label="Open navigation"><x-filament::icon icon="heroicon-o-bars-3"/></button>
+<div class="vx-mobile-nav-backdrop" x-cloak x-show="mobileOpen" @click="mobileOpen=false"></div>
+<aside class="vx-mobile-nav-drawer" x-cloak x-show="mobileOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="-translate-x-full" x-transition:enter-end="translate-x-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-x-0" x-transition:leave-end="-translate-x-full">
+<div class="vx-mobile-nav-head">@if($navLogo)<img src="{{ $navLogo }}" alt="Vortex Ops">@else<span>VortexOps</span>@endif<button type="button" @click="mobileOpen=false" aria-label="Close navigation"><x-filament::icon icon="heroicon-o-x-mark"/></button></div>
+<div class="vx-mobile-nav-scroll">
+<a class="vx-mobile-nav-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" @click="mobileOpen=false"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
+@foreach($groups as $label=>$links)
+<details class="vx-mobile-nav-group" {{ request()->is('admin/'.strtolower($label).'*') ? 'open' : '' }}>
+<summary><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></summary>
+<div>@foreach($links as [$text,$url])<a href="{{ $url }}" @click="mobileOpen=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach</div>
+</details>
+@endforeach
+@if($user?->canSwitchChannels())<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif
+</div>
+</aside>
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @if($navLogo)<a class="vx-mega-brand" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
@@ -51,3 +67,4 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
 </nav>
+</div>

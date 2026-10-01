@@ -288,7 +288,10 @@ class SyncWhatnotReporting extends Command
             WhatnotPipelineLock::release($lock);
         }
 
-        if (! $shipmentsOnly) {
+        // Analytics-only runs should not classify fresh shows as possible no-shows.
+        // That review requires a separate, older grace window and evidence from
+        // operational reconciliation, not simply an analytics page that is not ready.
+        if (! $shipmentsOnly && ! $analyticsOnly) {
             $this->reconcileEndedShowState($channels->pluck('id')->all(), $since);
         }
 
@@ -316,7 +319,9 @@ class SyncWhatnotReporting extends Command
 
     private function reconcileEndedShowState(array $channelIds, Carbon $since): void
     {
-        $cutoff = now()->subHours(12);
+        // Give Whatnot and the operational imports a full day to settle before
+        // asking a human whether a show happened or was cancelled.
+        $cutoff = now()->subHours(24);
         $candidates = Show::query()
             ->whereIn('whatnot_channel_id', $channelIds)
             ->whereDate('show_date', '>=', $since->toDateString())
@@ -358,13 +363,25 @@ class SyncWhatnotReporting extends Command
 
     private function missingAnalyticsCount(int $channelId, Carbon $since): int
     {
-        return Show::query()
-            ->where('whatnot_channel_id', $channelId)
+        return $this->eligibleAnalyticsQuery(
+            Show::query()->where('whatnot_channel_id', $channelId),
+            $since
+        )->count();
+    }
+
+    private function eligibleAnalyticsQuery(\Illuminate\Database\Eloquent\Builder $query, Carbon $since): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query
             ->whereDate('show_date', '>=', $since->toDateString())
-            ->whereDate('show_date', '<=', today())
+            ->where(function ($eligible) {
+                $eligible->whereDate('show_date', '<', today())
+                    ->orWhere(function ($ended) {
+                        $ended->whereNotNull('end_time')
+                            ->where('end_time', '<=', now()->subHours(6));
+                    });
+            })
             ->whereNotIn('status', ['cancelled'])
-            ->missingAnalytics()
-            ->count();
+            ->missingAnalytics();
     }
 
     /**
@@ -393,7 +410,10 @@ class SyncWhatnotReporting extends Command
             ->whereNotIn('status', ['cancelled']);
 
         $total = (clone $shows)->count();
-        $analytics = (clone $shows)->missingAnalytics()->count();
+        $analytics = $this->eligibleAnalyticsQuery(
+            Show::query()->where('whatnot_channel_id', $channelId),
+            $since
+        )->count();
         $shipments = (clone $shows)->doesntHave('shipments')->count();
 
         $this->line("     coverage: {$total} shows · {$analytics} due for analytics refresh · {$shipments} no shipments");
@@ -408,7 +428,10 @@ class SyncWhatnotReporting extends Command
             ->whereNotIn('status', ['cancelled']);
 
         $total = (clone $shows)->count();
-        $missingAnalytics = (clone $shows)->missingAnalytics()->count();
+        $missingAnalytics = $this->eligibleAnalyticsQuery(
+            Show::query()->whereIn('whatnot_channel_id', $channelIds),
+            $since
+        )->count();
         $withoutShipments = (clone $shows)->doesntHave('shipments')->count();
 
         $this->line("Coverage since {$since->toDateString()}: {$total} shows · {$missingAnalytics} due for analytics refresh · {$withoutShipments} with no shipment rows");

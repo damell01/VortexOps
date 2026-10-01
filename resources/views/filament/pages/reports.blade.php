@@ -19,7 +19,7 @@
         ];
     @endphp
 
-    <div class="space-y-4">
+    <div class="space-y-4"><div wire:loading.flex wire:target="setPeriod,applyCustomRange" class="fixed inset-x-0 top-[72px] z-50 items-center justify-center pointer-events-none"><div class="rounded-full bg-gray-950/90 px-4 py-2 text-xs font-semibold text-white shadow-xl">Updating report…</div></div>
 
         {{-- Compact report header + report launcher --}}
         <section class="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -189,7 +189,7 @@
             $chartMax    = max($maxGross, 1);
 
             $streamers   = $this->topStreamersByPayout;
-            $maxPayout   = collect($streamers)->max('total') ?: 1;
+            $maxPayout   = collect($streamers)->max('gross') ?: 1;
 
             $accentColors = [
                 'bg-violet-500', 'bg-sky-500', 'bg-emerald-500',
@@ -262,18 +262,18 @@
             {{-- Top streamers horizontal bars (2 cols) --}}
             <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Top Streamers</h3>
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Streamer Performance</h3>
                 </div>
                 <div class="p-5 space-y-3">
                     @forelse (array_slice($streamers, 0, 8) as $i => $row)
-                        @php $barPct = $maxPayout > 0 ? round(((float) $row['total'] / $maxPayout) * 100, 1) : 0; @endphp
+                        @php $barPct = $maxPayout > 0 ? round(((float) $row['gross'] / $maxPayout) * 100, 1) : 0; @endphp
                         <div>
                             <div class="mb-1 flex items-center justify-between gap-2">
                                 <span class="truncate text-xs font-medium text-gray-700 dark:text-gray-300">
                                     {{ $row['streamer'] }}
                                 </span>
                                 <span class="shrink-0 text-xs font-semibold text-violet-600 dark:text-violet-400">
-                                    ${{ number_format($row['total'], 0) }}
+                                    ${{ number_format($row['gross'], 0) }}
                                 </span>
                             </div>
                             <div class="h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800">
@@ -282,7 +282,7 @@
                             </div>
                         </div>
                     @empty
-                        <div class="flex h-32 items-center justify-center text-sm text-gray-400">No payouts in this period</div>
+                        <div class="flex h-32 items-center justify-center text-sm text-gray-400">No assigned streamer revenue in this period</div>
                     @endforelse
                 </div>
             </div>
@@ -291,7 +291,7 @@
         {{-- Revenue by channel --}}
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Revenue by Channel</h3>
+                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Channel Performance</h3>
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 @forelse ($this->revenueByChannel as $row)
@@ -349,7 +349,7 @@
             {{-- Top streamers --}}
             <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Top Streamers by Payout</h3>
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Streamer Performance Details</h3>
                 </div>
                 <div class="divide-y divide-gray-100 dark:divide-gray-700">
                     @forelse ($this->topStreamersByPayout as $i => $row)
@@ -360,8 +360,8 @@
                             </span>
                             <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
                                 <span class="text-xs text-gray-500 dark:text-gray-400">{{ $row['shows'] }} shows</span>
-                                <span class="font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['total'], 2) }}</span>
-                                <span class="text-gray-600 dark:text-gray-300">${{ number_format($row['avg'], 2) }} avg</span>
+                                <span class="font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['gross'], 2) }}</span>
+                                <span class="text-gray-600 dark:text-gray-300">${{ number_format($row['net'], 2) }} avg</span>
                             </div>
                         </div>
                     @empty

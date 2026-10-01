@@ -24,6 +24,7 @@ class SyncWhatnotReporting extends Command
         {--shipments-only : Skip show refresh, analytics, orders, and ledger; reconcile historical shipments only}
         {--analytics-only : Check database shows that are missing/incomplete analytics by Whatnot UUID; skip discovery, orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
+        {--without-shipments : Skip shipment/fulfillment reconciliation; manual --shipments-only remains available}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
         {--skip-if-busy : Exit cleanly if another Whatnot pipeline is active}
@@ -57,6 +58,7 @@ class SyncWhatnotReporting extends Command
             return self::FAILURE;
         }
         $withOrders = ! $shipmentsOnly && ! $analyticsOnly && ! (bool) $this->option('without-orders');
+        $withShipments = $shipmentsOnly || (! $analyticsOnly && ! (bool) $this->option('without-shipments'));
         $orderBatch = max(1, min(30, (int) $this->option('order-batch')));
         $waitSeconds = max(0, min(14400, (int) $this->option('wait')));
         $maxRuntime = max(300, min(21600, (int) $this->option('max-runtime')));
@@ -250,14 +252,16 @@ class SyncWhatnotReporting extends Command
                     $this->warn('     analytics backfill failed: '.$this->describeError($e));
                 }
 
-                $this->line("  {$step}. Shipments / fulfillment ({$shipmentBatch}-show batches)");
-                $step++;
-                try {
-                    $shipments = $retry(fn () => $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress), 'shipments');
-                    if ($testMode) $smoke['Shipments'] = true;
-                    $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
-                } catch (\Throwable $e) {
-                    $this->warn('     shipment reconciliation failed: '.$this->describeError($e));
+                if ($withShipments) {
+                    $this->line("  {$step}. Shipments / fulfillment ({$shipmentBatch}-show batches)");
+                    $step++;
+                    try {
+                        $shipments = $retry(fn () => $reconciler->reconcileShipments($channel, $since, $shipmentBatch, $progress), 'shipments');
+                        if ($testMode) $smoke['Shipments'] = true;
+                        $this->line("     {$shipments['checked']} checked · {$shipments['created']} created · {$shipments['updated']} updated · {$shipments['skipped']} skipped");
+                    } catch (\Throwable $e) {
+                        $this->warn('     shipment reconciliation failed: '.$this->describeError($e));
+                    }
                 }
 
                 $this->line("  {$step}. Ledger / post-show adjustments");
@@ -319,9 +323,10 @@ class SyncWhatnotReporting extends Command
 
     private function reconcileEndedShowState(array $channelIds, Carbon $since): void
     {
-        // Give Whatnot and the operational imports a full day to settle before
-        // asking a human whether a show happened or was cancelled.
-        $cutoff = now()->subHours(24);
+        // No-show review is deliberately much slower than analytics eligibility.
+        // Give Whatnot and operational imports two full days before asking a human
+        // whether a show happened or was cancelled.
+        $cutoff = now()->subHours(48);
         $candidates = Show::query()
             ->whereIn('whatnot_channel_id', $channelIds)
             ->whereDate('show_date', '>=', $since->toDateString())

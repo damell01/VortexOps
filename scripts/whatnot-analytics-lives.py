@@ -678,44 +678,55 @@ def historical_analytics(module, session):
                 f"candidates={len(candidates)} file={cache_file}"
             )
         else:
-            # session.fetch already opened Seller Hub Shows. Avoid a second goto here:
-            # Whatnot can return HTTP 200 while DOMContentLoaded remains busy long enough
-            # for Playwright's navigation promise to time out.
-            if "/dashboard/lives" not in page.url:
+            # Targeted refreshes already have authoritative DB UUIDs. Do not walk
+            # hundreds/thousands of Seller Hub Past rows just to rediscover them:
+            # the direct analytics route below can attempt those UUIDs immediately.
+            # Full Past traversal is reserved for untargeted historical discovery.
+            if target_ids:
+                module.info(
+                    f"historical-analytics: targeted fast path; skipping full Past index "
+                    f"for {len(target_ids)} DB UUID(s)"
+                )
+                candidates = []
+            else:
+                # session.fetch already opened Seller Hub Shows. Avoid a second goto here:
+                # Whatnot can return HTTP 200 while DOMContentLoaded remains busy long enough
+                # for Playwright's navigation promise to time out.
+                if "/dashboard/lives" not in page.url:
+                    try:
+                        page.goto(f"{module.BASE}/dashboard/lives", wait_until="commit", timeout=30000)
+                    except Exception as exc:
+                        module.info(f"historical-analytics: Shows navigation warning={exc}")
+                page.wait_for_timeout(2500)
+                module.check_login(page)
+                past, selected, exhausted = scan_selected_tab_index(
+                    module, page, "Past", max_passes=max_passes, stable_needed=5
+                )
+                if not selected:
+                    module.info("historical-analytics: Past tab could not be selected")
+                    return
+                for item in past.values():
+                    show_date = clean(item.get("show_date"))
+                    if since and show_date and show_date < since:
+                        continue
+                    if item.get("analytics_url"):
+                        candidates.append(item)
+                candidates.sort(
+                    key=lambda x: (clean(x.get("show_date")), clean(x.get("live_id"))),
+                    reverse=True,
+                )
                 try:
-                    page.goto(f"{module.BASE}/dashboard/lives", wait_until="commit", timeout=30000)
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    cache_file.write_text(json.dumps({
+                        "since": since,
+                        "candidates": candidates,
+                    }, ensure_ascii=False))
                 except Exception as exc:
-                    module.info(f"historical-analytics: Shows navigation warning={exc}")
-            page.wait_for_timeout(2500)
-            module.check_login(page)
-            past, selected, exhausted = scan_selected_tab_index(
-                module, page, "Past", max_passes=max_passes, stable_needed=5
-            )
-            if not selected:
-                module.info("historical-analytics: Past tab could not be selected")
-                return
-            for item in past.values():
-                show_date = clean(item.get("show_date"))
-                if since and show_date and show_date < since:
-                    continue
-                if item.get("analytics_url"):
-                    candidates.append(item)
-            candidates.sort(
-                key=lambda x: (clean(x.get("show_date")), clean(x.get("live_id"))),
-                reverse=True,
-            )
-            try:
-                cache_dir.mkdir(parents=True, exist_ok=True)
-                cache_file.write_text(json.dumps({
-                    "since": since,
-                    "candidates": candidates,
-                }, ensure_ascii=False))
-            except Exception as exc:
-                module.info(f"historical-analytics: unable to cache Past index error={exc}")
-            module.info(
-                f"historical-analytics: Past scan found {len(past)} show(s); "
-                f"{len(candidates)} analytics candidate(s) in range; exhausted={exhausted}"
-            )
+                    module.info(f"historical-analytics: unable to cache Past index error={exc}")
+                module.info(
+                    f"historical-analytics: Past scan found {len(past)} show(s); "
+                    f"{len(candidates)} analytics candidate(s) in range; exhausted={exhausted}"
+                )
 
         if target_ids:
             by_id = {

@@ -241,13 +241,14 @@ class WhatnotReportingReconciler
 
     public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null): array
     {
-        // Historical analytics is intentionally channel-wide. Seller Hub's Past
-        // list is already the authoritative traversal, so keep one authenticated
-        // browser/session alive and visit each show's See Analytics destination.
-        // This replaces the old DB-missing-show -> UUID -> new browser loop.
+        // Target only shows old enough for Whatnot to have published analytics.
+        // Same-day shows are intentionally deferred: in practice their per-show
+        // analytics page is often empty for hours after the stream ends. When we
+        // only have a calendar date, the safe eligibility boundary is next day.
+        // If a reliable end_time exists, allow the show six hours after it ended.
         $progress && $progress(
-            'analytics: walking Seller Hub Past shows once for @'.$channel->whatnot_username.
-            ' since '.$since->toDateString()
+            'analytics: checking eligible completed shows for @'.$channel->whatnot_username.
+            ' since '.$since->toDateString().' (same-day shows deferred unless ended 6+ hours ago)'
         );
 
         // A null/zero limit means no artificial cap: process every incomplete show.
@@ -259,7 +260,17 @@ class WhatnotReportingReconciler
         $dueShows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
-            ->whereDate('show_date', '<=', today())
+            ->where(function ($eligible) {
+                $eligible
+                    // Date-only records become eligible the following day.
+                    ->whereDate('show_date', '<', today())
+                    // If discovery captured a real end time, permit a same-day
+                    // refresh once Whatnot has had six hours to publish metrics.
+                    ->orWhere(function ($ended) {
+                        $ended->whereNotNull('end_time')
+                            ->where('end_time', '<=', now()->subHours(6));
+                    });
+            })
             ->whereNotIn('status', ['cancelled'])
             ->missingAnalytics()
             // Work the real backlog in the same order as Show Data Audit:

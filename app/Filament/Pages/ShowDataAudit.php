@@ -15,7 +15,7 @@ class ShowDataAudit extends Page
     protected static ?string $title = 'Show Data Audit';
     protected static ?string $navigationLabel = 'Show Data Audit';
     protected static ?string $slug = 'show-data-audit';
-    protected string $view = 'filament.pages.show-data-audit';
+    public function getView(): string { return 'filament.pages.show-data-audit'; }
 
     #[Url(as: 'range')]
     public string $datePreset = 'this_month';

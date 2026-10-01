@@ -504,6 +504,17 @@ class Show extends Model
         return $query
             ->where(function ($q) {
                 $q->whereNull('analytics_sync_status')
+                    // Current Seller Hub exposes Completed Earnings as the net
+                    // payout metric. Rows scraped before that mapping was fixed
+                    // may be marked complete with gross sales but no settlement;
+                    // send those through one more analytics refresh.
+                    ->orWhere(function ($settlementMissing) {
+                        $settlementMissing->where('gross_revenue', '>', 0)
+                            ->where(function ($net) {
+                                $net->whereNull('completed_earnings')
+                                    ->orWhere('completed_earnings', '<=', 0);
+                            });
+                    })
                     ->orWhere(function ($partial) {
                         $partial->where('analytics_sync_status', 'partial')
                             ->where(function ($stale) {

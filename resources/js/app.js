@@ -51,42 +51,86 @@ function installVortexNavigationLoader() {
     const style = document.createElement('style');
     style.id = 'vx-nav-loader-styles';
     style.textContent = `
-      #vx-nav-loader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:rgba(6,8,24,.78);backdrop-filter:blur(7px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s ease,visibility .12s ease}
+      #vx-nav-loader{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,rgba(104,36,178,.25),transparent 34%),rgba(4,5,18,.9);backdrop-filter:blur(11px);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .14s ease,visibility .14s ease;overflow:hidden}
       #vx-nav-loader.vx-show{opacity:1;visibility:visible;pointer-events:auto}
-      .vx-loader-scene{position:relative;width:180px;height:245px;filter:drop-shadow(0 24px 42px rgba(0,0,0,.45))}
-      .vx-loader-pack{position:absolute;left:36px;top:38px;width:108px;height:158px;border-radius:9px;background:linear-gradient(145deg,#1b103b,#7c3aed 52%,#2e1065);border:1px solid rgba(255,255,255,.45);overflow:hidden;animation:vxPack 2.25s ease-in-out infinite}
-      .vx-loader-pack:before,.vx-loader-pack:after{content:"";position:absolute;left:0;right:0;height:10px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.7) 0 3px,rgba(255,255,255,.16) 3px 6px)}.vx-loader-pack:before{top:0}.vx-loader-pack:after{bottom:0}
-      .vx-loader-pack img{position:absolute;width:62px;height:62px;left:23px;top:45px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(255,255,255,.4))}
-      .vx-loader-rip{position:absolute;left:30px;top:34px;width:120px;height:19px;background:linear-gradient(135deg,#5b21b6,#a855f7);clip-path:polygon(0 20%,100% 0,95% 58%,76% 38%,61% 78%,44% 42%,24% 75%,4% 50%);opacity:0;animation:vxRip 2.25s ease-in-out infinite}
-      .vx-loader-card{position:absolute;left:44px;top:49px;width:92px;height:130px;border-radius:8px;background:linear-gradient(145deg,#090d1f,#251148);border:2px solid #d8b45a;box-shadow:0 0 25px rgba(139,92,246,.65);display:grid;place-items:center;opacity:0;animation:vxReveal 2.25s ease-in-out infinite}
-      .vx-loader-card img{width:52px;height:52px;object-fit:contain}.vx-loader-card:before{content:"VORTEX • #001";position:absolute;left:7px;right:7px;top:7px;color:#fff;font:700 7px/1 ui-sans-serif;text-align:center;letter-spacing:.08em}.vx-loader-card:after{content:"COLLECT • SELL • GROW";position:absolute;left:7px;right:7px;bottom:8px;color:#d8b45a;font:700 5px/1 ui-sans-serif;text-align:center;letter-spacing:.08em}
-      .vx-loader-sleeve{position:absolute;left:39px;top:43px;width:102px;height:143px;border:2px solid rgba(220,235,255,.7);border-radius:7px;background:linear-gradient(110deg,rgba(255,255,255,.02),rgba(255,255,255,.16),rgba(255,255,255,.03));box-shadow:inset 0 0 14px rgba(255,255,255,.12);opacity:0;animation:vxSleeve 2.25s ease-in-out infinite}
-      .vx-loader-slab{position:absolute;left:29px;top:18px;width:122px;height:180px;border:3px solid rgba(230,240,255,.9);border-radius:11px;background:rgba(220,235,255,.1);box-shadow:0 0 30px rgba(139,92,246,.75),inset 0 0 0 3px rgba(255,255,255,.16);opacity:0;animation:vxSlab 2.25s ease-in-out infinite}
-      .vx-loader-grade{position:absolute;left:36px;right:36px;top:25px;height:31px;border-radius:5px;background:#fff;color:#17172a;display:flex;align-items:center;justify-content:space-between;padding:0 7px;font:800 7px/1 ui-sans-serif;opacity:0;animation:vxGrade 2.25s ease-in-out infinite}.vx-loader-grade b{font-size:19px;color:#7c3aed}.vx-loader-grade span{display:block;font-size:5px;color:#666;margin-top:2px;letter-spacing:.08em}
-      .vx-loader-foil{position:absolute;inset:0;overflow:hidden;border-radius:10px;opacity:0;animation:vxFoil 2.25s ease-in-out infinite}.vx-loader-foil:after{content:"";position:absolute;top:-30%;left:-80%;width:48%;height:160%;transform:rotate(18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.8),transparent);animation:vxShine 2.25s ease-in-out infinite}
-      .vx-loader-copy{text-align:center;margin-top:7px;color:#fff;font:700 13px/1.3 ui-sans-serif}.vx-loader-copy small{display:block;margin-top:5px;color:rgba(255,255,255,.58);font-size:9px;letter-spacing:.13em;text-transform:uppercase}
-      @keyframes vxPack{0%,15%{opacity:1;transform:scale(.92)}25%,100%{opacity:0;transform:scale(1)}}
-      @keyframes vxRip{0%,15%{opacity:0;transform:translateY(0) rotate(0)}20%{opacity:1}32%,100%{opacity:0;transform:translate(22px,-35px) rotate(18deg)}}
-      @keyframes vxReveal{0%,20%{opacity:0;transform:translateY(48px) scale(.9)}32%,72%{opacity:1;transform:translateY(0) scale(1)}88%,100%{opacity:0;transform:translateY(-3px) scale(.84)}}
-      @keyframes vxSleeve{0%,37%{opacity:0;transform:translateY(45px)}48%,70%{opacity:1;transform:translateY(0)}82%,100%{opacity:0}}
-      @keyframes vxSlab{0%,50%{opacity:0;transform:scale(.92)}61%,82%{opacity:1;transform:scale(1)}94%,100%{opacity:0;transform:scale(.82)}}
-      @keyframes vxGrade{0%,57%{opacity:0;transform:translateY(-8px)}66%,84%{opacity:1;transform:translateY(0)}94%,100%{opacity:0}}
-      @keyframes vxFoil{0%,64%{opacity:0}70%,86%{opacity:1}94%,100%{opacity:0}}
-      @keyframes vxShine{0%,67%{left:-80%}84%,100%{left:145%}}
-      @media(prefers-reduced-motion:reduce){.vx-loader-pack,.vx-loader-rip,.vx-loader-card,.vx-loader-sleeve,.vx-loader-slab,.vx-loader-grade,.vx-loader-foil,.vx-loader-foil:after{animation:none}.vx-loader-card,.vx-loader-slab,.vx-loader-grade{opacity:1}.vx-loader-pack,.vx-loader-rip,.vx-loader-sleeve,.vx-loader-foil{display:none}}
+      .vx-loader-stage{position:relative;width:min(94vw,720px);height:min(78vh,650px);display:flex;align-items:center;justify-content:center}
+      .vx-loader-shelf{position:absolute;inset:7% 2% 18%;opacity:.4;filter:blur(2px)}
+      .vx-loader-bgslab{position:absolute;width:120px;height:168px;border:2px solid rgba(226,232,240,.34);border-radius:10px;background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(94,34,160,.18));box-shadow:0 0 30px rgba(168,85,247,.18);transform:rotate(var(--r));left:var(--x);top:var(--y)}
+      .vx-loader-bgslab:before{content:"10";position:absolute;top:8px;right:10px;font:900 18px/1 ui-sans-serif;color:rgba(255,255,255,.55)}
+      .vx-loader-bgslab img{position:absolute;width:55%;height:55%;object-fit:contain;left:22%;top:28%;opacity:.45}
+      .vx-loader-scene{position:relative;width:300px;height:390px;filter:drop-shadow(0 30px 55px rgba(0,0,0,.55));transform:translateY(-14px)}
+      .vx-loader-pack{position:absolute;left:65px;top:80px;width:170px;height:235px;border-radius:14px;background:linear-gradient(145deg,#12072d,#6d28d9 48%,#1e0a43);border:2px solid rgba(214,177,255,.7);overflow:hidden;box-shadow:0 0 45px rgba(168,85,247,.55),inset 0 0 30px rgba(255,255,255,.07);animation:vxLoaderPack 3.1s ease-in-out infinite}
+      .vx-loader-pack:before,.vx-loader-pack:after{content:"";position:absolute;left:0;right:0;height:15px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.7) 0 5px,rgba(255,255,255,.12) 5px 10px)}.vx-loader-pack:before{top:0}.vx-loader-pack:after{bottom:0}
+      .vx-loader-pack img{position:absolute;width:100px;height:100px;left:35px;top:60px;object-fit:contain;filter:drop-shadow(0 0 18px rgba(255,255,255,.45))}
+      .vx-loader-pack-label{position:absolute;left:0;right:0;bottom:36px;text-align:center;color:#fff;font:800 13px/1 ui-sans-serif;letter-spacing:.04em}.vx-loader-pack-label small{display:block;color:#d8b4fe;font-size:7px;margin-top:7px;letter-spacing:.18em}
+      .vx-loader-rip{position:absolute;left:56px;top:73px;width:190px;height:32px;background:linear-gradient(135deg,#3b0764,#a855f7 55%,#ede9fe);clip-path:polygon(0 20%,100% 0,94% 58%,77% 38%,61% 82%,44% 42%,23% 76%,4% 50%);opacity:0;animation:vxLoaderRip 3.1s ease-in-out infinite}
+      .vx-loader-burst{position:absolute;left:92px;top:72px;width:116px;height:116px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.7),rgba(168,85,247,.42) 35%,transparent 70%);filter:blur(5px);opacity:0;animation:vxLoaderBurst 3.1s ease-in-out infinite}
+      .vx-loader-mini{position:absolute;left:112px;top:105px;width:78px;height:108px;border-radius:8px;background:linear-gradient(145deg,#111827,#4c1d95);border:2px solid #d8b45a;box-shadow:0 0 18px rgba(168,85,247,.5);opacity:0;animation:vxLoaderMini 3.1s ease-in-out infinite;transform:translate(var(--dx),var(--dy)) rotate(var(--rr))}
+      .vx-loader-mini img{width:48px;height:48px;object-fit:contain;position:absolute;left:13px;top:29px;opacity:.8}
+      .vx-loader-card{position:absolute;left:86px;top:75px;width:128px;height:182px;border-radius:11px;background:linear-gradient(145deg,#080b1c,#28104d);border:3px solid #d8b45a;box-shadow:0 0 38px rgba(168,85,247,.8);display:grid;place-items:center;opacity:0;animation:vxLoaderReveal 3.1s ease-in-out infinite}
+      .vx-loader-card img{width:78px;height:78px;object-fit:contain;filter:drop-shadow(0 0 15px rgba(255,255,255,.25))}.vx-loader-card:before{content:"VORTEX OPS • #001";position:absolute;left:9px;right:9px;top:10px;color:#fff;font:800 8px/1 ui-sans-serif;text-align:center;letter-spacing:.09em}.vx-loader-card:after{content:"COLLECT • SELL • GROW";position:absolute;left:8px;right:8px;bottom:11px;color:#e4bd66;font:800 6px/1 ui-sans-serif;text-align:center;letter-spacing:.1em}
+      .vx-loader-slab{position:absolute;left:66px;top:39px;width:168px;height:250px;border:4px solid rgba(238,246,255,.92);border-radius:15px;background:linear-gradient(110deg,rgba(255,255,255,.04),rgba(255,255,255,.18),rgba(255,255,255,.04));box-shadow:0 0 48px rgba(168,85,247,.85),inset 0 0 0 3px rgba(255,255,255,.14);opacity:0;animation:vxLoaderSlab 3.1s ease-in-out infinite}
+      .vx-loader-grade{position:absolute;left:75px;top:50px;width:150px;height:48px;border-radius:7px;background:#f8fafc;color:#151525;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font:900 8px/1 ui-sans-serif;box-sizing:border-box;opacity:0;animation:vxLoaderGrade 3.1s ease-in-out infinite}.vx-loader-grade b{font-size:28px;color:#7c3aed}.vx-loader-grade span{display:block;font-size:6px;color:#64748b;margin-top:4px;letter-spacing:.1em}
+      .vx-loader-foil{position:absolute;left:66px;top:39px;width:168px;height:250px;overflow:hidden;border-radius:15px;opacity:0;animation:vxLoaderFoil 3.1s ease-in-out infinite}.vx-loader-foil:after{content:"";position:absolute;top:-30%;left:-90%;width:45%;height:165%;transform:rotate(18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);animation:vxLoaderShine 3.1s ease-in-out infinite}
+      .vx-loader-copy{position:absolute;left:50%;bottom:1%;transform:translateX(-50%);width:min(88vw,480px);text-align:center;color:#fff;font:800 19px/1.3 ui-sans-serif}
+      .vx-loader-status{display:block;min-height:25px}.vx-loader-sub{display:block;margin-top:8px;color:rgba(255,255,255,.62);font-size:9px;letter-spacing:.22em;text-transform:uppercase}
+      .vx-loader-progress{height:7px;margin:16px auto 0;width:min(74vw,340px);border:1px solid rgba(216,180,254,.8);border-radius:999px;padding:2px;box-shadow:0 0 15px rgba(168,85,247,.28)}.vx-loader-progress:before{content:"";display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#7c3aed,#d946ef,#fff);animation:vxLoaderProgress 3.1s linear infinite}
+      .vx-loader-dots{display:flex;gap:9px;justify-content:center;margin-top:13px}.vx-loader-dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);animation:vxLoaderDot 3.1s linear infinite}.vx-loader-dots i:nth-child(2){animation-delay:.22s}.vx-loader-dots i:nth-child(3){animation-delay:.44s}.vx-loader-dots i:nth-child(4){animation-delay:.66s}.vx-loader-dots i:nth-child(5){animation-delay:.88s}
+      @keyframes vxLoaderPack{0%,16%{opacity:1;transform:scale(.96)}25%,100%{opacity:0;transform:scale(1.04)}}
+      @keyframes vxLoaderRip{0%,13%{opacity:0;transform:translateY(0) rotate(0)}18%{opacity:1}29%,100%{opacity:0;transform:translate(42px,-55px) rotate(22deg)}}
+      @keyframes vxLoaderBurst{0%,17%{opacity:0;transform:scale(.3)}28%{opacity:1;transform:scale(1.7)}42%,100%{opacity:0;transform:scale(2.2)}}
+      @keyframes vxLoaderMini{0%,19%{opacity:0;transform:translate(0,70px) rotate(0)}31%,46%{opacity:.78;transform:translate(var(--dx),var(--dy)) rotate(var(--rr))}57%,100%{opacity:0;transform:translate(calc(var(--dx)*1.15),calc(var(--dy)*1.15)) rotate(var(--rr))}}
+      @keyframes vxLoaderReveal{0%,25%{opacity:0;transform:translateY(75px) scale(.82) rotate(-3deg)}38%,62%{opacity:1;transform:translateY(0) scale(1.05) rotate(2deg)}72%,100%{opacity:0;transform:translateY(-5px) scale(.92)}}
+      @keyframes vxLoaderSlab{0%,48%{opacity:0;transform:scale(.88)}59%,88%{opacity:1;transform:scale(1)}97%,100%{opacity:0;transform:scale(.9)}}
+      @keyframes vxLoaderGrade{0%,55%{opacity:0;transform:translateY(-14px)}64%,89%{opacity:1;transform:translateY(0)}97%,100%{opacity:0}}
+      @keyframes vxLoaderFoil{0%,65%{opacity:0}72%,91%{opacity:1}98%,100%{opacity:0}}
+      @keyframes vxLoaderShine{0%,68%{left:-90%}88%,100%{left:150%}}
+      @keyframes vxLoaderProgress{0%{width:7%}18%{width:25%}38%{width:48%}63%{width:73%}86%{width:92%}100%{width:100%}}
+      @keyframes vxLoaderDot{0%,12%,100%{background:rgba(255,255,255,.2);box-shadow:none}18%,55%{background:#a855f7;box-shadow:0 0 10px #a855f7}}
+      @media(max-width:640px){.vx-loader-stage{transform:scale(.84);width:100vw}.vx-loader-copy{bottom:2%;font-size:18px}.vx-loader-shelf{opacity:.25}}
+      @media(prefers-reduced-motion:reduce){.vx-loader-pack,.vx-loader-rip,.vx-loader-burst,.vx-loader-mini,.vx-loader-card,.vx-loader-slab,.vx-loader-grade,.vx-loader-foil,.vx-loader-foil:after,.vx-loader-progress:before,.vx-loader-dots i{animation:none}.vx-loader-card,.vx-loader-slab,.vx-loader-grade{opacity:1}.vx-loader-pack,.vx-loader-rip,.vx-loader-burst,.vx-loader-mini,.vx-loader-foil{display:none}}
     `;
     document.head.appendChild(style);
 
     const loader=document.createElement('div');
     loader.id='vx-nav-loader'; loader.setAttribute('role','status'); loader.setAttribute('aria-live','polite');
-    loader.innerHTML=`<div><div class="vx-loader-scene"><div class="vx-loader-pack"><img src="" data-vx-brand-logo alt=""></div><div class="vx-loader-rip"></div><div class="vx-loader-card"><img src="" data-vx-brand-logo alt=""></div><div class="vx-loader-sleeve"></div><div class="vx-loader-slab"></div><div class="vx-loader-grade"><div>VORTEX GRADE<span>GEM MINT</span></div><b>10</b></div><div class="vx-loader-foil"></div></div><div class="vx-loader-copy">Loading VortexOps…<small>Rip • Reveal • Grade</small></div></div>`;
+    loader.innerHTML=`<div class="vx-loader-stage">
+      <div class="vx-loader-shelf" aria-hidden="true">
+        <div class="vx-loader-bgslab" style="--x:5%;--y:13%;--r:-9deg"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-bgslab" style="--x:73%;--y:8%;--r:8deg"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-bgslab" style="--x:14%;--y:56%;--r:7deg"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-bgslab" style="--x:68%;--y:58%;--r:-7deg"><img src="" data-vx-brand-logo alt=""></div>
+      </div>
+      <div class="vx-loader-scene">
+        <div class="vx-loader-pack"><img src="" data-vx-brand-logo alt=""><div class="vx-loader-pack-label">VortexOps<small>COLLECT • SELL • GROW</small></div></div>
+        <div class="vx-loader-rip"></div><div class="vx-loader-burst"></div>
+        <div class="vx-loader-mini" style="--dx:-72px;--dy:-56px;--rr:-18deg"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-mini" style="--dx:72px;--dy:-48px;--rr:16deg"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-mini" style="--dx:-92px;--dy:25px;--rr:-27deg"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-card"><img src="" data-vx-brand-logo alt=""></div>
+        <div class="vx-loader-slab"></div>
+        <div class="vx-loader-grade"><div>VORTEX GRADE<span>GEM MINT</span></div><b>10</b></div>
+        <div class="vx-loader-foil"></div>
+      </div>
+      <div class="vx-loader-copy"><span class="vx-loader-status">Loading VortexOps…</span><small class="vx-loader-sub">Rip • Reveal • Grade • Inventory</small><div class="vx-loader-progress"></div><div class="vx-loader-dots"><i></i><i></i><i></i><i></i><i></i></div></div>
+    </div>`;
     document.body.appendChild(loader);
     const configuredLogo = document.querySelector('meta[name="vortex-brand-logo"]')?.content || '/images/vb-logo-sidebar.svg';
     loader.querySelectorAll('[data-vx-brand-logo]').forEach((img) => { img.src = configuredLogo; });
+    const status = loader.querySelector('.vx-loader-status');
+    let statusTimers = [];
+    const resetStatus = () => {
+      statusTimers.forEach(clearTimeout); statusTimers = [];
+      if (status) status.textContent = 'Loading VortexOps…';
+    };
+    const runStatus = () => {
+      resetStatus();
+      [['Ripping Pack…',520],['Revealing Cards…',980],['Found a Hit…',1450],['Grading Hit…',1950],['Almost Ready…',2500]].forEach(([copy,ms]) => statusTimers.push(setTimeout(()=>{if(status)status.textContent=copy},ms)));
+    };
 
     let timer=null, watchdog=null;
-    const show=()=>{clearTimeout(timer);clearTimeout(watchdog);timer=setTimeout(()=>{loader.classList.add('vx-show');watchdog=setTimeout(()=>loader.classList.remove('vx-show'),12000)},75)};
-    const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);loader.classList.remove('vx-show')};
+    const show=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();timer=setTimeout(()=>{runStatus();loader.classList.add('vx-show');watchdog=setTimeout(()=>{loader.classList.remove('vx-show');resetStatus()},12000)},75)};
+    const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();loader.classList.remove('vx-show')};
 
     // Register once. Reinstalling these listeners after every SPA navigation was
     // the source of stale overlays and partially morphed pages.

@@ -5,11 +5,15 @@
 @endif
 
 @if(auth()->user()->isAdmin())
-<section id="unassigned-shows" class="vx-assignment-queue rounded-xl border p-4">
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-3"><div><h2 class="font-bold">Unassigned Shows</h2><p class="text-xs text-gray-500">Shows in this period that still need a streamer. Assigning one removes it from this queue automatically.</p></div><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ $this->unassignedShows->count() }}</span></div>
-        <button type="button" onclick="document.getElementById('unassigned-shows')?.scrollIntoView({behavior:'smooth'})" class="rounded-lg border bg-white px-3 py-2 text-xs font-semibold dark:bg-gray-900">Review unassigned</button>
+<section id="unassigned-shows" x-data="{ open: false }" class="vx-assignment-queue rounded-xl border p-4">
+    <div class="flex flex-wrap items-center justify-between gap-3" :class="open ? 'mb-3' : ''">
+        <div class="flex items-center gap-3"><div><h2 class="font-bold">Unassigned Shows</h2><p class="text-xs text-gray-500" x-show="open">Shows in this period that still need a streamer. Assigning one removes it from this queue automatically.</p></div><span class="inline-flex min-w-7 items-center justify-center rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200">{{ $this->unassignedShows->count() }}</span></div>
+        <button type="button" @click="open = !open" :aria-expanded="open.toString()" class="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs font-semibold dark:bg-gray-900">
+            <span x-text="open ? 'Collapse' : 'Review unassigned'">Review unassigned</span>
+            <svg class="h-4 w-4 transition-transform" :class="open ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+        </button>
     </div>
+    <div x-show="open" x-cloak>
     @if($this->unassignedShows->isEmpty())
         <div class="rounded-lg border border-dashed bg-white p-5 text-center text-sm text-gray-500 dark:bg-gray-900">All shows in this period have a streamer assigned.</div>
     @else
@@ -25,6 +29,7 @@
         @endforeach
         </div>
     @endif
+    </div>
 </section>
 @endif
 

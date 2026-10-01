@@ -661,37 +661,46 @@ def historical_analytics(module, session):
 
     def action(page):
         module.prepare(page)
-        candidates: list[dict[str, Any]] = []
-        cached = None
-        try:
-            if cache_file.exists():
-                cached = json.loads(cache_file.read_text())
-                if cached.get("since") != since:
-                    cached = None
-        except Exception:
-            cached = None
 
-        if cached and isinstance(cached.get("candidates"), list):
-            candidates = cached["candidates"]
+        # Targeted analytics refreshes already have authoritative database UUIDs.
+        # Never consult the cached/virtualized Past index for them: go directly to
+        # the exact livestream analytics URL and hydrate title/date from DB metadata.
+        if target_ids:
             module.info(
-                f"historical-analytics: using cached Past index "
-                f"candidates={len(candidates)} file={cache_file}"
+                f"historical-analytics: targeted direct-UUID path; bypassing Past index/cache "
+                f"for {len(target_ids)} DB UUID(s)"
             )
+            candidates = []
+            for live_id in sorted(target_ids):
+                meta = target_meta.get(live_id, {})
+                candidates.append({
+                    "live_id": live_id,
+                    "title": meta.get("title"),
+                    "show_date": meta.get("show_date"),
+                    "analytics_url": (
+                        f"{module.BASE}/dashboard/analytics/overview"
+                        f"?tab=livestream&live_id={live_id}"
+                    ),
+                    "_direct_uuid_fallback": True,
+                })
         else:
-            # Targeted refreshes already have authoritative DB UUIDs. Do not walk
-            # hundreds/thousands of Seller Hub Past rows just to rediscover them:
-            # the direct analytics route below can attempt those UUIDs immediately.
-            # Full Past traversal is reserved for untargeted historical discovery.
-            if target_ids:
+            candidates: list[dict[str, Any]] = []
+            cached = None
+            try:
+                if cache_file.exists():
+                    cached = json.loads(cache_file.read_text())
+                    if cached.get("since") != since:
+                        cached = None
+            except Exception:
+                cached = None
+
+            if cached and isinstance(cached.get("candidates"), list):
+                candidates = cached["candidates"]
                 module.info(
-                    f"historical-analytics: targeted fast path; skipping full Past index "
-                    f"for {len(target_ids)} DB UUID(s)"
+                    f"historical-analytics: using cached Past index "
+                    f"candidates={len(candidates)} file={cache_file}"
                 )
-                candidates = []
             else:
-                # session.fetch already opened Seller Hub Shows. Avoid a second goto here:
-                # Whatnot can return HTTP 200 while DOMContentLoaded remains busy long enough
-                # for Playwright's navigation promise to time out.
                 if "/dashboard/lives" not in page.url:
                     try:
                         page.goto(f"{module.BASE}/dashboard/lives", wait_until="commit", timeout=30000)
@@ -728,30 +737,6 @@ def historical_analytics(module, session):
                     f"{len(candidates)} analytics candidate(s) in range; exhausted={exhausted}"
                 )
 
-        if target_ids:
-            by_id = {
-                clean(item.get("live_id")).lower(): item
-                for item in candidates
-                if clean(item.get("live_id"))
-            }
-            # A verified DB UUID can have a working analytics page even when the
-            # Seller Hub Past virtualized index did not expose a See Analytics
-            # link. Use the current direct analytics route as a fallback instead
-            # of declaring every cache miss unavailable.
-            for live_id in target_ids:
-                if live_id not in by_id:
-                    meta = target_meta.get(live_id, {})
-                    by_id[live_id] = {
-                        "live_id": live_id,
-                        "title": meta.get("title"),
-                        "show_date": meta.get("show_date"),
-                        "analytics_url": (
-                            f"{module.BASE}/dashboard/analytics/overview"
-                            f"?tab=livestream&live_id={live_id}"
-                        ),
-                        "_direct_uuid_fallback": True,
-                    }
-            candidates = [by_id[live_id] for live_id in target_ids if live_id in by_id]
         candidates = candidates[:batch_size]
         module.info(f"historical-analytics: processing {len(candidates)} show(s) this batch")
 
@@ -829,80 +814,10 @@ def historical_analytics(module, session):
                     )
                     metric = None
 
-            if (not metric or not has_useful_data(metric)) and item.get("_direct_uuid_fallback"):
-                # If the direct per-show route truly has no metrics yet, retain the
-                # older Analytics table fallback as a last resort.
-                # which is the working path for historical rows: search by the DB
-                # title/date and read Est. Sales / Est. Earning / Orders / AOV.
-                meta = target_meta.get(live_id, {})
-                expected_title = clean(item.get("title") or meta.get("title"))
-                expected_date = clean(item.get("show_date") or meta.get("show_date"))
-                if expected_title:
-                    old_title = os.environ.get("WHATNOT_EXPECTED_TITLE")
-                    old_date = os.environ.get("WHATNOT_EXPECTED_DATE")
-                    old_live = os.environ.get("WHATNOT_EXPECTED_LIVE_ID")
-                    try:
-                        os.environ["WHATNOT_EXPECTED_TITLE"] = expected_title
-                        os.environ["WHATNOT_EXPECTED_DATE"] = expected_date
-                        os.environ["WHATNOT_EXPECTED_LIVE_ID"] = live_id
-
-                        # The direct livestream URL can render the overview/detail
-                        # state rather than the Analytics > Shows table. Explicitly
-                        # return to Analytics and select Shows before invoking the
-                        # hardened table extractor.
-                        shows_url = f"{module.BASE}/dashboard/analytics/overview"
-                        module.info(
-                            f"historical-analytics [{index}/{total}]: opening Analytics > Shows "
-                            f"fallback uuid={live_id}"
-                        )
-                        try:
-                            page.goto(shows_url, wait_until="domcontentloaded", timeout=60000)
-                        except Exception as exc:
-                            module.info(
-                                f"historical-analytics [{index}/{total}]: Analytics overview "
-                                f"navigation warning uuid={live_id} error={exc}"
-                            )
-                        page.wait_for_timeout(1800)
-                        module.check_login(page)
-
-                        shows_selected = False
-                        for selector in (
-                            lambda: page.get_by_role("tab", name=re.compile(r"^Shows$", re.I)).first,
-                            lambda: page.get_by_role("button", name=re.compile(r"^Shows$", re.I)).first,
-                            lambda: page.get_by_text(re.compile(r"^Shows$", re.I), exact=True).first,
-                        ):
-                            try:
-                                control = selector()
-                                if control.count() and control.is_visible(timeout=700):
-                                    control.click(timeout=5000, force=True)
-                                    page.wait_for_timeout(1500)
-                                    shows_selected = True
-                                    break
-                            except Exception:
-                                continue
-
-                        if not shows_selected:
-                            module.info(
-                                f"historical-analytics [{index}/{total}]: Shows tab control "
-                                f"not found; scanning current Analytics page fail-closed"
-                            )
-
-                        metric = base.extract_expected_show_from_table(module, page)
-                        if metric and has_useful_data(metric):
-                            module.info(
-                                f"historical-analytics [{index}/{total}]: recovered metrics "
-                                f"from Shows table uuid={live_id}"
-                            )
-                    finally:
-                        for key, value in (
-                            ("WHATNOT_EXPECTED_TITLE", old_title),
-                            ("WHATNOT_EXPECTED_DATE", old_date),
-                            ("WHATNOT_EXPECTED_LIVE_ID", old_live),
-                        ):
-                            if value is None:
-                                os.environ.pop(key, None)
-                            else:
-                                os.environ[key] = value
+            # For a targeted UUID the direct per-show analytics route is
+            # authoritative. If Whatnot has not published stable metrics yet,
+            # leave it due for the next scheduled retry instead of navigating
+            # to the obsolete Analytics > Shows table fallback.
 
             if not metric or not has_useful_data(metric):
                 note = "Analytics page returned no stable metrics"

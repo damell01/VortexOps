@@ -796,9 +796,42 @@ def historical_analytics(module, session):
                 })
                 continue
 
+            # Targeted DB refreshes already know the exact show identity and open the
+            # same per-show URL used by Seller Hub's yellow "See Analytics" action:
+            # /dashboard/analytics/overview?tab=livestream&live_id=<UUID>.
+            # The detail page does not always repeat the show title/date in the DOM,
+            # so extract_show() can contain valid metric cards while has_useful_data()
+            # rejects the row for missing identity. Verify the requested UUID is still
+            # present in the rendered URL, then hydrate identity from the authoritative
+            # DB target before deciding whether extraction succeeded.
+            if metric and item.get("_direct_uuid_fallback"):
+                rendered_url = clean(page.url)
+                rendered_match = re.search(
+                    r"[?&]live_id=([0-9a-f-]{36})(?:&|$)",
+                    rendered_url,
+                    re.I,
+                )
+                rendered_url_live_id = rendered_match.group(1).lower() if rendered_match else ""
+                if rendered_url_live_id == live_id:
+                    metric["whatnot_live_id"] = live_id
+                    metric["title"] = item.get("title") or metric.get("title")
+                    metric["show_date"] = item.get("show_date") or metric.get("show_date")
+                    if has_useful_data(metric):
+                        module.info(
+                            f"historical-analytics [{index}/{total}]: direct See Analytics "
+                            f"metrics recovered uuid={live_id}"
+                        )
+                elif has_useful_data(metric):
+                    module.info(
+                        f"historical-analytics [{index}/{total}]: direct analytics URL identity "
+                        f"mismatch requested={live_id} rendered={rendered_url_live_id or '?'}; "
+                        f"refusing metrics"
+                    )
+                    metric = None
+
             if (not metric or not has_useful_data(metric)) and item.get("_direct_uuid_fallback"):
-                # The current September 2026 Analytics UI can ignore live_id on the
-                # aggregate overview route. Reuse the hardened Shows-table extractor,
+                # If the direct per-show route truly has no metrics yet, retain the
+                # older Analytics table fallback as a last resort.
                 # which is the working path for historical rows: search by the DB
                 # title/date and read Est. Sales / Est. Earning / Orders / AOV.
                 meta = target_meta.get(live_id, {})

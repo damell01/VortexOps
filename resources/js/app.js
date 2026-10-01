@@ -46,7 +46,7 @@ function installVortexNavigationLoader() {
     document.getElementById('vx-nav-loader')?.remove();
     document.getElementById('vx-nav-loader-styles')?.remove();
 
-    const asset = (name) => `/images/vortex-loader/${name}.webp`;
+    const asset = (name) => `/images/${name}.webp`;
     const style = document.createElement('style');
     style.id = 'vx-nav-loader-styles';
     style.textContent = `

@@ -28,7 +28,7 @@ class ShowIngestionLogResource extends Resource
     /** Super-admin diagnostics belong in navigation for owners/admins only. */
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->isOwner() ?? false;
     }
 
     use HasModuleAccess;
@@ -60,7 +60,7 @@ class ShowIngestionLogResource extends Resource
 
     protected static function passesModuleAccessCheck(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->isOwner() ?? false;
     }
 
     public static function getEloquentQuery(): Builder

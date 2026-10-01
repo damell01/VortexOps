@@ -35,7 +35,7 @@ class InventoryMovementResource extends Resource
     /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return auth()->user()?->isOwner() ?? false;
     }
 
     public static function canAccess(): bool

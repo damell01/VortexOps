@@ -15,7 +15,7 @@ class ShowDataAudit extends Page
     protected static ?string $title = 'Show Data Audit';
     protected static ?string $navigationLabel = 'Show Data Audit';
     protected static ?string $slug = 'show-data-audit';
-    protected string $view = 'filament.pages.show-data-audit';
+    public function getView(): string { return 'filament.pages.show-data-audit'; }
 
     #[Url(as: 'range')]
     public string $datePreset = 'this_month';
@@ -143,7 +143,10 @@ class ShowDataAudit extends Page
             'COALESCE(SUM(show_duration),0) as duration_minutes'
         )->first();
 
-        $verifiedSql = "(last_analytics_synced_at IS NOT NULL OR analytics_sync_status = 'complete' OR JSON_UNQUOTE(JSON_EXTRACT(raw_import_payload, '$.source')) = 'whatnot_analytics_csv')";
+        // raw_import_payload has existed as both JSON and text across imports.
+        // JSON_EXTRACT throws on legacy non-JSON rows and took the entire audit page down.
+        // A LIKE check is sufficient for the source stamp and works safely for both formats.
+        $verifiedSql = "(last_analytics_synced_at IS NOT NULL OR analytics_sync_status = 'complete' OR raw_import_payload LIKE '%whatnot_analytics_csv%')";
         $uuidSql = "CONCAT(COALESCE(whatnot_show_id,''),' ',COALESCE(detail_url,'')) REGEXP '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'";
 
         $fieldCoverage = function (string $field) use ($base, $verifiedSql) {

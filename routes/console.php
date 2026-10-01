@@ -84,9 +84,10 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
     ->name('whatnot-recent-analytics-refresh')
     ->withoutOverlapping(120);
 
-// Discovery pass keeps newly ended shows/UUIDs current without spending runtime
-// on orders or shipments. Analytics refresh above then fills their show metrics.
-Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --show-limit=8 --without-orders --analytics-limit=6 --shipment-batch=1 --max-runtime=600 --skip-if-busy')
+// Discovery pass keeps newly ended shows/UUIDs current. Shipment scraping is
+// disabled for now; this pass discovers shows only and leaves analytics to the
+// dedicated freshness/reconciliation jobs above and below.
+Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()->subDays(2)->toDateString() . ' --show-limit=8 --without-orders --analytics-limit=6 --max-runtime=600 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('45 */6 * * *')

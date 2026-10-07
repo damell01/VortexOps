@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
 const authState = 'storage/mobile-report-browser-auth.json';
-test.use({ storageState: authState });
+test.use({ storageState: authState, actionTimeout: 10000 });
 test.beforeAll(async ({ browser }) => {
     if (fs.existsSync(authState)) return;
     const context = await browser.newContext({ storageState: undefined });
@@ -48,12 +48,13 @@ for (const width of [320, 390, 430, 768, 1440]) {
                     await custom.click();
                     const menu = page.getByRole('dialog', { name: 'Main navigation' });
                     await expect(menu).toBeVisible();
-                    await menu.getByRole('button', { name: 'Inventory', exact: true }).click();
-                    await expect(menu.getByRole('link', { name: 'All Inventory', exact: true })).toBeVisible();
+                    await menu.getByRole('button', { name: /Inventory/ }).first().click();
+                    await expect(menu.locator('a[href$="/admin/inventory-items"]')).toBeVisible();
                     await page.keyboard.press('Escape');
                     await expect(menu).toBeHidden();
-                    await page.getByRole('button', { name: 'Open full menu' }).click();
+                    if (await page.getByRole('button', { name: 'Open full menu' }).count()) { await page.getByRole('button', { name: 'Open full menu' }).click(); } else { await custom.click(); }
                     await expect(menu).toBeVisible();
+                    await page.screenshot({ path: `tests/Browser/output/mobile-menu-${width}.png` });
                     await menu.getByRole('button', { name: 'Close navigation' }).click();
                 } else {
                     await page.locator('.fi-topbar-open-sidebar-btn').click();

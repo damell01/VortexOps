@@ -19,6 +19,6 @@ final class MobileTablePagination
             return $desktop;
         }
 
-        return array_values(array_unique([5, ...array_filter($desktop, fn ($value) => $value !== 'all')]));
+        return [5];
     }
 }

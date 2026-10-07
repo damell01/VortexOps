@@ -73,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
         // Keep generated resource tables short on phones; desktop preferences stay unchanged.
         \Filament\Tables\Table::configureUsing(function (\Filament\Tables\Table $table): void {
             if (preg_match('/Android|iPhone|iPad|Mobile/i', (string) request()->userAgent())) {
-                $table->paginationPageOptions([5, 10, 25, 50])->defaultPaginationPageOption(5)->persistRecordsPerPageInSession(false);
+                $table->paginationPageOptions([5, 10, 25, 50])->defaultPaginationPageOption(5);
             }
         }, isImportant: true);
 

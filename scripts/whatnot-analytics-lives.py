@@ -125,6 +125,16 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         rows = page.locator('[data-testid="show-list-item"]').evaluate_all(r"""
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
+          // Scope artwork to this show; never pick a page-wide seller avatar.
+          const images = [...row.querySelectorAll('img')].filter(img =>
+            !/avatar|profile|seller|placeholder/i.test((img.alt || '') + ' ' + (img.className || '') + ' ' + (img.getAttribute('data-testid') || ''))
+          );
+          const image = images.find(img => /cover|thumbnail|show/i.test((img.alt || '') + ' ' + (img.getAttribute('data-testid') || ''))) || images[0];
+          let cover = image?.currentSrc || image?.getAttribute('data-src') || image?.getAttribute('src') || null;
+          try {
+            cover = cover ? new URL(cover, location.href).href : null;
+            if (cover && !/^https?:\/\//i.test(cover)) cover = null;
+          } catch { cover = null; }
           const open = row.querySelector('a[href^="/dashboard/live/"]');
           // Current Seller Hub renders these actions as buttons, not necessarily anchors.
           const analytics = [...row.querySelectorAll('a,button,[role="button"]')]
@@ -135,6 +145,7 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
           const openUrl = open?.getAttribute('href') || null;
           const liveId = (openUrl?.match(/\/dashboard\/live\/([0-9a-f-]{36})/i) || [])[1] || null;
           return {
+            cover_image_url: cover,
             live_id: liveId,
             title,
             text: (row.innerText || '').replace(/\s+/g, ' ').trim(),
@@ -538,6 +549,7 @@ def analytics(module, session):
             module.info("analytics: See Analytics destination loaded but usable metrics did not stabilize")
             return
 
+        row["cover_image_url"] = target.get("cover_image_url")
         row["whatnot_live_id"] = live_id
         if expected_title:
             row["title"] = expected_title
@@ -630,6 +642,7 @@ def recent_past_analytics(module, session):
                 module.info(f"recent-past-analytics [{index}/{len(selected)}]: no stable metrics uuid={live_id}")
                 continue
             metric["whatnot_live_id"] = live_id
+            metric["cover_image_url"] = item.get("cover_image_url")
             metric["title"] = item.get("title") or metric.get("title")
             metric["show_date"] = item.get("show_date") or metric.get("show_date")
             metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
@@ -834,6 +847,7 @@ def historical_analytics(module, session):
                 continue
 
             metric["whatnot_live_id"] = live_id
+            metric["cover_image_url"] = target.get("cover_image_url")
             metric["title"] = expected_title or metric.get("title")
             metric["show_date"] = expected_date or metric.get("show_date")
             metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"

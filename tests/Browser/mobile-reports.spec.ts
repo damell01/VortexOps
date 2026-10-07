@@ -43,10 +43,23 @@ for (const width of [320, 390, 430, 768, 1440]) {
             if (path === 'inventory-items' && width < 1024) {
                 await expect(page.getByRole('button', { name: 'Table', exact: true })).toBeHidden();
                 await expect(page.locator('.vx-catalog-view')).toBeVisible();
+                if (width < 640) {
+                    const columns = await page.locator('.vx-catalog-grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
+                    expect(columns, 'Phone cards must have enough room for prices and actions').toBe(1);
+                }
                 const custom = page.getByRole('button', { name: 'Open navigation', exact: true });
                 if (await custom.count()) {
                     await custom.click();
                     const menu = page.getByRole('dialog', { name: 'Main navigation' });
+                    await expect(menu).toBeVisible();
+                    // Exercise the cleanup module even when it arrives after the
+                    // drawer opens (the Safari timing that previously closed it).
+                    await page.waitForFunction(() => performance.getEntriesByType('resource').some((entry) => /modal-lifecycle-.*\.js/.test(entry.name)));
+                    await page.evaluate(async () => {
+                        const url = performance.getEntriesByType('resource').find((entry) => /modal-lifecycle-.*\.js/.test(entry.name))!.name;
+                        const cleanup = await import(url);
+                        cleanup.reconcile();
+                    });
                     await expect(menu).toBeVisible();
                     await menu.getByRole('button', { name: /Inventory/ }).first().click();
                     await expect(menu.locator('a[href$="/admin/inventory-items"]')).toBeVisible();

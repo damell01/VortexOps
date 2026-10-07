@@ -1,5 +1,6 @@
 <x-filament-panels::page>
     <div class="vx-report space-y-6">
+        <section class="vx-report-intro"><span>Inventory insights</span><h2>Where your inventory value sits</h2><p>Find the products, categories and locations holding the most stock value. Review low-stock items before replenishing.</p><a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}">Open inventory reports →</a></section>
 
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         {{-- KEY METRICS OVERVIEW                                               --}}

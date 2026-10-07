@@ -1,5 +1,6 @@
 <x-filament-panels::page>
     <div class="vx-report space-y-6">
+        <section class="vx-report-intro"><span>Inventory insights</span><h2>What moves, and what sits</h2><p>Compare movement rates, identify inventory that is sitting, and prioritize valuable fast movers for replenishment.</p><a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}">Open inventory reports →</a></section>
 
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         {{-- SUMMARY METRICS                                                     --}}

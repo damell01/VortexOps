@@ -33,13 +33,14 @@
 
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
   <div class="vx-inv-toolbar">
-    <div class="vx-inv-search"><input wire:model.live.debounce.300ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
+    <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.300ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
+   @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
    <div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>
     <button type="button" wire:click="setViewMode('table')" class="vx-view-btn {{ $viewMode === 'table' ? 'active' : '' }}"><x-heroicon-o-list-bullet class="h-4 w-4" /> Table</button>
    </div>
-    <select wire:model.live="catalogSort" class="min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
-   @if(filled($catalogSearch))<button wire:click="clearCatalogSearch" class="min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
+    <select wire:model.live="catalogSort" class="{{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg border-gray-200 bg-white text-sm dark:border-gray-700 dark:bg-gray-800"><option value="name">Sort: Name A-Z</option><option value="qty">Quantity: High-Low</option><option value="newest">Newest</option></select>
+   @if(filled($catalogSearch))<button wire:click="clearCatalogSearch" class="{{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }} min-h-11 rounded-lg px-3 text-sm font-semibold text-primary-600">Clear</button>@endif
   </div>
   @if($stockHealth)<div class="mt-3 flex items-center justify-between rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs dark:border-primary-900 dark:bg-primary-950/20"><span>Showing <strong>{{ match($stockHealth) { 'in' => 'In Stock', 'low' => 'Low Stock', 'out' => 'Out of Stock' } }}</strong></span><button wire:click="filterStock(null)" class="font-bold text-primary-600">Show all</button></div>@endif
  </section>

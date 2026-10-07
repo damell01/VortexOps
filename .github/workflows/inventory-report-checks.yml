@@ -9,6 +9,7 @@ on:
       - 'tests/Feature/Inventory/**'
       - 'tests/Feature/Reports/**'
       - 'tests/Browser/mobile-reports.spec.ts'
+      - 'playwright.mobile-reports.config.ts'
       - '.github/workflows/inventory-report-checks.yml'
 jobs:
   report:
@@ -59,7 +60,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium webkit
       - name: Prepare mobile UI fixtures
         shell: bash
         run: |
@@ -82,7 +83,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for i in {1..30}; do curl -fsS http://127.0.0.1:8000/admin/login >/dev/null && break; sleep 2; done
-          npx playwright test tests/Browser/mobile-reports.spec.ts --project=desktop --workers=1 || { cat /tmp/mobile-server.log; tail -n 150 storage/logs/laravel.log; exit 1; }
+          npx playwright test --config=playwright.mobile-reports.config.ts || { cat /tmp/mobile-server.log; tail -n 150 storage/logs/laravel.log; exit 1; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

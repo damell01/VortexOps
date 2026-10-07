@@ -23,7 +23,7 @@
 <div class="vx-mobile-menu-head">@if($navLogo)<img src="{{ $navLogo }}" alt="Vortex Ops">@else<span>VortexOps</span>@endif<button @click="open=false" aria-label="Close navigation"><x-filament::icon icon="heroicon-o-x-mark"/></button></div>
 <a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
 @foreach($groups as $label=>$links)
-<div class="vx-mobile-menu-group"><button type="button" @click="section=section==={{ $loop->index }}?null:{{ $loop->index }}"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" x-bind:class="section==={{ $loop->index }}&&'rotate-180'"/></button>
+<div class="vx-mobile-menu-group"><button type="button" :aria-expanded="section==={{ $loop->index }}" @click="section=section==={{ $loop->index }}?null:{{ $loop->index }}"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" x-bind:class="section==={{ $loop->index }}&&'rotate-180'"/></button>
 <div class="vx-mobile-submenu" x-show="section==={{ $loop->index }}" x-collapse>@foreach($links as [$text,$url])<a href="{{ $url }}" wire:navigate @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach</div></div>
 @endforeach
 @if($user?->canSwitchChannels())<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif

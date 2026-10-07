@@ -223,3 +223,5 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
 @media(max-width:639px){.vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}.vx-product-image{aspect-ratio:3/1;height:110px}.vx-product-title{display:block;-webkit-line-clamp:unset;font-size:1rem;line-height:1.4;overflow:visible}.vx-product-meta{white-space:normal;overflow-wrap:anywhere;text-overflow:clip;overflow:visible}.vx-product-row{flex-wrap:wrap}.vx-inventory-mobile-intro{display:none!important}.vx-product-card .vx-card-action{font-size:.8rem;min-height:44px}.vx-product-card .vx-card-action span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}.vx-card-metrics{grid-template-columns:64px minmax(0,1fr)}}
 
 @media(max-width:1023px){.vx-desktop-mega-nav{display:none!important}}
+
+@media(max-width:1023px){.fi-topbar .vx-mobile-menu-trigger{width:44px!important;min-width:44px!important;max-width:44px!important;height:44px!important;padding:0!important}}

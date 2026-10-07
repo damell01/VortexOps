@@ -22,4 +22,13 @@ class ReportPagesRenderTest extends TestCase
             ->set('dateTo', now()->toDateString())
             ->call('applyCustomRange')->assertOk();
     }
+    public function test_authenticated_pages_render_the_navigation_shell(): void
+    {
+        $this->enableAdminModules();
+        $this->actingAs((User::firstWhere('email', config('app.owner_email'))
+            ?? User::factory()->create(['email' => config('app.owner_email')]))->fresh());
+        $this->get('/admin/inventory-items')->assertOk()->assertSee('Main navigation');
+        $this->get('/admin/reports')->assertOk()->assertSee('Main navigation');
+    }
+
 }

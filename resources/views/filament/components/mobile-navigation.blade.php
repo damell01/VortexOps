@@ -1,4 +1,5 @@
 @php
+    $user = auth()->user();
     // Dev uses Filament's registered, permission-filtered navigation. Production
     // supplies the same groups used by its desktop navigation.
     if (! isset($groups)) {

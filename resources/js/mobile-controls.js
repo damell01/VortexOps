@@ -99,7 +99,7 @@ function decorateControls() {
     for (const [select, trigger] of controls) {
         if (!select.isConnected || !trigger.isConnected) { trigger.remove(); select.classList.remove('vx-native-picker'); controls.delete(select); }
     }
-    document.querySelectorAll('.fi-main select, .vx-mobile-menu select').forEach(select => {
+    document.querySelectorAll('.fi-main select, .vx-mobile-menu-sheet select, .fi-modal-window select').forEach(select => {
         // Filament's searchable choices already supply their own picker.
         if (select.closest('[wire\\:ignore], .ts-wrapper, .choices') || select.tomselect || select.hidden || select.style.display === 'none') return;
         let trigger = controls.get(select);

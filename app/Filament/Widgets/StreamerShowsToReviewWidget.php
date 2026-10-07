@@ -63,7 +63,7 @@ class StreamerShowsToReviewWidget extends BaseWidget
             ])
             ->recordUrl(fn (StreamerLogEntry $record) => StreamerLogResource::getUrl('edit', ['record' => $record]))
             ->paginated([5, 10, 25])
-            ->defaultPaginationPageOption(5)
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(5))
             ->emptyStateIcon('heroicon-o-check-circle')
             ->emptyStateHeading('Nothing to review')
             ->emptyStateDescription("You're all caught up — no shows are waiting on your items.");

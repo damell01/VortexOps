@@ -135,8 +135,8 @@ class ShipmentsRelationManager extends RelationManager
                         ->pluck('carrier', 'carrier')
                         ->all()),
             ])
-            ->paginationPageOptions([10, 25, 50, 100])
-            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([10, 25, 50, 100]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))
             ->striped()
             ->emptyStateIcon('heroicon-o-truck')
             ->emptyStateHeading('No shipments for this show')

@@ -112,7 +112,7 @@
 
         {{-- Visual comparison cards — uses the analytics rows already loaded above. --}}
         @php
-            $cardRows = collect($rows)->take(6);
+            $cardRows = collect($rows);
             $maxCardGross = max(1, (float) collect($rows)->max('gross_revenue'));
         @endphp
         <section class="vx-streamer-cards">
@@ -120,7 +120,7 @@
                 <div><h3>Streamer Performance</h3><p>Quick comparison of revenue, net earnings, efficiency and hours.</p></div>
                 <span>{{ count($rows) }} active in this view</span>
             </div>
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-vx-mobile-page>
                 @foreach($cardRows as $row)
                     <article class="vx-person-card">
                         <div class="flex items-start justify-between gap-3">

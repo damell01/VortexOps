@@ -24,6 +24,7 @@ class ReportPagesRenderTest extends TestCase
     }
     public function test_authenticated_pages_render_the_navigation_shell(): void
     {
+        $this->withoutVite();
         $this->enableAdminModules();
         $this->actingAs((User::firstWhere('email', config('app.owner_email'))
             ?? User::factory()->create(['email' => config('app.owner_email')]))->fresh());

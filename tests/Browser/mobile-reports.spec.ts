@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const pages = ['inventory-items', 'inventory-report', 'inventory-age', 'inventory-analytics', 'inventory-value-dashboard', 'inventory-velocity-analytics', 'reports', 'streamer-analytics'];
+const pages = ['inventory-items', 'inventory-report', 'inventory-age', 'inventory-analytics', 'inventory-value-dashboard', 'inventory-velocity-analytics', 'reports', 'streamer-analytics', 'shows', 'payroll-overview'];
 
 for (const width of [320, 390, 430, 768, 1440]) {
     test(`inventory and reports fit ${width}px`, async ({ page }) => {
@@ -23,6 +23,8 @@ for (const width of [320, 390, 430, 768, 1440]) {
                     .map((el) => ({ class: el.className, width: el.getBoundingClientRect().width }));
             });
             expect(overflow, `${path} at ${width}`).toEqual([]);
+            const clippedValues = await page.locator('.vx-kpi-value, .vx-an-kpi-value, .vx-metric-value').evaluateAll((elements) => elements.filter((el) => el.getBoundingClientRect().width && el.scrollWidth > el.clientWidth + 2).map((el) => el.textContent));
+            expect(clippedValues, `${path} KPI values at ${width}`).toEqual([]);
             if (path === 'inventory-items' && width < 1024) {
                 await expect(page.getByRole('button', { name: 'Table', exact: true })).toBeHidden();
                 await expect(page.locator('.vx-catalog-view')).toBeVisible();

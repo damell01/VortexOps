@@ -1,3 +1,4 @@
+import '../css/mobile-report-pass.css';
 
 // Keep each user's timezone aligned with the browser they actually sign in
 // from. This removes timezone setup from admin user creation.
@@ -313,3 +314,4 @@ if ('requestIdleCallback' in window) {
 } else {
     window.setTimeout(loadOptionalUi, 1200);
 }
+

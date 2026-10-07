@@ -7,7 +7,7 @@
 @endphp
 
 <x-filament-panels::page>
-    <div class="vx-an">
+    <div class="vx-an vx-report">
 
         {{-- ── KPI tiles ─────────────────────────────────────────────── --}}
         <div class="vx-an-kpis">

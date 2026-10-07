@@ -60,7 +60,6 @@ class WhatnotReportingReconciler
                     'whatnot_channel_id' => $channelMismatch ? $show->whatnot_channel_id : $channel->id,
                     'channel_attribution_suspect' => $channelMismatch ? true : ($show?->channel_attribution_suspect ?? false),
                     'whatnot_show_id' => $liveId,
-                    'cover_image_url' => $normalized['cover_image_url'] ?? null,
                     'title' => $title,
                     'show_date' => $date,
                     'start_time' => $normalized['start_time'] ?? $raw['start_time'] ?? null,
@@ -83,6 +82,7 @@ class WhatnotReportingReconciler
                     $show->detectStreamers();
                     $created++;
                 }
+                app(ShowCoverImages::class)->capture($show, $raw);
             }
         }
 
@@ -110,6 +110,49 @@ class WhatnotReportingReconciler
                 'past' => count($groups['past']),
             ],
         ]);
+    }
+
+    /** Once daily, fill missing artwork without visiting old analytics pages. */
+    private function backfillShowCovers(WhatnotChannel $channel, ?callable $progress): void
+    {
+        $images = app(ShowCoverImages::class);
+        $images->backfillKnown($channel->id);
+        $missing = Show::query()->where('whatnot_channel_id', $channel->id)
+            ->where(function ($q) {
+                $q->whereNull('cover_image_url')->orWhere('cover_image_url', '')
+                    ->orWhere('cover_image_url', 'not like', '%/storage/show-covers/%');
+            })->exists();
+        if (! $missing) return;
+        $key = 'whatnot-cover-index:'.$channel->id;
+        if (! \Illuminate\Support\Facades\Cache::add($key, true, now()->addDay())) return;
+        try {
+            $progress && $progress('covers: checking Current, Upcoming and Past artwork for existing shows');
+            $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username, false, $progress);
+            $queued = 0;
+            foreach (['current', 'upcoming', 'past'] as $kind) {
+                foreach (($index[$kind] ?? []) as $raw) {
+                    if (! is_array($raw) || empty($raw['cover_image_url'])) continue;
+                    $liveId = $raw['live_id'] ?? $raw['whatnot_live_id'] ?? null;
+                    if (! $liveId) continue;
+                    $show = Show::query()->where('whatnot_channel_id', $channel->id)
+                        ->where(function ($q) use ($liveId) {
+                            $q->where('whatnot_show_id', $liveId)
+                                ->orWhere('detail_url', 'https://www.whatnot.com/dashboard/live/'.$liveId);
+                        })->first();
+                    if (! $show || str_contains((string) $show->cover_image_url, '/storage/show-covers/')) continue;
+                    $payload = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                    $payload['cover_image_url'] = $raw['cover_image_url'];
+                    $show->forceFill(['raw_import_payload' => $payload])->saveQuietly();
+                    $images->capture($show, $raw);
+                    if (++$queued >= 50) break 2;
+                }
+            }
+            $progress && $progress("covers: queued {$queued} missing show covers");
+        } catch (\Throwable $e) {
+            Log::warning('Show cover backfill failed; continuing analytics', [
+                'channel_id' => $channel->id, 'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function reconcileOrders(WhatnotChannel $channel, Carbon $since, int $batchSize = 25, ?callable $progress = null): array
@@ -242,6 +285,7 @@ class WhatnotReportingReconciler
 
     public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null): array
     {
+        $this->backfillShowCovers($channel, $progress);
         // Target only shows old enough for Whatnot to have published analytics.
         // Same-day shows are intentionally deferred: in practice their per-show
         // analytics page is often empty for hours after the stream ends. When we
@@ -538,10 +582,6 @@ class WhatnotReportingReconciler
                     continue;
                 }
 
-                if (($normalized['cover_image_url'] ?? null) !== null) {
-                    $fields['cover_image_url'] = $normalized['cover_image_url'];
-                }
-
                 $beforeAnalytics = [];
                 foreach (array_keys($fields) as $field) {
                     $beforeAnalytics[$field] = $show->{$field};
@@ -551,6 +591,7 @@ class WhatnotReportingReconciler
                 $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
+                app(ShowCoverImages::class)->capture($show, $raw);
 
                 $changes = [];
                 foreach ($beforeAnalytics as $field => $beforeValue) {

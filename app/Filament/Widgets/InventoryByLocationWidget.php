@@ -60,7 +60,7 @@ class InventoryByLocationWidget extends BaseWidget
             ->deferLoading()
             ->recordUrl(fn ($record) => InventoryLocationResource::getUrl('view', ['record' => $record]))
             ->paginated([10, 25, 50])
-            ->defaultPaginationPageOption(10)
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(10))
             ->emptyStateHeading('No active locations')
             ->emptyStateIcon('heroicon-o-map-pin');
     }

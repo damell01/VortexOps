@@ -167,8 +167,8 @@ class FulfillmentResource extends Resource
                 SelectFilter::make('fulfillment_user')->label('Assigned To')->relationship('fulfillmentUsers', 'name')->searchable()->preload(),
                 Filter::make('unassigned_only')->label('Needs assignment')->query(fn (Builder $query) => $query->whereDoesntHave('fulfillmentUsers')),
             ])
-            ->paginationPageOptions([15, 25, 50])
-            ->defaultPaginationPageOption(15)
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([15, 25, 50]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(15))
             ->emptyStateIcon('heroicon-o-truck')
             ->emptyStateHeading('No fulfillment work')
             ->emptyStateDescription('Approved streamer reports assigned to fulfillment appear here automatically.');

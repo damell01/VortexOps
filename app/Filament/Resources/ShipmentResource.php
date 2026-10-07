@@ -150,8 +150,8 @@ class ShipmentResource extends Resource
                     ->url(fn (Shipment $record) => $record->show ? ShowResource::getUrl('view', ['record' => $record->show]) : null)
                     ->visible(fn (Shipment $record) => (bool) $record->show),
             ])
-            ->paginationPageOptions([25, 50, 100])
-            ->defaultPaginationPageOption(50)
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([25, 50, 100]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(50))
             ->striped()
             ->emptyStateIcon('heroicon-o-truck')
             ->emptyStateHeading('No shipments for this show yet');

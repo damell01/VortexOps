@@ -396,7 +396,7 @@ class ShowIngestionLogResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([9, 18, 36])
-            ->defaultPaginationPageOption(9)
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(9))
             ->groups([
                 Group::make('source')->label('Job / Pipeline')->getTitleFromRecordUsing(fn (ShowIngestionLog $record) => $record->sourceLabel()),
                 Group::make('channel.name')->label('Channel')->getTitleFromRecordUsing(fn ($record) => $record->channel?->name ?? 'All channels'),

@@ -6,7 +6,7 @@
     $statusLabels = \App\Models\EmailLog::STATUSES;
 @endphp
 <style>
-.vx-el{--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);max-width:1180px;margin:0 auto;display:grid;gap:14px}
+.vx-el{width:100%;--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);max-width:1180px;margin:0 auto;display:grid;gap:14px}
 .dark .vx-el{--line:#253247;--soft:#111c2f;--muted:#94a3b8}
 .vx-el .card{background:#fff;border:1px solid var(--line);border-radius:16px}
 .dark .vx-el .card{background:#0f172a}

@@ -1,106 +1,170 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.ivx-styles')
 @php
     $s = $this->inventorySnapshot;
-    $cards = [
-        ['label'=>'Total Items','value'=>$s['total'],'pct'=>$s['percentages']['total'],'key'=>null,'tone'=>'primary','icon'=>'heroicon-o-cube'],
-        ['label'=>'In Stock','value'=>$s['in'],'pct'=>$s['percentages']['in'],'key'=>'in','tone'=>'success','icon'=>'heroicon-o-check-circle'],
-        ['label'=>'Low Stock','value'=>$s['low'],'pct'=>$s['percentages']['low'],'key'=>'low','tone'=>'warning','icon'=>'heroicon-o-exclamation-triangle'],
-        ['label'=>'Out of Stock','value'=>$s['out'],'pct'=>$s['percentages']['out'],'key'=>'out','tone'=>'danger','icon'=>'heroicon-o-x-circle'],
-    ];
-    $movementLabels = \App\Models\InventoryMovement::movementTypeLabels();
+    $change = $this->valueChange();
+    $trend = $this->valueTrend;
+    $maxV = max(1, (float) ($trend->max('value') ?? 0));
+    $total = max(1, $s['in'] + $s['low'] + $s['out']);
 @endphp
 <style>
-.vx-workspace{max-width:1440px;margin:0 auto}.vx-wcard{border:1px solid rgb(229 231 235);background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.03)}.dark .vx-wcard{border-color:#263248;background:#101827}.vx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.vx-kpi{display:flex;gap:14px;padding:18px;transition:.15s}.vx-kpi:hover{transform:translateY(-1px);border-color:#8b5cf6}.vx-icon{display:grid;height:44px;width:44px;place-items:center;border-radius:14px;background:rgb(245 243 255);color:#7c3aed}.vx-kpi[data-tone="success"] .vx-icon{background:#ecfdf5;color:#059669}.vx-kpi[data-tone="warning"] .vx-icon{background:#fffbeb;color:#d97706}.vx-kpi[data-tone="danger"] .vx-icon{background:#fef2f2;color:#dc2626}.vx-main-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(280px,.8fr);gap:16px}.vx-split{display:grid;grid-template-columns:1fr 1.15fr;gap:16px}.vx-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid rgb(243 244 246)}.dark .vx-row{border-color:#1f2937}.vx-action{display:flex;align-items:center;gap:12px;border:1px solid rgb(229 231 235);border-radius:14px;padding:13px 14px;transition:.15s}.dark .vx-action{border-color:#263248}.vx-action:hover{border-color:#8b5cf6;background:rgba(124,58,237,.04)}
-@media(max-width:900px){.vx-kpis{grid-template-columns:repeat(2,1fr)}.vx-main-grid,.vx-split{grid-template-columns:1fr}}
-@media(max-width:640px){body:has(.vx-workspace) .fi-page-header{padding-bottom:.25rem}.vx-kpis{grid-template-columns:1fr 1fr;gap:8px}.vx-kpi{padding:12px;gap:9px}.vx-icon{height:36px;width:36px;border-radius:10px}.vx-kpi .vx-big{font-size:1.3rem}.vx-top-actions{display:grid!important;grid-template-columns:1fr 1fr;width:100%}.vx-wcard{border-radius:14px}.vx-table-head{display:none}.vx-activity-row{display:grid!important;grid-template-columns:1fr auto;gap:4px 10px}.vx-activity-meta{grid-column:1/3}}
+.ivx-desktop-only{}
+@media(max-width:767px){.fi-header .ivx-desktop-only{display:none!important}}
+.ivx .ivx-chart{display:grid;grid-template-columns:44px minmax(0,1fr);gap:6px;height:170px;margin-top:8px}
+.ivx .ivx-chart .y{display:flex;flex-direction:column;justify-content:space-between;font-size:.62rem;color:var(--faint);text-align:right;padding-bottom:18px}
+.ivx .ivx-chart .plot{position:relative;display:flex;align-items:flex-end;gap:3px;padding-bottom:18px;border-bottom:1px solid var(--line);background:repeating-linear-gradient(to top,transparent 0 37px,var(--line) 37px 38px)}
+.ivx .ivx-chart .plot i{flex:1;min-width:3px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--p),color-mix(in srgb,var(--p) 55%,#fff))}
+.ivx .ivx-chart .x{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;font-size:.62rem;color:var(--faint)}
+.ivx .ivx-tool{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.dark .ivx .ivx-tool{background:#0f172a}
+.ivx .ivx-tool:hover{border-color:var(--p)}
+.ivx .ivx-tool.primary{background:var(--p);border-color:var(--p);color:#fff;box-shadow:0 8px 22px color-mix(in srgb,var(--p) 35%,transparent)}
+.ivx .ivx-tool.primary .ivx-ic{background:rgba(255,255,255,.18);color:#fff}
+.ivx .ivx-tool.primary .ivx-sub{color:rgba(255,255,255,.8)}
+.ivx .ivx-tool .t{font-size:.9rem;font-weight:800}
+.ivx .ivx-trow{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 64px;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);font-size:.8rem}
+.ivx a.ivx-trow:hover{background:var(--soft)}
+.ivx .ivx-thead{font-size:.68rem;font-weight:700;color:var(--muted);padding-top:12px}
+.ivx .ivx-trow .thumb{width:30px;height:30px;border-radius:7px}
 </style>
-<div class="vx-workspace space-y-4">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-        <div><h2 class="text-2xl font-bold text-gray-950 dark:text-white">Inventory workspace</h2><p class="mt-1 text-sm text-gray-500">Health, receiving, movement history, and the actions you use most.</p></div>
-        <div class="vx-top-actions flex flex-wrap gap-2">
-            <a href="{{ $this->scanUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-sm font-semibold dark:border-gray-700 dark:bg-gray-900">Scan Inventory</a>
-            <a href="{{ $this->receiveUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-sm font-semibold dark:border-gray-700 dark:bg-gray-900">Receive Inventory</a>
-            <a href="{{ $this->quickAddUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-sm font-semibold dark:border-gray-700 dark:bg-gray-900">Quick Add</a>
-            <a href="{{ $this->importUrl() }}" class="rounded-xl bg-primary-600 px-4 py-2.5 text-center text-sm font-semibold text-white">Import</a>
-        </div>
-    </div>
 
-    <div class="vx-kpis">
-        @foreach($cards as $card)
-            <a href="{{ $this->inventoryUrl($card['key']) }}" class="vx-wcard vx-kpi" data-tone="{{ $card['tone'] }}">
-                <div class="vx-icon"><x-filament::icon :icon="$card['icon']" class="h-6 w-6" /></div>
-                <div class="min-w-0"><div class="text-xs font-medium text-gray-500">{{ $card['label'] }}</div><div class="vx-big mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($card['value']) }}</div><div class="mt-1 text-xs text-gray-400">{{ number_format($card['pct'],1) }}% of inventory</div></div>
-            </a>
+<div class="ivx">
+    <nav class="ivx-tabs" aria-label="Inventory overview sections">
+        @foreach(['overview' => 'Overview', 'tools' => 'Tools', 'reports' => 'Reports'] as $k => $l)
+            <button type="button" wire:click="setTab('{{ $k }}')" @class(['on' => $tab === $k]) aria-pressed="{{ $tab === $k ? 'true' : 'false' }}">{{ $l }}</button>
         @endforeach
-    </div>
+    </nav>
 
-    <div class="vx-main-grid">
-        <div class="space-y-4">
-            <div class="vx-split">
-                <section class="vx-wcard p-5">
-                    <div class="flex items-center justify-between"><div><h3 class="font-bold">Needs Attention</h3><p class="mt-1 text-xs text-gray-500">Inventory conditions worth reviewing.</p></div><a href="{{ $this->inventoryUrl() }}" class="text-xs font-semibold text-primary-600">View all</a></div>
-                    <a href="{{ $this->inventoryUrl('out') }}" class="vx-row"><div class="vx-icon !h-9 !w-9 !rounded-full" style="background:#fef2f2;color:#dc2626"><x-filament::icon icon="heroicon-o-x-circle" class="h-5 w-5" /></div><div class="min-w-0 flex-1"><div class="text-sm font-semibold">Out of Stock Items</div><div class="text-xs text-gray-500">Items that need to be restocked</div></div><span class="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-600">{{ $s['out'] }}</span></a>
-                    <a href="{{ $this->inventoryUrl('low') }}" class="vx-row"><div class="vx-icon !h-9 !w-9 !rounded-full" style="background:#fffbeb;color:#d97706"><x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-5 w-5" /></div><div class="min-w-0 flex-1"><div class="text-sm font-semibold">Low Stock Items</div><div class="text-xs text-gray-500">At or below the saved reorder level</div></div><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-600">{{ $s['low'] }}</span></a>
-                    <div class="vx-row"><div class="vx-icon !h-9 !w-9 !rounded-full"><x-filament::icon icon="heroicon-o-adjustments-horizontal" class="h-5 w-5" /></div><div class="min-w-0 flex-1"><div class="text-sm font-semibold">No Reorder Level</div><div class="text-xs text-gray-500">Items without a reorder threshold</div></div><span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-bold text-violet-600">{{ $s['no_reorder'] }}</span></div>
-                </section>
-
-                <section class="vx-wcard p-5">
-                    <div class="flex items-center justify-between"><div><h3 class="font-bold">Recently Restocked</h3><p class="mt-1 text-xs text-gray-500">Latest opening-stock and return movements.</p></div></div>
-                    @forelse($this->recentRestocks as $move)
-                        <a href="{{ $move->item ? $this->itemUrl($move->item->id) : '#' }}" class="vx-row">
-                            @if($move->item)<img src="{{ $move->item->imageUrl() }}" alt="" class="h-10 w-10 rounded-lg border border-gray-200 object-cover dark:border-gray-700">@endif
-                            <div class="min-w-0 flex-1"><div class="truncate text-sm font-semibold">{{ $move->item?->name ?? 'Inventory item' }}</div><div class="truncate text-xs text-gray-500">{{ $move->toLocation?->name ?? 'Location not set' }} · {{ $move->changeLabel() }} units</div></div><div class="text-right text-xs text-gray-400">{{ $move->created_at?->format('M j') }}<br>{{ $move->created_at?->format('g:i A') }}</div>
-                        </a>
-                    @empty <div class="py-8 text-center text-sm text-gray-500">No recent restock movements.</div> @endforelse
-                </section>
+    @if($tab === 'overview')
+        {{-- ── 1. Overview ─────────────────────────────────────────── --}}
+        <div class="ivx-kpis wide4" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+            <div class="ivx-kpi" style="flex-direction:row;align-items:center;gap:12px">
+                <span class="ivx-ic green"><x-heroicon-o-banknotes /></span>
+                <span class="min-w-0"><span class="v block" style="font-size:clamp(1.05rem,4.6vw,1.35rem)">${{ number_format($s['value'], 0) }}</span><span class="l">Inventory Value</span>
+                    @if($change !== null)<span class="ivx-up {{ $change < 0 ? 'down' : '' }} mt-1">{{ $change < 0 ? '↓' : '↑' }} {{ abs($change) }}%</span>@endif</span>
             </div>
+            <div class="ivx-kpi" style="flex-direction:row;align-items:center;gap:12px">
+                <span class="ivx-ic"><x-heroicon-o-cube /></span>
+                <span class="min-w-0"><span class="v block">{{ number_format($s['units']) }}</span><span class="l">Units on Hand</span></span>
+            </div>
+        </div>
+        <div class="ivx-kpis k3">
+            <a href="{{ $this->stockStatusUrl('in') }}" class="ivx-kpi"><span class="v">{{ number_format($s['in']) }}</span><span class="l"><span class="ivx-dot green"></span>In Stock</span></a>
+            <a href="{{ $this->stockStatusUrl('low') }}" class="ivx-kpi"><span class="v">{{ number_format($s['low']) }}</span><span class="l"><span class="ivx-dot amber"></span>Low Stock</span></a>
+            <a href="{{ $this->stockStatusUrl('out') }}" class="ivx-kpi"><span class="v">{{ number_format($s['out']) }}</span><span class="l"><span class="ivx-dot red"></span>Out of Stock</span></a>
+        </div>
 
-            <section class="vx-wcard overflow-hidden">
-                <div class="flex items-center justify-between px-5 py-4"><div><h3 class="font-bold">Recent Stock Activity</h3><p class="mt-1 text-xs text-gray-500">The newest inventory movements across visible locations.</p></div></div>
-                <div class="px-5 pb-3">
-                    @forelse($this->recentMovements as $move)
-                        @php $change=$move->signedChange(); $location=$move->toLocation?->name ?? $move->fromLocation?->name ?? '—'; @endphp
-                        <div class="border-b border-gray-100 py-3 text-sm last:border-0 dark:border-gray-800">
-                            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                                <span class="min-w-0 truncate font-medium">{{ $move->item?->name ?? 'Inventory item' }}</span>
-                                <span class="flex-shrink-0 font-bold {{ $change < 0 ? 'text-red-500' : 'text-emerald-600' }}">{{ $move->changeLabel() }}</span>
-                            </div>
-                            <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
-                                <span>{{ $move->created_at?->format('M j, g:i A') }}</span>
-                                <span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">{{ $movementLabels[$move->movement_type] ?? ucfirst(str_replace('_',' ',$move->movement_type)) }}</span>
-                                <span class="truncate">{{ $location }}</span>
-                            </div>
+        <div class="ivx-grid2">
+            <section class="ivx-card ivx-pad">
+                <div class="ivx-head" style="margin-bottom:4px">
+                    <h3 class="ivx-h">Inventory Value Trend</h3>
+                    <div class="ivx-tabs" style="padding:3px;flex:none" role="group" aria-label="Trend period">
+                        @foreach([7, 30, 90] as $days)<button type="button" wire:click="$set('trendDays', {{ $days }})" @class(['on' => (int) $trendDays === $days]) style="min-height:28px;padding:0 10px;font-size:.72rem">{{ $days }}D</button>@endforeach
+                    </div>
+                </div>
+                @if($change !== null)<span class="ivx-up {{ $change < 0 ? 'down' : '' }}">{{ $change < 0 ? '↓' : '↑' }} {{ abs($change) }}%</span>@endif
+                @if($trend->count() >= 2)
+                    <div class="ivx-chart" role="img" aria-label="Inventory value over the last {{ $trendDays }} days">
+                        <div class="y"><span>${{ number_format($maxV / 1000, 0) }}K</span><span>${{ number_format($maxV * 2 / 3000, 0) }}K</span><span>${{ number_format($maxV / 3000, 0) }}K</span><span>$0</span></div>
+                        <div class="plot">
+                            @foreach($trend as $point)<i style="height:{{ max(2, round($point['value'] / $maxV * 100)) }}%" title="{{ $point['date'] }} · ${{ number_format($point['value'], 0) }}"></i>@endforeach
+                            <div class="x"><span>{{ $trend->first()['date'] }}</span><span>{{ $trend[(int) floor($trend->count() / 2)]['date'] }}</span><span>{{ $trend->last()['date'] }}</span></div>
                         </div>
-                    @empty <div class="py-10 text-center text-sm text-gray-500">No stock activity yet.</div> @endforelse
+                    </div>
+                @else
+                    <div class="ivx-empty">The trend fills in as daily value snapshots are taken.</div>
+                @endif
+            </section>
+
+            <section class="ivx-card ivx-pad">
+                <div class="ivx-head"><h3 class="ivx-h">Inventory Health</h3><a href="{{ $this->healthUrl() }}" class="ivx-link">Details</a></div>
+                <div class="ivx-bar" style="height:12px">
+                    <i style="width:{{ $s['in'] / $total * 100 }}%;background:var(--green)"></i>
+                    <i style="width:{{ $s['low'] / $total * 100 }}%;background:var(--amber)"></i>
+                    <i style="width:{{ $s['out'] / $total * 100 }}%;background:var(--red)"></i>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs" style="color:var(--muted)">
+                    <span class="inline-flex items-center gap-1.5"><span class="ivx-dot green"></span><b style="color:var(--text)">{{ number_format($s['in']) }}</b> Fresh</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="ivx-dot amber"></span><b style="color:var(--text)">{{ number_format($s['low']) }}</b> Low Stock</span>
+                    <span class="inline-flex items-center gap-1.5"><span class="ivx-dot red"></span><b style="color:var(--text)">{{ number_format($s['out']) }}</b> Out of Stock</span>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-2">
+                    <a href="{{ $this->ageUrl() }}" class="ivx-btn"><x-heroicon-o-clock /> Inventory Age</a>
+                    <a href="{{ $this->activityUrl() }}" class="ivx-btn"><x-heroicon-o-arrow-path /> Recent Activity</a>
                 </div>
             </section>
         </div>
 
-        <aside class="space-y-4">
-            <section class="vx-wcard p-5"><div class="text-sm font-semibold text-gray-500">Inventory Value</div><div class="mt-2 text-3xl font-bold text-gray-950 dark:text-white">${{ number_format($s['value'],2) }}</div><div class="mt-1 text-xs text-gray-500">Current on-hand value using each item's effective cost.</div><div class="mt-5 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full rounded-full bg-primary-500" style="width:{{ min(100,max(4,$s['percentages']['in'])) }}%"></div></div><div class="mt-2 text-xs text-gray-400">{{ number_format($s['percentages']['in'],1) }}% of catalog currently in stock</div></section>
-            <section class="vx-wcard p-5"><h3 class="font-bold">Quick Actions</h3><div class="mt-4 space-y-2">
-                @foreach([
-                    [$this->scanUrl(),'heroicon-o-qr-code','Scan Inventory','Scan items and update quantities'],
-                    [$this->receiveUrl(),'heroicon-o-inbox-arrow-down','Receive Inventory','Receive stock from a shipment or pallet'],
-                    [$this->quickAddUrl(),'heroicon-o-plus','Quick Add Item','Create an inventory item quickly'],
-                    [$this->importUrl(),'heroicon-o-arrow-up-tray','Import Inventory','Import known products from a sheet'],
-                    [$this->locationsUrl(),'heroicon-o-map-pin','Locations','Manage inventory locations'],
-                    [$this->vendorsUrl(),'heroicon-o-building-storefront','Vendors','Open supplier records'],
-                    [$this->movementsUrl(),'heroicon-o-arrow-path','Inventory Log','Review stock movement history'],
-                    [$this->transferUrl(),'heroicon-o-arrows-right-left','Transfer Stock','Move inventory between locations'],
-                    [$this->countUrl(),'heroicon-o-clipboard-document-check','Inventory Count','Count physical stock'],
-                    [$this->reconciliationUrl(),'heroicon-o-check-circle','Reconciliation','Resolve physical/system variances'],
-                    [$this->analyticsUrl(),'heroicon-o-chart-bar','Analytics & Insights','Inventory value, health and trends'],
-                    [$this->reportUrl(),'heroicon-o-document-chart-bar','Inventory Report','Value, stock health, velocity and coverage'],
-                    [$this->ageUrl(),'heroicon-o-clock','Inventory Age','Find aging and stale inventory'],
-                    [$this->stockLevelsUrl(),'heroicon-o-chart-bar-square','Stock Levels','Review quantities by location'],
-                    [$this->productInsightsUrl(),'heroicon-o-presentation-chart-line','Product Insights','Margin, sell-through and dead stock'],
-                    [$this->guideUrl(),'heroicon-o-academic-cap','How It Works','Inventory workflow and troubleshooting'],
-                ] as [$url,$icon,$title,$sub])
-                    <a href="{{ $url }}" class="vx-action"><div class="vx-icon !h-9 !w-9"><x-filament::icon :icon="$icon" class="h-5 w-5" /></div><div class="min-w-0 flex-1"><div class="text-sm font-semibold">{{ $title }}</div><div class="truncate text-xs text-gray-500">{{ $sub }}</div></div><span class="text-gray-400">›</span></a>
-                @endforeach
-            </div></section>
-        </aside>
-    </div>
+        <section class="ivx-card">
+            <div class="ivx-head ivx-pad" style="margin:0;padding-bottom:6px"><h3 class="ivx-h">Recent Inventory Activity</h3><a href="{{ $this->activityUrl() }}" class="ivx-link">View all</a></div>
+            <div class="ivx-list">
+                @forelse($this->recentRestocks as $m)
+                    <a href="{{ $m->item ? $this->itemUrl($m->item->id) : $this->activityUrl() }}" class="ivx-row">
+                        <span class="ivx-ic green" style="width:34px;height:34px"><x-heroicon-o-inbox-arrow-down /></span>
+                        <span class="min-w-0 flex-1"><span class="ivx-name block">{{ $m->item?->name ?? 'Deleted item' }}</span><span class="ivx-meta block">{{ $m->toLocation?->name ?? '—' }}</span></span>
+                        <span class="ivx-right"><b class="text-sm" style="color:var(--green)">+{{ number_format((float) $m->quantity) }}</b><span class="ivx-meta">{{ $m->created_at?->format('M j') }}</span></span>
+                    </a>
+                @empty
+                    <div class="ivx-empty">No stock received yet.</div>
+                @endforelse
+            </div>
+        </section>
+
+    @elseif($tab === 'tools')
+        {{-- ── 6. Tools ────────────────────────────────────────────── --}}
+        <a href="{{ $this->receiveUrl() }}" class="ivx-tool primary"><span class="ivx-ic"><x-heroicon-o-inbox-arrow-down /></span><span class="flex-1"><span class="t block">Receive Inventory</span><span class="ivx-sub">Pallets &amp; receiving</span></span><x-heroicon-m-chevron-right class="ivx-chev" style="color:#fff" /></a>
+        <a href="{{ $this->quickAddUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-plus-circle /></span><span class="flex-1"><span class="t block">Quick Add Stock</span><span class="ivx-sub">Add quantity fast</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>
+        <a href="{{ $this->scanUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-qr-code /></span><span class="flex-1"><span class="t block">Scan Inventory</span><span class="ivx-sub">Barcode workflow</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>
+        <div class="grid grid-cols-2 gap-3">
+            <a href="{{ $this->addItemUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-cube /></span><span class="min-w-0"><span class="t block">Add Item</span><span class="ivx-sub">Create new SKU</span></span></a>
+            <a href="{{ $this->transferUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-arrows-right-left /></span><span class="min-w-0"><span class="t block">Transfer Stock</span><span class="ivx-sub">Move between locations</span></span></a>
+        </div>
+        <section class="ivx-card ivx-list">
+            @foreach([
+                ['All inventory', 'Cards and table of every item', $this->inventoryUrl(), 'heroicon-o-squares-2x2'],
+                ['Stock count', 'Count a location and correct it', $this->countUrl(), 'heroicon-o-clipboard-document-check'],
+                ['Import a sheet', 'Bring in a product cost sheet', $this->importUrl(), 'heroicon-o-arrow-up-tray'],
+                ['Locations', 'Warehouses, shelves and streamer stock', $this->locationsUrl(), 'heroicon-o-map-pin'],
+                ['Vendors', 'Who you buy from', $this->vendorsUrl(), 'heroicon-o-building-storefront'],
+            ] as [$t, $d, $u, $i])
+                <a href="{{ $u }}" class="ivx-row"><span class="ivx-ic" style="width:34px;height:34px"><x-dynamic-component :component="$i" /></span><span class="min-w-0 flex-1"><span class="ivx-name block">{{ $t }}</span><span class="ivx-meta block">{{ $d }}</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>
+            @endforeach
+        </section>
+
+    @else
+        {{-- ── 7. Reports ──────────────────────────────────────────── --}}
+        @php $report = $this->reportRows(); @endphp
+        <section class="ivx-card ivx-pad">
+            <div class="ivx-head" style="margin-bottom:8px">
+                <div><h3 class="ivx-h">Inventory Report</h3><p class="ivx-sub">Detailed inventory data with filters and export.</p></div>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+                <label class="text-xs font-semibold" style="color:var(--muted)">Location
+                    <select wire:model.live="reportLocation" class="ivx-input mt-1"><option value="">All Locations</option>@foreach($this->reportLocations as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
+                <label class="text-xs font-semibold" style="color:var(--muted)">Category
+                    <select wire:model.live="reportCategory" class="ivx-input mt-1"><option value="">All Categories</option>@foreach($this->reportCategories as $c)<option value="{{ $c }}">{{ $c }}</option>@endforeach</select></label>
+            </div>
+            <div class="mt-2 flex gap-2">
+                <div class="ivx-search"><x-heroicon-o-magnifying-glass /><input type="search" wire:model.live.debounce.300ms="reportSearch" placeholder="Search items, SKU, or name…"></div>
+                <a href="{{ $this->exportUrl() }}" target="_blank" class="ivx-btn ic" title="Export Excel" aria-label="Export Excel"><x-heroicon-o-arrow-down-tray /></a>
+            </div>
+        </section>
+        <section class="ivx-card" style="overflow:hidden">
+            <div class="ivx-trow ivx-thead"><span>Item</span><span>SKU</span><span style="text-align:right">Stock</span></div>
+            @forelse($report['rows'] as $r)
+                <a href="{{ $this->itemUrl($r['id']) }}" class="ivx-trow" wire:key="rep-{{ $r['id'] }}">
+                    <span class="flex min-w-0 items-center gap-2">@if($r['image'])<img src="{{ $r['image'] }}" alt="" class="ivx-thumb thumb" loading="lazy">@else<span class="ivx-thumb thumb"><x-heroicon-o-cube /></span>@endif<span class="ivx-name" style="font-size:.78rem">{{ $r['name'] }}</span></span>
+                    <span class="ivx-meta">{{ $r['sku'] }}</span>
+                    <span style="text-align:right;font-weight:800;color:{{ $r['qty'] <= 0 ? 'var(--red)' : 'var(--green)' }}">{{ number_format($r['qty']) }}</span>
+                </a>
+            @empty
+                <div class="ivx-empty">No items match these filters.</div>
+            @endforelse
+            @if($report['total'] > $report['rows']->count())
+                <div class="p-3 text-center"><button type="button" class="ivx-btn" wire:click="moreReportRows">Show more ({{ $report['total'] - $report['rows']->count() }} left)</button></div>
+            @endif
+        </section>
+        <a href="{{ $this->reportUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-chart-bar /></span><span class="flex-1"><span class="t block">Full report &amp; analytics</span><span class="ivx-sub">Value, movement, categories, exports</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>
+    @endif
 </div>
 </x-filament-panels::page>

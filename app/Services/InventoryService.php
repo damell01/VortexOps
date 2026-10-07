@@ -55,9 +55,16 @@ class InventoryService
         string $movementType = 'opening',
         ?string $reason = null,
         ?float $unitCost = null,
+        ?\DateTimeInterface $receivedAt = null,
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost) {
+        return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost, $receivedAt) {
             $stock = $this->lockedStock($item, $location);
+
+            // A receipt logged after the fact keeps the day it actually arrived,
+            // which is what Inventory Age counts from. Never in the future.
+            $receivedAt = $receivedAt && $receivedAt < now()->startOfDay()
+                ? \Illuminate\Support\Carbon::instance($receivedAt)->setTimeFrom(now())
+                : null;
 
             $before = (float) $stock->quantity;
             $stock->increment('quantity', $quantity);
@@ -74,10 +81,11 @@ class InventoryService
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
+            if ($receivedAt) $movement->forceFill(['created_at' => $receivedAt])->saveQuietly();
 
             if (in_array($movementType, self::COSTED_INTAKE, true) && $unitCost !== null && $unitCost > 0) {
                 DB::table('products')->where('id', $item->id)->increment('total_units_received', $quantity);
-                app(InventoryLotService::class)->open($item, $quantity, $unitCost);
+                app(InventoryLotService::class)->open($item, $quantity, $unitCost, $receivedAt ? ['received_at' => $receivedAt] : []);
             }
 
             $this->notifyIfLowStock($item);

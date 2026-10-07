@@ -19,7 +19,7 @@ test.beforeAll(async ({ browser }) => {
 const pages = ['inventory-items', 'inventory-report', 'inventory-age', 'inventory-analytics', 'inventory-value-dashboard', 'inventory-velocity-analytics', 'reports', 'streamer-analytics', 'shows', 'payroll-overview'];
 
 for (const width of [320, 390, 430, 768, 1440]) {
-    test(`inventory and reports fit ${width}px`, async ({ page }) => {
+    test(`inventory and reports fit ${width}px`, async ({ page }, testInfo) => {
         test.setTimeout(240000);
         await page.setViewportSize({ width, height: 900 });
         for (const path of pages) {
@@ -54,7 +54,7 @@ for (const width of [320, 390, 430, 768, 1440]) {
                     await expect(menu).toBeHidden();
                     if (await page.getByRole('button', { name: 'Open full menu' }).count()) { await page.getByRole('button', { name: 'Open full menu' }).click(); } else { await custom.click(); }
                     await expect(menu).toBeVisible();
-                    await page.screenshot({ path: `tests/Browser/output/mobile-menu-${width}.png` });
+                    await page.screenshot({ path: `tests/Browser/output/mobile-menu-${testInfo.project.name}-${width}.png` });
                     await menu.getByRole('button', { name: 'Close navigation' }).click();
                 } else {
                     await page.locator('.fi-topbar-open-sidebar-btn').click();
@@ -62,12 +62,12 @@ for (const width of [320, 390, 430, 768, 1440]) {
                     await page.locator('.fi-topbar-close-sidebar-btn').click();
                 }
             }
-            await page.screenshot({ path: `tests/Browser/output/mobile-pass-${width}-${path}.png`, fullPage: true });
+            await page.screenshot({ path: `tests/Browser/output/mobile-pass-${testInfo.project.name}-${width}-${path}.png`, fullPage: true });
         }
     });
 }
 
-test('desktop table selection recovers cards when resized to mobile', async ({ page }) => {
+test('desktop table selection recovers cards when resized to mobile', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/admin/inventory-items');
     await page.getByRole('button', { name: 'Table', exact: true }).click();

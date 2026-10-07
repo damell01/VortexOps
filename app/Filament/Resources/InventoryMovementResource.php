@@ -168,7 +168,7 @@ class InventoryMovementResource extends Resource
             ])
             ->headerActions([TableAction::make('export_csv')->label('Export CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')->url(fn()=>route('export.movement-log'))->openUrlInNewTab()])
             ->actions([ViewAction::make()->size('sm')->iconButton()])
-            ->striped()->persistFiltersInSession()->paginationPageOptions([10,25,50])->defaultPaginationPageOption(25)->deferLoading()->defaultSort('created_at','desc');
+            ->striped()->persistFiltersInSession()->paginationPageOptions(\App\Support\MobileTablePagination::options([10,25,50]))->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))->deferLoading()->defaultSort('created_at','desc');
     }
 
     public static function getRelations(): array { return []; }

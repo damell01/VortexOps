@@ -58,7 +58,7 @@ class ActiveStreamersWidget extends BaseWidget
             ->deferLoading()
             ->recordUrl(fn ($record) => StreamerResource::getUrl('view', ['record' => $record]))
             ->paginated([10, 25, 50])
-            ->defaultPaginationPageOption(10)
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(10))
             ->emptyStateHeading('No active streamers')
             ->emptyStateIcon('heroicon-o-user-group');
     }

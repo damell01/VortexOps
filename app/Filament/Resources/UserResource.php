@@ -255,8 +255,8 @@ class UserResource extends Resource
                     ->sortable(),
             ])
             ->persistFiltersInSession()
-            ->paginationPageOptions([8, 16, 32])
-            ->defaultPaginationPageOption(8)
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([8, 16, 32]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(8))
             ->defaultSort('name')
             ->actions([
                 ViewAction::make()->iconButton()->tooltip('View user'),

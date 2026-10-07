@@ -38,6 +38,8 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
    ['Activity Logs',\App\Filament\Resources\ActivityLogResource::getUrl('index')],
    ['Inventory Logs',\App\Filament\Resources\InventoryMovementResource::getUrl('index')],
  ] : []),
+ ['Notifications',\App\Filament\Pages\NotificationSettings::getUrl(panel:'admin')],
+ ['Email Log',\App\Filament\Pages\EmailLog::getUrl(panel:'admin')],
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
 @endphp

@@ -14,12 +14,13 @@ class DeductionApprovedNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'deduction_approved';
+
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject('Deduction approved')
-            ->line('An inventory deduction request has been approved and posted.')
-            ->line('You are receiving this because email notifications are switched on in Settings.');
+            ->line('An inventory deduction request has been approved and posted.');
     }
 
     public function __construct(public readonly DeductionRequest $deductionRequest) {}

@@ -60,6 +60,12 @@ class AdminPanelProvider extends PanelProvider
             ->login(Login::class)
             ->passwordReset()
             ->profile(isSimple: false)
+            ->userMenuItems([
+                \Filament\Actions\Action::make('my_notifications')
+                    ->label('My notifications')
+                    ->icon('heroicon-o-bell')
+                    ->url(fn (): string => \App\Filament\Pages\MyNotifications::getUrl(panel: 'admin')),
+            ])
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')

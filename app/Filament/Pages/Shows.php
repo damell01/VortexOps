@@ -565,7 +565,13 @@ class Shows extends Page
     {
         $s = Show::with('streamers.user')->findOrFail((int) $id);
         if (! $this->isShowDue($s)) { Notification::make()->title('Show has not happened yet')->warning()->send(); return; }
-        foreach ($s->streamers as $st) if ($st->user) Notification::make()->title('Form Submission Requested')->body("Admin is requesting you submit the end-of-stream form for \"{$s->title}\"")->info()->sendToDatabase($st->user);
+        \App\Services\Notifier::send('report_submission_requested', new \App\Notifications\VortexAlert(
+            event: 'report_submission_requested',
+            title: 'Show report requested',
+            body: "Please submit the end-of-stream report for \"{$s->title}\".",
+            tone: 'warning',
+            links: ['Open my shows' => StreamerShows::getUrl()],
+        ), $s->streamers->pluck('user'));
         Notification::make()->title('Submission request sent')->success()->send();
         $this->resetData();
     }

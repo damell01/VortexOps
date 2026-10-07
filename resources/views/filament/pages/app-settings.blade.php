@@ -231,146 +231,18 @@
                     </select>
                     <p class="mt-1 text-xs text-gray-400">Manual: staff enter shows by hand. Auto: scraper ingests shows automatically.</p>
                 </div>
-                <div class="px-6 py-4">
-                    <label for="show_ready_notification_email" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Show-ready Notification Email</label>
-                    <input wire:model.blur="show_ready_notification_email" id="show_ready_notification_email" type="email" placeholder="ops@yourcompany.com"
-                        class="w-full max-w-sm rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
-                    <p class="mt-1 text-xs text-gray-400">Optional. For someone who needs the alert without needing a login. Sends only while email notifications are on.</p>
-                </div>
-
-                {{--
-                    The master switch for the mail channel.
-
-                    Seven of the ten notifications were database-only and
-                    hardcoded that way, so configuring a mailer changed nothing
-                    they did. They can email now, but off by default: turning a
-                    mailer on should not silently start sending the team every
-                    operational event that used to be a badge on a bell.
-                --}}
-                <div class="px-6 py-4">
-                    <label class="flex cursor-pointer items-start gap-3">
-                        <input type="checkbox" wire:model="notify_email_enabled"
-                            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 bg-white dark:bg-gray-900" />
-                        <span>
-                            <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">Also send notifications by email</span>
-                            <span class="mt-0.5 block text-xs text-gray-400">
-                                Off means in-app only. On, the same alerts also go out through the configured mailer
-                                (<code class="rounded bg-gray-100 px-1 dark:bg-gray-800">{{ config('mail.default') }}</code>).
-                                Check it works first with <code class="rounded bg-gray-100 px-1 dark:bg-gray-800">php artisan mail:test</code>.
-                            </span>
-                        </span>
-                    </label>
-                </div>
             </div>
         </div>
 
-        {{-- ── Notifications ────────────────────────────────────────────── --}}
-        <div wire:key="section-notifications" x-data="{ open: false }" class="vx-card overflow-hidden">
-
-            <button type="button" @click="open = !open"
-                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-[10px] bg-amber-100 dark:bg-amber-900 p-2 shrink-0">
-                    <x-heroicon-o-bell class="h-5 w-5 text-amber-600 dark:text-amber-300" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Control who receives each type of in-app notification</p>
-                </div>
-                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
-            </button>
-
-            <div x-show="open" class="border-t border-gray-200 dark:border-gray-700">
-                @php
-                    $notifTypes = [
-                        [
-                            'key'         => 'low_stock',
-                            'label'       => 'Low Stock Alert',
-                            'description' => 'Sent when an item\'s total quantity falls at or below its reorder level.',
-                            'icon'        => 'heroicon-o-exclamation-triangle',
-                            'color'       => 'text-yellow-500',
-                        ],
-                        [
-                            'key'         => 'damaged',
-                            'label'       => 'Items Marked Damaged',
-                            'description' => 'Sent immediately when units are moved to the damaged location.',
-                            'icon'        => 'heroicon-o-fire',
-                            'color'       => 'text-red-500',
-                        ],
-                        [
-                            'key'         => 'show_ready',
-                            'label'       => 'Show Ready for Review',
-                            'description' => 'Sent when a new show is created and needs streamer assignment.',
-                            'icon'        => 'heroicon-o-video-camera',
-                            'color'       => 'text-blue-500',
-                        ],
-                        [
-                            'key'         => 'show_reconciled',
-                            'label'       => 'Show Reconciled',
-                            'description' => 'Sent when a deduction request is approved and inventory is deducted. The show\'s streamers always receive this regardless of this setting.',
-                            'icon'        => 'heroicon-o-check-circle',
-                            'color'       => 'text-green-500',
-                        ],
-                    ];
-
-                    $modeLabels = ['all' => 'All Users', 'admins' => 'Admins Only', 'custom' => 'Specific Users'];
-                    $allUsers   = \App\Models\User::orderBy('name')->get();
-                @endphp
-
-                <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($notifTypes as $notif)
-                        @php
-                            $modeKey  = 'notify_' . $notif['key'] . '_mode';
-                            $usersKey = 'notify_' . $notif['key'] . '_users';
-                        @endphp
-                        <div class="px-6 py-4 space-y-3">
-                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                                <div class="flex items-start gap-3 flex-1">
-                                    <div class="mt-0.5 shrink-0 {{ $notif['color'] }}">
-                                        <x-dynamic-component :component="$notif['icon']" class="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $notif['label'] }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $notif['description'] }}</p>
-                                    </div>
-                                </div>
-                                <div class="shrink-0">
-                                    <select
-                                        wire:model.live="{{ $modeKey }}"
-                                        class="rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
-                                    >
-                                        @foreach ($modeLabels as $val => $label)
-                                            <option value="{{ $val }}" @selected($$modeKey === $val)>{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            @if ($$modeKey === 'custom')
-                                <div class="ml-7 rounded-[10px] border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3">
-                                    <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Select recipients</p>
-                                    <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                                        @forelse ($allUsers as $user)
-                                            <label class="flex items-center gap-2.5 cursor-pointer group">
-                                                <input
-                                                    type="checkbox"
-                                                    wire:model.live="{{ $usersKey }}"
-                                                    value="{{ $user->id }}"
-                                                    class="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
-                                                />
-                                                <span class="text-sm text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">
-                                                    {{ $user->name }}
-                                                </span>
-                                                <span class="text-xs text-gray-400 dark:text-gray-500">{{ $user->email }}</span>
-                                            </label>
-                                        @empty
-                                            <p class="text-xs text-gray-400">No users found.</p>
-                                        @endforelse
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
-                </div>
-            </div>
+        {{-- Notifications moved to their own page: who gets what, email on/off, previews and tests. --}}
+        <div wire:key="section-notifications" class="vx-card overflow-hidden">
+            <a href="{{ \App\Filament\Pages\NotificationSettings::getUrl() }}" class="flex items-center justify-between gap-4 px-6 py-4">
+                <span>
+                    <span class="block text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</span>
+                    <span class="block text-xs text-gray-500 dark:text-gray-400">Who gets each notification, email on/off, previews and test sends — plus the Email Log.</span>
+                </span>
+                <x-filament::icon icon="heroicon-m-chevron-right" class="h-5 w-5 text-gray-400" />
+            </a>
         </div>
 
         {{-- ── Whatnot Import (owner only) ────────────────────────────────── --}}

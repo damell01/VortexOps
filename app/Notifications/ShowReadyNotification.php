@@ -14,13 +14,14 @@ class ShowReadyNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'show_ready';
+
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject("Show ready for review: {$this->show->title}")
             ->line("Show \"{$this->show->title}\" is ready for streamer assignment and item mapping.")
-            ->action('Open show', NotificationLinks::forShow($this->show->id, $notifiable))
-            ->line('You are receiving this because email notifications are switched on in Settings.');
+            ->action('Open show', NotificationLinks::forShow($this->show->id, $notifiable));
     }
 
     public function __construct(public readonly Show $show) {}

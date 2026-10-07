@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Payout;
 use App\Notifications\PayoutProcessedNotification;
 use App\Services\NotificationRouter;
+use App\Services\Notifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,15 +25,14 @@ class NotifyPayoutProcessed implements ShouldQueue
     public function handle(NotificationRouter $router): void
     {
         try {
-            $payout = Payout::with(['streamer', 'show'])->find($this->payoutId);
+            $payout = Payout::with(['streamer.user', 'show'])->find($this->payoutId);
 
             if (! $payout) {
                 return;
             }
 
-            foreach ($router->getRecipients('show_reconciled') as $user) {
-                $user->notify(new PayoutProcessedNotification($payout));
-            }
+            // Its own rule now — it used to borrow show_reconciled's recipients.
+            Notifier::send('payout_processed', new PayoutProcessedNotification($payout), [$payout->streamer?->user]);
         } catch (\Exception $e) {
             Log::warning('NotifyPayoutProcessed failed', ['payout_id' => $this->payoutId, 'error' => $e->getMessage()]);
         }

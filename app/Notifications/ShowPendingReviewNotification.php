@@ -14,13 +14,14 @@ class ShowPendingReviewNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'show_pending_approval';
+
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject("Show pending review: {$this->show->title}")
             ->line("Show \"{$this->show->title}\" is waiting on a review before it can move on.")
-            ->action('Review show', NotificationLinks::forShow($this->show->id, $notifiable))
-            ->line('You are receiving this because email notifications are switched on in Settings.');
+            ->action('Review show', NotificationLinks::forShow($this->show->id, $notifiable));
     }
 
     public function __construct(public readonly Show $show) {}

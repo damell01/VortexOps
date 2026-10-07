@@ -1091,17 +1091,13 @@ class ShowResource extends Resource
 
                         // Notify admins
                         $showTitle = $record->title ?? ('Show #' . $record->id);
-                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $showTitle) {
-                            Notification::make()
-                                ->title('Show Reopening Requested')
-                                ->body("{$streamer->name} requested to edit {$showTitle}")
-                                ->actions([
-                                    \Filament\Notifications\Actions\Action::make('review')
-                                        ->label('Review')
-                                        ->url(ShowResource::getUrl('view', ['record' => $record])),
-                                ])
-                                ->sendToDatabase($admin);
-                        });
+                        \App\Services\Notifier::send('report_reopen_requested', new \App\Notifications\VortexAlert(
+                            event: 'report_reopen_requested',
+                            title: 'Show Reopening Requested',
+                            body: "{$streamer->name} requested to edit {$showTitle}",
+                            tone: 'warning',
+                            links: ['Review' => ShowResource::getUrl('view', ['record' => $record])],
+                        ));
 
                         Notification::make()
                             ->title('Request sent')

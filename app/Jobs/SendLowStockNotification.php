@@ -28,12 +28,14 @@ class SendLowStockNotification implements ShouldQueue
 
         $qty = $item->totalQuantity();
 
-        Notification::make()
-            ->title('Low Stock: ' . $item->name)
-            ->body(number_format($qty) . ' units remaining (reorder at ' . number_format((float) $item->reorder_level) . ')')
-            ->warning()
-            ->icon('heroicon-o-exclamation-triangle')
-            ->sendToDatabase($router->getRecipients('low_stock'));
+        \App\Services\Notifier::send('low_stock', new \App\Notifications\VortexAlert(
+            event: 'low_stock',
+            title: 'Low Stock: ' . $item->name,
+            body: number_format($qty) . ' units remaining (reorder at ' . number_format((float) $item->reorder_level) . ')',
+            tone: 'warning',
+            links: ['Open item' => \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $item->id])],
+            icon: 'heroicon-o-exclamation-triangle',
+        ));
     }
 
     public function failed(Throwable $e): void

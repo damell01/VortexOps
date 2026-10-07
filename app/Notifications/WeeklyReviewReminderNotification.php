@@ -17,6 +17,8 @@ class WeeklyReviewReminderNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'weekly_review_reminder';
+
     public function __construct(
         public readonly int $pendingCount,
         public readonly string $weekLabel,

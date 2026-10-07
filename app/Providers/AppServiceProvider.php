@@ -93,11 +93,21 @@ class AppServiceProvider extends ServiceProvider
         Product::observe(ProductObserver::class);
 
         Event::listen(NotificationSending::class, function (NotificationSending $event): ?bool {
+            \App\Listeners\LogOutgoingEmail::noteNotification($event);
+
+            // Catalogued notifications already chose their channels per person in
+            // NotificationRouter (which keeps locked items in-app); test sends
+            // go out regardless. Anything else still honours the person's switches.
+            if (\App\Listeners\LogOutgoingEmail::$testing || method_exists($event->notification, 'notificationEvent')) {
+                return null;
+            }
             if ($event->notifiable instanceof User && ! $event->notifiable->wantsNotificationChannel($event->channel)) {
                 return false;
             }
             return null;
         });
+        Event::listen(\Illuminate\Mail\Events\MessageSending::class, [\App\Listeners\LogOutgoingEmail::class, 'sending']);
+        Event::listen(\Illuminate\Mail\Events\MessageSent::class, [\App\Listeners\LogOutgoingEmail::class, 'sent']);
 
         Table::configureUsing(fn (Table $table) => TableFilterPresentation::apply($table));
 

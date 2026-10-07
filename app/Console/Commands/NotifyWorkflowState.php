@@ -50,14 +50,12 @@ class NotifyWorkflowState extends Command
 
         if ($alreadySent) return;
 
-        $notification = Notification::make()->title($title)->body($body);
-        $notification = match ($tone) {
-            'success' => $notification->success(),
-            'warning' => $notification->warning(),
-            'danger' => $notification->danger(),
-            default => $notification->info(),
-        };
-
-        $notification->sendToDatabase($user);
+        \App\Services\Notifier::send('fulfillment_assigned', new \App\Notifications\VortexAlert(
+            event: 'fulfillment_assigned',
+            title: $title,
+            body: $body,
+            tone: $tone,
+            links: ['Open Fulfillment Center' => \App\Filament\Pages\FulfillmentCenter::getUrl()],
+        ), [$user]);
     }
 }

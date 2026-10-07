@@ -14,13 +14,19 @@ class PayoutProcessedNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'payout_processed';
+
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $streamer = $this->payout->streamer?->name;
+        $mail = (new MailMessage)
             ->subject('A payout has been processed')
-            ->line("A payout of $" . number_format((float) $this->payout->calculated_payout, 2) . " has been processed.")
-            ->action('Open payout', NotificationLinks::forShow($this->payout->show_id, $notifiable))
-            ->line('You are receiving this because email notifications are switched on in Settings.');
+            ->line('A payout of $' . number_format((float) $this->payout->calculated_payout, 2) . ($streamer ? " for {$streamer}" : '') . ' has been processed.');
+
+        // A payout from a pay run may not belong to one show.
+        return $this->payout->show_id
+            ? $mail->action('Open show', NotificationLinks::forShow((int) $this->payout->show_id, $notifiable))
+            : $mail->action('Open VortexOps', url('/admin'));
     }
 
     public function __construct(public readonly Payout $payout) {}

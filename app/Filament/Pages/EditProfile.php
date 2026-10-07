@@ -56,27 +56,15 @@ class EditProfile extends Page implements HasForms
                     ]),
 
                 Section::make('Notification preferences')
-                    ->description('Choose how VortexOps can notify you. Admin recipient rules still decide which events are sent to you.')
+                    ->description('Per-notification choices, including turning off emails, now live on their own page.')
                     ->schema([
-                        Toggle::make('notifications_enabled')
-                            ->label('Notifications')
-                            ->helperText('Turn this off to pause all VortexOps notifications for your account.')
-                            ->default(true)
-                            ->live(),
-
-                        Toggle::make('notification_in_app_enabled')
-                            ->label('In-app notifications')
-                            ->helperText('Show notifications in the VortexOps bell and notification center.')
-                            ->default(true)
-                            ->disabled(fn ($get): bool => ! (bool) $get('notifications_enabled')),
-
-                        Toggle::make('notification_email_enabled')
-                            ->label('Email notifications')
-                            ->helperText('Receive email for notification types that support email when email delivery is enabled by an admin.')
-                            ->default(true)
-                            ->disabled(fn ($get): bool => ! (bool) $get('notifications_enabled')),
-                    ])
-                    ->columns(1),
+                        \Filament\Schemas\Components\Actions::make([
+                            \Filament\Actions\Action::make('my_notifications')
+                                ->label('Open my notification settings')
+                                ->icon('heroicon-o-bell')
+                                ->url(fn (): string => MyNotifications::getUrl()),
+                        ]),
+                    ]),
             ])
             ->model(auth()->user())
             ->statePath('data');

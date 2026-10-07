@@ -243,22 +243,12 @@ class StreamerShows extends Page
 
     private function notifyAdminsOfRevisionRequest(Show $show, \App\Models\StreamerLogEntry $entry): void
     {
-        $admins = \App\Models\User::query()->get()
-            ->filter(fn ($user) => $user->isAdmin() || $user->isOwner());
-
-        if ($admins->isEmpty()) {
-            return;
-        }
-
-        \Filament\Notifications\Notification::make()
-            ->title('A streamer wants to change a filed report')
-            ->body(trim(($show->title ?? 'Show #' . $show->id) . ' — ' . ($entry->revision_reason ?: 'no reason given')))
-            ->warning()
-            ->actions([
-                \Filament\Notifications\Actions\Action::make('open')
-                    ->label('Open the report')
-                    ->url(\App\Filament\Resources\StreamerLogResource::getUrl('index')),
-            ])
-            ->sendToDatabase($admins);
+        \App\Services\Notifier::send('report_reopen_requested', new \App\Notifications\VortexAlert(
+            event: 'report_reopen_requested',
+            title: 'A streamer wants to change a filed report',
+            body: trim(($show->title ?? 'Show #' . $show->id) . ' — ' . ($entry->revision_reason ?: 'no reason given')),
+            tone: 'warning',
+            links: ['Open the report' => \App\Filament\Resources\StreamerLogResource::getUrl('index')],
+        ));
     }
 }

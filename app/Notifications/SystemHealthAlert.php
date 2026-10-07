@@ -2,17 +2,17 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\EmailsWhenEnabled;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class SystemHealthAlert extends Notification
 {
-    public function __construct(public readonly array $issues) {}
+    use EmailsWhenEnabled;
 
-    public function via(object $notifiable): array
-    {
-        return ['database', 'mail'];
-    }
+    protected string $event = 'system_health';
+
+    public function __construct(public readonly array $issues) {}
 
     public function toMail(object $notifiable): MailMessage
     {

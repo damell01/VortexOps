@@ -66,8 +66,6 @@ class AppSettings extends Page
     // ── Show Import ──────────────────────────────────────────────────────────
 
     public string $show_import_mode                = 'manual';
-    public string $show_ready_notification_email   = '';
-    public bool   $notify_email_enabled           = false;
 
     // ── Whatnot connection test ──────────────────────────────────────────────
 
@@ -163,46 +161,8 @@ class AppSettings extends Page
     public string $backupResult      = '';
     public string $backupStatus      = ''; // 'success' | 'error' | ''
 
-    // ── Notifications ────────────────────────────────────────────────────────
-
-    public string $notify_low_stock_mode       = 'all';
-    public array  $notify_low_stock_users      = [];
-    public string $notify_damaged_mode         = 'all';
-    public array  $notify_damaged_users        = [];
-    public string $notify_show_ready_mode      = 'admins';
-    public array  $notify_show_ready_users     = [];
-    public string $notify_show_reconciled_mode  = 'admins';
-    public array  $notify_show_reconciled_users = [];
     public array  $enabled_modules  = [];
 
-    /**
-     * A saved recipient list, minus anyone who is no longer a user.
-     *
-     * Recipient checkboxes only render while their mode is "custom", so a list
-     * left behind by a mode that has since changed is invisible — and a user
-     * deleted after being picked leaves an id with no checkbox to untick even
-     * in custom mode. Either way `exists:users,id` failed on every save and
-     * the message named a field with nothing on screen to fix it, which took
-     * the whole settings page down: the default receiving location could not
-     * be saved because of a notification recipient nobody could see.
-     *
-     * Filtering on load means the ghost is gone the first time the page opens
-     * and is written out on the next save.
-     *
-     * @return array<int, int>
-     */
-    private function recipientsStillHere(string $key): array
-    {
-        $saved = json_decode(Setting::get($key, '[]'), true);
-
-        if (! is_array($saved) || $saved === []) {
-            return [];
-        }
-
-        $ids = array_values(array_unique(array_map('intval', array_filter($saved, 'is_numeric'))));
-
-        return User::whereKey($ids)->pluck('id')->all();
-    }
 
     public function mount(): void
     {
@@ -211,18 +171,8 @@ class AppSettings extends Page
         $this->logo_path     = Setting::get('logo_path');
 
         $this->show_import_mode              = Setting::get('show_import_mode', 'manual');
-        $this->show_ready_notification_email = Setting::get('show_ready_notification_email', '');
-        $this->notify_email_enabled          = filter_var(Setting::get('notify_email_enabled', false), FILTER_VALIDATE_BOOLEAN);
         $this->whatnotLastImport             = Setting::get('whatnot_last_import_at', '');
 
-        $this->notify_low_stock_mode        = Setting::get('notify_low_stock_mode', 'all');
-        $this->notify_low_stock_users       = $this->recipientsStillHere('notify_low_stock_users');
-        $this->notify_damaged_mode          = Setting::get('notify_damaged_mode', 'all');
-        $this->notify_damaged_users         = $this->recipientsStillHere('notify_damaged_users');
-        $this->notify_show_ready_mode       = Setting::get('notify_show_ready_mode', 'admins');
-        $this->notify_show_ready_users      = $this->recipientsStillHere('notify_show_ready_users');
-        $this->notify_show_reconciled_mode  = Setting::get('notify_show_reconciled_mode', 'admins');
-        $this->notify_show_reconciled_users = $this->recipientsStillHere('notify_show_reconciled_users');
         $this->enabled_modules  = AdminModules::enabledSlugs();
 
         $this->demo_mode = (bool) Setting::get('demo_mode', false);
@@ -329,8 +279,6 @@ class AppSettings extends Page
             'primary_color'                    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'logo_upload'                      => 'nullable|image|max:2048',
             'show_import_mode'                 => 'required|in:manual,auto_whatnot',
-            'show_ready_notification_email'    => 'nullable|email|max:255',
-            'notify_email_enabled'             => 'boolean',
             // The recipient lists only mean anything while their mode is
             // "custom" — that is the only mode whose checkboxes are rendered.
             // Validated unconditionally, a list left behind by a mode that has
@@ -338,18 +286,6 @@ class AppSettings extends Page
             // field with nothing on screen to fix. exclude_unless drops them
             // from validation, and from the validated payload, when the mode
             // is not custom.
-            'notify_low_stock_mode'            => 'required|in:all,admins,custom',
-            'notify_low_stock_users'           => 'exclude_unless:notify_low_stock_mode,custom|nullable|array',
-            'notify_low_stock_users.*'         => 'integer|exists:users,id',
-            'notify_damaged_mode'              => 'required|in:all,admins,custom',
-            'notify_damaged_users'             => 'exclude_unless:notify_damaged_mode,custom|nullable|array',
-            'notify_damaged_users.*'           => 'integer|exists:users,id',
-            'notify_show_ready_mode'           => 'required|in:all,admins,custom',
-            'notify_show_ready_users'          => 'exclude_unless:notify_show_ready_mode,custom|nullable|array',
-            'notify_show_ready_users.*'        => 'integer|exists:users,id',
-            'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
-            'notify_show_reconciled_users'     => 'exclude_unless:notify_show_reconciled_mode,custom|nullable|array',
-            'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
             'default_receiving_location_id'    => 'nullable|integer|exists:inventory_locations,id',
             'streamer_visible_location_ids'    => 'array',
             'streamer_visible_location_ids.*'  => 'integer|exists:inventory_locations,id',
@@ -385,17 +321,7 @@ class AppSettings extends Page
         Setting::set('brand_name',    $this->brand_name);
         Setting::set('primary_color', $this->primary_color);
         Setting::set('show_import_mode', $this->show_import_mode);
-        Setting::set('show_ready_notification_email', $this->show_ready_notification_email);
-        Setting::set('notify_email_enabled', $this->notify_email_enabled ? '1' : '0');
 
-        Setting::set('notify_low_stock_mode',        $this->notify_low_stock_mode);
-        Setting::set('notify_low_stock_users',        json_encode($this->notify_low_stock_users));
-        Setting::set('notify_damaged_mode',           $this->notify_damaged_mode);
-        Setting::set('notify_damaged_users',          json_encode($this->notify_damaged_users));
-        Setting::set('notify_show_ready_mode',        $this->notify_show_ready_mode);
-        Setting::set('notify_show_ready_users',       json_encode($this->notify_show_ready_users));
-        Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
-        Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
 
         Setting::set('default_receiving_location_id', $this->default_receiving_location_id ?: '');
         // Encoded even when empty. An empty array is a decision — "their own

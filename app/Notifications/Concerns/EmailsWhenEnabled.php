@@ -2,45 +2,29 @@
 
 namespace App\Notifications\Concerns;
 
-use App\Models\Setting;
+use App\Services\NotificationRouter;
 
 /**
- * Resolves notification delivery channels from three layers:
+ * Channels for a catalogued notification come from NotificationRouter: the
+ * owner's global email switch and hourly limit, the event's rule, and the
+ * person's own preferences (see NotificationCatalog for the events).
  *
- * 1. Environment safety switch (email is opt-in, off by default)
- * 2. App-level Settings toggle
- * 3. The individual user's own notification preferences
+ * A class names its event with `protected string $event = 'low_stock';`.
  */
 trait EmailsWhenEnabled
 {
     public function via(object $notifiable): array
     {
-        $channels = [];
+        return app(NotificationRouter::class)->channelsFor($this->notificationEvent(), $notifiable);
+    }
 
-        $wants = static function (object $notifiable, string $channel): bool {
-            return ! method_exists($notifiable, 'wantsNotificationChannel')
-                || $notifiable->wantsNotificationChannel($channel);
-        };
-
-        if ($wants($notifiable, 'database')) {
-            $channels[] = 'database';
-        }
-
-        if (static::emailIsEnabled() && $wants($notifiable, 'mail')) {
-            $channels[] = 'mail';
-        }
-
-        return $channels;
+    public function notificationEvent(): string
+    {
+        return property_exists($this, 'event') ? $this->event : 'show_ready';
     }
 
     public static function emailIsEnabled(): bool
     {
-        if (! filter_var(config('mail.notification_emails_enabled', false), FILTER_VALIDATE_BOOLEAN)) {
-            return false;
-        }
-
-        // Cast rather than trust: the settings table stores '1'/'0' strings,
-        // and '0' is truthy.
-        return filter_var(Setting::get('notify_email_enabled', false), FILTER_VALIDATE_BOOLEAN);
+        return NotificationRouter::emailIsEnabled();
     }
 }

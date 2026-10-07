@@ -105,16 +105,15 @@ class ShowObserver
         $log = StreamerLogEntry::where('show_id', $show->id)->first();
         if (! $log || $log->status !== 'admin_approved') return;
 
-        $admins = User::query()->get()->filter(fn (User $user) => $user->isAdmin() || $user->isOwner());
-        if ($admins->isEmpty()) return;
-
         $labels = $changed->map(fn (string $field) => ucwords(str_replace('_', ' ', $field)))->take(5)->join(', ');
 
-        Notification::make()
-            ->title('Whatnot data changed after approval')
-            ->body("{$show->title}: {$labels} changed after approval. Review Show Activity if the change affects operations or payout reporting.")
-            ->warning()
-            ->sendToDatabase($admins);
+        \App\Services\Notifier::send('approved_data_changed', new \App\Notifications\VortexAlert(
+            event: 'approved_data_changed',
+            title: 'Whatnot data changed after approval',
+            body: "{$show->title}: {$labels} changed after approval. Review Show Activity if the change affects operations or payout reporting.",
+            tone: 'warning',
+            links: ['Open show' => \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show->id])],
+        ));
     }
 
     private function detectImportedShowStreamer(Show $show, bool $forceAttempt = false): void

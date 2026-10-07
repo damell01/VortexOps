@@ -65,13 +65,10 @@ class CheckSystemHealth extends Command
         }
 
         if ($this->option('notify') && $this->shouldNotify($issues)) {
-            $recipients = $this->superAdmins();
+            // Who gets it is the system_health rule in Settings → Notifications.
+            $count = \App\Services\Notifier::send('system_health', new SystemHealthAlert($issues));
 
-            foreach ($recipients as $user) {
-                $user->notify(new SystemHealthAlert($issues));
-            }
-
-            $this->line("Notified {$recipients->count()} super admin(s) via database + email.");
+            $this->line("Notified {$count} user(s).");
         }
 
         return self::SUCCESS;

@@ -82,7 +82,7 @@ class EveryInventoryPageRendersTest extends TestCase
             'quantity'          => 24,
             'quantity_before'   => 0,
             'quantity_after'    => 24,
-            'movement_type'     => 'receipt',
+            'movement_type'     => 'opening',
             'reason'            => 'Opening stock',
         ]);
 

@@ -60,6 +60,7 @@ class WhatnotReportingReconciler
                     'whatnot_channel_id' => $channelMismatch ? $show->whatnot_channel_id : $channel->id,
                     'channel_attribution_suspect' => $channelMismatch ? true : ($show?->channel_attribution_suspect ?? false),
                     'whatnot_show_id' => $liveId,
+                    'cover_image_url' => $normalized['cover_image_url'] ?? null,
                     'title' => $title,
                     'show_date' => $date,
                     'start_time' => $normalized['start_time'] ?? $raw['start_time'] ?? null,
@@ -535,6 +536,10 @@ class WhatnotReportingReconciler
                     $failed++;
                     $progress && $progress("analytics: show #{$show->id} returned no usable metrics");
                     continue;
+                }
+
+                if (($normalized['cover_image_url'] ?? null) !== null) {
+                    $fields['cover_image_url'] = $normalized['cover_image_url'];
                 }
 
                 $beforeAnalytics = [];

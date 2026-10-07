@@ -52,6 +52,7 @@ class WhatnotDataNormalizer
             'title' => $title,
             'show_date' => $showDate,
             'show_date_raw' => $raw['show_date_raw'] ?? null,
+            'cover_image_url' => $this->normalizeCoverImageUrl($raw['cover_image_url'] ?? null),
             'detail_url' => $this->normalizeUrl($raw['detail_url'] ?? null),
             'gross_revenue' => $this->normalizeMoney($raw['gross_revenue'] ?? null),
             'whatnot_net' => $this->normalizeMoney($raw['whatnot_net'] ?? null),
@@ -178,6 +179,15 @@ class WhatnotDataNormalizer
         if ($value === null || $value === '') return null;
         $int = (int) preg_replace('/[^0-9]/', '', (string) $value);
         return $int === 0 ? null : $int;
+    }
+
+    public function normalizeCoverImageUrl(mixed $url): ?string
+    {
+        if (! is_string($url) || trim($url) === '') return null;
+        $url = html_entity_decode(trim($url), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (str_starts_with($url, '//')) $url = 'https:'.$url;
+        if (! filter_var($url, FILTER_VALIDATE_URL)) return null;
+        return in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true) ? $url : null;
     }
 
     private function normalizeUrl(?string $url): ?string

@@ -3,11 +3,13 @@ on:
   pull_request:
     branches: [Production, Dev]
     paths:
-      - app/Filament/Pages/InventoryReport.php
-      - resources/views/filament/pages/inventory-report.blade.php
-      - resources/views/filament/pages/partials/inventory-report-styles.blade.php
-      - tests/Feature/Inventory/InventoryReportOperationsTest.php
-      - .github/workflows/inventory-report-checks.yml
+      - 'app/Filament/**'
+      - 'app/Providers/Filament/**'
+      - 'resources/**'
+      - 'tests/Feature/Inventory/**'
+      - 'tests/Feature/Reports/**'
+      - 'tests/Browser/mobile-reports.spec.ts'
+      - '.github/workflows/inventory-report-checks.yml'
 jobs:
   report:
     runs-on: ubuntu-24.04
@@ -49,4 +51,40 @@ jobs:
       - name: Inventory reporting integration tests
         run: php artisan test tests/Feature/Inventory/InventoryReportOperationsTest.php
       - name: Existing inventory report render test
-        run: php artisan test tests/Feature/Inventory/EveryInventoryPageRendersTest.php --filter='test_the_page_opens.*InventoryReport'
+        run: php artisan test tests/Feature/Inventory/EveryInventoryPageRendersTest.php --filter='test_the_page_opens.*(InventoryReport|InventoryAge|InventoryAnalytics|InventoryValueDashboard|InventoryVelocityAnalytics|ListInventoryItems)'
+      - name: Business report render regression
+        run: php artisan test tests/Feature/Reports/ReportPagesRenderTest.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare mobile UI fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          php artisan migrate:fresh --force
+          php artisan db:seed --class=DefaultDataSeeder --force
+          php artisan db:seed --class=SuperAdminSeeder --force
+          set +e
+          php artisan db:seed --class=DemoDataSeeder --force > /tmp/mobile-seed.log 2>&1
+          SEED_STATUS=$?
+          set -e
+          cat /tmp/mobile-seed.log
+          if [ "$SEED_STATUS" -ne 0 ] && ! grep -q 'This Pay Run overlaps Pay Run #1' /tmp/mobile-seed.log; then exit "$SEED_STATUS"; fi
+          php artisan tinker --execute="\App\Models\Setting::set('enabled_admin_modules', json_encode(array_keys(\App\Support\AdminModules::definitions())));"
+          npm run build
+      - name: Mobile and desktop browser checks
+        shell: bash
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/mobile-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:8000/admin/login >/dev/null && break; sleep 2; done
+          npx playwright test tests/Browser/mobile-reports.spec.ts --project=desktop --workers=1 || { cat /tmp/mobile-server.log; tail -n 150 storage/logs/laravel.log; exit 1; }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-report-pass
+          path: tests/Browser/output

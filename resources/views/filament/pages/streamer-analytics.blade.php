@@ -30,15 +30,15 @@
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Compare Streamers</label>
-                    <select
-                        wire:model.live="selectedStreamers"
-                        multiple
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors h-20">
-                        @foreach($this->streamersList as $streamer)
-                            <option value="{{ $streamer->id }}">{{ $streamer->name }}</option>
-                        @endforeach
-                    </select>
-                    <p class="text-xs text-gray-400 mt-1">Leave blank for the full team · Ctrl/Cmd to multi-select</p>
+                    <details class="rounded-lg border border-gray-300 p-3 dark:border-gray-600">
+                        <summary class="cursor-pointer text-sm">{{ count($selectedStreamers) ? count($selectedStreamers).' selected' : 'Full team' }}</summary>
+                        <div class="mt-3 max-h-48 space-y-2 overflow-y-auto">
+                        @forelse($this->streamersList as $streamer)
+                            <label class="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" wire:model.live="selectedStreamers" value="{{ $streamer->id }}" class="rounded border-gray-300 text-primary-600"><span>{{ $streamer->name }}</span></label>
+                        @empty <p class="text-sm text-gray-500">No streamers available.</p> @endforelse
+                        </div>
+                    </details>
+                    <p class="mt-1 text-xs text-gray-400">Select people to compare, or leave all unchecked for the full team.</p>
                 </div>
             </div>
             <div class="mt-3 flex justify-end">

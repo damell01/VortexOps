@@ -3,7 +3,11 @@
 @endphp
 
 <x-filament-panels::page>
-    <div class="vx-age">
+    <div class="vx-age vx-report">
+        <section class="vx-age-summary">
+            <div><span class="vx-age-eyebrow">Inventory health</span><h2>Age of stock on hand</h2><p>Prioritize older inventory by the money tied up in each age group. Age starts at the most recent receipt; it is not the age of individual lots.</p></div>
+            <div class="vx-age-summary-value"><span>Stock value</span><strong>${{ number_format($data['total_value'], 2) }}</strong><span>{{ number_format($data['total_units']) }} units on hand</span></div>
+        </section>
         <label class="vx-age-filter">
             <span class="vx-age-filter-label">Location</span>
             <select wire:model.live="locationId">
@@ -107,3 +111,4 @@
         @endif
     </div>
 </x-filament-panels::page>
+

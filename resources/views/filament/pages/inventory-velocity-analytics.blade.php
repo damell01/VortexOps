@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="vx-report space-y-6">
 
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         {{-- SUMMARY METRICS                                                     --}}
@@ -165,3 +165,4 @@
 
     </div>
 </x-filament-panels::page>
+

@@ -38,11 +38,12 @@
 
     /* Shared form/dialog behavior. Inventory uses forms heavily, so keep
        confirmations compact while allowing real work to use the screen. */
-    .fi-modal-window { max-height: min(92vh, 920px); }
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window { max-height: min(92vh, 920px); }
     .fi-modal-content { overflow-y: auto; }
 
     @media (min-width: 641px) {
-        .fi-modal-window:not(.fi-width-xs):not(.fi-width-sm) { width: min(92vw, 72rem) !important; max-width: 72rem !important; }
+        /* Slide-overs (Shows' Add Show / Unassigned drawers) keep their own width. */
+        .fi-modal:not(.fi-modal-slide-over) .fi-modal-window:not(.fi-width-xs):not(.fi-width-sm) { width: min(92vw, 72rem) !important; max-width: 72rem !important; }
         .vx-inventory-edit .fi-section,
         .vx-inventory-item .fi-section { border-radius: .85rem !important; }
         .vx-tour-launcher:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(15,23,42,.16); }

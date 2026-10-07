@@ -15,6 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Pages\Page;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use League\Csv\Writer;
 use SplTempFileObject;
 use App\Support\NavVisibility;
@@ -27,8 +28,12 @@ class InventoryReport extends Page
 
     protected static ?string $title = 'Inventory Report & Analytics';
 
-    public string $activeTab = 'overview';
-    public string $reportSearch = '';
+    public string $activeTab = 'items';
+    public string $reportDays = '30';
+    public string $reportStart = '';
+    public string $reportEnd = '';
+    public int $reportPage = 1;
+        public string $reportSearch = '';
     public string $reportCategory = '';
     public string $reportLocation = '';
     public string $reportStock = '';
@@ -93,7 +98,8 @@ class InventoryReport extends Page
 
     public function setTab(string $tab): void
     {
-        $this->activeTab = $tab;
+        $this->activeTab = in_array($tab, ['items','low-stock','out-stock','recent','top-value','moving','aging'], true) ? $tab : 'items';
+        $this->reportPage = 1;
     }
 
     public function toggleReportFilters(): void
@@ -103,6 +109,8 @@ class InventoryReport extends Page
 
     public function applyQuickReport(string $report): void
     {
+        $this->reportPage = 1;
+        $this->viewerDataCache = null;
         $this->reportSearch = '';
         $this->reportCategory = '';
         $this->reportLocation = '';
@@ -124,6 +132,8 @@ class InventoryReport extends Page
 
     public function resetReportFilters(): void
     {
+        $this->reportPage = 1;
+        $this->viewerDataCache = null;
         $this->reportSearch = '';
         $this->reportCategory = '';
         $this->reportLocation = '';
@@ -154,7 +164,10 @@ class InventoryReport extends Page
     {
         $products = Product::query()
             ->where('is_active', true)
-            ->with(['stock.location'])
+            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->whereHas('stock', fn ($stock) => $stock->inChannelContext()))
+            ->when($this->reportLocation !== '', fn ($q) => $q->whereHas('stock.location', fn ($l) => $l->where('name', $this->reportLocation)))
+            ->with(['stock' => fn ($q) => $q->inChannelContext()->when($this->reportLocation !== '', fn ($q) => $q->whereHas('location', fn ($l) => $l->where('name', $this->reportLocation)))->with('location')])
+            ->withMax(['movements' => fn ($q) => $q->inChannelContext()], 'created_at')
             ->get();
 
         $items = $products->map(function (Product $product) {
@@ -177,7 +190,9 @@ class InventoryReport extends Page
                 'is_low_stock' => $quantity > 0 && $product->reorder_level !== null && $quantity <= (float) $product->reorder_level,
                 'is_out_stock' => $quantity <= 0,
                 'locations' => $locations->implode(', ') ?: '—',
+                'location_names' => $product->stock->pluck('location.name')->filter()->unique()->values()->all(),
                 'updated_at' => $product->updated_at,
+                'idle_days' => (int) max(0, \Illuminate\Support\Carbon::parse($product->movements_max_created_at ?? $product->created_at ?? now())->diffInDays(now())),
             ];
         });
 
@@ -186,7 +201,7 @@ class InventoryReport extends Page
         $totalValue = (float) $onHand->sum('total_value');
 
         $trend = InventorySnapshot::query()
-            ->where('snapshot_date', '>=', now()->subDays(30))
+            ->whereBetween('snapshot_date', [$this->periodStart(), $this->periodEnd()])
             ->orderBy('snapshot_date')
             ->get()
             ->groupBy(fn ($snapshot) => $snapshot->snapshot_date->format('Y-m-d'))
@@ -197,7 +212,9 @@ class InventoryReport extends Page
                 'value' => (float) $snapshot->total_value,
             ]);
 
-        $locations = InventoryStock::query()
+        $locations = InventoryStock::query()->inChannelContext()
+            ->whereIn('inventory_item_id', $products->pluck('id'))
+            ->when($this->reportLocation !== '', fn ($q) => $q->whereHas('location', fn ($l) => $l->where('name', $this->reportLocation)))
             ->with(['item', 'location'])
             ->where('quantity', '>', 0)
             ->get()
@@ -222,6 +239,7 @@ class InventoryReport extends Page
             ],
             'trend' => $trend,
             'locations' => $locations,
+            'location_options' => InventoryLocation::query()->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))->orderBy('name')->pluck('name'),
             'items' => $items,
             'category_breakdown' => $onHand->groupBy('category')->map(function ($rows, $category) {
                 return [
@@ -236,7 +254,7 @@ class InventoryReport extends Page
 
     public function getViewerData(): array
     {
-        $data = $this->getData();
+        $data = $this->viewerDataCache ??= $this->getData();
         $items = collect($data['items']);
 
         if ($this->reportSearch !== '') {
@@ -247,7 +265,7 @@ class InventoryReport extends Page
             $items = $items->where('category', $this->reportCategory);
         }
         if ($this->reportLocation !== '') {
-            $items = $items->filter(fn ($item) => str_contains($item['locations'], $this->reportLocation));
+            $items = $items->filter(fn ($item) => in_array($this->reportLocation, $item['location_names'], true));
         }
         if ($this->reportStock !== '') {
             $items = match ($this->reportStock) {
@@ -270,49 +288,145 @@ class InventoryReport extends Page
             default => $items->sortByDesc('total_value'),
         };
 
+        $onHand = $items->where('quantity', '>', 0);
+        $quantity = (float) $onHand->sum('quantity');
+        $value = (float) $onHand->sum('total_value');
+        $data['summary'] = ['value' => $value, 'items' => $items->count(), 'in_stock_items' => $onHand->count(),
+            'quantity' => $quantity, 'avg_cost' => $quantity > 0 ? $value / $quantity : 0,
+            'low_stock' => $items->where('is_low_stock', true)->count(), 'out_stock' => $items->where('is_out_stock', true)->count()];
+        $data['category_breakdown'] = $onHand->groupBy('category')->map(fn ($rows, $name) => [
+            'name' => $name, 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value'),
+        ])->sortByDesc('value')->values();
         $data['items'] = $items->values();
         return $data;
     }
 
+    private function hasValidCustomPeriod(): bool
+    {
+        if ($this->reportDays !== 'custom' || $this->reportStart === '' || $this->reportEnd === '') return false;
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            ['reportStart' => $this->reportStart, 'reportEnd' => $this->reportEnd],
+            ['reportStart' => 'required|date_format:Y-m-d|before_or_equal:reportEnd',
+                'reportEnd' => 'required|date_format:Y-m-d|before_or_equal:today'],
+        );
+        if ($validator->fails()) {
+            foreach ($validator->errors()->messages() as $field => $messages) $this->addError($field, $messages[0]);
+            return false;
+        }
+        $this->resetErrorBag(['reportStart', 'reportEnd']);
+        return true;
+    }
+
+    public function periodStart(): \Illuminate\Support\Carbon
+    {
+        if ($this->hasValidCustomPeriod()) {
+            return \Illuminate\Support\Carbon::parse($this->reportStart)->startOfDay();
+        }
+        $days = in_array($this->reportDays, ['7', '30', '90'], true) ? (int) $this->reportDays : 30;
+        return now()->subDays($days - 1)->startOfDay();
+    }
+
+    public function periodEnd(): \Illuminate\Support\Carbon
+    {
+        if ($this->hasValidCustomPeriod()) {
+            return \Illuminate\Support\Carbon::parse($this->reportEnd)->endOfDay();
+        }
+        return now();
+    }
+
+    public function periodDays(): int
+    {
+        return (int) $this->periodStart()->diffInDays($this->periodEnd()->copy()->startOfDay()) + 1;
+    }
+
+    public function updated($property): void
+    {
+        $this->viewerDataCache = null;
+        if ($property !== 'reportPage') $this->reportPage = 1;
+    }
+
+    public function changeReportPage(int $page): void
+    {
+        $this->reportPage = max(1, $page);
+    }
+
+    public function getReportItems()
+    {
+        $items = collect($this->getViewerData()['items']);
+        return match ($this->activeTab) {
+            'low-stock' => $items->where('is_low_stock', true)->values(),
+            'out-stock' => $items->where('is_out_stock', true)->values(),
+            'top-value' => $items->where('quantity', '>', 0)->sortByDesc('total_value')->values(),
+            'aging' => $items->where('quantity', '>', 0)->where('idle_days', '>=', 30)->sortByDesc('idle_days')->values(),
+            default => $items->values(),
+        };
+    }
+
+    protected function movementQuery()
+    {
+        $query = InventoryMovement::query()->inChannelContext()
+            ->whereIn('inventory_item_id', collect($this->getViewerData()['items'])->pluck('id'));
+        if ($this->reportLocation !== '') {
+            $query->where(fn ($q) => $q
+                ->whereHas('fromLocation', fn ($l) => $l->where('name', $this->reportLocation))
+                ->orWhereHas('toLocation', fn ($l) => $l->where('name', $this->reportLocation)));
+        }
+        return $query;
+    }
+
+    public function getMovementSummary(): array
+    {
+        $start = $this->periodStart();
+        $rows = $this->movementQuery()->whereBetween('created_at', [$start->copy()->subDays($this->periodDays()), $this->periodEnd()])->get();
+        $summarize = function ($movements) {
+            $result = ['received' => 0.0, 'removed' => 0.0, 'adjustments' => 0.0, 'transfers' => 0.0, 'cost_change' => 0.0];
+            foreach ($movements as $movement) {
+                if ($movement->from_location_id && $movement->to_location_id) {
+                    $result['transfers'] += abs((float) $movement->quantity);
+                    continue;
+                }
+                $change = $movement->signedChange();
+                if ($movement->movement_type === 'adjustment') $result['adjustments'] += $change;
+                elseif ($change > 0) $result['received'] += $change;
+                else $result['removed'] += abs($change);
+                $result['cost_change'] += $change * (float) $movement->unit_cost;
+            }
+            $result['net'] = $result['received'] - $result['removed'] + $result['adjustments'];
+            return $result;
+        };
+        return ['current' => $summarize($rows->filter(fn ($row) => $row->created_at->gte($start))),
+            'previous' => $summarize($rows->filter(fn ($row) => $row->created_at->lt($start)))];
+    }
+
     public function getRecentActivityRows(): array
     {
-        return InventoryMovement::query()
-            ->with(['item', 'fromLocation', 'toLocation'])
-            ->latest('created_at')
-            ->limit(50)
-            ->get()
-            ->map(fn ($movement) => [
+        return $this->movementQuery()
+            ->whereBetween('created_at', [$this->periodStart(), $this->periodEnd()])
+            ->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])
+            ->latest('created_at')->get()->map(fn ($movement) => [
                 'id' => $movement->id,
                 'name' => $this->sanitizeUtf8($movement->item?->name ?? 'Unknown item'),
                 'sku' => $this->sanitizeUtf8($movement->item?->sku ?? '—'),
-                'change' => $movement->changeLabel(),
+                'change' => $movement->changeLabel(2),
                 'type' => InventoryMovement::movementTypeLabels()[$movement->movement_type] ?? $movement->movement_type,
                 'location' => $movement->toLocation?->name ?? $movement->fromLocation?->name ?? '—',
+                'actor' => $movement->createdByUser?->name ?? 'System',
                 'updated_at' => $movement->created_at,
             ])->all();
     }
 
     public function getTopMovingRows(): array
     {
-        $totals = InventoryMovement::query()
-            ->where('created_at', '>=', now()->subDays(30))
+        $totals = $this->movementQuery()
+            ->whereBetween('created_at', [$this->periodStart(), $this->periodEnd()])
+            ->whereIn('movement_type', ['sale_deduction', 'show_sale'])
             ->selectRaw('inventory_item_id, SUM(ABS(quantity)) as moved_units')
-            ->groupBy('inventory_item_id')
-            ->orderByDesc('moved_units')
-            ->limit(25)
-            ->pluck('moved_units', 'inventory_item_id');
-
-        $products = Product::whereIn('id', $totals->keys())->get()->keyBy('id');
-
-        return $totals->map(function ($moved, $id) use ($products) {
-            $product = $products->get($id);
-            return [
-                'id' => (int) $id,
-                'name' => $this->sanitizeUtf8($product?->name ?? 'Unknown item'),
-                'sku' => $this->sanitizeUtf8($product?->sku ?? '—'),
-                'moved_units' => (float) $moved,
-            ];
-        })->values()->all();
+            ->groupBy('inventory_item_id')->orderByDesc('moved_units')->pluck('moved_units', 'inventory_item_id');
+        $products = collect($this->getViewerData()['items'])->keyBy('id');
+        return $totals->map(fn ($moved, $id) => [
+            'id' => (int) $id, 'name' => $products[$id]['name'], 'sku' => $products[$id]['sku'],
+            'moved_units' => (float) $moved,
+        ])->values()->all();
     }
 
     // ── Stock Health ────────────────────────────────────────────
@@ -792,15 +906,21 @@ class InventoryReport extends Page
             'aging_90' => $grouped['aging_90'] ?? ['label' => '90+ days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
         ];
     }
-    public function exportPdf(): Response
+    public function exportPdf(): StreamedResponse
     {
-        $data = $this->sanitizeUtf8($this->getData());
-
+        $data = $this->getViewerData();
+        $data['items'] = $this->getReportItems();
+        $data = $this->sanitizeUtf8($data);
         $pdf = Pdf::loadView('filament.pages.inventory-report-pdf', $data)
             ->setPaper('a4', 'landscape')
             ->setOption('enable-local-file-access', true);
+        $contents = $pdf->output();
 
-        return $pdf->download('inventory-report-' . now()->format('Y-m-d-His') . '.pdf');
+        return response()->streamDownload(
+            static function () use ($contents): void { echo $contents; },
+            'inventory-report-' . now()->format('Y-m-d-His') . '.pdf',
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     private function sanitizeUtf8($data): mixed
@@ -813,57 +933,38 @@ class InventoryReport extends Page
         return $data;
     }
 
-    public function exportCsv(): Response
+    public function exportCsv(): StreamedResponse
     {
-        $csv = Writer::createFromFileObject(new SplTempFileObject());
-
-        $products = Product::with(['stock.location.streamer', 'lots'])->where('is_active', true)->get();
-
-        $csv->insertOne([
-            'SKU',
-            'Product Name',
-            'Category',
-            'Total Quantity',
-            'Unit Cost',
-            'Average Cost',
-            'Total Value',
-            'Active Lots',
-            'Reorder Level',
-            'Status',
-        ]);
-
-        foreach ($products as $product) {
-            $qty = (float) $product->totalQuantity();
-            $avgCost = (float) $product->average_cost;
-            $totalValue = $qty * $avgCost;
-            $activeLots = $product->lots()->where('status', 'active')->count();
-
-            $status = 'Healthy';
-            if ($qty <= 0) {
-                $status = 'Out of Stock';
-            } elseif ($product->reorder_level && $qty < $product->reorder_level) {
-                $status = 'Low Stock';
-            } elseif ($product->reorder_level && $qty > ($product->reorder_level * 3)) {
-                $status = 'Overstock';
-            }
-
-            $csv->insertOne([
-                $product->sku,
-                $product->name,
-                $product->category ?? '',
-                number_format($qty),
-                number_format($product->unit_cost ?? 0, 2),
-                number_format($avgCost, 4),
-                number_format($totalValue, 2),
-                $activeLots,
-                $product->reorder_level ?? 0,
-                $status,
-            ]);
+        if (in_array($this->activeTab, ['recent', 'moving'], true)) {
+            $rows = $this->activeTab === 'recent' ? $this->getRecentActivityRows() : $this->getTopMovingRows();
+            return response()->streamDownload(function () use ($rows): void {
+                $out = fopen('php://output', 'w');
+                if ($rows) fputcsv($out, array_keys($rows[0]));
+                foreach ($rows as $row) fputcsv($out, array_map([$this, 'csvCell'], array_values($row)));
+                fclose($out);
+            }, 'inventory-'.$this->activeTab.'-'.now()->format('Y-m-d').'.csv');
         }
+        $items = $this->getReportItems();
 
-        return response()->streamDownload(function () use ($csv) {
-            echo $csv->getContent();
-        }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv');
+        return response()->streamDownload(function () use ($items): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['SKU','Product Name','Category','Location','Quantity','Unit Cost','Total Value','Reorder Level','Status','Days Without Movement']);
+            foreach ($items as $item) {
+                $status = $item['is_out_stock'] ? 'Out of Stock' : ($item['is_low_stock'] ? 'Low Stock' : 'In Stock');
+                fputcsv($out, array_map([$this, 'csvCell'], [
+                    $item['sku'], $item['name'], $item['category'], $item['locations'],
+                    $item['quantity'], number_format($item['unit_cost'], 2, '.', ''),
+                    number_format($item['total_value'], 2, '.', ''), $item['reorder_level'], $status, $item['idle_days'],
+                ]));
+            }
+            fclose($out);
+        }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function csvCell($value): string
+    {
+        $text = (string) $value;
+        return preg_match('/^[=+@\x2D\t\r]/', $text) ? "'".$text : $text;
     }
 
     public function exportBreakdown(): Response
@@ -879,12 +980,12 @@ class InventoryReport extends Page
             'Total Value',
         ]);
 
-        $itemDetails = $this->getData()['itemDetails'];
+        $itemDetails = $this->getViewerData()['items'];
         foreach ($itemDetails as $item) {
             $csv->insertOne([
                 $item['sku'],
                 $item['name'],
-                $item['location'],
+                $item['locations'],
                 number_format($item['quantity']),
                 number_format($item['unit_cost'], 2),
                 number_format($item['total_value'], 2),
@@ -902,7 +1003,9 @@ class InventoryReport extends Page
             'title' => 'Comprehensive Inventory Report',
             'date' => now()->format('F j, Y'),
             'time' => now()->format('H:i'),
-            'summary' => $this->getData(),
+            'summary' => $this->getData()['summary'],
+            'items' => $this->getData()['items'],
+            'locations' => $this->getData()['locations'],
             'health' => $this->getStockHealthProperty(),
             'fastMovers' => $this->getFastMoversProperty(),
             'slowMovers' => $this->getSlowMoversProperty(),
@@ -947,3 +1050,4 @@ class InventoryReport extends Page
         return $pdf->download('low-stock-alert-' . now()->format('Y-m-d-His') . '.pdf');
     }
 }
+

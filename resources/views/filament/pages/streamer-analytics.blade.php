@@ -26,6 +26,9 @@
                         @forelse($this->streamersList as $streamer)
                             <label class="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" wire:model.live="selectedStreamers" value="{{ $streamer->id }}" class="rounded border-gray-300 text-primary-600"><span>{{ $streamer->name }}</span></label>
                         @empty <p class="text-sm text-gray-500">No streamers available.</p>
+                        @endforelse
+                        </div>
+                    </details>
                 </div>
             </div>
             <div class="mt-3 flex justify-end">

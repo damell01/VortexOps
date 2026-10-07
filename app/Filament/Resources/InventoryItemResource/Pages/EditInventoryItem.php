@@ -43,11 +43,7 @@ class EditInventoryItem extends EditRecord
                 ->color('warning')
                 ->url(fn () => InventoryItemResource::getUrl('stock', ['record' => $this->record])),
 
-            DeleteAction::make()
-                ->visible(fn () => InventoryItemResource::canDelete($this->record))
-                ->tooltip(fn () => InventoryItemResource::canDelete($this->record)
-                    ? null
-                    : 'This item still has stock on hand. Move or correct the stock to zero before deleting it.'),
+            InventoryItemResource::deleteItemAction(),
         ];
     }
 }

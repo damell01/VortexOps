@@ -1,4 +1,20 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+
+const authState = 'storage/mobile-report-browser-auth.json';
+test.use({ storageState: authState });
+test.beforeAll(async ({ browser }) => {
+    if (fs.existsSync(authState)) return;
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+    await page.goto('http://127.0.0.1:8000/admin/login');
+    await page.locator('input[type=email]').fill('dev@vortexbreaks.com');
+    await page.locator('input[type=password]').fill('devpassword');
+    await page.locator('button[type=submit]').click();
+    await expect(page.locator('input[type=password]')).toHaveCount(0, { timeout: 20000 });
+    await context.storageState({ path: authState });
+    await context.close();
+});
 
 const pages = ['inventory-items', 'inventory-report', 'inventory-age', 'inventory-analytics', 'inventory-value-dashboard', 'inventory-velocity-analytics', 'reports', 'streamer-analytics', 'shows', 'payroll-overview'];
 
@@ -6,11 +22,6 @@ for (const width of [320, 390, 430, 768, 1440]) {
     test(`inventory and reports fit ${width}px`, async ({ page }) => {
         test.setTimeout(240000);
         await page.setViewportSize({ width, height: 900 });
-        await page.goto('/admin/login');
-        await page.locator('input[type=email]').fill('dev@vortexbreaks.com');
-        await page.locator('input[type=password]').fill('devpassword');
-        await page.locator('button[type=submit]').click();
-        await expect(page.locator('input[type=password]')).toHaveCount(0, { timeout: 20000 });
         for (const path of pages) {
             const response = await page.goto(`/admin/${path}`);
             expect(response?.status(), path).toBe(200);
@@ -18,9 +29,13 @@ for (const width of [320, 390, 430, 768, 1440]) {
             await expect(page.locator('.fi-main')).toBeVisible();
             const overflow = await page.evaluate(() => {
                 const viewport = document.documentElement.clientWidth;
-                return [...document.querySelectorAll('.fi-main, .fi-page-content, .vx-report, .vx-report .grid, .vx-kpis, .vx-catalog-grid')]
+                return [...document.querySelectorAll('.fi-main, .fi-page-content, .vx-report, .vx-report .grid, .vx-kpis, .vx-catalog-grid, .vx-mobile-report-table')]
                     .filter((el) => el.getBoundingClientRect().width && (el.getBoundingClientRect().right > viewport + 2 || el.getBoundingClientRect().left < -2))
-                    .map((el) => ({ class: el.className, width: el.getBoundingClientRect().width }));
+                    .map((el) => {
+                        const ancestors = []; let parent = el.parentElement;
+                        while (parent && ancestors.length < 5) { const css = getComputedStyle(parent); ancestors.push({ class: parent.className, width: parent.getBoundingClientRect().width, minWidth: css.minWidth, display: css.display }); parent = parent.parentElement; }
+                        return { class: el.className, width: el.getBoundingClientRect().width, ancestors };
+                    });
             });
             expect(overflow, `${path} at ${width}`).toEqual([]);
             const clippedValues = await page.locator('.vx-kpi-value, .vx-an-kpi-value, .vx-metric-value').evaluateAll((elements) => elements.filter((el) => el.getBoundingClientRect().width && el.scrollWidth > el.clientWidth + 2).map((el) => el.textContent));
@@ -53,11 +68,6 @@ for (const width of [320, 390, 430, 768, 1440]) {
 
 test('desktop table selection recovers cards when resized to mobile', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/admin/login');
-    await page.locator('input[type=email]').fill('dev@vortexbreaks.com');
-    await page.locator('input[type=password]').fill('devpassword');
-    await page.locator('button[type=submit]').click();
-    await expect(page.locator('input[type=password]')).toHaveCount(0, { timeout: 20000 });
     await page.goto('/admin/inventory-items');
     await page.getByRole('button', { name: 'Table', exact: true }).click();
     await expect(page.locator('.vx-inventory-items-panel')).toBeVisible();

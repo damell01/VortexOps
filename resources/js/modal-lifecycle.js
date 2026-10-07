@@ -19,7 +19,9 @@
 // it undoes the things an open modal is allowed to leave behind. When the
 // normal path works it finds nothing to do and costs nothing.
 
-const OPEN_MODAL = '.fi-modal.fi-modal-open, .fi-modal-window';
+// The mobile drawer also owns a focus trap and scroll lock. Treat it as
+// an open dialog so late-loading cleanup never dispatches Escape into it.
+const OPEN_MODAL = '.fi-modal.fi-modal-open, .fi-modal-window, .vx-mobile-menu-sheet';
 
 /**
  * Is a dialog genuinely on screen?
@@ -141,3 +143,4 @@ document.addEventListener('livewire:init', () => {
 scheduleReconcile();
 
 export { aModalIsOpen, releaseScrollLock, removeOrphanedOverlays, reconcile };
+

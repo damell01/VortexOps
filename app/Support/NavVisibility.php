@@ -10,6 +10,8 @@ class NavVisibility
     public const ALWAYS_AVAILABLE = [
         \App\Filament\Pages\DashboardImproved::class,
         \App\Filament\Pages\EditProfile::class,
+        // Everyone's own notification choices, like their profile.
+        \App\Filament\Pages\MyNotifications::class,
         \App\Filament\Pages\TwoFactorAuth::class,
         \App\Filament\Pages\TwoFactorVerify::class,
         // New show-first shipment page is part of the existing Streams workflow;

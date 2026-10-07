@@ -335,25 +335,24 @@ class ViewInventoryItem extends Page
         return [
             Action::make('edit')->label('Edit')->icon('heroicon-o-pencil')->url(InventoryItemResource::getUrl('edit', ['record' => $this->record]))->color('gray'),
             Action::make('add_stock')
-                ->label('Add Stock')->icon('heroicon-o-plus-circle')->color('success')
-                ->form([
-                    Select::make('location_id')->label('Location')->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))->required()->searchable(),
-                    TextInput::make('quantity')->numeric()->required()->minValue(0.01),
-                    Select::make('movement_type')->options(['opening' => 'Opening Stock / Restock', 'adjustment' => 'Adjustment', 'return' => 'Return'])->default('opening')->live()->required(),
-                    TextInput::make('unit_cost')->label('Unit Cost ($)')->numeric()->minValue(0)->visible(fn (Get $get) => $get('movement_type') === 'opening')->helperText('Blends into this item\'s weighted average cost. Leave blank to add stock without changing the average.'),
-                    Textarea::make('reason')->rows(2),
+                ->label('Add Stock')->icon('heroicon-o-plus-circle')->color('primary')
+                ->visible(fn () => InventoryItemResource::canEdit($this->record))
+                ->modalWidth('md')
+                ->modalHeading('Add Stock')
+                ->modalDescription(fn () => $this->record->name)
+                ->modalSubmitActionLabel('Add Stock')
+                ->fillForm(fn () => [
+                    'quantity' => 1,
+                    'unit_cost' => $this->record->effectiveCost() > 0 ? number_format($this->record->effectiveCost(), 2, '.', '') : null,
+                    'location_id' => $this->record->stock()->where('quantity', '>', 0)->orderByDesc('quantity')->value('inventory_location_id') ?? InventoryLocation::defaultReceivingId(),
+                    'received_at' => now()->toDateString(),
+                    'movement_type' => 'opening',
                 ])
+                ->form(InventoryItemResource::addStockFields())
                 ->action(function (array $data): void {
-                    $location = InventoryLocation::findOrFail($data['location_id']);
-                    app(InventoryService::class)->addStock(
-                        $this->record,
-                        $location,
-                        (float) $data['quantity'],
-                        $data['movement_type'],
-                        $data['reason'] ?? null,
-                        isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== '' ? (float) $data['unit_cost'] : null,
-                    );
-                    Notification::make()->title('Stock added')->success()->send();
+                    abort_unless(InventoryItemResource::canEdit($this->record), 403);
+                    $location = InventoryItemResource::bookAddStock($this->record, $data);
+                    Notification::make()->title('Stock added')->body(rtrim(rtrim(number_format((float) $data['quantity'], 2), '0'), '.') . ' added at ' . $location->name . '.')->success()->send();
                     $this->record->load('stock.location');
                 }),
             \Filament\Actions\ActionGroup::make([

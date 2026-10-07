@@ -129,6 +129,80 @@ class InventoryItemResource extends Resource
             });
     }
 
+    /**
+     * The Add Stock sheet, shared by the cards and the item page: a quantity
+     * stepper, cost per unit, the total it comes to, where it goes, the day it
+     * arrived, and a note. Vendor, entry type and the barcode check sit under
+     * "More options".
+     *
+     * @param  \Closure|null  $scan  starts a barcode check (cards only)
+     */
+    public static function addStockFields(?\Closure $scan = null): array
+    {
+        $step = fn (int $dir) => Action::make($dir > 0 ? 'qty_plus' : 'qty_minus')
+            ->icon($dir > 0 ? 'heroicon-m-plus' : 'heroicon-m-minus')
+            ->label($dir > 0 ? 'Add one' : 'Remove one')
+            ->color('gray')
+            ->action(fn (\Filament\Schemas\Components\Utilities\Set $set, \Filament\Schemas\Components\Utilities\Get $get) => $set('quantity', max(1, (float) $get('quantity') + $dir)));
+
+        $more = [
+            Select::make('movement_type')->label('Entry type')
+                ->options(['opening' => 'Restock / received', 'adjustment' => 'Count correction', 'return' => 'Return'])
+                ->default('opening')->required(),
+            Select::make('vendor_id')->label('Vendor')->options(fn () => \App\Models\Vendor::activeOptions())->searchable()->placeholder('Optional'),
+        ];
+        if ($scan) {
+            $more[] = TextInput::make('barcode_check')->label('Barcode check')
+                ->placeholder('Tap scan to verify this item')->readOnly()->dehydrated(false)
+                ->suffixAction(Action::make('scan_quick_stock')->label('Scan')->icon('heroicon-o-qr-code')->color('primary')->action($scan));
+        }
+
+        return [
+            \Filament\Schemas\Components\Grid::make(2)->schema([
+                TextInput::make('quantity')->label('Quantity')->numeric()->required()->minValue(0.01)->default(1)
+                    ->extraInputAttributes(['class' => 'text-center', 'inputmode' => 'decimal'])
+                    ->prefixAction($step(-1))->suffixAction($step(1))
+                    ->live(onBlur: true),
+                TextInput::make('unit_cost')->label('Cost Per Unit')->numeric()->minValue(0)->prefix('$')
+                    ->extraInputAttributes(['inputmode' => 'decimal'])
+                    ->live(onBlur: true),
+            ]),
+            \Filament\Forms\Components\Placeholder::make('total_cost')->label('Total Cost')
+                ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) => '$' . number_format((float) $get('quantity') * (float) $get('unit_cost'), 2))
+                ->extraAttributes(['class' => 'ivx-total-cost']),
+            Select::make('location_id')->label('Location')
+                ->options(fn () => InventoryLocation::activeOptions())->required()->searchable(),
+            \Filament\Forms\Components\DatePicker::make('received_at')->label('Received Date')
+                ->default(now())->maxDate(now())->native(false)->displayFormat('M j, Y'),
+            Textarea::make('reason')->label('Notes (Optional)')->rows(2)->placeholder('Add notes…'),
+            \Filament\Schemas\Components\Section::make('More options')->schema($more)->collapsed()->compact(),
+        ];
+    }
+
+    /** Book an Add Stock sheet's data in. */
+    public static function bookAddStock(InventoryItem $record, array $data): InventoryLocation
+    {
+        $location = InventoryLocation::findOrFail((int) $data['location_id']);
+        $reason = trim((string) ($data['reason'] ?? ''));
+        if (! empty($data['vendor_id'])) {
+            $vendor = \App\Models\Vendor::find($data['vendor_id']);
+            $reason = ($reason !== '' ? $reason . ' — ' : '') . 'From ' . ($vendor?->name ?? 'Unknown Vendor');
+        }
+        $cost = isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== '' ? (float) $data['unit_cost'] : null;
+
+        app(InventoryService::class)->addStock(
+            $record,
+            $location,
+            (float) $data['quantity'],
+            $data['movement_type'] ?? 'opening',
+            $reason !== '' ? $reason : null,
+            $cost,
+            filled($data['received_at'] ?? null) ? \Illuminate\Support\Carbon::parse($data['received_at']) : null,
+        );
+
+        return $location;
+    }
+
     public static function restoreItemAction(): Action
     {
         return Action::make('restore_item')

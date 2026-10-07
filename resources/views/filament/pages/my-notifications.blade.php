@@ -5,7 +5,7 @@
     $grouped = collect($events)->groupBy('group', true);
 @endphp
 <style>
-.vx-mn{--line:#e5e7eb;--muted:#64748b;--p:var(--primary-600,#7c3aed);max-width:860px;margin:0 auto;display:grid;gap:16px}
+.vx-mn{width:100%;--line:#e5e7eb;--muted:#64748b;--p:var(--primary-600,#7c3aed);max-width:860px;margin:0 auto;display:grid;gap:16px}
 .dark .vx-mn{--line:#253247;--muted:#94a3b8}
 .vx-mn .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
 .dark .vx-mn .card{background:#0f172a}

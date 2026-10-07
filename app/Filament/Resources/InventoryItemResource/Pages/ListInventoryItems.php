@@ -302,12 +302,11 @@ class ListInventoryItems extends ListRecords
         return Action::make('add_stock')
             ->label('Add Stock')
             ->icon('heroicon-o-plus-circle')
-            ->color('success')
-            ->modalWidth('lg')
-            ->modalHeading(function (array $arguments): string {
-                $record = InventoryItem::find($arguments['product'] ?? null);
-                return 'Add Stock' . ($record ? ' — ' . $record->name : '');
-            })
+            ->color('primary')
+            ->modalWidth('md')
+            ->modalHeading('Add Stock')
+            ->modalDescription(fn (array $arguments) => InventoryItem::find($arguments['product'] ?? null)?->name)
+            ->modalSubmitActionLabel('Add Stock')
             ->mountUsing(function ($form, array $arguments): void {
                 $record = InventoryItem::find($arguments['product'] ?? null);
                 $this->selectedStockProductId = $record?->getKey();
@@ -330,73 +329,17 @@ class ListInventoryItems extends ListRecords
                 $form->fill([
                     'location_id' => $mainLocationId,
                     'quantity' => 1,
+                    'unit_cost' => $record && $record->effectiveCost() > 0 ? number_format($record->effectiveCost(), 2, '.', '') : null,
+                    'received_at' => now()->toDateString(),
+                    'movement_type' => 'opening',
                 ]);
             })
-            ->form([
-                Select::make('location_id')
-                    ->label('Location')
-                    ->options(fn () => InventoryLocation::activeOptions())
-                    ->required()
-                    ->searchable()
-                    ->helperText('Defaults to Main Warehouse.'),
-                TextInput::make('quantity')
-                    ->label('Quantity Counted / Added')
-                    ->numeric()
-                    ->required()
-                    ->minValue(0.01)
-                    ->default(1)
-                    ->autofocus(),
-                TextInput::make('barcode_check')
-                    ->label('Barcode Check')
-                    ->placeholder('Tap the scan icon to verify this item')
-                    ->readOnly()
-                    ->dehydrated(false)
-                    ->suffixAction(
-                        Action::make('scan_quick_stock')
-                            ->label('Scan')
-                            ->icon('heroicon-o-qr-code')
-                            ->color('primary')
-                            ->action(fn () => $this->startQuickStockBarcodeScan())
-                    ),
-                Grid::make(2)->schema([
-                    Select::make('vendor_id')
-                        ->label('Vendor')
-                        ->options(fn () => Vendor::activeOptions())
-                        ->searchable()
-                        ->helperText('Optional'),
-                    TextInput::make('unit_cost')
-                        ->label('Unit Cost ($)')
-                        ->numeric()
-                        ->minValue(0)
-                        ->helperText('Optional'),
-                ]),
-                Textarea::make('reason')
-                    ->label('Note / Reason')
-                    ->rows(2)
-                    ->placeholder('Optional note'),
-            ])
+            ->form(InventoryItemResource::addStockFields(fn () => $this->startQuickStockBarcodeScan()))
             ->action(function (array $data, array $arguments): void {
                 $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
                 abort_unless(InventoryItemResource::canEdit($record), 403);
 
-                $location = InventoryLocation::findOrFail((int) $data['location_id']);
-                $reason = trim((string) ($data['reason'] ?? ''));
-
-                if (! empty($data['vendor_id'])) {
-                    $vendor = Vendor::find($data['vendor_id']);
-                    $reason = ($reason !== '' ? $reason . ' — ' : '') . 'From ' . ($vendor?->name ?? 'Unknown Vendor');
-                }
-
-                app(InventoryService::class)->addStock(
-                    $record,
-                    $location,
-                    (float) $data['quantity'],
-                    'opening',
-                    $reason !== '' ? $reason : null,
-                    isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== ''
-                        ? (float) $data['unit_cost']
-                        : null,
-                );
+                $location = InventoryItemResource::bookAddStock($record, $data);
 
                 $this->selectedStockProductId = null;
                 $this->quickStockScanTargetId = null;

@@ -15,6 +15,7 @@ use App\Support\AdminModules;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 
 class InventoryOverview extends Page
 {
@@ -24,6 +25,14 @@ class InventoryOverview extends Page
     protected static ?string $title = 'Inventory Overview';
     protected static ?string $navigationLabel = 'Overview';
     protected static ?string $slug = 'inventory-overview';
+
+    /** Overview (health at a glance), Tools (quick actions) or Reports (stock table). */
+    #[Url(as: 'tab')] public string $tab = 'overview';
+    #[Url(as: 'days')] public int $trendDays = 30;
+    #[Url(as: 'loc')] public string $reportLocation = '';
+    #[Url(as: 'cat')] public string $reportCategory = '';
+    public string $reportSearch = '';
+    public int $reportLimit = 25;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -47,7 +56,7 @@ class InventoryOverview extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Track inventory health, recent stock activity, and the work that needs attention.';
+        return 'Track inventory health, recent activity, and key metrics.';
     }
 
     public function getView(): string
@@ -68,9 +77,11 @@ class InventoryOverview extends Page
         $low = 0;
         $noReorder = 0;
         $value = 0.0;
+        $units = 0.0;
 
         foreach ($items as $item) {
             $onHand = (float) ($item->stock_sum_quantity ?? 0);
+            $units += max(0, $onHand);
             $value += max(0, $onHand) * $item->effectiveCost();
 
             if ($onHand <= 0) {
@@ -94,6 +105,7 @@ class InventoryOverview extends Page
             'out' => $out,
             'no_reorder' => $noReorder,
             'value' => round($value, 2),
+            'units' => $units,
             'percentages' => [
                 'total' => $total > 0 ? 100.0 : 0.0,
                 'in' => $pct($in),
@@ -181,7 +193,7 @@ class InventoryOverview extends Page
     public function valueTrend(): Collection
     {
         return InventorySnapshot::query()
-            ->where('snapshot_date', '>=', now()->subDays(30))
+            ->where('snapshot_date', '>=', now()->subDays(in_array($this->trendDays, [7, 30, 90], true) ? $this->trendDays : 30))
             ->orderBy('snapshot_date')
             ->get()
             ->groupBy(fn ($snapshot) => $snapshot->snapshot_date->format('Y-m-d'))
@@ -227,6 +239,87 @@ class InventoryOverview extends Page
             ->sortByDesc('value')
             ->take(5)
             ->values();
+    }
+
+    /** Percent change in on-hand value across the trend window, or null without two points. */
+    public function valueChange(): ?float
+    {
+        $trend = $this->valueTrend;
+        if ($trend->count() < 2 || (float) $trend->first()['value'] <= 0) return null;
+        return round(((float) $trend->last()['value'] - (float) $trend->first()['value']) / (float) $trend->first()['value'] * 100, 1);
+    }
+
+    public function setTab(string $tab): void
+    {
+        if (in_array($tab, ['overview', 'tools', 'reports'], true)) $this->tab = $tab;
+    }
+
+    public function updatedTrendDays(): void
+    {
+        unset($this->valueTrend);
+    }
+
+    // ── Reports tab: a plain stock table with location / category filters ──
+
+    #[Computed]
+    public function reportLocations(): Collection
+    {
+        return \App\Models\InventoryLocation::query()->where('status', 'active')->orderBy('name')->pluck('name', 'id');
+    }
+
+    #[Computed]
+    public function reportCategories(): Collection
+    {
+        return \App\Models\InventoryItem::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category');
+    }
+
+    public function reportRows(): array
+    {
+        // select() replaces the columns, including the stock total getEloquentQuery() added — so add it back.
+        $q = InventoryItemResource::getEloquentQuery()->select(['products.id', 'products.name', 'products.sku', 'products.image_path', 'products.category'])->withSum('stock', 'quantity');
+        if ($this->reportLocation !== '') {
+            $loc = (int) $this->reportLocation;
+            $q->withSum(['stock as location_qty' => fn ($s) => $s->where('inventory_location_id', $loc)], 'quantity')
+                ->whereHas('stock', fn ($s) => $s->where('inventory_location_id', $loc));
+        }
+        if ($this->reportCategory !== '') $q->where('products.category', $this->reportCategory);
+        if (($n = trim($this->reportSearch)) !== '') $q->where(fn ($x) => $x->where('products.name', 'like', "%{$n}%")->orWhere('products.sku', 'like', "%{$n}%")->orWhere('products.barcode', 'like', "%{$n}%"));
+
+        $total = (clone $q)->count();
+        $rows = $q->orderBy('products.name')->limit($this->reportLimit)->get()->map(fn ($i) => [
+            'id' => $i->id,
+            'name' => $i->name,
+            'sku' => $i->sku,
+            'image' => $i->imageUrl(),
+            'qty' => (float) ($this->reportLocation !== '' ? ($i->location_qty ?? 0) : ($i->stock_sum_quantity ?? 0)),
+        ]);
+
+        return ['rows' => $rows, 'total' => $total];
+    }
+
+    public function updatedReportSearch(): void { $this->reportLimit = 25; }
+    public function updatedReportLocation(): void { $this->reportLimit = 25; }
+    public function updatedReportCategory(): void { $this->reportLimit = 25; }
+    public function moreReportRows(): void { $this->reportLimit += 25; }
+
+    public function exportUrl(): string
+    {
+        return route('export.inventory-items');
+    }
+
+    public function stockStatusUrl(?string $tab = null): string
+    {
+        return StockStatus::getUrl($tab ? ['tab' => $tab] : []);
+    }
+
+    public function healthUrl(): string
+    {
+        return InventoryHealth::getUrl();
+    }
+
+    public function activityUrl(): string
+    {
+        return InventoryActivity::getUrl();
     }
 
     public function inventoryUrl(?string $stock = null): string
@@ -307,15 +400,18 @@ class InventoryOverview extends Page
 
     protected function getHeaderActions(): array
     {
+        // The Overview / Tools / Reports tabs carry these on phones; desktop keeps them in the header.
         return [
             \Filament\Actions\Action::make('inventory_report')
                 ->label('Inventory Report')
                 ->icon('heroicon-o-chart-bar')
                 ->color('gray')
+                ->extraAttributes(['class' => 'ivx-desktop-only'])
                 ->url(fn () => $this->reportUrl()),
             \Filament\Actions\Action::make('scan_inventory')
                 ->label('Scan Inventory')
                 ->icon('heroicon-o-qr-code')
+                ->extraAttributes(['class' => 'ivx-desktop-only'])
                 ->url(fn () => \App\Filament\Pages\InventoryScanner::getUrl()),
         ];
     }

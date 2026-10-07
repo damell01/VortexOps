@@ -205,6 +205,9 @@ class InventoryItemFieldsSaveTest extends TestCase
             'stock', 'inventory_location_id', 'quantity', 'location_id', 'count',
             'vendor_id', 'reason', 'from_location_id', 'damaged_location_id',
             'returns_location_id', 'new_quantity', 'current_quantity', 'available',
+            // The Add Stock sheet (entry type, received date, barcode check)
+            // and the Delete action's write-off switch.
+            'movement_type', 'received_at', 'barcode_check', 'write_off',
         ];
 
         $orphans = [];

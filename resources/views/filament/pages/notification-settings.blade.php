@@ -8,7 +8,7 @@
     $needle = mb_strtolower(trim($search));
 @endphp
 <style>
-.vx-ns{--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);--p-soft:color-mix(in srgb,var(--p) 10%,transparent);max-width:1180px;margin:0 auto;display:grid;gap:16px;color:inherit}
+.vx-ns{width:100%;--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);--p-soft:color-mix(in srgb,var(--p) 10%,transparent);max-width:1180px;margin:0 auto;display:grid;gap:16px;color:inherit}
 .dark .vx-ns{--line:#253247;--soft:#111c2f;--muted:#94a3b8}
 .vx-ns .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
 .dark .vx-ns .card{background:#0f172a}

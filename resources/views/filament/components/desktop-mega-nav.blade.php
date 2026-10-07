@@ -8,13 +8,19 @@ elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $nav
 if(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
 ];
-if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess()) $groups['Inventory']=[
- ['Inventory Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin')],
+if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess()) $groups['Inventory']=array_values(array_filter([
+ ['Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin')],
+ ['Stock Status',\App\Filament\Pages\StockStatus::getUrl(panel:'admin')],
  ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index')],
+ \App\Filament\Pages\InventoryAge::canAccess() ? ['Inventory Age',\App\Filament\Pages\InventoryAge::getUrl(panel:'admin')] : null,
+ ['Recent Activity',\App\Filament\Pages\InventoryActivity::getUrl(panel:'admin')],
+ ['Inventory Health',\App\Filament\Pages\InventoryHealth::getUrl(panel:'admin')],
+ \App\Filament\Pages\InventoryReport::canAccess() ? ['Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')] : null,
+ \App\Filament\Resources\InventoryLocationResource::canAccess() ? ['Locations',\App\Filament\Resources\InventoryLocationResource::getUrl('index')] : null,
+ \App\Filament\Resources\VendorResource::canAccess() ? ['Vendors',\App\Filament\Resources\VendorResource::getUrl('index')] : null,
  ['Quick Add Stock',\App\Filament\Resources\InventoryItemResource::getUrl('quick-add')],
  ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin')],
- ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
-];
+]));
 $groups['Fulfillment']=[
  ['Coming Soon','#'],
 ];

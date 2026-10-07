@@ -35,3 +35,7 @@
 .fi-main .vx-an-bar-name,.fi-main .vx-name{white-space:normal;overflow-wrap:anywhere}
 .fi-main .vx-an-bar-value,.fi-main .vx-money strong{overflow-wrap:anywhere}
 }
+
+/* Keep wide streamer comparisons inside the report on desktop too. */
+.vx-streamer-report table{table-layout:fixed;width:100%;max-width:100%}
+.vx-streamer-report th,.vx-streamer-report td{white-space:normal;overflow-wrap:anywhere}

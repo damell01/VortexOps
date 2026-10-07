@@ -1,5 +1,7 @@
 name: Inventory Report Checks
 on:
+  push:
+    branches: ['codex/mobile-resource-cards-*', 'codex/shared-mobile-controls-*']
   pull_request:
     branches: [Production, Dev]
     paths:

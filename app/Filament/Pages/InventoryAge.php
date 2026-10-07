@@ -45,11 +45,35 @@ class InventoryAge extends Page
      * left. A stale bucket can hold hundreds of lines and the point of the
      * list is to name the products, not to be a second stock report.
      */
-    protected const ITEM_LIMIT = 25;
+    protected const ITEM_LIMIT = 5;
+
+    public int $itemPage = 1;
+
+    public function updatedLocationId(): void
+    {
+        $this->itemPage = 1;
+        $this->openBucket = null;
+    }
+
+    public function previousItems(): void
+    {
+        $this->itemPage = max(1, $this->itemPage - 1);
+    }
+
+    public function nextItems(): void
+    {
+        foreach ($this->getBuckets()['buckets'] as $bucket) {
+            if ($bucket['key'] === $this->openBucket) {
+                $this->itemPage = min($bucket['pages'], $bucket['page'] + 1);
+                break;
+            }
+        }
+    }
 
     public function toggleBucket(string $key): void
     {
         $this->openBucket = $this->openBucket === $key ? null : $key;
+        $this->itemPage = 1;
     }
 
     /** Bucket definitions: label, upper bound in days, risk wording, tone. */
@@ -205,8 +229,12 @@ class InventoryAge extends Page
             usort($buckets[$key]['items'], fn ($a, $b) => $b['value'] <=> $a['value']);
 
             $buckets[$key]['item_count'] = count($buckets[$key]['items']);
-            $buckets[$key]['items']      = array_slice($buckets[$key]['items'], 0, self::ITEM_LIMIT);
-            $buckets[$key]['hidden_items'] = max(0, $buckets[$key]['item_count'] - self::ITEM_LIMIT);
+            $pages = max(1, (int) ceil($buckets[$key]['item_count'] / self::ITEM_LIMIT));
+            $page = $this->openBucket === $key ? min($pages, max(1, $this->itemPage)) : 1;
+            $buckets[$key]['pages'] = $pages;
+            $buckets[$key]['page'] = $page;
+            $buckets[$key]['items'] = array_slice($buckets[$key]['items'], ($page - 1) * self::ITEM_LIMIT, self::ITEM_LIMIT);
+            $buckets[$key]['hidden_items'] = 0;
         }
 
         return [
@@ -240,6 +268,8 @@ class InventoryAge extends Page
                 'items'        => [],
                 'item_count'   => 0,
                 'hidden_items' => 0,
+                'page' => 1,
+                'pages' => 1,
             ];
         }
 

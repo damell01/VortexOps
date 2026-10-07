@@ -8,14 +8,21 @@
             <div><span class="vx-age-eyebrow">Inventory health</span><h2>Age of stock on hand</h2><p>Prioritize older inventory by the money tied up in each age group. Age starts at the most recent receipt; it is not the age of individual lots.</p></div>
             <div class="vx-age-summary-value"><span>Stock value</span><strong>${{ number_format($data['total_value'], 2) }}</strong><span>{{ number_format($data['total_units']) }} units on hand</span></div>
         </section>
-        <label class="vx-age-filter">
-            <span class="vx-age-filter-label">Location</span>
-            <select wire:model.live="locationId">
-                @foreach ($this->getLocationOptions() as $id => $name)
-                    <option value="{{ $id }}">{{ $name }}</option>
-                @endforeach
-            </select>
-        </label>
+        <div class="vx-age-picker" x-data="{ open: false, search: '', selected: $wire.entangle('locationId').live, options: @js($this->getLocationOptions()) }" @keydown.escape.stop="open = false" @click.outside="open = false">
+            <span class="vx-age-filter-label" id="age-location-label">Location</span>
+            <button type="button" class="vx-age-picker-trigger" aria-labelledby="age-location-label age-location-value" :aria-expanded="open" aria-controls="age-location-options" @click="open = !open; search = ''; if (open) $nextTick(() => $refs.search.focus())">
+                <span id="age-location-value" x-text="options[selected] || 'All Locations'"></span><span aria-hidden="true">⌄</span>
+            </button>
+            <div class="vx-age-picker-panel" x-show="open" x-cloak>
+                <input x-ref="search" x-model="search" type="search" placeholder="Search locations…" aria-label="Search locations" autocomplete="off">
+                <div id="age-location-options" class="vx-age-picker-options" role="group" aria-label="Locations">
+                    <template x-for="[id, name] in Object.entries(options).filter(([id, name]) => name.toLowerCase().includes(search.toLowerCase()))" :key="id">
+                        <button type="button" :aria-pressed="String(selected) === id" @click="selected = id; open = false; $nextTick(() => $root.querySelector('.vx-age-picker-trigger').focus())"><span x-text="name"></span><span x-show="String(selected) === id" aria-hidden="true">✓</span></button>
+                    </template>
+                    <p x-show="!Object.values(options).some(name => name.toLowerCase().includes(search.toLowerCase()))">No matching locations.</p>
+                </div>
+            </div>
+        </div>
 
         @if (! $data['has_data'])
             <div class="vx-age-blank">
@@ -70,6 +77,7 @@
                         </button>
 
                         @if ($isOpen && $bucket['item_count'] > 0)
+                            <div class="vx-age-detail-heading">Items · highest value first</div>
                             <ul class="vx-age-items">
                                 @foreach ($bucket['items'] as $item)
                                     <li wire:key="age-{{ $bucket['key'] }}-{{ $item['product_id'] }}-{{ $loop->index }}">
@@ -90,12 +98,13 @@
                                     </li>
                                 @endforeach
 
-                                @if ($bucket['hidden_items'] > 0)
-                                    <li class="vx-age-more">
-                                        + {{ $bucket['hidden_items'] }} more, smaller by value
-                                    </li>
-                                @endif
+
                             </ul>
+                            <nav class="vx-age-pagination" aria-label="{{ $bucket['label'] }} items">
+                                <button type="button" wire:click="previousItems" @disabled($bucket['page'] <= 1) wire:loading.attr="disabled">Previous</button>
+                                <span>Page {{ $bucket['page'] }} of {{ $bucket['pages'] }} · {{ $bucket['item_count'] }} items</span>
+                                <button type="button" wire:click="nextItems" @disabled($bucket['page'] >= $bucket['pages']) wire:loading.attr="disabled">Next</button>
+                            </nav>
                         @endif
                     </li>
                 @endforeach

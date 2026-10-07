@@ -188,6 +188,7 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
         $this->assertSame([
             'DashboardImproved',
             'EditProfile',
+            'MyNotifications',
             'PalletResource',
             'TwoFactorAuth',
             'TwoFactorVerify',

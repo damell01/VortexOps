@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Filament\Pages\AppSettings;
+use App\Filament\Pages\NotificationSettings;
 use App\Models\InventoryLocation;
 use App\Models\Setting;
 use App\Models\User;
@@ -53,11 +54,13 @@ class SettingsSurviveADeletedRecipientTest extends TestCase
     public function test_a_deleted_recipient_is_dropped_on_load(): void
     {
         $this->strandRecipients();
+        Setting::set('notify_show_ready_mode', 'custom');
+        Setting::set('notify_show_reconciled_mode', 'custom');
 
-        $page = Livewire::actingAs($this->owner)->test(AppSettings::class);
+        $page = Livewire::actingAs($this->owner)->test(NotificationSettings::class);
 
-        $this->assertSame([$this->owner->id], $page->instance()->notify_show_ready_users);
-        $this->assertSame([], $page->instance()->notify_show_reconciled_users);
+        $this->assertSame([(string) $this->owner->id], $page->instance()->rules['show_ready']['users']);
+        $this->assertSame([], $page->instance()->rules['show_reconciled']['users']);
     }
 
     public function test_the_receiving_location_saves_despite_a_stranded_recipient(): void
@@ -73,43 +76,17 @@ class SettingsSurviveADeletedRecipientTest extends TestCase
         $this->assertSame((string) $this->location->id, (string) Setting::get('default_receiving_location_id'));
     }
 
-    public function test_a_recipient_list_is_not_validated_when_its_mode_is_not_custom(): void
+    public function test_a_stale_recipient_cannot_block_saving_notification_settings(): void
     {
-        // Belt and braces for the same failure arriving from a stale browser
-        // tab rather than from storage: the list is meaningless unless the
-        // mode is custom, so it must not be able to block a save.
+        // The same failure arriving from a stale browser tab rather than from
+        // storage: an id with no person behind it is dropped, not validated.
         Livewire::actingAs($this->owner)
-            ->test(AppSettings::class)
-            ->set('notify_show_ready_mode', 'admins')
-            ->set('notify_show_ready_users', [999999])
-            ->set('default_receiving_location_id', $this->location->id)
-            ->call('saveSettings')
+            ->test(NotificationSettings::class)
+            ->set('rules.show_ready.users', ['999999', (string) $this->owner->id])
+            ->call('save')
             ->assertHasNoErrors();
 
-        $this->assertSame((string) $this->location->id, (string) Setting::get('default_receiving_location_id'));
-    }
-
-    public function test_custom_mode_still_rejects_someone_who_does_not_exist(): void
-    {
-        Livewire::actingAs($this->owner)
-            ->test(AppSettings::class)
-            ->set('notify_show_ready_mode', 'custom')
-            ->set('notify_show_ready_users', [999999])
-            ->call('saveSettings')
-            ->assertHasErrors('notify_show_ready_users.0');
-    }
-
-    public function test_a_real_custom_recipient_list_still_saves(): void
-    {
-        $mate = User::factory()->create(['email' => 'mate@example.com']);
-
-        Livewire::actingAs($this->owner)
-            ->test(AppSettings::class)
-            ->set('notify_show_ready_mode', 'custom')
-            ->set('notify_show_ready_users', [$mate->id])
-            ->call('saveSettings')
-            ->assertHasNoErrors();
-
-        $this->assertSame([$mate->id], json_decode(Setting::get('notify_show_ready_users'), true));
+        $saved = json_decode(Setting::get('notification_rules'), true);
+        $this->assertSame([$this->owner->id], $saved['show_ready']['users']);
     }
 }

@@ -38,16 +38,13 @@ class SendWeeklyReviewReminder extends Command
             return self::SUCCESS;
         }
 
-        $recipients = $router->getRecipients('weekly_review_reminder');
         $weekLabel  = $weekStart->format('M j') . ' – ' . $weekEnd->format('M j');
         $reviewUrl  = ShowResource::getUrl('index');
         $narrative  = $digest->generate();
 
-        foreach ($recipients as $user) {
-            $user->notify(new WeeklyReviewReminderNotification($pendingCount, $weekLabel, $reviewUrl, $narrative));
-        }
+        $count = \App\Services\Notifier::send('weekly_review_reminder', new WeeklyReviewReminderNotification($pendingCount, $weekLabel, $reviewUrl, $narrative));
 
-        $this->info("Notified {$recipients->count()} user(s) about {$pendingCount} show(s) needing review.");
+        $this->info("Notified {$count} user(s) about {$pendingCount} show(s) needing review.");
 
         return self::SUCCESS;
     }

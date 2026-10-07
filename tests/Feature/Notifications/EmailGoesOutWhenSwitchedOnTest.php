@@ -40,6 +40,9 @@ class EmailGoesOutWhenSwitchedOnTest extends TestCase
 
         Role::findOrCreate('admin', 'web');
 
+        // The server's safety switch (NOTIFICATION_EMAILS_ENABLED); these tests are about the app toggle behind it.
+        config(['mail.notification_emails_enabled' => true]);
+
         $this->admin = User::factory()->create(['email' => 'ops@example.com']);
         $this->admin->assignRole('admin');
 

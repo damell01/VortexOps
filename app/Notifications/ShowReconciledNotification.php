@@ -5,19 +5,21 @@ namespace App\Notifications;
 use App\Models\Show;
 use App\Notifications\Concerns\EmailsWhenEnabled;
 use Illuminate\Notifications\Messages\MailMessage;
+use App\Support\NotificationLinks;
 use Illuminate\Notifications\Notification;
 
 class ShowReconciledNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'show_reconciled';
+
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject("Show reconciled: {$this->show->title}")
             ->line("Show \"{$this->show->title}\" has been reconciled and its inventory deductions are posted.")
-            ->action('Open show', NotificationLinks::forShow($this->show->id, $notifiable))
-            ->line('You are receiving this because email notifications are switched on in Settings.');
+            ->action('Open show', NotificationLinks::forShow($this->show->id, $notifiable));
     }
 
     public function __construct(public readonly Show $show) {}

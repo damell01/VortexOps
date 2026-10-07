@@ -58,15 +58,13 @@ class EditStreamerLogEntry extends EditRecord
                 ->action(function () {
                     $this->record->submitReport();
 
-                    // Notify admins
-                    $admins = \App\Models\User::role('admin')->get();
-                    foreach ($admins as $admin) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Streamer log submitted')
-                            ->body("{$this->record->streamer->name} submitted a log entry for {$this->record->show->title}")
-                            ->info()
-                            ->sendToDatabase($admin);
-                    }
+                    // Recipients: the report_submitted rule (admins and the owner by default).
+                    \App\Services\Notifier::send('report_submitted', new \App\Notifications\VortexAlert(
+                        event: 'report_submitted',
+                        title: 'Streamer log submitted',
+                        body: "{$this->record->streamer->name} submitted a log entry for {$this->record->show->title}",
+                        links: ['Open report' => \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $this->record])],
+                    ));
 
                     Notification::make()
                         ->title('✓ Log submitted for review')

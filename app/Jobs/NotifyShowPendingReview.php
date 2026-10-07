@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Show;
 use App\Notifications\ShowPendingReviewNotification;
 use App\Services\NotificationRouter;
+use App\Services\Notifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,18 +31,7 @@ class NotifyShowPendingReview implements ShouldQueue
                 return;
             }
 
-            $recipients  = $router->getRecipients('show_pending_approval');
-            $notifiedIds = $recipients->pluck('id')->flip();
-
-            foreach ($recipients as $user) {
-                $user->notify(new ShowPendingReviewNotification($show));
-            }
-
-            foreach ($show->streamers as $streamer) {
-                if ($streamer->user && ! isset($notifiedIds[$streamer->user->id])) {
-                    $streamer->user->notify(new ShowPendingReviewNotification($show));
-                }
-            }
+            Notifier::send('show_pending_approval', new ShowPendingReviewNotification($show), $show->streamers->pluck('user'));
         } catch (\Exception $e) {
             Log::warning('NotifyShowPendingReview failed', ['show_id' => $this->showId, 'error' => $e->getMessage()]);
         }

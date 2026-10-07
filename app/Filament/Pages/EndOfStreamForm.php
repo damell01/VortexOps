@@ -441,12 +441,13 @@ class EndOfStreamForm extends Page implements HasForms
             if ($entry->status !== 'admin_approved') {
                 $unmatched = $entry->items()->whereNull('inventory_item_id')->count();
                 $problemCount = max($unmatched, count($problems));
-                $admins = User::query()->get()->filter(fn (User $user) => $user->isAdmin() || $user->isOwner());
-                if ($admins->isNotEmpty()) {
-                    $notification = Notification::make()->title($problemCount > 0 ? 'Show report needs review' : 'Show report submitted')
-                        ->body($problemCount > 0 ? "{$this->show->title}: {$problemCount} reconciliation issue(s) need attention." : "{$this->show->title} is ready for admin approval.")->warning();
-                    $notification->sendToDatabase($admins);
-                }
+                \App\Services\Notifier::send('report_submitted', new \App\Notifications\VortexAlert(
+                    event: 'report_submitted',
+                    title: $problemCount > 0 ? 'Show report needs review' : 'Show report submitted',
+                    body: $problemCount > 0 ? "{$this->show->title}: {$problemCount} reconciliation issue(s) need attention." : "{$this->show->title} is ready for admin approval.",
+                    tone: 'warning',
+                    links: ['Open report' => \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $entry])],
+                ));
             }
             $this->lastSavedAt = now()->toIso8601String(); $this->step = 3; $this->stagedQuantities = [];
             $this->redirect(\App\Filament\Pages\StreamerShows::getUrl(panel: 'admin'), navigate: true);

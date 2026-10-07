@@ -18,6 +18,8 @@ class MidweekReportNotification extends Notification
 {
     use EmailsWhenEnabled;
 
+    protected string $event = 'midweek_report';
+
     public function __construct(
         public readonly string $weekLabel,
         public readonly int $showCount,

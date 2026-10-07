@@ -197,13 +197,14 @@ class StreamerLogItemsModal extends Component
             'status' => $record->status === 'pending' ? 'pending' : $record->status,
         ]);
 
-        // Send notification to admins/owners
+        // Tell the show's streamer (and anyone else the report_items_added rule names).
         $show = $record->show;
-        \Filament\Notifications\Notification::make()
-            ->title('📦 Items Added to Streamer Log')
-            ->body("Items have been added to the log for \"{$show->title}\"")
-            ->success()
-            ->sendToDatabase($show->streamers->first()?->user);
+        \App\Services\Notifier::send('report_items_added', new \App\Notifications\VortexAlert(
+            event: 'report_items_added',
+            title: 'Items added to your show report',
+            body: "Items have been added to the log for \"{$show->title}\"",
+            tone: 'success',
+        ), $show->streamers->pluck('user'));
 
         if ($this->successEvent) {
             $this->js("window.dispatchEvent(new CustomEvent('{$this->successEvent}'))");

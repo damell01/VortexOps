@@ -340,9 +340,14 @@ class StreamerLogEntry extends Model
     {
         $user = $this->streamer?->user;
         if (! $user) return;
-        $notification = \Filament\Notifications\Notification::make()->title($title)->body($body);
-        $notification = $tone === 'success' ? $notification->success() : $notification->warning();
-        $notification->sendToDatabase($user);
+
+        \App\Services\Notifier::send('report_reviewed', new \App\Notifications\VortexAlert(
+            event: 'report_reviewed',
+            title: $title,
+            body: $body,
+            tone: $tone === 'success' ? 'success' : 'warning',
+            links: ['Open report' => \App\Support\NotificationLinks::forShow((int) $this->show_id, $user)],
+        ), [$user]);
     }
 
     /**

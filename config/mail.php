@@ -18,6 +18,15 @@ return [
     'notification_emails_enabled' => env('NOTIFICATION_EMAILS_ENABLED', false),
 
     /*
+    | Branded email layout: resources/views/vendor/mail (logo header, footer
+    | with a "Manage your notifications" link) and themes/vortex.css.
+    */
+    'markdown' => [
+        'theme' => 'vortex',
+        'paths' => [resource_path('views/vendor/mail')],
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Mailer Configurations
     |--------------------------------------------------------------------------

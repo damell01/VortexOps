@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Show;
 use App\Services\NotificationRouter;
+use App\Services\Notifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -29,19 +30,7 @@ class NotifyShowReconciled implements ShouldQueue
                 return;
             }
 
-            $recipients   = $router->getRecipients('show_reconciled');
-            $notifiedIds  = $recipients->pluck('id')->flip();
-
-            foreach ($recipients as $user) {
-                $user->notify(new \App\Notifications\ShowReconciledNotification($show));
-            }
-
-            // Always notify streamer users linked to this show, unless already notified above
-            foreach ($show->streamers as $streamer) {
-                if ($streamer->user && ! isset($notifiedIds[$streamer->user->id])) {
-                    $streamer->user->notify(new \App\Notifications\ShowReconciledNotification($show));
-                }
-            }
+            Notifier::send('show_reconciled', new \App\Notifications\ShowReconciledNotification($show), $show->streamers->pluck('user'));
         } catch (\Exception $e) {
             Log::warning('NotifyShowReconciled failed', ['show_id' => $this->showId, 'error' => $e->getMessage()]);
         }

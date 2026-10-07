@@ -15,7 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'timezone', 'notifications_enabled', 'notification_in_app_enabled', 'notification_email_enabled'])]
+#[Fillable(['name', 'email', 'password', 'timezone', 'notifications_enabled', 'notification_in_app_enabled', 'notification_email_enabled', 'notification_preferences'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -39,20 +39,33 @@ class User extends Authenticatable implements FilamentUser
             'notifications_enabled' => 'boolean',
             'notification_in_app_enabled' => 'boolean',
             'notification_email_enabled' => 'boolean',
+            'notification_preferences' => 'array',
         ];
     }
 
     public function wantsNotificationChannel(string $channel): bool
     {
-        if (! $this->notifications_enabled) {
+        // A column that has not been read back yet is null; the database default is on.
+        if ($this->notifications_enabled === false) {
             return false;
         }
 
         return match ($channel) {
-            'database' => $this->notification_in_app_enabled,
-            'mail' => $this->notification_email_enabled,
+            'database' => $this->notification_in_app_enabled !== false,
+            'mail' => $this->notification_email_enabled !== false,
             default => true,
         };
+    }
+
+    /** This person's choice for one event; anything not chosen yet is on. */
+    public function notificationPreference(string $event): array
+    {
+        $saved = ($this->notification_preferences ?? [])[$event] ?? [];
+
+        return [
+            'in_app' => (bool) ($saved['in_app'] ?? true),
+            'email' => (bool) ($saved['email'] ?? true),
+        ];
     }
 
     public function canAccessPanel(Panel $panel): bool

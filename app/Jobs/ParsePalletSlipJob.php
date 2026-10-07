@@ -220,16 +220,17 @@ class ParsePalletSlipJob implements ShouldQueue
         $user = User::find($task->triggered_by);
         if (! $user) return;
 
-        Notification::make()
-            ->title('AI manifest ready for review')
-            ->body("{$pallet->displayName()}: {$total} manifest lines added · {$matched} existing items preselected · {$needsReview} need review.")
-            ->success()
-            ->icon('heroicon-o-sparkles')
-            ->actions([
-                NotificationAction::make('review')->label('Open AI Review')->button()->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
-                NotificationAction::make('pallet')->label('Open Pallet')->url(PalletResource::getUrl('view', ['record' => $pallet])),
-            ])
-            ->sendToDatabase($user);
+        \App\Services\Notifier::send('ai_manifest', new \App\Notifications\VortexAlert(
+            event: 'ai_manifest',
+            title: 'AI manifest ready for review',
+            body: "{$pallet->displayName()}: {$total} manifest lines added · {$matched} existing items preselected · {$needsReview} need review.",
+            tone: 'success',
+            links: [
+                'Open AI Review' => PalletResource::getUrl('import-manifest', ['record' => $pallet]),
+                'Open Pallet' => PalletResource::getUrl('view', ['record' => $pallet]),
+            ],
+            icon: 'heroicon-o-sparkles',
+        ), [$user]);
     }
 
     private function notifyFailed(AiTask $task, Pallet $pallet, string $message): void
@@ -237,16 +238,17 @@ class ParsePalletSlipJob implements ShouldQueue
         $user = User::find($task->triggered_by);
         if (! $user) return;
 
-        Notification::make()
-            ->title('AI manifest analysis failed')
-            ->body($pallet->displayName() . ': ' . str($message)->limit(180))
-            ->danger()
-            ->icon('heroicon-o-exclamation-triangle')
-            ->actions([
-                NotificationAction::make('retry')->label('Open AI Manifest')->button()->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
-                NotificationAction::make('pallet')->label('Open Pallet')->url(PalletResource::getUrl('view', ['record' => $pallet])),
-            ])
-            ->sendToDatabase($user);
+        \App\Services\Notifier::send('ai_manifest', new \App\Notifications\VortexAlert(
+            event: 'ai_manifest',
+            title: 'AI manifest analysis failed',
+            body: $pallet->displayName() . ': ' . str($message)->limit(180),
+            tone: 'danger',
+            links: [
+                'Open AI Manifest' => PalletResource::getUrl('import-manifest', ['record' => $pallet]),
+                'Open Pallet' => PalletResource::getUrl('view', ['record' => $pallet]),
+            ],
+            icon: 'heroicon-o-exclamation-triangle',
+        ), [$user]);
     }
 
     public function failed(\Throwable $e): void

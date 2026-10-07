@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\DeductionRequest;
 use App\Notifications\DeductionApprovedNotification;
 use App\Services\NotificationRouter;
+use App\Services\Notifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,9 +31,7 @@ class NotifyDeductionApproved implements ShouldQueue
                 return;
             }
 
-            foreach ($router->getRecipients('deduction_approved') as $user) {
-                $user->notify(new DeductionApprovedNotification($dr));
-            }
+            Notifier::send('deduction_approved', new DeductionApprovedNotification($dr));
         } catch (\Exception $e) {
             Log::warning('NotifyDeductionApproved failed', ['deduction_request_id' => $this->deductionRequestId, 'error' => $e->getMessage()]);
         }

@@ -222,12 +222,13 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
-            Notification::make()
-                ->title('Items Marked Damaged')
-                ->body(number_format($quantity) . 'x ' . $item->name . ' moved to damaged from ' . $from->name)
-                ->danger()
-                ->icon('heroicon-o-fire')
-                ->sendToDatabase($this->notificationRouter->getRecipients('damaged'));
+            \App\Services\Notifier::send('damaged', new \App\Notifications\VortexAlert(
+                event: 'damaged',
+                title: 'Items Marked Damaged',
+                body: number_format($quantity) . 'x ' . $item->name . ' moved to damaged from ' . $from->name,
+                tone: 'danger',
+                icon: 'heroicon-o-fire',
+            ));
 
             $this->notifyIfLowStock($item);
             return $movement;

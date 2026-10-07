@@ -1,0 +1,32 @@
+name: Show cover checks
+
+on:
+  push:
+    branches: [Production, Dev]
+    paths:
+      - app/Jobs/StoreShowCover.php
+      - app/Services/ShowCoverImages.php
+      - app/Services/WhatnotScraper.php
+      - app/Services/WhatnotReportingReconciler.php
+      - scripts/check-show-covers.php
+      - .github/workflows/show-cover-checks.yml
+  workflow_dispatch:
+
+jobs:
+  covers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: gd
+          coverage: none
+      - name: Lint cover import code
+        run: |
+          php -l app/Jobs/StoreShowCover.php
+          php -l app/Services/ShowCoverImages.php
+          php -l app/Services/WhatnotScraper.php
+          php -l app/Services/WhatnotReportingReconciler.php
+      - name: Verify WebP encoding
+        run: php scripts/check-show-covers.php

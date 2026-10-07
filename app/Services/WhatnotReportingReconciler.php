@@ -144,7 +144,7 @@ class WhatnotReportingReconciler
                     $payload['cover_image_url'] = $raw['cover_image_url'];
                     $show->forceFill(['raw_import_payload' => $payload])->saveQuietly();
                     $images->capture($show, $raw);
-                    if (++$queued >= 50) break 2;
+                    if (++$queued >= 1000) break 2;
                 }
             }
             $progress && $progress("covers: queued {$queued} missing show covers");

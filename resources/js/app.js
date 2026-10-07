@@ -1,3 +1,4 @@
+import '../css/mobile-report-pass.css';
 // Some Filament/Livewire pages attach beforeunload guards after interactive
 // actions. In VortexOps those guards were sticking around after the action had
 // already completed, so ordinary navigation could trigger Chrome's misleading
@@ -158,3 +159,4 @@ Promise.all([
     import('./modal-visibility.js').catch(e => console.warn('[app.js] modal-visibility failed:', e.message)),
     import('./modal-lifecycle.js').catch(e => console.warn('[app.js] modal-lifecycle failed:', e.message)),
 ]).catch(e => console.warn('[app.js] Error loading optional modules:', e.message));
+

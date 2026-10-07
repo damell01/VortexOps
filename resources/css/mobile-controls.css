@@ -51,3 +51,10 @@ html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile
 html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-selection::before,html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-actions::before{content:none!important}
 html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile-omit{display:none!important}
 }
+
+@media(max-width:767px){
+.fi-main .grid:has(> .fi-section .vx-kpi-value){grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+.fi-main .grid:has(> .fi-section .vx-kpi-value) > .fi-section .fi-section-content{padding:12px!important}
+.fi-main .grid:has(> .fi-section .vx-kpi-value) .vx-kpi-value{font-size:20px!important;overflow-wrap:anywhere}
+.fi-main .grid:has(> .fi-section .vx-kpi-value) .text-sm{font-size:12px!important}
+}

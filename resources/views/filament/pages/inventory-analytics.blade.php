@@ -230,7 +230,7 @@
                 @php
                     $topValue = max(array_column($locations, 'value') ?: [1]);
                 @endphp
-                <ul class="vx-an-bars">
+                <ul class="vx-an-bars" data-vx-mobile-page>
                     @foreach ($locations as $location)
                         <li>
                             <div class="vx-an-bar-head">

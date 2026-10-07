@@ -352,8 +352,8 @@ class PayoutResource extends Resource
             ])
             ->striped()
             ->persistFiltersInSession()
-            ->paginationPageOptions([10, 25, 50])
-            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([10, 25, 50]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))
             ->deferLoading()
             ->defaultSort('created_at', 'desc')
             ->groups([

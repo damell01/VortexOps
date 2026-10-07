@@ -259,8 +259,8 @@ class LedgerResource extends Resource
             ->striped()
             ->deferLoading()
             ->persistFiltersInSession()
-            ->paginationPageOptions([25, 50, 100])
-            ->defaultPaginationPageOption(25);
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([25, 50, 100]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25));
     }
 
     public static function getEloquentQuery(): Builder

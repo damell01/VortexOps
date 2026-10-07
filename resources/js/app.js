@@ -1,3 +1,4 @@
+import './mobile-controls.js';
 import '../css/mobile-report-pass.css';
 // Some Filament/Livewire pages attach beforeunload guards after interactive
 // actions. In VortexOps those guards were sticking around after the action had

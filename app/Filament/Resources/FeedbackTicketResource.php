@@ -196,8 +196,8 @@ class FeedbackTicketResource extends Resource
             ->emptyStateIcon('heroicon-o-chat-bubble-left-right')
             ->deferLoading()
             ->striped()
-            ->paginationPageOptions([10, 25, 50])
-            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([10, 25, 50]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))
             ->defaultSort('created_at', 'desc')
             ->columns([
                 ImageColumn::make('screenshot_path')

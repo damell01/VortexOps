@@ -104,7 +104,7 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => <<<'HTML'
-                <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
                 HTML,
             )
             ->renderHook(
@@ -523,3 +523,4 @@ class AdminPanelProvider extends PanelProvider
         return null;
     }
 }
+

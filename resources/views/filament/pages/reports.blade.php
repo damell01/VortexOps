@@ -19,7 +19,7 @@
         ];
     @endphp
 
-    <div class="space-y-6">
+    <div class="vx-report vx-business-report space-y-6">
 
         @if ($this->inventoryReportUrl())
             <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -53,7 +53,7 @@
             <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
 
             {{-- Custom date range --}}
-            <div class="flex items-center gap-1.5">
+            <div class="vx-custom-dates flex flex-wrap items-center gap-1.5">
                 <input
                     type="date"
                     wire:model="dateFrom"
@@ -368,3 +368,4 @@
 
     </div>
 </x-filament-panels::page>
+

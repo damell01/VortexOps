@@ -120,6 +120,18 @@ function decorateTable(table) {
 }
 
 function decorateTables(root = document) {
+    // Reports retain every metric and column label in their mobile card view.
+    root.querySelectorAll('.vx-report table:not(.fi-ta-table)').forEach((table) => {
+        const labels = [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+        if (!labels.length || table.querySelector('th[rowspan], th[colspan]')) return;
+        table.classList.add('vx-mobile-report-table');
+        table.querySelectorAll('tbody tr').forEach((row) => {
+            row.querySelectorAll(':scope > td').forEach((cell, index) => {
+                if (!cell.hasAttribute('colspan')) cell.dataset.reportLabel = labels[index] || 'Details';
+            });
+        });
+    });
+
     // Hand-written Blade tables opt in with .vx-cardify. Tagging them with
     // Filament's structural classes lets them reuse the same card stylesheet
     // instead of duplicating every rule for a second selector family.
@@ -157,3 +169,4 @@ if (document.readyState === 'loading') {
 }
 
 document.addEventListener('livewire:navigated', () => decorateTables());
+

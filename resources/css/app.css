@@ -1,3 +1,4 @@
+@import './mobile-report-pass.css';
 @import 'tailwindcss';
 
 /* ── Make the brand colour a real Tailwind palette ────────────────────
@@ -5467,3 +5468,4 @@ body.vx-navigating {
         transition: none;
     }
 }
+

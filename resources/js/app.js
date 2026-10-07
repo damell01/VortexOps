@@ -116,11 +116,18 @@ function installVortexNavigationLoader() {
     const resetStatus=()=>{statusTimers.forEach(clearTimeout);statusTimers=[];if(status)status.textContent='Loading VortexOps…'};
     const runStatus=()=>{resetStatus();[['Ripping Pack…',480],['Revealing Cards…',980],['Found a Hit…',1500],['Grading Hit…',2050],['Almost Ready…',2600]].forEach(([copy,ms])=>statusTimers.push(setTimeout(()=>{if(status)status.textContent=copy},ms)))};
     let timer=null,watchdog=null;
-    const show=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();timer=setTimeout(()=>{runStatus();loader.classList.add('vx-show');watchdog=setTimeout(()=>{loader.classList.remove('vx-show');resetStatus()},12000)},75)};
+    // The loader is shown from a link click, before anything knows whether the
+    // click will really leave the page. A download (export/PDF/CSV) or a link
+    // whose own handler cancels it never navigates, which used to leave this
+    // full-screen layer over the page for 12 seconds. So: decide after the click
+    // has finished bubbling, skip download-shaped links, give a click that never
+    // unloaded the page only a few seconds, and let a tap or Esc dismiss it.
+    const show=(event=null,limit=12000)=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();timer=setTimeout(()=>{if(event?.defaultPrevented)return;runStatus();loader.classList.add('vx-show');watchdog=setTimeout(()=>{loader.classList.remove('vx-show');resetStatus()},limit)},75)};
     const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();loader.classList.remove('vx-show')};
     if(!window.__vortexNavLoaderBound){window.__vortexNavLoaderBound=true;document.addEventListener('livewire:navigating',()=>window.__vortexNavLoader?.show());document.addEventListener('livewire:navigated',()=>window.__vortexNavLoader?.hide())}
     window.__vortexNavLoader={show,hide};window.addEventListener('pageshow',hide,{once:true});
-    document.addEventListener('click',(event)=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download'))return;const url=new URL(link.href,location.href);if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;show()},{capture:true});
+    document.addEventListener('click',(event)=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download')||link.hasAttribute('wire:click')||link.hasAttribute('x-on:click')||link.hasAttribute('@click'))return;const url=new URL(link.href,location.href);if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;if(/(^|\/)(export|exports|download|print)(\/|$)|\.(pdf|csv|xlsx|zip)$|[?&]download=/i.test(url.pathname+url.search))return;show(event,link.hasAttribute('wire:navigate')?12000:4000)},{capture:true});
+    loader.addEventListener('click',hide);document.addEventListener('keydown',(e)=>{if(e.key==='Escape')hide()});document.addEventListener('visibilitychange',hide);
     requestAnimationFrame(hide);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installVortexNavigationLoader,{once:true});else installVortexNavigationLoader();

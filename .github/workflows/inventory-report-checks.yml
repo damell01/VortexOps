@@ -1,0 +1,52 @@
+name: Inventory Report Checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - app/Filament/Pages/InventoryReport.php
+      - resources/views/filament/pages/inventory-report.blade.php
+      - resources/views/filament/pages/partials/inventory-report-styles.blade.php
+      - tests/Feature/Inventory/InventoryReportOperationsTest.php
+      - .github/workflows/inventory-report-checks.yml
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: vortexops_test
+          MYSQL_USER: vortexops
+          MYSQL_PASSWORD: secret
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: vortexops_test
+      DB_USERNAME: vortexops
+      DB_PASSWORD: secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_mysql,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+      - name: Inventory reporting integration tests
+        run: php artisan test tests/Feature/Inventory/InventoryReportOperationsTest.php
+      - name: Existing inventory report render test
+        run: php artisan test tests/Feature/Inventory/EveryInventoryPageRendersTest.php --filter='test_the_page_opens.*InventoryReport'

@@ -95,7 +95,7 @@
     <div class="vx-grid">
         <section class="vx-card">
             <div class="vx-pad flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">{{ $activeWorkflow==='all' ? 'All Shows in This Pay Period' : 'Filtered Pay-Period Shows' }}</h2><div class="vx-sub">Actionable shows are sorted first. Upcoming shows remain part of this week's run and move into the queue automatically.</div></div>@if($activeWorkflow!=='all')<a href="{{ $baseUrl }}" class="text-xs font-semibold text-primary-600">Clear filter</a>@endif</div>
-            <div class="vx-show-grid">
+            <div class="vx-show-grid" data-vx-mobile-page>
                 @forelse($shows as $show)
                     @php
                         $state=$show->getAttribute('workflow_state');

@@ -1,3 +1,4 @@
+import './mobile-controls.js';
 import '../css/mobile-report-pass.css';
 
 // Keep each user's timezone aligned with the browser they actually sign in

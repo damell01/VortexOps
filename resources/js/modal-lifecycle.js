@@ -21,7 +21,7 @@
 
 // The mobile drawer also owns a focus trap and scroll lock. Treat it as
 // an open dialog so late-loading cleanup never dispatches Escape into it.
-const OPEN_MODAL = '.fi-modal.fi-modal-open, .fi-modal-window, .vx-mobile-menu-sheet';
+const OPEN_MODAL = '.fi-modal.fi-modal-open, .fi-modal-window, .vx-mobile-menu-sheet, .vx-mobile-picker-sheet';
 
 /**
  * Is a dialog genuinely on screen?

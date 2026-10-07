@@ -17,7 +17,7 @@
     @if($this->unassignedShows->isEmpty())
         <div class="rounded-lg border border-dashed bg-white p-5 text-center text-sm text-gray-500 dark:bg-gray-900">All shows in this period have a streamer assigned.</div>
     @else
-        <div class="vx-assignment-grid">
+        <div class="vx-assignment-grid" data-vx-mobile-page>
         @foreach($this->unassignedShows as $show)
             <div class="vx-assignment-item flex min-w-0 flex-wrap items-center gap-3">
                 <div class="min-w-0 flex-1"><div class="break-words font-semibold leading-snug">{{ $show->title }}</div><div class="mt-1 text-xs text-gray-500">{{ $show->show_date?->format('M j, Y') }} · {{ $show->start_time?->format('g:i A') ?: 'Time not set' }}</div></div>

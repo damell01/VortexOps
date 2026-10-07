@@ -356,6 +356,9 @@ class ViewInventoryItem extends Page
                     Notification::make()->title('Stock added')->success()->send();
                     $this->record->load('stock.location');
                 }),
+            \Filament\Actions\ActionGroup::make([
+                InventoryItemResource::deleteItemAction(),
+            ])->icon('heroicon-m-ellipsis-vertical')->tooltip('More')->color('gray')->visible(fn () => InventoryItemResource::canDeleteAny()),
         ];
     }
 }

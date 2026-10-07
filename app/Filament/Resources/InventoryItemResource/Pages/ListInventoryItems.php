@@ -292,6 +292,12 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
+    /** Card "Delete" button: mountAction('deleteItem', ['product' => id]). */
+    public function deleteItemAction(): Action
+    {
+        return InventoryItemResource::deleteItemAction();
+    }
+
     public function addStockAction(): Action
     {
         return Action::make('add_stock')

@@ -74,6 +74,74 @@ class InventoryItemResource extends Resource
             && ! $record->stock()->where('quantity', '>', 0)->exists();
     }
 
+    /**
+     * Delete one item — from a card (`product` argument), a table row, or the
+     * item's own page. Stock on hand is shown and must be written off on
+     * purpose; the item is soft-deleted, so "Deleted items" can restore it.
+     */
+    public static function deleteItemAction(string $name = 'deleteItem'): Action
+    {
+        $resolve = fn ($record, array $arguments): ?InventoryItem => $record instanceof InventoryItem
+            ? $record
+            : (isset($arguments['product']) ? InventoryItem::find($arguments['product']) : null);
+        $deleter = fn () => app(\App\Services\InventoryItemDeleter::class);
+        $units = fn (float $n): string => rtrim(rtrim(number_format($n, 2), '0'), '.');
+
+        return Action::make($name)
+            ->label('Delete')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->visible(fn ($record = null) => static::canDeleteAny() && ! ($record instanceof InventoryItem && $record->trashed()))
+            ->modalIcon('heroicon-o-trash')
+            ->modalHeading(fn ($record, array $arguments) => 'Delete '.($resolve($record, $arguments)?->name ?? 'this item').'?')
+            ->modalDescription(function ($record, array $arguments) use ($resolve, $deleter, $units) {
+                $item = $resolve($record, $arguments);
+                if (! $item) return null;
+                $by = $deleter()->stockByLocation($item);
+                if ($by === []) return 'No stock on hand. It moves to Deleted items, where it can be restored.';
+                $where = collect($by)->map(fn ($q, $loc) => $units($q).' at '.$loc)->join(', ');
+                return "It still has stock: {$where}. Writing it off sets each location to 0 and records it in the inventory log.";
+            })
+            ->schema(function ($record, array $arguments) use ($resolve, $deleter, $units) {
+                $item = $resolve($record, $arguments);
+                $onHand = $item ? $deleter()->onHand($item) : 0;
+                return array_values(array_filter([
+                    $onHand > 0 ? Toggle::make('write_off')->label('Write off the '.$units($onHand).' units on hand')->accepted()->validationMessages(['accepted' => 'Turn this on to delete an item that still has stock.']) : null,
+                    Textarea::make('reason')->label('Reason (optional)')->rows(2)->placeholder('e.g. Duplicate of another item'),
+                ]));
+            })
+            ->modalSubmitActionLabel('Delete item')
+            ->action(function ($record, array $arguments, array $data, $livewire) use ($resolve, $deleter, $units) {
+                $item = $resolve($record, $arguments);
+                abort_unless($item && static::canDeleteAny(), 403);
+                try {
+                    $written = $deleter()->delete($item, (bool) ($data['write_off'] ?? false), $data['reason'] ?? null);
+                } catch (\DomainException $e) {
+                    Notification::make()->title('Not deleted')->body($e->getMessage())->danger()->send();
+                    return;
+                }
+                Notification::make()->title($item->name.' deleted')
+                    ->body($written > 0 ? $units($written).' units written off. Restore it from Deleted items if this was a mistake.' : 'Restore it from Deleted items if this was a mistake.')
+                    ->success()->send();
+                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord || $livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                    $livewire->redirect(static::getUrl('index'));
+                }
+            });
+    }
+
+    public static function restoreItemAction(): Action
+    {
+        return Action::make('restore_item')
+            ->label('Restore')
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('success')
+            ->visible(fn ($record = null) => static::canDeleteAny() && $record instanceof InventoryItem && $record->trashed())
+            ->action(function ($record) {
+                app(\App\Services\InventoryItemDeleter::class)->restore((int) $record->getKey());
+                Notification::make()->title($record->name.' restored')->success()->send();
+            });
+    }
+
     public static function canDeleteAny(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
@@ -942,7 +1010,15 @@ class InventoryItemResource extends Resource
             // every table in the panel. Eight filters here is what put it over
             // the line into a dialog: AboveContent pushed the table below the
             // fold, and the dropdown ran off the bottom of the window.
+            // Deleted items are hidden unless the "Deleted items" filter asks for them.
+            ->modifyQueryUsing(fn (Builder $query) => $query->withoutGlobalScope(\Illuminate\Database\Eloquent\SoftDeletingScope::class))
             ->filters([
+                \Filament\Tables\Filters\TrashedFilter::make()
+                    ->label('Deleted items')
+                    ->placeholder('Hide deleted')
+                    ->trueLabel('Show with deleted')
+                    ->falseLabel('Only deleted')
+                    ->visible(fn () => static::canDeleteAny()),
                 SelectFilter::make('item_type')
                     ->label('Type')
                     ->options(['case' => 'Cases / containers', 'single' => 'Single items'])
@@ -1296,28 +1372,54 @@ class InventoryItemResource extends Resource
                         // something has to remember which item it was opened
                         // for, and the record is not in scope by then.
                         ->action(fn (InventoryItem $record, $livewire) => $livewire->startBarcodeScan($record->getKey())),
-                    DeleteAction::make(),
+                    static::deleteItemAction(),
+                    static::restoreItemAction(),
                 ]),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),
-                    DeleteBulkAction::make()
-                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
-                            $deletable = $records->filter(fn (InventoryItem $record) => static::canDelete($record));
-                            $blocked   = $records->count() - $deletable->count();
-
-                            $deletable->each->delete();
-
-                            if ($blocked > 0) {
-                                Notification::make()
-                                    ->title($deletable->count() . ' item(s) deleted')
-                                    ->body("{$blocked} skipped — still hold stock.")
-                                    ->warning()
-                                    ->send();
-                            } else {
-                                Notification::make()->title($deletable->count() . ' item(s) deleted')->success()->send();
+                    \Filament\Actions\BulkAction::make('delete_selected')
+                        ->label('Delete selected')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->visible(fn () => static::canDeleteAny())
+                        ->requiresConfirmation()
+                        ->modalHeading('Delete the selected items?')
+                        ->modalDescription('Deleted items can be restored from the "Deleted items" filter.')
+                        ->schema([
+                            Toggle::make('write_off')->label('Also delete items that still have stock (write that stock off)')
+                                ->helperText('Off: items with stock are skipped. On: their stock is set to 0 and recorded in the inventory log.'),
+                            Textarea::make('reason')->label('Reason (optional)')->rows(2),
+                        ])
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
+                            $deleter = app(\App\Services\InventoryItemDeleter::class);
+                            $deleted = 0; $skipped = 0; $units = 0.0;
+                            foreach ($records as $record) {
+                                if ($record->trashed()) continue;
+                                try {
+                                    $units += $deleter->delete($record, (bool) ($data['write_off'] ?? false), $data['reason'] ?? null);
+                                    $deleted++;
+                                } catch (\DomainException) {
+                                    $skipped++;
+                                }
                             }
+                            Notification::make()
+                                ->title($deleted . ' item(s) deleted')
+                                ->body(trim(($units > 0 ? rtrim(rtrim(number_format($units, 2), '0'), '.') . ' units written off. ' : '') . ($skipped > 0 ? "{$skipped} skipped — they still hold stock." : '')) ?: null)
+                                ->{$skipped > 0 ? 'warning' : 'success'}()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    \Filament\Actions\BulkAction::make('restore_selected')
+                        ->label('Restore selected')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('success')
+                        ->visible(fn () => static::canDeleteAny())
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                            $n = 0;
+                            foreach ($records as $record) if ($record->trashed() && app(\App\Services\InventoryItemDeleter::class)->restore((int) $record->getKey())) $n++;
+                            Notification::make()->title($n . ' item(s) restored')->success()->send();
                         })
                         ->deselectRecordsAfterCompletion(),
                 ]),

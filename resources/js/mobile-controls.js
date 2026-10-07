@@ -119,10 +119,10 @@ function decorateControls() {
     });
 }
 function paginate() {
-    document.querySelectorAll('[data-vx-mobile-page], .vx-report table:not(.fi-ta-table) > tbody').forEach(container => {
+    document.querySelectorAll('[data-vx-mobile-page], .fi-main table:not(.fi-ta-table) > tbody').forEach(container => {
         const rows = [...container.children].filter(el => !el.classList.contains('vx-mobile-pages'));
         // Leave empty-state/total rows and Filament's server pagination alone.
-        if (container.tagName === 'TBODY' && rows.some(r => r.querySelector('[colspan],[rowspan]'))) return;
+        if (container.tagName === 'TBODY' && rows.some(r => r.querySelector('[colspan],[rowspan],input,select,textarea,button,[contenteditable]'))) return;
         if (rows.length <= 5) return;
         let state = collections.get(container);
         if (!state || state.rows.length !== rows.length || state.rows.some((r,i) => r !== rows[i]) || !state.nav.isConnected) {

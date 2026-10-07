@@ -14,7 +14,7 @@
 .dark .vx-mobile-picker-sheet input{background:#101827;border-color:#354158}
 .dark .vx-picker-options button[aria-pressed=true],.dark .vx-mobile-picker-sheet header button{background:#352658;color:#ddd6fe}
 @media(max-width:767px){
-.fi-main .vx-native-picker,.vx-mobile-menu .vx-native-picker{display:none!important}
+.fi-main .vx-native-picker,.vx-mobile-menu-sheet .vx-native-picker,.fi-modal-window .vx-native-picker{display:none!important}
 .vx-picker-trigger{display:flex!important;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;border:1px solid #d9deea;border-radius:12px;background:#fff;color:#182033;padding:12px 14px;font-size:16px;line-height:1.4;text-align:left;white-space:normal;overflow-wrap:anywhere}
 .vx-picker-trigger:after{content:'⌄';font-size:20px;flex-shrink:0;color:#7c3aed}
 .vx-picker-trigger:disabled{opacity:.5}

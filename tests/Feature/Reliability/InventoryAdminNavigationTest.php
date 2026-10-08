@@ -26,7 +26,7 @@ class InventoryAdminNavigationTest extends TestCase
             NavVisibility::setVisibleForRole('admin', []);
             foreach ([InventoryMovementResource::class, ListInventoryMovements::class, VendorResource::class, ListVendors::class] as $class) {
                 $this->assertFalse(NavVisibility::isHiddenForUser($class, $user));
-                $this->assertTrue($class::canAccess());
+                $this->assertTrue($class::canAccess(), $role . ': ' . $class);
             }
             $this->assertTrue(InventoryMovementResource::shouldRegisterNavigation());
             $this->assertTrue(VendorResource::shouldRegisterNavigation());

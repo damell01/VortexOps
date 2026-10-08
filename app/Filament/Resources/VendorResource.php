@@ -30,7 +30,7 @@ class VendorResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug  = 'purchasing';
+    protected static string $moduleSlug  = 'inventory';
 
     protected static ?string $model = Vendor::class;
 

@@ -91,7 +91,11 @@ class NavVisibility
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) return false;
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
-        if ($user->isAdmin() && in_array($class, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Resources\UserResource::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class], true)) return false;
+        // Resource routes resolve to their List/View page class in the menu.
+        $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
+            ? $class::getResource()
+            : $class;
+        if ($user->isAdmin() && in_array($navigationClass, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Resources\UserResource::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class, \App\Filament\Resources\VendorResource::class], true)) return false;
 
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;

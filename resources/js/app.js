@@ -1,3 +1,4 @@
+import '../css/page-layout-fixes.css';
 import './confirmation-dialog.js';
 import './guided-help.js';
 import './mobile-controls.js';

@@ -14,12 +14,12 @@ class InventoryMovementPolicy
     
     public function viewAny(AuthUser $authUser): bool
     {
-        return $authUser->can('ViewAny:InventoryMovement');
+        return ($authUser->isAdmin() || $authUser->isOwner()) || $authUser->can('ViewAny:InventoryMovement');
     }
 
     public function view(AuthUser $authUser, InventoryMovement $inventoryMovement): bool
     {
-        return $authUser->can('View:InventoryMovement');
+        return ($authUser->isAdmin() || $authUser->isOwner()) || $authUser->can('View:InventoryMovement');
     }
 
     public function create(AuthUser $authUser): bool

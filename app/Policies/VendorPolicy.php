@@ -14,12 +14,12 @@ class VendorPolicy
     
     public function viewAny(AuthUser $authUser): bool
     {
-        return $authUser->can('ViewAny:Vendor');
+        return ($authUser->isAdmin() || $authUser->isOwner()) || $authUser->can('ViewAny:Vendor');
     }
 
     public function view(AuthUser $authUser, Vendor $vendor): bool
     {
-        return $authUser->can('View:Vendor');
+        return ($authUser->isAdmin() || $authUser->isOwner()) || $authUser->can('View:Vendor');
     }
 
     public function create(AuthUser $authUser): bool

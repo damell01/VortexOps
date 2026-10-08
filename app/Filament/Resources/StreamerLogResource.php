@@ -614,9 +614,21 @@ class StreamerLogResource extends Resource
             ->persistFiltersInSession();
     }
 
+    public static function reportStartDate(): ?string
+    {
+        try {
+            $raw = trim((string) \App\Models\Setting::get('show_reports_required_from', ''));
+            return $raw === '' ? null : \Illuminate\Support\Carbon::parse($raw)->toDateString();
+        } catch (\Throwable) { return null; }
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['show', 'streamer'])->inChannelContext();
+
+        if ($from = static::reportStartDate()) {
+            $query->whereHas('show', fn (Builder $q) => $q->whereDate('show_date', '>=', $from));
+        }
 
         $user = auth()->user();
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {

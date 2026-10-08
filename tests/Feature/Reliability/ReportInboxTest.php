@@ -37,8 +37,15 @@ class ReportInboxTest extends TestCase
         $stats = $page->getStats();
         $this->assertSame(1, $stats['submissions']['count']);
         $this->assertSame(1, $stats['edit_requested']['count']);
+        try {
         Livewire::test(ListStreamerLogEntries::class)->assertOk()->assertSee('Requests to reopen')->assertSee('Correct giveaway quantity')
             ->call('selectInboxStatus','edit_requested')->assertSet('activeTab','edit_requested')->assertOk();
+        } catch (\Throwable $e) {
+            $cause = $e;
+            while ($cause->getPrevious()) $cause = $cause->getPrevious();
+            fwrite(STDERR, (string) $cause);
+            throw $e;
+        }
         Notification::fake();
         Livewire::test(ListStreamerLogEntries::class)->call('reopenRequestedReport',$report->id)->assertOk();
         $this->assertNull($report->fresh()->revision_requested_at);

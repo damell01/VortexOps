@@ -8,6 +8,7 @@ class NavVisibility
 {
     /** Pages controlled by their own canAccess() rather than per-role nav allow-lists. */
     public const ALWAYS_AVAILABLE = [
+        \App\Filament\Pages\HelpCenter::class,
         \App\Filament\Pages\DashboardImproved::class,
         \App\Filament\Pages\EditProfile::class,
         // Everyone's own notification choices, like their profile.

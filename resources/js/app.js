@@ -1,3 +1,4 @@
+import './guided-help.js';
 import './mobile-controls.js';
 import '../css/mobile-report-pass.css';
 // Some Filament/Livewire pages attach beforeunload guards after interactive

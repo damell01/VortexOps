@@ -143,20 +143,22 @@ class InventoryMovementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->extraAttributes(['class' => 'vx-inventory-log'])
             ->emptyStateHeading('No stock movements yet')
             ->emptyStateDescription('Receipts, transfers, and adjustments are logged here automatically.')
             ->emptyStateIcon('heroicon-o-arrows-right-left')
             ->columns([
-                TextColumn::make('created_at')->label('Date & Time')->dateTime('M j, Y g:i A')->sortable(),
-                TextColumn::make('item.name')->label('Item')->searchable(),
-                TextColumn::make('item.sku')->label('SKU')->placeholder('—'),
+                TextColumn::make('created_at')->label('Date')->dateTime('M j, Y')->description(fn ($record) => $record->created_at?->format('g:i A'))->sortable(),
+                TextColumn::make('item.name')->label('Item')->searchable()->wrap()->description(fn ($record) => $record->item?->sku),
+                TextColumn::make('item.sku')->label('SKU')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('movement_type')->badge()->formatStateUsing(fn($state)=>InventoryMovement::movementTypeLabels()[$state]??$state)->color(fn($state)=>match($state){'opening'=>'info','transfer'=>'primary','adjustment'=>'warning','sale_deduction'=>'success','return'=>'gray','damaged'=>'danger',default=>'gray'}),
                 TextColumn::make('quantity')->label('Change')->state(fn(InventoryMovement $record)=>$record->changeLabel())->badge()->color(fn(InventoryMovement $record)=>$record->signedChange()>0?'success':($record->signedChange()<0?'danger':'gray'))->sortable(),
-                TextColumn::make('fromLocation.name')->label('From')->placeholder('—'),
-                TextColumn::make('toLocation.name')->label('To')->placeholder('—'),
-                TextColumn::make('reason')->limit(55)->placeholder('—')->toggleable(),
-                TextColumn::make('unit_cost')->label('Unit Cost')->money('USD')->placeholder('—')->sortable()->description(fn($record)=>$record->unit_cost!==null&&$record->quantity?'Line: $'.number_format(((float)$record->unit_cost)*((float)$record->quantity),2):null),
-                TextColumn::make('createdByUser.name')->label('By')->placeholder('System')->searchable()->sortable(),
+                TextColumn::make('locations')->label('Location')->state(fn ($record) => $record->toLocation?->name ?? $record->fromLocation?->name ?? '—')->description(fn ($record) => $record->toLocation && $record->fromLocation ? 'From: ' . $record->fromLocation->name : null)->wrap(),
+                TextColumn::make('fromLocation.name')->label('From')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('toLocation.name')->label('To')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('reason')->limit(55)->placeholder('—')->wrap()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('unit_cost')->label('Unit Cost')->money('USD')->placeholder('—')->toggleable(isToggledHiddenByDefault: true)->sortable()->description(fn($record)=>$record->unit_cost!==null&&$record->quantity?'Line: $'.number_format(((float)$record->unit_cost)*((float)$record->quantity),2):null),
+                TextColumn::make('createdByUser.name')->label('By')->placeholder('System')->wrap()->searchable()->sortable(),
             ])
             ->filters([
                 Filter::make('date_range')->label('Date Range')->schema([DatePicker::make('from')->label('From'),DatePicker::make('until')->label('Until')])->query(fn(Builder $query,array $data)=>$query->when($data['from']??null,fn($q,$d)=>$q->whereDate('created_at','>=',$d))->when($data['until']??null,fn($q,$d)=>$q->whereDate('created_at','<=',$d)))->indicateUsing(function(array $data):array{$i=[];if($data['from']??null)$i[]='From '.Carbon::parse($data['from'])->toFormattedDateString();if($data['until']??null)$i[]='Until '.Carbon::parse($data['until'])->toFormattedDateString();return $i;}),

@@ -40,12 +40,14 @@ class FulfillmentPreview extends Page
             ['id'=>4, 'title'=>'Weekend Card Deals', 'channel'=>'Vortex Shop', 'host'=>'B$', 'packages'=>12, 'items'=>29, 'assigned'=>'Unassigned', 'stage'=>'blocked', 'priority'=>'Missing stock', 'location'=>'Main Storage · A-08'],
         ];
         foreach ($rows as &$row) {
-            $row['stage'] = $this->stages[$row['id']] ?? $row['stage'];
-            $row['assigned'] = $this->assignees[$row['id']] ?? $row['assigned'];
+            $stage = $this->stages[$row['id']] ?? $row['stage'];
+            $row['stage'] = in_array($stage, ['ready','picking','packing','blocked','complete'], true) ? $stage : $row['stage'];
+            $assigned = $this->assignees[$row['id']] ?? $row['assigned'];
+            $row['assigned'] = in_array($assigned, ['Avery','Morgan','Unassigned'], true) ? $assigned : $row['assigned'];
         }
         unset($row);
         // Regular fulfillment staff never gain the admin preview through a crafted mode value.
-        return $this->isAdminView() ? $rows : array_values(array_filter($rows, fn ($row) => $row['assigned'] === 'Avery'));
+        return $this->isAdminView() ? $rows : array_values(array_filter($rows, fn ($row) => auth()->user()?->isAdmin() ? $row['assigned'] === 'Avery' : in_array($row['id'], [2,3], true)));
     }
 
     public function filteredWork(): array

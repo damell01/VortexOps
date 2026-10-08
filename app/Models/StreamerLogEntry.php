@@ -305,7 +305,10 @@ class StreamerLogEntry extends Model
 
     public function reopenForEditing(?string $note = null): void
     {
+        // The report editor treats filed reports as view-only unless they are
+        // awaiting revisions. Preserve posted stock while actually reopening it.
         $this->update([
+            'status'                => 'changes_requested',
             'approval_status'       => 'pending_approval',
             'submitted_at'          => now(),
             'locked_at'             => null,

@@ -30,7 +30,8 @@ class ReportInboxTest extends TestCase
         $old = Show::create(['title'=>'Legacy show','show_date'=>'2026-09-30']);
         $current = Show::create(['title'=>'Current show','show_date'=>'2026-10-01']);
         StreamerLogEntry::create(['show_id'=>$old->id,'streamer_id'=>$streamer->id,'status'=>'streamer_reviewed','submitted_at'=>now(),'revision_requested_at'=>now()]);
-        $report = StreamerLogEntry::create(['show_id'=>$current->id,'streamer_id'=>$streamer->id,'status'=>'streamer_reviewed','submitted_at'=>now(),'revision_requested_at'=>now(),'revision_reason'=>'Correct giveaway quantity']);
+        $report = StreamerLogEntry::create(['show_id'=>$current->id,'streamer_id'=>$streamer->id,'status'=>'admin_approved','approval_status'=>'approved','locked_at'=>now(),'submitted_at'=>now(),'revision_requested_at'=>now(),'revision_reason'=>'Correct giveaway quantity']);
+        $line = StreamerLogItem::create(['streamer_log_entry_id'=>$report->id,'item_name'=>'Posted item','quantity'=>2,'deducted_quantity'=>2,'disposition'=>'sold','unit_cost'=>5]);
         $this->assertSame([$report->id], StreamerLogResource::getEloquentQuery()->pluck('id')->all());
         $page = new ListStreamerLogEntries;
         $stats = $page->getStats();
@@ -43,6 +44,9 @@ class ReportInboxTest extends TestCase
         $this->assertNull($report->fresh()->revision_requested_at);
         $this->assertSame('pending_approval', $report->fresh()->approval_status);
         $this->assertNotNull($report->fresh()->submitted_at);
+        $this->assertSame('changes_requested', $report->fresh()->status);
+        $this->assertTrue($report->fresh()->canStreamerEdit());
+        $this->assertSame(2, $line->fresh()->deducted_quantity);
     }
 
     public function test_report_detail_shows_reported_items_and_orphaned_reports_are_not_blank(): void

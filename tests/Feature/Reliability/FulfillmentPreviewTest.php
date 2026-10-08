@@ -33,7 +33,7 @@ class FulfillmentPreviewTest extends TestCase
         $this->asRole('fulfillment');
         Livewire::test(FulfillmentPreview::class)->set('mode','admin')->assertDontSee('Team workload')->assertDontSee('Weekend Card Deals')
             ->call('setMode','admin')->assertForbidden();
-        Livewire::test(FulfillmentPreview::class)->call('openWork',4)->assertForbidden();
+        Livewire::test(FulfillmentPreview::class)->set('assignees.4','Avery')->call('openWork',4)->assertForbidden();
         Livewire::test(FulfillmentPreview::class)->call('assignDemo',2,'Morgan')->assertForbidden();
     }
 

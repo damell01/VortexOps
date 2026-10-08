@@ -125,16 +125,35 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         rows = page.locator('[data-testid="show-list-item"]').evaluate_all(r"""
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
-          // Scope artwork to this show; never pick a page-wide seller avatar.
+          // Whatnot artwork can be an img, lazy source/srcset or CSS background.
+          const candidates = [];
+          const add = value => {
+            try {
+              const url = new URL(value || '', location.href);
+              if (value && /^https?:$/.test(url.protocol)) candidates.push(url.href);
+            } catch {}
+          };
           const images = [...row.querySelectorAll('img')].filter(img =>
-            !/avatar|profile|seller|placeholder/i.test((img.alt || '') + ' ' + (img.className || '') + ' ' + (img.getAttribute('data-testid') || ''))
+            !/avatar|profile-picture/i.test((img.alt || '') + ' ' + (img.getAttribute('data-testid') || ''))
           );
-          const image = images.find(img => /cover|thumbnail|show/i.test((img.alt || '') + ' ' + (img.getAttribute('data-testid') || ''))) || images[0];
-          let cover = image?.currentSrc || image?.getAttribute('data-src') || image?.getAttribute('src') || null;
-          try {
-            cover = cover ? new URL(cover, location.href).href : null;
-            if (cover && !/^https?:\/\//i.test(cover)) cover = null;
-          } catch { cover = null; }
+          for (const image of images) {
+            add(image.currentSrc);
+            add(image.getAttribute('data-src'));
+            add(image.getAttribute('src'));
+            const srcset = image.getAttribute('srcset') || image.getAttribute('data-srcset') || '';
+            for (const entry of srcset.split(',')) add(entry.trim().split(/\s+/)[0]);
+          }
+          for (const node of row.querySelectorAll('source')) {
+            for (const entry of (node.getAttribute('srcset') || '').split(',')) add(entry.trim().split(/\s+/)[0]);
+          }
+          if (!candidates.length) {
+            for (const node of [row, ...row.querySelectorAll('*')]) {
+              if (/avatar|profile-picture/i.test(node.getAttribute('data-testid') || '')) continue;
+              const background = getComputedStyle(node).backgroundImage || '';
+              for (const match of background.matchAll(/url\(["']?(.*?)["']?\)/g)) add(match[1]);
+            }
+          }
+          const cover = candidates[0] || null;
           const open = row.querySelector('a[href^="/dashboard/live/"]');
           // Current Seller Hub renders these actions as buttons, not necessarily anchors.
           const analytics = [...row.querySelectorAll('a,button,[role="button"]')]

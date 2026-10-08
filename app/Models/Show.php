@@ -505,7 +505,7 @@ class Show extends Model
         return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) {
             $eligible->whereDate('show_date', '<', today())
                 ->orWhere(fn ($ended) => $ended->whereNotNull('end_time')->where('end_time', '<=', now()->subMinutes(30)))
-                ->orWhere(fn ($completed) => $completed->where('status', 'completed')->whereNull('end_time')->whereDate('show_date', '<=', today()));
+                ->orWhere(fn ($completed) => $completed->where('raw_import_payload->_seller_hub_state', 'past')->whereNull('end_time')->whereDate('show_date', '<=', today()));
         });
     }
 

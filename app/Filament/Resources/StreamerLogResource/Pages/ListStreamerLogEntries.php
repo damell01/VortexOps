@@ -46,12 +46,12 @@ class ListStreamerLogEntries extends ListRecords
     protected function filterInbox(Builder $query, string $key): Builder
     {
         return match ($key) {
-            'submissions' => $query->where(fn (Builder $q) => $q->whereNotNull('submitted_at')->orWhereIn('status', ['streamer_reviewed','admin_approved','changes_requested'])),
+            'submissions' => $query->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->whereNotNull('submitted_at')->orWhereIn('status', ['streamer_reviewed','admin_approved','changes_requested'])),
             'submitted' => $query->where('status', 'streamer_reviewed'),
             'edit_requested' => $query->whereNotNull('revision_requested_at'),
             'changes_requested' => $query->where('status', 'changes_requested'),
-            'approved' => $query->where('status', 'admin_approved')->where(fn (Builder $q) => $q->where('approval_status','approved')->orWhereNull('approval_status')),
-            'attention' => $query->where(fn (Builder $q) => $q->where('status', 'streamer_reviewed')->orWhereNotNull('revision_requested_at')),
+            'approved' => $query->where('status', 'admin_approved')->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->where('approval_status','approved')->orWhereNull('approval_status')),
+            'attention' => $query->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->where('status', 'streamer_reviewed')->orWhereNotNull('revision_requested_at')),
             default => $query,
         };
     }

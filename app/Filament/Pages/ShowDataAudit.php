@@ -131,8 +131,8 @@ class ShowDataAudit extends Page
         $pastTo = min($toDate, today()->subDay()->toDateString());
 
         $base = Show::query()->inChannelContext()
-            ->whereBetween('show_date', [$fromDate, $toDate])
-            ->whereNotIn('status', ['cancelled']);
+            ->whereBetween('shows.show_date', [$fromDate, $toDate])
+            ->whereNotIn('shows.status', ['cancelled']);
 
         // Keep the large-range audit cheap: totals and classifications are
         // calculated in SQL. Only the current 50-row follow-up page is hydrated.
@@ -161,7 +161,7 @@ class ShowDataAudit extends Page
         ];
         $settlementCoverage = $fieldCoverage('completed_earnings');
 
-        $past = (clone $base)->whereDate('show_date', '<=', $pastTo);
+        $past = (clone $base)->whereDate('shows.show_date', '<=', $pastTo);
         $completeSql = "$verifiedSql AND gross_revenue IS NOT NULL AND show_duration IS NOT NULL AND (whatnot_net IS NOT NULL OR completed_earnings IS NOT NULL)";
         $hostedSql = "$completeSql AND show_duration > 0";
         $excludedSql = "show_duration = 0 AND $verifiedSql";

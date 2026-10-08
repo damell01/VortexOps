@@ -28,12 +28,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class VendorResource extends Resource
 {
-    /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
@@ -47,7 +41,7 @@ class VendorResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return AdminModules::navigationGroupFor('purchasing');
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int

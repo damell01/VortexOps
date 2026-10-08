@@ -1,0 +1,26 @@
+// These DOM checks do not need native canvas bindings.
+require.cache[require.resolve('canvas')] = { exports: {} };
+const { JSDOM } = require('jsdom');
+const fs = require('fs');
+const assert = require('assert');
+const dom = new JSDOM('<body><div data-toast-container></div><input id="search"><input type="checkbox" id="check"><form data-unsaved-warning><input id="edit"></form></body>', { runScripts: 'outside-only', url: 'https://example.test/admin', pretendToBeVisual: true });
+const w = dom.window;
+w.matchMedia = () => ({ matches: false });
+w.scrollTo = () => {};
+w.eval(fs.readFileSync('resources/js/ux-enhancements.js', 'utf8'));
+w.showToast('<img src=x onerror=alert(1)>', 'info', 0);
+assert.equal(w.document.querySelector('[data-toast-container] img'), null);
+assert(w.document.querySelector('[data-toast-container]').textContent.includes('<img'));
+w.document.querySelector('#search').dispatchEvent(new w.Event('input', { bubbles: true }));
+assert(w.dispatchEvent(new w.Event('beforeunload', { cancelable: true })));
+w.document.querySelector('#edit').dispatchEvent(new w.Event('input', { bubbles: true }));
+assert.equal(w.dispatchEvent(new w.Event('beforeunload', { cancelable: true })), false);
+w.document.dispatchEvent(new w.Event('livewire:navigated'));
+assert(w.dispatchEvent(new w.Event('beforeunload', { cancelable: true })));
+w.document.dispatchEvent(new w.Event('livewire:navigating'));
+assert.notEqual(w.document.body.style.pointerEvents, 'none');
+w.document.dispatchEvent(new w.Event('livewire:navigated'));
+assert(!w.document.body.classList.contains('vx-navigating'));
+assert.equal(w.document.querySelector('#check').style.minHeight, '');
+w.close();
+console.log('Shared UX checks passed');

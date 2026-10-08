@@ -22,6 +22,16 @@ class ReportPagesRenderTest extends TestCase
             ->set('dateTo', now()->toDateString())
             ->call('applyCustomRange')->assertOk();
     }
+    public function test_invalid_custom_range_has_validation_errors(): void
+    {
+        $this->enableAdminModules();
+        $this->actingAs((User::firstWhere('email', config('app.owner_email'))
+            ?? User::factory()->create(['email' => config('app.owner_email')]))->fresh());
+        Livewire::test(\App\Filament\Pages\Reports::class)
+            ->set('dateFrom', '2026-10-08')->set('dateTo', '2026-10-01')
+            ->call('applyCustomRange')->assertHasErrors(['dateTo'])->assertOk();
+    }
+
     public function test_authenticated_pages_render_the_navigation_shell(): void
     {
         $this->withoutVite();

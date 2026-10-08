@@ -43,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->scoped(\App\Support\RequestMetrics::class);
         // laravel-debugbar is a real (non-dev) dependency, so a misconfigured
         // APP_DEBUG or DEBUGBAR_ENABLED on the live server silently turns it
         // on there too — it then profiles every query with a full backtrace
@@ -70,6 +71,13 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Illuminate\Support\Facades\DB::listen(function (\Illuminate\Database\Events\QueryExecuted $query): void {
+            $metrics = app(\App\Support\RequestMetrics::class);
+            if ($metrics->active) {
+                $metrics->queries++;
+                $metrics->databaseMs += $query->time;
+            }
+        });
         // Keep generated resource tables short on phones; desktop preferences stay unchanged.
         \Filament\Tables\Table::configureUsing(function (\Filament\Tables\Table $table): void {
             if (preg_match('/Android|iPhone|iPad|Mobile/i', (string) request()->userAgent())) {

@@ -125,35 +125,7 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         rows = page.locator('[data-testid="show-list-item"]').evaluate_all(r"""
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
-          // Whatnot artwork can be an img, lazy source/srcset or CSS background.
-          const candidates = [];
-          const add = value => {
-            try {
-              const url = new URL(value || '', location.href);
-              if (value && /^https?:$/.test(url.protocol)) candidates.push(url.href);
-            } catch {}
-          };
-          const images = [...row.querySelectorAll('img')].filter(img =>
-            !/avatar|profile-picture/i.test((img.alt || '') + ' ' + (img.getAttribute('data-testid') || ''))
-          );
-          for (const image of images) {
-            add(image.currentSrc);
-            add(image.getAttribute('data-src'));
-            add(image.getAttribute('src'));
-            const srcset = image.getAttribute('srcset') || image.getAttribute('data-srcset') || '';
-            for (const entry of srcset.split(',')) add(entry.trim().split(/\s+/)[0]);
-          }
-          for (const node of row.querySelectorAll('source')) {
-            for (const entry of (node.getAttribute('srcset') || '').split(',')) add(entry.trim().split(/\s+/)[0]);
-          }
-          if (!candidates.length) {
-            for (const node of [row, ...row.querySelectorAll('*')]) {
-              if (/avatar|profile-picture/i.test(node.getAttribute('data-testid') || '')) continue;
-              const background = getComputedStyle(node).backgroundImage || '';
-              for (const match of background.matchAll(/url\(["']?(.*?)["']?\)/g)) add(match[1]);
-            }
-          }
-          const cover = candidates[0] || null;
+          const cover = null; // Cover collection is disabled.
           const open = row.querySelector('a[href^="/dashboard/live/"]');
           // Current Seller Hub renders these actions as buttons, not necessarily anchors.
           const analytics = [...row.querySelectorAll('a,button,[role="button"]')]
@@ -191,12 +163,14 @@ def verify_identity(module, row: dict[str, Any], live_id: str, expected_title: s
         f"analytics: exact Seller Hub row found uuid={live_id} title={row.get('title')!r} "
         f"date={row_date or 'unknown'} analytics_link={'yes' if row.get('analytics_url') else 'no'}"
     )
+    # The UUID comes from Whatnot's own /dashboard/live/<uuid> href and is the
+    # canonical show identity. Titles are routinely reused and imported dates can
+    # drift, so metadata mismatches are diagnostics, not grounds to reject an
+    # otherwise exact UUID match.
     if not title_ok:
-        module.info("analytics: exact UUID row title does not match database show; refusing action")
-        return False
+        module.info("analytics: exact UUID matched; database title differs from Seller Hub title (continuing by UUID)")
     if not date_ok:
-        module.info("analytics: exact UUID row date does not match database show; refusing action")
-        return False
+        module.info("analytics: exact UUID matched; database date differs from Seller Hub date (continuing by UUID)")
     return True
 
 
@@ -704,16 +678,27 @@ def historical_analytics(module, session):
     target_set = set(targets)
     rows: list[dict[str, Any]] = []
     module.info(
-        f"historical-analytics: recent Past index -> See Analytics "
+        f"historical-analytics: full Past scan -> See Analytics "
         f"since={since or 'all'} targets={len(target_ids)} batch={len(targets)}"
     )
 
     def recent_index(page) -> dict[str, dict[str, Any]]:
         seen: dict[str, dict[str, Any]] = {}
-        # Recent refreshes should never walk hundreds of historical rows. Seller Hub
-        # initially renders about 50 rows; allow only a few lazy-load passes and stop
-        # immediately once every requested UUID is present.
-        for attempt in range(1, 5):
+        stable_passes = 0
+        previous_count = -1
+        target_dates = [
+            clean(target_meta.get(live_id, {}).get("show_date"))
+            for live_id in target_set
+            if clean(target_meta.get(live_id, {}).get("show_date"))
+        ]
+        oldest_target = min(target_dates) if target_dates else since or None
+
+        # Historical analytics must be able to walk the full requested range.
+        # Keep the fast exit when all UUIDs are found, but do not cap the scan to
+        # the first ~100 recent rows. Stop only after we have moved past the
+        # oldest target date, reached the requested --since cutoff, or the
+        # virtual list has genuinely stopped growing.
+        for attempt in range(1, 121):
             module.check_login(page)
             visible = extract_show_rows(page)
             for row in visible:
@@ -721,30 +706,43 @@ def historical_analytics(module, session):
                 if live_id:
                     row["live_id"] = live_id
                     seen[live_id] = row
+
             found = target_set.intersection(seen.keys())
-            module.info(
-                f"historical-analytics: recent Past scan pass {attempt}/4 "
-                f"rows_seen={len(seen)} matched={len(found)}/{len(target_set)}"
-            )
-            if found == target_set or len(seen) >= 150:
+            loaded_dates = [
+                clean(row.get("show_date"))
+                for row in seen.values()
+                if clean(row.get("show_date"))
+            ]
+            oldest_loaded = min(loaded_dates) if loaded_dates else None
+
+            if len(seen) == previous_count:
+                stable_passes += 1
+            else:
+                stable_passes = 0
+            previous_count = len(seen)
+
+            if attempt == 1 or attempt % 10 == 0 or found == target_set:
+                module.info(
+                    f"historical-analytics: Past scan pass {attempt}/120 "
+                    f"rows_seen={len(seen)} matched={len(found)}/{len(target_set)} "
+                    f"oldest={oldest_loaded or 'unknown'}"
+                )
+
+            if found == target_set:
                 break
 
-            # Stop once the loaded rows have moved older than all requested target
-            # dates. This keeps yesterday/recent analytics cheap even on huge accounts.
-            target_dates = [
-                clean(target_meta.get(live_id, {}).get("show_date"))
-                for live_id in target_set
-                if clean(target_meta.get(live_id, {}).get("show_date"))
-            ]
-            loaded_dates = [clean(row.get("show_date")) for row in seen.values() if clean(row.get("show_date"))]
-            if target_dates and loaded_dates and min(loaded_dates) < min(target_dates):
+            # Imported dates can drift from Seller Hub. UUID identity is authoritative;
+            # exhaust the bounded list instead of treating a DB date as proof of absence.
+            if stable_passes >= 6 and attempt >= 10:
                 module.info(
-                    f"historical-analytics: recent Past scan passed oldest target date "
-                    f"loaded={min(loaded_dates)} target={min(target_dates)}; stopping"
+                    f"historical-analytics: Past list exhausted after {attempt} passes "
+                    f"rows_seen={len(seen)}"
                 )
                 break
+
             scroll_to_bottom(page)
-            page.wait_for_timeout(900)
+            page.wait_for_timeout(1100)
+
         return seen
 
     def action(page):
@@ -760,7 +758,7 @@ def historical_analytics(module, session):
         index = recent_index(page)
         matched = [live_id for live_id in pending if live_id in index]
         module.info(
-            f"historical-analytics: recent Past index complete rows={len(index)} "
+            f"historical-analytics: Past index complete rows={len(index)} "
             f"matched={len(matched)}/{total}"
         )
 
@@ -772,13 +770,13 @@ def historical_analytics(module, session):
 
             if not target:
                 module.info(
-                    f"historical-analytics [{position}/{total}]: uuid={live_id} not in recent Past window; "
+                    f"historical-analytics [{position}/{total}]: uuid={live_id} not found in scanned Past history; "
                     "leaving due for later/historical retry"
                 )
                 rows.append({
                     "whatnot_live_id": live_id,
                     "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Show was not present in the bounded recent Seller Hub Past window.",
+                    "_analytics_failure_note": "Show was not present in the scanned Seller Hub Past history.",
                 })
                 continue
             if not verify_identity(module, target, live_id, expected_title, expected_date):
@@ -804,7 +802,7 @@ def historical_analytics(module, session):
                 rows.append({
                     "whatnot_live_id": live_id,
                     "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Recent Past row found but See Analytics could not be opened.",
+                    "_analytics_failure_note": "Past row found but See Analytics could not be opened.",
                 })
                 continue
 
@@ -839,7 +837,7 @@ def historical_analytics(module, session):
             )
 
         module.info(
-            f"historical-analytics: recent batch finished targets={total} matched={len(matched)} "
+            f"historical-analytics: batch finished targets={total} matched={len(matched)} "
             f"results={len(rows)}"
         )
 

@@ -4,9 +4,16 @@
     $attention = $this->needsAttention();
     $breakdown = $this->currentBreakdown();
     $recent = $this->recentPayRuns();
-    $shows = $this->currentWeekShows();
+    $filteredShows = $this->currentWeekShows();
+    $perPage = 12;
+    $page = max(1, (int) request()->integer('page', 1));
+    $totalFilteredShows = $filteredShows->count();
+    $lastPage = max(1, (int) ceil($totalFilteredShows / $perPage));
+    $page = min($page, $lastPage);
+    $shows = $filteredShows->forPage($page, $perPage)->values();
     $readiness = $this->readinessSummary();
     $workflow = $this->workflowBreakdown();
+    $progress = $this->periodProgress();
     $mock = $this->mockPayRun();
     $mockCalc = $this->mockShowCalculation();
     $activeWorkflow = request()->string('workflow')->toString() ?: 'all';
@@ -14,18 +21,19 @@
     $runStatus = $current ? (\App\Models\WeeklyPayoutBatch::statusLabels()[$current->status] ?? ucfirst($current->status)) : 'No run created';
 @endphp
 <style>
-.vx-pay{max-width:1440px;margin:0 auto;display:grid;gap:14px}.vx-card{border:1px solid #e5e7eb;background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04);overflow:hidden}.dark .vx-card{border-color:#263248;background:#101827}.vx-pad{padding:18px}.vx-actions{display:flex;flex-wrap:wrap;gap:8px}.vx-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;border-radius:12px;padding:8px 13px;font-size:11px;font-weight:800;border:1px solid #d1d5db;color:#374151;background:#fff}.dark .vx-btn{border-color:#475569;color:#e5e7eb;background:#111827}.vx-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}.vx-btn.success{background:#059669;border-color:#059669;color:#fff}.vx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}.vx-kpi{border-radius:14px;padding:12px;background:#f8fafc}.dark .vx-kpi{background:#1f2937}.vx-kpi label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#94a3b8}.vx-kpi strong{display:block;margin-top:4px;font-size:20px;color:#111827}.dark .vx-kpi strong{color:#fff}.vx-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.vx-flow a{border:1px solid #e5e7eb;border-radius:14px;padding:12px;text-decoration:none}.dark .vx-flow a{border-color:#374151}.vx-flow .active{border-color:#2563eb;background:#eff6ff}.dark .vx-flow .active{background:#172554}.vx-flow label{display:block;font-size:9px;text-transform:uppercase;font-weight:800;color:#94a3b8}.vx-flow strong{display:block;margin-top:3px;font-size:19px;color:#111827}.dark .vx-flow strong{color:#fff}.vx-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.45fr);gap:14px}.vx-show{border-top:1px solid #eef0f3;padding:14px}.dark .vx-show{border-color:#263248}.vx-show:first-child{border-top:0}.vx-show-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.vx-name{font-size:14px;font-weight:800;color:#111827}.dark .vx-name{color:#fff}.vx-meta{font-size:10px;color:#6b7280;margin-top:2px}.vx-chip{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:800;background:#f3f4f6;color:#4b5563}.dark .vx-chip{background:#1f2937;color:#d1d5db}.vx-chip.ready{background:#ecfdf5;color:#047857}.vx-chip.blocked{background:#fff7ed;color:#c2410c}.vx-chip.run{background:#eff6ff;color:#1d4ed8}.vx-money{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:11px}.vx-money div{border-radius:10px;background:#f8fafc;padding:8px}.dark .vx-money div{background:#1f2937}.vx-money label{display:block;font-size:8px;text-transform:uppercase;font-weight:800;color:#94a3b8}.vx-money strong{display:block;margin-top:2px;font-size:12px}.vx-next{margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:11px;background:#f8fafc;padding:9px 10px}.dark .vx-next{background:#1f2937}.vx-alert{display:flex;gap:8px;border-radius:11px;background:#fff7ed;color:#9a3412;padding:9px 11px;font-size:11px;margin-top:7px}.dark .vx-alert{background:rgba(154,52,18,.16);color:#fdba74}.vx-ok{border-radius:11px;background:#ecfdf5;color:#047857;padding:10px 11px;font-size:11px;font-weight:750;margin-top:9px}.vx-runrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #eef0f3}.dark .vx-runrow{border-color:#263248}.vx-runrow strong{font-size:12px}.vx-runrow span{font-size:10px;color:#6b7280}.vx-sim{border-style:dashed;border-color:#a78bfa;background:#faf5ff}.dark .vx-sim{background:#211634;border-color:#7c3aed}.vx-sim-badge{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:800;background:#ede9fe;color:#6d28d9}.vx-sim-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.vx-sim-stat{padding:10px;border-radius:10px;background:rgba(255,255,255,.75)}.dark .vx-sim-stat{background:rgba(17,24,39,.65)}.vx-sim-stat label{display:block;font-size:9px;text-transform:uppercase;font-weight:800;color:#8b5cf6}.vx-sim-stat strong{display:block;margin-top:3px;font-size:18px}.vx-lab{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:12px;margin-top:14px}.vx-lab-card{border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;background:rgba(255,255,255,.68)}.dark .vx-lab-card{background:rgba(17,24,39,.55)}.vx-input{width:100%;min-height:38px;border:1px solid #d1d5db;border-radius:9px;padding:6px 8px;font-size:11px;background:#fff}.dark .vx-input{background:#111827;border-color:#475569;color:#fff}.vx-readonly{width:100%;min-height:38px;border:1px solid rgba(139,92,246,.18);border-radius:9px;padding:7px 8px;font-size:11px;background:rgba(255,255,255,.55);color:#374151}.dark .vx-readonly{background:rgba(17,24,39,.5);color:#e5e7eb}.vx-lab-fields{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.vx-product-row{display:grid;grid-template-columns:minmax(160px,1fr) 90px 110px 110px 40px;gap:7px;align-items:end;padding:8px 0;border-top:1px solid rgba(139,92,246,.12)}.vx-label{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:#8b5cf6;margin-bottom:3px}.vx-calc-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid rgba(139,92,246,.12);font-size:11px}.vx-formula{margin-top:10px;padding:9px;border-radius:9px;background:#ede9fe;color:#5b21b6;font-size:10px;line-height:1.4}.dark .vx-formula{background:#2e1065;color:#ddd6fe}.vx-sub{font-size:11px;color:#6b7280;margin-top:2px}
-@media(max-width:1000px){.vx-grid,.vx-lab{grid-template-columns:1fr}.vx-flow,.vx-kpis{grid-template-columns:repeat(2,1fr)}.vx-money{grid-template-columns:repeat(3,1fr)}.vx-lab-fields{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.vx-pay{gap:10px}.vx-pad{padding:14px}.vx-actions{display:grid;grid-template-columns:1fr 1fr}.vx-btn{min-height:44px}.vx-flow{grid-template-columns:1fr 1fr}.vx-kpis{grid-template-columns:1fr 1fr}.vx-money{grid-template-columns:1fr 1fr}.vx-show-top{flex-direction:column}.vx-next{align-items:stretch;flex-direction:column}.vx-next .vx-btn{width:100%}.vx-sim-grid,.vx-lab-fields{grid-template-columns:1fr 1fr}.vx-product-row{grid-template-columns:1fr 1fr}.vx-product-row>div:first-child{grid-column:1/-1}.vx-product-row>button{grid-column:1/-1;width:100%}}
+.vx-pay{max-width:1440px;margin:0 auto;display:grid;gap:14px}.vx-card{border:1px solid #e5e7eb;background:#fff;border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04);overflow:hidden}.dark .vx-card{border-color:#263248;background:#101827}.vx-pad{padding:18px}.vx-actions{display:flex;flex-wrap:wrap;gap:8px}.vx-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;border-radius:12px;padding:8px 13px;font-size:11px;font-weight:800;border:1px solid #d1d5db;color:#374151;background:#fff}.dark .vx-btn{border-color:#475569;color:#e5e7eb;background:#111827}.vx-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}.vx-btn.success{background:#059669;border-color:#059669;color:#fff}.vx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}.vx-kpi{border-radius:14px;padding:12px;background:#f8fafc}.dark .vx-kpi{background:#1f2937}.vx-kpi label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#94a3b8}.vx-kpi strong{display:block;margin-top:4px;font-size:20px;color:#111827}.dark .vx-kpi strong{color:#fff}.vx-flow{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}.vx-flow a{border:1px solid #e5e7eb;border-radius:14px;padding:12px;text-decoration:none}.dark .vx-flow a{border-color:#374151}.vx-flow .active{border-color:#2563eb;background:#eff6ff}.dark .vx-flow .active{background:#172554}.vx-flow label{display:block;font-size:9px;text-transform:uppercase;font-weight:800;color:#94a3b8}.vx-flow strong{display:block;margin-top:3px;font-size:19px;color:#111827}.dark .vx-flow strong{color:#fff}.vx-grid{display:block}.vx-show-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}.vx-show{border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#fff;min-width:0;display:flex;flex-direction:column}.dark .vx-show{border-color:#263248;background:#101827}.vx-show.blocked-card{border-color:#fed7aa}.dark .vx-show.blocked-card{border-color:#7c2d12}.vx-show.upcoming-card{background:#f8fafc}.dark .vx-show.upcoming-card{background:#111827}.vx-show-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.vx-name{font-size:14px;font-weight:800;color:#111827}.dark .vx-name{color:#fff}.vx-meta{font-size:10px;color:#6b7280;margin-top:2px}.vx-chip{display:inline-flex;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:800;background:#f3f4f6;color:#4b5563}.dark .vx-chip{background:#1f2937;color:#d1d5db}.vx-chip.ready{background:#ecfdf5;color:#047857}.vx-chip.blocked{background:#fff7ed;color:#c2410c}.vx-chip.run{background:#eff6ff;color:#1d4ed8}.vx-chip.upcoming{background:#f8fafc;color:#64748b}.vx-period-summary{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.vx-period-summary span{display:inline-flex;gap:5px;align-items:center;border:1px solid #e5e7eb;border-radius:999px;padding:5px 8px;font-size:10px;color:#64748b}.dark .vx-period-summary span{border-color:#374151;color:#cbd5e1}.vx-period-summary b{color:#111827}.dark .vx-period-summary b{color:#fff}.vx-money{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.vx-money div{border-radius:9px;background:#f8fafc;padding:7px}.vx-money div:nth-child(4),.vx-money div:nth-child(5){display:none}.dark .vx-money div{background:#1f2937}.vx-money label{display:block;font-size:8px;text-transform:uppercase;font-weight:800;color:#94a3b8}.vx-money strong{display:block;margin-top:2px;font-size:12px}.vx-next{margin-top:auto;padding-top:10px;display:flex;align-items:stretch;flex-direction:column;gap:8px}.vx-next>div:first-child{border-radius:9px;background:#f8fafc;padding:8px}.dark .vx-next>div:first-child{background:#1f2937}.dark .vx-next{background:#1f2937}.vx-alert{display:flex;gap:8px;border-radius:11px;background:#fff7ed;color:#9a3412;padding:9px 11px;font-size:11px;margin-top:7px}.dark .vx-alert{background:rgba(154,52,18,.16);color:#fdba74}.vx-ok{border-radius:11px;background:#ecfdf5;color:#047857;padding:10px 11px;font-size:11px;font-weight:750;margin-top:9px}.vx-runrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #eef0f3}.dark .vx-runrow{border-color:#263248}.vx-runrow strong{font-size:12px}.vx-runrow span{font-size:10px;color:#6b7280}.vx-sim{border-style:dashed;border-color:#a78bfa;background:#faf5ff}.dark .vx-sim{background:#211634;border-color:#7c3aed}.vx-sim-badge{display:inline-flex;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:800;background:#ede9fe;color:#6d28d9}.vx-sim-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.vx-sim-stat{padding:10px;border-radius:10px;background:rgba(255,255,255,.75)}.dark .vx-sim-stat{background:rgba(17,24,39,.65)}.vx-sim-stat label{display:block;font-size:9px;text-transform:uppercase;font-weight:800;color:#8b5cf6}.vx-sim-stat strong{display:block;margin-top:3px;font-size:18px}.vx-lab{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:12px;margin-top:14px}.vx-lab-card{border:1px solid rgba(139,92,246,.2);border-radius:12px;padding:12px;background:rgba(255,255,255,.68)}.dark .vx-lab-card{background:rgba(17,24,39,.55)}.vx-input{width:100%;min-height:38px;border:1px solid #d1d5db;border-radius:9px;padding:6px 8px;font-size:11px;background:#fff}.dark .vx-input{background:#111827;border-color:#475569;color:#fff}.vx-readonly{width:100%;min-height:38px;border:1px solid rgba(139,92,246,.18);border-radius:9px;padding:7px 8px;font-size:11px;background:rgba(255,255,255,.55);color:#374151}.dark .vx-readonly{background:rgba(17,24,39,.5);color:#e5e7eb}.vx-lab-fields{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.vx-product-row{display:grid;grid-template-columns:minmax(160px,1fr) 90px 110px 110px 40px;gap:7px;align-items:end;padding:8px 0;border-top:1px solid rgba(139,92,246,.12)}.vx-label{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.05em;font-weight:800;color:#8b5cf6;margin-bottom:3px}.vx-calc-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid rgba(139,92,246,.12);font-size:11px}.vx-formula{margin-top:10px;padding:9px;border-radius:9px;background:#ede9fe;color:#5b21b6;font-size:10px;line-height:1.4}.dark .vx-formula{background:#2e1065;color:#ddd6fe}.vx-sub{font-size:11px;color:#6b7280;margin-top:2px}.vx-pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-top:1px solid #eef0f3}.dark .vx-pager{border-color:#263248}.vx-pager-links{display:flex;gap:5px}.vx-page{display:inline-flex;min-width:34px;height:34px;align-items:center;justify-content:center;border:1px solid #e5e7eb;border-radius:9px;font-size:11px;font-weight:800}.vx-page.active{background:#2563eb;border-color:#2563eb;color:#fff}.vx-inline-fix{width:100%}.vx-inline-fix .vx-btn,.vx-inline-fix .vx-inline-select{width:100%;max-width:none}.vx-show .vx-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:38px}
+@media(max-width:1100px){.vx-show-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:1000px){.vx-grid,.vx-lab{grid-template-columns:1fr}.vx-flow{grid-template-columns:repeat(3,1fr)}.vx-kpis{grid-template-columns:repeat(2,1fr)}.vx-money{grid-template-columns:repeat(3,1fr)}.vx-lab-fields{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.vx-show-grid{grid-template-columns:1fr;padding:8px}.vx-pay{gap:10px}.vx-pad{padding:14px}.vx-actions{display:grid;grid-template-columns:1fr 1fr}.vx-btn{min-height:44px}.vx-flow{grid-template-columns:1fr 1fr}.vx-kpis{grid-template-columns:1fr 1fr}.vx-money{grid-template-columns:1fr 1fr}.vx-show-top{flex-direction:column}.vx-next{align-items:stretch;flex-direction:column}.vx-next .vx-btn{width:100%}.vx-sim-grid,.vx-lab-fields{grid-template-columns:1fr 1fr}.vx-product-row{grid-template-columns:1fr 1fr}.vx-product-row>div:first-child{grid-column:1/-1}.vx-product-row>button{grid-column:1/-1;width:100%}}
 </style>
 
 <div class="vx-pay">
-    <section class="vx-card vx-pad">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section class="vx-card vx-pad vx-payroll-control">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">Payroll Command Center</div>
                 <h1 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ ($current?->week_start ?? now()->startOfWeek())->format('M j') }} – {{ ($current?->week_end ?? now()->endOfWeek())->format('M j, Y') }}</h1>
-                <p class="mt-1 max-w-2xl text-xs text-gray-500">See what is blocked, what is payroll-ready, what is already in the run, and the one action needed to move each show forward.</p>
+                <p class="mt-1 max-w-2xl text-xs text-gray-500">{{ $readiness['ready'] }} of {{ $readiness['shows'] }} shows are payroll-ready or already in the run. {{ $readiness['review'] }} need attention before payroll can move forward.</p>
+                <div class="mt-2 flex flex-wrap gap-2"><span class="vx-chip run">{{ $runStatus }}</span><span class="vx-chip">{{ $progress['upcoming'] }} upcoming</span></div>
             </div>
             <div class="vx-actions">
                 @if($current)
@@ -50,23 +58,44 @@
             <div class="vx-kpi"><label>Payroll Total</label><strong>${{ number_format((float)($current?->total_payout ?? 0),2) }}</strong></div>
             <div class="vx-kpi"><label>People</label><strong>{{ $breakdown['people'] }}</strong></div>
             <div class="vx-kpi"><label>Ready / In Run / Paid</label><strong class="text-emerald-600">{{ $readiness['ready'] }}</strong></div>
-            <div class="vx-kpi"><label>Blocked</label><strong class="{{ $readiness['review'] ? 'text-amber-600' : 'text-emerald-600' }}">{{ $readiness['review'] }}</strong></div>
+            <div class="vx-kpi"><label>Blocked Shows</label><strong class="{{ $readiness['review'] ? 'text-amber-600' : 'text-emerald-600' }}">{{ $readiness['review'] }}</strong></div>
         </div>
     </section>
 
-    <section class="vx-card vx-pad">
-        <div class="flex items-center justify-between gap-3"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">This Week's Payroll Flow</h2><div class="vx-sub">Jump directly to the stage you need.</div></div><span class="vx-chip {{ $current ? 'run' : 'blocked' }}">{{ $runStatus }}</span></div>
-        <div class="vx-flow mt-3">
-            @foreach(['blocked'=>['Needs Attention',$workflow['blocked']],'ready'=>['Payroll Ready',$workflow['ready']],'in_run'=>['In Pay Run',$workflow['in_run']],'paid'=>['Paid',$workflow['paid']]] as $key=>[$label,$count])
-                <a class="{{ $activeWorkflow===$key?'active':'' }}" href="{{ $baseUrl.'?workflow='.$key }}"><label>{{ $label }}</label><strong>{{ $count }}</strong></a>
-            @endforeach
+    <section class="vx-card vx-pad vx-payroll-statusbar">
+        <div>
+            <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <div class="text-[10px] font-extrabold uppercase tracking-[.12em] text-gray-400">This pay period</div>
+                    <div class="mt-1 text-sm font-bold text-gray-950 dark:text-white">Every show is here. Work the exceptions first; upcoming shows stay visible without counting as blocked.</div>
+                </div>
+                <a href="{{ $baseUrl }}" class="text-xs font-bold text-primary-600">All {{ $progress['total'] }} shows</a>
+            </div>
+            <div class="vx-flow mt-3">
+                @foreach([
+                    'needs_assignment'=>['Needs Assignment',$workflow['needs_assignment']],
+                    'needs_log'=>['Needs Log',$progress['needs_log']],
+                    'review'=>['Needs Review',$progress['needs_review']],
+                    'blocked'=>['Blocked',$workflow['blocked']],
+                    'ready'=>['Ready',$workflow['ready']],
+                    'in_run'=>['In Pay Run',$workflow['in_run']],
+                    'upcoming'=>['Upcoming',$progress['upcoming']],
+                ] as $key=>[$label,$count])
+                    <a class="{{ $activeWorkflow===$key?'active':'' }}" href="{{ $baseUrl.'?workflow='.$key }}"><label>{{ $label }}</label><strong>{{ $count }}</strong></a>
+                @endforeach
+            </div>
+            <div class="vx-period-summary">
+                <span><b>{{ $progress['logged'] }}</b> logged</span>
+                <span><b>{{ $progress['approved'] }}</b> approved</span>
+                <span><b>{{ $workflow['paid'] }}</b> paid</span>
+            </div>
         </div>
     </section>
 
     <div class="vx-grid">
         <section class="vx-card">
-            <div class="vx-pad flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">Shows in This Pay Period</h2><div class="vx-sub">Workflow first, money second. Fix the blocker from the same card.</div></div><a href="{{ $baseUrl }}" class="text-xs font-semibold text-primary-600">Show all</a></div>
-            <div>
+            <div class="vx-pad flex items-start justify-between gap-3 border-b border-gray-100 dark:border-gray-800"><div><h2 class="text-sm font-bold text-gray-950 dark:text-white">{{ $activeWorkflow==='all' ? 'All Shows in This Pay Period' : 'Filtered Pay-Period Shows' }}</h2><div class="vx-sub">Actionable shows are sorted first. Upcoming shows remain part of this week's run and move into the queue automatically.</div></div>@if($activeWorkflow!=='all')<a href="{{ $baseUrl }}" class="text-xs font-semibold text-primary-600">Clear filter</a>@endif</div>
+            <div class="vx-show-grid" data-vx-mobile-page>
                 @forelse($shows as $show)
                     @php
                         $state=$show->getAttribute('workflow_state');
@@ -74,39 +103,60 @@
                         $probs=$show->getAttribute('payrun_problems')??[];
                         $resolution=$this->showResolution($show);
                         $key=$state['key']??'';
-                        $tone=$probs!==[]?'blocked':($key==='paid'?'ready':($key==='payroll'?'run':($key==='payroll_ready'?'ready':'')));
-                        $nextText = $probs[0] ?? ($state['blockers'][0] ?? $state['description'] ?? 'Ready for payroll review.');
+                        $due = ! $show->show_date || ! $show->show_date->isFuture();
+                        if ($show->show_date?->isToday() && $show->start_time?->isFuture()) $due = false;
+                        $tone=!$due?'upcoming':(($probs!==[] || ($state['blockers'] ?? []) !== [])?'blocked':($key==='paid'?'ready':($key==='payroll'?'run':($key==='payroll_ready'?'ready':''))));
+                        $nextText = !$due ? 'Upcoming — stays in this pay period and will require a streamer log after the show.' : ($probs[0] ?? ($state['blockers'][0] ?? $state['description'] ?? 'Ready for payroll review.'));
                     @endphp
-                    <article class="vx-show">
+                    <article class="vx-show {{ $tone==='blocked'?'blocked-card':($tone==='upcoming'?'upcoming-card':'') }}">
                         <div class="vx-show-top">
                             <div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><span class="vx-chip {{ $tone }}">{{ $state['label'] ?? ucfirst(str_replace('_',' ',$key)) }}</span><span class="text-[10px] text-gray-400">{{ $show->show_date?->format('M j') }}</span></div><a href="{{ \App\Filament\Resources\ShowResource::getUrl('view',['record'=>$show]) }}" class="vx-name mt-2 block truncate">{{ $show->title ?: 'Show #'.$show->id }}</a><div class="vx-meta">{{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer assigned' }}</div></div>
                             <div class="text-right"><div class="text-[9px] font-bold uppercase tracking-wide text-gray-400">Show Net</div><div class="mt-1 text-lg font-bold {{ ($pnl['margin']??0)<0?'text-red-600':'text-emerald-600' }}">${{ number_format((float)($pnl['margin']??0),0) }}</div></div>
                         </div>
                         <div class="vx-money"><div><label>Sales</label><strong>${{ number_format((float)($pnl['gross']??0),0) }}</strong></div><div><label>Whatnot Net</label><strong>${{ number_format((float)($pnl['net']??0),0) }}</strong></div><div><label>COGS</label><strong>${{ number_format((float)($pnl['cogs']??0),0) }}</strong></div><div><label>Payroll</label><strong>${{ number_format((float)($pnl['payouts']??0),0) }}</strong></div><div><label>Margin</label><strong>{{ number_format((float)($pnl['margin_pct']??0),1) }}%</strong></div></div>
-                        <div class="vx-next"><div><div class="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400">Next step</div><div class="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $nextText }}</div></div><a class="vx-btn {{ $resolution['tone']==='primary'?'primary':($resolution['tone']==='success'?'success':'') }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a></div>
+                        @php($allBlockers = array_values(array_unique(array_merge($probs, $state['blockers'] ?? []))))
+                        @if($due && count($allBlockers) > 1)
+                            <details class="px-4 pb-3 text-xs text-amber-700 dark:text-amber-300">
+                                <summary class="cursor-pointer py-2 font-semibold">{{ count($allBlockers) }} items need attention</summary>
+                                <ul class="list-disc space-y-1 pl-4">@foreach($allBlockers as $blocker)<li>{{ $blocker }}</li>@endforeach</ul>
+                            </details>
+                        @endif
+                        <div class="vx-next">
+                            <div class="min-w-0 flex-1"><div class="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400">Next step</div><div class="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $nextText }}</div></div>
+                            <div class="vx-inline-fix">
+                                @if($show->streamers->isEmpty())
+                                    <select class="vx-inline-select" aria-label="Assign streamer to {{ $show->title }}" wire:change="assignStreamerToShow({{ $show->id }}, $event.target.value)">
+                                        <option value="">Assign streamer…</option>
+                                        @foreach($this->streamerOptions() as $streamerId=>$streamerName)<option value="{{ $streamerId }}">{{ $streamerName }}</option>@endforeach
+                                    </select>
+                                @elseif($show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')
+                                    <button type="button" wire:click="approveReportInline({{ $show->id }})" wire:confirm="Approve this streamer report?" wire:loading.attr="disabled" wire:target="approveReportInline" class="vx-btn success">Approve Report</button>
+                                @elseif(str_contains(strtolower($nextText), 'payment structure') || str_contains(strtolower($nextText), 'compensation') || str_contains(strtolower($nextText), 'pay rate'))
+                                    <a class="vx-btn" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit',['record'=>$show->streamers->first()]) }}">Fix Pay Setup</a>
+                                @else
+                                    <a class="vx-btn {{ $resolution['tone']==='primary'?'primary':($resolution['tone']==='success'?'success':'') }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
+                                @endif
+                            </div>
+                        </div>
                     </article>
                 @empty<div class="p-8 text-center text-sm text-gray-500">No shows in this pay period.</div>@endforelse
             </div>
-        </section>
 
-        <aside class="space-y-3">
-            <section class="vx-card vx-pad"><div class="flex items-center justify-between gap-3"><div><h3 class="text-sm font-bold text-gray-950 dark:text-white">Run Readiness</h3><div class="vx-sub">Clear these before finalizing.</div></div><span class="vx-chip {{ count($attention)?'blocked':'ready' }}">{{ count($attention) }} issue{{ count($attention)===1?'':'s' }}</span></div>@forelse($attention as $warning)<div class="vx-alert"><strong>!</strong><span>{{ $warning }}</span></div>@empty<div class="vx-ok">✓ Current week is clear of payroll readiness issues.</div>@endforelse</section>
-            <section class="vx-card vx-pad"><h3 class="text-sm font-bold text-gray-950 dark:text-white">Current Run</h3><div class="mt-3 rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/30"><div class="text-[9px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-300">Total payroll</div><div class="mt-1 text-3xl font-bold text-blue-700 dark:text-blue-200">${{ number_format((float)($current?->total_payout ?? 0),2) }}</div><div class="mt-1 text-xs text-blue-700 dark:text-blue-300">{{ $runStatus }}</div><div class="mt-3 grid grid-cols-2 gap-2 text-xs"><div><span class="text-gray-500">Streamers</span><div class="font-bold">${{ number_format($breakdown['streamer_total'],0) }}</div></div><div><span class="text-gray-500">Fulfillment</span><div class="font-bold">${{ number_format($breakdown['fulfillment_total'],0) }}</div></div></div></div>@if($current)<a class="vx-btn primary mt-3 w-full" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review Pay Run</a>@endif</section>
-            <section class="vx-card vx-pad"><h3 class="text-sm font-bold text-gray-950 dark:text-white">Recent Pay Runs</h3>@forelse($recent as $run)<a href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$run]) }}" class="vx-runrow"><div><strong>{{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}</strong><br><span>{{ \App\Models\WeeklyPayoutBatch::statusLabels()[$run->status] ?? ucfirst($run->status) }} · {{ $run->payouts_count }} entries</span></div><strong>${{ number_format((float)$run->total_payout,2) }}</strong></a>@empty<div class="py-5 text-center text-xs text-gray-500">No prior pay runs.</div>@endforelse</section>
-        </aside>
+            @if($totalFilteredShows > 0)
+                <div class="vx-pager">
+                    <div class="text-[11px] text-gray-500">Showing {{ (($page-1)*$perPage)+1 }}–{{ min($page*$perPage,$totalFilteredShows) }} of {{ $totalFilteredShows }}</div>
+                    @if($lastPage > 1)
+                        <div class="vx-pager-links">
+                            @if($page>1)<a class="vx-page" href="{{ request()->fullUrlWithQuery(['page'=>$page-1]) }}">‹</a>@endif
+                            @for($p=max(1,$page-1);$p<=min($lastPage,$page+1);$p++)<a class="vx-page {{ $p===$page?'active':'' }}" href="{{ request()->fullUrlWithQuery(['page'=>$p]) }}">{{ $p }}</a>@endfor
+                            @if($page<$lastPage)<a class="vx-page" href="{{ request()->fullUrlWithQuery(['page'=>$page+1]) }}">›</a>@endif
+                        </div>
+                    @endif
+                </div>
+            @endif
+        </section>
     </div>
 
-    <section id="mock-pay-run" class="vx-card vx-sim">
-        <details>
-            <summary class="cursor-pointer list-none vx-pad"><div class="flex items-center justify-between gap-3"><div><div class="vx-sim-badge">SIMULATION · REAL CATALOG COSTS · NO WRITES</div><h3 class="mt-2 text-sm font-bold text-gray-950 dark:text-white">Payroll Simulator</h3><div class="vx-sub">Kept available for testing, but out of the primary operational flow.</div></div><span class="text-xs font-bold text-violet-700 dark:text-violet-300">Open simulator</span></div></summary>
-            <div class="border-t border-violet-200 p-4 dark:border-violet-900 sm:p-5">
-                <div class="vx-sim-grid"><div class="vx-sim-stat"><label>Projected Payroll</label><strong>${{ number_format($mock['total'],2) }}</strong></div><div class="vx-sim-stat"><label>People</label><strong>{{ $mock['people'] }}</strong></div><div class="vx-sim-stat"><label>Streamer Pay</label><strong>${{ number_format($mock['streamer_total'],2) }}</strong></div><div class="vx-sim-stat"><label>Fulfillment Pay</label><strong>${{ number_format($mock['fulfillment_total'],2) }}</strong></div></div>
-                <div class="vx-lab">
-                    <div class="vx-lab-card"><div class="flex items-start justify-between gap-3"><div><h3 class="font-bold">Simulated Show Inputs</h3><div class="vx-sub">Real catalog products and costs; simulated quantities and show inputs.</div></div><button type="button" wire:click="addMockProduct" class="vx-btn">+ Product</button></div><div class="vx-lab-fields mt-3"><div><label class="vx-label">Gross Revenue</label><input type="number" step="0.01" min="0" class="vx-input" wire:model.live.debounce.350ms="mockGrossRevenue"></div><div><label class="vx-label">Hours</label><input type="number" step="0.25" min="0" class="vx-input" wire:model.live.debounce.350ms="mockHours"></div><div><label class="vx-label">Shipments</label><input type="number" min="0" class="vx-input" wire:model.live.debounce.350ms="mockShipments"></div><div><label class="vx-label">Profit Share %</label><input type="number" step="0.01" min="0" class="vx-input" wire:model.live.debounce.350ms="mockPercentage"></div><div><label class="vx-label">Tips</label><input type="number" step="0.01" min="0" class="vx-input" wire:model.live.debounce.350ms="mockTips"></div></div><div class="mt-3">@foreach($mockProducts as $i=>$product)<div class="vx-product-row" wire:key="mock-product-{{ $product['product_id'] ?? $i }}"><div class="vx-readonly"><div class="font-semibold">{{ $product['name'] ?? 'Product' }}</div><div class="text-[9px] text-gray-500">{{ $product['sku'] ?? 'No SKU' }}</div></div><div><label class="vx-label">Qty</label><input type="number" min="0" step="1" class="vx-input" wire:model.live.debounce.350ms="mockProducts.{{ $i }}.quantity"></div><div><label class="vx-label">Unit Cost</label><div class="vx-readonly">${{ number_format((float)($mockCalc['products'][$i]['unit_cost'] ?? $product['unit_cost'] ?? 0),2) }}</div></div><div><label class="vx-label">Line Cost</label><div class="vx-readonly">${{ number_format((float)($mockCalc['products'][$i]['line_total'] ?? 0),2) }}</div></div><button type="button" wire:click="removeMockProduct({{ $i }})" class="vx-btn">×</button></div>@endforeach</div></div>
-                    <div class="vx-lab-card"><h3 class="font-bold">Calculation Breakdown</h3><div class="vx-sub">Same ProfitShareFormula used by payroll.</div><div class="mt-3"><div class="vx-calc-row"><span>Gross revenue</span><strong>${{ number_format($mockCalc['gross_revenue'],2) }}</strong></div><div class="vx-calc-row"><span>Product cost</span><strong>− ${{ number_format($mockCalc['product_cost'],2) }}</strong></div><div class="vx-calc-row"><span>Burden</span><strong>− ${{ number_format($mockCalc['burden'],2) }}</strong></div><div class="vx-calc-row"><span>Net revenue basis</span><strong>${{ number_format($mockCalc['net_revenue'],2) }}</strong></div><div class="vx-calc-row"><span>Profit share</span><strong>${{ number_format($mockCalc['base_share'],2) }}</strong></div><div class="vx-calc-row"><span>Tips</span><strong>+ ${{ number_format($mockCalc['tips'],2) }}</strong></div><div class="vx-calc-row text-base"><span class="font-bold">Projected payout</span><strong>${{ number_format($mockCalc['projected_payout'],2) }}</strong></div><div class="vx-calc-row"><span>Business after payroll</span><strong class="{{ $mockCalc['business_after_payroll'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">${{ number_format($mockCalc['business_after_payroll'],2) }}</strong></div></div><div class="vx-formula">{{ $mockCalc['explanation'] }}</div></div>
-                </div>
-            </div>
-        </details>
-    </section>
+
 </div>
 </x-filament-panels::page>

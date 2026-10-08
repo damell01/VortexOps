@@ -9,6 +9,7 @@ use App\Models\Payout;
 use App\Models\Product;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayRunReadinessService;
 use App\Services\PayRunAutomationService;
@@ -28,6 +29,11 @@ class PayrollOverview extends Page
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
     protected static string|UnitEnum|null $navigationGroup = 'Payroll';
     protected static ?int $navigationSort = 1;
+
+    private ?Collection $weekShowsMemo = null;
+    private ?array $streamerOptionsMemo = null;
+    private ?WeeklyPayoutBatch $payRunMemo = null;
+    private bool $payRunResolved = false;
 
     public array $mockProducts = [];
     public float $mockGrossRevenue = 5000.00;
@@ -84,6 +90,7 @@ class PayrollOverview extends Page
 
     public function prepareCurrentPayRun(): void
     {
+        $this->clearReadMemo();
         try {
             $result = app(PayRunAutomationService::class)->syncWeek(now(), true);
             $this->redirect(WeeklyPayoutBatchResource::getUrl('view', ['record' => $result['batch']]));
@@ -100,26 +107,19 @@ class PayrollOverview extends Page
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('prepare_pay_run')
-                ->label('Prepare Current Pay Run')
-                ->icon('heroicon-o-play')
-                ->color('primary')
-                ->action('prepareCurrentPayRun'),
-            Action::make('pay_runs')
-                ->label('Pay Runs')
-                ->icon('heroicon-o-queue-list')
-                ->color('gray')
-                ->url(WeeklyPayoutBatchResource::getUrl()),
-        ];
+        // Payroll actions live inside the workspace so the admin has one
+        // obvious workflow and no duplicate CTAs in the page header.
+        return [];
     }
 
     public function currentPayRun(): ?WeeklyPayoutBatch
     {
+        if ($this->payRunResolved) return $this->payRunMemo;
+        $this->payRunResolved = true;
         $weekStart = now()->startOfWeek()->toDateString();
         $weekEnd = now()->endOfWeek()->toDateString();
 
-        return WeeklyPayoutBatch::query()
+        return $this->payRunMemo = WeeklyPayoutBatch::query()
             ->withCount('payouts')
             ->whereDate('week_start', '<=', $weekEnd)
             ->whereDate('week_end', '>=', $weekStart)
@@ -317,10 +317,14 @@ class PayrollOverview extends Page
             $key = $show->getAttribute('workflow_state')['key'] ?? '';
             $hasPayRunProblems = ($show->getAttribute('payrun_problems') ?? []) !== [];
             return match ($filter) {
-                'blocked' => $hasPayRunProblems || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true),
+                'needs_assignment' => $this->showIsDueForPayroll($show) && $show->streamers->isEmpty(),
+                'blocked' => $this->showIsDueForPayroll($show) && ($hasPayRunProblems || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true)),
+                'needs_log' => $this->showIsDueForPayroll($show) && ! $show->streamerLogEntry?->isSubmitted(),
+                'review' => $this->showIsDueForPayroll($show) && $show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved',
                 'ready' => ! $hasPayRunProblems && $key === 'payroll_ready',
                 'in_run' => ! $hasPayRunProblems && $key === 'payroll',
                 'paid' => $key === 'paid',
+                'upcoming' => ! $this->showIsDueForPayroll($show),
                 default => $key === $filter,
             };
         })->values();
@@ -331,7 +335,9 @@ class PayrollOverview extends Page
         $shows = $this->allCurrentWeekShows();
         return [
             'all' => $shows->count(),
+            'needs_assignment' => $shows->filter(fn (Show $show): bool => $this->showIsDueForPayroll($show) && $show->streamers->isEmpty())->count(),
             'blocked' => $shows->filter(function (Show $show): bool {
+                if (! $this->showIsDueForPayroll($show)) return false;
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
                 return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
@@ -339,6 +345,64 @@ class PayrollOverview extends Page
             'in_run' => $shows->filter(fn (Show $show) => ($show->getAttribute('payrun_problems') ?? []) === [] && ($show->getAttribute('workflow_state')['key'] ?? '') === 'payroll')->count(),
             'paid' => $shows->filter(fn (Show $show) => ($show->getAttribute('workflow_state')['key'] ?? '') === 'paid')->count(),
         ];
+    }
+
+    public function periodProgress(): array
+    {
+        $shows = $this->allCurrentWeekShows();
+
+        $logged = $shows->filter(fn (Show $show): bool => (bool) $show->streamerLogEntry?->isSubmitted())->count();
+        $approved = $shows->filter(fn (Show $show): bool => $show->streamerLogEntry?->approval_status === 'approved')->count();
+        $upcoming = $shows->filter(fn (Show $show): bool => ! $this->showIsDueForPayroll($show))->count();
+        $needsLog = $shows->filter(fn (Show $show): bool => $this->showIsDueForPayroll($show) && ! $show->streamerLogEntry?->isSubmitted())->count();
+        $needsReview = $shows->filter(fn (Show $show): bool => $this->showIsDueForPayroll($show) && $show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')->count();
+
+        return [
+            'total' => $shows->count(),
+            'logged' => $logged,
+            'approved' => $approved,
+            'needs_log' => $needsLog,
+            'needs_review' => $needsReview,
+            'upcoming' => $upcoming,
+        ];
+    }
+
+    public function streamerOptions(): array
+    {
+        return $this->streamerOptionsMemo ??= Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function assignStreamerToShow(int $showId, int $streamerId): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $show = Show::query()->inChannelContext()->findOrFail($showId);
+        $streamer = Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->findOrFail($streamerId);
+        $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);
+        $this->clearReadMemo();
+        Notification::make()->title('Streamer assigned')->body($streamer->name . ' → ' . ($show->title ?: 'Show #' . $show->id))->success()->send();
+    }
+
+    public function approveReportInline(int $showId): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $show = Show::query()->inChannelContext()->with('streamerLogEntry')->findOrFail($showId);
+        $report = $show->streamerLogEntry;
+        if (! $report || ! $report->isSubmitted() || $report->approval_status === 'approved') {
+            Notification::make()->title('Report is not awaiting approval')->warning()->send();
+            return;
+        }
+        $problems = $report->approveByAdmin();
+        $this->clearReadMemo();
+        $notification = Notification::make()->title($problems === [] ? 'Report approved' : 'Report approved with inventory exceptions');
+        if ($problems !== []) $notification->body(implode(' · ', $problems))->warning(); else $notification->success();
+        $notification->send();
+    }
+
+    private function showIsDueForPayroll(Show $show): bool
+    {
+        if (! $show->show_date || $show->show_date->isFuture()) return false;
+        if ($show->show_date->isToday() && $show->start_time && $show->start_time->isFuture()) return false;
+        return true;
     }
 
     public function showResolution(Show $show): array
@@ -369,6 +433,7 @@ class PayrollOverview extends Page
                 return ($show->getAttribute('payrun_problems') ?? []) === [] && in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
             'review' => $shows->filter(function (Show $show): bool {
+                if (! $this->showIsDueForPayroll($show)) return false;
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
                 return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
@@ -381,20 +446,29 @@ class PayrollOverview extends Page
         return WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->limit(6)->get();
     }
 
+    private function clearReadMemo(): void
+    {
+        $this->weekShowsMemo = null;
+        $this->streamerOptionsMemo = null;
+        $this->payRunMemo = null;
+        $this->payRunResolved = false;
+    }
+
     private function allCurrentWeekShows(): Collection
     {
+        if ($this->weekShowsMemo !== null) return $this->weekShowsMemo;
         $run = $this->currentPayRun();
         $start = $run?->week_start ?? now()->startOfWeek();
         $end = $run?->week_end ?? now()->endOfWeek();
         $workflow = app(ShowWorkflowService::class);
         $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
 
-        return Show::query()
+        return $this->weekShowsMemo = Show::query()
             ->inChannelContext()
             ->where('is_operational', true)
             ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
             ->whereNotIn('status', ['cancelled'])
-            ->with(['streamers:id,name,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity'])
+            ->with(['streamers:id,name,streamer_type,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity,updated_at','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity_approved,line_total,updated_at'])
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()
@@ -404,6 +478,23 @@ class PayrollOverview extends Page
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
                 $show->setAttribute('payrun_problems', array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix))));
                 return $show;
-            });
+            })
+            ->sortBy(function (Show $show): string {
+                $due = $this->showIsDueForPayroll($show);
+                $log = $show->streamerLogEntry;
+                $key = $show->getAttribute('workflow_state')['key'] ?? '';
+                $problems = $show->getAttribute('payrun_problems') ?? [];
+
+                $priority = ! $due ? 6
+                    : (! $log?->isSubmitted() ? 0
+                    : ($log->approval_status !== 'approved' ? 1
+                    : ($problems !== [] ? 2
+                    : ($key === 'payroll_ready' ? 3
+                    : ($key === 'payroll' ? 4 : ($key === 'paid' ? 5 : 2))))));
+
+                $timestamp = $show->show_date?->timestamp ?? 0;
+                return sprintf('%02d-%010d', $priority, 9999999999 - $timestamp);
+            })
+            ->values();
     }
 }

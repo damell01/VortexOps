@@ -13,10 +13,9 @@ class ShowWorkflowService
         $show->loadMissing([
             'streamers:id,name,streamer_type',
             'streamerLogEntry.streamer',
-            'streamerLogEntry.items.inventoryItem',
-            'fulfillmentUsers',
+            'streamerLogEntry.items',
             'payouts.batch',
-            'latestDeductionRequest.lines.inventoryItem',
+            'latestDeductionRequest.lines',
         ]);
 
         $report = $show->streamerLogEntry;

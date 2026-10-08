@@ -16,6 +16,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Grid;
@@ -51,6 +52,9 @@ class ListInventoryItems extends ListRecords
     public ?int $quickStockScanTargetId = null;
     public ?string $quickStockScanTargetName = null;
     public ?int $selectedStockProductId = null;
+
+    /** Card-view selection for bulk delete. Ids as strings: that is what checkbox wire:model sends. */
+    public array $selectedItems = [];
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
@@ -290,6 +294,66 @@ class ListInventoryItems extends ListRecords
             ->body($product->name . ' — enter the quantity counted and save.')
             ->success()
             ->send();
+    }
+
+    public function selectAllShown(): void
+    {
+        $this->selectedItems = $this->catalogItems->map(fn ($item) => (string) $item->getKey())->values()->all();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedItems = [];
+    }
+
+    /**
+     * Card-view bulk delete: mountAction('bulkDeleteItems'). Same rules as the
+     * table's "Delete selected" — items still holding stock are skipped unless
+     * the write-off toggle is on, and everything goes through the deleter so
+     * the inventory log and restore path are identical.
+     */
+    public function bulkDeleteItemsAction(): Action
+    {
+        return Action::make('bulkDeleteItems')
+            ->label('Delete selected')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->visible(fn () => InventoryItemResource::canDeleteAny())
+            ->requiresConfirmation()
+            ->modalHeading(fn () => 'Delete ' . count($this->selectedItems) . ' selected ' . (count($this->selectedItems) === 1 ? 'item' : 'items') . '?')
+            ->modalDescription('Deleted items can be restored from the "Deleted items" filter in the table view.')
+            ->modalSubmitActionLabel('Delete')
+            ->schema([
+                Toggle::make('write_off')->label('Also delete items that still have stock (write that stock off)')
+                    ->helperText('Off: items with stock are skipped. On: their stock is set to 0 and recorded in the inventory log.'),
+                Textarea::make('reason')->label('Reason (optional)')->rows(2),
+            ])
+            ->action(function (array $data): void {
+                abort_unless(InventoryItemResource::canDeleteAny(), 403);
+
+                $ids = array_values(array_filter(array_map('intval', $this->selectedItems)));
+                $deleter = app(\App\Services\InventoryItemDeleter::class);
+                $deleted = 0; $skipped = 0; $units = 0.0;
+
+                foreach (InventoryItem::query()->whereKey($ids)->get() as $record) {
+                    try {
+                        $units += $deleter->delete($record, (bool) ($data['write_off'] ?? false), $data['reason'] ?? null);
+                        $deleted++;
+                    } catch (\DomainException) {
+                        $skipped++;
+                    }
+                }
+
+                $this->selectedItems = [];
+                $this->statsMemo = null;
+                unset($this->catalogItems, $this->catalogTotal);
+
+                Notification::make()
+                    ->title($deleted . ' item(s) deleted')
+                    ->body(trim(($units > 0 ? rtrim(rtrim(number_format($units, 2), '0'), '.') . ' units written off. ' : '') . ($skipped > 0 ? "{$skipped} skipped — they still hold stock." : '')) ?: null)
+                    ->{$skipped > 0 ? 'warning' : 'success'}()
+                    ->send();
+            });
     }
 
     /** Card "Delete" button: mountAction('deleteItem', ['product' => id]). */

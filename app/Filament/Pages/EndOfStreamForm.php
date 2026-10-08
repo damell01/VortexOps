@@ -104,6 +104,9 @@ class EndOfStreamForm extends Page implements HasForms
             ->whereDate('show_date', '<=', today())->orderByDesc('show_date')->orderByDesc('start_time');
 
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            // Streamers are only asked about shows since reporting went live;
+            // older ones were reported the old way.
+            \App\Support\ShowReportingGoLive::scope($query);
             $streamerId = Streamer::where('user_id', $user->id)->value('id');
             if (! $streamerId) return collect();
             $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId));

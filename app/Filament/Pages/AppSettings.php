@@ -103,6 +103,7 @@ class AppSettings extends Page
     public string $show_inventory_posting_policy = 'on_submit';
 
     public string $show_report_review_policy = 'required';
+    public string $show_reports_required_from = '';
 
     // ── Shipping Surcharge ───────────────────────────────────────────────────
 
@@ -182,6 +183,7 @@ class AppSettings extends Page
 
         $this->show_inventory_posting_policy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
         $this->show_report_review_policy     = (string) Setting::get('show_report_review_policy', 'required');
+        $this->show_reports_required_from    = (string) Setting::get(\App\Support\ShowReportingGoLive::SETTING, '');
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         // No default — an unset rate stays unset, and unset means no burden.
@@ -291,6 +293,7 @@ class AppSettings extends Page
             'streamer_visible_location_ids.*'  => 'integer|exists:inventory_locations,id',
             'show_inventory_posting_policy'    => 'required|in:on_submit,clean_only,on_approval',
             'show_report_review_policy'        => 'required|in:required,exceptions_only,auto',
+            'show_reports_required_from'       => 'nullable|date_format:Y-m-d',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             // Nullable on purpose: blank means "we don't charge for this",
             // and required would have forced a burden onto every operation.
@@ -334,6 +337,7 @@ class AppSettings extends Page
 
         Setting::set('show_inventory_posting_policy', $this->show_inventory_posting_policy);
         Setting::set('show_report_review_policy',     $this->show_report_review_policy);
+        Setting::set(\App\Support\ShowReportingGoLive::SETTING, trim($this->show_reports_required_from));
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('payroll_burden_per_shipment',  trim($this->payroll_burden_per_shipment));

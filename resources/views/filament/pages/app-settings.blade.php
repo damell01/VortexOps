@@ -815,6 +815,22 @@
                     </div>
                 </div>
 
+                <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Streamer reports start from</h3>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        Streamers are only asked to log shows on or after this date. Earlier shows were reported the old way:
+                        they stay on the calendar and in every report, but never show up as a task for a streamer. Leave blank to ask about every show.
+                    </p>
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <input type="date" wire:model="show_reports_required_from" aria-label="Streamer reports start from"
+                            class="min-h-10 rounded-[10px] border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-900" />
+                        @if (filled($show_reports_required_from))
+                            <button type="button" wire:click="$set('show_reports_required_from', '')" class="text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white">Clear</button>
+                        @endif
+                    </div>
+                    @error('show_reports_required_from')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </div>
+
                 <div class="px-6 py-5">
                     <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Admin review</h3>
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Which reports stop in the review queue.</p>

@@ -117,6 +117,7 @@ class DashboardImproved extends Dashboard
                 ->whereDate('show_date', '<=', today())
                 ->whereNotIn('status', ['closed', 'cancelled'])
                 ->whereDoesntHave('streamerLogEntry', fn ($q) => $q->whereNotNull('submitted_at'))
+                ->tap(fn ($q) => \App\Support\ShowReportingGoLive::scope($q))
                 ->count();
 
             $data += [

@@ -36,10 +36,7 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Quick Add Stock',\App\Filament\Resources\InventoryItemResource::getUrl('quick-add')],
  ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin')],
 ]));
-if(\App\Filament\Pages\FulfillmentPreview::canAccess()) {
-    $groups['Shows'] ??= [];
-    $groups['Shows'][] = ['Fulfillment Preview', \App\Filament\Pages\FulfillmentPreview::getUrl(panel:'admin')];
-}
+
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Payroll']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
  ['Pay Run History',\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')],

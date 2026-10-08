@@ -20,6 +20,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: npm ci
       - run: node scripts/check-ux.cjs
+      - run: node scripts/check-confirmations.cjs
       - run: npm run build
       - name: PHP lint and compile templates
         run: |

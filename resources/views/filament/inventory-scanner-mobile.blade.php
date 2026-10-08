@@ -357,7 +357,7 @@
                 <button type="button" class="vx-scan-action vx-scan-action-primary" data-add-code style="margin-top:.8rem"><span>Add Code</span><span>＋</span></button>
                 <div data-status></div>`;
             manager.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', async () => {
-                if (!confirm('Remove this additional barcode?')) return;
+                if (!await window.vxConfirm('Remove this additional barcode?')) return;
                 try {
                     await request(`${API}/barcodes/${btn.dataset.remove}`, { method: 'DELETE', body: '{}' });
                     toast('Barcode removed.');

@@ -76,10 +76,11 @@ class AutomaticShowAssignmentTest extends TestCase
         $notHost = $this->show('Ashenways collectibles');
         $this->artisan('shows:auto-assign-streamers')->assertSuccessful();
         $this->assertSame('Ashenway', $ashen->streamers()->sole()->name);
-        $this->assertSame('B, $b->streamers()->sole()->name);
-        $this->assertSame('B, $b->streamers()->sole()->aliases()->sole()->alias);
+        $this->assertSame('B$', $b->streamers()->sole()->name);
+        $this->assertSame('B$', $b->streamers()->sole()->aliases()->sole()->alias);
         $this->assertNotNull(User::where('email', 'ashenway@vortexops.tech')->first());
         $this->assertNotNull(User::where('email', 'b@vortexops.tech')->first());
         $this->assertSame(0, $notHost->streamers()->count());
     }
+
 }

@@ -158,9 +158,9 @@ class ShowDataAudit extends Page
         };
 
         $coverage = [
-            'shows.gross_revenue' => $fieldCoverage('shows.gross_revenue'),
-            'shows.whatnot_net' => $fieldCoverage('shows.whatnot_net'),
-            'shows.show_duration' => $fieldCoverage('shows.show_duration'),
+            'gross_revenue' => $fieldCoverage('shows.gross_revenue'),
+            'whatnot_net' => $fieldCoverage('shows.whatnot_net'),
+            'show_duration' => $fieldCoverage('shows.show_duration'),
         ];
         $settlementCoverage = $fieldCoverage('shows.completed_earnings');
 

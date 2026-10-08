@@ -34,6 +34,13 @@ class AutoAssignShowStreamers extends Command
                     $this->error('Could not assign show #'.$show->id.'. See Laravel log.');
                 }
             }
+            // Also link accounts for profiles already assigned by earlier manual/review flows.
+            $profiles = \App\Models\Streamer::query()->streamers()->where('status', 'active')->whereNull('user_id')
+                ->whereHas('shows', fn ($q) => $q->whereDate('show_date', '>=', $since)->whereNotIn('shows.status', ['cancelled', 'closed']))->limit(1000)->get();
+            foreach ($profiles as $profile) {
+                try { $counts['accounts_created'] += (int) $service->ensureAccount($profile); }
+                catch (\Throwable $e) { $counts['errors']++; report($e); }
+            }
             $this->info('Automatic streamer assignment since '.$since.': '.json_encode($counts));
             return $counts['errors'] ? self::FAILURE : self::SUCCESS;
         } finally { $lock->release(); }

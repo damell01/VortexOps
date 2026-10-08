@@ -57,4 +57,16 @@ class AutomaticShowAssignmentTest extends TestCase
         $this->assertSame(0, $show->streamers()->count());
         $this->assertSame(0, User::count());
     }
+    public function test_already_assigned_profile_also_receives_missing_login(): void
+    {
+        $profile = Streamer::create(['name' => 'Luna', 'status' => 'active']);
+        $show = $this->show('Boxes w/Luna');
+        $show->streamers()->attach($profile->id, ['is_primary' => true]);
+        $this->artisan('shows:auto-assign-streamers')->assertSuccessful();
+        $user = User::where('email', 'luna@vortexops.tech')->sole();
+        $this->assertSame($user->id, $profile->fresh()->user_id);
+        $this->assertTrue($user->must_change_password);
+        $this->assertSame($profile->id, $show->streamers()->sole()->id);
+    }
+
 }

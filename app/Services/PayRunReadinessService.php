@@ -36,9 +36,9 @@ class PayRunReadinessService
             ->with([
                 'streamers',
                 'streamerLogEntry.streamer',
-                'streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity',
+                'streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity,updated_at',
                 'payouts.batch',
-                'latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity',
+                'latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity_approved,line_total,updated_at',
             ])
             ->get()
             ->keyBy('id');

@@ -5,7 +5,7 @@
 
 // ── Keyboard Shortcuts ───────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-    const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+    const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
 
     // Cmd+Shift+S or Ctrl+Shift+S: Quick search
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 's') {
@@ -55,10 +55,13 @@ window.showToast = function(message, type = 'info', duration = 3000) {
     const toast = document.createElement('div');
     toast.id = id;
     toast.className = `rounded-lg border px-4 py-3 flex items-center gap-2 animate-in slide-in-from-top-4 ${colors[type] || colors.info}`;
-    toast.innerHTML = `
-        <span class="font-bold text-lg">${icons[type] || icons.info}</span>
-        <span class="text-sm font-medium">${message}</span>
-    `;
+    const icon = document.createElement('span');
+    icon.className = 'font-bold text-lg';
+    icon.textContent = icons[type] || icons.info;
+    const text = document.createElement('span');
+    text.className = 'text-sm font-medium';
+    text.textContent = message;
+    toast.append(icon, text);
 
     container.appendChild(toast);
 
@@ -155,7 +158,7 @@ document.addEventListener('livewire:navigating', () => {
     navigationWatchdog = setTimeout(endNavigatingState, NAVIGATION_GIVE_UP_MS);
 });
 
-document.addEventListener('livewire:navigated', endNavigatingState);
+document.addEventListener('livewire:navigated', () => { endNavigatingState(); formDirty = false; });
 
 // Back/forward out of the bfcache restores the DOM as it was, mid-navigation
 // and all, so the state has to be cleared on the way in as well as the way out.
@@ -174,7 +177,7 @@ document.addEventListener('livewire:navigated', () => {
 let formDirty = false;
 
 document.addEventListener('input', (e) => {
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) {
+    if (e.target?.closest?.('form[data-unsaved-warning]') && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) {
         formDirty = true;
     }
 });
@@ -202,37 +205,27 @@ function optimizeMobileViewport() {
     if (isMobile) {
         // Increase button sizes on mobile
         document.querySelectorAll('button, [role="button"]').forEach(btn => {
-            if (btn.offsetHeight < 44) {
+            if (btn.offsetHeight > 0 && btn.offsetHeight < 44) {
                 btn.style.minHeight = '44px';
             }
         });
 
         // Ensure inputs are at least 44px
-        document.querySelectorAll('input, textarea, select').forEach(input => {
-            if (input.offsetHeight < 44) {
+        document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea, select').forEach(input => {
+            if (input.offsetHeight > 0 && input.offsetHeight < 44) {
                 input.style.minHeight = '44px';
             }
         });
     }
 }
 
-window.addEventListener('resize', optimizeMobileViewport);
+let viewportFrame = null;
+window.addEventListener('resize', () => {
+    if (viewportFrame !== null) return;
+    viewportFrame = requestAnimationFrame(() => { viewportFrame = null; optimizeMobileViewport(); });
+});
+document.addEventListener('livewire:navigated', optimizeMobileViewport);
 window.addEventListener('load', optimizeMobileViewport);
-
-// ── Touch feedback ─────────────────────────────────────────────────
-if (window.matchMedia('(pointer: coarse)').matches) {
-    document.addEventListener('touchstart', (e) => {
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') {
-            e.target.style.opacity = '0.7';
-        }
-    });
-
-    document.addEventListener('touchend', (e) => {
-        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') {
-            e.target.style.opacity = '1';
-        }
-    });
-}
 
 // ── Navigation prefetch ─────────────────────────────────────────────
 // Do not issue speculative authenticated page requests from every screen.

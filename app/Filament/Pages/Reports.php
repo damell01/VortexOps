@@ -93,6 +93,7 @@ class Reports extends Page
 
     public function setPeriod(string $days): void
     {
+        abort_unless(array_key_exists($days, $this->getPeriodOptions()), 422);
         $this->period    = $days;
         $this->dateFrom  = now()->subDays((int) $days)->toDateString();
         $this->dateTo    = now()->toDateString();
@@ -102,6 +103,10 @@ class Reports extends Page
 
     public function applyCustomRange(): void
     {
+        $this->validate([
+            'dateFrom' => ['required', 'date_format:Y-m-d'],
+            'dateTo' => ['required', 'date_format:Y-m-d', 'after_or_equal:dateFrom'],
+        ]);
         $this->period = 'custom';
         $this->showAllWeeks = false;
         $this->narrative = null;

@@ -105,7 +105,7 @@
                         $key=$state['key']??'';
                         $due = ! $show->show_date || ! $show->show_date->isFuture();
                         if ($show->show_date?->isToday() && $show->start_time?->isFuture()) $due = false;
-                        $tone=!$due?'upcoming':($probs!==[]?'blocked':($key==='paid'?'ready':($key==='payroll'?'run':($key==='payroll_ready'?'ready':''))));
+                        $tone=!$due?'upcoming':(($probs!==[] || ($state['blockers'] ?? []) !== [])?'blocked':($key==='paid'?'ready':($key==='payroll'?'run':($key==='payroll_ready'?'ready':''))));
                         $nextText = !$due ? 'Upcoming — stays in this pay period and will require a streamer log after the show.' : ($probs[0] ?? ($state['blockers'][0] ?? $state['description'] ?? 'Ready for payroll review.'));
                     @endphp
                     <article class="vx-show {{ $tone==='blocked'?'blocked-card':($tone==='upcoming'?'upcoming-card':'') }}">
@@ -114,6 +114,13 @@
                             <div class="text-right"><div class="text-[9px] font-bold uppercase tracking-wide text-gray-400">Show Net</div><div class="mt-1 text-lg font-bold {{ ($pnl['margin']??0)<0?'text-red-600':'text-emerald-600' }}">${{ number_format((float)($pnl['margin']??0),0) }}</div></div>
                         </div>
                         <div class="vx-money"><div><label>Sales</label><strong>${{ number_format((float)($pnl['gross']??0),0) }}</strong></div><div><label>Whatnot Net</label><strong>${{ number_format((float)($pnl['net']??0),0) }}</strong></div><div><label>COGS</label><strong>${{ number_format((float)($pnl['cogs']??0),0) }}</strong></div><div><label>Payroll</label><strong>${{ number_format((float)($pnl['payouts']??0),0) }}</strong></div><div><label>Margin</label><strong>{{ number_format((float)($pnl['margin_pct']??0),1) }}%</strong></div></div>
+                        @php($allBlockers = array_values(array_unique(array_merge($probs, $state['blockers'] ?? []))))
+                        @if($due && count($allBlockers) > 1)
+                            <details class="px-4 pb-3 text-xs text-amber-700 dark:text-amber-300">
+                                <summary class="cursor-pointer py-2 font-semibold">{{ count($allBlockers) }} items need attention</summary>
+                                <ul class="list-disc space-y-1 pl-4">@foreach($allBlockers as $blocker)<li>{{ $blocker }}</li>@endforeach</ul>
+                            </details>
+                        @endif
                         <div class="vx-next">
                             <div class="min-w-0 flex-1"><div class="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400">Next step</div><div class="mt-1 text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $nextText }}</div></div>
                             <div class="vx-inline-fix">
@@ -123,7 +130,7 @@
                                         @foreach($this->streamerOptions() as $streamerId=>$streamerName)<option value="{{ $streamerId }}">{{ $streamerName }}</option>@endforeach
                                     </select>
                                 @elseif($show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')
-                                    <button type="button" wire:click="approveReportInline({{ $show->id }})" wire:confirm="Approve this streamer report?" class="vx-btn success">Approve Report</button>
+                                    <button type="button" wire:click="approveReportInline({{ $show->id }})" wire:confirm="Approve this streamer report?" wire:loading.attr="disabled" wire:target="approveReportInline" class="vx-btn success">Approve Report</button>
                                 @elseif(str_contains(strtolower($nextText), 'payment structure') || str_contains(strtolower($nextText), 'compensation') || str_contains(strtolower($nextText), 'pay rate'))
                                     <a class="vx-btn" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit',['record'=>$show->streamers->first()]) }}">Fix Pay Setup</a>
                                 @else

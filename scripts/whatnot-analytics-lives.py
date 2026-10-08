@@ -125,35 +125,7 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
         rows = page.locator('[data-testid="show-list-item"]').evaluate_all(r"""
         rows => rows.map(row => {
           const title = row.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
-          // Whatnot artwork can be an img, lazy source/srcset or CSS background.
-          const candidates = [];
-          const add = value => {
-            try {
-              const url = new URL(value || '', location.href);
-              if (value && /^https?:$/.test(url.protocol)) candidates.push(url.href);
-            } catch {}
-          };
-          const images = [...row.querySelectorAll('img')].filter(img =>
-            !/avatar|profile-picture/i.test((img.alt || '') + ' ' + (img.getAttribute('data-testid') || ''))
-          );
-          for (const image of images) {
-            add(image.currentSrc);
-            add(image.getAttribute('data-src'));
-            add(image.getAttribute('src'));
-            const srcset = image.getAttribute('srcset') || image.getAttribute('data-srcset') || '';
-            for (const entry of srcset.split(',')) add(entry.trim().split(/\s+/)[0]);
-          }
-          for (const node of row.querySelectorAll('source')) {
-            for (const entry of (node.getAttribute('srcset') || '').split(',')) add(entry.trim().split(/\s+/)[0]);
-          }
-          if (!candidates.length) {
-            for (const node of [row, ...row.querySelectorAll('*')]) {
-              if (/avatar|profile-picture/i.test(node.getAttribute('data-testid') || '')) continue;
-              const background = getComputedStyle(node).backgroundImage || '';
-              for (const match of background.matchAll(/url\(["']?(.*?)["']?\)/g)) add(match[1]);
-            }
-          }
-          const cover = candidates[0] || null;
+          const cover = null; // Cover collection is disabled.
           const open = row.querySelector('a[href^="/dashboard/live/"]');
           // Current Seller Hub renders these actions as buttons, not necessarily anchors.
           const analytics = [...row.querySelectorAll('a,button,[role="button"]')]
@@ -759,24 +731,8 @@ def historical_analytics(module, session):
             if found == target_set:
                 break
 
-            # If every target has a known DB date and the Seller Hub scan has
-            # moved older than the oldest one, any still-missing UUID is not in
-            # the relevant Past range. Likewise never scan older than --since.
-            boundary = oldest_target or since or None
-            if boundary and oldest_loaded and oldest_loaded < boundary:
-                module.info(
-                    f"historical-analytics: scanned past target boundary "
-                    f"loaded={oldest_loaded} boundary={boundary}; stopping"
-                )
-                break
-
-            if since and oldest_loaded and oldest_loaded < since:
-                module.info(
-                    f"historical-analytics: reached reporting cutoff "
-                    f"loaded={oldest_loaded} since={since}; stopping"
-                )
-                break
-
+            # Imported dates can drift from Seller Hub. UUID identity is authoritative;
+            # exhaust the bounded list instead of treating a DB date as proof of absence.
             if stable_passes >= 6 and attempt >= 10:
                 module.info(
                     f"historical-analytics: Past list exhausted after {attempt} passes "

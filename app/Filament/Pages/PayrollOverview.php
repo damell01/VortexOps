@@ -30,6 +30,11 @@ class PayrollOverview extends Page
     protected static string|UnitEnum|null $navigationGroup = 'Payroll';
     protected static ?int $navigationSort = 1;
 
+    private ?Collection $weekShowsMemo = null;
+    private ?array $streamerOptionsMemo = null;
+    private ?WeeklyPayoutBatch $payRunMemo = null;
+    private bool $payRunResolved = false;
+
     public array $mockProducts = [];
     public float $mockGrossRevenue = 5000.00;
     public float $mockHours = 4.00;
@@ -85,6 +90,7 @@ class PayrollOverview extends Page
 
     public function prepareCurrentPayRun(): void
     {
+        $this->clearReadMemo();
         try {
             $result = app(PayRunAutomationService::class)->syncWeek(now(), true);
             $this->redirect(WeeklyPayoutBatchResource::getUrl('view', ['record' => $result['batch']]));
@@ -108,10 +114,12 @@ class PayrollOverview extends Page
 
     public function currentPayRun(): ?WeeklyPayoutBatch
     {
+        if ($this->payRunResolved) return $this->payRunMemo;
+        $this->payRunResolved = true;
         $weekStart = now()->startOfWeek()->toDateString();
         $weekEnd = now()->endOfWeek()->toDateString();
 
-        return WeeklyPayoutBatch::query()
+        return $this->payRunMemo = WeeklyPayoutBatch::query()
             ->withCount('payouts')
             ->whereDate('week_start', '<=', $weekEnd)
             ->whereDate('week_end', '>=', $weekStart)
@@ -361,7 +369,7 @@ class PayrollOverview extends Page
 
     public function streamerOptions(): array
     {
-        return Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+        return $this->streamerOptionsMemo ??= Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
     }
 
     public function assignStreamerToShow(int $showId, int $streamerId): void
@@ -370,6 +378,7 @@ class PayrollOverview extends Page
         $show = Show::query()->inChannelContext()->findOrFail($showId);
         $streamer = Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->findOrFail($streamerId);
         $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);
+        $this->clearReadMemo();
         Notification::make()->title('Streamer assigned')->body($streamer->name . ' → ' . ($show->title ?: 'Show #' . $show->id))->success()->send();
     }
 
@@ -383,6 +392,7 @@ class PayrollOverview extends Page
             return;
         }
         $problems = $report->approveByAdmin();
+        $this->clearReadMemo();
         $notification = Notification::make()->title($problems === [] ? 'Report approved' : 'Report approved with inventory exceptions');
         if ($problems !== []) $notification->body(implode(' · ', $problems))->warning(); else $notification->success();
         $notification->send();
@@ -436,20 +446,29 @@ class PayrollOverview extends Page
         return WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->limit(6)->get();
     }
 
+    private function clearReadMemo(): void
+    {
+        $this->weekShowsMemo = null;
+        $this->streamerOptionsMemo = null;
+        $this->payRunMemo = null;
+        $this->payRunResolved = false;
+    }
+
     private function allCurrentWeekShows(): Collection
     {
+        if ($this->weekShowsMemo !== null) return $this->weekShowsMemo;
         $run = $this->currentPayRun();
         $start = $run?->week_start ?? now()->startOfWeek();
         $end = $run?->week_end ?? now()->endOfWeek();
         $workflow = app(ShowWorkflowService::class);
         $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
 
-        return Show::query()
+        return $this->weekShowsMemo = Show::query()
             ->inChannelContext()
             ->where('is_operational', true)
             ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
             ->whereNotIn('status', ['cancelled'])
-            ->with(['streamers:id,name,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity'])
+            ->with(['streamers:id,name,streamer_type,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity,updated_at','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity_approved,line_total,updated_at'])
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()

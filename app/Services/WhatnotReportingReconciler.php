@@ -10,6 +10,7 @@ use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class WhatnotReportingReconciler
@@ -295,6 +296,10 @@ class WhatnotReportingReconciler
                 $unresolved++;
                 continue;
             }
+            if (Cache::has('whatnot-analytics-retry:'.$channel->id.':'.strtolower($liveId))) {
+                $progress && $progress("analytics: show #{$show->id} deferred by retry cooldown");
+                continue;
+            }
             if (! $show->whatnot_show_id) {
                 // A UUID recovered from detail_url may already belong to an older,
                 // canonical row. Never let recovery violate the unique index or
@@ -464,6 +469,8 @@ class WhatnotReportingReconciler
                     'analytics_sync_note' => $note,
                     'analytics_unavailable_at' => null,
                 ])->saveQuietly();
+                Cache::put('whatnot-analytics-retry:'.$channel->id.':'.strtolower($liveId), true,
+                    str_contains($note, 'not present in the scanned') ? now()->addDay() : now()->addHour());
                 $progress && $progress("analytics: show #{$show->id} transient failure · {$note} · left due for retry");
                 continue;
             }
@@ -546,6 +553,7 @@ class WhatnotReportingReconciler
                 $fields['last_analytics_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
+                Cache::forget('whatnot-analytics-retry:'.$channel->id.':'.strtolower($liveId));
 
                 $changes = [];
                 foreach ($beforeAnalytics as $field => $beforeValue) {

@@ -32,20 +32,26 @@ class AutomaticShowAssignment
             if (StreamerAlias::where('normalized_alias', $key)->when($profile, fn ($q) => $q->where('streamer_id', '!=', $profile->id))->exists()) return ['status' => 'manual'];
             $created = ! $profile;
             $profile ??= Streamer::create(['name' => $name, 'status' => 'active', 'member_type' => 'streamer', 'streamer_type' => 'in_house']);
-            $accountCreated = false;
-            if (! $profile->user_id) {
-                $base = substr(Str::slug($profile->name, ''), 0, 50) ?: 'streamer'.$profile->id;
-                $email = $base.'@vortexops.tech';
-                for ($suffix = 2; User::where('email', $email)->exists(); $suffix++) $email = $base.$suffix.'@vortexops.tech';
-                $user = User::create(['name' => $profile->name, 'email' => $email, 'password' => 'password123!']);
-                $user->forceFill(['must_change_password' => true])->save();
-                $user->assignRole(Role::findOrCreate('streamer', 'web'));
-                $profile->update(['user_id' => $user->id, 'email' => $email]);
-                $accountCreated = true;
-            }
+            $accountCreated = $this->ensureAccount($profile);
             $profile->aliases()->firstOrCreate(['normalized_alias' => $key], ['alias' => $name, 'source' => 'show_title']);
             $show->streamers()->sync([$profile->id => ['is_primary' => true]]);
             return ['status' => 'assigned', 'profile_created' => $created, 'account_created' => $accountCreated, 'streamer' => $profile->name];
         });
     }
+    public function ensureAccount(Streamer $profile): bool
+    {
+        return DB::transaction(function () use ($profile) {
+            $profile = Streamer::query()->lockForUpdate()->findOrFail($profile->id);
+            if ($profile->user_id || $profile->status !== 'active' || ! $profile->isStreamer()) return false;
+            $base = substr(Str::slug($profile->name, ''), 0, 50) ?: 'streamer'.$profile->id;
+            $email = $base.'@vortexops.tech';
+            for ($suffix = 2; User::where('email', $email)->exists(); $suffix++) $email = $base.$suffix.'@vortexops.tech';
+            $user = User::create(['name' => $profile->name, 'email' => $email, 'password' => 'password123!']);
+            $user->forceFill(['must_change_password' => true])->save();
+            $user->assignRole(Role::findOrCreate('streamer', 'web'));
+            $profile->update(['user_id' => $user->id, 'email' => $email]);
+            return true;
+        });
+    }
+
 }

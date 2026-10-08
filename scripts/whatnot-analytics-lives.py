@@ -277,7 +277,26 @@ def scroll_to_bottom(page) -> None:
         pass
 
 
-def scan_selected_tab_index(module, page, tab_name: str, max_passes: int, stable_needed: int) -> tuple[dict[str, dict[str, Any]], bool, bool]:
+def recent_scan(since: str | None) -> bool:
+    """Use a smaller traversal budget only for explicitly recent requests."""
+    from datetime import date, timedelta
+    try:
+        return date.fromisoformat(since or "") >= date.today() - timedelta(days=14)
+    except ValueError:
+        return False
+
+
+def dated_batch_before_cutoff(rows: list[dict[str, Any]], since: str | None) -> bool:
+    """Unknown or out-of-order dates cannot prove that the range is finished."""
+    if not since or not rows:
+        return False
+    dates = [clean(row.get("show_date")) for row in rows]
+    if any(not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) for value in dates):
+        return False
+    return all(value < since for value in dates) and all(a >= b for a, b in zip(dates, dates[1:]))
+
+
+def scan_selected_tab_index(module, page, tab_name: str, max_passes: int, stable_needed: int, since: str | None = None) -> tuple[dict[str, dict[str, Any]], bool, bool]:
     """Scan one Seller Hub tab once and return every UUID observed.
 
     The third return value is exhausted. Absence is only safe evidence when the
@@ -290,14 +309,24 @@ def scan_selected_tab_index(module, page, tab_name: str, max_passes: int, stable
     seen: dict[str, dict[str, Any]] = {}
     previous_count = -1
     stable_passes = 0
+    older_batches = 0
 
     for attempt in range(1, max_passes + 1):
         module.check_login(page)
+        fresh = []
         for row in extract_show_rows(page):
             live_id = clean(row.get("live_id")).lower()
             if live_id:
+                if live_id not in seen:
+                    fresh.append(row)
                 row["live_id"] = live_id
                 seen[live_id] = row
+
+        if fresh:
+            older_batches = older_batches + 1 if dated_batch_before_cutoff(fresh, since) else 0
+        if older_batches >= 2:
+            module.info(f"reconcile-index: {tab_name} requested range reached since={since} rows_seen={len(seen)}; full history not exhausted")
+            return seen, True, False
 
         if len(seen) == previous_count:
             stable_passes += 1
@@ -330,7 +359,10 @@ def scan_selected_tab_index(module, page, tab_name: str, max_passes: int, stable
 
 def reconcile_index(module, session):
     """Build a channel-wide Seller Hub UUID index in one browser traversal."""
+    since = clean(os.getenv("WHATNOT_RECONCILE_SINCE", "")) or None
     max_passes = max(20, min(200, int(os.getenv("WHATNOT_RECONCILE_MAX_PASSES", "100"))))
+    if recent_scan(since):
+        max_passes = min(max_passes, 12)
     result: dict[str, Any] = {
         "_seller_hub_index": True,
         "past": [],
@@ -344,7 +376,7 @@ def reconcile_index(module, session):
         "upcoming_verified": False,
     }
 
-    module.info(f"reconcile-index: building one Seller Hub index max_passes={max_passes}")
+    module.info(f"reconcile-index: building Seller Hub index since={since or 'all'} max_passes={max_passes}")
 
     def action(page):
         module.prepare(page)
@@ -353,7 +385,7 @@ def reconcile_index(module, session):
         module.check_login(page)
 
         past, past_selected, past_exhausted = scan_selected_tab_index(
-            module, page, "Past", max_passes=max_passes, stable_needed=5
+            module, page, "Past", max_passes=max_passes, stable_needed=5, since=since
         )
         current, current_selected, current_exhausted = scan_selected_tab_index(
             module, page, "Current", max_passes=12, stable_needed=2
@@ -362,13 +394,14 @@ def reconcile_index(module, session):
             module, page, "Upcoming", max_passes=20, stable_needed=3
         )
 
-        result["past"] = list(past.values())
+        result["past"] = [row for row in past.values() if not since or not row.get("show_date") or row["show_date"] >= since]
+        result["past_since"] = since
         result["current"] = list(current.values())
         result["upcoming"] = list(upcoming.values())
         result["current_ids"] = sorted(current.keys())
         result["upcoming_ids"] = sorted(upcoming.keys())
         result["past_selected"] = past_selected
-        result["past_exhausted"] = past_exhausted
+        result["past_exhausted"] = past_exhausted and not since
         result["current_verified"] = current_selected and current_exhausted
         result["upcoming_verified"] = upcoming_selected and upcoming_exhausted
         result["counts"] = {
@@ -698,7 +731,8 @@ def historical_analytics(module, session):
         # the first ~100 recent rows. Stop only after we have moved past the
         # oldest target date, reached the requested --since cutoff, or the
         # virtual list has genuinely stopped growing.
-        for attempt in range(1, 121):
+        scan_limit = 12 if recent_scan(since) else 120
+        for attempt in range(1, scan_limit + 1):
             module.check_login(page)
             visible = extract_show_rows(page)
             for row in visible:
@@ -723,7 +757,7 @@ def historical_analytics(module, session):
 
             if attempt == 1 or attempt % 10 == 0 or found == target_set:
                 module.info(
-                    f"historical-analytics: Past scan pass {attempt}/120 "
+                    f"historical-analytics: Past scan pass {attempt}/{scan_limit} "
                     f"rows_seen={len(seen)} matched={len(found)}/{len(target_set)} "
                     f"oldest={oldest_loaded or 'unknown'}"
                 )

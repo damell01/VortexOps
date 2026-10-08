@@ -203,7 +203,7 @@ class SyncWhatnotReporting extends Command
                     $this->line("  {$step}. Discover Current / Upcoming / Past shows (Scrapling Seller Hub)");
                     $step++;
                     try {
-                        $result = $retry(fn () => $reconciler->discoverShows($channel, $progress), 'discovery');
+                        $result = $retry(fn () => $reconciler->discoverShows($channel, $progress, $since), 'discovery');
                         if ($testMode) {
                             $counts = $result['counts'] ?? [];
                             $smoke['Authentication / channel'] = true;

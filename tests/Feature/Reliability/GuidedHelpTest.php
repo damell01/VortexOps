@@ -22,7 +22,8 @@ class GuidedHelpTest extends TestCase
         $this->actingAs($user);
         NavVisibility::flushMemo();
         Livewire::test(HelpCenter::class)->assertOk()->assertSee('PDF guides')->assertSee('Start walkthrough');
-        $this->get('/admin/guides/admin')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $response = $this->get('/admin/guides/admin')->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->assertSame(1366657, $response->baseResponse->getFile()->getSize());
         $this->get('/admin/guides/streamer?download=1')->assertOk();
     }
 
@@ -38,7 +39,8 @@ class GuidedHelpTest extends TestCase
         $this->assertArrayNotHasKey('users', GuidedHelp::tours());
         $this->get('/admin/guides/admin')->assertForbidden();
         $this->get('/admin/guides/../../.env')->assertNotFound();
-        $this->get('/admin/guides/streamer')->assertOk();
+        $response = $this->get('/admin/guides/streamer')->assertOk();
+        $this->assertSame(706484, $response->baseResponse->getFile()->getSize());
     }
 
     public function test_pdf_routes_require_login(): void

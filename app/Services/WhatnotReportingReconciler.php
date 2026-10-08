@@ -64,6 +64,7 @@ class WhatnotReportingReconciler
                     'title' => $title,
                     'show_date' => $date,
                     'start_time' => $normalized['start_time'] ?? $raw['start_time'] ?? null,
+                    'end_time' => $normalized['end_time'] ?? $raw['end_time'] ?? null,
                     'detail_url' => $raw['detail_url'] ?? $raw['open_url'] ?? ('https://www.whatnot.com/dashboard/live/'.$liveId),
                     'import_source' => 'auto_whatnot',
                     'last_synced_at' => now(),

@@ -18,15 +18,15 @@ class RecentShowAnalyticsTest extends TestCase
 
     private function show(array $data): Show
     {
-        return Show::withoutEvents(fn () => Show::create(array_merge(['title' => 'Analytics test', 'show_date' => today(), 'status' => 'upcoming'], $data)));
+        return Show::withoutEvents(fn () => Show::create(array_merge(['title' => 'Analytics test', 'show_date' => today(), 'status' => 'draft'], $data)));
     }
 
     public function test_known_ends_and_confirmed_completed_shows_are_eligible_same_day(): void
     {
         Carbon::setTestNow('2026-10-08 18:00:00');
         $ended = $this->show(['end_time' => now()->subMinutes(45)]);
-        $justEnded = $this->show(['status'=>'completed', 'end_time'=>now()->subMinutes(10)]);
-        $completed = $this->show(['status'=>'completed']);
+        $justEnded = $this->show(['raw_import_payload'=>['_seller_hub_state'=>'past'], 'end_time'=>now()->subMinutes(10)]);
+        $completed = $this->show(['raw_import_payload'=>['_seller_hub_state'=>'past']]);
         $upcoming = $this->show(['end_time'=>now()->addHour()]);
         $cancelled = $this->show(['status'=>'cancelled', 'end_time'=>now()->subHour()]);
         $ids = Show::readyForAnalytics()->pluck('id')->all();

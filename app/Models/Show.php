@@ -499,6 +499,16 @@ class Show extends Model
      * resolve differently; it belongs in the No-Show Cleanup review queue
      * instead of the retry pool.
      */
+    /** Recently ended shows can be checked without waiting until tomorrow. */
+    public function scopeReadyForAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) {
+            $eligible->whereDate('show_date', '<', today())
+                ->orWhere(fn ($ended) => $ended->whereNotNull('end_time')->where('end_time', '<=', now()->subMinutes(30)))
+                ->orWhere(fn ($completed) => $completed->where('status', 'completed')->whereNull('end_time')->whereDate('show_date', '<=', today()));
+        });
+    }
+
     public function scopeMissingAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query
@@ -519,14 +529,16 @@ class Show extends Model
                         $partial->where('analytics_sync_status', 'partial')
                             ->where(function ($stale) {
                                 $stale->whereNull('last_analytics_synced_at')
-                                    ->orWhere('last_analytics_synced_at', '<=', now()->subDay());
+                                    ->orWhere('last_analytics_synced_at', '<=', now()->subDay())
+                                    ->orWhere(fn ($recent) => $recent->whereDate('show_date', '>=', today()->subDays(7))->where('last_analytics_synced_at', '<=', now()->subHour()));
                             });
                     })
                     ->orWhere(function ($unavailable) {
                         $unavailable->where('analytics_sync_status', 'unavailable')
                             ->where(function ($retry) {
                                 $retry->whereNull('analytics_unavailable_at')
-                                    ->orWhere('analytics_unavailable_at', '<=', now()->subDays(7));
+                                    ->orWhere('analytics_unavailable_at', '<=', now()->subDays(7))
+                                    ->orWhere(fn ($recent) => $recent->whereDate('show_date', '>=', today()->subDays(7))->where('analytics_unavailable_at', '<=', now()->subHour()));
                             });
                     });
             })
@@ -534,9 +546,9 @@ class Show extends Model
                 $notFlagged->whereNull('notes')
                     ->orWhere('notes', 'not like', '%'.self::NO_ACTIVITY_FLAG.'%')
                     // A premature no-activity flag must never suppress the normal
-                    // next-day analytics retry. Only treat the review flag as
-                    // terminal for shows at least two calendar days old.
-                    ->orWhereDate('show_date', '>', today()->subDays(2));
+                    // recent analytics retries. Keep the last seven days eligible
+                    // while Seller Hub finishes publishing data.
+                    ->orWhereDate('show_date', '>=', today()->subDays(7));
             });
     }
 

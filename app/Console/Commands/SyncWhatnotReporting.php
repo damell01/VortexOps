@@ -78,6 +78,11 @@ class SyncWhatnotReporting extends Command
             ->when($testMode, fn ($q) => $q->limit(1))
             ->get();
 
+        // Resume with the least recently attempted channel after a runtime-limited pass.
+        if (! $testMode) {
+            $channels = $channels->sortBy(fn ($channel) => (int) \Illuminate\Support\Facades\Cache::get('whatnot-reporting-last-attempt:'.$channel->id, 0))->values();
+        }
+
         if ($channels->isEmpty()) {
             $this->error('No active Whatnot channels are enabled for import.');
             return self::FAILURE;
@@ -174,6 +179,7 @@ class SyncWhatnotReporting extends Command
                     $this->warn("Runtime ceiling reached ({$maxRuntime}s); stopping cleanly before the next channel. The next scheduled pass will continue.");
                     break;
                 }
+                \Illuminate\Support\Facades\Cache::put('whatnot-reporting-last-attempt:'.$channel->id, now()->timestamp, now()->addDays(7));
                 $position = $index + 1;
                 $step = 1;
                 $this->info("[{$position}/{$channels->count()}] {$channel->name} (@{$channel->whatnot_username})");
@@ -378,14 +384,7 @@ class SyncWhatnotReporting extends Command
     {
         return $query
             ->whereDate('show_date', '>=', $since->toDateString())
-            ->where(function ($eligible) {
-                $eligible->whereDate('show_date', '<', today())
-                    ->orWhere(function ($ended) {
-                        $ended->whereNotNull('end_time')
-                            ->where('end_time', '<=', now()->subHours(6));
-                    });
-            })
-            ->whereNotIn('status', ['cancelled'])
+            ->readyForAnalytics()
             ->missingAnalytics();
     }
 

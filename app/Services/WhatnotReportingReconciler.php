@@ -242,14 +242,9 @@ class WhatnotReportingReconciler
 
     public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null): array
     {
-        // Target only shows old enough for Whatnot to have published analytics.
-        // Same-day shows are intentionally deferred: in practice their per-show
-        // analytics page is often empty for hours after the stream ends. When we
-        // only have a calendar date, the safe eligibility boundary is next day.
-        // If a reliable end_time exists, allow the show six hours after it ended.
         $progress && $progress(
-            'analytics: checking eligible completed shows for @'.$channel->whatnot_username.
-            ' since '.$since->toDateString().' (same-day shows deferred unless ended 6+ hours ago)'
+            'analytics: checking ended shows for @'.$channel->whatnot_username.
+            ' since '.$since->toDateString().' (30 minutes after a known end, or confirmed completed)'
         );
 
         // A null/zero limit means no artificial cap: process every incomplete show.
@@ -261,18 +256,7 @@ class WhatnotReportingReconciler
         $dueShows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
-            ->where(function ($eligible) {
-                $eligible
-                    // Date-only records become eligible the following day.
-                    ->whereDate('show_date', '<', today())
-                    // If discovery captured a real end time, permit a same-day
-                    // refresh once Whatnot has had six hours to publish metrics.
-                    ->orWhere(function ($ended) {
-                        $ended->whereNotNull('end_time')
-                            ->where('end_time', '<=', now()->subHours(6));
-                    });
-            })
-            ->whereNotIn('status', ['cancelled'])
+            ->readyForAnalytics()
             ->missingAnalytics()
             // Work the real backlog in the same order as Show Data Audit:
             // first-time checks first, then partial rows, then old unavailable
@@ -470,7 +454,7 @@ class WhatnotReportingReconciler
                     'analytics_unavailable_at' => null,
                 ])->saveQuietly();
                 Cache::put('whatnot-analytics-retry:'.$channel->id.':'.strtolower($liveId), true,
-                    str_contains($note, 'not present in the scanned') ? now()->addDay() : now()->addHour());
+                    str_contains($note, 'not present in the scanned') && $show->show_date < today()->subDays(7) ? now()->addDay() : now()->addHour());
                 $progress && $progress("analytics: show #{$show->id} transient failure · {$note} · left due for retry");
                 continue;
             }

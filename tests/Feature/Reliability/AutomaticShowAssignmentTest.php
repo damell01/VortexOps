@@ -69,4 +69,17 @@ class AutomaticShowAssignmentTest extends TestCase
         $this->assertSame($profile->id, $show->streamers()->sole()->id);
     }
 
+    public function test_confirmed_ashenway_and_b_dollar_hosts_are_detected_without_markers(): void
+    {
+        $ashen = $this->show('ASHENWAY $1 STARTS 🔥');
+        $b = $this->show('B$ FREE BOXES 🔥');
+        $notHost = $this->show('Ashenways collectibles');
+        $this->artisan('shows:auto-assign-streamers')->assertSuccessful();
+        $this->assertSame('Ashenway', $ashen->streamers()->sole()->name);
+        $this->assertSame('B, $b->streamers()->sole()->name);
+        $this->assertSame('B, $b->streamers()->sole()->aliases()->sole()->alias);
+        $this->assertNotNull(User::where('email', 'ashenway@vortexops.tech')->first());
+        $this->assertNotNull(User::where('email', 'b@vortexops.tech')->first());
+        $this->assertSame(0, $notHost->streamers()->count());
+    }
 }

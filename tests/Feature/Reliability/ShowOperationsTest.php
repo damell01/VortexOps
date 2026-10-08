@@ -89,4 +89,53 @@ class ShowOperationsTest extends TestCase
         $this->assertNull($detector->name('Big Friday sale'));
     }
 
+    public function test_review_creates_linked_login_with_required_password_change(): void
+    {
+        $this->admin();
+        $show = $this->show(['title' => 'Boxes w/Niko']);
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id], 'create_account' => true, 'account_email' => 'niko@example.com'])->assertHasNoErrors();
+        $user = User::where('email', 'niko@example.com')->sole();
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password123!', $user->password));
+        $this->assertTrue($user->must_change_password);
+        $this->assertTrue($user->hasRole('streamer'));
+        $this->assertSame($user->streamer->id, $show->streamers()->sole()->id);
+        $this->assertSame(1, Streamer::where('name', 'Niko')->count());
+    }
+
+    public function test_existing_profile_gets_login_without_duplicate_or_lost_aliases(): void
+    {
+        $this->admin();
+        $profile = Streamer::create(['name' => 'Nicholas', 'status' => 'active']);
+        $profile->aliases()->create(['alias' => 'Niko', 'source' => 'manual']);
+        $show = $this->show(['title' => 'Boxes w/Niko']);
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'streamer_id' => $profile->id, 'aliases' => 'Niko', 'show_ids' => [$show->id], 'create_account' => true, 'account_email' => 'nicholas@example.com'])->assertHasNoErrors();
+        $this->assertSame(1, Streamer::count());
+        $this->assertNotNull($profile->fresh()->user_id);
+        $this->assertSame(1, $profile->aliases()->count());
+    }
+
+    public function test_duplicate_email_rolls_back_profile_and_assignment(): void
+    {
+        $this->admin();
+        User::factory()->create(['email' => 'taken@example.com']);
+        $show = $this->show(['title' => 'Boxes w/Niko']);
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id], 'create_account' => true, 'account_email' => 'taken@example.com'])->assertHasErrors(['account_email']);
+        $this->assertSame(0, Streamer::where('name', 'Niko')->count());
+        $this->assertSame(0, $show->streamers()->count());
+    }
+
+    public function test_password_change_is_enforced_and_initial_password_cannot_be_reused(): void
+    {
+        $user = User::factory()->create(['password' => 'password123!']);
+        $user->forceFill(['must_change_password' => true])->save();
+        $this->actingAs($user);
+        $this->get('/admin')->assertRedirect(route('account.password.edit'));
+        $this->get('/account/change-password')->assertOk()->assertSee('Choose your own password');
+        $this->post('/account/change-password', ['password' => 'password123!', 'password_confirmation' => 'password123!'])->assertSessionHasErrors('password');
+        $this->assertTrue($user->fresh()->must_change_password);
+        $this->post('/account/change-password', ['password' => 'MyNewPassword456!', 'password_confirmation' => 'MyNewPassword456!'])->assertRedirect('/admin');
+        $this->assertFalse($user->fresh()->must_change_password);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('MyNewPassword456!', $user->fresh()->password));
+    }
+
 }

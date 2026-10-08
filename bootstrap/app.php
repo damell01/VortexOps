@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         SyncWhatnotReporting::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(prepend: [\App\Http\Middleware\PerformanceHeaders::class]);
+        $middleware->web(prepend: [\App\Http\Middleware\PerformanceHeaders::class], append: [\App\Http\Middleware\RequirePasswordChange::class]);
         $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
         $middleware->alias([
             'api.token' => \App\Http\Middleware\ApiTokenMiddleware::class,

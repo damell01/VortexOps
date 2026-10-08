@@ -57,6 +57,12 @@ final class GuidedHelp
             ]];
         }
         if ($user->isAdmin() || $user->isFulfillment()) {
+            $definitions['fulfillment'] = [Resources\FulfillmentResource::class, 'Work your packing queue', 'Pack approved reports and resolve exceptions before completing a show.', [
+                ['[data-vx-page="fulfillment-card-workspace"] > section', 'Start with approved shows', 'The streamer report is the packing list. Fulfillment team members see their assigned shows; admins can assign and review across the queue.'],
+                ['[data-vx-page="fulfillment-card-workspace"] article', 'Follow the next action', 'Open Start Packing, Continue Packing or Resolve Issues on the correct show. Check its title, date, assigned person and remaining units.'],
+                [null, 'Pack the logged items', 'Inside the show, use the approved report item list. Record packed quantities and flag anything that cannot be fulfilled with a clear reason.'],
+                [null, 'Complete after resolving exceptions', 'Resolve outstanding issues and remaining quantities before completing fulfillment. Use the Operations handbook for the detailed workflow.'],
+            ]];
             $definitions['inventory'] = [Pages\InventoryReport::class, 'Read inventory reports', 'Find stock, low-stock items, values and recent activity.', [
                 ['.vx-report-head', 'Inventory at a glance', 'This report shows current stock and money tied up in inventory. Use All Inventory to open the operational stock workspace.'],
                 ['.vx-quick-reports', 'Choose a view', 'Choose Current Inventory, Valuation, Low Stock, Recent Activity or another view. Use Filters to narrow the records.'],

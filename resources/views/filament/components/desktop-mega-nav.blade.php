@@ -62,6 +62,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Email Log',\App\Filament\Pages\EmailLog::getUrl(panel:'admin')],
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
+$groups['Help'] = [['Help & Guides', \App\Filament\Pages\HelpCenter::getUrl(panel:'admin')]];
 // The route registry is the source of truth for each link's access.
 foreach ($groups as $label => $links) {
     $groups[$label] = array_values(array_filter($links, function ($link) use ($user) {

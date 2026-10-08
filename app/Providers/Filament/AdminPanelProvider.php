@@ -293,6 +293,7 @@ class AdminPanelProvider extends PanelProvider
                     HTML : '',
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
+            ->renderHook(PanelsRenderHook::BODY_END, fn () => auth()->check() ? view('filament.components.guided-help') : '')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 DashboardImproved::class,

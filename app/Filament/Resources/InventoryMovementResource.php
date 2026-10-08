@@ -35,13 +35,13 @@ class InventoryMovementResource extends Resource
     /** Secondary inventory tool: reached from Inventory Overview; permissions remain unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return static::moduleShouldRegisterNavigation();
     }
 
     public static function canAccess(): bool
     {
         if (\App\Support\RoleAccess::grants(static::class)) return true;
-        return static::isVisibleToRole() && parent::canAccess();
+        return static::isVisibleToRole() && AdminModules::isEnabled('inventory');
     }
 
     protected static function isVisibleToRole(): bool
@@ -57,6 +57,7 @@ class InventoryMovementResource extends Resource
     public static function getModelLabel(): string { return 'Inventory Log Entry'; }
     public static function getPluralModelLabel(): string { return 'Inventory Log'; }
     public static function canCreate(): bool { return false; }
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool { return static::canAccess(); }
     public static function getGloballySearchableAttributes(): array { return ['item.name', 'item.sku', 'reason']; }
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string

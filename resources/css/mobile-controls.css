@@ -58,3 +58,19 @@ html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile
 .fi-main .grid:has(> .fi-section .vx-kpi-value) .vx-kpi-value{font-size:20px!important;overflow-wrap:anywhere}
 .fi-main .grid:has(> .fi-section .vx-kpi-value) .text-sm{font-size:12px!important}
 }
+
+/* Shared phone controls: readable totals and reachable actions in drawers. */
+@media(max-width:767px){
+.vx-settings-layout>aside nav{display:flex;gap:4px;overflow-x:auto;white-space:nowrap}
+.vx-settings-layout>aside{position:static;padding:6px}
+.vx-settings-layout .space-y-6{min-width:0}
+.vx-settings-save{bottom:calc(12px + env(safe-area-inset-bottom))}
+.vx-import-numbers{position:sticky;top:64px;z-index:10}
+.vxw-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+.vxw-stat-value{white-space:normal;overflow-wrap:anywhere}
+.fi-modal-window{max-width:100vw!important;max-height:95dvh;overscroll-behavior:contain}
+.fi-modal-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom))!important}
+.fi-modal-footer .fi-btn{min-height:44px}
+.vx-mobile-picker-sheet{overflow-y:auto;overscroll-behavior:contain}
+}
+@media(prefers-reduced-motion:reduce){.vx-mobile-menu-sheet,.vx-mobile-picker-sheet{transition:none!important}}

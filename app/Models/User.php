@@ -91,7 +91,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function isAdmin(): bool
     {
-        return $this->isOwner() || $this->hasAnyRole(['admin', 'super_admin']);
+        return $this->isOwner() || $this->hasAnyRole(['admin', 'super_admin', 'fulfillment_admin']);
     }
 
     public function isStreamer(): bool

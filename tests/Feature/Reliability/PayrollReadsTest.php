@@ -14,7 +14,10 @@ class PayrollReadsTest extends TestCase
     public function test_weekly_overview_keeps_cogs_and_reuses_loaded_shows(): void
     {
         $user = User::factory()->create();
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+        $user->assignRole('admin');
         $this->actingAs($user);
+        $this->enableAdminModules();
         $channel = WhatnotChannel::create(['name' => 'Payroll Reads', 'status' => 'active']);
         $streamer = Streamer::create(['name' => 'Reader', 'status' => 'active', 'payout_type' => 'flat_rate', 'flat_rate' => 100]);
         $show = Show::create(['whatnot_channel_id' => $channel->id, 'title' => 'Cost check', 'show_date' => now()->toDateString(), 'is_operational' => true, 'gross_revenue' => 500, 'whatnot_net' => 450, 'status' => 'mapping', 'created_by' => $user->id]);
@@ -34,5 +37,6 @@ class PayrollReadsTest extends TestCase
         $this->assertSame($shows, $method->invoke($page));
         $this->assertSame([], DB::getQueryLog());
         DB::disableQueryLog();
+        \Livewire\Livewire::test(PayrollOverview::class)->assertOk()->assertSee('Cost check');
     }
 }

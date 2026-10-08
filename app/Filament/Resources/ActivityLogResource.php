@@ -25,7 +25,7 @@ class ActivityLogResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Settings';
+        return 'Admin';
     }
 
     public static function getNavigationSort(): ?int
@@ -57,7 +57,7 @@ class ActivityLogResource extends Resource
         }
 
         $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
+        return $user?->isAdmin() ?? false;
     }
 
     // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
@@ -70,6 +70,8 @@ class ActivityLogResource extends Resource
     {
         return parent::getEloquentQuery()->with(['causer']);
     }
+
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool { return static::canAccess(); }
 
     public static function canCreate(): bool  { return false; }
     public static function canEdit($r): bool  { return false; }

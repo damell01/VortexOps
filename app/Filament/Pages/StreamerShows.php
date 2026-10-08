@@ -103,6 +103,9 @@ class StreamerShows extends Page
         $shows = Show::query()
             ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
             ->where('status', '!=', 'cancelled')
+            // Shows before reporting went live were handled the old way; they
+            // stay on the calendar but never appear here asking for a report.
+            ->tap(fn ($q) => \App\Support\ShowReportingGoLive::scope($q))
             ->with(['channel', 'streamerLogEntry'])
             ->withCount('shipments')
             ->orderByDesc('show_date')

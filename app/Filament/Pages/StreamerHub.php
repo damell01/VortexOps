@@ -77,6 +77,7 @@ class StreamerHub extends Page
             'logs_pending' => $streamer->shows()
                 ->where('show_date', '<=', now())
                 ->doesntHave('streamerLogEntry')
+                ->tap(fn ($q) => \App\Support\ShowReportingGoLive::scope($q))
                 ->count(),
             'total_revenue' => $streamer->shows()->sum('gross_revenue'),
             'profit_share_pending' => $streamer->profitSharePackets()

@@ -56,6 +56,13 @@ class ListInventoryItems extends ListRecords
     /** Card-view selection for bulk delete. Ids as strings: that is what checkbox wire:model sends. */
     public array $selectedItems = [];
 
+    /**
+     * "Select all" means every item matching the current search and stock
+     * filter — not just the cards loaded so far. Resolved from the query when
+     * the delete runs, so it covers items the page has never drawn.
+     */
+    public bool $selectAllMatching = false;
+
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
     public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or receive inventory without opening each item.'; }
@@ -126,6 +133,7 @@ class ListInventoryItems extends ListRecords
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
+        $this->clearSelection();
         $this->resetPage();
         unset($this->catalogItems, $this->catalogTotal);
     }
@@ -137,6 +145,7 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSearch(): void
     {
+        $this->clearSelection();
         $this->catalogVisible = 40;
         unset($this->catalogItems, $this->catalogTotal);
     }
@@ -156,6 +165,7 @@ class ListInventoryItems extends ListRecords
     public function clearCatalogSearch(): void
     {
         $this->catalogSearch = '';
+        $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
     }
 
@@ -296,14 +306,33 @@ class ListInventoryItems extends ListRecords
             ->send();
     }
 
-    public function selectAllShown(): void
+    public function selectAllMatchingItems(): void
     {
-        $this->selectedItems = $this->catalogItems->map(fn ($item) => (string) $item->getKey())->values()->all();
+        $this->selectAllMatching = true;
+        $this->selectedItems = [];
     }
 
     public function clearSelection(): void
     {
         $this->selectedItems = [];
+        $this->selectAllMatching = false;
+    }
+
+    /** @return array<int, int> */
+    private function bulkTargetIds(): array
+    {
+        if ($this->selectAllMatching) {
+            // Keep the select withSum() adds (HAVING on stock_sum_quantity
+            // needs it) but drop the card eager loads: only keys are needed.
+            return $this->catalogQuery()->setEagerLoads([])->get()->modelKeys();
+        }
+
+        return array_values(array_filter(array_map('intval', $this->selectedItems)));
+    }
+
+    public function bulkSelectionCount(): int
+    {
+        return $this->selectAllMatching ? $this->catalogTotal : count($this->selectedItems);
     }
 
     /**
@@ -320,7 +349,7 @@ class ListInventoryItems extends ListRecords
             ->color('danger')
             ->visible(fn () => InventoryItemResource::canDeleteAny())
             ->requiresConfirmation()
-            ->modalHeading(fn () => 'Delete ' . count($this->selectedItems) . ' selected ' . (count($this->selectedItems) === 1 ? 'item' : 'items') . '?')
+            ->modalHeading(fn () => 'Delete ' . number_format($this->bulkSelectionCount()) . ' selected ' . ($this->bulkSelectionCount() === 1 ? 'item' : 'items') . '?')
             ->modalDescription('Deleted items can be restored from the "Deleted items" filter in the table view.')
             ->modalSubmitActionLabel('Delete')
             ->schema([
@@ -331,11 +360,11 @@ class ListInventoryItems extends ListRecords
             ->action(function (array $data): void {
                 abort_unless(InventoryItemResource::canDeleteAny(), 403);
 
-                $ids = array_values(array_filter(array_map('intval', $this->selectedItems)));
+                $ids = $this->bulkTargetIds();
                 $deleter = app(\App\Services\InventoryItemDeleter::class);
                 $deleted = 0; $skipped = 0; $units = 0.0;
 
-                foreach (InventoryItem::query()->whereKey($ids)->get() as $record) {
+                foreach (InventoryItem::query()->whereKey($ids)->lazyById(200) as $record) {
                     try {
                         $units += $deleter->delete($record, (bool) ($data['write_off'] ?? false), $data['reason'] ?? null);
                         $deleted++;
@@ -345,6 +374,7 @@ class ListInventoryItems extends ListRecords
                 }
 
                 $this->selectedItems = [];
+                $this->selectAllMatching = false;
                 $this->statsMemo = null;
                 unset($this->catalogItems, $this->catalogTotal);
 

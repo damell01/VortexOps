@@ -44,25 +44,12 @@
                         @endif
                         @if($nextUp && $nextUp['url'])
                             <a class="vxw-btn vxw-btn--primary" href="{{ $nextUp['url'] }}">
-                                {{ $nextUp['action'] }}: {{ \Illuminate\Support\Str::limit($nextUp['title'], 28) }}
+                                Log next show
                                 <x-filament::icon icon="heroicon-m-arrow-right" />
                             </a>
                         @endif
                     </div>
                 </div>
-            </div>
-            <div class="vxw-stats">
-                @foreach([
-                    ['needs_you', 'Waiting on you', $summary['needs_you'], $summary['needs_you'] ? 'vxw-tone-warn' : ''],
-                    ['upcoming', 'Upcoming', $summary['upcoming'], ''],
-                    ['waiting', 'Submitted', $summary['submitted'], ''],
-                    ['done', 'Approved', $summary['approved'], $summary['approved'] ? 'vxw-tone-ok' : ''],
-                ] as [$key, $label, $count, $tone])
-                    <button type="button" class="vxw-stat text-left transition-colors hover:bg-[var(--vxw-surface-2)]" @click="tab='{{ $key }}'" :aria-pressed="tab==='{{ $key }}'">
-                        <div class="vxw-stat-label">{{ $label }}</div>
-                        <div class="vxw-stat-value {{ $tone }}">{{ $count }}</div>
-                    </button>
-                @endforeach
             </div>
         </section>
 
@@ -98,13 +85,7 @@
                     </div>
                     <div>
                         <h3 class="vxw-tile-title">{{ $show['title'] }}</h3>
-                        <div class="vxw-row-line mt-1">
-                            @if($show['channel'])<span>{{ $show['channel'] }}</span>@endif
-                            @if($show['bucket'] !== 'upcoming')
-                                <span class="inline-flex items-center gap-1"><x-filament::icon icon="heroicon-m-cube" class="h-3.5 w-3.5" />{{ number_format($show['shipments']) }} {{ \Illuminate\Support\Str::plural('shipment', $show['shipments']) }}</span>
-                            @endif
-                            @if($show['slow_pack'])<span class="vxw-pill vxw-pill--warn" style="height:20px;font-size:11px">Slow to pack</span>@endif
-                        </div>
+                        @if($show['channel'])<div class="vxw-meta mt-1">{{ $show['channel'] }}</div>@endif
                     </div>
 
                     @if($show['revision_requested'] && $show['revision_reason'])

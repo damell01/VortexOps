@@ -216,6 +216,21 @@ class StreamerShowsPageTest extends TestCase
         $this->assertSame('1', StreamerShows::getNavigationBadge());
     }
 
+    public function test_shows_before_reporting_went_live_are_not_a_task(): void
+    {
+        // Reported the old way, so the new page must not ask for them.
+        $this->show(['show_date' => today()->subDays(10)->toDateString()]);
+        $recent = $this->show(['show_date' => today()->subDay()->toDateString()]);
+
+        Setting::set(\App\Support\ShowReportingGoLive::SETTING, today()->subDays(3)->toDateString());
+
+        $needsYou = $this->shows()['needs_you'];
+
+        $this->assertCount(1, $needsYou);
+        $this->assertSame($recent->id, $needsYou[0]['id']);
+        $this->assertSame('1', StreamerShows::getNavigationBadge());
+    }
+
     public function test_the_page_renders(): void
     {
         $this->show();

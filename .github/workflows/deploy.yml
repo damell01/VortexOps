@@ -52,3 +52,6 @@ jobs:
             git reset --hard "origin/$BRANCH"
 
             bash scripts/baremetal-deploy.sh "$BRANCH"
+
+            # Populate streamer logins/aliases/assignments now; the scheduler keeps new shows covered.
+            php artisan shows:auto-assign-streamers 2>&1 | tee -a storage/logs/streamer-auto-assignment.log

@@ -116,3 +116,5 @@ Schedule::command('ai:ops weekly')->weeklyOn(1, '07:00')->name('ai-ops-weekly-ma
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
 Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');
 Schedule::command('inventory:snapshot-value')->dailyAt('23:50')->name('inventory-snapshot-value')->withoutOverlapping();
+
+Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('automatic-streamer-assignment')->withoutOverlapping(10)->appendOutputTo(storage_path('logs/streamer-auto-assignment.log'));

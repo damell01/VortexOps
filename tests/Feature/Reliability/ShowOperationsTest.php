@@ -53,4 +53,40 @@ class ShowOperationsTest extends TestCase
         Livewire::test(Shows::class)->assertSee('Last checked')->call('retryShowAnalytics',$show->id)->assertHasNoErrors();
         Queue::assertPushed(RetryShowAnalytics::class,fn($job)=>$job->showId===$show->id);
     }
+    public function test_detected_group_creates_profile_alias_and_assigns_only_reviewed_shows(): void
+    {
+        $this->admin();
+        $a = $this->show(['title' => 'Boxes w/Niko🍀']);
+        $b = $this->show(['title' => '$1 starts WITH NIKO🔥']);
+        $other = $this->show(['title' => 'Boxes w/Luna']);
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => "Niko\nNIKO", 'show_ids' => [$a->id, $b->id]])->assertHasNoErrors();
+        $profile = Streamer::where('name', 'Niko')->sole();
+        $this->assertSame(1, $profile->aliases()->count());
+        $this->assertSame([$profile->id], $a->streamers()->pluck('streamers.id')->all());
+        $this->assertSame([$profile->id], $b->streamers()->pluck('streamers.id')->all());
+        $this->assertSame(0, $other->streamers()->count());
+    }
+
+    public function test_existing_alias_blocks_duplicate_profile_creation(): void
+    {
+        $this->admin();
+        $profile = Streamer::create(['name' => 'Nicholas', 'status' => 'active']);
+        $profile->aliases()->create(['alias' => 'Niko', 'source' => 'manual']);
+        $show = $this->show(['title' => 'Boxes w/Niko']);
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id]])->assertHasErrors(['name']);
+        $this->assertSame(1, Streamer::count());
+        $this->assertSame(0, $show->streamers()->count());
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'streamer_id' => $profile->id, 'aliases' => 'Niko', 'show_ids' => [$show->id]])->assertHasNoErrors();
+        $this->assertSame([$profile->id], $show->streamers()->pluck('streamers.id')->all());
+    }
+
+    public function test_detection_keeps_multiple_hosts_and_unmarked_titles_manual(): void
+    {
+        $detector = app(\App\Services\ShowHostDetection::class);
+        $this->assertSame('Lil Twang', $detector->name('Boxes w/Lil Twang🤠'));
+        $this->assertNull($detector->name('Boxes w/Ty & Luna'));
+        $this->assertNull($detector->name('Boxes with Ty and Luna'));
+        $this->assertNull($detector->name('Big Friday sale'));
+    }
+
 }

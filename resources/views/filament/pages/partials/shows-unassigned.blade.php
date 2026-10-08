@@ -1,5 +1,16 @@
 {{-- Unassigned queue, opened from the header's "Unassigned" slide-over. --}}
 <div class="vx-unassigned space-y-2">
+    @if($page->detectedHostGroups->isNotEmpty())
+        <div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+            <p class="text-sm font-semibold">Detected streamer groups</p>
+            <p class="mt-1 text-xs text-gray-500">Suggestions from explicit “w/” or “with” in titles. Review before assigning. Multiple-host and unclear titles stay below for manual assignment. Showing up to 100 unassigned shows in this month.</p>
+            @foreach($page->detectedHostGroups as $group)
+                <button type="button" wire:key="host-{{ $group['key'] }}" wire:click="mountAction('reviewDetectedHost', {{ \Illuminate\Support\Js::from(['group' => $group['key']]) }})" class="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-gray-200 p-3 text-left dark:border-gray-700">
+                    <span class="font-semibold">{{ $group['name'] }}</span><span class="text-xs">{{ $group['shows']->count() }} shows · Review</span>
+                </button>
+            @endforeach
+        </div>
+    @endif
     @if($page->unassignedShows->isNotEmpty())
     <div class="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
         <p class="text-sm font-semibold">Assign selected shows</p>

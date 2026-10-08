@@ -543,6 +543,81 @@ class Shows extends Page
             ->orderBy('show_date')->orderBy('start_time')->limit(100)->get();
     }
 
+
+    #[Computed] public function detectedHostGroups(): Collection
+    {
+        $detector = app(\App\Services\ShowHostDetection::class);
+        return $this->unassignedShows->map(fn ($show) => ['show' => $show, 'name' => $detector->name($show->title)])
+            ->filter(fn ($row) => $row['name'] !== null)
+            ->groupBy(fn ($row) => $detector->key($row['name']))
+            ->map(fn ($rows, $key) => ['key' => $key, 'name' => $rows->first()['name'], 'shows' => $rows->pluck('show')]);
+    }
+
+    public function reviewDetectedHostAction(): Action
+    {
+        return Action::make('reviewDetectedHost')
+            ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+            ->modalHeading('Review detected streamer')
+            ->modalDescription('Review the titles before assigning. Create an operational streamer profile or choose an existing one. Login access and payroll terms are managed separately in Users.')
+            ->modalSubmitActionLabel('Save profile, aliases and assignments')
+            ->fillForm(function (array $arguments) {
+                $group = $this->detectedHostGroups->get($arguments['group'] ?? '');
+                $key = $group ? \App\Models\StreamerAlias::normalize($group['name']) : '';
+                $matches = Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->with('aliases')->get()
+                    ->filter(fn ($streamer) => \App\Models\StreamerAlias::normalize($streamer->name) === $key || $streamer->aliases->contains(fn ($alias) => $alias->normalized_alias === $key));
+                return ['streamer_id' => $matches->count() === 1 ? $matches->first()->id : null, 'name' => $group['name'] ?? '', 'aliases' => $group['name'] ?? '', 'show_ids' => $group ? $group['shows']->pluck('id')->all() : []];
+            })
+            ->schema([
+                Select::make('streamer_id')->label('Existing streamer')->placeholder('Create a new profile')->options(fn () => Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id'))->searchable(),
+                TextInput::make('name')->label('Profile name (for a new streamer)')->required()->maxLength(255),
+                \Filament\Forms\Components\Textarea::make('aliases')->label('Aliases — one per line')->maxLength(1000)->helperText('Confirmed aliases help future show imports recognize this streamer.'),
+                \Filament\Forms\Components\CheckboxList::make('show_ids')->label('Shows to assign')->required()->minItems(1)
+                    ->options(function (array $arguments) {
+                        $group = $this->detectedHostGroups->get($arguments['group'] ?? '');
+                        return $group ? $group['shows']->mapWithKeys(fn ($show) => [$show->id => $show->show_date?->format('M j').' · '.$show->title])->all() : [];
+                    }),
+            ])
+            ->action(fn (array $data, array $arguments) => $this->saveDetectedHost($arguments['group'] ?? '', $data));
+    }
+
+    public function saveDetectedHost(string $key, array $data): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $group = $this->detectedHostGroups->get($key);
+        abort_unless($group, 422, 'Refresh the unassigned shows and review this group again.');
+        $data = validator($data, ['name' => 'required|string|max:255', 'streamer_id' => 'nullable|integer', 'aliases' => 'nullable|string|max:1000', 'show_ids' => 'required|array|min:1|max:100', 'show_ids.*' => 'integer'])->validate();
+        $ids = array_values(array_unique(array_map('intval', $data['show_ids'])));
+        abort_if(array_diff($ids, $group['shows']->pluck('id')->all()), 422, 'Only shows in this detected group can be assigned.');
+        $aliases = collect(preg_split('/\R/', $data['aliases'] ?? ''))->map(fn ($alias) => trim($alias))->filter()->unique(fn ($alias) => \App\Models\StreamerAlias::normalize($alias));
+        foreach ($aliases as $alias) {
+            if (mb_strlen($alias) > 100 || \App\Models\StreamerAlias::normalize($alias) === '') {
+                throw \Illuminate\Validation\ValidationException::withMessages(['aliases' => 'Use meaningful aliases of 100 characters or fewer.']);
+            }
+        }
+        $streamer = DB::transaction(function () use ($data, $ids, $aliases) {
+            $shows = Show::query()->inChannelContext()->whereKey($ids)->lockForUpdate()->get();
+            abort_if($shows->count() !== count($ids) || $shows->contains(fn ($show) => $show->streamers()->exists() || in_array($show->status, ['cancelled', 'closed'])), 422, 'A show changed. Refresh before assigning.');
+            $streamer = ! empty($data['streamer_id'])
+                ? Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->lockForUpdate()->findOrFail($data['streamer_id'])
+                : null;
+            if (! $streamer && Streamer::query()->with('aliases')->get()->contains(fn ($profile) => \App\Models\StreamerAlias::normalize($profile->name) === \App\Models\StreamerAlias::normalize($data['name']) || $profile->aliases->contains(fn ($alias) => $alias->normalized_alias === \App\Models\StreamerAlias::normalize($data['name'])))) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'A profile with this name exists. Select that streamer instead.']);
+            }
+            foreach ($aliases as $alias) {
+                $conflict = \App\Models\StreamerAlias::where('normalized_alias', \App\Models\StreamerAlias::normalize($alias))
+                    ->when($streamer, fn ($query) => $query->where('streamer_id', '!=', $streamer->id))->exists();
+                if ($conflict) throw \Illuminate\Validation\ValidationException::withMessages(['aliases' => 'An alias belongs to another streamer. Review it before saving.']);
+            }
+            $streamer ??= Streamer::create(['name' => trim($data['name']), 'status' => 'active', 'member_type' => 'streamer', 'streamer_type' => 'in_house', 'whatnot_channel_id' => \App\Support\ChannelContext::currentId()]);
+            foreach ($aliases as $alias) $streamer->aliases()->firstOrCreate(['normalized_alias' => \App\Models\StreamerAlias::normalize($alias)], ['alias' => $alias, 'source' => 'manual']);
+            foreach ($shows as $show) $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);
+            return $streamer;
+        });
+        unset($this->detectedHostGroups, $this->streamers);
+        $this->resetData();
+        Notification::make()->title(count($ids).' shows assigned to '.$streamer->name)->success()->send();
+    }
+
     public array $selectedUnassignedShows = [];
     public string $bulkStreamerId = '';
 

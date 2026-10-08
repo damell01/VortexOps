@@ -154,17 +154,23 @@ class Reports extends Page
         return "reports_{$section}_{$key}_" . auth()->id() . '_ch' . (ChannelContext::currentId() ?? 'all');
     }
 
+    private function validDate(string $date): bool
+    {
+        if (! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $parts)) return false;
+        return checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1]);
+    }
+
     private function periodStart(): Carbon
     {
-        if ($this->period === 'custom' && $this->dateFrom) {
+        if ($this->period === 'custom' && $this->validDate($this->dateFrom)) {
             return Carbon::parse($this->dateFrom)->startOfDay();
         }
-        return now()->subDays((int) $this->period)->startOfDay();
+        return now()->subDays($this->period === 'custom' ? 30 : (int) $this->period)->startOfDay();
     }
 
     private function periodEnd(): Carbon
     {
-        if ($this->period === 'custom' && $this->dateTo) {
+        if ($this->period === 'custom' && $this->validDate($this->dateTo)) {
             return Carbon::parse($this->dateTo)->endOfDay();
         }
         return now()->endOfDay();

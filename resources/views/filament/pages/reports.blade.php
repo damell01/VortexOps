@@ -95,12 +95,14 @@
             <div class="vx-custom-dates flex flex-wrap items-center gap-1.5">
                 <input
                     type="date"
+                    aria-label="Report start date"
                     wire:model="dateFrom"
                     class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:ring-primary-500 focus:border-primary-500"
                 />
                 <span class="text-xs text-gray-400">to</span>
                 <input
                     type="date"
+                    aria-label="Report end date"
                     wire:model="dateTo"
                     class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:ring-primary-500 focus:border-primary-500"
                 />
@@ -110,6 +112,8 @@
                 >
                     Apply
                 </button>
+                @error('dateFrom')<p role="alert" class="w-full text-xs text-red-600">{{ $message }}</p>@enderror
+                @error('dateTo')<p role="alert" class="w-full text-xs text-red-600">{{ $message }}</p>@enderror
             </div>
 
             <span class="flex-1"></span>

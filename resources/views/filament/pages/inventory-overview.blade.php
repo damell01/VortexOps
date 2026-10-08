@@ -122,7 +122,6 @@
         <section class="ivx-card ivx-list">
             @foreach([
                 ['All inventory', 'Cards and table of every item', $this->inventoryUrl(), 'heroicon-o-squares-2x2'],
-                ['Stock count', 'Count a location and correct it', $this->countUrl(), 'heroicon-o-clipboard-document-check'],
                 ['Import a sheet', 'Bring in a product cost sheet', $this->importUrl(), 'heroicon-o-arrow-up-tray'],
                 ['Locations', 'Warehouses, shelves and streamer stock', $this->locationsUrl(), 'heroicon-o-map-pin'],
                 ['Vendors', 'Who you buy from', $this->vendorsUrl(), 'heroicon-o-building-storefront'],

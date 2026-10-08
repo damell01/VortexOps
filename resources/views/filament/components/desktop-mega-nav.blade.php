@@ -53,10 +53,10 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
  ...($user?->isOwner() ? [
+   ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
    ['Show Ingestion Logs',\App\Filament\Resources\ShowIngestionLogResource::getUrl('index')],
  ] : []),
- ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
  ['Activity Logs',\App\Filament\Resources\ActivityLogResource::getUrl('index')],
  ['Notifications',\App\Filament\Pages\NotificationSettings::getUrl(panel:'admin')],
  ['Email Log',\App\Filament\Pages\EmailLog::getUrl(panel:'admin')],

@@ -18,7 +18,7 @@ class ImportStatus extends Page
     protected static ?string $slug = 'import-status';
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Admin'; }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-path'; }
-    public static function canAccess(): bool { return (bool) auth()->user()?->isAdmin(); }
+    public static function canAccess(): bool { return (bool) auth()->user()?->isOwner(); }
     public function getView(): string { return 'filament.pages.import-status'; }
 
     #[Computed]

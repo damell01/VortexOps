@@ -90,7 +90,7 @@ class NavVisibility
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) return false;
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
-        if ($user->isAdmin() && in_array($class, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Pages\ImportStatus::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class], true)) return false;
+        if ($user->isAdmin() && in_array($class, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Resources\UserResource::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class], true)) return false;
 
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;

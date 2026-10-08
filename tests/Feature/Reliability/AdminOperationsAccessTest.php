@@ -34,7 +34,10 @@ class AdminOperationsAccessTest extends TestCase
         $this->assertTrue($user->isAdmin());
         $this->assertTrue(AppSettings::canAccess());
         $this->assertFalse(NavVisibility::isHiddenForUser(AppSettings::class, $user));
-        $this->assertTrue(ImportStatus::canAccess());
+        $this->assertFalse(ImportStatus::canAccess());
+        $this->assertFalse(ImportStatus::shouldRegisterNavigation());
+        $this->assertTrue(\App\Filament\Resources\UserResource::canAccess());
+        $this->assertFalse(NavVisibility::isHiddenForUser(\App\Filament\Resources\UserResource::class, $user));
     }
 
     public function test_admin_can_save_business_settings_but_cannot_write_system_settings(): void
@@ -55,7 +58,8 @@ class AdminOperationsAccessTest extends TestCase
 
     public function test_import_status_renders_real_channel_events_without_starting_a_scrape(): void
     {
-        $this->admin();
+        $this->actingAs(User::firstWhere('email', config('app.owner_email')) ?? User::factory()->create(['email' => config('app.owner_email')]));
+        $this->assertTrue(ImportStatus::canAccess());
         $channel = WhatnotChannel::create(['name'=>'Cards','status'=>'active','include_in_import'=>true]);
         ShowIngestionLog::create(['whatnot_channel_id'=>$channel->id,'source'=>'whatnot_show_analytics','status'=>'success','raw_payload'=>['created'=>2,'updated'=>3]]);
         Livewire::test(ImportStatus::class)->assertOk()->assertSee('Cards')->assertSee('Last successful record update')->assertSee('No completed run recorded');

@@ -311,6 +311,7 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
+            ->middleware([\App\Http\Middleware\RequirePasswordChange::class], isPersistent: true)
             ->plugins([
                 FilamentShieldPlugin::make(),
                 ScopedQuickCreatePlugin::make()

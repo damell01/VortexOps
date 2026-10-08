@@ -9,6 +9,7 @@ use App\Services\AI\Ops\AiOpsSnapshotBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -53,15 +54,25 @@ class GenerateAiOpsInsightsJob implements ShouldQueue
             $aiOutput = null;
             $aiAvailable = false;
 
-            // Health is checked only inside the queue worker. If Ollama is off,
-            // deterministic alerts still persist and the rest of VortexOps is
-            // unaffected.
-            if (config('ai.ops.use_llm', true) && $ai->isHealthy()) {
-                $aiAvailable = true;
-                $aiOutput = $this->generateNarrative($ai, $snapshot);
+            // Serialize optional summaries and back off when generation is unavailable.
+            // Deterministic alerts above always persist, including during cooldown.
+            $cooldownKey = 'ai:ops:narrative-cooldown';
+            $lock = Cache::lock('ai:ops:narrative-generation', 90);
+            if (config('ai.ops.use_llm', true) && ! Cache::has($cooldownKey) && $lock->get()) {
+                try {
+                    if ($ai->isHealthy()) {
+                        $aiOutput = $this->generateNarrative($ai, $snapshot);
+                    }
+                    $aiAvailable = is_array($aiOutput);
+                    if (! $aiAvailable) {
+                        Cache::put($cooldownKey, true, now()->addSeconds(max(60, (int) config('ai.ops.failure_cooldown', 1800))));
+                    }
+                } finally {
+                    $lock->release();
+                }
 
                 if (is_array($aiOutput)) {
-                    if (filled($aiOutput['summary'] ?? null)) {
+                    if (is_string($aiOutput['summary'] ?? null) && filled($aiOutput['summary'])) {
                         $this->storeInsight([
                             'category' => $this->categoryForScope($this->scope),
                             'severity' => 'info',
@@ -74,14 +85,14 @@ class GenerateAiOpsInsightsJob implements ShouldQueue
                         $stored++;
                     }
 
-                    foreach (array_slice($aiOutput['insights'] ?? [], 0, 8) as $row) {
-                        if (! is_array($row) || blank($row['title'] ?? null) || blank($row['summary'] ?? null)) {
+                    foreach (array_slice(is_array($aiOutput['insights'] ?? null) ? $aiOutput['insights'] : [], 0, 8) as $row) {
+                        if (! is_array($row) || ! is_string($row['title'] ?? null) || ! is_string($row['summary'] ?? null) || blank($row['title']) || blank($row['summary'])) {
                             continue;
                         }
 
                         $this->storeInsight([
-                            'category' => $this->cleanCategory($row['category'] ?? $this->categoryForScope($this->scope)),
-                            'severity' => $this->cleanSeverity($row['severity'] ?? 'info'),
+                            'category' => $this->cleanCategory(is_string($row['category'] ?? null) ? $row['category'] : $this->categoryForScope($this->scope)),
+                            'severity' => $this->cleanSeverity(is_string($row['severity'] ?? null) ? $row['severity'] : 'info'),
                             'title' => Str::limit(strip_tags((string) $row['title']), 240, ''),
                             'summary' => Str::limit(strip_tags((string) $row['summary']), 1800, ''),
                             'details' => ['kind' => 'ai_interpretation', 'scope' => $this->scope],
@@ -131,6 +142,7 @@ class GenerateAiOpsInsightsJob implements ShouldQueue
         ];
 
         return $ai->json($messages, [
+            'timeout' => min(60, max(10, (int) config('ai.ops.request_timeout', 45))),
             'temperature' => 0.15,
             'max_tokens' => (int) config('ai.ops.max_tokens', 600),
             'context_length' => (int) config('ai.ops.context_length', 2048),

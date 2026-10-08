@@ -77,7 +77,7 @@ class OllamaClient
     {
         // See the comment in generate() — same array_filter() pitfall strips
         // 'stream' => false here too.
-        $response = Http::timeout($options['timeout'] ?? 120)
+        $response = Http::connectTimeout(5)->timeout($options['timeout'] ?? 120)
             ->post("{$this->baseUrl}/api/chat", array_filter([
                 'model'   => $options['model'] ?? $this->defaultModel,
                 'messages'=> $messages,

@@ -241,7 +241,7 @@ class WhatnotReportingReconciler
         return compact('checked', 'replaced', 'created', 'rejected', 'skipped', 'buyers');
     }
 
-    public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null): array
+    public function backfillAnalytics(WhatnotChannel $channel, Carbon $since, ?int $limit = 25, ?callable $progress = null, ?array $onlyShowIds = null): array
     {
         $progress && $progress(
             'analytics: checking ended shows for @'.$channel->whatnot_username.
@@ -258,7 +258,7 @@ class WhatnotReportingReconciler
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
             ->readyForAnalytics()
-            ->missingAnalytics()
+            ->when($onlyShowIds !== null, fn ($query) => $query->whereKey($onlyShowIds), fn ($query) => $query->missingAnalytics())
             // Work the real backlog in the same order as Show Data Audit:
             // first-time checks first, then partial rows, then old unavailable
             // rows whose retry window has elapsed.
@@ -337,6 +337,9 @@ class WhatnotReportingReconciler
                     throw $e;
                 }
             }
+            $payload = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+            $payload['_analytics_last_attempt_at'] = now()->toIso8601String();
+            $show->forceFill(['raw_import_payload' => $payload])->saveQuietly();
             $targets[] = $liveId;
             $targetMetadata[strtolower($liveId)] = [
                 'title' => $show->title,

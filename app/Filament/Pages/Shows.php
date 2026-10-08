@@ -350,7 +350,9 @@ class Shows extends Page
             'views' => number_format((int) $s->total_views),
             'cover' => $s->cover_image_url,
             'whatnotId' => $s->whatnot_show_id,
-            'analytics' => ['complete' => 'Synced', 'partial' => 'Partial', 'unavailable' => 'Unavailable', 'unclassified' => $state === 'upcoming' ? 'After show' : 'Pending'][$coverage] ?? 'Pending',
+            'analyticsChecked' => auth()->user()?->isOwner() ? (data_get($s->raw_import_payload, '_analytics_last_attempt_at') ?? $s->last_analytics_synced_at?->toIso8601String() ?? $s->analytics_unavailable_at?->toIso8601String()) : null,
+            'analyticsNote' => auth()->user()?->isOwner() ? $s->analytics_sync_note : null,
+            'analytics' => ['complete' => 'Synced', 'partial' => 'Partial · retry pending', 'unavailable' => 'Waiting for analytics', 'unclassified' => $state === 'upcoming' ? 'After show' : 'Waiting for analytics'][$coverage] ?? 'Waiting for analytics',
             'analyticsOk' => $coverage === 'complete',
             'orders' => $s->orders_count > 0 ? 'Synced · '.number_format($s->orders_count) : ($state === 'upcoming' ? 'After show' : 'None yet'),
             'ordersOk' => $s->orders_count > 0,
@@ -539,6 +541,43 @@ class Shows extends Page
             ->whereDoesntHave('streamers')
             ->whereNotIn('status', ['cancelled', 'closed'])
             ->orderBy('show_date')->orderBy('start_time')->limit(100)->get();
+    }
+
+    public array $selectedUnassignedShows = [];
+    public string $bulkStreamerId = '';
+
+    public function assignSelectedShows(): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $this->validate(['selectedUnassignedShows' => ['required', 'array', 'min:1', 'max:100'], 'selectedUnassignedShows.*' => ['integer'], 'bulkStreamerId' => ['required', 'integer']]);
+        $streamer = Streamer::query()->inChannelContext()->where('status', 'active')->findOrFail((int) $this->bulkStreamerId);
+        $eligible = $this->unassignedShows->pluck('id')->all();
+        $ids = array_values(array_unique(array_map('intval', $this->selectedUnassignedShows)));
+        abort_if(count(array_diff($ids, $eligible)) > 0, 422, 'The selection changed. Refresh and select the unassigned shows again.');
+        $count = DB::transaction(function () use ($ids, $streamer) {
+            $shows = Show::query()->inChannelContext()->whereKey($ids)->lockForUpdate()->get();
+            foreach ($shows as $show) {
+                abort_if($show->streamers()->exists(), 422, 'A selected show has already been assigned. Refresh the selection.');
+                $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);
+            }
+            return $shows->count();
+        });
+        $this->selectedUnassignedShows = [];
+        $this->bulkStreamerId = '';
+        $this->resetData();
+        Notification::make()->title($count.' shows assigned')->body('Assigned to '.$streamer->name)->success()->send();
+    }
+
+    public function retryShowAnalytics(int $showId): void
+    {
+        abort_unless(auth()->user()?->isOwner(), 403);
+        $show = Show::query()->inChannelContext()->readyForAnalytics()->findOrFail($showId);
+        if (! $show->whatnot_show_id || ! $show->whatnot_channel_id) {
+            Notification::make()->title('This show needs its Whatnot ID and channel before retrying')->warning()->send();
+            return;
+        }
+        \App\Jobs\RetryShowAnalytics::dispatch($show->id);
+        Notification::make()->title('Analytics retry queued')->body('It will wait for the active scraper. This does not mean the metrics have synced yet.')->success()->send();
     }
 
     public function assignStreamer(int $showId, int $streamerId): void

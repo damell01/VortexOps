@@ -262,7 +262,7 @@
                         </div>
                         @foreach($cell['shows']->take(3) as $p)
                             <button type="button" class="vx-chip {{ $p['state'] }}" style="--c:{{ $p['color'] }}" @click.stop="open({{ $p['id'] }})" title="{{ $p['title'] }}">
-                                <span class="tx"><span class="tm block">{{ $p['time'] }}</span><span class="tt block">{{ $p['title'] }}</span></span>
+                                <span class="tx"><span class="tm block">{{ $p['time'] }}</span><span class="tt block">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-[10px]">{{ $p['analytics'] }}</span>@endif</span>
                                 @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@else<span class="vx-av" title="{{ $p['streamers'] ?? 'Unassigned' }}">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>@endif
                             </button>
                         @endforeach
@@ -306,7 +306,7 @@
                 @foreach($shows->take(4) as $p)
                     <button type="button" class="vx-arow" @click="open({{ $p['id'] }})">
                         <span class="tm">{{ $p['time'] }}</span>
-                        <span class="tt"><span class="vx-dot" style="background:{{ $p['color'] }}"></span><span>{{ $p['title'] }}</span></span>
+                        <span class="tt"><span class="vx-dot" style="background:{{ $p['color'] }}"></span><span>{{ $p['title'] }}@if(auth()->user()?->isOwner())<small class="block text-xs font-normal text-gray-500">{{ $p['analytics'] }}</small>@endif</span></span>
                         <span class="who"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span><span class="truncate">{{ $p['streamers'] ?? 'Unassigned' }}</span></span>
                         <span class="vx-pill {{ $p['state'] }}">{{ $p['stateLabel'] }}</span>
                     </button>
@@ -443,8 +443,13 @@
                         <div><b x-text="show.views"></b><span>Views</span></div>
                     </div>
                     <div class="mt-5">
+                        @if(auth()->user()?->isOwner())
                         <div class="vx-kv"><span>Analytics</span><span :class="show.analyticsOk ? 'vx-ok' : 'vx-wait'" x-text="show.analytics + (show.analyticsOk ? ' ✓' : '')"></span></div>
                         <div class="vx-kv"><span>Orders</span><span :class="show.ordersOk ? 'vx-ok' : 'vx-wait'" x-text="show.orders + (show.ordersOk ? ' ✓' : '')"></span></div>
+                        <div class="vx-kv"><span>Last checked</span><span x-text="show.analyticsChecked ? new Date(show.analyticsChecked).toLocaleString() : 'Not checked yet'"></span></div>
+                        <p class="mt-2 break-words text-xs text-gray-500" x-show="show.analyticsNote" x-text="show.analyticsNote"></p>
+                        <button type="button" x-show="show.whatnotId && show.state === 'done'" @click="$wire.retryShowAnalytics(show.id)" wire:loading.attr="disabled" wire:target="retryShowAnalytics" class="vx-btn mt-2 w-full">Retry analytics</button>
+                        @endif
                         <div class="vx-kv"><span>Inventory</span><span :class="show.inventoryOk ? 'vx-ok' : 'vx-wait'" x-text="show.inventory + (show.inventoryOk ? ' ✓' : '')"></span></div>
                         <div class="vx-kv"><span>Report</span><span x-text="show.workflow"></span></div>
                         <div class="vx-kv" x-show="show.whatnotId"><span>Whatnot show ID</span><span x-text="show.whatnotId"></span></div>

@@ -44,7 +44,7 @@ class UserResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Settings';
+        return 'Admin';
     }
 
     public static function getNavigationSort(): ?int

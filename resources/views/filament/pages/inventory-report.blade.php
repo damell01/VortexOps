@@ -9,7 +9,6 @@
  $pageSize = 25; $pageCount = max(1,(int)ceil($allRows->count()/$pageSize)); $page = min(max(1,$reportPage),$pageCount);
  $visible = $allRows->slice(($page-1)*$pageSize,$pageSize)->values();
  $recentRows = $visible; $movingRows = $visible;
- $movement = $this->getMovementSummary();
  $idle = $items->where('quantity','>',0);
  $maxTrend=max(1,(float)$trend->max('value')); $maxLocation=max(1,(float)$locations->max('quantity')); $totalQty=max(1,(float)$categories->sum('quantity'));
 @endphp
@@ -31,7 +30,7 @@
  <div class="vx-r-card flex flex-wrap items-center justify-between gap-3 p-4">
   <div><label for="report-period" class="text-xs font-bold">Activity period</label><select id="report-period" wire:model.live="reportDays" class="ml-2 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800"><option value="7">Last 7 days</option><option value="30">Last {{ $this->periodDays() }} days</option><option value="90">Last 90 days</option><option value="custom">Custom dates</option></select></div>
   @if($reportDays==='custom')<div class="flex flex-wrap items-center gap-2"><label class="text-xs">From <input type="date" wire:model.live="reportStart" class="rounded-lg border-gray-200 text-sm dark:bg-gray-800"/></label><label class="text-xs">To <input type="date" wire:model.live="reportEnd" class="rounded-lg border-gray-200 text-sm dark:bg-gray-800"/></label>@error('reportStart')<span class="text-xs text-red-600">{{ $message }}</span>@enderror @error('reportEnd')<span class="text-xs text-red-600">{{ $message }}</span>@enderror</div>@endif
-  <p class="text-xs text-gray-500">Movement compared with previous {{ $this->periodDays() }} days · Stock values are current · Channel: {{ \App\Support\ChannelContext::current()?->name ?? 'All channels' }}</p>
+  <p class="text-xs text-gray-500">Activity shown for the selected period · Stock values are current · Channel: {{ \App\Support\ChannelContext::current()?->name ?? 'All channels' }}</p>
  </div>
  <div class="vx-r-card sticky top-[64px] z-20 p-2.5 bg-white/95 backdrop-blur dark:bg-gray-900/95">
   <div class="mb-2 flex items-center justify-between px-1"><div><div class="text-xs font-extrabold uppercase tracking-wide text-gray-500">Inventory views</div><div class="mt-1 text-[11px] text-gray-400">Choose the inventory view you need. Filters apply across the report.</div></div><button wire:click="toggleReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">Filters</button></div>
@@ -68,12 +67,6 @@
   <button type="button" wire:click="setTab('low-stock')" class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-orange"><x-heroicon-o-tag/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Avg. Cost per Unit</div><div class="vx-kpi-value">${{ number_format($summary['avg_cost'],2) }}</div><div class="vx-kpi-sub">{{ number_format($summary['low_stock']) }} low stock · {{ number_format($summary['out_stock']) }} out of stock</div></div></button>
  </div>
 
- <div class="vx-flow">
- @foreach(['received'=>'Received / returned','removed'=>'Sold / removed','adjustments'=>'Corrections (net)','transfers'=>'Internal transfers'] as $key=>$label)
- <div class="vx-r-card p-4"><div class="text-xs font-bold text-gray-500">{{ $label }}</div><div class="vx-flow-number">{{ number_format($movement['current'][$key],2) }}</div><div class="text-xs text-gray-500">Previous period: {{ number_format($movement['previous'][$key],2) }} units</div></div>
- @endforeach
- </div>
- <div class="vx-r-card flex flex-wrap justify-between gap-3 p-4"><div><div class="text-xs font-bold text-gray-500">Net stock movement</div><div class="text-lg font-extrabold">{{ number_format($movement['current']['net'],2) }} units</div></div><div><div class="text-xs font-bold text-gray-500">Recorded movement cost (net)</div><div class="text-lg font-extrabold">${{ number_format($movement['current']['cost_change'],2) }}</div></div><p class="w-full text-xs text-gray-500">Transfers are shown separately. Movement cost uses recorded unit costs and excludes price-only changes; missing costs contribute $0. It is not a reconciliation of total inventory value.</p></div>
  <div class="vx-r-card p-4"><div class="flex flex-wrap justify-between gap-2"><h3 class="text-sm font-bold">Inventory inactivity</h3><button wire:click="setTab('aging')" class="text-xs font-bold text-primary-600">View idle inventory →</button></div><p class="mt-1 text-xs text-gray-500">Current stock grouped by days since last recorded movement, or creation if none. This measures inactivity, not lot age.</p><div class="vx-aging mt-4">
  @foreach([[30,59,'30–59 days'],[60,89,'60–89 days'],[90,null,'90+ days']] as [$min,$max,$label])
  @php $bucket=$idle->filter(fn($row)=>$row['idle_days'] >= $min && ($max===null || $row['idle_days'] <= $max)); @endphp

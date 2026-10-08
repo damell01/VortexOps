@@ -94,7 +94,7 @@ class ShowOperationsTest extends TestCase
         $this->admin();
         $show = $this->show(['title' => 'Boxes w/Niko']);
         Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id], 'create_account' => true, 'account_email' => 'niko@example.com'])->assertHasNoErrors();
-        $user = User::where('email', 'niko@example.com')->sole();
+        $user = User::where('email', 'niko@vortexops.tech')->sole();
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check('password123!', $user->password));
         $this->assertTrue($user->must_change_password);
         $this->assertTrue($user->hasRole('streamer'));
@@ -114,14 +114,28 @@ class ShowOperationsTest extends TestCase
         $this->assertSame(1, $profile->aliases()->count());
     }
 
-    public function test_duplicate_email_rolls_back_profile_and_assignment(): void
+    public function test_generated_email_collision_gets_suffix_without_changing_existing_account(): void
     {
         $this->admin();
-        User::factory()->create(['email' => 'taken@example.com']);
+        $existing = User::factory()->create(['email' => 'niko@vortexops.tech']);
+        $oldPassword = $existing->password;
         $show = $this->show(['title' => 'Boxes w/Niko']);
-        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id], 'create_account' => true, 'account_email' => 'taken@example.com'])->assertHasErrors(['account_email']);
-        $this->assertSame(0, Streamer::where('name', 'Niko')->count());
-        $this->assertSame(0, $show->streamers()->count());
+        Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id]])->assertHasNoErrors();
+        $user = User::where('email', 'niko2@vortexops.tech')->sole();
+        $this->assertTrue($user->must_change_password);
+        $this->assertSame($oldPassword, $existing->fresh()->password);
+        $this->assertSame($user->streamer->id, $show->streamers()->sole()->id);
+    }
+
+    public function test_password_reset_event_completes_required_change_only_for_new_password(): void
+    {
+        $user = User::factory()->create(['password' => 'password123!']);
+        $user->forceFill(['must_change_password' => true])->save();
+        event(new \Illuminate\Auth\Events\PasswordReset($user));
+        $this->assertTrue($user->fresh()->must_change_password);
+        $user->password = 'NewPersonalPassword456!'; $user->save();
+        event(new \Illuminate\Auth\Events\PasswordReset($user));
+        $this->assertFalse($user->fresh()->must_change_password);
     }
 
     public function test_password_change_is_enforced_and_initial_password_cannot_be_reused(): void

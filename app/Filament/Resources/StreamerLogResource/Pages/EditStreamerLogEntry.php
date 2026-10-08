@@ -78,11 +78,19 @@ class EditStreamerLogEntry extends EditRecord
                 ->label('Request Edit Permission')
                 ->icon('heroicon-o-pencil-square')
                 ->color('warning')
-                ->visible(fn () => StreamerLogResource::isLockedForCurrentUser($this->record) && $this->record->isSubmitted())
+                ->visible(fn () => $this->record->canRequestRevision())
                 ->requiresConfirmation()
                 ->modalHeading('Request Edit Permission')
-                ->modalDescription('An admin will review your request and unlock this log entry for editing.')
-                ->action(function () {
+                ->modalDescription('An admin will review your request. The report stays locked until reopened.')
+                ->form([\Filament\Forms\Components\Textarea::make('reason')->label('What needs to change?')->rows(3)])
+                ->action(function (array $data) {
+                    abort_unless($this->record->canRequestRevision(), 422);
+                    $this->record->requestRevision($data['reason'] ?? null);
+                    \App\Services\Notifier::send('report_reopen_requested', new \App\Notifications\VortexAlert(
+                        event: 'report_reopen_requested', title: 'A streamer wants to change a filed report',
+                        body: ($this->record->show?->title ?: 'Report #' . $this->record->id) . ' — ' . ($this->record->revision_reason ?: 'No reason provided'),
+                        tone: 'warning', links: ['Open report' => StreamerLogResource::getUrl('edit', ['record' => $this->record])],
+                    ));
                     Notification::make()
                         ->title('Request sent')
                         ->body('An admin has been notified of your edit request.')

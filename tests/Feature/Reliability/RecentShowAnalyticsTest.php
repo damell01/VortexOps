@@ -18,7 +18,7 @@ class RecentShowAnalyticsTest extends TestCase
 
     private function show(array $data): Show
     {
-        return Show::withoutEvents(fn () => Show::create(array_merge(['title' => 'Analytics test', 'show_date' => today(), 'status' => 'scheduled'], $data)));
+        return Show::withoutEvents(fn () => Show::create(array_merge(['title' => 'Analytics test', 'show_date' => today(), 'status' => 'upcoming'], $data)));
     }
 
     public function test_known_ends_and_confirmed_completed_shows_are_eligible_same_day(): void

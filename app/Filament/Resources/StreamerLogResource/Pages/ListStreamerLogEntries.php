@@ -45,6 +45,7 @@ class ListStreamerLogEntries extends ListRecords
 
     protected function filterInbox(Builder $query, string $key): Builder
     {
+        if (! $query->getModel()) $query->setModel(new \App\Models\StreamerLogEntry);
         return match ($key) {
             'submissions' => $query->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->whereNotNull('submitted_at')->orWhereIn('status', ['streamer_reviewed','admin_approved','changes_requested'])),
             'submitted' => $query->where('status', 'streamer_reviewed'),

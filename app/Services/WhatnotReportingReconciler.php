@@ -123,15 +123,17 @@ class WhatnotReportingReconciler
                     ->orWhere('cover_image_url', 'not like', '%/storage/show-covers/%');
             })->exists();
         if (! $missing) return;
-        $key = 'whatnot-cover-index:'.$channel->id;
+        $key = 'whatnot-cover-index:v2:'.$channel->id;
         if (! \Illuminate\Support\Facades\Cache::add($key, true, now()->addDay())) return;
         try {
             $progress && $progress('covers: checking Current, Upcoming and Past artwork for existing shows');
             $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username, false, $progress);
-            $queued = 0;
+            $queued = $scanned = $withCover = $matched = 0;
             foreach (['current', 'upcoming', 'past'] as $kind) {
                 foreach (($index[$kind] ?? []) as $raw) {
+                    $scanned++;
                     if (! is_array($raw) || empty($raw['cover_image_url'])) continue;
+                    $withCover++;
                     $liveId = $raw['live_id'] ?? $raw['whatnot_live_id'] ?? null;
                     if (! $liveId) continue;
                     $show = Show::query()->where('whatnot_channel_id', $channel->id)
@@ -139,6 +141,7 @@ class WhatnotReportingReconciler
                             $q->where('whatnot_show_id', $liveId)
                                 ->orWhere('detail_url', 'https://www.whatnot.com/dashboard/live/'.$liveId);
                         })->first();
+                    if ($show) $matched++;
                     if (! $show || str_contains((string) $show->cover_image_url, '/storage/show-covers/')) continue;
                     $payload = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
                     $payload['cover_image_url'] = $raw['cover_image_url'];
@@ -147,7 +150,7 @@ class WhatnotReportingReconciler
                     if (++$queued >= 1000) break 2;
                 }
             }
-            $progress && $progress("covers: queued {$queued} missing show covers");
+            $progress && $progress("covers: scanned {$scanned}, artwork found {$withCover}, database matched {$matched}, queued {$queued} missing show covers");
         } catch (\Throwable $e) {
             Log::warning('Show cover backfill failed; continuing analytics', [
                 'channel_id' => $channel->id, 'error' => $e->getMessage(),

@@ -6,6 +6,9 @@
 @media(min-width:720px){.vx-catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.vx-product-body{padding:1rem}.vx-product-title{font-size:.95rem}.vx-card-actions{padding:.7rem 1rem 1rem}}@media(min-width:1100px){.vx-catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(min-width:1380px){.vx-catalog-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:640px){body:has(.vx-inventory-list) .fi-page-header{display:none!important}.vx-inventory-desktop-tools{display:none!important}.vx-inventory-items-panel{border:0!important;background:transparent!important;box-shadow:none!important}.vx-inventory-items-panel>div{padding:0!important}.vx-health-grid{grid-template-columns:repeat(3,1fr);gap:8px}.vx-health:first-child{display:none}.vx-health{padding:10px 8px;border-radius:12px}.vx-health strong{font-size:1.15rem}.vx-health-label{font-size:.65rem}.vx-health-percent{font-size:.65rem}.vx-health-meta{align-items:flex-end;gap:4px}.vx-inv-toolbar{align-items:stretch}.vx-inv-search{min-width:100%}.vx-view-toggle{width:100%}.vx-view-btn{flex:1}.vx-load-more{width:100%;min-height:48px}.vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-card-action{min-height:42px;font-size:.72rem}body:has(.vx-inventory-list) .fi-modal-window{border-radius:24px 24px 0 0!important;box-shadow:0 -20px 60px rgba(15,23,42,.25)!important}.dark .vx-inventory-mobile-intro{color:#fff}body:has(.vx-inventory-list) .fi-ta{background:transparent!important}body:has(.vx-inventory-list) .fi-ta-ctn{border:0!important;background:transparent!important;box-shadow:none!important}body:has(.vx-inventory-list) .fi-ta-header-toolbar{padding:10px 0!important;gap:10px!important}body:has(.vx-inventory-list) .fi-ta-search-field{min-width:0!important;flex:1!important}body:has(.vx-inventory-list) .fi-ta-filters-trigger{border:1px solid #7c3aed!important;border-radius:10px!important;color:#c4b5fd!important}body:has(.vx-inventory-list) .fi-ta-content{background:transparent!important}body:has(.vx-inventory-list) .fi-ta-table{border-collapse:separate!important;border-spacing:0 12px!important}.dark body:has(.vx-inventory-list) .fi-ta-row{background:#101827!important;border-color:#263248!important}body:has(.vx-inventory-list) .fi-ta-row{display:grid!important;grid-template-columns:74px minmax(0,1fr) minmax(0,1fr)!important;background:#fff!important;border:1px solid #e5e7eb!important;border-radius:16px!important;padding:14px!important;overflow:hidden!important;box-shadow:0 8px 24px rgba(0,0,0,.16)!important}body:has(.vx-inventory-list) .fi-ta-cell{border:0!important;padding:5px 4px!important;min-width:0}body:has(.vx-inventory-list) .fi-ta-cell:first-child{grid-row:1/5;grid-column:1;width:70px!important}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(2){grid-column:2/4;font-size:1rem!important}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(3){grid-column:2/4}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(4){grid-column:1/2;margin-top:6px}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(5){grid-column:2/3;margin-top:6px}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(6){grid-column:3/4;margin-top:6px}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(7){grid-column:1/4;margin-top:2px}body:has(.vx-inventory-list) .fi-ta-actions-cell{grid-column:1/4!important;margin-top:8px!important}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(n+3):nth-child(-n+7)::before{display:block;margin-bottom:2px;font-size:.58rem;font-weight:700;line-height:1;text-transform:uppercase;letter-spacing:.06em;color:#7f8da3}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(3)::before{content:'SKU'}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(4)::before{content:'Type'}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(5)::before{content:'Status'}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(6)::before{content:'Qty on hand'}body:has(.vx-inventory-list) .fi-ta-cell:nth-child(7)::before{content:'Added'}body:has(.vx-inventory-list) .fi-ta-image img{width:64px!important;height:64px!important;min-width:64px!important;border-radius:12px!important}body:has(.vx-inventory-list) .fi-ta-header-cell{display:none!important}}
 @media(min-width:1024px){.vx-desktop-hidden{display:none}}@media(max-width:1023px){.vx-view-toggle,.vx-inventory-items-panel{display:none!important}.vx-catalog-view{display:block!important}.vx-metric-value{white-space:normal;overflow-wrap:anywhere}.vx-cost-metrics{overflow:visible}.vx-inv-search{min-width:0;width:100%}.vx-inv-toolbar select{max-width:100%;width:100%}}@media(max-width:359px){.vx-catalog-grid{grid-template-columns:minmax(0,1fr)}}
+.vx-product-card{position:relative}.vx-select-check{position:absolute;top:8px;left:8px;z-index:2;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:rgb(255 255 255/.92);box-shadow:0 1px 3px rgb(0 0 0/.15);cursor:pointer}.dark .vx-select-check{background:rgb(17 24 39/.9)}.vx-select-check input{width:18px;height:18px;border-radius:5px;accent-color:var(--primary-600);cursor:pointer}.vx-product-card.is-selected{border-color:var(--primary-500);box-shadow:0 0 0 2px var(--primary-500)}
+.vx-bulk-bar{position:sticky;bottom:12px;z-index:20;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid var(--vxw-border);border-radius:14px;background:var(--vxw-surface);box-shadow:var(--vxw-shadow-pop)}@media(max-width:1023px){.vx-bulk-bar{bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
+.vx-select-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
@@ -46,13 +49,24 @@
  </section>
 
  <div class="vx-catalog-view {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}">
+  @php $canBulkDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny(); @endphp
   @if($this->catalogItems->isNotEmpty())
+   @if($canBulkDelete)
+    <div class="vx-select-row">
+     <span class="vxw-meta" x-text="$wire.selectedItems.length ? $wire.selectedItems.length + ' selected' : 'Tick items to delete several at once'"></span>
+     <div class="flex gap-2">
+      <button type="button" class="vxw-btn vxw-btn--sm" wire:click="selectAllShown" wire:loading.attr="disabled" wire:target="selectAllShown">Select all {{ number_format($this->catalogItems->count()) }} shown</button>
+      <button type="button" class="vxw-btn vxw-btn--ghost vxw-btn--sm" wire:click="clearSelection" x-show="$wire.selectedItems.length" x-cloak>Clear</button>
+     </div>
+    </div>
+   @endif
    <div class="vx-catalog-grid">
     @foreach($this->catalogItems as $item)
      @php
       $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
      @endphp
-     <article class="vx-product-card">
+     <article class="vx-product-card" wire:key="inv-card-{{ $item->getKey() }}" @if($canBulkDelete) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
+      @if($canBulkDelete)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
        <div class="vx-product-image"><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
       </a>
@@ -80,6 +94,15 @@
      </article>
     @endforeach
    </div>
+   @if($canBulkDelete)
+    <div class="vx-bulk-bar" x-show="$wire.selectedItems.length" x-cloak x-transition.opacity.duration.150ms role="region" aria-label="Bulk actions">
+     <span class="text-sm font-semibold"><span x-text="$wire.selectedItems.length"></span> selected</span>
+     <div class="flex gap-2">
+      <button type="button" class="vxw-btn vxw-btn--ghost vxw-btn--sm" wire:click="clearSelection">Clear</button>
+      <button type="button" class="vxw-btn vxw-btn--sm" style="background:#e11d48;border-color:transparent;color:#fff" wire:click="mountAction('bulkDeleteItems')" wire:loading.attr="disabled" wire:target="mountAction"><x-heroicon-o-trash class="h-4 w-4" /> Delete selected</button>
+     </div>
+    </div>
+   @endif
    <div class="vx-catalog-footer">
     <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
     @if($this->catalogItems->count() < $this->catalogTotal)

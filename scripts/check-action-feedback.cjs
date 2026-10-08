@@ -1,0 +1,17 @@
+const Module=require('node:module');
+const original=Module._load;
+Module._load=function(name,...args){return name==='canvas'?{}:original.call(this,name,...args)};
+const {JSDOM}=require('jsdom');
+const fs=require('node:fs');const assert=require('node:assert/strict');
+const w=new JSDOM('<body></body>',{runScripts:'outside-only'}).window;
+let hook;w.Livewire={hook:(name,fn)=>{hook=fn}};
+w.eval(fs.readFileSync('resources/js/action-feedback.js','utf8').replace(/^import.*;\n/,''));
+let succeed,fail;
+const request=method=>hook({payload:{components:[{calls:[{method}]}]},succeed:fn=>succeed=fn,fail:fn=>fail=fn});
+request('$refresh');assert.equal(w.document.querySelector('[role=status]'),null);
+request('assignSelectedShows');assert.ok(w.document.querySelector('[role=status]'));
+succeed();assert.equal(w.document.querySelector('[role=status]'),null);
+request('save');fail({status:419});assert.ok(w.document.querySelector('[role=alert]').textContent.includes('session expired'));
+w.document.querySelector('button').click();assert.equal(w.document.querySelector('[role=alert]'),null);
+request('save');w.document.dispatchEvent(new w.Event('livewire:navigating'));assert.equal(w.document.querySelector('[role=status]'),null);
+w.close();console.log('Action feedback checks passed');

@@ -36,10 +36,11 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Quick Add Stock',\App\Filament\Resources\InventoryItemResource::getUrl('quick-add')],
  ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin')],
 ]));
-if(! $streamerOnly) $groups['Fulfillment']=[
- ['Coming Soon','#'],
-];
-if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Finance']=[
+if(\App\Filament\Pages\FulfillmentPreview::canAccess()) {
+    $groups['Shows'] ??= [];
+    $groups['Shows'][] = ['Fulfillment Preview', \App\Filament\Pages\FulfillmentPreview::getUrl(panel:'admin')];
+}
+if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Payroll']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
  ['Pay Run History',\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')],
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
@@ -63,7 +64,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Email Log',\App\Filament\Pages\EmailLog::getUrl(panel:'admin')],
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
-$groups['Help'] = [['Help & Guides', \App\Filament\Pages\HelpCenter::getUrl(panel:'admin')]];
+
 // The route registry is the source of truth for each link's access.
 foreach ($groups as $label => $links) {
     $groups[$label] = array_values(array_filter($links, function ($link) use ($user) {
@@ -81,16 +82,22 @@ foreach ($groups as $label => $links) {
     }));
     if ($groups[$label] === []) unset($groups[$label]);
 }
+$ownerLabels = ['Import Status','Show Data Audit','Show Ingestion Logs','Email Log'];
+$ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? [], fn ($link) => in_array($link[0], $ownerLabels, true))) : [];
+if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
 @endphp
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
-<button type="button" class="vx-mega-trigger" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
+<button type="button" class="vx-mega-trigger" :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>
 <div class="vx-mega-menu-title">{{ $label }}</div>
 @foreach($links as [$text,$url])<a href="{{ $url }}" @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
+@if($label==='Admin' && $ownerLinks)
+<details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as [$text,$url])<a href="{{ $url }}" @click="open=false">{{ $text }}</a>@endforeach</div></details>
+@endif
 </div></div>
 @endforeach
 @if($user?->canSwitchChannels())

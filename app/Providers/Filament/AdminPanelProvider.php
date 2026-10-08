@@ -61,6 +61,10 @@ class AdminPanelProvider extends PanelProvider
             ->passwordReset()
             ->profile(isSimple: false)
             ->userMenuItems([
+                \Filament\Actions\Action::make('help_guides')
+                    ->label('Help & Guides')
+                    ->icon('heroicon-o-question-mark-circle')
+                    ->url(fn (): string => \App\Filament\Pages\HelpCenter::getUrl(panel: 'admin')),
                 \Filament\Actions\Action::make('my_notifications')
                     ->label('My notifications')
                     ->icon('heroicon-o-bell')

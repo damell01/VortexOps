@@ -40,9 +40,12 @@
 <a class="vx-mobile-menu-home @if($isHere($homeUrl)) is-here @endif" href="{{ $homeUrl }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 <div class="vx-mobile-menu-group"><button type="button" :aria-expanded="section==={{ $loop->index }}" @click="section=section==={{ $loop->index }}?null:{{ $loop->index }}" :class="section==={{ $loop->index }} && 'is-open'"><span class="vx-mm-gl"><x-filament::icon :icon="$icons[$label] ?? 'heroicon-o-squares-2x2'"/>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" x-bind:class="section==={{ $loop->index }}&&'rotate-180'"/></button>
-<div class="vx-mobile-submenu" x-show="section==={{ $loop->index }}" x-collapse>@foreach($links as [$text,$url])<a href="{{ $url }}" wire:navigate @click="open=false" @class(['is-here' => $isHere($url)]) @if($isHere($url)) aria-current="page" @endif><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach</div></div>
+<div class="vx-mobile-submenu" x-show="section==={{ $loop->index }}" x-collapse>@foreach($links as [$text,$url])<a href="{{ $url }}" wire:navigate @click="open=false" @class(['is-here' => $isHere($url)]) @if($isHere($url)) aria-current="page" @endif><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
+@if($label==='Admin' && !empty($ownerLinks))<details class="vx-owner-tools"><summary>Owner tools</summary><div>@foreach($ownerLinks as [$text,$url])<a href="{{ $url }}" wire:navigate @click="open=false">{{ $text }}</a>@endforeach</div></details>@endif
+</div></div>
 @endforeach
 <a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\MyNotifications::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-bell"/><span>My notifications</span></a>
+<a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\HelpCenter::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-question-mark-circle"/><span>Help & Guides</span></a>
 @if($user?->canSwitchChannels())<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif
 </aside></div></template></div>
 <style>

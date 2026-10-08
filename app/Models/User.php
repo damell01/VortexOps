@@ -35,6 +35,7 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'must_change_password' => 'boolean',
             'password' => 'hashed',
             'notifications_enabled' => 'boolean',
             'notification_in_app_enabled' => 'boolean',

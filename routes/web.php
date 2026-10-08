@@ -8,6 +8,11 @@ use App\Models\FulfillmentPackage;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
+Route::middleware('auth')->group(function () {
+    Route::get('/account/change-password', [\App\Http\Controllers\RequiredPasswordChangeController::class, 'show'])->name('account.password.edit');
+    Route::post('/account/change-password', [\App\Http\Controllers\RequiredPasswordChangeController::class, 'update'])->middleware('throttle:6,1')->name('account.password.update');
+});
+
 Route::get('/', function () {
     return redirect('/admin');
 });

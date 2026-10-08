@@ -122,8 +122,8 @@ class NeedsAttentionWidget extends Widget
             // new show to import. Real failed jobs still surface below and the
             // detailed scraper health remains available on System Health.
             $add(
-                Schema::hasTable('failed_jobs'),
-                (int) DB::table('failed_jobs')->count(),
+                (bool) auth()->user()?->isOwner() && Schema::hasTable('failed_jobs'),
+                auth()->user()?->isOwner() ? (int) DB::table('failed_jobs')->count() : 0,
                 'failed background jobs',
                 'heroicon-o-exclamation-triangle',
                 'danger',

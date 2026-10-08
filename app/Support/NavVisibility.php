@@ -29,12 +29,12 @@ class NavVisibility
 
     public static function visibleForRole(string $role): array
     {
-        return self::visibleByRole()[$role] ?? [];
+        return self::visibleByRole()[$role === 'fulfillment_admin' ? 'admin' : $role] ?? [];
     }
 
     public static function hasExplicitVisibility(string $role): bool
     {
-        return array_key_exists($role, self::visibleByRole());
+        return array_key_exists($role === 'fulfillment_admin' ? 'admin' : $role, self::visibleByRole());
     }
 
     /**
@@ -75,7 +75,7 @@ class NavVisibility
 
     public static function hiddenForRole(string $role): array
     {
-        return self::hiddenByRole()[$role] ?? [];
+        return self::hiddenByRole()[$role === 'fulfillment_admin' ? 'admin' : $role] ?? [];
     }
 
     public static function setHiddenForRole(string $role, array $classes): void
@@ -90,6 +90,7 @@ class NavVisibility
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) return false;
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
+        if ($user->isAdmin() && in_array($class, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Pages\ImportStatus::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class], true)) return false;
 
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;
@@ -124,7 +125,7 @@ class NavVisibility
 
     public static function readonlyForRole(string $role): array
     {
-        return self::readonlyByRole()[$role] ?? [];
+        return self::readonlyByRole()[$role === 'fulfillment_admin' ? 'admin' : $role] ?? [];
     }
 
     public static function setReadonlyForRole(string $role, array $classes): void
@@ -144,7 +145,7 @@ class NavVisibility
 
         $map = self::readonlyByRole();
         foreach ($roleNames as $role) {
-            if (! in_array($class, $map[$role] ?? [], true)) return false;
+            if (! in_array($class, self::readonlyForRole($role), true)) return false;
         }
         return true;
     }

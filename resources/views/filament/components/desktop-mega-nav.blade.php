@@ -26,6 +26,7 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Stock Status',\App\Filament\Pages\StockStatus::getUrl(panel:'admin')],
  ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index')],
  \App\Filament\Pages\InventoryAge::canAccess() ? ['Inventory Age',\App\Filament\Pages\InventoryAge::getUrl(panel:'admin')] : null,
+ \App\Filament\Resources\InventoryMovementResource::canAccess() ? ['Inventory Log',\App\Filament\Resources\InventoryMovementResource::getUrl('index')] : null,
  ['Recent Activity',\App\Filament\Pages\InventoryActivity::getUrl(panel:'admin')],
  ['Inventory Health',\App\Filament\Pages\InventoryHealth::getUrl(panel:'admin')],
  \App\Filament\Pages\InventoryReport::canAccess() ? ['Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')] : null,
@@ -54,13 +55,30 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ...($user?->isOwner() ? [
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
    ['Show Ingestion Logs',\App\Filament\Resources\ShowIngestionLogResource::getUrl('index')],
-   ['Activity Logs',\App\Filament\Resources\ActivityLogResource::getUrl('index')],
-   ['Inventory Logs',\App\Filament\Resources\InventoryMovementResource::getUrl('index')],
  ] : []),
+ ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
+ ['Activity Logs',\App\Filament\Resources\ActivityLogResource::getUrl('index')],
  ['Notifications',\App\Filament\Pages\NotificationSettings::getUrl(panel:'admin')],
  ['Email Log',\App\Filament\Pages\EmailLog::getUrl(panel:'admin')],
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
+// The route registry is the source of truth for each link's access.
+foreach ($groups as $label => $links) {
+    $groups[$label] = array_values(array_filter($links, function ($link) use ($user) {
+        if ($link[1] === '#') return true;
+        try {
+            $request = \Illuminate\Http\Request::create($link[1]);
+            $route = app('router')->getRoutes()->match($request);
+            $class = $route->getAction('controller');
+            $class = is_string($class) ? explode('@', $class)[0] : null;
+            if ($class && method_exists($class, 'canAccess')) {
+                return $class::canAccess() && ! \App\Support\NavVisibility::isHiddenForUser($class, $user);
+            }
+            return true;
+        } catch (\Throwable) { return false; }
+    }));
+    if ($groups[$label] === []) unset($groups[$label]);
+}
 @endphp
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif

@@ -40,12 +40,6 @@ class AppSettings extends Page
 
     public static function canAccess(): bool
     {
-        // An explicit grant on Roles & Permissions is the answer; the rules
-        // below are the fallback for roles that have no explicit list.
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
         $user = auth()->user();
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
@@ -196,6 +190,8 @@ class AppSettings extends Page
         $this->default_owner_fee_value              = Setting::get('default_owner_fee_value', '');
         $this->default_owner_fee_deduct_from_payout = (bool) Setting::get('default_owner_fee_deduct_from_payout', true);
 
+        if (! $this->canSeeModuleToggles) return;
+
         $this->ai_provider             = Setting::get('ai_provider', config('ai.default_provider', 'ollama'));
         $this->ollama_base_url         = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
         $this->ollama_model            = Setting::get('ollama_model', config('services.ollama.model', 'llama3.2:3b'));
@@ -270,7 +266,9 @@ class AppSettings extends Page
 
     public function saveSettings(): void
     {
+        abort_unless(static::canAccess(), 403);
         $isOwner = auth()->user()?->isOwner() ?? false;
+        $systemAccess = $this->canSeeModuleToggles;
 
         if ($isOwner) {
             $this->enabled_modules = AdminModules::normalizeEnabledSlugs($this->enabled_modules);
@@ -312,6 +310,9 @@ class AppSettings extends Page
             $rules['enabled_modules.*'] = 'in:' . implode(',', array_keys(AdminModules::definitions()));
         }
 
+        if (! $systemAccess) {
+            foreach (['show_import_mode', 'ai_temperature', 'ai_max_tokens', 'ai_provider'] as $field) unset($rules[$field]);
+        }
         $this->validate($rules);
 
         if ($this->logo_upload) {
@@ -323,7 +324,7 @@ class AppSettings extends Page
 
         Setting::set('brand_name',    $this->brand_name);
         Setting::set('primary_color', $this->primary_color);
-        Setting::set('show_import_mode', $this->show_import_mode);
+        if ($systemAccess) Setting::set('show_import_mode', $this->show_import_mode);
 
 
         Setting::set('default_receiving_location_id', $this->default_receiving_location_id ?: '');
@@ -348,6 +349,7 @@ class AppSettings extends Page
         Setting::set('default_owner_fee_value',              $this->default_owner_fee_type ? $this->default_owner_fee_value : '');
         Setting::set('default_owner_fee_deduct_from_payout', $this->default_owner_fee_deduct_from_payout ? '1' : '0');
 
+        if ($systemAccess) {
         Setting::set('ai_provider',             in_array($this->ai_provider, ['ollama', 'openai'], true) ? $this->ai_provider : 'ollama');
         Setting::set('ollama_base_url',         rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_chat_model',       trim($this->ollama_chat_model) ?: 'llama3.2:3b');
@@ -362,6 +364,7 @@ class AppSettings extends Page
         Setting::set('ai_temperature', (string) max(0, min(2, (float) $this->ai_temperature)));
         Setting::set('ai_max_tokens',  (string) max(1, (int) $this->ai_max_tokens));
         Setting::set('ai_streaming',   $this->ai_streaming ? '1' : '0');
+        }
         if (auth()->user()?->isSuperAdmin() || auth()->user()?->isOwner()) {
             Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
         }
@@ -380,6 +383,7 @@ class AppSettings extends Page
 
     public function removeLogo(): void
     {
+        abort_unless(static::canAccess(), 403);
         Setting::set('logo_path', '');
         $this->logo_path = null;
 
@@ -393,6 +397,7 @@ class AppSettings extends Page
 
     public function testWhatnotConnection(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         $this->whatnotTestResult = '';
         $this->whatnotTestStatus = '';
 
@@ -421,6 +426,7 @@ class AppSettings extends Page
 
     public function testOllamaConnection(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         $this->ollamaTestResult = '';
         $this->ollamaTestStatus = '';
 
@@ -485,6 +491,7 @@ class AppSettings extends Page
      */
     public function generateEmbeddingsNow(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         $this->ollamaTestResult = '';
         $this->ollamaTestStatus = '';
 
@@ -526,6 +533,7 @@ class AppSettings extends Page
 
     public function importWhatnotShows(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         $this->whatnotImportResult = '';
         $this->whatnotImportStatus = '';
 
@@ -584,6 +592,7 @@ class AppSettings extends Page
                     ->autocomplete('off'),
             ])
             ->action(function () {
+                abort_unless(auth()->user()?->isOwner(), 403);
                 try {
                     Artisan::call('demo:clear', ['--force' => true]);
                     $output = trim(Artisan::output());
@@ -602,6 +611,7 @@ class AppSettings extends Page
 
     public function runMigrations(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         try {
             $exitCode = Artisan::call('migrate', ['--force' => true]);
             $output   = trim(Artisan::output());
@@ -619,6 +629,7 @@ class AppSettings extends Page
 
     public function optimizeApp(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         try {
             Artisan::call('optimize');
             $out = trim(Artisan::output());
@@ -640,6 +651,7 @@ class AppSettings extends Page
 
     public function runBackup(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         $this->backupResult = '';
         $this->backupStatus = '';
 
@@ -662,6 +674,7 @@ class AppSettings extends Page
 
     public function clearCaches(): void
     {
+        abort_unless($this->canSeeModuleToggles, 403);
         $lines = [];
 
         $run = function (string $command) use (&$lines): void {

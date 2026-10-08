@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="grid gap-6 xl:grid-cols-[220px_minmax(0,760px)]"><aside class="vx-card h-fit p-3"><nav class="space-y-1 text-sm font-medium"><a href="#branding" class="block rounded-[10px] px-3 py-2">Branding</a><a href="#payroll" class="block rounded-[10px] px-3 py-2">Payroll defaults</a><a href="#modules" class="block rounded-[10px] px-3 py-2">Modules</a></nav></aside><div class="space-y-6">
+    <div class="vx-settings-layout grid gap-6 xl:grid-cols-[220px_minmax(0,760px)]"><aside class="vx-card h-fit p-3"><nav class="space-y-1 text-sm font-medium"><a href="#branding" class="block rounded-[10px] px-3 py-2">Branding</a><a href="#payroll" class="block rounded-[10px] px-3 py-2">Payroll defaults</a><a href="#operations" class="block rounded-[10px] px-3 py-2">Operations</a>@if($this->canSeeModuleToggles)<a href="#modules" class="block rounded-[10px] px-3 py-2">Modules</a>@endif</nav></aside><div class="space-y-6">
 
         {{-- ── Branding ──────────────────────────────────────────────────── --}}
         <div id="branding" wire:key="section-branding" x-data="{ open: true }" class="vx-card overflow-hidden">
@@ -207,6 +207,7 @@
         @endif
 
         {{-- ── Show Import Settings ──────────────────────────────────────── --}}
+        @if ($this->canSeeModuleToggles)
         <div wire:key="section-show-import" x-data="{ open: true }" class="vx-card overflow-hidden">
 
             <button type="button" @click="open = !open"
@@ -233,6 +234,8 @@
                 </div>
             </div>
         </div>
+
+        @endif
 
         {{-- Notifications moved to their own page: who gets what, email on/off, previews and tests. --}}
         <div wire:key="section-notifications" class="vx-card overflow-hidden">
@@ -704,7 +707,7 @@
         @endif
 
         {{-- ── Receiving ───────────────────────────────────────────────────── --}}
-        <div wire:key="section-receiving" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div id="operations" wire:key="section-receiving" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -895,7 +898,7 @@
         </div>
 
         {{-- ── Streamer Profit Share ───────────────────────────────────────── --}}
-        <div wire:key="section-burden" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div id="payroll" wire:key="section-burden" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -1025,5 +1028,9 @@
             </div>
         @endif
 
+        <div class="vx-settings-save sticky bottom-3 z-20 rounded-xl border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-900">
+            <button type="button" wire:click="saveSettings" wire:loading.attr="disabled" wire:target="saveSettings,logo_upload" class="vx-btn primary w-full">Save changes</button>
+            <span wire:loading wire:target="saveSettings" role="status" class="mt-2 block text-xs">Saving settings…</span>
+        </div>
     </div></div>
 </x-filament-panels::page>

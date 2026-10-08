@@ -79,11 +79,12 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
-    public function fetchSellerHubIndex(?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
+    public function fetchSellerHubIndex(?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null, ?string $since = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE'] = 'reconcile-index';
         $env['WHATNOT_RECONCILE_MAX_PASSES'] = '100';
+        if ($since) $env['WHATNOT_RECONCILE_SINCE'] = $since;
         if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
         $timeout = 1800;
         $process = $this->makeProcess($env, timeout: $timeout);

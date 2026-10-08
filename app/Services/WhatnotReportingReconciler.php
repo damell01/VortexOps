@@ -22,10 +22,10 @@ class WhatnotReportingReconciler
         private readonly WhatnotDataNormalizer $normalizer,
     ) {}
 
-    public function discoverShows(WhatnotChannel $channel, ?callable $progress = null): array
+    public function discoverShows(WhatnotChannel $channel, ?callable $progress = null, ?Carbon $since = null): array
     {
         $progress && $progress('discovery: scanning Seller Hub Current, Upcoming, and Past with Scrapling');
-        $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username, false, $progress);
+        $index = $this->scraper->fetchSellerHubIndex($channel->whatnot_username, false, $progress, $since?->toDateString());
         $created = $updated = $skipped = $flagged = 0;
 
         $groups = [

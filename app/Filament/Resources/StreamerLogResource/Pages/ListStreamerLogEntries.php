@@ -23,54 +23,61 @@ class ListStreamerLogEntries extends ListRecords
      * Headline tiles above the table, scoped through the resource query so a
      * streamer's numbers cover their own entries only — same rows they see.
      */
+    public function reportStartDate(): ?string { return StreamerLogResource::reportStartDate(); }
+
     public function getStats(): array
     {
-        if ($this->statsMemo !== null) {
-            return $this->statsMemo;
-        }
-
-        $base = fn () => StreamerLogResource::getEloquentQuery();
-
-        return $this->statsMemo = [
-            [
-                'label' => 'Total Submissions',
-                'value' => number_format($base()->count()),
-                'sub'   => 'Show reports in the system',
-                'icon'  => 'heroicon-o-document-text',
-                'tone'  => 'purple',
-            ],
-            [
-                'label' => 'Admin Review',
-                'value' => number_format($base()->where('status', 'streamer_reviewed')->count()),
-                'sub'   => 'Submitted and waiting',
-                'icon'  => 'heroicon-o-clock',
-                'tone'  => 'blue',
-            ],
-            // A reopen request used to be a one-off database notification and a
-            // column. Miss the notification and the streamer is waiting on an
-            // answer nobody can see they asked for.
-            [
-                'label' => 'Edit Requests',
-                'value' => number_format($base()->whereNotNull('revision_requested_at')->count()),
-                'sub'   => 'Streamers asking to reopen',
-                'icon'  => 'heroicon-o-lock-open',
-                'tone'  => 'red',
-            ],
-            [
-                'label' => 'Changes Requested',
-                'value' => number_format($base()->where('status', 'changes_requested')->count()),
-                'sub'   => 'Needs streamer updates',
-                'icon'  => 'heroicon-o-arrow-uturn-left',
-                'tone'  => 'amber',
-            ],
-            [
-                'label' => 'Approved',
-                'value' => number_format($base()->where('status', 'admin_approved')->count()),
-                'sub'   => 'Ready for fulfillment / next step',
-                'icon'  => 'heroicon-o-check-circle',
-                'tone'  => 'green',
-            ],
+        if ($this->statsMemo !== null) return $this->statsMemo;
+        $definitions = [
+            'submissions' => ['Total Submissions', 'Filed reports since reporting began', 'heroicon-o-document-text'],
+            'submitted' => ['Admin Review', 'Submitted and waiting', 'heroicon-o-clock'],
+            'edit_requested' => ['Edit Requests', 'Streamers asking to reopen', 'heroicon-o-lock-open'],
+            'changes_requested' => ['Changes Requested', 'Needs streamer updates', 'heroicon-o-arrow-uturn-left'],
+            'approved' => ['Approved', 'Ready for the next step', 'heroicon-o-check-circle'],
         ];
+        $stats = [];
+        foreach ($definitions as $key => [$label, $sub, $icon]) {
+            $count = $this->filterInbox(StreamerLogResource::getEloquentQuery(), $key)->count();
+            $stats[$key] = compact('label', 'sub', 'icon', 'count') + ['value' => number_format($count)];
+        }
+        return $this->statsMemo = $stats;
+    }
+
+    protected function filterInbox(Builder $query, string $key): Builder
+    {
+        return match ($key) {
+            'submissions' => $query->where(fn (Builder $q) => $q->whereNotNull('submitted_at')->orWhereIn('status', ['streamer_reviewed','admin_approved','changes_requested'])),
+            'submitted' => $query->where('status', 'streamer_reviewed'),
+            'edit_requested' => $query->whereNotNull('revision_requested_at'),
+            'changes_requested' => $query->where('status', 'changes_requested'),
+            'approved' => $query->where('status', 'admin_approved')->where(fn (Builder $q) => $q->where('approval_status','approved')->orWhereNull('approval_status')),
+            'attention' => $query->where(fn (Builder $q) => $q->where('status', 'streamer_reviewed')->orWhereNotNull('revision_requested_at')),
+            default => $query,
+        };
+    }
+
+    public function selectInboxStatus(string $key): void
+    {
+        if (! array_key_exists($key, $this->getTabs())) return;
+        $this->activeTab = $key;
+        $this->resetPage($this->getTablePaginationPageName());
+    }
+
+    public function reopenRequests()
+    {
+        return StreamerLogResource::getEloquentQuery()->whereNotNull('revision_requested_at')->oldest('revision_requested_at')->limit(6)->get();
+    }
+
+    public function reopenRequestedReport(int $id): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($id) {
+            $report = StreamerLogResource::getEloquentQuery()->lockForUpdate()->findOrFail($id);
+            abort_unless($report->hasPendingRevisionRequest() && $report->isSubmitted(), 422);
+            $report->reopenForEditing();
+        });
+        $this->statsMemo = null;
+        \Filament\Notifications\Notification::make()->title('Report reopened for the streamer')->success()->send();
     }
 
     public function getSubheading(): ?string
@@ -87,7 +94,7 @@ class ListStreamerLogEntries extends ListRecords
     public function getDefaultActiveTab(): string|int|null
     {
         $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin()) ? 'submitted' : 'all';
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin()) ? 'attention' : 'all';
     }
 
     public function getTabs(): array
@@ -95,7 +102,9 @@ class ListStreamerLogEntries extends ListRecords
         $count = fn (callable $filter): int => $filter(StreamerLogResource::getEloquentQuery())->count();
 
         $tabs = [
-            'all' => Tab::make('All'),
+            'all' => Tab::make('All reports'),
+            'attention' => Tab::make('Needs your attention')->modifyQueryUsing(fn (Builder $q) => $this->filterInbox($q, 'attention')),
+            'submissions' => Tab::make('Submissions')->modifyQueryUsing(fn (Builder $q) => $this->filterInbox($q, 'submissions')),
 
             // Started but not yet sent for review.
             'in_progress' => Tab::make('In Progress')
@@ -123,7 +132,7 @@ class ListStreamerLogEntries extends ListRecords
                 ->badgeColor('warning'),
 
             'approved' => Tab::make('Approved')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'admin_approved'))
+                ->modifyQueryUsing(fn (Builder $query) => $this->filterInbox($query, 'approved'))
                 ->badgeColor('success'),
 
             'paid' => Tab::make('Paid')

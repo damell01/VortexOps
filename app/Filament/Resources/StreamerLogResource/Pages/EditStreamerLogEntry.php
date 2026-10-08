@@ -18,7 +18,7 @@ class EditStreamerLogEntry extends EditRecord
 
     protected function resolveRecord($key): StreamerLogEntry
     {
-        $record = StreamerLogEntry::with(['show', 'streamer'])->findOrFail($key);
+        $record = StreamerLogEntry::with(['show.channel', 'streamer'])->findOrFail($key);
 
         // Verify user has access to this record (bypass channel context for viewing across channels)
         $user = auth()->user();

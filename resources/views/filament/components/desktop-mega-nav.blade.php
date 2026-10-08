@@ -1,14 +1,27 @@
 @php
 $user=auth()->user(); $groups=[];
+// Streamers get a nav built around their own shows: My Shows is home, the
+// calendar is one click away, and inventory/admin tooling stays out of the way.
+// Inventory routes stay reachable (reports create items through them); only the
+// links are dropped, unless Roles & Permissions explicitly grants the page.
+$streamerOnly=(bool) $user?->isStreamer();
+$homeUrl=$streamerOnly ? \App\Filament\Pages\StreamerShows::getUrl(panel:'admin') : \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin');
+$homeLabel=$streamerOnly ? 'My Shows' : 'Dashboard';
 $channel=\App\Support\ChannelContext::current();
 try { $globalLogo=\App\Models\Setting::get('logo_path'); } catch (\Throwable) { $globalLogo=null; }
 $navLogo=null;
 if($channel?->logo_path && file_exists(storage_path('app/public/'.$channel->logo_path))) $navLogo=asset('storage/'.$channel->logo_path);
 elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $navLogo=asset('storage/'.$globalLogo);
-if(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
+if($streamerOnly){
+ if(\App\Filament\Pages\Shows::canAccess()) $groups['Shows']=array_values(array_filter([
+  ['My Shows',\App\Filament\Pages\StreamerShows::getUrl(panel:'admin')],
+  ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
+  \App\Filament\Pages\EndOfStreamForm::canAccess() ? ['Log a Show',\App\Filament\Pages\EndOfStreamForm::getUrl(panel:'admin')] : null,
+ ]));
+}elseif(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
 ];
-if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess()) $groups['Inventory']=array_values(array_filter([
+if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess() && (! $streamerOnly || \App\Support\RoleAccess::grants(\App\Filament\Resources\InventoryItemResource::class))) $groups['Inventory']=array_values(array_filter([
  ['Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin')],
  ['Stock Status',\App\Filament\Pages\StockStatus::getUrl(panel:'admin')],
  ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index')],
@@ -21,7 +34,7 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Quick Add Stock',\App\Filament\Resources\InventoryItemResource::getUrl('quick-add')],
  ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin')],
 ]));
-$groups['Fulfillment']=[
+if(! $streamerOnly) $groups['Fulfillment']=[
  ['Coming Soon','#'],
 ];
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Finance']=[
@@ -50,8 +63,8 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 ];
 @endphp
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
-@if($navLogo)<a class="vx-mega-brand" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
-<a class="vx-mega-home" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
+@if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
+<a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
 <button type="button" class="vx-mega-trigger" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>

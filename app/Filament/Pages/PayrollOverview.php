@@ -20,6 +20,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Url;
 use UnitEnum;
 
 class PayrollOverview extends Page
@@ -34,6 +35,18 @@ class PayrollOverview extends Page
     private ?array $streamerOptionsMemo = null;
     private ?WeeklyPayoutBatch $payRunMemo = null;
     private bool $payRunResolved = false;
+
+    /**
+     * Queue filter and page live on the component, not on request(): a
+     * Livewire action (assign, approve) re-renders through the update
+     * endpoint, where the page's query string is not the request's, so
+     * reading request() there silently dropped the filter after every click.
+     */
+    #[Url(except: 'all')]
+    public string $workflow = 'all';
+
+    #[Url(as: 'page', except: 1)]
+    public int $queuePage = 1;
 
     public array $mockProducts = [];
     public float $mockGrossRevenue = 5000.00;
@@ -71,6 +84,17 @@ class PayrollOverview extends Page
     {
         unset($this->mockProducts[$index]);
         $this->mockProducts = array_values($this->mockProducts);
+    }
+
+    public function setWorkflow(string $workflow): void
+    {
+        $this->workflow = $workflow;
+        $this->queuePage = 1;
+    }
+
+    public function goToQueuePage(int $page): void
+    {
+        $this->queuePage = max(1, $page);
     }
 
     public function getView(): string
@@ -310,7 +334,7 @@ class PayrollOverview extends Page
     public function currentWeekShows(): Collection
     {
         $shows = $this->allCurrentWeekShows();
-        $filter = request()->string('workflow')->toString();
+        $filter = $this->workflow;
         if ($filter === '' || $filter === 'all') return $shows;
 
         return $shows->filter(function (Show $show) use ($filter): bool {

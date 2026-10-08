@@ -16,6 +16,8 @@
         }
     }
     $navLogo = $navLogo ?? null;
+    $homeUrl = $homeUrl ?? \App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin');
+    $homeLabel = $homeLabel ?? 'Dashboard';
     $icons = ['Shows' => 'heroicon-o-tv', 'Inventory' => 'heroicon-o-cube', 'Fulfillment' => 'heroicon-o-truck', 'Finance' => 'heroicon-o-wallet', 'Payroll' => 'heroicon-o-wallet', 'Reports' => 'heroicon-o-chart-bar', 'Admin' => 'heroicon-o-cog-6-tooth', 'Settings' => 'heroicon-o-cog-6-tooth'];
     // The section holding the page you are on opens by itself, with that page marked.
     $here = rtrim(url()->current(), '/');
@@ -35,7 +37,7 @@
 @if($user)
 <div class="vx-mm-user"><span class="vx-mm-avatar">{{ $initial }}</span><span class="min-w-0"><span class="vx-mm-name">{{ $user->name }}</span><span class="vx-mm-role">{{ $role }}</span></span></div>
 @endif
-<a class="vx-mobile-menu-home @if($isHere(\App\Filament\Pages\DashboardImproved::getUrl(panel:'admin'))) is-here @endif" href="{{ \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-home"/><span>Dashboard</span></a>
+<a class="vx-mobile-menu-home @if($isHere($homeUrl)) is-here @endif" href="{{ $homeUrl }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 <div class="vx-mobile-menu-group"><button type="button" :aria-expanded="section==={{ $loop->index }}" @click="section=section==={{ $loop->index }}?null:{{ $loop->index }}" :class="section==={{ $loop->index }} && 'is-open'"><span class="vx-mm-gl"><x-filament::icon :icon="$icons[$label] ?? 'heroicon-o-squares-2x2'"/>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down" x-bind:class="section==={{ $loop->index }}&&'rotate-180'"/></button>
 <div class="vx-mobile-submenu" x-show="section==={{ $loop->index }}" x-collapse>@foreach($links as [$text,$url])<a href="{{ $url }}" wire:navigate @click="open=false" @class(['is-here' => $isHere($url)]) @if($isHere($url)) aria-current="page" @endif><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach</div></div>

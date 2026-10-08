@@ -51,7 +51,8 @@
                     <h2 class="vxw-h1">{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</h2>
                     <div class="mt-2 flex flex-wrap items-center gap-2">
                         <span class="vxw-pill vxw-pill--dot vxw-pill--{{ $runTone($current?->status) }}">{{ $runStatus }}</span>
-                        <span class="vxw-meta">{{ $readiness['ready'] }} of {{ $readiness['shows'] }} shows ready or in the run@if($readiness['review']) · <span class="vxw-tone-warn font-semibold">{{ $readiness['review'] }} need attention</span>@endif</span>
+                        <span class="vxw-meta">{{ $readiness['ready'] }} of {{ $readiness['shows'] }} shows ready or in the run
+                        @if($readiness['review']) · <span class="vxw-tone-warn font-semibold">{{ $readiness['review'] }} need attention</span>@endif</span>
                     </div>
                 </div>
                 <div class="vxw-hero-actions">

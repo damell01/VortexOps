@@ -539,7 +539,7 @@ class WhatnotReportingReconciler
 
                 $fields['last_synced_at'] = now();
                 $fields['last_analytics_synced_at'] = now();
-                $fields['raw_import_payload'] = $raw;
+                $fields['raw_import_payload'] = array_merge(is_array($show->raw_import_payload) ? $show->raw_import_payload : [], $raw);
                 $show->forceFill($fields)->save();
                 Cache::forget('whatnot-analytics-retry:'.$channel->id.':'.strtolower($liveId));
 

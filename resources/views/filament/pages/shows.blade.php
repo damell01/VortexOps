@@ -279,7 +279,7 @@
         <div class="vx-week-h"><div></div>@foreach($wk['columns'] as $col)<div @class(['is-today' => $col['date']->toDateString() === $todayIso])>{{ strtoupper($col['date']->format('D')) }}<b>{{ $col['date']->day }}</b></div>@endforeach</div>
         @if($wk['hasUntimed'])
             <div class="vx-week-u"><div class="vx-hours" style="font-size:.62rem;color:var(--vx-faint);padding:8px 6px;text-align:right">Time TBD</div>
-                @foreach($wk['columns'] as $col)<div>@foreach($col['untimed'] as $p)<button type="button" class="vx-chip" style="--c:{{ $p['color'] }}" @click="open({{ $p['id'] }})"><span class="tx"><span class="tt block">{{ $p['title'] }}</span></span></button>@endforeach</div>@endforeach
+                @foreach($wk['columns'] as $col)<div>@foreach($col['untimed'] as $p)<button type="button" class="vx-chip" style="--c:{{ $p['color'] }}" @click="open({{ $p['id'] }})"><span class="tx"><span class="tt block">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-[10px]">{{ $p['analytics'] }}</span>@endif</span></button>@endforeach</div>@endforeach
             </div>
         @endif
         <div style="max-height:720px;overflow-y:auto">
@@ -290,7 +290,7 @@
                     <div @class(['vx-wcol', 'add' => $isAdmin, 'is-today' => $iso === $todayIso]) @if($isAdmin) @click.self="addAt('{{ $iso }}', $event, {{ $wk['first'] }})" @endif>
                         @foreach($col['timed'] as $p)
                             <button type="button" class="vx-ev" style="--c:{{ $p['color'] }};top:{{ $p['top'] / 60 * $hourPx + 1 }}px;height:{{ max(26, $p['height'] / 60 * $hourPx - 2) }}px;left:calc({{ $p['lane'] }} * 100% / {{ $p['lanes'] }} + 2px);width:calc(100% / {{ $p['lanes'] }} - 4px)" @click="open({{ $p['id'] }})" title="{{ $p['title'] }} · {{ $p['timeRange'] }}">
-                                <span>{{ $p['time'] }}</span><b>{{ $p['title'] }}</b>@if($p['streamers'])<span>{{ $p['streamers'] }}</span>@endif
+                                <span>{{ $p['time'] }}</span><b>{{ $p['title'] }}</b>@if(auth()->user()?->isOwner())<span>{{ $p['analytics'] }}</span>@endif @if($p['streamers'])<span>{{ $p['streamers'] }}</span>@endif
                             </button>
                         @endforeach
                     </div>
@@ -330,7 +330,7 @@
                     <button type="button" class="vx-tl-card" style="--c:{{ $p['color'] }}" @click="open({{ $p['id'] }})">
                         @if($p['cover'])<img class="vx-cover" src="{{ $p['cover'] }}" alt="" loading="lazy">@endif
                         <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-bold">{{ $p['title'] }}</span>
+                            <span class="block truncate text-sm font-bold">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-xs text-gray-500">{{ $p['analytics'] }}</span>@endif
                             <span class="mt-1 flex items-center gap-2 text-xs" style="color:var(--vx-muted)"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>{{ $p['streamers'] ?? 'Unassigned' }} · {{ $p['timeRange'] }}@if($p['channel']) · <span class="vx-dot" style="background:{{ $p['color'] }}"></span>{{ $p['channel'] }}@endif</span>
                         </span>
                         <span class="vx-pill {{ $p['state'] }}">{{ $p['stateLabel'] }}</span>
@@ -389,7 +389,7 @@
                             <button type="button" class="vx-acard" :style="'--c:' + p.color" @click="open(p.id)">
                                 <span class="min-w-0 flex-1">
                                     <span class="flex items-center justify-between gap-2"><span class="tm" x-text="p.timeRange"></span><span class="vx-pill" :class="p.state" x-text="p.stateLabel"></span></span>
-                                    <span class="tt"><span class="vx-dot" :style="'background:' + p.color"></span><span x-text="p.title"></span></span>
+                                    <span class="tt"><span class="vx-dot" :style="'background:' + p.color"></span><span><span x-text="p.title"></span>@if(auth()->user()?->isOwner())<small class="block text-xs text-gray-500" x-text="p.analytics"></small>@endif</span></span>
                                     <span class="who"><span class="vx-av" x-text="p.streamers ? p.initial : '?'"></span><span x-text="p.streamers || 'Unassigned'"></span></span>
                                 </span>
                                 <x-filament::icon icon="heroicon-m-chevron-right" class="h-5 w-5" style="color:var(--vx-faint)" />

@@ -58,9 +58,6 @@ class InventoryMovementResource extends Resource
     public static function getPluralModelLabel(): string { return 'Inventory Log'; }
     public static function canCreate(): bool { return false; }
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool { return static::canAccess(); }
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool { return false; }
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool { return false; }
-    public static function canDeleteAny(): bool { return false; }
     public static function getGloballySearchableAttributes(): array { return ['item.name', 'item.sku', 'reason']; }
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string

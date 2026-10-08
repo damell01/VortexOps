@@ -71,6 +71,12 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(PasswordReset::class, function (PasswordReset $event): void {
+            if ($event->user->must_change_password && ! \Illuminate\Support\Facades\Hash::check('password123!', $event->user->password)) {
+                $event->user->forceFill(['must_change_password' => false])->save();
+            }
+        });
+
         \Illuminate\Support\Facades\DB::listen(function (\Illuminate\Database\Events\QueryExecuted $query): void {
             $metrics = app(\App\Support\RequestMetrics::class);
             if ($metrics->active) {

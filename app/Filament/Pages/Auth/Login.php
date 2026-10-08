@@ -28,6 +28,8 @@ class Login extends BaseLogin
     {
         $user = auth()->user();
 
+        if ($user?->must_change_password) return route('account.password.edit');
+
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
             return StreamerShows::getUrl();
         }

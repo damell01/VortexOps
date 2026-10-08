@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './workflow.css';
 
 /* ── Make the brand colour a real Tailwind palette ────────────────────
    Filament publishes its palette as --primary-50 … --primary-950 on

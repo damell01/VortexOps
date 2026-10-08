@@ -25,7 +25,9 @@ class StreamerShows extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Your shows, submitted reports and pay links in one place.';
+        // The page's own summary card says what is waiting; a second line of
+        // header copy above it only pushed the cards further down on phones.
+        return null;
     }
 
     public static function getNavigationGroup(): ?string
@@ -102,6 +104,7 @@ class StreamerShows extends Page
             ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
             ->where('status', '!=', 'cancelled')
             ->with(['channel', 'streamerLogEntry'])
+            ->withCount('shipments')
             ->orderByDesc('show_date')
             ->orderByDesc('start_time')
             ->limit(60)
@@ -148,9 +151,9 @@ class StreamerShows extends Page
             $entry && $entry->status === 'changes_requested'
                 => ['Changes requested', 'danger', 'Review changes'],
             ! $entry
-                => ['No report yet', 'warning', 'Log show'],
+                => ['Needs items logged', 'warning', 'Add items'],
             $isDraft
-                => ['Draft saved', 'warning', 'Continue report'],
+                => ['Draft saved', 'warning', 'Finish report'],
             $entry->hasPendingRevisionRequest()
                 => ['Changes asked for', 'info', 'View report'],
             $entry->status === 'admin_approved'
@@ -171,6 +174,8 @@ class StreamerShows extends Page
             'url'       => $action
                 ? EndOfStreamForm::getUrl(['showId' => $show->id])
                 : null,
+            'day'       => $show->show_date ? (int) floor($show->show_date->timestamp / 86400) : 0,
+            'shipments' => (int) ($show->shipments_count ?? 0),
             'slow_pack' => (bool) $show->is_slow_pack,
             'can_request_revision' => (bool) $entry?->canRequestRevision(),
             'revision_requested'   => (bool) $entry?->hasPendingRevisionRequest(),

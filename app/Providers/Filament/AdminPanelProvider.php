@@ -211,7 +211,7 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn (): string => auth()->check()
-                    ? Blade::render("@include('filament.components.mobile-navigation')")
+                    ? Blade::render("@include('filament.components.desktop-mega-nav')")
                     : '',
             )
             ->renderHook(

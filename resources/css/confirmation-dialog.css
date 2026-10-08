@@ -1,0 +1,16 @@
+.vx-confirm-dialog { width: min(28rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; margin: auto; border: 1px solid #e5e7eb; border-radius: 1rem; padding: 1.5rem; background: #fff; color: #111827; box-shadow: 0 24px 64px rgb(0 0 0 / .25); }
+.vx-confirm-dialog::backdrop { background: rgb(15 23 42 / .55); }
+.vx-confirm-dialog h2 { margin: 0 0 .75rem; font-size: 1.125rem; font-weight: 700; }
+.vx-confirm-dialog p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; font-size: .9rem; line-height: 1.6; color: #4b5563; }
+.vx-confirm-input { display: block; margin-top: 1rem; font-size: .875rem; }
+.vx-confirm-input[hidden] { display: none; }
+.vx-confirm-input input { display: block; width: 100%; margin-top: .5rem; border: 1px solid #9ca3af; border-radius: .5rem; padding: .65rem; background: transparent; }
+.vx-confirm-actions { display: flex; justify-content: flex-end; gap: .75rem; margin-top: 1.5rem; }
+.vx-confirm-actions button { min-height: 44px; border-radius: .65rem; padding: .6rem 1rem; font-weight: 600; font-size: .875rem; border: 1px solid #d1d5db; cursor: pointer; }
+.vx-confirm-actions [data-confirm] { background: var(--primary-600, #2563eb); color: white; border-color: transparent; }
+.vx-confirm-actions button:disabled { opacity: .45; cursor: not-allowed; }
+.vx-confirm-dialog :focus-visible { outline: 2px solid var(--primary-500, #3b82f6); outline-offset: 3px; }
+.dark .vx-confirm-dialog { background: #111827; color: #f3f4f6; border-color: #374151; }
+.dark .vx-confirm-dialog p { color: #d1d5db; }
+.dark .vx-confirm-actions [data-cancel] { border-color: #4b5563; }
+@media (max-width: 480px) { .vx-confirm-actions button { flex: 1; } }

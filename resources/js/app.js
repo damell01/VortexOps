@@ -1,3 +1,4 @@
+import './confirmation-dialog.js';
 import './guided-help.js';
 import './mobile-controls.js';
 import '../css/mobile-report-pass.css';

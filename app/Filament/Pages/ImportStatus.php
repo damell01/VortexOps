@@ -77,11 +77,6 @@ class ImportStatus extends Page
             ->action(function (): void {
                 abort_unless(static::canAccess(), 403);
                 if (! $this->csvPreview || $this->csvPreview['applied']) return;
-                $lock = \App\Support\WhatnotPipelineLock::acquire('Whatnot CSV analytics import');
-                if (! $lock) {
-                    \Filament\Notifications\Notification::make()->title('Whatnot sync is busy')->body('Wait for the current run to finish, then retry this import.')->warning()->send();
-                    return;
-                }
                 $summaries = []; $error = null;
                 try {
                     // Check every file before the first write.
@@ -98,7 +93,6 @@ class ImportStatus extends Page
                         );
                     }
                 } catch (\Throwable $e) { $error = $e->getMessage(); }
-                finally { \App\Support\WhatnotPipelineLock::release($lock); }
                 $this->csvPreview['applied'] = true;
                 $this->csvPreview['summaries'] = $summaries;
                 $this->csvPreview['error'] = $error;

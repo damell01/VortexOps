@@ -142,6 +142,34 @@ class WhatnotAnalyticsCsvTest extends TestCase
         $this->assertSame('7394.00',$shell->fresh()->gross_revenue);
     }
 
+    public function test_reviewed_csv_import_runs_immediately_while_scraper_holds_coordinator(): void
+    {
+        $owner = User::firstWhere('email',config('app.owner_email')) ?? User::factory()->create(['email'=>config('app.owner_email')]);
+        $this->actingAs($owner);
+        $channel = $this->channel();
+        $file = $this->csv([$this->row('June opening show','06/01/2026')]);
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Storage::disk('local')->put('imports/test.csv',file_get_contents($file));
+        $page = app(ImportStatus::class);
+        $page->csvPreview = [
+            'channel_id'=>$channel->id,'channel_name'=>$channel->name,'since'=>'2026-06-01',
+            'blocked'=>[],'files'=>[['path'=>'imports/test.csv','hash'=>hash_file('sha256',$file)]],
+            'summaries'=>[],'applied'=>false,
+        ];
+        $lock = \App\Support\WhatnotPipelineLock::acquire('Active scraper regression test');
+        $this->assertNotNull($lock);
+        try {
+            ($page->applyAnalyticsCsvAction()->getActionFunction())();
+            $this->assertTrue($page->csvPreview['applied']);
+            $this->assertNull($page->csvPreview['error']);
+            $this->assertSame(1,$page->csvPreview['summaries'][0]['created']);
+            $this->assertSame('7394.00',Show::where('title','June opening show')->sole()->gross_revenue);
+            $this->assertNull(\App\Support\WhatnotPipelineLock::acquire('Competing scraper'));
+        } finally {
+            \App\Support\WhatnotPipelineLock::release($lock);
+        }
+    }
+
     public function test_upload_is_available_only_on_owner_import_status(): void
     {
         $owner = User::firstWhere('email',config('app.owner_email')) ?? User::factory()->create(['email'=>config('app.owner_email')]);

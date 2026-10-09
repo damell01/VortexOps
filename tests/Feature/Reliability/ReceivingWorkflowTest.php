@@ -84,7 +84,8 @@ class ReceivingWorkflowTest extends TestCase
         $component = Livewire::test(ReceivePallet::class, ['record' => $pallet])
             ->set('barcodeInput', 'RCV-CODE')->call('submitBarcode')->assertSet('lastScanSuccess', true);
         $this->assertEquals(0, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
-        $component->assertSet('targetLineId', $line->id)->set('partialReceiveQuantity.' . $line->id, 1)->call('receivePartialLine', $line->id);
+        $component->assertSet('targetLineId', $line->id)->set('partialReceiveQuantity.' . $line->id, 1)->call('receivePartialLine', $line->id, $component->get('receiptRequestId'));
+        $requestId = $component->get('receiptRequestId');
         $received = $line->cases()->where('status', 'received')->first();
         $received->update(['barcode' => 'UNIQUE-CASE-TEST']);
         $component->set('barcodeInput', $received->barcode)->call('submitBarcode')->assertSet('lastScanSuccess', false);
@@ -98,6 +99,18 @@ class ReceivingWorkflowTest extends TestCase
             ->call('mountAction', 'itemHistory', ['item' => $item->id])
             ->assertSee('Received via pallet')
             ->assertSee('Test boxes');
+        $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+    }
+
+    public function test_replaying_a_partial_receipt_does_not_receive_the_next_cases(): void
+    {
+        [$pallet, $line, $item] = $this->delivery();
+        $component = Livewire::test(ReceivePallet::class, ['record' => $pallet]);
+        $requestId = $component->get('receiptRequestId');
+        $component->set('partialReceiveQuantity.' . $line->id, 1)
+            ->call('receivePartialLine', $line->id, $requestId)
+            ->set('partialReceiveQuantity.' . $line->id, 1)
+            ->call('receivePartialLine', $line->id, $requestId);
         $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
 

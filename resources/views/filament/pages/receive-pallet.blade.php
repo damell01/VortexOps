@@ -277,7 +277,7 @@
                                                             aria-label="Cases to receive for line {{ $line['line_number'] }}"
                                                             class="w-20 border-0 bg-transparent px-2.5 text-sm text-gray-900 outline-none ring-0 dark:text-white"
                                                         />
-                                                        <button type="button" wire:click="receivePartialLine({{ $line['id'] }})" wire:loading.attr="disabled" class="border-l border-gray-300 px-3 text-xs font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-60 dark:border-gray-600 dark:text-primary-300 dark:hover:bg-gray-700">Receive some</button>
+                                                        <button type="button" wire:click="receivePartialLine({{ $line['id'] }}, '{{ $receiptRequestId }}')" wire:loading.attr="disabled" class="border-l border-gray-300 px-3 text-xs font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-60 dark:border-gray-600 dark:text-primary-300 dark:hover:bg-gray-700">Receive some</button>
                                                     </div>
                                                     <button type="button" wire:click="receiveLine({{ $line['id'] }})" wire:confirm="Receive every remaining box on this line? Only continue if you physically counted them." wire:loading.attr="disabled" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:text-sm">Receive all {{ $remaining }}</button>
                                                 @endif

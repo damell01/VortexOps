@@ -27,6 +27,8 @@ class ReceivePallet extends Page
     public Pallet $record;
 
     public array $partialReceiveQuantity = [];
+    #[\Livewire\Attributes\Locked]
+    public string $receiptRequestId = '';
     public ?int $receivingLocationId = null;
 
     public string $barcodeInput = '';
@@ -48,6 +50,7 @@ class ReceivePallet extends Page
     public function mount(Pallet $record): void
     {
         $this->record = $record;
+        $this->receiptRequestId = (string) \Illuminate\Support\Str::uuid();
         $this->loadRelations();
 
         // Opening the station is the moment receiving starts, so the pallet
@@ -503,7 +506,7 @@ class ReceivePallet extends Page
         $this->lastScanSuccess = false;
     }
 
-    public function receivePartialLine(int $lineId): void
+    public function receivePartialLine(int $lineId, string $requestId): void
     {
         $line = PalletLine::where('id', $lineId)
             ->where('pallet_id', $this->record->id)
@@ -511,10 +514,24 @@ class ReceivePallet extends Page
 
         $quantity = (int) ($this->partialReceiveQuantity[$lineId] ?? 0);
 
+        abort_unless(\Illuminate\Support\Str::isUuid($requestId), 422);
+        $key = 'receiving.receipt.' . auth()->id() . '.' . $this->record->id . '.' . $lineId . '.' . $requestId;
+        $lock = \Illuminate\Support\Facades\Cache::lock($key . '.lock', 120);
+        if (! $lock->get()) {
+            Notification::make()->title('This receipt is already saving.')->info()->send();
+            return;
+        }
+
         try {
+            if (\Illuminate\Support\Facades\Cache::has($key)) {
+                Notification::make()->title('This receipt is already saved. Stock was not changed.')->info()->send();
+                return;
+            }
             $result = app(ReceivingService::class)->receiveCasesForLine($line, $quantity);
             $this->partialReceiveQuantity[$lineId] = null;
             $this->saveDraft();
+            \Illuminate\Support\Facades\Cache::put($key, true, now()->addDay());
+            $this->receiptRequestId = (string) \Illuminate\Support\Str::uuid();
 
             Notification::make()
                 ->title("Received {$result['received_now']} case(s)")
@@ -522,7 +539,9 @@ class ReceivePallet extends Page
                 ->success()
                 ->send();
         } catch (\RuntimeException $e) {
-            Notification::make()->title($e->getMessage())->danger()->send();
+            Notification::make()->title('Receipt was not saved')->body($e->getMessage())->danger()->send();
+        } finally {
+            $lock->release();
         }
 
         $this->record->refresh();

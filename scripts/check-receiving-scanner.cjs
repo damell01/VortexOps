@@ -1,0 +1,32 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const blade = fs.readFileSync('resources/views/filament/components/camera-barcode-scanner.blade.php', 'utf8');
+const source = blade.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+const events = [];
+const context = { window: { dispatchEvent: e => events.push(e) }, document: { querySelector: () => null },
+    CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+    navigator: {}, Date, setTimeout: () => {}, console };
+vm.createContext(context);
+vm.runInContext(source, context);
+const scanner = context.cameraScanner();
+scanner.continuous = true;
+scanner.isOpen = true;
+scanner.close = () => { scanner.isOpen = false; };
+scanner.onBarcodeDetected('BOX-A', 0.01);
+scanner.onBarcodeDetected('BOX-A', 0.01);
+assert.equal(events.length, 1);
+assert.equal(scanner.busy, true);
+scanner.onBarcodeDetected('BOX-B', 0.01);
+assert.equal(events.length, 1, 'A second read must wait for the save result');
+scanner.receiveResult({ detail: { success: true, message: 'Saved box A' } });
+scanner.onBarcodeDetected('BOX-A', 0.01);
+scanner.onBarcodeDetected('BOX-A', 0.01);
+assert.equal(events.length, 1, 'Holding the same barcode must not repeatedly receive boxes');
+scanner.nextBox();
+scanner.onBarcodeDetected('BOX-A', 0.01);
+scanner.onBarcodeDetected('BOX-A', 0.01);
+assert.equal(events.length, 2, 'Explicitly scanning another identical box must work');
+scanner.receiveResult({ detail: { success: false, message: 'Choose a line', pause: true } });
+assert.equal(scanner.isOpen, false);
+console.log('Receiving scanner save gate and intentional repeat checks passed');

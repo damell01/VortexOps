@@ -75,7 +75,8 @@
                         $stockState = $onHand <= 0 ? 'out' : (($reorder !== null && $onHand <= $reorder) ? 'low' : 'in');
                         $locations = $item->stock->where('quantity', '>', 0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');
                     @endphp
-                    <a href="{{ $this->itemUrl($item->id) }}" class="vx-product-card">
+                    <div class="vx-product-card">
+                    <a href="{{ $this->itemUrl($item->id) }}" class="flex flex-1 flex-col">
                         <div class="vx-product-image">
                             @if($item->imageUrl())<img loading="lazy" src="{{ $item->imageUrl() }}" alt="{{ $item->name }}" />@endif
                         </div>
@@ -96,6 +97,8 @@
                             </div>
                         </div>
                     </a>
+                        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->id }} })" wire:loading.attr="disabled" class="min-h-11 border-t border-gray-200 px-3 text-sm font-semibold text-primary-600 dark:border-gray-700">Item history</button>
+                    </div>
                 @endforeach
             </div>
         @else
@@ -107,3 +110,4 @@
         @endif
     </div>
 </x-filament-panels::page>
+

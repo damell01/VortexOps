@@ -545,6 +545,11 @@ class ReceivingService
         $unitCost = (float) $line->unit_cost;
 
         return DB::transaction(function () use ($case, $item, $location, $qty, $unitCost, $line) {
+            // Recheck under a database lock: a repeated request must never credit stock twice.
+            $case = InventoryCase::query()->lockForUpdate()->findOrFail($case->id);
+            if ($case->status !== 'expected') {
+                throw new RuntimeException('This case has already been received. Stock was not changed.');
+            }
             $case->update([
                 'status'            => 'received',
                 'quantity_received' => $qty,
@@ -672,6 +677,14 @@ class ReceivingService
         $totalUnitCost    = $unitCost + $extraCostPerUnit;
 
         return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty, $allocatedExtraCost, $extraCostPerUnit, $totalUnitCost) {
+            // Another receiver may have committed these cases since they were selected.
+            $cases = InventoryCase::query()->whereIn('id', $cases->pluck('id'))
+                ->where('status', 'expected')->orderBy('id')->lockForUpdate()->get();
+            $count = $cases->count();
+            if ($count === 0) return 0;
+            $totalQty = $qty * $count;
+            $totalUnitCost = $unitCost + ($totalQty > 0 ? $allocatedExtraCost / $totalQty : 0);
+
             // Bulk-mark all cases received
             InventoryCase::whereIn('id', $cases->pluck('id'))
                 ->update([
@@ -837,3 +850,4 @@ class ReceivingService
         ]);
     }
 }
+

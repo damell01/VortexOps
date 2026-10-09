@@ -481,7 +481,11 @@ class WhatnotReportingReconciler
                 $isOldEnoughNoShow = $showDate
                     && $showDate->lte(now()->startOfDay()->subDays(2));
 
-                if ($explicitZeroDuration && $isOldEnoughNoShow) {
+                // A zero duration can be a delayed/broken metric for a real show.
+                // Sales, buyers, or views are positive evidence that it happened.
+                $hasActivity = collect(['gross_revenue', 'whatnot_net', 'completed_earnings', 'units_sold', 'buyers_count', 'total_views'])
+                    ->contains(fn ($field) => (float) ($normalized[$field] ?? $raw[$field] ?? 0) > 0);
+                if ($explicitZeroDuration && $isOldEnoughNoShow && ! $hasActivity) {
                     $showId = $show->id;
                     $showDateDisplay = $showDate->toDateString();
                     $previousStatus = $show->status;

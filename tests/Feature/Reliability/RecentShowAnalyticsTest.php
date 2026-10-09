@@ -37,6 +37,21 @@ class RecentShowAnalyticsTest extends TestCase
         $this->assertNotContains($cancelled->id, $ids);
     }
 
+    public function test_zero_duration_cannot_cancel_a_show_with_sales(): void
+    {
+        Carbon::setTestNow('2026-10-09 18:00:00');
+        $channel = \App\Models\WhatnotChannel::create(['name'=>'Cards','whatnot_username'=>'cards','status'=>'active']);
+        $show = $this->show(['show_date'=>'2026-10-05','whatnot_channel_id'=>$channel->id,'whatnot_show_id'=>'729c7c5c-f4d9-4401-9e06-4c053b72e99d']);
+        $this->mock(\App\Services\WhatnotScraper::class, function ($mock) use ($show) {
+            $mock->shouldReceive('fetchHistoricalAnalytics')->once()->andReturn([[
+                'whatnot_live_id'=>$show->whatnot_show_id, 'show_duration'=>0, 'gross_revenue'=>7394, 'whatnot_net'=>4864,
+            ]]);
+        });
+        app(\App\Services\WhatnotReportingReconciler::class)->backfillAnalytics($channel, \Carbon\Carbon::parse('2026-07-01'), 10);
+        $this->assertNotSame('cancelled', $show->fresh()->status);
+        $this->assertSame('7394.00', $show->fresh()->gross_revenue);
+    }
+
     public function test_recent_unavailable_and_partial_shows_retry_without_waiting_days(): void
     {
         Carbon::setTestNow('2026-10-08 18:00:00');

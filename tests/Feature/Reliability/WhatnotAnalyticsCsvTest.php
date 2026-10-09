@@ -23,6 +23,7 @@ class WhatnotAnalyticsCsvTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow('2026-10-09 12:00:00');
+        $this->actingAs(User::factory()->create());
     }
 
     protected function tearDown(): void
@@ -57,9 +58,10 @@ class WhatnotAnalyticsCsvTest extends TestCase
         $show = Show::withoutEvents(fn () => Show::create(['title'=>'CSV show','show_date'=>'2026-10-08','status'=>'draft','whatnot_channel_id'=>$channel->id,'units_sold'=>999]));
         $file = $this->csv([$this->row()]);
         $service = app(WhatnotAnalyticsCsvImporter::class);
+        $before = $show->fresh()->getAttributes();
         $preview = $service->import($file, $channel->id, true);
         $this->assertSame(1, $preview['updated']);
-        $this->assertNull($show->fresh()->gross_revenue);
+        $this->assertSame($before, $show->fresh()->getAttributes());
         $this->assertSame(0, ShowIngestionLog::count());
         $service->import($file, $channel->id);
         $fresh = $show->fresh();

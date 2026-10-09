@@ -1217,6 +1217,7 @@ class ShowResource extends Resource
     {
         return [
             'index'     => Pages\ListShows::route('/'),
+            'channel-review' => Pages\ReviewShowChannels::route('/channel-review'),
             'create'    => Pages\CreateShow::route('/create'),
             'view'      => Pages\ViewShow::route('/{record}'),
             'edit'      => Pages\EditShow::route('/{record}/edit'),

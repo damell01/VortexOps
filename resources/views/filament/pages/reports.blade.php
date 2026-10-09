@@ -129,7 +129,6 @@
                 ['label' => 'Whatnot Net', 'value' => '$'.number_format($rev['net'], 0),     'trend' => $rev['trend_net'],   'icon' => 'heroicon-o-arrow-trending-up','accent' => 'border-green-500'],
                 ['label' => 'Margin',      'value' => '$'.number_format($rev['margin'], 0),  'trend' => $rev['trend_margin'],'icon' => 'heroicon-o-scale',          'accent' => 'border-indigo-500', 'sub' => $rev['margin_pct'] !== null ? $rev['margin_pct'].'% of gross' : null],
                 ['label' => 'Tips',        'value' => '$'.number_format($rev['tips'], 0),    'trend' => null,                'icon' => 'heroicon-o-star',           'accent' => 'border-amber-500'],
-                ['label' => 'Paper Sales', 'value' => '$'.number_format($rev['paper'], 0),   'trend' => null,                'icon' => 'heroicon-o-document-text',  'accent' => 'border-rose-500'],
             ] as $tile)
                 <div class="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
                     <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">

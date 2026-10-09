@@ -21,6 +21,94 @@ class ImportStatus extends Page
     public static function canAccess(): bool { return (bool) auth()->user()?->isOwner(); }
     public function getView(): string { return 'filament.pages.import-status'; }
 
+
+    #[\Livewire\Attributes\Locked]
+    public ?array $csvPreview = null;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('previewAnalyticsCsv')
+                ->label('Upload analytics CSV')->icon('heroicon-o-arrow-up-tray')
+                ->modalHeading('Preview Whatnot Shows CSV')
+                ->modalSubmitActionLabel('Preview files')
+                ->schema([
+                    \Filament\Forms\Components\Select::make('channel_id')->label('Channel these exports belong to')
+                        ->options(fn () => WhatnotChannel::orderBy('name')->pluck('name', 'id'))->required()->exists('whatnot_channels', 'id')
+                        ->helperText('The CSV has no channel column. Upload exports from one channel/account at a time.'),
+                    \Filament\Forms\Components\DatePicker::make('since')->label('Import shows from')->default('2026-07-01')->required(),
+                    \Filament\Forms\Components\FileUpload::make('files')->label('Whatnot Shows CSV files')
+                        ->disk('local')->directory('imports/whatnot-analytics')->visibility('private')
+                        ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
+                        ->multiple()->maxFiles(10)->maxSize(10240)->required()
+                        ->helperText('Preview does not change records. Files can overlap; repeated imports keep the existing show.'),
+                ])
+                ->action(function (array $data): void {
+                    abort_unless(static::canAccess(), 403);
+                    try {
+                        $summaries = []; $files = [];
+                        foreach ($data['files'] as $file) {
+                            $path = \Illuminate\Support\Facades\Storage::disk('local')->path($file);
+                            $summaries[] = app(\App\Services\WhatnotAnalyticsCsvImporter::class)->import($path, (int) $data['channel_id'], true, $data['since']);
+                            $files[] = ['path' => $file, 'hash' => hash_file('sha256', $path)];
+                        }
+                        $this->csvPreview = [
+                            'channel_id' => (int) $data['channel_id'], 'channel_name' => WhatnotChannel::findOrFail($data['channel_id'])->name,
+                            'since' => $data['since'], 'files' => $files, 'summaries' => $summaries, 'applied' => false,
+                        ];
+                        \Filament\Notifications\Notification::make()->title('CSV preview ready')->body('Review the results below, then choose Import reviewed files.')->success()->send();
+                    } catch (\Throwable $e) {
+                        $this->csvPreview = null;
+                        \Filament\Notifications\Notification::make()->title('CSV preview failed')->body($e->getMessage())->danger()->send();
+                    }
+                }),
+        ];
+    }
+
+    public function applyAnalyticsCsvAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('applyAnalyticsCsv')
+            ->label('Import reviewed files')->icon('heroicon-o-check-circle')
+            ->visible(fn () => $this->csvPreview !== null && ! $this->csvPreview['applied'])
+            ->requiresConfirmation()->modalHeading('Import these analytics files?')
+            ->modalDescription('Save metrics to uniquely matched shows and create missing historical shows for the selected channel. Ambiguous matches and blank metrics are skipped. Existing payroll, assignments, costs, and shipments are preserved.')
+            ->modalSubmitActionLabel('Import files')
+            ->action(function (): void {
+                abort_unless(static::canAccess(), 403);
+                if (! $this->csvPreview || $this->csvPreview['applied']) return;
+                $lock = \App\Support\WhatnotPipelineLock::acquire('Whatnot CSV analytics import');
+                if (! $lock) {
+                    \Filament\Notifications\Notification::make()->title('Whatnot sync is busy')->body('Wait for the current run to finish, then retry this import.')->warning()->send();
+                    return;
+                }
+                $summaries = []; $error = null;
+                try {
+                    // Check every file before the first write.
+                    foreach ($this->csvPreview['files'] as $file) {
+                        $path = \Illuminate\Support\Facades\Storage::disk('local')->path($file['path']);
+                        if (! is_file($path) || ! hash_equals($file['hash'], hash_file('sha256', $path))) {
+                            throw new \RuntimeException('A previewed file changed or expired. Upload and preview it again.');
+                        }
+                    }
+                    foreach ($this->csvPreview['files'] as $file) {
+                        $summaries[] = app(\App\Services\WhatnotAnalyticsCsvImporter::class)->import(
+                            \Illuminate\Support\Facades\Storage::disk('local')->path($file['path']),
+                            $this->csvPreview['channel_id'], false, $this->csvPreview['since']
+                        );
+                    }
+                } catch (\Throwable $e) { $error = $e->getMessage(); }
+                finally { \App\Support\WhatnotPipelineLock::release($lock); }
+                $this->csvPreview['applied'] = true;
+                $this->csvPreview['summaries'] = $summaries;
+                $this->csvPreview['error'] = $error;
+                unset($this->channels);
+                $message = \Filament\Notifications\Notification::make()->title($error ? 'Import stopped — review results' : 'CSV analytics imported');
+                if ($error) $message->body($error.' Completed files are shown below; re-uploading safely retries the rest.')->danger();
+                else $message->body('Results below show what was saved and which rows still need attention.')->success();
+                $message->send();
+            });
+    }
+
     #[Computed]
     public function channels(): array
     {

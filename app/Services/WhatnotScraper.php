@@ -279,6 +279,13 @@ class WhatnotScraper
 
     protected function makeProcess(array $env,int $timeout=180):Process
     {
+        if ($deadline = config('vortex.whatnot.runtime_deadline')) {
+            $remaining = (int) floor((float) $deadline - microtime(true));
+            if ($remaining < 1) {
+                throw new \RuntimeException('Overnight window ended; remaining work resumes next night.');
+            }
+            $timeout = min($timeout, $remaining);
+        }
         if(!isset($env['PLAYWRIGHT_BROWSERS_PATH'])){$pwPath=config('vortex.whatnot.playwright_browsers_path');$env['PLAYWRIGHT_BROWSERS_PATH']=$pwPath?:'/opt/pw-browsers';}
         if(!isset($env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'])){$explicit=config('vortex.whatnot.playwright_chromium_executable');if($explicit)$env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH']=$explicit;else{$marker=storage_path('chromium-path.txt');if(file_exists($marker)){$markerPath=trim(file_get_contents($marker));if($markerPath&&file_exists($markerPath))$env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH']=$markerPath;}}}
         if(!isset($env['WHATNOT_PROXY'])&&$proxy=config('vortex.whatnot.proxy'))$env['WHATNOT_PROXY']=$proxy;if(!isset($env['WHATNOT_HEADLESS'])&&($headless=config('vortex.whatnot.headless'))!==null)$env['WHATNOT_HEADLESS']=$headless?'true':'false';$env['WHATNOT_BROWSER_BACKEND']=(string)config('vortex.whatnot.browser_backend','local');$env['STEEL_BASE_URL']=(string)config('vortex.whatnot.steel_base_url','http://127.0.0.1:3000');$process=new Process($this->commandLine($env),null,$env);$process->setTimeout($timeout);return$process;

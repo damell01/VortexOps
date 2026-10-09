@@ -81,6 +81,8 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(15)
+    ->timezone('America/Chicago')
+    ->unlessBetween('01:00', '04:59')
     ->name('whatnot-recent-analytics-refresh')
     ->withoutOverlapping(20);
 
@@ -91,16 +93,21 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(45)
+    ->timezone('America/Chicago')
+    ->unlessBetween('01:00', '04:59')
     ->name('whatnot-recent-show-discovery')
     ->withoutOverlapping(20);
 
-// Nightly historical analytics completeness pass. Shipments stay paused.
-Schedule::exec('nice -n 15 php artisan whatnot:sync-reporting --since=2026-07-01 --analytics-only --analytics-limit=20 --max-runtime=1800 --skip-if-busy')
-    ->appendOutputTo($whatnotLog)
+// Reserve 1–5 AM Central for resumable historical show discovery and metrics.
+// The command caps every browser process at the remaining overnight window.
+Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-07-01 --timezone=America/Chicago --start=01:00 --end=05:00')
+    ->appendOutputTo(storage_path('logs/whatnot-nightly-backfill.log'))
     ->skip($whatnotPaused)
-    ->dailyAt('01:30')
-    ->name('whatnot-nightly-analytics-reconciliation')
-    ->withoutOverlapping(480);
+    ->dailyAt('01:00')
+    ->timezone('America/Chicago')
+    ->name('whatnot-nightly-history-backfill')
+    ->withoutOverlapping(300)
+    ->runInBackground();
 
 // Alias cleanup is database-only and does not use the Whatnot browser.
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')

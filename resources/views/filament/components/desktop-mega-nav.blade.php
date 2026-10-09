@@ -20,7 +20,7 @@ if($streamerOnly){
  ]));
 }elseif(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
- ...($user?->isAdmin() ? [['Channel Review',\App\Filament\Resources\ShowResource::getUrl('index', ['activeTab' => 'flagged'])]] : []),
+ ...($user?->isAdmin() ? [['Channel Review',\App\Filament\Resources\ShowResource::getUrl('channel-review')]] : []),
  ['Show Report Inbox',\App\Filament\Resources\StreamerLogResource::getUrl('index')],
 ];
 if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess() && (! $streamerOnly || \App\Support\RoleAccess::grants(\App\Filament\Resources\InventoryItemResource::class))) $groups['Inventory']=array_values(array_filter([

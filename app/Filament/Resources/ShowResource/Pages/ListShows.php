@@ -29,6 +29,15 @@ class ListShows extends ListRecords
     protected ?array $statsMemo = null;
     protected ?array $operationsMemo = null;
 
+    public function mount(): void
+    {
+        // Compatibility for bookmarks created before the correct Filament tab alias.
+        if (request()->query('activeTab') === 'flagged' && auth()->user()?->isAdmin()) {
+            $this->activeTab = 'flagged';
+        }
+        parent::mount();
+    }
+
     public function getView(): string
     {
         return 'filament.resources.show-resource.pages.list-shows-command-center';

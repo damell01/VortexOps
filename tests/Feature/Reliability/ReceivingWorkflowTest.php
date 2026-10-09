@@ -99,6 +99,7 @@ class ReceivingWorkflowTest extends TestCase
             ->call('mountAction', 'itemHistory', ['item' => $item->id])
             ->assertActionMounted('itemHistory')
             ->assertSee('filamentActionModals', false)
+            ->call('$refresh')
             ->assertSee('Received via pallet');
         $content = $component->instance()->getMountedAction()->getModalContent()->render();
         $this->assertStringContainsString('Received via pallet', $content);

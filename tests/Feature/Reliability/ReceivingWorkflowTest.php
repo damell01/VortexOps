@@ -95,10 +95,12 @@ class ReceivingWorkflowTest extends TestCase
     {
         [$pallet, $line, $item] = $this->delivery();
         app(ReceivingService::class)->receiveCasesForLine($line, 1);
-        Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
+        $component = Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
             ->call('mountAction', 'itemHistory', ['item' => $item->id])
-            ->assertSee('Received via pallet')
-            ->assertSee('Test boxes');
+            ->assertActionMounted('itemHistory');
+        $content = $component->instance()->getMountedAction()->getModalContent()->render();
+        $this->assertStringContainsString('Received via pallet', $content);
+        $this->assertStringContainsString('Test boxes', $content);
         $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
 

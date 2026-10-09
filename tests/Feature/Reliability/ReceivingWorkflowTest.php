@@ -98,10 +98,10 @@ class ReceivingWorkflowTest extends TestCase
         $component = Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
             ->call('mountAction', 'itemHistory', ['item' => $item->id])
             ->assertActionMounted('itemHistory')
-            ->assertSee('filamentActionModals', false)
-            ->call('$refresh')
-            ->assertSee('Received via pallet');
-        $content = $component->instance()->getMountedAction()->getModalContent()->render();
+            ->assertSee('filamentActionModals', false);
+        // Livewire 4 sends drawer updates as partials, rather than replacing the page HTML.
+        $content = implode('', $component->effects['partials'] ?? []);
+        $this->assertStringContainsString('role="dialog"', $content);
         $this->assertStringContainsString('Received via pallet', $content);
         $this->assertStringContainsString('Test boxes', $content);
         $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));

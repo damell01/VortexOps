@@ -16,7 +16,7 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 class BackfillWhatnotNightly extends Command
 {
     protected $signature = 'whatnot:backfill-nightly
-        {--since=2026-07-01 : Historical reporting start}
+        {--since=2026-06-01 : Historical reporting start}
         {--timezone=America/Chicago : Local timezone for the overnight window}
         {--start=01:00 : Window start in local time}
         {--end=05:00 : Stop browser work by this local time}

@@ -99,8 +99,9 @@ class ReceivingWorkflowTest extends TestCase
             ->call('mountAction', 'itemHistory', ['item' => $item->id])
             ->assertActionMounted('itemHistory')
             ->assertSee('filamentActionModals', false)
-            ->call('$refresh')
-            ->assertSee('Received via pallet');
+            ->call('$refresh');
+        fwrite(STDERR, 'HISTORY_DEBUG ' . json_encode(['mounted' => $component->get('mountedActions'), 'effects' => $component->effects]) . PHP_EOL);
+        $component->assertSee('Received via pallet');
         $content = $component->instance()->getMountedAction()->getModalContent()->render();
         $this->assertStringContainsString('Received via pallet', $content);
         $this->assertStringContainsString('Test boxes', $content);

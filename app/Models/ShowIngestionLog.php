@@ -52,6 +52,7 @@ class ShowIngestionLog extends Model
             'whatnot_orders'                   => 'Recent Orders',
             'whatnot_shipments'                => 'Shipments',
             'whatnot_ledger'                   => 'Rolling Ledger',
+            'whatnot_nightly_backfill'         => 'Overnight Historical Backfill',
             'whatnot_nightly_reconciliation'   => 'Nightly Reconciliation',
             'whatnot_deep_backfill'            => 'Deep Backfill',
         ];
@@ -135,6 +136,9 @@ class ShowIngestionLog extends Model
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
 
         return match ($this->source) {
+            'whatnot_nightly_backfill' => ($payload['phase'] ?? '') === 'discovery'
+                ? sprintf('Historical discovery: %d created, %d refreshed', (int) ($payload['result']['created'] ?? 0), (int) ($payload['result']['updated'] ?? 0))
+                : sprintf('Historical analytics: %d updated, %d failed, %d skipped', (int) ($payload['result']['updated'] ?? 0), (int) ($payload['result']['failed'] ?? 0), (int) ($payload['result']['skipped'] ?? 0)),
             'whatnot_analytics_csv' => ($payload['event'] ?? null) === 'no_show_excluded'
                 ? 'CSV confirmed 0-minute no-show excluded from reporting'
                 : (isset($payload['changed_count'])

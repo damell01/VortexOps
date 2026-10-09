@@ -47,7 +47,7 @@ Artisan::command('storage:prune-runtime {--days=14} {--imports-hours=48} {--max-
 
     $disk = Storage::disk('local');
     $importCutoff = now()->subHours($importsHours)->timestamp;
-    foreach ($disk->files('imports') as $path) {
+    foreach ($disk->allFiles('imports') as $path) {
         try {
             if ($disk->lastModified($path) < $importCutoff) {
                 $disk->delete($path);

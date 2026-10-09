@@ -14,9 +14,10 @@ class WhatnotAnalyticsCsvImporter
 {
     public const REQUIRED_HEADERS = ['Show', 'Date'];
 
-    public function import(string $path, int $channelId, bool $dryRun = false, string $since = '2026-07-01'): array
+    public function import(string $path, int $channelId, bool $dryRun = false, string $since = '2026-07-01', array $blockedIdentities = []): array
     {
         $channel = WhatnotChannel::findOrFail($channelId);
+        $blockedIdentities = array_fill_keys(array_unique(array_merge($blockedIdentities, $this->conflicts([$path]))), true);
         $cutoff = Carbon::createFromFormat('!Y-m-d', $since);
         if (! $cutoff || $cutoff->format('Y-m-d') !== $since) throw new RuntimeException('Invalid reporting start date.');
         $handle = fopen($path, 'rb');
@@ -50,7 +51,12 @@ class WhatnotAnalyticsCsvImporter
                 $stats['date_from'] = min($stats['date_from'] ?? $day, $day);
                 $stats['date_to'] = max($stats['date_to'] ?? $day, $day);
                 $identity = $day.'|'.$this->normalize($title);
-                if (isset($seen[$identity])) { $stats['ambiguous']++; continue; }
+                if (isset($blockedIdentities[$identity])) {
+                    $stats['ambiguous']++;
+                    $this->example($stats, $title, $day, 'Needs review — same title/date has different exported metrics');
+                    continue;
+                }
+                if (isset($seen[$identity])) { $stats['already_complete']++; continue; }
                 $seen[$identity] = true;
                 $metrics = $this->metrics($row);
                 if ($metrics === []) { $stats['blank_metrics']++; continue; }
@@ -118,6 +124,34 @@ class WhatnotAnalyticsCsvImporter
             }
         } finally { fclose($handle); }
         return $stats;
+    }
+
+
+    /** Conflicting repeated title/date keys cannot be resolved without show UUIDs. */
+    public function conflicts(array $paths): array
+    {
+        $identities = [];
+        foreach ($paths as $path) {
+            $file = fopen($path, 'rb');
+            if (! $file) throw new RuntimeException('Could not open a CSV for matching.');
+            try {
+                if (fread($file, 3) !== "\xEF\xBB\xBF") rewind($file);
+                $headers = fgetcsv($file, 0, ',', '"', '') ?: [];
+                if (array_diff(self::REQUIRED_HEADERS, $headers)) throw new RuntimeException('Expected a Whatnot Shows CSV with Show and Date columns.');
+                while (($values = fgetcsv($file, 0, ',', '"', '')) !== false) {
+                    if (count($values) !== count($headers)) continue;
+                    $row = array_combine($headers, $values);
+                    try { $date = Carbon::createFromFormat('!m/d/Y', trim($row['Date']))->toDateString(); }
+                    catch (\Throwable) { continue; }
+                    $metrics = $this->metrics($row);
+                    if ($metrics === []) continue;
+                    $key = $date.'|'.$this->normalize($row['Show']);
+                    $signature = hash('sha256', json_encode([$metrics, $this->number($row['Orders'] ?? null), $this->number($row['Unique Viewers'] ?? null)]));
+                    $identities[$key][$signature] = true;
+                }
+            } finally { fclose($file); }
+        }
+        return array_keys(array_filter($identities, fn ($variants) => count($variants) > 1));
     }
 
     private function matchShow(int $channelId, Carbon $date, string $title): array

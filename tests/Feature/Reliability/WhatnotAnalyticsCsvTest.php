@@ -118,6 +118,30 @@ class WhatnotAnalyticsCsvTest extends TestCase
         $this->assertSame(1,Show::count());
     }
 
+
+    public function test_conflicting_duplicate_export_rows_skip_both_and_discovery_attaches_csv_shell_uuid(): void
+    {
+        $channel = $this->channel();
+        $a = $this->row('Repeated title','09/29/2026');
+        $b = $a; $b[4] = '$2,209';
+        $service = app(WhatnotAnalyticsCsvImporter::class);
+        $stats = $service->import($this->csv([$a,$b]),$channel->id);
+        $this->assertSame(2,$stats['ambiguous']);
+        $this->assertSame(0,Show::count());
+        $service->import($this->csv([$this->row('Unique title','07/05/2026')]),$channel->id);
+        $shell = Show::where('title','Unique title')->sole();
+        $uuid = '729c7c5c-f4d9-4401-9e06-4c053b72e99d';
+        $this->mock(\App\Services\WhatnotScraper::class, function ($mock) use ($uuid) {
+            $mock->shouldReceive('fetchSellerHubIndex')->once()->andReturn(['past'=>[[
+                'live_id'=>$uuid,'title'=>'Unique title','show_date'=>'2026-07-05',
+            ]]]);
+        });
+        app(\App\Services\WhatnotReportingReconciler::class)->discoverShows($channel,null,\Carbon\Carbon::parse('2026-07-01'));
+        $this->assertSame(1,Show::count());
+        $this->assertSame($uuid,$shell->fresh()->whatnot_show_id);
+        $this->assertSame('7394.00',$shell->fresh()->gross_revenue);
+    }
+
     public function test_upload_is_available_only_on_owner_import_status(): void
     {
         $owner = User::firstWhere('email',config('app.owner_email')) ?? User::factory()->create(['email'=>config('app.owner_email')]);

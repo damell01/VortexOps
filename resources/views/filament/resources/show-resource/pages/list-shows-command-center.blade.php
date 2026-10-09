@@ -9,7 +9,7 @@ $statusClass=fn(string $label)=>match(true){str_contains(strtolower($label),'clo
  <x-filament::section>
   <h2 class="text-lg font-semibold">Channel Review</h2>
   <p class="mt-1 text-sm text-[var(--vx-muted)]">Shows below need their channel confirmed. Open a row's actions and select Confirm Channel. An empty list means no shows currently need review.</p>
-  <a class="mt-3 inline-block text-sm underline" href="{{ \App\Filament\Resources\ShowResource::getUrl('index', ['activeTab' => 'all']) }}">Back to all shows</a>
+  <a class="mt-3 inline-block text-sm underline" href="{{ \App\Filament\Resources\ShowResource::getUrl('index', ['tab' => 'all']) }}">Back to all shows</a>
  </x-filament::section>
  @else
  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

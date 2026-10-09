@@ -372,6 +372,10 @@ class WhatnotReportingReconciler
         $batchNumber = 0;
 
         while ($pendingTargets !== []) {
+            if (($deadline = config('vortex.whatnot.runtime_deadline')) && microtime(true) >= (float) $deadline - 30) {
+                $progress && $progress('analytics: overnight window ending; remaining targets left due for next night');
+                break;
+            }
             $batchNumber++;
             $progress && $progress(
                 'analytics: batch '.$batchNumber.' requesting '.count($pendingTargets).

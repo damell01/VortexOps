@@ -169,7 +169,6 @@
                 ['label'=>'COGS','value'=>'$'.number_format($rev['cogs'],2),'trend'=>null,'icon'=>'heroicon-o-cube','accent'=>'border-amber-500'],
                 ['label'=>'Margin','value'=>'$'.number_format($rev['margin'],2),'trend'=>$rev['trend_margin'],'icon'=>'heroicon-o-chart-bar','accent'=>'border-violet-500','sub'=>'Revenue less recorded product costs'],
                 ['label'=>'Tips','value'=>'$'.number_format($rev['tips'],2),'trend'=>null,'icon'=>'heroicon-o-gift','accent'=>'border-rose-500'],
-                ['label'=>'Paper Revenue','value'=>'$'.number_format($rev['paper'],2),'trend'=>null,'icon'=>'heroicon-o-document-text','accent'=>'border-cyan-500'],
             ] as $tile)
                 <div class="min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
                     <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">

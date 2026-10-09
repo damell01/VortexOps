@@ -97,7 +97,9 @@ class ReceivingWorkflowTest extends TestCase
         app(ReceivingService::class)->receiveCasesForLine($line, 1);
         $component = Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
             ->call('mountAction', 'itemHistory', ['item' => $item->id])
-            ->assertActionMounted('itemHistory');
+            ->assertActionMounted('itemHistory')
+            ->assertSee('filamentActionModals', false)
+            ->assertSee('Received via pallet');
         $content = $component->instance()->getMountedAction()->getModalContent()->render();
         $this->assertStringContainsString('Received via pallet', $content);
         $this->assertStringContainsString('Test boxes', $content);

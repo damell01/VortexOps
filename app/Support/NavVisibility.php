@@ -95,7 +95,7 @@ class NavVisibility
         $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
             ? $class::getResource()
             : $class;
-        if ($user->isAdmin() && in_array($navigationClass, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Resources\UserResource::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class, \App\Filament\Resources\VendorResource::class], true)) return false;
+        if ($user->isAdmin() && in_array($navigationClass, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Resources\UserResource::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class, \App\Filament\Resources\InventoryItemResource::class, \App\Filament\Resources\VendorResource::class], true)) return false;
 
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;
@@ -108,10 +108,15 @@ class NavVisibility
 
     private static function roleGrants(string $role, string $class): bool
     {
+        $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
+            ? $class::getResource()
+            : $class;
         if (self::hasExplicitVisibility($role)) {
-            return in_array($class, self::visibleForRole($role), true);
+            return in_array($class, self::visibleForRole($role), true)
+                || in_array($navigationClass, self::visibleForRole($role), true);
         }
-        return ! in_array($class, self::hiddenForRole($role), true);
+        return ! in_array($class, self::hiddenForRole($role), true)
+            && ! in_array($navigationClass, self::hiddenForRole($role), true);
     }
 
     public static function flushMemo(): void

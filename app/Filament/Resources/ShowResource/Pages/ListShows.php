@@ -36,6 +36,10 @@ class ListShows extends ListRecords
 
     public function getSubheading(): ?string
     {
+        if ($this->activeTab === 'flagged' && auth()->user()?->isAdmin()) {
+            return 'All shows needing channel attribution review, including historical imports. Use Confirm Channel in the row actions to choose the correct channel and clear the flag.';
+        }
+
         return auth()->user()?->isStreamer()
             ? 'Your Whatnot schedule, recent shows, and show reports in one place.'
             : 'Shows Command Center — live operational work first; historical scraper data stays available in the table without creating tasks.';
@@ -167,12 +171,11 @@ class ListShows extends ListRecords
                     ->badgeColor('gray');
             }
 
-            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () => Show::where('is_operational', true)->where('channel_attribution_suspect', true)->count());
-            if ($flagged > 0) {
-                $tabs['flagged'] = Tab::make('Channel Review')
-                    ->modifyQueryUsing(fn (Builder $query) => $query->where('is_operational', true)->where('channel_attribution_suspect', true))
-                    ->badge($flagged)->badgeColor('danger');
-            }
+            // Keep the review queue available even when it is empty.
+            $tabs['flagged'] = Tab::make('Channel Review')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('channel_attribution_suspect', true))
+                ->badge(fn () => ShowResource::getEloquentQuery()->where('channel_attribution_suspect', true)->count())
+                ->badgeColor('danger');
 
             $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () => Show::where('is_operational', true)->where('financials_revised_after_lock', true)->count());
             if ($revised > 0) {

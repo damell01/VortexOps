@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Models\Show;
-use App\Services\AI\OpsDigestService;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
 use Filament\Pages\Page;
@@ -49,7 +48,6 @@ class Reports extends Page
     public string $dateFrom  = '';
     public string $dateTo    = '';
     public bool $showAllWeeks = false;
-    public ?string $narrative = null;
 
     public function mount(): void
     {
@@ -74,7 +72,6 @@ class Reports extends Page
         $this->dateFrom  = now()->subDays((int) $days)->toDateString();
         $this->dateTo    = now()->toDateString();
         $this->showAllWeeks = false;
-        $this->narrative = null;
     }
 
     public function applyCustomRange(): void
@@ -85,41 +82,11 @@ class Reports extends Page
         ]);
         $this->period = 'custom';
         $this->showAllWeeks = false;
-        $this->narrative = null;
     }
 
     public function toggleAllWeeks(): void
     {
         $this->showAllWeeks = ! $this->showAllWeeks;
-    }
-
-    public function aiNarrativeEnabled(): bool
-    {
-        return AdminModules::isEnabled('ai');
-    }
-
-    /**
-     * On-demand, not computed — an LLM call is too slow/expensive to run on
-     * every render. Fires only when the owner clicks "Summarize this period".
-     * Cached for an hour per period/channel so a re-click (or another admin
-     * asking for the same window) returns instantly instead of re-running a
-     * 30-second generation for identical inputs.
-     */
-    public function generateNarrative(): void
-    {
-        $key = $this->cacheKey('narrative');
-
-        $cached = Cache::get($key);
-        if ($cached !== null) {
-            $this->narrative = $cached;
-            return;
-        }
-
-        $this->narrative = app(OpsDigestService::class)->generateForRange($this->periodStart(), $this->periodEnd());
-
-        if ($this->narrative !== null) {
-            Cache::put($key, $this->narrative, 3600);
-        }
     }
 
     // ── Cache key ────────────────────────────────────────────────────────────

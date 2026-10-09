@@ -54,6 +54,19 @@ class WhatnotReportingReconciler
                 // Whatnot UUID is globally unique in our schema. Never create a
                 // duplicate merely because a channel context was wrong.
                 $show = Show::query()->where('whatnot_show_id', $liveId)->first();
+                // CSV exports contain no UUID. Attach a uniquely matching CSV
+                // shell instead of creating another copy during later discovery.
+                if (! $show) {
+                    $csvMatches = Show::where('whatnot_channel_id', $channel->id)
+                        ->whereNull('whatnot_show_id')->whereDate('show_date', $date)->get()
+                        ->filter(function (Show $candidate) use ($title) {
+                            $payload = is_array($candidate->raw_import_payload) ? $candidate->raw_import_payload : [];
+                            $normalize = fn ($value) => (string) \Illuminate\Support\Str::of((string) $value)->lower()->squish()->replaceMatches('/[^\\pL\\pN]+/u', '');
+                            return (isset($payload['_analytics_csv']) || ($payload['source'] ?? null) === 'whatnot_analytics_csv')
+                                && $normalize($candidate->title) === $normalize($title);
+                        })->values();
+                    if ($csvMatches->count() === 1) $show = $csvMatches->first();
+                }
                 $channelMismatch = $show && $show->whatnot_channel_id && (int) $show->whatnot_channel_id !== (int) $channel->id;
 
                 $previousRaw = $show && is_array($show->raw_import_payload) ? $show->raw_import_payload : [];

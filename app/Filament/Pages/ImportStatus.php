@@ -47,14 +47,15 @@ class ImportStatus extends Page
                     abort_unless(static::canAccess(), 403);
                     try {
                         $summaries = []; $files = [];
+                        $blocked = app(\App\Services\WhatnotAnalyticsCsvImporter::class)->conflicts(array_map(fn ($file) => \Illuminate\Support\Facades\Storage::disk('local')->path($file), $data['files']));
                         foreach ($data['files'] as $file) {
                             $path = \Illuminate\Support\Facades\Storage::disk('local')->path($file);
-                            $summaries[] = app(\App\Services\WhatnotAnalyticsCsvImporter::class)->import($path, (int) $data['channel_id'], true, $data['since']);
+                            $summaries[] = app(\App\Services\WhatnotAnalyticsCsvImporter::class)->import($path, (int) $data['channel_id'], true, $data['since'], $blocked);
                             $files[] = ['path' => $file, 'hash' => hash_file('sha256', $path)];
                         }
                         $this->csvPreview = [
                             'channel_id' => (int) $data['channel_id'], 'channel_name' => WhatnotChannel::findOrFail($data['channel_id'])->name,
-                            'since' => $data['since'], 'files' => $files, 'summaries' => $summaries, 'applied' => false,
+                            'since' => $data['since'], 'blocked' => $blocked, 'files' => $files, 'summaries' => $summaries, 'applied' => false,
                         ];
                         \Filament\Notifications\Notification::make()->title('CSV preview ready')->body('Review the results below, then choose Import reviewed files.')->success()->send();
                     } catch (\Throwable $e) {
@@ -93,7 +94,7 @@ class ImportStatus extends Page
                     foreach ($this->csvPreview['files'] as $file) {
                         $summaries[] = app(\App\Services\WhatnotAnalyticsCsvImporter::class)->import(
                             \Illuminate\Support\Facades\Storage::disk('local')->path($file['path']),
-                            $this->csvPreview['channel_id'], false, $this->csvPreview['since']
+                            $this->csvPreview['channel_id'], false, $this->csvPreview['since'], $this->csvPreview['blocked']
                         );
                     }
                 } catch (\Throwable $e) { $error = $e->getMessage(); }

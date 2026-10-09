@@ -14,7 +14,7 @@
         data-vx-page="pallet-receive"
         x-data="{
             scanBusy: false,
-            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { continuous: true, title: 'Receive boxes', helper: 'Each accepted scan receives one box. Move the code away before scanning another.' } })); },
+            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Find a manifest item', helper: 'Scan any item, then check the match and receive the quantity that arrived.' } })); },
             async submitCameraScan(event) {
                 const value = event?.detail?.value;
                 if (!value || this.scanBusy) return;
@@ -22,14 +22,14 @@
                 try {
                     await $wire.set('barcodeInput', value, false);
                     await $wire.submitBarcode();
-                    window.dispatchEvent(new CustomEvent('receiving-scan-result', { detail: { success: $wire.lastScanSuccess, message: $wire.lastScannedResult || 'Choose the matching manifest line below.', pause: !!$wire.pendingCode } }));
                 } catch (error) {
-                    window.dispatchEvent(new CustomEvent('receiving-scan-result', { detail: { success: false, message: 'Save could not be confirmed. Close the scanner and check received counts before retrying.', pause: true } }));
+                    window.vxConfirm?.('Save could not be confirmed. Check received counts before retrying.');
                 } finally { this.scanBusy = false; }
             }
         }"
         x-on:scan-line-targeted.window="openScanner()"
         x-on:barcode-scanned.window="submitCameraScan($event)"
+        x-on:receiving-item-matched.window="document.getElementById('receiving-line-' + $event.detail.lineId)?.scrollIntoView({ block: 'center', behavior: 'smooth' })"
     >
         {{-- Compact job header: identity + progress without making the user scroll through a dashboard first. --}}
         <section class="mb-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
@@ -76,6 +76,7 @@
             <span wire:loading wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Saving receipt…</span>
             <span wire:loading.remove wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Successful receipts are saved immediately. Unfinished inputs are restored in this signed-in session.</span>
         </div>
+        <button type="button" wire:click="mountAction('complete_pallet')" wire:loading.attr="disabled" class="mb-4 min-h-11 rounded-xl border border-primary-300 px-4 font-semibold text-primary-700 dark:text-primary-300">Review &amp; complete</button>
         {{-- Workstation: scan on the left, manifest on the right. On phones scan stays first. --}}
         <div class="grid items-start gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
             <aside class="space-y-4 lg:sticky lg:top-24">
@@ -86,8 +87,8 @@
                                 <x-heroicon-o-qr-code class="h-5 w-5" />
                             </div>
                             <div>
-                                <h2 class="text-base font-bold text-gray-950 dark:text-white">Scan the next box</h2>
-                                <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">Scan normally, or tap an item first if it needs its first barcode.</p>
+                                <h2 class="text-base font-bold text-gray-950 dark:text-white">Find the next item</h2>
+                                <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">Scan any manifest item, then receive the quantity that arrived.</p>
                             </div>
                         </div>
                     </div>
@@ -130,7 +131,7 @@
                                 <x-heroicon-o-camera class="h-5 w-5" /> Camera
                             </button>
                             <button type="button" wire:click="submitBarcode" wire:loading.attr="disabled" wire:target="submitBarcode" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-600 px-3 text-sm font-bold text-white shadow-sm hover:bg-primary-700 disabled:opacity-60">
-                                <span wire:loading.remove wire:target="submitBarcode">Receive</span>
+                                <span wire:loading.remove wire:target="submitBarcode">Find item</span>
                                 <span wire:loading wire:target="submitBarcode">Checking…</span>
                             </button>
                         </div>
@@ -222,7 +223,7 @@
                                 $pct = $line['case_count'] > 0 ? min(100, round(($line['received'] / $line['case_count']) * 100)) : 0;
                                 $remaining = max(0, $line['case_count'] - $line['received']);
                             @endphp
-                            <article wire:key="receiving-line-{{ $line['id'] }}" class="p-4 transition {{ $done ? 'bg-green-50/40 dark:bg-green-950/10' : '' }}">
+                            <article id="receiving-line-{{ $line['id'] }}" wire:key="receiving-line-{{ $line['id'] }}" class="p-4 transition {{ $done ? 'bg-green-50/40 dark:bg-green-950/10' : '' }}">
                                 <div class="flex items-start gap-3">
                                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $done ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' : ($line['mapped'] ? 'bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200') }}">
                                         @if($done)
@@ -262,7 +263,7 @@
                                             <div class="mt-3 flex flex-wrap gap-2">
                                                 <button type="button" wire:click="targetLine({{ $line['id'] }})" wire:loading.attr="disabled" class="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3.5 text-xs font-bold text-white shadow-sm hover:bg-primary-700 disabled:opacity-60 sm:text-sm">
                                                     <x-heroicon-o-camera class="h-4 w-4" />
-                                                    {{ $line['mapped'] ? 'Scan this item' : 'Scan first barcode' }}
+                                                    {{ $line['mapped'] ? 'Scan this item' : 'Link barcode' }}
                                                 </button>
                                                 @if($line['mapped'])
                                                     <div class="flex min-h-10 items-stretch overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800">

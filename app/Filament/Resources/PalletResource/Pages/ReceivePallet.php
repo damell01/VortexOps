@@ -229,10 +229,10 @@ class ReceivePallet extends Page
                 InventoryLocation::findOrFail($locationId),
             );
 
-            $count = app(ReceivingService::class)->confirmOneCase($result['line']);
+            $count = ['received' => $result['line']->receivedCases(), 'expected' => (int) $result['line']->case_count];
 
             $this->lastScannedResult = sprintf(
-                '✓ %s %s — %d of %d boxes in',
+                'Matched %s %s — %d of %d received. Enter the quantity that arrived on this line.',
                 $result['item']->name,
                 $result['created'] ? 'added to inventory' : 'matched in inventory',
                 $count['received'],
@@ -240,7 +240,8 @@ class ReceivePallet extends Page
             );
             $this->lastScanDetails = null;
             $this->lastScanSuccess = true;
-            $this->targetLineId = null;
+            $this->targetLineId = $line->id;
+            $this->dispatch('receiving-item-matched', lineId: $line->id);
 
             return true;
         } catch (\RuntimeException $e) {
@@ -358,8 +359,13 @@ class ReceivePallet extends Page
                 $this->lastScanSuccess = true;
             } else {
                 // This is an individual item - try to receive it as a case
-                $count = app(ReceivingService::class)->receiveOneCaseByItemCode($this->record, $barcode);
-                $this->lastScannedResult = "✓ Saved {$count['item']} — {$count['received']} of {$count['expected']} received";
+                $item = \App\Models\Product::findByScan($barcode);
+                $matches = $this->record->lines->where('inventory_item_id', $item?->id);
+                $line = $matches->count() === 1 ? $matches->first() : $matches->firstWhere('id', $this->targetLineId);
+                if (! $line) throw new \RuntimeException('Choose the matching manifest line before receiving this item.');
+                $this->targetLineId = $line->id;
+                $this->lastScannedResult = "Matched {$item->name} to line #{$line->line_number}. Enter the quantity that arrived.";
+                $this->dispatch('receiving-item-matched', lineId: $line->id);
                 $this->lastScanDetails = null;
                 $this->lastScanSuccess = true;
                 $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);

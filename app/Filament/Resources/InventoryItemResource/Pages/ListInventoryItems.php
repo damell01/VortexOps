@@ -450,6 +450,11 @@ class ListInventoryItems extends ListRecords
             });
     }
 
+    public function itemHistoryAction(): Action
+    {
+        return \App\Support\InventoryHistory::action();
+    }
+
     protected function getHeaderActions(): array
     {
         // Keep page-level actions in the purple quick-action strip below.

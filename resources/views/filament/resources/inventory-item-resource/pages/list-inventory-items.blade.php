@@ -97,6 +97,7 @@
        </div>
       </div>
       <div class="vx-card-actions">
+       <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
        @if($canEdit)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add Stock</span></button>@endif
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
        @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
@@ -134,3 +135,4 @@
  @endif
 </div>
 </x-filament-panels::page>
+

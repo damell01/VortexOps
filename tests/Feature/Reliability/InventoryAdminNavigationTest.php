@@ -24,13 +24,32 @@ class InventoryAdminNavigationTest extends TestCase
             $this->actingAs($user);
             NavVisibility::flushMemo();
             NavVisibility::setVisibleForRole('admin', []);
-            foreach ([InventoryMovementResource::class, ListInventoryMovements::class, VendorResource::class, ListVendors::class] as $class) {
+            foreach ([InventoryMovementResource::class, ListInventoryMovements::class, VendorResource::class, ListVendors::class, \App\Filament\Resources\InventoryItemResource::class, \App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class] as $class) {
                 $this->assertFalse(NavVisibility::isHiddenForUser($class, $user));
                 $this->assertTrue($class::canAccess(), $role . ': ' . $class);
             }
+            $this->enableAdminModules();
+            $menu = view('filament.components.desktop-mega-nav')->render();
+            $this->assertStringContainsString('All Inventory', $menu);
+            $this->assertStringContainsString(\App\Filament\Resources\InventoryItemResource::getUrl('index'), $menu);
             $this->assertTrue(InventoryMovementResource::shouldRegisterNavigation());
             $this->assertTrue(VendorResource::shouldRegisterNavigation());
             $this->assertSame(InventoryMovementResource::getNavigationGroup(), VendorResource::getNavigationGroup());
         }
+    }
+
+    public function test_an_inventory_resource_grant_keeps_its_menu_page_visible(): void
+    {
+        $this->enableAdminModules();
+        Role::findOrCreate('inventory_viewer', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('inventory_viewer');
+        $this->actingAs($user);
+        $resource = \App\Filament\Resources\InventoryItemResource::class;
+        $page = \App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class;
+        NavVisibility::setVisibleForRole('inventory_viewer', [$resource]);
+        $this->assertFalse(NavVisibility::isHiddenForUser($page, $user));
+        $menu = view('filament.components.desktop-mega-nav')->render();
+        $this->assertStringContainsString('All Inventory', $menu);
     }
 }

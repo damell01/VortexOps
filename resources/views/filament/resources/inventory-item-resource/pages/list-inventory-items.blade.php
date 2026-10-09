@@ -134,5 +134,7 @@
   <section class="vx-inventory-items-panel overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"><div class="hidden border-b border-gray-100 px-5 py-3 dark:border-gray-800 sm:block"><h2 class="text-base font-semibold">Inventory Table</h2><p class="mt-0.5 text-xs text-gray-500">Bulk actions, advanced filters, sorting and detailed columns.</p></div><div class="p-1 sm:p-2">{{ $this->table }}</div></section>
  @endif
 </div>
+{{-- Card view does not render the table that normally owns the action modals. --}}
+<x-filament-actions::modals />
 </x-filament-panels::page>
 

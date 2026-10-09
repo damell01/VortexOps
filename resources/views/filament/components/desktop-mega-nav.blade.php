@@ -26,6 +26,7 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  ['Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin')],
  ['Stock Status',\App\Filament\Pages\StockStatus::getUrl(panel:'admin')],
  ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index')],
+ \App\Filament\Resources\PalletResource::canAccess() ? ['Receive Inventory',\App\Filament\Resources\PalletResource::getUrl('index')] : null,
  \App\Filament\Pages\InventoryAge::canAccess() ? ['Inventory Age',\App\Filament\Pages\InventoryAge::getUrl(panel:'admin')] : null,
  \App\Filament\Resources\InventoryMovementResource::canAccess() ? ['Inventory Log',\App\Filament\Resources\InventoryMovementResource::getUrl('index')] : null,
  ['Recent Activity',\App\Filament\Pages\InventoryActivity::getUrl(panel:'admin')],

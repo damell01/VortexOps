@@ -14,7 +14,7 @@ class WhatnotAnalyticsCsvImporter
 {
     public const REQUIRED_HEADERS = ['Show', 'Date'];
 
-    public function import(string $path, int $channelId, bool $dryRun = false, string $since = '2026-07-01', array $blockedIdentities = []): array
+    public function import(string $path, int $channelId, bool $dryRun = false, string $since = '2026-06-01', array $blockedIdentities = []): array
     {
         $channel = WhatnotChannel::findOrFail($channelId);
         $blockedIdentities = array_fill_keys(array_unique(array_merge($blockedIdentities, $this->conflicts([$path]))), true);

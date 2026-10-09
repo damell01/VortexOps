@@ -59,7 +59,7 @@ class NightlyWhatnotBackfillTest extends TestCase
         $this->mock(WhatnotReportingReconciler::class, function ($mock) use (&$attempted, &$discovered, $channel) {
             $mock->shouldReceive('discoverShows')->once()->andReturnUsing(function ($actual, $progress, $since) use (&$discovered, $channel) {
                 $this->assertSame($channel->id, $actual->id);
-                $this->assertSame('2026-07-01', $since->toDateString());
+                $this->assertSame('2026-06-01', $since->toDateString());
                 $this->assertGreaterThan(microtime(true), config('vortex.whatnot.runtime_deadline'));
                 $discovered = true;
                 return ['created' => 0, 'updated' => 0, 'skipped' => 0];

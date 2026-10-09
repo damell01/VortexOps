@@ -105,7 +105,7 @@ class WhatnotAnalyticsCsvTest extends TestCase
     public function test_new_history_keeps_precise_existing_values_and_enforces_date_range(): void
     {
         $channel = $this->channel(); $service = app(WhatnotAnalyticsCsvImporter::class);
-        $file = $this->csv([$this->row('New history','07/05/2026'),$this->row('Too old','06/30/2026'),$this->row('Future','10/10/2026')]);
+        $file = $this->csv([$this->row('New history','07/05/2026'),$this->row('Too old','05/31/2026'),$this->row('Future','10/10/2026')]);
         $stats = $service->import($file,$channel->id);
         $this->assertSame(1,$stats['created']);
         $this->assertSame(1,$stats['before_start']);

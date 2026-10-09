@@ -100,7 +100,7 @@ Schedule::exec('nice -n 12 php artisan whatnot:sync-reporting --since=' . now()-
 
 // Reserve 1–5 AM Central for resumable historical show discovery and metrics.
 // The command caps every browser process at the remaining overnight window.
-Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-07-01 --timezone=America/Chicago --start=01:00 --end=05:00')
+Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-06-01 --timezone=America/Chicago --start=01:00 --end=05:00')
     ->appendOutputTo(storage_path('logs/whatnot-nightly-backfill.log'))
     ->skip($whatnotPaused)
     ->dailyAt('01:00')

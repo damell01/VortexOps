@@ -36,7 +36,7 @@ class ImportStatus extends Page
                     \Filament\Forms\Components\Select::make('channel_id')->label('Channel these exports belong to')
                         ->options(fn () => WhatnotChannel::orderBy('name')->pluck('name', 'id'))->required()->exists('whatnot_channels', 'id')
                         ->helperText('The CSV has no channel column. Upload exports from one channel/account at a time.'),
-                    \Filament\Forms\Components\DatePicker::make('since')->label('Import shows from')->default('2026-07-01')->required(),
+                    \Filament\Forms\Components\DatePicker::make('since')->label('Import shows from')->default('2026-06-01')->required(),
                     \Filament\Forms\Components\FileUpload::make('files')->label('Whatnot Shows CSV files')
                         ->disk('local')->directory('imports/whatnot-analytics')->visibility('private')
                         ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])

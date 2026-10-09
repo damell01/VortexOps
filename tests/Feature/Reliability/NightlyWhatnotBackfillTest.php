@@ -53,7 +53,7 @@ class NightlyWhatnotBackfillTest extends TestCase
         $channel = $this->channel();
         $ids = [];
         for ($i = 0; $i < 12; $i++) $ids[] = $this->show($channel->id)->id;
-        $this->show($channel->id, ['show_date' => '2026-06-30']);
+        $this->show($channel->id, ['show_date' => '2026-05-31']);
         $this->show($channel->id, ['status' => 'cancelled']);
         $attempted = []; $discovered = false;
         $this->mock(WhatnotReportingReconciler::class, function ($mock) use (&$attempted, &$discovered, $channel) {

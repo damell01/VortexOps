@@ -73,6 +73,11 @@ class InventoryCatalog extends Page
         return $query->limit(60)->get();
     }
 
+    public function itemHistoryAction(): \Filament\Actions\Action
+    {
+        return \App\Support\InventoryHistory::action();
+    }
+
     public function itemUrl(int $id): string
     {
         return InventoryItemResource::getUrl('view', ['record' => $id]);
@@ -100,3 +105,4 @@ class InventoryCatalog extends Page
         unset($this->items);
     }
 }
+

@@ -1219,6 +1219,7 @@ class InventoryItemResource extends Resource
                     ]),
             ])
             ->actions([
+                \App\Support\InventoryHistory::action(),
                 // Only rendered for containers, so it sits alongside view/edit
                 // as a third icon rather than adding a column to every row.
                 TableAction::make('contents')
@@ -1525,3 +1526,4 @@ class InventoryItemResource extends Resource
         ];
     }
 }
+

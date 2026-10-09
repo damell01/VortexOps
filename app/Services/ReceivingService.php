@@ -545,6 +545,11 @@ class ReceivingService
         $unitCost = (float) $line->unit_cost;
 
         return DB::transaction(function () use ($case, $item, $location, $qty, $unitCost, $line) {
+            // Recheck under a database lock: a repeated request must never credit stock twice.
+            $case = InventoryCase::query()->lockForUpdate()->findOrFail($case->id);
+            if ($case->status !== 'expected') {
+                throw new RuntimeException('This case has already been received. Stock was not changed.');
+            }
             $case->update([
                 'status'            => 'received',
                 'quantity_received' => $qty,
@@ -594,6 +599,57 @@ class ReceivingService
      * Receive a collection of cases belonging to the same line in one transaction.
      * Avoids N separate transactions, N PalletLine reloads, and N WAC updates.
      */
+    public function receiveCasesForLine(PalletLine $line, int $caseCount): array
+    {
+        if ($caseCount < 1) {
+            throw new RuntimeException('Enter at least 1 case to receive.');
+        }
+
+        if (! $line->isFullyMapped()) {
+            throw new RuntimeException("Line #{$line->line_number} must be mapped to an item and location before receiving.");
+        }
+
+        $existingCases = $line->cases()->count();
+        if ($existingCases === 0) {
+            $this->generateExpectedCases($line);
+        }
+
+        $remaining = $line->cases()->where('status', 'expected')->count();
+        if ($remaining < 1) {
+            throw new RuntimeException("Line #{$line->line_number} is already fully received.");
+        }
+
+        if ($caseCount > $remaining) {
+            throw new RuntimeException("Only {$remaining} case(s) remain on line #{$line->line_number}.");
+        }
+
+        $cases = $line->cases()
+            ->where('status', 'expected')
+            ->orderBy('id')
+            ->limit($caseCount)
+            ->get();
+
+        $receivedNow = $this->receiveCaseBatch($line, $cases);
+        $receivedTotal = $line->cases()->where('status', '!=', 'expected')->count();
+        $expected = (int) $line->case_count;
+        $complete = $receivedTotal >= $expected;
+
+        $line->forceFill(['line_status' => $complete ? 'received' : 'pending'])->save();
+
+        $pallet = $line->pallet()->first();
+        if ($pallet && ! $complete && ! in_array($pallet->status, ['received', 'processed'], true)) {
+            $pallet->markReceivingStarted();
+        }
+
+        return [
+            'received_now' => $receivedNow,
+            'received_total' => $receivedTotal,
+            'expected' => $expected,
+            'remaining' => max(0, $expected - $receivedTotal),
+            'complete' => $complete,
+        ];
+    }
+
     private function receiveCaseBatch(PalletLine $line, \Illuminate\Support\Collection $cases, float $allocatedExtraCost = 0): int
     {
         $line->loadMissing(['inventoryItem', 'location']);
@@ -613,6 +669,14 @@ class ReceivingService
         $totalUnitCost    = $unitCost + $extraCostPerUnit;
 
         return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty, $allocatedExtraCost, $extraCostPerUnit, $totalUnitCost) {
+            // Another receiver may have committed these cases since they were selected.
+            $cases = InventoryCase::query()->whereIn('id', $cases->pluck('id'))
+                ->where('status', 'expected')->orderBy('id')->lockForUpdate()->get();
+            $count = $cases->count();
+            if ($count === 0) return 0;
+            $totalQty = $qty * $count;
+            $totalUnitCost = $unitCost + ($totalQty > 0 ? $allocatedExtraCost / $totalQty : 0);
+
             // Bulk-mark all cases received
             InventoryCase::whereIn('id', $cases->pluck('id'))
                 ->update([
@@ -778,3 +842,4 @@ class ReceivingService
         ]);
     }
 }
+

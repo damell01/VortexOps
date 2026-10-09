@@ -13,11 +13,19 @@
         class="mx-auto max-w-7xl pb-24 sm:pb-8"
         data-vx-page="pallet-receive"
         x-data="{
-            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner')); },
-            submitCameraScan(event) {
+            scanBusy: false,
+            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { continuous: true, title: 'Receive boxes', helper: 'Each accepted scan receives one box. Move the code away before scanning another.' } })); },
+            async submitCameraScan(event) {
                 const value = event?.detail?.value;
-                if (!value) return;
-                $wire.set('barcodeInput', value).then(() => $wire.submitBarcode());
+                if (!value || this.scanBusy) return;
+                this.scanBusy = true;
+                try {
+                    await $wire.set('barcodeInput', value, false);
+                    await $wire.submitBarcode();
+                    window.dispatchEvent(new CustomEvent('receiving-scan-result', { detail: { success: $wire.lastScanSuccess, message: $wire.lastScannedResult || 'Choose the matching manifest line below.', pause: !!$wire.pendingCode } }));
+                } catch (error) {
+                    window.dispatchEvent(new CustomEvent('receiving-scan-result', { detail: { success: false, message: 'Save could not be confirmed. Close the scanner and check received counts before retrying.', pause: true } }));
+                } finally { this.scanBusy = false; }
             }
         }"
         x-on:scan-line-targeted.window="openScanner()"
@@ -64,6 +72,10 @@
             </div>
         </section>
 
+        <div role="status" aria-live="polite" class="mb-3 text-sm text-gray-500">
+            <span wire:loading wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Saving receipt…</span>
+            <span wire:loading.remove wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Successful receipts are saved immediately. Unfinished inputs are restored in this signed-in session.</span>
+        </div>
         {{-- Workstation: scan on the left, manifest on the right. On phones scan stays first. --}}
         <div class="grid items-start gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
             <aside class="space-y-4 lg:sticky lg:top-24">
@@ -81,6 +93,14 @@
                     </div>
 
                     <div class="p-4">
+                        <label for="receiving-location" class="mb-1.5 block text-xs font-semibold">Default receiving location</label>
+                        <select id="receiving-location" wire:model.live="receivingLocationId" class="mb-3 min-h-11 w-full rounded-xl border-gray-300 bg-white text-sm dark:bg-gray-800 dark:text-white">
+                            <option value="">Choose location</option>
+                            @foreach(\App\Models\InventoryLocation::activeOptions() as $id => $name)
+                                <option value="{{ $id }}">{{ $name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mb-3 text-xs text-gray-500">Remembered for your next delivery. Existing mapped lines keep their assigned location.</p>
                         @if($targetLineId)
                             @php
                                 $target = collect($lineProgress)->firstWhere('id', $targetLineId);
@@ -172,7 +192,7 @@
                         </button>
                     </div>
                     <label class="mt-3 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Received by</label>
-                    <input wire:model="receivedByName" type="text" placeholder="Receiver name" class="mt-1 min-h-10 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+                    <input wire:model.live.debounce.500ms="receivedByName" type="text" placeholder="Receiver name" class="mt-1 min-h-10 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                 </section>
             </aside>
 
@@ -245,6 +265,19 @@
                                                     {{ $line['mapped'] ? 'Scan this item' : 'Scan first barcode' }}
                                                 </button>
                                                 @if($line['mapped'])
+                                                    <div class="flex min-h-10 items-stretch overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800">
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="{{ $remaining }}"
+                                                            inputmode="numeric"
+                                                            wire:model.live.debounce.500ms="partialReceiveQuantity.{{ $line['id'] }}"
+                                                            placeholder="Qty"
+                                                            aria-label="Cases to receive for line {{ $line['line_number'] }}"
+                                                            class="w-20 border-0 bg-transparent px-2.5 text-sm text-gray-900 outline-none ring-0 dark:text-white"
+                                                        />
+                                                        <button type="button" wire:click="receivePartialLine({{ $line['id'] }})" wire:loading.attr="disabled" class="border-l border-gray-300 px-3 text-xs font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-60 dark:border-gray-600 dark:text-primary-300 dark:hover:bg-gray-700">Receive some</button>
+                                                    </div>
                                                     <button type="button" wire:click="receiveLine({{ $line['id'] }})" wire:confirm="Receive every remaining box on this line? Only continue if you physically counted them." wire:loading.attr="disabled" class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 sm:text-sm">Receive all {{ $remaining }}</button>
                                                 @endif
                                             </div>
@@ -302,7 +335,7 @@
                                     <p class="mt-1 text-xs text-green-700 dark:text-green-300">{{ $summaryReceived }} of {{ $summaryExpected }} cases are recorded. Finish the pallet when you are done at the receiving station.</p>
                                 </div>
                             </div>
-                            <button type="button" wire:click="finalizePallet" wire:confirm="Complete this pallet? This marks receiving finished." wire:loading.attr="disabled" @disabled(blank($receivedByName)) class="min-h-11 rounded-xl bg-green-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">Complete receiving</button>
+                            <button type="button" wire:click="mountAction('complete_pallet')" wire:loading.attr="disabled" @disabled(blank($receivedByName)) class="min-h-11 rounded-xl bg-green-600 px-5 text-sm font-bold text-white shadow-sm hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">Complete receiving</button>
                         </div>
                     </section>
                 @endif
@@ -314,7 +347,7 @@
             <div class="flex gap-2">
                 <button type="button" @click="openScanner()" class="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary-600 px-3 text-sm font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan</button>
                 @if($summaryDone)
-                    <button type="button" wire:click="finalizePallet" @disabled(blank($receivedByName)) class="inline-flex min-h-11 flex-[1.2] items-center justify-center rounded-lg bg-green-600 px-3 text-sm font-bold text-white disabled:opacity-50">Complete</button>
+                    <button type="button" wire:click="mountAction('complete_pallet')" @disabled(blank($receivedByName)) class="inline-flex min-h-11 flex-[1.2] items-center justify-center rounded-lg bg-green-600 px-3 text-sm font-bold text-white disabled:opacity-50">Complete</button>
                 @else
                     <div class="inline-flex min-h-11 flex-[1.2] items-center justify-center rounded-lg bg-gray-100 px-3 text-sm font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{{ $summaryRemaining }} left</div>
                 @endif
@@ -322,3 +355,4 @@
         </div>
     </div>
 </x-filament-panels::page>
+

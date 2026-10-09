@@ -26,6 +26,9 @@ class ReceivePallet extends Page
 
     public Pallet $record;
 
+    public array $partialReceiveQuantity = [];
+    public ?int $receivingLocationId = null;
+
     public string $barcodeInput = '';
     public ?string $lastScannedResult = null;
     public bool $lastScanSuccess = false;
@@ -58,7 +61,10 @@ class ReceivePallet extends Page
         // and one that gets skipped and left blank. Still editable, because
         // somebody signing in on the warehouse tablet may be receiving on
         // behalf of the person actually holding the scanner.
-        $this->receivedByName ??= auth()->user()?->name;
+        $draft = session($this->draftKey(), []);
+        $this->receivedByName = $draft['received_by'] ?? auth()->user()?->name;
+        $this->partialReceiveQuantity = $draft['quantities'] ?? [];
+        $this->receivingLocationId = session('receiving.location.' . auth()->id(), InventoryLocation::defaultReceivingId());
 
         $this->refreshProgress();
     }
@@ -78,6 +84,33 @@ class ReceivePallet extends Page
         if ($this->record ?? null) {
             $this->loadRelations();
         }
+    }
+
+    private function draftKey(): string
+    {
+        return 'receiving.draft.' . auth()->id() . '.' . $this->record->id;
+    }
+
+    public function updatedReceivedByName(): void { $this->saveDraft(); }
+    public function updatedPartialReceiveQuantity(): void { $this->saveDraft(); }
+
+    private function saveDraft(): void
+    {
+        session()->put($this->draftKey(), ['received_by' => $this->receivedByName, 'quantities' => $this->partialReceiveQuantity]);
+    }
+
+    public function updatedReceivingLocationId(): void
+    {
+        if (! InventoryLocation::query()->whereKey($this->receivingLocationId)->where('status', 'active')->exists()) {
+            $this->receivingLocationId = InventoryLocation::defaultReceivingId();
+            return;
+        }
+        session()->put('receiving.location.' . auth()->id(), $this->receivingLocationId);
+    }
+
+    public function receivingSummary(): array
+    {
+        return app(ReceivingService::class)->reviewPallet($this->record->fresh());
     }
 
     private function loadRelations(): void
@@ -180,7 +213,7 @@ class ReceivePallet extends Page
      */
     private function linkAndCount(PalletLine $line, string $barcode): bool
     {
-        $locationId = $line->inventory_location_id ?: InventoryLocation::defaultReceivingId();
+        $locationId = $line->inventory_location_id ?: ($this->receivingLocationId ?: InventoryLocation::defaultReceivingId());
 
         if (! $locationId) {
             $this->lastScannedResult = '✗ No receiving location is set. Choose one on the line, or set a default under Settings → Receiving.';
@@ -278,8 +311,16 @@ class ReceivePallet extends Page
 
             $case = InventoryCase::findByBarcode($candidate);
 
-            if (! $case || $case->status !== 'expected') {
-                continue;
+            if (! $case) continue;
+            if ((int) $case->palletLine()->value('pallet_id') !== (int) $this->record->id) {
+                $this->lastScannedResult = 'This case belongs to a different pallet. Nothing was received.';
+                $this->lastScanSuccess = false;
+                return;
+            }
+            if ($case->status !== 'expected') {
+                $this->lastScannedResult = 'Already received — stock was not changed.';
+                $this->lastScanSuccess = false;
+                return;
             }
 
             try {
@@ -317,14 +358,19 @@ class ReceivePallet extends Page
                 $this->lastScanSuccess = true;
             } else {
                 // This is an individual item - try to receive it as a case
-                $case = app(ReceivingService::class)->receiveCaseByBarcode($barcode);
-                $this->lastScannedResult = "✓ Received item {$barcode} — {$case->palletLine->inventoryItem?->name}";
+                $count = app(ReceivingService::class)->receiveOneCaseByItemCode($this->record, $barcode);
+                $this->lastScannedResult = "✓ Saved {$count['item']} — {$count['received']} of {$count['expected']} received";
                 $this->lastScanDetails = null;
                 $this->lastScanSuccess = true;
                 $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
                 $this->refreshProgress();
             }
         } catch (\RuntimeException $e) {
+            if (\App\Models\Product::findByScan($barcode)) {
+                $this->lastScannedResult = 'Not saved: ' . $e->getMessage();
+                $this->lastScanSuccess = false;
+                return;
+            }
             // Nothing already in inventory answers to this code. Before
             // assuming that is a mistake, check whether it is simply a staged
             // line arriving for the first time — which is the ordinary case on
@@ -451,6 +497,33 @@ class ReceivePallet extends Page
         $this->lastScanSuccess = false;
     }
 
+    public function receivePartialLine(int $lineId): void
+    {
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
+
+        $quantity = (int) ($this->partialReceiveQuantity[$lineId] ?? 0);
+
+        try {
+            $result = app(ReceivingService::class)->receiveCasesForLine($line, $quantity);
+            $this->partialReceiveQuantity[$lineId] = null;
+            $this->saveDraft();
+
+            Notification::make()
+                ->title("Received {$result['received_now']} case(s)")
+                ->body("Line #{$line->line_number}: {$result['received_total']} of {$result['expected']} received; {$result['remaining']} remaining.")
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
+
+        $this->record->refresh();
+        $this->loadRelations();
+        $this->refreshProgress();
+    }
+
     public function receiveLine(int $lineId): void
     {
         $line = PalletLine::where('id', $lineId)
@@ -498,6 +571,7 @@ class ReceivePallet extends Page
 
     public function finalizePallet(): void
     {
+        $this->saveDraft();
         try {
             // receivePallet() intentionally supports two workflows:
             // scan every case, or visually verify the delivery and receive the
@@ -516,6 +590,7 @@ class ReceivePallet extends Page
                 ->success()
                 ->send();
 
+            session()->forget($this->draftKey());
             $this->redirect(PalletResource::getUrl('view', ['record' => $this->record]));
         } catch (\RuntimeException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();
@@ -526,12 +601,13 @@ class ReceivePallet extends Page
     {
         return [
             Action::make('complete_pallet')
-                ->label('Complete Pallet')
+                ->label('Review & complete')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->size(\Filament\Support\Enums\Size::Large)
                 ->requiresConfirmation()
-                ->modalHeading('Complete this pallet?')
+                ->modalHeading('Review receiving')
+                ->modalContent(fn () => view('filament.components.receiving-summary', ['review' => $this->receivingSummary()]))
                 ->modalDescription(function (): string {
                     $progress = $this->record->receivingProgress();
                     $left = max(0, (int) $progress['expected'] - (int) $progress['received']);
@@ -555,6 +631,7 @@ class ReceivePallet extends Page
                 ->icon('heroicon-o-pause-circle')
                 ->color('gray')
                 ->action(function () {
+                    $this->saveDraft();
                     $progress = $this->record->receivingProgress();
 
                     Notification::make()
@@ -675,3 +752,4 @@ class ReceivePallet extends Page
         ];
     }
 }
+

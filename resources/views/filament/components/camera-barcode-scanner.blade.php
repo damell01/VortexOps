@@ -1,4 +1,4 @@
-<div x-data="cameraScanner()" x-on:open-camera-scanner.window="open($event)" x-on:receiving-scan-result.window="receiveResult($event)">
+<div x-data="cameraScanner()" x-on:open-camera-scanner.window="open($event)">
     <div
         x-cloak
         x-show="isOpen"
@@ -47,17 +47,13 @@
             </div>
 
             <footer class="min-h-0 flex-1 shrink-0 space-y-3 overflow-y-auto bg-gray-950 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 text-white sm:flex-none sm:bg-white sm:pb-4 sm:text-gray-950 dark:sm:bg-gray-900 dark:sm:text-white">
-                <div x-show="continuous" class="space-y-2">
-                    <p role="status" aria-live="polite" class="text-sm" x-text="resultText || 'Keep scanning. Stock is saved after each successful receipt.'"></p>
-                    <button type="button" x-show="acceptedCode" :disabled="busy" @click="nextBox()" class="min-h-11 w-full rounded-xl bg-primary-600 px-4 font-semibold text-white disabled:opacity-50">Scan another box with the same barcode</button>
-                </div>
                 <div x-show="error" x-text="error" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 sm:text-red-600" style="display:none"></div>
 
                 <div>
                     <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Manual barcode entry</div>
                     <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                         <input type="text" x-ref="manualInput" x-on:keydown.enter.prevent="submitManual()" inputmode="numeric" autocomplete="off" placeholder="Type or scan barcode…" class="min-h-11 min-w-0 rounded-lg border border-white/20 bg-white/10 px-3 font-mono text-base text-white placeholder:text-gray-500 sm:border-gray-300 sm:bg-white sm:text-gray-950 dark:sm:border-gray-600 dark:sm:bg-gray-800 dark:sm:text-white" />
-                        <button type="button" x-on:click="submitManual()" :disabled="busy" class="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Use Code</button>
+                        <button type="button" x-on:click="submitManual()" class="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Use Code</button>
                     </div>
                 </div>
 
@@ -101,10 +97,6 @@
 function cameraScanner() {
     return {
         isOpen: false,
-        continuous: false,
-        busy: false,
-        acceptedCode: null,
-        resultText: '',
         detected: false,
         error: null,
         statusText: '',
@@ -137,10 +129,6 @@ function cameraScanner() {
             if (this.isOpen) return;
 
             const detail = event?.detail || {};
-            this.continuous = detail.continuous === true;
-            this.busy = false;
-            this.acceptedCode = null;
-            this.resultText = '';
             this.titleText = detail.title || 'Scan barcode';
             this.helperText = detail.helper || detail.itemName || 'Hold the code inside the frame. It submits automatically.';
             this.targetInput = document.activeElement?.tagName === 'INPUT' ? document.activeElement : null;
@@ -259,7 +247,7 @@ function cameraScanner() {
          */
         onBarcodeDetected(value, error = null) {
             const cleaned = String(value || '').trim();
-            if (!cleaned || this.detected || this.busy || (this.continuous && cleaned === this.acceptedCode)) return;
+            if (!cleaned || this.detected) return;
 
             if (error !== null && error > this.MAX_DECODE_ERROR) {
                 return;
@@ -283,43 +271,19 @@ function cameraScanner() {
 
             this.detected = true;
             this.lastDetectedBarcode = cleaned;
-            this.statusText = this.continuous ? 'Saving received box…' : 'Barcode scanned';
-            this.acceptedCode = cleaned;
-            this.busy = this.continuous;
+            this.statusText = 'Barcode scanned';
             if (navigator.vibrate) navigator.vibrate([80, 45, 80]);
             this.fillInput(cleaned);
-            if (!this.continuous) setTimeout(() => this.close(), 500);
-        },
-
-        receiveResult(event) {
-            if (!this.isOpen || !this.continuous) return;
-            this.busy = false;
-            this.detected = false;
-            this.votes = {};
-            this.resultText = event.detail?.message || 'Check the receiving page for the result.';
-            this.statusText = event.detail?.success ? 'Saved — scan the next box' : 'Not saved — check the message';
-            if (event.detail?.pause) this.close();
-        },
-
-        nextBox() {
-            if (this.busy) return;
-            this.acceptedCode = null;
-            this.detected = false;
-            this.votes = {};
-            this.statusText = 'Ready for another box';
+            setTimeout(() => this.close(), 500);
         },
 
         submitManual() {
-            if (this.busy) return;
             const value = (this.$refs.manualInput?.value || '').trim();
             if (!value) return;
             this.detected = true;
             this.lastDetectedBarcode = value;
-            this.acceptedCode = value;
-            this.busy = this.continuous;
-            this.statusText = this.continuous ? 'Saving received box…' : 'Barcode scanned';
             this.fillInput(value);
-            if (!this.continuous) this.close();
+            this.close();
         },
 
         fillInput(value) {

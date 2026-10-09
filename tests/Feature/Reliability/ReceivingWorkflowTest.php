@@ -78,14 +78,27 @@ class ReceivingWorkflowTest extends TestCase
         $this->assertEquals(0, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
 
-    public function test_product_scan_receives_one_case_and_duplicate_case_label_does_not_receive_another(): void
+    public function test_product_scan_only_matches_then_receiving_requires_quantity_confirmation(): void
     {
         [$pallet, $line, $item] = $this->delivery();
         $component = Livewire::test(ReceivePallet::class, ['record' => $pallet])
             ->set('barcodeInput', 'RCV-CODE')->call('submitBarcode')->assertSet('lastScanSuccess', true);
-        $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+        $this->assertEquals(0, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+        $component->assertSet('targetLineId', $line->id)->set('partialReceiveQuantity.' . $line->id, 1)->call('receivePartialLine', $line->id);
         $received = $line->cases()->where('status', 'received')->first();
+        $received->update(['barcode' => 'UNIQUE-CASE-TEST']);
         $component->set('barcodeInput', $received->barcode)->call('submitBarcode')->assertSet('lastScanSuccess', false);
         $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
+    public function test_history_opens_from_inventory_without_changing_stock(): void
+    {
+        [$pallet, $line, $item] = $this->delivery();
+        app(ReceivingService::class)->receiveCasesForLine($line, 1);
+        Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
+            ->call('mountAction', 'itemHistory', ['item' => $item->id])
+            ->assertSee('Received via pallet')
+            ->assertSee('Test boxes');
+        $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+    }
+
 }

@@ -22,7 +22,6 @@ jobs:
       - run: node scripts/check-ux.cjs
       - run: node scripts/check-confirmations.cjs
       - run: node scripts/check-action-feedback.cjs
-      - run: node scripts/check-receiving-scanner.cjs
       - run: python3 scripts/check-show-scan-range.py
       - run: python3 -m py_compile scripts/whatnot-analytics-lives.py
       - run: npm run build

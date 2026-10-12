@@ -124,5 +124,47 @@
                 </div>
             </section>
         @endif
+
+        @php($tags = $this->titleTags)
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl" aria-labelledby="title-tags-heading">
+            <div class="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
+                <h2 id="title-tags-heading" class="text-base font-semibold text-gray-950 dark:text-white">By what the title offered</h2>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+                    Earnings per hour of streaming, by what each show's title promised. Read from titles automatically every night.
+                    A show with several tags counts under each, so rows overlap.
+                    @if ($tags['overall']['gross_per_hour'] !== null)
+                        All shows in range: <strong>${{ number_format($tags['overall']['gross_per_hour'], 2) }}/hr gross</strong>, ${{ number_format($tags['overall']['net_per_hour'], 2) }}/hr net.
+                    @endif
+                </p>
+                @if ($tags['untagged'] > 0)
+                    <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">{{ number_format($tags['untagged']) }} {{ Str::plural('show', $tags['untagged']) }} not tagged yet — choose Tag titles now, or wait for tonight's run.</p>
+                @endif
+            </div>
+            @if (empty($tags['rows']))
+                <p class="p-6 text-center text-sm text-gray-500">No tagged shows in this period.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            <tr><th class="px-4 py-2 sm:px-5">Title offered</th><th class="px-3 py-2 text-right">Shows</th><th class="px-3 py-2 text-right">Hours</th><th class="px-3 py-2 text-right">Gross / hr</th><th class="px-3 py-2 text-right">Net / hr</th><th class="px-4 py-2 text-right sm:px-5">vs all shows</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($tags['rows'] as $row)
+                                <tr>
+                                    <td class="px-4 py-2.5 font-medium text-gray-950 dark:text-white sm:px-5">{{ $row['label'] }}</td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums">{{ number_format($row['shows']) }}</td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums">{{ number_format($row['hours'], 1) }}</td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums">{{ $row['gross_per_hour'] !== null ? '$'.number_format($row['gross_per_hour'], 2) : '—' }}</td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums">{{ $row['net_per_hour'] !== null ? '$'.number_format($row['net_per_hour'], 2) : '—' }}</td>
+                                    <td class="px-4 py-2.5 text-right tabular-nums sm:px-5 {{ ($row['gross_vs_overall_pct'] ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
+                                        {{ $row['gross_vs_overall_pct'] === null ? '—' : (($row['gross_vs_overall_pct'] >= 0 ? '+' : '').number_format($row['gross_vs_overall_pct'], 1).'%') }}
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
     </div>
 </x-filament-panels::page>

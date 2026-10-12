@@ -42,6 +42,16 @@ class NeedsAttentionWidget extends Widget
         return ['items' => $this->items(), 'detailData' => $this->detail ? $this->detailFor($this->detail) : null];
     }
 
+    /**
+     * The same rows the widget shows, for the weekly owner email.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function summaryItems(): array
+    {
+        return $this->items();
+    }
+
     /** @return array<int,array<string,mixed>> */
     private function items(): array
     {

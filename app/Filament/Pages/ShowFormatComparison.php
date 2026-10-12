@@ -91,6 +91,28 @@ class ShowFormatComparison extends Page
     }
 
     /** Shows still waiting on a classification, so the gap is visible. */
+    public function getTitleTagsProperty(): array
+    {
+        return app(ShowFormatAnalytics::class)->compareTitleTags(
+            $this->from(),
+            null,
+            $this->channelId === '' ? null : (int) $this->channelId,
+        );
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('tag_titles')
+                ->label('Tag titles now')->icon('heroicon-o-tag')->color('gray')
+                ->tooltip('Runs nightly anyway. Use after a batch of new shows comes in.')
+                ->action(function (): void {
+                    \Illuminate\Support\Facades\Artisan::call('shows:tag-titles');
+                    \Filament\Notifications\Notification::make()->title(trim(\Illuminate\Support\Facades\Artisan::output()) ?: 'Titles tagged')->success()->send();
+                }),
+        ];
+    }
+
     public function getUnclassifiedCountProperty(): int
     {
         foreach ($this->rows as $row) {

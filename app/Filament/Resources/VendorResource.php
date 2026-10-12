@@ -217,6 +217,11 @@ class VendorResource extends Resource
             ->striped();
     }
 
+    public static function getRelations(): array
+    {
+        return [\App\Filament\Resources\VendorResource\RelationManagers\ReceivingHistoryRelationManager::class];
+    }
+
     public static function getPages(): array
     {
         return [
@@ -227,3 +232,4 @@ class VendorResource extends Resource
         ];
     }
 }
+

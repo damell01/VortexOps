@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-dashboard-shortcuts />
     @php
         $pageMode = $roleMode ?? 'user';
         $myUpcomingShows = collect();

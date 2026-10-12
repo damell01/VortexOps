@@ -646,6 +646,8 @@ class ReceivePallet extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('history')->label('Receiving History')->icon('heroicon-o-clock')->url(fn () => \App\Filament\Pages\PalletReceivingHistory::getUrl()),
+            Action::make('inventory_guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => \App\Filament\Pages\InventoryGuide::getUrl())->visible(fn () => \App\Filament\Pages\InventoryGuide::canAccess()),
             Action::make('complete_pallet')
                 ->label('Review & complete')
                 ->icon('heroicon-o-check-circle')
@@ -697,7 +699,7 @@ class ReceivePallet extends Page
             // edit the pallet instead, which is a page change, a form, a save
             // and a walk back, one-handed, holding a box.
             Action::make('add_attachments')
-                ->label('Add Photos / Documents')
+                ->label('Add manifest, invoice or photos')
                 ->icon('heroicon-o-camera')
                 ->color('gray')
                 ->modalHeading('Add to this pallet')
@@ -705,14 +707,14 @@ class ReceivePallet extends Page
                 ->schema([
                     \Filament\Forms\Components\FileUpload::make('files')
                         ->label('Photos or documents')
-                        ->multiple()
+                        ->multiple()->required()->maxFiles(10)
                         ->disk(\App\Services\PalletAttachmentService::DISK)
 
                         ->directory('pallets')
                         ->visibility('public')
                         ->maxSize(5120)
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'])
-                        ->helperText('Up to 5MB each. Use Take Photo below to capture one now.'),
+                        ->helperText('Attach manifests, invoices or damage photos. Up to 10 files, 5MB each. Use Take Photo to capture one now.'),
                     \Filament\Schemas\Components\View::make('filament.components.photo-capture-button'),
                     \Filament\Forms\Components\TextInput::make('description')
                         ->label('Note (optional)')
@@ -800,4 +802,5 @@ class ReceivePallet extends Page
         ];
     }
 }
+
 

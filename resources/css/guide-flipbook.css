@@ -26,4 +26,18 @@
 @media (max-width: 640px) { .vx-flipbook { padding: .75rem .5rem; } .vx-flipbook-controls { flex-wrap: wrap; gap: .5rem; } }
 /* "Read here" opens the guide as a full-viewport overlay above the panel chrome. */
 .vx-guide-overlay .vx-flipbook { background: none; overflow: auto; }
-.vx-guide-overlay .vx-flipbook-stage { max-width: min(100%, calc((100dvh - 190px) * 1.545)); }
+/* Pages are sized from the measured space in JS; when zoomed wider than the
+   window the reader scrolls, and the controls stay pinned at the bottom. */
+.vx-guide-overlay .vx-flipbook-stage { max-width: none; }
+.vx-guide-overlay .vx-flipbook-controls {
+    position: sticky; bottom: 0; left: 0; z-index: 2; margin: .75rem -1rem -1rem; padding: .6rem 1rem;
+    background: rgb(18 12 38 / .88); backdrop-filter: blur(6px); flex-wrap: wrap;
+}
+.vx-flipbook-zoom { display: inline-flex; align-items: center; gap: .25rem; }
+.vx-flipbook-zoom [data-zoom] { min-width: 5.5rem; text-align: center; }
+@media (max-width: 640px) {
+    .vx-guide-overlay .vx-flipbook-controls { margin: .5rem -.5rem -.75rem; padding: .5rem; gap: .4rem; }
+    .vx-flipbook-controls [data-page] { min-width: 6.5rem; }
+    /* Keep the phone header to one row; Download still covers it. */
+    .vx-guide-overlay .vx-guide-open { display: none; }
+}

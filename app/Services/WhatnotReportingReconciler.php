@@ -54,6 +54,13 @@ class WhatnotReportingReconciler
                 // Whatnot UUID is globally unique in our schema. Never create a
                 // duplicate merely because a channel context was wrong.
                 $show = Show::query()->where('whatnot_show_id', $liveId)->first();
+                // Shows from the hourly import often carry the live id only in
+                // their link. Match those too, or a show whose date was saved
+                // wrong (UTC) gets a second, corrected copy beside it instead
+                // of being corrected.
+                $show ??= Show::query()->whereNull('whatnot_show_id')
+                    ->where('detail_url', 'like', '%'.$liveId.'%')
+                    ->orderBy('id')->first();
                 // CSV exports contain no UUID. Attach a uniquely matching CSV
                 // shell instead of creating another copy during later discovery.
                 if (! $show) {

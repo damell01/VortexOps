@@ -47,7 +47,7 @@ class Shows extends Page
     protected static string $moduleSlug = 'streams';
     protected static ?string $title = 'Shows';
 
-    public const VIEWS = ['month', 'week', 'list', 'day'];
+    public const VIEWS = ['month', 'week', 'channels', 'list', 'day'];
 
     /** Shows starting before this hour are treated as the tail of the previous evening. */
     private const LATE_NIGHT_CUTOFF = 5;
@@ -61,6 +61,8 @@ class Shows extends Page
     #[Url(as: 'streamer')] public string $filterStreamer = '';
     #[Url(as: 'channel')] public string $filterChannel = '';
     #[Url(as: 'q')] public string $searchQuery = '';
+    /** Channels switched off with the pills above the calendar: ids, and "none" for shows with no channel. */
+    #[Url(as: 'hide')] public string $hiddenChannels = '';
 
     public function mount(): void
     {
@@ -186,7 +188,7 @@ class Shows extends Page
     {
         $a = $this->anchorDate();
         $a = match ($this->viewMode) {
-            'week' => $a->addWeeks($dir),
+            'week', 'channels' => $a->addWeeks($dir),
             'day' => $a->addDays($dir),
             default => $a->addMonthsNoOverflow($dir),
         };
@@ -224,7 +226,7 @@ class Shows extends Page
     {
         $a = $this->anchorDate();
         return match ($this->viewMode) {
-            'week' => (function () {
+            'week', 'channels' => (function () {
                 [$s, $e] = $this->weekRange();
                 return $s->isSameMonth($e) ? $s->format('M j').' – '.$e->format('j, Y') : $s->format('M j').' – '.$e->format('M j, Y');
             })(),
@@ -254,9 +256,47 @@ class Shows extends Page
         $this->resetData();
     }
 
+    /** @return list<string> */
+    public function hiddenChannelKeys(): array
+    {
+        return array_values(array_filter(explode(',', $this->hiddenChannels), fn ($k) => $k === 'none' || ctype_digit($k)));
+    }
+
+    /** Show or hide one channel's shows; the pills above the calendar call this. */
+    public function toggleChannel(string $key): void
+    {
+        if ($key !== 'none' && ! ctype_digit($key)) return;
+        $hidden = collect($this->hiddenChannelKeys());
+        $hidden = $hidden->contains($key) ? $hidden->reject(fn ($k) => $k === $key) : $hidden->push($key);
+        $this->hiddenChannels = $hidden->unique()->implode(',');
+        $this->resetData();
+    }
+
+    /** Show only this channel, or everything again if it already is the only one. */
+    public function onlyChannel(string $key): void
+    {
+        $all = $this->channelLegend()->pluck('key');
+        $others = $all->reject(fn ($k) => $k === $key)->values();
+        $this->hiddenChannels = collect($this->hiddenChannelKeys())->sort()->values()->all() === $others->sort()->values()->all()
+            ? ''
+            : $others->implode(',');
+        $this->resetData();
+    }
+
+    public function showAllChannels(): void
+    {
+        $this->hiddenChannels = '';
+        $this->resetData();
+    }
+
+    public static function channelColor(?int $channelId): string
+    {
+        return $channelId ? self::PALETTE[$channelId % count(self::PALETTE)] : '#94a3b8';
+    }
+
     private function resetData(): void
     {
-        unset($this->shows, $this->presented, $this->unassignedShows, $this->monthStats);
+        unset($this->shows, $this->presented, $this->unassignedShows, $this->monthStats, $this->channelsInRange);
     }
 
     // ── Data ────────────────────────────────────────────────────────────────
@@ -292,6 +332,14 @@ class Shows extends Page
         if ($this->filterStatus !== 'all') $q->where('status', $this->filterStatus);
         if ($this->filterStreamer !== '' && auth()->user()?->isAdmin()) $q->whereHas('streamers', fn ($x) => $x->where('streamers.id', (int) $this->filterStreamer));
         if ($this->filterChannel !== '') $q->where('whatnot_channel_id', (int) $this->filterChannel);
+        if ($hidden = $this->hiddenChannelKeys()) {
+            $ids = array_map('intval', array_filter($hidden, fn ($k) => $k !== 'none'));
+            $hideNone = in_array('none', $hidden, true);
+            $q->where(function ($x) use ($ids, $hideNone) {
+                $x->whereNotNull('whatnot_channel_id')->when($ids, fn ($y) => $y->whereNotIn('whatnot_channel_id', $ids));
+                if (! $hideNone) $x->orWhereNull('whatnot_channel_id');
+            });
+        }
         if (($n = trim($this->searchQuery)) !== '') {
             $q->where(fn ($x) => $x->where('title', 'like', "%{$n}%")->orWhere('notes', 'like', "%{$n}%")->orWhere('whatnot_show_id', 'like', "%{$n}%"));
         }
@@ -321,7 +369,7 @@ class Shows extends Page
         $date = $s->show_date?->toDateString() ?? '';
         [$startMin, $endMin] = $this->minutes($s);
         $channel = $s->channel;
-        $color = $channel ? self::PALETTE[$channel->id % count(self::PALETTE)] : '#94a3b8';
+        $color = self::channelColor($channel?->id);
         $state = $this->scheduleState($s, $startMin, $endMin, $now);
         $log = $s->streamerLogEntry;
         $coverage = $s->analyticsCoverageStatus();
@@ -338,6 +386,7 @@ class Shows extends Page
             'duration' => $startMin !== null && $endMin !== null ? $this->durationLabel($endMin - $startMin) : null,
             'title' => (string) ($s->title ?: 'Untitled show'),
             'channel' => $channel?->display_title ?: $channel?->name,
+            'channelKey' => $channel ? (string) $channel->id : 'none',
             'color' => $color,
             'streamers' => $s->streamers->pluck('name')->join(', ') ?: null,
             'initial' => mb_strtoupper(mb_substr($s->streamers->first()?->name ?? '?', 0, 1)),
@@ -513,9 +562,69 @@ class Shows extends Page
         ];
     }
 
+    /**
+     * Every channel with a show in the loaded range, whether or not it is
+     * switched off, so a hidden channel's pill stays there to turn back on.
+     * Counts are every show in the loaded range for that channel.
+     */
+    #[Computed] public function channelsInRange(): Collection
+    {
+        [$from, $to] = $this->gridRange();
+        return $this->scopedQuery()
+            ->whereBetween('show_date', [$from->toDateString(), $to->toDateString()])
+            ->selectRaw('whatnot_channel_id, count(*) as aggregate')
+            ->groupBy('whatnot_channel_id')
+            ->pluck('aggregate', 'whatnot_channel_id');
+    }
+
+    /** @return Collection<int, array{key: string, id: ?int, name: string, color: string, hidden: bool, count: int}> */
     public function channelLegend(): Collection
     {
-        return $this->presented->filter(fn ($p) => $p['channel'])->unique('channel')->map(fn ($p) => ['name' => $p['channel'], 'color' => $p['color']])->sortBy('name')->values();
+        $hidden = $this->hiddenChannelKeys();
+        $names = $this->channels->keyBy('id');
+
+        return $this->channelsInRange->map(function ($count, $id) use ($hidden, $names) {
+            $id = $id === '' || $id === null ? null : (int) $id;
+            $channel = $id ? $names->get($id) : null;
+            $key = $id ? (string) $id : 'none';
+
+            return [
+                'key' => $key,
+                'id' => $id,
+                'name' => $channel ? ($channel->display_title ?: $channel->name) : 'No channel',
+                'color' => self::channelColor($id),
+                'hidden' => in_array($key, $hidden, true),
+                'count' => (int) $count,
+            ];
+        })->sortBy(fn ($c) => ($c['id'] ? '0' : '1').mb_strtolower($c['name']))->values();
+    }
+
+    /**
+     * The "By channel" board: one row per visible channel, one column per day
+     * of the week, each cell listing that channel's shows that day.
+     *
+     * @return array{days: Collection<int, Carbon>, rows: Collection<int, array>}
+     */
+    public function channelBoard(): array
+    {
+        [$start] = $this->weekRange();
+        $days = collect(range(0, 6))->map(fn ($i) => $start->copy()->addDays($i));
+        $inWeek = $this->presented->filter(fn ($p) => $p['date'] >= $days->first()->toDateString() && $p['date'] <= $days->last()->toDateString());
+        $byChannel = $inWeek->groupBy('channelKey');
+
+        $rows = $this->channelLegend()
+            ->reject(fn ($c) => $c['hidden'])
+            ->filter(fn ($c) => $byChannel->has($c['key']) || $c['id'] !== null)
+            ->map(function ($c) use ($days, $byChannel) {
+                $shows = $byChannel->get($c['key'], collect())->groupBy('date');
+
+                return $c + [
+                    'weekCount' => $byChannel->get($c['key'], collect())->count(),
+                    'cells' => $days->map(fn (Carbon $d) => $shows->get($d->toDateString(), collect())->values()),
+                ];
+            })->values();
+
+        return ['days' => $days, 'rows' => $rows];
     }
 
     // ── Assignment & workflow (unchanged behaviour) ─────────────────────────

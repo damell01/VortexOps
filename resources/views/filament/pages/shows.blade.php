@@ -98,6 +98,36 @@
 .dark .vx-chan{color:color-mix(in srgb,var(--c) 55%,#fff);background:color-mix(in srgb,var(--c) 22%,transparent)}
 .vx-chan.none{--c:#94a3b8}
 .vx-acard .tm{white-space:nowrap}.vx-acard .vx-chan{flex:0 1 auto;min-width:0}
+/* Channel toggles: click a pill to hide or show that channel. */
+.vx-legend{align-items:center}
+.vx-ctog{display:inline-flex;align-items:center;gap:2px}
+button.vx-chan{cursor:pointer;gap:5px;min-height:26px;padding:3px 10px;max-width:14rem;font-size:.72rem}
+button.vx-chan:focus-visible,.vx-only:focus-visible,.vx-showall:focus-visible{outline:2px solid var(--vx-p);outline-offset:2px}
+button.vx-chan .n{font-weight:600;opacity:.75}
+button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:dashed;text-decoration:line-through}
+.vx-only{font-size:.66rem;font-weight:600;color:var(--vx-muted);padding:2px 5px;border-radius:6px;min-height:24px}.vx-only:hover{background:var(--vx-line2);color:var(--vx-text)}
+.vx-showall{font-size:.72rem;font-weight:700;color:var(--vx-p);padding:2px 8px;border-radius:6px;min-height:26px}.vx-showall:hover{background:var(--vx-p-soft)}
+.vx-legend-hint{margin-left:auto;font-size:.68rem;color:var(--vx-faint)}
+/* Month: every show in the day, scrolling inside its box. */
+.vx-cell-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:3px;padding-right:2px;scrollbar-width:thin;overscroll-behavior:contain}
+.vx-cell-count{font-size:.62rem;font-weight:600;color:var(--vx-faint)}
+/* By channel: a row per channel, a column per day. */
+.vx-board{overflow-x:auto}
+.vx-board-grid{display:grid;grid-template-columns:150px repeat(7,minmax(150px,1fr));min-width:1200px}
+.vx-board-grid>.h{position:sticky;top:0;z-index:1;padding:8px 6px;text-align:center;font-size:.7rem;font-weight:700;color:var(--vx-muted);background:var(--vx-bg);border-bottom:1px solid var(--vx-line)}
+.vx-board-grid>.h b{display:block;font-size:1.05rem;color:var(--vx-text)}
+.vx-board-grid>.h.is-today{background:var(--vx-p-soft);color:var(--vx-p)}.vx-board-grid>.h.is-today b{color:var(--vx-p)}
+.vx-board-ch{position:sticky;left:0;z-index:1;display:flex;flex-direction:column;justify-content:flex-start;gap:4px;padding:10px;background:var(--vx-bg);border-right:1px solid var(--vx-line);border-bottom:1px solid var(--vx-line)}
+.vx-board-ch small{font-size:.66rem;color:var(--vx-muted)}
+.vx-board-cell{min-width:0;padding:6px;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--vx-line2);border-bottom:1px solid var(--vx-line)}
+.vx-board-cell.is-today{background:var(--vx-p-soft)}
+.vx-bcard{display:block;width:100%;text-align:left;padding:6px 8px;border-radius:8px;border:1px solid color-mix(in srgb,var(--c) 25%,var(--vx-line));border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 6%,var(--vx-bg))}
+.vx-bcard:hover{background:color-mix(in srgb,var(--c) 12%,var(--vx-bg))}
+.vx-bcard .tm{display:block;font-size:.64rem;font-weight:600;color:var(--vx-muted)}
+.vx-bcard .tt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:.76rem;font-weight:700;line-height:1.3;color:var(--vx-text);overflow-wrap:anywhere}
+.vx-bcard .who{display:block;margin-top:2px;font-size:.66rem;color:var(--vx-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-m .vx-legend{flex-wrap:nowrap;overflow-x:auto;padding:10px 0 2px;border:0;scrollbar-width:none}.vx-m .vx-legend-hint{display:none}.vx-m .vx-ctog{flex:none}
+.vx-board-empty{font-size:.66rem;color:var(--vx-faint);padding:4px 2px}
 .vx-filters{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end;padding:14px 16px;border-bottom:1px solid var(--vx-line);background:var(--vx-soft)}
 .vx-filters label{font-size:.7rem;font-weight:600;color:var(--vx-muted);min-width:0}
 .vx-filters input,.vx-filters select{margin-top:4px;width:100%;border-radius:10px;border:1px solid var(--vx-line);background:var(--vx-bg);font-size:.82rem;color:var(--vx-text)}
@@ -113,7 +143,7 @@
 .vx-dows{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--vx-line)}
 .vx-dows div{padding:9px 0;text-align:center;font-size:.7rem;font-weight:700;letter-spacing:.06em;color:var(--vx-muted)}
 .vx-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
-.vx-cell{position:relative;min-width:0;height:172px;padding:6px 6px 4px;border-right:1px solid var(--vx-line);border-bottom:1px solid var(--vx-line);overflow:hidden;display:flex;flex-direction:column;gap:3px}
+.vx-cell{position:relative;min-width:0;height:196px;padding:6px 6px 4px;border-right:1px solid var(--vx-line);border-bottom:1px solid var(--vx-line);overflow:hidden;display:flex;flex-direction:column;gap:3px}
 .vx-cell:nth-child(7n){border-right:0}
 .vx-cell.out{background:var(--vx-soft)}.vx-cell.out .vx-num{color:var(--vx-faint)}
 .vx-cell.add{cursor:copy}.vx-cell.add:hover{background:color-mix(in srgb,var(--vx-p) 4%,transparent)}
@@ -240,7 +270,7 @@
         <div wire:loading.delay class="text-xs" style="color:var(--vx-faint)">Loading…</div>
         <div class="ml-auto flex items-center gap-2">
             <div class="vx-seg" role="group" aria-label="Calendar view">
-                @foreach(['month' => 'Month', 'week' => 'Week', 'list' => 'List'] as $v => $label)
+                @foreach(['month' => 'Month', 'week' => 'Week', 'channels' => 'By channel', 'list' => 'List'] as $v => $label)
                     <button type="button" wire:click="setView('{{ $v }}')" @class(['on' => $viewMode === $v]) aria-pressed="{{ $viewMode === $v ? 'true' : 'false' }}">{{ $label }}</button>
                 @endforeach
             </div>
@@ -248,9 +278,7 @@
         </div>
     </div>
     @include('filament.pages.partials.shows-filters')
-    @if(($legend = $this->channelLegend())->isNotEmpty())
-        <div class="vx-legend">@foreach($legend as $c)<span class="vx-chan" style="--c:{{ $c['color'] }}">{{ $c['name'] }}</span>@endforeach</div>
-    @endif
+    @include('filament.pages.partials.shows-channel-toggles')
 
     @if($viewMode === 'month')
         <div class="vx-dows">@foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $d)<div>{{ strtoupper($d) }}</div>@endforeach</div>
@@ -262,16 +290,18 @@
                          @if($isAdmin) @click="addOn('{{ $iso }}')" title="Add a show on {{ $cell['date']->format('M j') }}" @endif>
                         <div class="vx-cell-h">
                             <button type="button" class="vx-num" wire:click.stop="openDay('{{ $iso }}')" @click.stop aria-label="Open {{ $cell['date']->format('l, F j') }}">{{ $cell['date']->day === 1 || $loop->parent->first && $loop->first ? $cell['date']->format('M j') : $cell['date']->day }}</button>
-                            @if($isToday)<span class="vx-today-tag">Today</span>@endif
+                            @if($isToday)<span class="vx-today-tag">Today</span>@elseif($count > 3)<span class="vx-cell-count">{{ $count }} shows</span>@endif
                         </div>
-                        @foreach($cell['shows']->take(3) as $p)
-                            <button type="button" class="vx-chip {{ $p['state'] }}" style="--c:{{ $p['color'] }}" @click.stop="open({{ $p['id'] }})" title="{{ $p['title'] }}">
-                                <span class="tx"><span class="tm block">{{ $p['time'] }}</span><span class="tt block">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-[10px]">{{ $p['analytics'] }}</span>@endif</span>
-                                @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@else<span class="vx-av" title="{{ $p['streamers'] ?? 'Unassigned' }}">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>@endif
-                            </button>
-                        @endforeach
-                        @if($count > 3)
-                            <button type="button" class="vx-more" wire:click.stop="openDay('{{ $iso }}')" @click.stop>+{{ $count - 3 }} more</button>
+                        @if($count)
+                            {{-- Every show for the day; the list scrolls inside the box. --}}
+                            <div class="vx-cell-list" @click.stop tabindex="-1">
+                                @foreach($cell['shows'] as $p)
+                                    <button type="button" class="vx-chip {{ $p['state'] }}" style="--c:{{ $p['color'] }}" @click.stop="open({{ $p['id'] }})" title="{{ $p['title'] }}@if($p['channel']) · {{ $p['channel'] }}@endif">
+                                        <span class="tx"><span class="tm block">{{ $p['time'] }}</span><span class="tt block">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-[10px]">{{ $p['analytics'] }}</span>@endif</span>
+                                        @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@else<span class="vx-av" title="{{ $p['streamers'] ?? 'Unassigned' }}">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>@endif
+                                    </button>
+                                @endforeach
+                            </div>
                         @endif
                     </div>
                 @endforeach
@@ -301,6 +331,36 @@
                 @endforeach
             </div>
         </div>
+
+    @elseif($viewMode === 'channels')
+        @php $board = $this->channelBoard(); @endphp
+        @if($board['rows']->isEmpty())
+            <div class="vx-empty">No shows this week{{ $this->hiddenChannelKeys() ? ' for the channels shown' : '' }}.</div>
+        @else
+            <div class="vx-board" role="region" aria-label="Shows by channel, {{ $this->calendarTitle() }}" tabindex="0">
+                <div class="vx-board-grid">
+                    <div class="h" style="left:0;z-index:2;text-align:left">Channel</div>
+                    @foreach($board['days'] as $d)<div @class(['h', 'is-today' => $d->toDateString() === $todayIso])>{{ strtoupper($d->format('D')) }}<b>{{ $d->day }}</b></div>@endforeach
+                    @foreach($board['rows'] as $row)
+                        <div class="vx-board-ch"><span class="vx-chan" style="--c:{{ $row['color'] }}">{{ $row['name'] }}</span><small>{{ $row['weekCount'] }} {{ Str::plural('show', $row['weekCount']) }} this week</small></div>
+                        @foreach($row['cells'] as $i => $shows)
+                            @php $iso = $board['days'][$i]->toDateString(); @endphp
+                            <div @class(['vx-board-cell', 'is-today' => $iso === $todayIso])>
+                                @forelse($shows as $p)
+                                    <button type="button" class="vx-bcard" style="--c:{{ $p['color'] }}" @click="open({{ $p['id'] }})" title="{{ $p['title'] }}">
+                                        <span class="tm">{{ $p['timeRange'] }}</span>
+                                        <span class="tt">{{ $p['title'] }}</span>
+                                        <span class="who">{{ $p['streamers'] ?? 'Unassigned' }}</span>
+                                    </button>
+                                @empty
+                                    <span class="vx-board-empty">—</span>
+                                @endforelse
+                            </div>
+                        @endforeach
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
     @elseif($viewMode === 'list')
         @forelse($this->agendaDays() as $iso => $shows)
@@ -364,6 +424,7 @@
         <button type="button" class="vx-btn ic" :class="filters && 'on'" @click="filters = !filters" aria-label="Filters" style="position:relative"><x-filament::icon icon="heroicon-o-funnel" class="h-4 w-4" />@if($filterCount)<span class="vx-badge" style="position:absolute;top:-6px;right:-6px">{{ $filterCount }}</span>@endif</button>
     </div>
     <div class="mt-3 vx-card" x-show="filters" x-cloak style="overflow:hidden">@include('filament.pages.partials.shows-filters', ['mobile' => true])</div>
+    @include('filament.pages.partials.shows-channel-toggles')
 
     <template x-if="mview !== 'month'">
         <div class="vx-strip" @touchstart.passive="ts($event)" @touchend="te($event, n => select(add(sel, 7 * n), n))">

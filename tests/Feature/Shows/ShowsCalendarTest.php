@@ -67,16 +67,17 @@ class ShowsCalendarTest extends TestCase
             ->assertSee('Vortex Cards Night');
     }
 
-    public function test_a_busy_day_shows_three_entries_and_more_instead_of_growing(): void
+    public function test_a_busy_day_lists_every_show_in_a_scrolling_box_instead_of_growing(): void
     {
         foreach (['14:00', '16:30', '18:00', '20:30', '22:30', '00:00'] as $i => $t) $this->show('2026-10-07', $t, null, "Slot {$i}");
 
+        // Every show is in the day (the box scrolls);
+        // there is no "+N more" hiding most of a busy day any more.
         Livewire::test(Shows::class)
-            // Chips carry the title attribute; the drawer's JSON has every show.
-            ->assertSeeHtml('title="Slot 0"')
-            ->assertSeeHtml('title="Slot 2"')
-            ->assertDontSeeHtml('title="Slot 3"')
-            ->assertSee('+3 more');
+            ->assertSeeHtml('title="Slot 0 · ')
+            ->assertSeeHtml('title="Slot 5 · ')
+            ->assertSeeHtml('class="vx-cell-list"')
+            ->assertDontSee('more</button>', false);
     }
 
     public function test_a_day_of_three_shows_them_all(): void
@@ -84,7 +85,7 @@ class ShowsCalendarTest extends TestCase
         foreach (['14:00', '16:30', '18:00'] as $i => $t) $this->show('2026-10-08', $t, null, "Thursday {$i}");
 
         Livewire::test(Shows::class)
-            ->assertSeeHtml('title="Thursday 0"')->assertSeeHtml('title="Thursday 1"')->assertSeeHtml('title="Thursday 2"')
+            ->assertSeeHtml('title="Thursday 0 · ')->assertSeeHtml('title="Thursday 1 · ')->assertSeeHtml('title="Thursday 2 · ')
             ->assertDontSee('more</button>', false);
     }
 

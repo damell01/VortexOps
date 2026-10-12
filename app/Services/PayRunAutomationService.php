@@ -27,10 +27,9 @@ class PayRunAutomationService
      */
     public function syncWeek(string|Carbon $weekStart, bool $recalculate = true): array
     {
-        $start = $weekStart instanceof Carbon
-            ? $weekStart->copy()->startOfWeek(Carbon::MONDAY)
-            : Carbon::parse($weekStart)->startOfWeek(Carbon::MONDAY);
-        $end = $start->copy()->endOfWeek(Carbon::SUNDAY);
+        // The pay period containing that date: an existing run's own dates,
+        // otherwise the configured pay week (see PaySchedule).
+        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart);
 
         return DB::transaction(function () use ($start, $end, $recalculate) {
             $batch = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
@@ -171,13 +170,9 @@ class PayRunAutomationService
      */
     public function previewRange(string|Carbon $from, string|Carbon $to, ?string $memberType = null): array
     {
-        $start = Carbon::parse($from)->startOfWeek(Carbon::MONDAY);
-        $end = Carbon::parse($to)->endOfWeek(Carbon::SUNDAY);
         $rows = [];
 
-        for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addWeek()) {
-            $weekStart = $cursor->copy();
-            $weekEnd = $cursor->copy()->endOfWeek(Carbon::SUNDAY);
+        foreach (\App\Support\PaySchedule::periodsBetween($from, $to) as [$weekStart, $weekEnd]) {
             $batch = WeeklyPayoutBatch::whereDate('week_start', $weekStart->toDateString())
                 ->whereDate('week_end', $weekEnd->toDateString())
                 ->orderBy('id')->first();

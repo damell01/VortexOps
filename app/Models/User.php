@@ -74,6 +74,18 @@ class User extends Authenticatable implements FilamentUser
         return true;
     }
 
+    protected static function booted(): void
+    {
+        // A deleted login takes its pay profile off payroll with it, so the
+        // person stops showing on Rates & Adjustments and in new Pay Runs.
+        // Profiles with past shows or pay are archived, not deleted.
+        static::deleting(function (self $user): void {
+            if ($profile = $user->streamer()->first()) {
+                app(\App\Services\TeamProfileRemoval::class)->remove($profile);
+            }
+        });
+    }
+
     public function streamer(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Streamer::class);

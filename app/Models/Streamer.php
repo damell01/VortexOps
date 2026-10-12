@@ -127,6 +127,7 @@ class Streamer extends Model
     public static function memberTypeLabels(): array { return ['streamer' => 'Streamer', 'fulfillment' => 'Fulfillment']; }
     public static function streamerTypeLabels(): array { return ['in_house' => 'In-House', 'remote' => 'Remote']; }
     public function isRemote(): bool { return $this->streamer_type === 'remote'; }
+    public function isInHouse(): bool { return ! $this->isRemote(); }
     public function scopeStreamers(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder { return $query->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type')); }
     public function scopeFulfillment(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder { return $query->where('member_type', 'fulfillment'); }
     public function isFulfillment(): bool { return $this->member_type === 'fulfillment'; }

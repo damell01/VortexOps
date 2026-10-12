@@ -140,8 +140,9 @@ class PayrollOverview extends Page
     {
         if ($this->payRunResolved) return $this->payRunMemo;
         $this->payRunResolved = true;
-        $weekStart = now()->startOfWeek()->toDateString();
-        $weekEnd = now()->endOfWeek()->toDateString();
+        [$periodStart, $periodEnd] = \App\Support\PaySchedule::periodFor(now());
+        $weekStart = $periodStart->toDateString();
+        $weekEnd = $periodEnd->toDateString();
 
         return $this->payRunMemo = WeeklyPayoutBatch::query()
             ->withCount('payouts')
@@ -153,8 +154,7 @@ class PayrollOverview extends Page
 
     public function mockPayRun(): array
     {
-        $start = now()->startOfWeek();
-        $end = now()->endOfWeek();
+        [$start, $end] = \App\Support\PaySchedule::periodFor(now());
 
         $payouts = Payout::query()
             ->whereHas('show', fn ($q) => $q
@@ -482,8 +482,9 @@ class PayrollOverview extends Page
     {
         if ($this->weekShowsMemo !== null) return $this->weekShowsMemo;
         $run = $this->currentPayRun();
-        $start = $run?->week_start ?? now()->startOfWeek();
-        $end = $run?->week_end ?? now()->endOfWeek();
+        [$periodStart, $periodEnd] = \App\Support\PaySchedule::periodFor(now());
+        $start = $run?->week_start ?? $periodStart;
+        $end = $run?->week_end ?? $periodEnd;
         $workflow = app(ShowWorkflowService::class);
         $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
 

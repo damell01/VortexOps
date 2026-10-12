@@ -31,6 +31,12 @@
             </label>
         </div>
 
+        <label class="mt-4 block rounded-[10px] border border-[var(--vx-border)] p-4 md:max-w-sm">
+            <span class="text-xs font-semibold text-gray-500">In-house hourly rate</span>
+            <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer.hourly_rate" type="number" step=".01" min="0" placeholder="None" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"><span class="text-sm font-bold">/hr</span></div>
+            <span class="mt-2 block text-xs text-gray-500">Paid to in-house streamers for the hours on each show, on top of their share. Remote streamers are not paid hourly. Leave blank for none.</span>
+        </label>
+
         <div class="mt-5 rounded-xl border border-primary-200 bg-primary-50/60 p-5 dark:border-primary-900 dark:bg-primary-950/20">
             <div class="text-xs font-bold uppercase tracking-wider text-primary-600">How payroll is calculated</div>
             <div class="mt-3 space-y-2 font-mono text-sm">
@@ -38,6 +44,7 @@
                 <div>Burden = (Shipments × ${{number_format($ship,2)}}) + (Hours Worked × ${{number_format($hour,2)}})</div>
                 <div>Net Revenue = Gross Revenue − Product Cost − Burden</div>
                 <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = Net Revenue × {{number_format($pct,2)}}% @if($streamer['include_tips']??true) + Tips @endif</div>
+                @if((float)($streamer['hourly_rate']??0) > 0)<div class="font-bold text-primary-700 dark:text-primary-300">In-house streamers also get Hours Worked × ${{number_format((float)$streamer['hourly_rate'],2)}}</div>@endif
             </div>
             <p class="mt-3 text-xs text-gray-500">A weekly Pay Run collects that week's eligible shows. The show calculations roll up into the person's weekly total; a custom override is only used when you intentionally set one.</p>
         </div>
@@ -55,9 +62,12 @@
                 <h2 class="text-lg font-bold">Individual Overrides</h2>
                 <p class="mt-1 text-sm text-gray-500">Filter the roster, then select a person only when their compensation should differ from the role default.</p>
             </div>
+            <div class="flex flex-wrap items-center gap-3">
+            <label class="flex items-center gap-2 text-sm font-semibold text-gray-600 dark:text-gray-300"><input type="checkbox" wire:click="setShowArchived({{ $show_archived ? 'false' : 'true' }})" @checked($show_archived)> Show archived</label>
             <div class="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
                 <button wire:click="setMemberFilter('streamer')" class="rounded-lg px-4 py-2 text-sm font-bold {{$member_filter==='streamer'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900 dark:text-primary-300':'text-gray-500'}}">Streamers</button>
                 <button wire:click="setMemberFilter('fulfillment')" class="rounded-lg px-4 py-2 text-sm font-bold {{$member_filter==='fulfillment'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900 dark:text-primary-300':'text-gray-500'}}">Fulfillment</button>
+            </div>
             </div>
         </div>
 
@@ -65,9 +75,15 @@
             @forelse($this->filteredMembers as $member)
                 @php $pay=$member->effectiveCompensation(); @endphp
                 <button wire:click="editMember({{$member->id}})" class="rounded-xl border border-gray-200 p-4 text-left transition hover:border-primary-500 dark:border-gray-700">
-                    <div class="flex items-center justify-between gap-3"><span class="font-bold">{{$member->name}}</span><span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500 dark:bg-gray-800">{{$member->isFulfillment()?'Fulfillment':'Streamer'}}</span></div>
+                    <div class="flex items-center justify-between gap-3"><span class="font-bold">{{$member->name}}</span><span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500 dark:bg-gray-800">{{$member->isFulfillment()?'Fulfillment':($member->isRemote()?'Remote':'In-house')}}</span></div>
+                    @if($member->status === 'inactive' || ! $member->user_id)
+                        <div class="mt-1 flex flex-wrap gap-1">
+                            @if($member->status === 'inactive')<span class="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-200">Archived</span>@endif
+                            @if(! $member->user_id)<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800 dark:bg-amber-900/50 dark:text-amber-200" title="No user account is linked to this pay profile">No login</span>@endif
+                        </div>
+                    @endif
                     <div class="mt-1 text-xs text-gray-500">
-                        @if(!$member->isFulfillment()){{number_format((float)($pay['effective']['payout_percentage']??0),2)}}% · @endif
+                        @if(!$member->isFulfillment()){{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@if($member->isInHouse() && (float)($pay['effective']['hourly_rate']??0) > 0) + ${{number_format((float)$pay['effective']['hourly_rate'],2)}}/hr @endif · @endif
                         @if(count($pay['overrides']??[])) Individual Override @else Standard {{ $member->isFulfillment() ? 'Fulfillment' : 'Streamer' }} Calculation @endif
                     </div>
                 </button>
@@ -83,6 +99,7 @@
             @if(!$editingMember->isFulfillment())
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.payout_percentage">Use a different Streamer Pay %</span><input wire:model="member_override_values.payout_percentage" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.hourly_rate">Use a different hourly rate</span><input wire:model="member_override_values.hourly_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"><span class="mt-1 block text-xs text-gray-500">{{ $editingMember->isRemote() ? 'This streamer is remote, so no hourly pay is added. Change them to in-house on their user profile to pay hourly.' : 'Paid for each show\'s hours on top of their share.' }}</span></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Use a different calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 font-mono text-sm dark:bg-gray-800" placeholder="Only for this streamer"></textarea></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.include_tips">Override tip handling</span><label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" wire:model="member_override_values.include_tips">Include tips in pay</label></label>
                 </div>
@@ -96,10 +113,35 @@
                 </div>
             @endif
 
-            <div class="mt-4 flex justify-end gap-3"><button wire:click="resetMemberOverrides({{$editingMember->id}})" class="rounded-lg border px-4 py-2 text-sm font-bold">Reset to Role Default</button><button wire:click="saveMemberOverrides" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white">Save Override</button></div>
+            <div class="mt-4 flex flex-wrap justify-end gap-3">
+                @if($editingMember->status === 'inactive')
+                    <button wire:click="restoreMember({{$editingMember->id}})" class="mr-auto rounded-lg border px-4 py-2 text-sm font-bold">Put back on payroll</button>
+                @else
+                    <button type="button" x-data x-on:click="if (await window.vxConfirm(@js('Remove '.$editingMember->name.' from payroll? A profile with no shows or pay is deleted; one with history is archived and can be restored.'))) $wire.removeMember({{$editingMember->id}})" class="mr-auto rounded-lg border border-danger-300 px-4 py-2 text-sm font-bold text-danger-700 dark:border-danger-800 dark:text-danger-300">Remove from payroll</button>
+                @endif
+                <button wire:click="resetMemberOverrides({{$editingMember->id}})" class="rounded-lg border px-4 py-2 text-sm font-bold">Reset to Role Default</button><button wire:click="saveMemberOverrides" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white">Save Override</button></div>
         </div>
         @endif
     </div>
+
+    @php $schedule = $this->schedulePreview; @endphp
+    <section class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900" aria-labelledby="pay-schedule-heading">
+        <h2 id="pay-schedule-heading" class="text-lg font-bold">Pay schedule</h2>
+        <p class="mt-1 text-sm text-gray-500">Which day a pay week starts on. Pay Runs already created keep their dates.</p>
+        <div class="mt-4 grid gap-4 md:grid-cols-3">
+            <label class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <span class="text-xs font-semibold text-gray-500">Pay week starts on</span>
+                <select wire:model.live="payroll_week_start_day" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 font-bold dark:border-gray-600 dark:bg-gray-800">
+                    @foreach(\App\Support\PaySchedule::dayOptions() as $day => $name)<option value="{{ $day }}">{{ $name }}</option>@endforeach
+                </select>
+            </label>
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-sm"><div class="text-xs font-semibold text-gray-500">Current pay period</div><div class="mt-2 font-bold">{{ $schedule['current'] }}</div></div>
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-sm"><div class="text-xs font-semibold text-gray-500">Next pay period</div><div class="mt-2 font-bold">{{ $schedule['next'] }}</div></div>
+        </div>
+        @if($schedule['changed'])
+            <p class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">Save to apply. The next new Pay Run starts the day after the current one ends, so no days are skipped; that one may be shorter than a week, then every run is {{ \App\Support\PaySchedule::dayOptions()[(int) $payroll_week_start_day] }} to {{ \App\Support\PaySchedule::dayOptions()[((int) $payroll_week_start_day + 6) % 7] }}.</p>
+        @endif
+    </section>
 
     <details class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
         <summary class="cursor-pointer text-lg font-bold">Pay Run Automation</summary>

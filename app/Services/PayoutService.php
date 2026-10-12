@@ -240,13 +240,29 @@ class PayoutService
             }
         }
 
+        // In-house streamers are also paid by the hour. Added after the owner
+        // fee, which is a cut of the streamer's share, not of their wages.
+        // Hours are the ones the share was worked out from (the streamer's
+        // report, falling back to the show's length).
+        $hourlyPay = 0.0;
+        $hourlyRate = (float) ($streamer->hourly_rate ?? 0);
+        if (in_array($streamer->payout_type, ['profit_share', 'custom_formula'], true)
+            && $streamer->isInHouse() && ! $streamer->isFulfillment() && $hourlyRate > 0) {
+            $paidHours = (float) ($share['columns']['hours_worked'] ?? $hours);
+            if ($paidHours > 0) {
+                $hourlyPay = round($hourlyRate * $paidHours, 2);
+                $calculatedPayout = round($calculatedPayout + $hourlyPay, 2);
+                $calculationNotes .= " + \${$hourlyPay} hourly (\${$hourlyRate}/hr × {$paidHours}hrs)";
+            }
+        }
+
         return [
             'payout_type'          => $streamer->payout_type,
             'gross_show_revenue'   => $grossRevenue,
             // The inputs the share was worked out from, so the payout can show
             // its working without anybody reopening the report to re-do it.
             'product_cost'         => $share['columns']['product_cost']      ?? null,
-            'hours_worked'         => $share['columns']['hours_worked']      ?? null,
+            'hours_worked'         => $share['columns']['hours_worked']      ?? ($hourlyPay > 0 ? $paidHours : null),
             'shipments_count'      => $share['columns']['shipments_count']   ?? null,
             'burden_amount'        => $share['columns']['burden_amount']     ?? null,
             'net_revenue_basis'    => $share['columns']['net_revenue_basis'] ?? null,
@@ -496,8 +512,7 @@ class PayoutService
 
     public function createWeeklyBatch(string $weekStart): WeeklyPayoutBatch
     {
-        $start = Carbon::parse($weekStart)->startOfWeek(Carbon::MONDAY);
-        $end   = $start->copy()->endOfWeek(Carbon::SUNDAY);
+        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart);
 
         return DB::transaction(function () use ($start, $end) {
             $batch = WeeklyPayoutBatch::create([
@@ -529,8 +544,7 @@ class PayoutService
      */
     public function createManualBatch(string $weekStart, array $streamerIds, ?string $notes = null): WeeklyPayoutBatch
     {
-        $start = Carbon::parse($weekStart)->startOfWeek(Carbon::MONDAY);
-        $end   = $start->copy()->endOfWeek(Carbon::SUNDAY);
+        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart);
 
         return DB::transaction(function () use ($start, $end, $streamerIds, $notes) {
             $batch = WeeklyPayoutBatch::create([

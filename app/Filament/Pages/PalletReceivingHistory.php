@@ -58,7 +58,11 @@ class PalletReceivingHistory extends Page implements HasTable
     public static function receiptColumns(): array
     {
         return [\Filament\Tables\Columns\Layout\Stack::make([
-            \Filament\Tables\Columns\ViewColumn::make('receipt')->view('filament.tables.receiving-card'),
+            \Filament\Tables\Columns\ViewColumn::make('receipt')->view('filament.tables.receiving-card')
+                ->searchable(query: fn ($query, string $search) => $query->where(fn ($q) => $q
+                    ->where('pallets.name','like',"%{$search}%")
+                    ->orWhere('pallets.reference','like',"%{$search}%")
+                    ->orWhereHas('vendor', fn ($vendor) => $vendor->where('name','like',"%{$search}%")))),
             TextColumn::make('name')->searchable(['name', 'reference'])->hidden(),
             TextColumn::make('vendor.name')->searchable()->hidden(),
         ])];
@@ -116,13 +120,14 @@ class PalletReceivingHistory extends Page implements HasTable
             ->columns(static::receiptColumns())
             ->contentGrid(['md' => 2, 'xl' => 4])
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
-            ->filtersFormColumns(['default'=>1, 'md'=>4])
+            ->filtersFormColumns(['default'=>1, 'md'=>5])
+            ->deferFilters(false)
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('vendor_id')->label('Vendor')->relationship('vendor', 'name')->searchable()->preload(),
                 \Filament\Tables\Filters\SelectFilter::make('location')->label('Location')->options(\App\Models\InventoryLocation::activeOptions())->searchable()
                     ->query(fn ($query, array $data) => $query->when($data['value'] ?? null, fn ($q,$id) => $q->whereHas('lines', fn ($lines) => $lines->where('inventory_location_id',$id)))),
                 \Filament\Tables\Filters\SelectFilter::make('status')->label('Progress')->options(['receiving'=>'In progress', 'received'=>'Complete', 'processed'=>'Complete (legacy)']),
-                \Filament\Tables\Filters\Filter::make('received_dates')->schema([
+                \Filament\Tables\Filters\Filter::make('received_dates')->columns(2)->columnSpan(['default'=>1,'md'=>2])->schema([
                     \Filament\Forms\Components\DatePicker::make('from')->label('Received from'),
                     \Filament\Forms\Components\DatePicker::make('until')->label('Received through'),
                 ])->query(fn ($query, array $data) => $query
@@ -137,6 +142,7 @@ class PalletReceivingHistory extends Page implements HasTable
                     ->modalContent(fn (Pallet $record) => view('filament.tables.receiving-details', ['record'=>$record->loadMissing(['attachments','createdBy'])]))
                     ->modalSubmitAction(false)->modalCancelActionLabel('Close'),
                 Action::make('open')->label('Open delivery')->icon('heroicon-o-arrow-top-right-on-square')->url(fn (Pallet $record) => \App\Filament\Resources\PalletResource::getUrl('view', ['record'=>$record])),
+                \Filament\Actions\ActionGroup::make([
                 Action::make('resume')->label('Resume receiving')->icon('heroicon-o-play')->visible(fn (Pallet $record) => $record->status === 'receiving')->url(fn (Pallet $record) => \App\Filament\Resources\PalletResource::getUrl('receive', ['record'=>$record])),
                 Action::make('view_items')
                     ->label('Items')
@@ -207,6 +213,7 @@ class PalletReceivingHistory extends Page implements HasTable
                                 ->send();
                         }
                     }),
+                ])->label('More delivery actions')->icon('heroicon-m-ellipsis-vertical')->iconButton()->color('gray'),
             ])
             ->bulkActions([])
             ->striped();

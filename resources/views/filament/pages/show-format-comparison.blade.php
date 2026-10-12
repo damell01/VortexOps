@@ -125,7 +125,9 @@
             </section>
         @endif
 
-        @php($tags = $this->titleTags)
+        @php
+            $tags = $this->titleTags;
+        @endphp
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl" aria-labelledby="title-tags-heading">
             <div class="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
                 <h2 id="title-tags-heading" class="text-base font-semibold text-gray-950 dark:text-white">By what the title offered</h2>

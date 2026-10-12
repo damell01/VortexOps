@@ -362,7 +362,7 @@
                     await request(`${API}/barcodes/${btn.dataset.remove}`, { method: 'DELETE', body: '{}' });
                     toast('Barcode removed.');
                     showBarcodeManager(itemId);
-                } catch (error) { alert(error.message); }
+                } catch (error) { window.vxConfirm?.(error.message); }
             }));
             manager.querySelector('[data-add-code]').addEventListener('click', async () => {
                 const code = manager.querySelector('[data-new-code]').value.trim();

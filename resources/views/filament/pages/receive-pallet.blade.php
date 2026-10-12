@@ -13,19 +13,64 @@
         class="mx-auto max-w-7xl pb-24 sm:pb-8"
         data-vx-page="pallet-receive"
         x-data="{
-            scanBusy: false,
-            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Find a manifest item', helper: 'Scan any item, then check the match and receive the quantity that arrived.' } })); },
-            async submitCameraScan(event) {
-                const value = event?.detail?.value;
-                if (!value || this.scanBusy) return;
-                this.scanBusy = true;
+            {{-- Every scan is kept on this device until the server confirms it,
+                 so a warehouse dead spot never loses one. Each carries an id the
+                 server remembers, so re-sending after a lost reply cannot count
+                 a box twice (ReceivePallet::submitScan). --}}
+            queueKey: 'vx-scan-queue:{{ $record->id }}:{{ auth()->id() }}',
+            queued: [],
+            online: navigator.onLine,
+            flushing: false,
+            flushNote: '',
+            timer: null,
+            init() {
+                this.queued = this.load();
+                window.addEventListener('online', () => { this.online = true; this.flush(); });
+                window.addEventListener('offline', () => { this.online = false; });
+                this.timer = setInterval(() => { if (this.queued.length && navigator.onLine) this.flush(); }, 20000);
+                if (this.queued.length && navigator.onLine) setTimeout(() => this.flush(), 1500);
+            },
+            destroy() { clearInterval(this.timer); },
+            load() { try { return JSON.parse(localStorage.getItem(this.queueKey) || '[]'); } catch (e) { return []; } },
+            save() { try { localStorage.setItem(this.queueKey, JSON.stringify(this.queued)); } catch (e) {} },
+            newId() {
+                if (window.crypto?.randomUUID) return crypto.randomUUID();
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+            },
+            async scan(value) {
+                const code = String(value || '').trim();
+                if (!code) return;
+                this.queued.push({ id: this.newId(), code, at: Date.now() });
+                this.save();
+                if (!navigator.onLine) { this.online = false; return; }
+                await this.flush();
+            },
+            async flush() {
+                if (this.flushing || !this.queued.length) return;
+                this.flushing = true;
+                this.flushNote = '';
                 try {
-                    await $wire.set('barcodeInput', value, false);
-                    await $wire.submitBarcode();
-                } catch (error) {
-                    window.vxConfirm?.('Save could not be confirmed. Check received counts before retrying.');
-                } finally { this.scanBusy = false; }
-            }
+                    while (this.queued.length && navigator.onLine) {
+                        const item = this.queued[0];
+                        let result = null;
+                        try { result = await $wire.submitScan(item.code, item.id); } catch (e) { result = null; }
+                        if (!result) break; {{-- not confirmed: keep it and try again later --}}
+                        this.queued.shift();
+                        this.save();
+                        if (result.needs_choice && this.queued.length) {
+                            this.flushNote = 'Choose the line for that scan — the other saved scans will follow.';
+                            break;
+                        }
+                    }
+                } finally { this.flushing = false; }
+            },
+            async discardQueued() {
+                if (!(await window.vxConfirm?.('Discard ' + this.queued.length + ' saved scan(s)? They have not been received.'))) return;
+                this.queued = [];
+                this.save();
+            },
+            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Find a manifest item', helper: 'Scan any item, then check the match and receive the quantity that arrived.' } })); },
+            submitCameraScan(event) { this.scan(event?.detail?.value); }
         }"
         x-on:scan-line-targeted.window="openScanner()"
         x-on:barcode-scanned.window="submitCameraScan($event)"
@@ -73,8 +118,8 @@
         </section>
 
         <div role="status" aria-live="polite" class="mb-3 text-sm text-gray-500">
-            <span wire:loading wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Saving receipt…</span>
-            <span wire:loading.remove wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Successful receipts are saved immediately. Unfinished inputs are restored in this signed-in session.</span>
+            <span wire:loading wire:target="submitBarcode,submitScan,receivePartialLine,receiveLine,assignPendingTo">Saving receipt…</span>
+            <span wire:loading.remove wire:target="submitBarcode,submitScan,receivePartialLine,receiveLine,assignPendingTo">Successful receipts are saved immediately. Unfinished inputs are restored in this signed-in session.</span>
         </div>
         <button type="button" wire:click="mountAction('review_receiving')" wire:loading.attr="disabled" class="mb-4 min-h-11 rounded-xl border border-primary-300 px-4 font-semibold text-primary-700 dark:text-primary-300">Review receiving</button>
         {{-- Workstation: scan on the left, manifest on the right. On phones scan stays first. --}}
@@ -111,8 +156,8 @@
 
                         <label for="receiving-barcode-input" class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200">Barcode / UPC / SKU</label>
                         <input
-                            wire:model="barcodeInput"
-                            wire:keydown.enter="submitBarcode"
+                            x-ref="barcode"
+                            x-on:keydown.enter.prevent="scan($el.value); $el.value = ''"
                             id="receiving-barcode-input"
                             type="text"
                             autocomplete="off"
@@ -124,10 +169,27 @@
                             <button type="button" @click="openScanner()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-primary-300 bg-white px-3 text-sm font-bold text-primary-700 shadow-sm hover:bg-primary-50 dark:border-primary-800 dark:bg-gray-800 dark:text-primary-300">
                                 <x-heroicon-o-camera class="h-5 w-5" /> Camera
                             </button>
-                            <button type="button" wire:click="submitBarcode" wire:loading.attr="disabled" wire:target="submitBarcode" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-600 px-3 text-sm font-bold text-white shadow-sm hover:bg-primary-700 disabled:opacity-60">
-                                <span wire:loading.remove wire:target="submitBarcode">Find item</span>
-                                <span wire:loading wire:target="submitBarcode">Checking…</span>
+                            <button type="button" x-on:click="scan($refs.barcode.value); $refs.barcode.value = ''" wire:loading.attr="disabled" wire:target="submitScan" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary-600 px-3 text-sm font-bold text-white shadow-sm hover:bg-primary-700 disabled:opacity-60">
+                                <span wire:loading.remove wire:target="submitScan">Find item</span>
+                                <span wire:loading wire:target="submitScan">Checking…</span>
                             </button>
+                        </div>
+
+                        {{-- Scans waiting on this device (offline, or not yet confirmed). --}}
+                        <div x-cloak x-show="queued.length || !online" role="status" aria-live="polite"
+                             class="mt-3 rounded-xl border px-3 py-2.5 text-sm"
+                             :class="online ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100' : 'border-gray-300 bg-gray-100 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'">
+                            <p class="font-semibold">
+                                <span x-show="!online">You're offline. Keep scanning — scans are saved on this device.</span>
+                                <span x-show="online && flushing">Sending saved scans…</span>
+                                <span x-show="online && !flushing && queued.length">Saved scans are waiting to send.</span>
+                            </p>
+                            <p class="mt-0.5 text-xs" x-show="queued.length" x-text="queued.length + ' scan' + (queued.length === 1 ? '' : 's') + ' saved on this device · sent automatically when the connection is back'"></p>
+                            <p class="mt-1 text-xs font-semibold" x-show="flushNote" x-text="flushNote"></p>
+                            <div class="mt-2 flex gap-2" x-show="queued.length">
+                                <button type="button" x-on:click="flush()" :disabled="!online || flushing" class="inline-flex min-h-9 items-center rounded-lg bg-amber-600 px-3 text-xs font-bold text-white disabled:opacity-50">Send now</button>
+                                <button type="button" x-on:click="discardQueued()" class="inline-flex min-h-9 items-center rounded-lg px-3 text-xs font-semibold underline">Discard</button>
+                            </div>
                         </div>
 
                         <div class="relative mt-3 border-t border-gray-200 pt-3 dark:border-gray-700">

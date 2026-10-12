@@ -91,6 +91,28 @@ class ReceivingWorkflowTest extends TestCase
         $component->set('barcodeInput', $received->barcode)->call('submitBarcode')->assertSet('lastScanSuccess', false);
         $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
+    public function test_a_scan_resent_after_a_lost_reply_is_counted_once(): void
+    {
+        [$pallet, $line, $item] = $this->delivery();
+        $case = $line->cases()->where('status', '!=', 'received')->first();
+        $case->update(['barcode' => 'CASE-OFFLINE-1']);
+        $scanId = (string) \Illuminate\Support\Str::uuid();
+
+        $component = Livewire::test(ReceivePallet::class, ['record' => $pallet])
+            ->assertSee('vx-scan-queue:'.$pallet->id, false);
+        $first = $component->call('submitScan', 'CASE-OFFLINE-1', $scanId)->effects['returns'][0] ?? null;
+        $this->assertTrue($first['ok']);
+        $this->assertFalse($first['duplicate']);
+        $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+
+        // The device never heard back, so it sends the same scan again.
+        $again = $component->call('submitScan', 'CASE-OFFLINE-1', $scanId)->effects['returns'][0] ?? null;
+        $this->assertTrue($again['duplicate']);
+        $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+
+        $component->call('submitScan', 'CASE-OFFLINE-1', 'not-a-uuid')->assertStatus(422);
+    }
+
     public function test_history_opens_from_inventory_without_changing_stock(): void
     {
         [$pallet, $line, $item] = $this->delivery();

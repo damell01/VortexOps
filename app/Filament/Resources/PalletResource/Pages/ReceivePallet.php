@@ -262,6 +262,40 @@ class ReceivePallet extends Page
         return $this->record->lines->reject(fn (PalletLine $line) => $line->isFullyMapped())->values();
     }
 
+    /**
+     * One scan from the page, sent at most once.
+     *
+     * Every scan carries an id the browser made. The browser keeps the scan
+     * until this answers, so a scan made in a warehouse dead spot is sent when
+     * the connection is back — and if an earlier attempt did reach us but the
+     * reply was lost, the repeat is recognised here instead of counting the
+     * box twice.
+     *
+     * @return array{ok: bool, duplicate: bool, message: ?string, needs_choice: bool}
+     */
+    public function submitScan(string $barcode, string $scanId): array
+    {
+        abort_unless(\Illuminate\Support\Str::isUuid($scanId), 422);
+        $key = 'receiving.scan.'.auth()->id().'.'.$this->record->id.'.'.$scanId;
+        $lock = \Illuminate\Support\Facades\Cache::lock($key.'.lock', 120);
+        if (! $lock->get()) {
+            return ['ok' => false, 'duplicate' => true, 'message' => 'This scan is already saving.', 'needs_choice' => false];
+        }
+
+        try {
+            if (\Illuminate\Support\Facades\Cache::has($key)) {
+                return ['ok' => true, 'duplicate' => true, 'message' => 'Already saved — not counted twice.', 'needs_choice' => false];
+            }
+            $this->barcodeInput = mb_substr(trim($barcode), 0, 191);
+            $this->submitBarcode();
+            \Illuminate\Support\Facades\Cache::put($key, true, now()->addDays(3));
+
+            return ['ok' => $this->lastScanSuccess, 'duplicate' => false, 'message' => $this->lastScannedResult, 'needs_choice' => $this->pendingCode !== null];
+        } finally {
+            $lock->release();
+        }
+    }
+
     public function submitBarcode(): void
     {
         $barcode = trim($this->barcodeInput);

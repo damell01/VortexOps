@@ -28,7 +28,9 @@
                             default   => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300',
                         };
                     @endphp
-                    @php($rowClass = 'flex w-full items-center gap-3 py-3 -mx-2 px-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-white/5 transition')
+                    @php
+                        $rowClass = 'flex w-full items-center gap-3 py-3 -mx-2 px-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-white/5 transition';
+                    @endphp
                     @if ($item['detail'])
                         {{-- Opens the list behind the count instead of leaving the dashboard. --}}
                         <button type="button" wire:click="openDetail('{{ $item['detail'] }}')" wire:loading.attr="disabled" class="{{ $rowClass }}" aria-haspopup="dialog">
@@ -65,7 +67,9 @@
                         @forelse ($detailData['rows'] as $row)
                             <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
                                 @foreach ($row['cells'] as $i => $cell)
-                                    @php($link = $row['links'][$i] ?? ($i === 0 ? $row['url'] : null))
+                                    @php
+                                        $link = $row['links'][$i] ?? ($i === 0 ? $row['url'] : null);
+                                    @endphp
                                     <td class="px-2 py-2 align-top {{ $i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'tabular-nums text-gray-600 dark:text-gray-300' }}">
                                         @if ($link)<a href="{{ $link }}" class="text-primary-600 hover:underline dark:text-primary-400">{{ $cell }}</a>@else{{ $cell }}@endif
                                     </td>

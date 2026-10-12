@@ -17,6 +17,9 @@ final class GuidedHelp
         if ($user?->isAdmin()) {
             $docs['admin'] = ['title' => 'Admin, users & payroll', 'file' => 'admin-guide.pdf', 'description' => 'Set up users and aliases, review shows, and work through weekly payroll.'];
         }
+        if ($user && Pages\InventoryGuide::canAccess()) {
+            $docs = ['inventory'=>['title'=>'Inventory receiving & stock','file'=>'inventory-guide.pdf','description'=>'Receive deliveries, resume partial receipts, attach files, find stock, and review transfers and corrections.']] + $docs;
+        }
         return $docs;
     }
 

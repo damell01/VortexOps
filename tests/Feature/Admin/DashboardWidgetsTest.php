@@ -94,7 +94,8 @@ class DashboardWidgetsTest extends TestCase
         Show::create([
             'channel_attribution_suspect' => true,
             'title'         => 'Flagged Show',
-            'show_date'     => '2026-06-15',
+            // The widget counts this month's flagged shows only.
+            'show_date'     => now()->toDateString(),
             'import_source' => 'auto_whatnot',
             'status'        => 'draft',
             'created_by'    => $admin->id,

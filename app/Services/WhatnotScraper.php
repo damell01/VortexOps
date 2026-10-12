@@ -356,4 +356,63 @@ class WhatnotScraper
 
     private function baseEnv(bool $debug=false):array{$env=['WHATNOT_DEBUG'=>$debug?'1':'0'];$email=config('vortex.whatnot.email');$password=config('vortex.whatnot.password');if($email)$env['WHATNOT_EMAIL']=$email;if($password)$env['WHATNOT_PASSWORD']=$password;if(($cookiesFile=getenv('WHATNOT_COOKIES_FILE'))!==false&&$cookiesFile!=='')$env['WHATNOT_COOKIES_FILE']=$cookiesFile;return$env;}
     private function resolveCredentials():array{$email=config('vortex.whatnot.email');$password=config('vortex.whatnot.password');if(!$email||!$password)throw new \RuntimeException('WHATNOT_EMAIL and WHATNOT_PASSWORD are not set. Add them to your .env file.');return[$email,$password];}
+
+    // ── Saved sign-in ─────────────────────────────────────────────────────
+    // `whatnot:login` and the System Health sign-in form depend on these.
+
+    /** The file a cookie export is imported into (WHATNOT_COOKIES_FILE, else storage/whatnot-cookies.json). */
+    public function cookiesFilePath(): string
+    {
+        return config('vortex.whatnot.cookies_file') ?: storage_path('whatnot-cookies.json');
+    }
+
+    /** Whether any saved sign-in exists — the imported file, or the live copy the scraper refreshes itself. */
+    public function hasCookieFile(): bool
+    {
+        return is_file($this->cookiesFilePath())
+            || (! config('vortex.whatnot.cookies_file') && is_file(storage_path('whatnot-live-cookies.json')));
+    }
+
+    /**
+     * Open Seller Hub with the saved cookies (the scraper's cookie-test mode).
+     *
+     * @return array{ok: bool, url?: string}
+     */
+    public function testCookieAuth(): array
+    {
+        $env = $this->baseEnv();
+        $env['WHATNOT_MODE'] = 'cookie-test';
+        $process = $this->makeProcess($env, timeout: 180);
+        $this->withBrowserLock(fn () => $process->run());
+        $stderr = trim($process->getErrorOutput());
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException('Cookie test failed: '.($stderr ?: "Scraper exited with code {$process->getExitCode()}"));
+        }
+        $data = json_decode(trim($process->getOutput()), true);
+        if (! is_array($data) || empty($data['ok'])) {
+            throw new \RuntimeException('Cookie test could not confirm Seller Hub: '.trim($process->getOutput()));
+        }
+
+        return $data;
+    }
+
+    /** Sign in with WHATNOT_EMAIL/PASSWORD and save the session (dump-cookies mode). Returns the cookie count. */
+    public function dumpSessionCookies(): int
+    {
+        $this->resolveCredentials();
+        $env = $this->baseEnv();
+        $env['WHATNOT_MODE'] = 'dump-cookies';
+        $process = $this->makeProcess($env, timeout: 300);
+        $this->withBrowserLock(fn () => $process->run());
+        $stderr = trim($process->getErrorOutput());
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+        $cookies = json_decode(trim($process->getOutput()), true);
+        if (! $process->isSuccessful() || ! is_array($cookies) || $cookies === []) {
+            throw new \RuntimeException('Credential sign-in did not return cookies: '.($stderr ?: trim($process->getOutput())));
+        }
+        file_put_contents($this->cookiesFilePath(), json_encode($cookies, JSON_PRETTY_PRINT));
+
+        return count($cookies);
+    }
 }

@@ -53,6 +53,60 @@ class SystemHealth extends Page
         return 'Diagnostic checks — queue, database, storage, and scraper connectivity — for confirming the app is actually healthy, not just running.';
     }
 
+    // ── Whatnot sign-in ───────────────────────────────────────────────────────
+
+    /** @return array{state: string, saved_at: ?\Illuminate\Support\Carbon, expires_at: ?\Illuminate\Support\Carbon, days_left: ?int} */
+    public function getWhatnotSessionProperty(): array
+    {
+        return app(\App\Services\ScraperHealthDigest::class)->sessionStatus();
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('refresh_whatnot_sign_in')
+                ->label('Refresh Whatnot sign-in')->icon('heroicon-o-key')
+                // The cookies are the Whatnot account itself, so only the owner replaces them.
+                ->visible(fn () => (bool) auth()->user()?->isOwner())
+                ->modalHeading('Refresh the Whatnot sign-in')
+                ->modalDescription('On whatnot.com, signed in to the seller account, open the Cookie-Editor extension and choose Export → JSON. Paste it below or upload the file. The scraper cannot sign itself in, so this is how a lapsed session is renewed.')
+                ->modalSubmitActionLabel('Save sign-in')
+                ->schema([
+                    \Filament\Forms\Components\FileUpload::make('file')->label('Cookie export file')
+                        ->acceptedFileTypes(['application/json', 'text/plain'])->maxSize(1024)->storeFiles(false),
+                    \Filament\Forms\Components\Textarea::make('cookies')->label('…or paste the JSON')
+                        ->rows(6)->placeholder('[{"name": "...", "value": "...", "domain": ".whatnot.com", ...}]'),
+                    \Filament\Forms\Components\Toggle::make('test')->label('Test it now (runs in the background, about a minute)')->default(true),
+                ])
+                ->action(function (array $data): void {
+                    abort_unless((bool) auth()->user()?->isOwner(), 403);
+                    $file = $data['file'] ?? null;
+                    $json = $file instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile ? (string) $file->get() : (string) ($data['cookies'] ?? '');
+                    if (trim($json) === '') {
+                        \Filament\Notifications\Notification::make()->title('Nothing to import')->body('Upload the export file or paste its JSON.')->warning()->send();
+                        return;
+                    }
+
+                    $scraper = app(\App\Services\WhatnotScraper::class);
+                    $result = app(\App\Services\WhatnotCookieImport::class)->import($json, $scraper->cookiesFilePath());
+                    if (! $result['ok']) {
+                        \Filament\Notifications\Notification::make()->title('Sign-in not saved')->body($result['error'])->danger()->send();
+                        return;
+                    }
+
+                    $expires = $this->whatnotSession['expires_at'];
+                    \Filament\Notifications\Notification::make()->title('Whatnot sign-in saved')
+                        ->body("Imported {$result['count']} cookies".($expires ? '; good until '.$expires->format('M j, Y') : '').'.'
+                            .($result['looks_signed_in'] ? '' : ' None of them look like a session cookie — if the test fails, export with Cookie-Editor rather than copying document.cookie.'))
+                        ->color($result['looks_signed_in'] ? 'success' : 'warning')->send();
+
+                    if (! empty($data['test'])) {
+                        \App\Jobs\TestWhatnotSignIn::dispatch((int) auth()->id());
+                    }
+                }),
+        ];
+    }
+
     // ── Metrics ───────────────────────────────────────────────────────────────
 
     public function getDbStatusProperty(): array

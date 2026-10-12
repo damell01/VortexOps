@@ -1,28 +1,12 @@
 <x-filament-panels::page>
-    <style>
-        .vx-received-history .fi-ta-ctn{border-radius:1rem!important;overflow:hidden!important;border:1px solid rgb(226 232 240)!important;box-shadow:0 1px 3px rgba(15,23,42,.05)!important}
-        .dark .vx-received-history .fi-ta-ctn{border-color:rgb(51 65 85)!important}
-        .vx-received-history .fi-ta-header{padding:1rem!important}
-        .vx-received-history .fi-ta-header-cell{background:rgb(248 250 252)!important}
-        .dark .vx-received-history .fi-ta-header-cell{background:rgb(30 41 59)!important}
-        .vx-received-history .fi-ta-row{min-height:68px}
-        .vx-received-history .fi-ta-cell{padding-top:.85rem!important;padding-bottom:.85rem!important}
-        .vx-received-history .fi-ta-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:.35rem!important;flex-wrap:nowrap!important;white-space:nowrap!important;min-width:82px!important}
-        .vx-received-history .fi-ta-actions{flex-wrap:wrap!important;white-space:normal!important}
-        .vx-history-intro{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;padding:1rem 1.1rem;border:1px solid rgb(221 214 254);border-radius:1rem;background:linear-gradient(135deg,rgb(250 245 255),rgb(238 242 255))}
-        .dark .vx-history-intro{border-color:rgb(76 29 149);background:linear-gradient(135deg,rgba(76,29,149,.25),rgba(49,46,129,.2))}
-        .vx-history-intro strong{display:block;font-size:.95rem;color:rgb(76 29 149)}.dark .vx-history-intro strong{color:rgb(221 214 254)}
-        .vx-history-intro span{display:block;margin-top:.2rem;font-size:.78rem;color:rgb(100 116 139)}.dark .vx-history-intro span{color:rgb(203 213 225)}
-        @media(max-width:640px){.vx-history-intro{display:block}.vx-received-history .fi-ta-ctn{border-radius:.8rem!important}.vx-received-history .fi-ta-actions{min-width:72px!important}}
-    </style>
-    <div class="vx-received-history">
-        <div class="vx-history-intro">
-            <div>
-                <strong>Receiving history</strong>
-                <span>Search received or unfinished pallets. Filter by vendor, progress or receipt date; open a delivery to view its files and details.</span>
-            </div>
-        </div>
-        {{ $this->table }}
-    </div>
+<style>
+.vx-history-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin-bottom:1.5rem}.vx-history-summary article{border:1px solid #e5e7eb;background:white;border-radius:1rem;padding:1.1rem 1.25rem;box-shadow:0 2px 8px #11182705}.vx-history-summary span{font-size:.8rem;color:#6b7280}.vx-history-summary strong{display:block;font-size:1.8rem;line-height:1.3;margin-top:.4rem;font-weight:700;color:#111827}.vx-history-summary p{margin:.35rem 0 0;font-size:.7rem;color:#9ca3af}
+.vx-received-history .fi-ta-ctn{border-radius:1rem;box-shadow:none}.vx-received-history .fi-ta-actions{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-start}.vx-receipt-card{width:100%;min-width:0;text-align:left}.vx-receipt-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.vx-receipt-top time{font-size:.65rem;color:#9ca3af;white-space:nowrap}.vx-receipt-badge{border-radius:999px;padding:.2rem .55rem;font-size:.65rem;font-weight:600}.is-complete{background:#ecfdf5;color:#047857}.is-progress{background:#fffbeb;color:#b45309}.vx-receipt-card h3{font-size:.9rem;font-weight:700;line-height:1.4;color:#111827;margin:.9rem 0 .25rem;overflow-wrap:anywhere}.vx-receipt-vendor{font-size:.75rem;color:#6b7280}.vx-receipt-reference{font-size:.65rem;color:#9ca3af;margin-top:.3rem}.vx-receipt-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:1rem;padding:.8rem 0;border-top:1px solid #f3f4f6;border-bottom:1px solid #f3f4f6;text-align:center;gap:.5rem}.vx-receipt-counts span{display:block;font-size:.65rem;color:#9ca3af}.vx-receipt-counts strong{display:block;font-size:1.2rem;font-weight:700;color:#111827;margin-top:.25rem}.vx-receipt-counts strong.vx-outstanding{color:#b45309}.vx-receipt-footer{display:flex;justify-content:space-between;gap:.5rem;margin-top:.8rem;color:#6b7280;font-size:.65rem}.vx-receipt-footer span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.vx-receipt-footer span:last-child{white-space:nowrap}.vx-receipt-warning{margin-top:.65rem;font-size:.7rem;color:#b45309}
+.dark .vx-history-summary article{background:#111827;border-color:#374151}.dark .vx-history-summary strong,.dark .vx-receipt-card h3,.dark .vx-receipt-counts strong{color:#f9fafb}.dark .vx-receipt-counts{border-color:#374151}.dark .is-complete{background:#064e3b;color:#6ee7b7}.dark .is-progress{background:#78350f;color:#fcd34d}
+@media(max-width:767px){.vx-history-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.vx-history-summary article{padding:.85rem}.vx-history-summary strong{font-size:1.5rem}.vx-receipt-card h3{font-size:1rem}.vx-receipt-top time,.vx-receipt-vendor,.vx-receipt-footer{font-size:.8rem}.vx-receipt-counts span{font-size:.75rem}}
+</style>
+<div class="vx-received-history">
+    <div class="vx-history-summary">@foreach($this->historySummary() as $label=>$count)<article><span>{{ $label }}</span><strong>{{ number_format($count) }}</strong><p>{{ $label==='Discrepancies' ? 'Deliveries with missing-item reports' : ($vendorId ? 'For the selected vendor' : 'Across receiving history') }}</p></article>@endforeach</div>
+    {{ $this->table }}
+</div>
 </x-filament-panels::page>
-

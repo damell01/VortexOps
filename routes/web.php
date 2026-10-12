@@ -24,6 +24,7 @@ Route::get('/offline', function () {
 Route::get('/health', HealthController::class)->name('health');
 
 Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('inventory-guide/images/{image}', \App\Http\Controllers\InventoryGuideImageController::class)->name('inventory-guide.image');
     Route::get('guides/{guide}', \App\Http\Controllers\GuideDocumentController::class)->where('guide', 'streamer|admin')->name('guides.show');
 
     Route::post('feedback', [FeedbackController::class, 'store'])

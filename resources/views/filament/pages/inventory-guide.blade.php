@@ -42,9 +42,9 @@
             <summary class="cursor-pointer px-5 py-4 text-base font-bold">{{ $title }}</summary>
             <div class="space-y-4 px-5 pb-5">
                 <ol class="list-decimal space-y-2 pl-5 text-sm leading-6">@foreach($steps as $step)<li>{{ $step }}</li>@endforeach</ol>
-                <img src="{{ asset('guide/inventory-20261012/'.$shot) }}" alt="{{ $title }} — actual VortexOps screen" loading="lazy" class="w-full rounded-xl border border-gray-200 dark:border-gray-700" />
+                <img src="{{ route('admin.inventory-guide.image', ['image'=>$shot]) }}" alt="{{ $title }} — actual VortexOps screen" loading="lazy" class="w-full rounded-xl border border-gray-200 dark:border-gray-700" />
                 @if($shot === 'inventory.jpg')
-                <img src="{{ asset('guide/inventory-20261012/item-history.jpg') }}" alt="Item history drawer showing receipts and show usage" loading="lazy" class="w-full rounded-xl border border-gray-200 dark:border-gray-700" />
+                <img src="{{ route('admin.inventory-guide.image', ['image'=>'item-history.jpg']) }}" alt="Item history drawer showing receipts and show usage" loading="lazy" class="w-full rounded-xl border border-gray-200 dark:border-gray-700" />
                 @endif
             </div>
         </details>

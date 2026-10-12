@@ -132,7 +132,27 @@ class ScraperStatus
             'exists' => file_exists($path),
             'path' => $path,
             'saved_at' => file_exists($path) ? Carbon::createFromTimestamp(filemtime($path)) : null,
+            'expires_at' => file_exists($path) ? static::sessionExpiresAt($path) : null,
         ];
+    }
+
+    /**
+     * When the saved Whatnot sign-in stops working: the earliest expiry among
+     * the cookies that carry it (names with session/token/auth — the same test
+     * `whatnot:login` uses). Accepts a cookie list or a storageState export.
+     * Null when none records an expiry (browser-session cookies) or the file
+     * cannot be read.
+     */
+    public static function sessionExpiresAt(string $path): ?Carbon
+    {
+        $raw = json_decode((string) @file_get_contents($path), true);
+        $cookies = is_array($raw) ? ($raw['cookies'] ?? $raw) : [];
+        $expiries = collect(is_array($cookies) ? $cookies : [])
+            ->filter(fn ($c) => is_array($c) && preg_match('/session|token|auth/i', (string) ($c['name'] ?? '')))
+            ->map(fn (array $c) => (float) ($c['expires'] ?? $c['expirationDate'] ?? -1))
+            ->filter(fn (float $ts) => $ts > 0);
+
+        return $expiries->isEmpty() ? null : Carbon::createFromTimestamp((int) $expiries->min());
     }
 
     private static function sessionPath(): string

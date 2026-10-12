@@ -120,6 +120,7 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
 Schedule::command('ai:ops operations')->cron('25 */6 * * *')->name('ai-ops-background-summary')->withoutOverlapping(10);
 Schedule::command('ai:ops cleanup')->dailyAt('04:15')->name('ai-ops-data-cleanup')->withoutOverlapping(10);
 Schedule::command('ai:ops weekly')->weeklyOn(1, '07:00')->name('ai-ops-weekly-management-summary')->withoutOverlapping(10);
+Schedule::command('reports:scraper-health-digest')->weeklyOn(1, '07:55')->name('scraper-health-digest')->withoutOverlapping();
 Schedule::command('reports:weekly-owner-summary')->weeklyOn(1, '07:50')->name('weekly-owner-summary')->withoutOverlapping();
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
 Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');

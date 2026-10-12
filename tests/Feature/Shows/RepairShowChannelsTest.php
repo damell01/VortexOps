@@ -175,4 +175,15 @@ class RepairShowChannelsTest extends TestCase
         $this->artisan('whatnot:repair-channels --apply --show='.$merged->id)->assertSuccessful();
         $this->assertSame(3, Show::count());
     }
+
+    public function test_figures_are_left_alone_unless_they_came_from_the_other_stream(): void
+    {
+        $show = $this->mergedShow();
+        // Analytics has since refined the show's numbers; they match neither import.
+        $show->forceFill(['gross_revenue' => 512.34, 'units_sold' => 11])->save();
+
+        $this->artisan('whatnot:repair-channels --apply')->assertSuccessful();
+
+        $this->assertEquals(512.34, (float) $show->fresh()->gross_revenue);
+    }
 }

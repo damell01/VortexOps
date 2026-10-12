@@ -13,6 +13,47 @@
     @endforeach
 </div>
 
+@if($tab === 'tasks')
+<section class="space-y-5" aria-label="Everyday inventory workflows">
+    <div class="rounded-2xl border border-primary-200 bg-primary-50 p-5 dark:border-primary-800 dark:bg-primary-950">
+        <h2 class="text-xl font-bold">Everyday inventory workflows</h2>
+        <p class="mt-2 text-sm leading-6">Use this checklist at the receiving desk. Scan items in any order; a match finds the line, and receiving the confirmed quantity changes stock. Screenshots use the existing Test Pallet; they do not mean you should receive its stock.</p>
+    </div>
+    @foreach([
+        ['Use your dashboard shortcuts', 'dashboard.jpg', \App\Filament\Pages\DashboardImproved::class,
+            ['Open your landing page. Quick actions shows only pages your account can access.', 'Admins can jump to receiving, inventory and report review. Streamers use Log a show on My Shows; fulfillment staff see the inventory actions permitted to them.', 'Use Receiving history to resume an unfinished delivery or review earlier receipts.']],
+        ['Search within receiving pickers', 'location-search.jpg', \App\Filament\Resources\PalletResource::class,
+            ['Open the default receiving location picker and type part of a location name.', 'Choose the matching location. It is remembered for your next delivery; existing mapped lines keep their own location.', 'When mapping a manifest line, search for the product by name, SKU or barcode rather than scrolling through the catalogue.', 'Use the search field on searchable vendor and streamer selectors when those forms are available to your role.']],
+        ['Receive a delivery', 'receiving.jpg', \App\Filament\Resources\PalletResource::class,
+            ['Open Inventory → Receive Inventory and choose the delivery.', 'Open Continue receiving. Search the default receiving location; mapped lines keep their own location.', 'Scan a barcode, UPC or SKU, or search by product name. Check the matching manifest line.', 'Enter the number of cases that physically arrived. Choose Receive some for a partial quantity or Receive all for the remaining cases. Confirm the onscreen action once.', 'Check that Received and Left updated before receiving another item.']],
+        ['Pause and resume a partial delivery', 'partial-summary.jpg', \App\Filament\Resources\PalletResource::class,
+            ['Choose Review receiving to compare confirmed units, outstanding quantities, discrepancies and missing costs.', 'If more stock will arrive later, leave the remaining cases outstanding. Do not mark them short just to finish.', 'Choose Pause — keep it open. Successful receipts are already saved; unfinished inputs are restored in your signed-in session.', 'Open Receiving History, filter Progress to In progress, and choose Resume receiving.', 'Complete receiving only when all expected cases are accounted for and the summary is correct.']],
+        ['Attach manifests, invoices and damage photos', 'attachments.jpg', \App\Filament\Resources\PalletResource::class,
+            ['On the receiving screen, choose Add manifest, invoice or photos.', 'Choose PDF paperwork or JPEG, PNG, WebP or GIF photos. Up to 10 files, 5 MB each.', 'Add a short note explaining the attachment, such as invoice reference or damaged case number.', 'Choose Upload and check the saved confirmation. Files stay linked to this pallet.', 'Open the delivery’s Media & Attachments section to view the saved files later.']],
+        ['Review receiving history', 'history.jpg', \App\Filament\Pages\PalletReceivingHistory::class,
+            ['From Receive Inventory, choose Receiving History.', 'Search a pallet name, reference or vendor. Filter by vendor, progress or received dates.', 'Compare expected, received and remaining cases; review recorded cost, locations, files and missing-item reports.', 'Open delivery shows the original pallet and its attachments. Resume receiving continues an unfinished delivery.', 'Remaining cases are case counts, not loose units. Discrepancies count recorded missing-item reports; review the delivery for details.']],
+        ['Check a vendor’s deliveries', 'vendor.jpg', \App\Filament\Resources\VendorResource::class,
+            ['Open Inventory → Vendors and choose the vendor.', 'Receiving history on the vendor page shows only that vendor’s open and completed deliveries.', 'Check costs, remaining cases and recorded discrepancies, then open the delivery for details.', 'Use the Receiving history button for the full searchable history filtered to this vendor.']],
+        ['Find stock and explain a quantity change', 'inventory.jpg', \App\Filament\Resources\InventoryItemResource::class,
+            ['Open All Inventory and search by product name, SKU or barcode.', 'Check quantities by location and recorded costs before choosing stock.', 'Open History on the item to review receipts, transfers, adjustments and show usage.', 'For a transfer, choose source and destination, enter the quantity and reason, review, then confirm. Check both locations afterwards.', 'For an incorrect shelf count, use the existing correction or reconciliation workflow, record the reason and verify the history entry.']],
+    ] as [$title, $shot, $page, $steps])
+        @if($this->canSee($page))
+        <details class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <summary class="cursor-pointer px-5 py-4 text-base font-bold">{{ $title }}</summary>
+            <div class="space-y-4 px-5 pb-5">
+                <ol class="list-decimal space-y-2 pl-5 text-sm leading-6">@foreach($steps as $step)<li>{{ $step }}</li>@endforeach</ol>
+                <img src="{{ asset('guide/inventory-20261012/'.$shot) }}" alt="{{ $title }} — actual VortexOps screen" loading="lazy" class="w-full rounded-xl border border-gray-200 dark:border-gray-700" />
+                @if($shot === 'inventory.jpg')
+                <img src="{{ asset('guide/inventory-20261012/item-history.jpg') }}" alt="Item history drawer showing receipts and show usage" loading="lazy" class="w-full rounded-xl border border-gray-200 dark:border-gray-700" />
+                @endif
+            </div>
+        </details>
+        @endif
+    @endforeach
+    <p class="text-xs text-gray-500">Open Add & Edit Items, Stage & Receive, or Fixing Mistakes above for the full reference guide. Only workflows available to your account are shown.</p>
+</section>
+@endif
+
 {{-- Setup state, above the tabs on purpose. With no location nothing on any
      tab can be followed to the end, so this is not one tab's business. --}}
 @if($status['count'] === 0)

@@ -76,7 +76,7 @@ class PalletReceivingHistory extends Page implements HasTable
     {
         return [
             Action::make('receive')->label('Receive Inventory')->icon('heroicon-o-inbox-arrow-down')->url(fn () => \App\Filament\Resources\PalletResource::getUrl()),
-            Action::make('guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => InventoryGuide::getUrl())->visible(fn () => InventoryGuide::canAccess()),
+            Action::make('guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => InventoryGuide::getUrl(parameters: ['tab'=>'tasks']))->visible(fn () => InventoryGuide::canAccess()),
             Action::make('archived')
                 ->label('Archived Pallets')
                 ->icon('heroicon-o-trash')

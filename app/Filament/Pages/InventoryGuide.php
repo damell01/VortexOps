@@ -32,6 +32,7 @@ class InventoryGuide extends Page
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
     protected static ?int $navigationSort = 99;
 
+    #[\Livewire\Attributes\Url]
     public string $tab = 'cycle';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -66,6 +67,7 @@ class InventoryGuide extends Page
             // to a box, from arriving to being paid for?". The rest answer
             // "what does this screen do?", which is a different question and
             // the wrong one when you are new.
+            'tasks'   => ['📖', 'Everyday Workflows', []],
             'cycle'   => ['🔄', 'Full Cycle', []],
             'start'   => ['📍', 'Start Here', [
                 \App\Filament\Resources\InventoryLocationResource::class,

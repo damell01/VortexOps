@@ -118,21 +118,25 @@ class RepairShowChannelsTest extends TestCase
         $this->assertTrue((bool) $both->fresh()->channel_attribution_suspect);
     }
 
-    public function test_a_merged_show_that_took_the_shop_streams_id_keeps_its_own_channel_and_report(): void
+    public function test_the_saved_live_id_decides_which_stream_the_record_keeps(): void
     {
-        // Nightly analytics saved the live id from the overwritten link.
+        // Production case (#1582): the show's saved id is its own stream, which
+        // discovery has refreshed it from and its orders belong to; streams
+        // glued on by the old title-only match are what get split out.
         $show = $this->mergedShow();
-        $show->forceFill(['whatnot_show_id' => self::SHOP_ID])->save();
+        $show->forceFill(['whatnot_show_id' => self::SHOP_ID, 'whatnot_channel_id' => $this->shop->id,
+            'raw_import_payload' => ['_seller_hub_channels' => [$this->shop->id]]])->save();
 
         $this->artisan('whatnot:repair-channels --apply')->assertSuccessful();
 
         $show->refresh();
-        $this->assertSame($this->breaks->id, $show->whatnot_channel_id, 'the record stays on Breaks with its report and pay');
-        $this->assertSame(self::BREAKS_ID, $show->whatnot_show_id);
-        $this->assertEquals(500, (float) $show->gross_revenue);
-        $shopShow = Show::where('whatnot_channel_id', $this->shop->id)->sole();
-        $this->assertSame(self::SHOP_ID, $shopShow->whatnot_show_id);
-        $this->assertSame(['S-1'], $shopShow->orders()->pluck('whatnot_order_id')->all());
+        $this->assertSame(self::SHOP_ID, $show->whatnot_show_id, 'keeps its own stream');
+        $this->assertSame($this->shop->id, $show->whatnot_channel_id);
+        $this->assertSame(['S-1'], $show->orders()->pluck('whatnot_order_id')->all(), 'its orders stay');
+        $split = Show::where('whatnot_show_id', self::BREAKS_ID)->sole();
+        $this->assertSame($this->breaks->id, $split->whatnot_channel_id);
+        $this->assertEquals(500, (float) $split->gross_revenue);
+        $this->assertSame(['B-1', 'B-2'], $split->orders()->orderBy('whatnot_order_id')->pluck('whatnot_order_id')->all());
     }
 
     public function test_a_second_copy_made_by_the_old_backfill_is_folded_into_the_original(): void

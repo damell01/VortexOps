@@ -94,6 +94,7 @@ class DashboardImproved extends Dashboard
         }
 
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            $data['roleMode'] = 'streamer';
             $streamerId = $user->streamer?->id ?? 0;
             $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();
 
@@ -131,6 +132,7 @@ class DashboardImproved extends Dashboard
                     ->sum('quantity'),
             ];
         } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            $data['roleMode'] = 'fulfillment';
             $showsQuery = Show::query()->inChannelContext()->whereNotIn('status', ['closed', 'cancelled']);
             if (! $user?->isFulfillmentAdmin()) {
                 $showsQuery->whereHas('fulfillmentUsers', fn ($q) => $q->where('users.id', $user->id));

@@ -1,4 +1,7 @@
 <x-filament-panels::page>
+    @if(($roleMode ?? null) === 'admin')
+        @include('filament.components.dashboard-reference')
+    @else
     <x-dashboard-shortcuts />
     @php
         $pageMode = $roleMode ?? 'user';
@@ -291,4 +294,5 @@
             <x-filament-widgets::widgets :widgets="$this->getWidgets()" :columns="$this->getColumns()" />
         </div>
     </div>
+    @endif
 </x-filament-panels::page>

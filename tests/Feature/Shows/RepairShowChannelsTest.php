@@ -134,4 +134,27 @@ class RepairShowChannelsTest extends TestCase
         $this->assertSame(self::SHOP_ID, $shopShow->whatnot_show_id);
         $this->assertSame(['S-1'], $shopShow->orders()->pluck('whatnot_order_id')->all());
     }
+
+    public function test_a_second_copy_made_by_the_old_backfill_is_folded_into_the_original(): void
+    {
+        // The hourly show: wrong (UTC) date, live id only in its link, with the streamer's report.
+        $original = Show::create(['whatnot_channel_id' => $this->breaks->id, 'title' => 'Late night rips', 'show_date' => '2026-10-11',
+            'start_time' => '02:00:00', 'status' => 'mapping', 'import_source' => 'auto_whatnot', 'detail_url' => $this->url(self::BREAKS_ID)]);
+        // The copy the old discovery added beside it, with the right date.
+        $copy = Show::create(['whatnot_channel_id' => $this->breaks->id, 'whatnot_show_id' => self::BREAKS_ID, 'title' => 'Late night rips',
+            'show_date' => '2026-10-10', 'start_time' => '21:00:00', 'status' => 'draft', 'import_source' => 'auto_whatnot',
+            'raw_import_payload' => ['_seller_hub_channels' => [$this->breaks->id]]]);
+
+        $this->artisan('whatnot:repair-channels')->expectsOutputToContain('Fold copy in')->assertSuccessful();
+        $this->assertSame(2, Show::count(), 'dry run changes nothing');
+
+        $this->artisan('whatnot:repair-channels --apply')->assertSuccessful();
+
+        $this->assertNull(Show::find($copy->id));
+        $original->refresh();
+        $this->assertSame('2026-10-10', $original->show_date->toDateString());
+        $this->assertSame('21:00:00', $original->start_time->format('H:i:s'));
+        $this->assertSame(self::BREAKS_ID, $original->whatnot_show_id);
+        $this->assertSame('mapping', $original->status, 'the original keeps its own progress');
+    }
 }

@@ -163,6 +163,85 @@ class ShowChannelRepair
         return $totals;
     }
 
+    /**
+     * Copies made by the nightly discovery before it could recognise
+     * hourly-imported shows: the hourly show holds the live id only in its
+     * link, and discovery added a second, correctly dated show with that id.
+     *
+     * @return list<array{show: Show, copy: Show, blocked: ?string}>
+     */
+    public function duplicatePlan(): array
+    {
+        $plans = [];
+        Show::query()->whereNull('whatnot_show_id')->where('detail_url', 'like', '%/live/%')
+            ->with('channel:id,name')->orderBy('id')
+            ->each(function (Show $original) use (&$plans) {
+                if (! preg_match(self::UUID, (string) $original->detail_url, $m)) {
+                    return;
+                }
+                $copy = Show::query()->where('whatnot_show_id', strtolower($m[0]))->where('id', '>', $original->id)->first();
+                if (! $copy) {
+                    return;
+                }
+                $blocked = match (true) {
+                    $copy->payouts()->exists() => 'the copy has pay attached',
+                    $copy->streamerLogEntry()->exists() => 'the copy has a streamer report',
+                    $copy->deductionRequests()->exists() => 'the copy has items logged against it',
+                    default => null,
+                };
+                $plans[] = ['show' => $original, 'copy' => $copy, 'blocked' => $blocked];
+            });
+
+        return $plans;
+    }
+
+    /** Fold each copy into its original: correct date, time and live id; keep the original's report and pay. @return array{merged: int, review: int} */
+    public function applyDuplicates(array $plans): array
+    {
+        $totals = ['merged' => 0, 'review' => 0];
+        foreach ($plans as ['show' => $show, 'copy' => $copy, 'blocked' => $blocked]) {
+            if ($blocked) {
+                $show->forceFill(['channel_attribution_suspect' => true, 'revision_notes' => trim(($show->revision_notes ? $show->revision_notes."\n" : '').now()->format('M j, Y g:ia')." — Show #{$copy->id} is a second copy of this stream, but {$blocked}; merge them by hand.")])->save();
+                $totals['review']++;
+                continue;
+            }
+            try {
+            DB::transaction(function () use ($show, $copy) {
+                $liveId = $copy->whatnot_show_id;
+                $raw = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+                $copyRaw = is_array($copy->raw_import_payload) ? $copy->raw_import_payload : [];
+                $channels = array_values(array_unique(array_map('intval', array_merge((array) ($raw['_seller_hub_channels'] ?? []), (array) ($copyRaw['_seller_hub_channels'] ?? [])))));
+                $fields = array_filter([
+                    'show_date' => $copy->show_date?->toDateString(),
+                    'start_time' => $copy->getRawOriginal('start_time'),
+                    'end_time' => $copy->getRawOriginal('end_time'),
+                ], fn ($v) => $v !== null);
+
+                WhatnotShowOrder::where('show_id', $copy->id)->update(['show_id' => $show->id]);
+                Shipment::where('show_id', $copy->id)->update(['show_id' => $show->id]);
+                ShowIngestionLog::where('show_id', $copy->id)->update(['show_id' => $show->id]);
+                $copy->streamers()->detach();
+                $copy->forceFill(['whatnot_show_id' => null])->save();
+                $copy->delete();
+
+                $show->trackChanges($fields + ['whatnot_show_id' => $liveId], 'channel_repair');
+                $show->forceFill($fields + [
+                    'whatnot_show_id' => $liveId,
+                    'raw_import_payload' => array_merge($raw, array_intersect_key($copyRaw, array_flip(['_seller_hub_state', '_seller_hub_seen_at'])), $channels ? ['_seller_hub_channels' => $channels] : []),
+                ])->save();
+            });
+            } catch (\Throwable $e) {
+                $show->forceFill(['channel_attribution_suspect' => true])->save();
+                $totals['review']++;
+                report($e);
+                continue;
+            }
+            $totals['merged']++;
+        }
+
+        return $totals;
+    }
+
     /** Shows flagged for channel review, or with more than one stream logged against them. */
     private function candidates(): Collection
     {

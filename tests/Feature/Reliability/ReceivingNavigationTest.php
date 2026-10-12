@@ -40,7 +40,9 @@ class ReceivingNavigationTest extends TestCase
         PalletLine::create(['pallet_id'=>$open->id, 'description'=>'Boxes', 'case_count'=>4, 'quantity_per_case'=>2, 'unit_cost'=>5]);
         Livewire::test(PalletReceivingHistory::class)
             ->assertCanSeeTableRecords([$open,$complete,$other])->assertCanNotSeeTableRecords([$staged])
-            ->set('vendorId',$a->id)->assertCanSeeTableRecords([$open,$complete])->assertCanNotSeeTableRecords([$other]);
+            ->set('vendorId',$a->id)->assertCanSeeTableRecords([$open,$complete])->assertCanNotSeeTableRecords([$other])
+            ->searchTable('Partial')->assertCanSeeTableRecords([$open])->assertCanNotSeeTableRecords([$complete])
+            ->searchTable('Vendor A')->assertCanSeeTableRecords([$open,$complete]);
         $record = PalletReceivingHistory::historyQuery()->findOrFail($open->id);
         $this->assertEquals(4,$record->expected_cases_sum);
         $this->assertEquals(0,$record->received_cases_count);

@@ -10,12 +10,12 @@ use Filament\Widgets\Widget;
 class UpcomingShowsWidget extends Widget
 {
     protected static ?int $sort = 1;
-    public int $limit = 6;
+    public int $limit = 3;
     protected int | string | array $columnSpan = [
         'default' => 'full',
         'lg' => 1,
     ];
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
     protected string $view = 'filament.widgets.upcoming-shows';
 
     public static function canView(): bool

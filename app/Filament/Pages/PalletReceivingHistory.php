@@ -58,25 +58,19 @@ class PalletReceivingHistory extends Page implements HasTable
     public static function receiptColumns(): array
     {
         return [\Filament\Tables\Columns\Layout\Stack::make([
-            TextColumn::make('received_date')->label('Received')->date('M j, Y')->sortable()->placeholder('In progress'),
-            TextColumn::make('name')->label('Pallet / PO')->state(fn (Pallet $record) => $record->displayName())->description(fn (Pallet $record) => $record->reference ?: 'No reference')->weight('semibold')->searchable(['name', 'reference']),
-            TextColumn::make('vendor.name')->label('Vendor')->searchable(),
-            TextColumn::make('status')->badge()->formatStateUsing(fn (string $state) => in_array($state, ['received', 'processed'], true) ? 'Complete' : 'In progress')->color(fn (string $state) => in_array($state, ['received', 'processed'], true) ? 'success' : 'warning'),
-            TextColumn::make('expected_cases_sum')->label('Expected cases')->description('Expected cases')->numeric()->default(0),
-            TextColumn::make('received_cases_count')->label('Received cases')->description('Received cases')->numeric(),
-            TextColumn::make('remaining')->label('Remaining cases')->description('Remaining cases')->state(fn (Pallet $record) => max(0, (int) $record->expected_cases_sum - (int) $record->received_cases_count)),
-            TextColumn::make('missing_items_count')->label('Discrepancies')->numeric()->description('Recorded missing-item reports'),
-            TextColumn::make('locations')->label('Locations')->description('Receiving locations')->state(fn (Pallet $record) => $record->lines->map(fn ($line) => $line->location?->name)->filter()->unique()->implode(', '))->wrap()->placeholder('Not assigned'),
-            TextColumn::make('total_cost')->label('Recorded delivery cost')->description('Recorded delivery cost')->money('USD')->placeholder('Not recorded'),
-            TextColumn::make('attachments_count')->label('Files')->description('Attached files')->numeric(),
+            \Filament\Tables\Columns\ViewColumn::make('receipt')->view('filament.tables.receiving-card'),
+            TextColumn::make('name')->searchable(['name', 'reference'])->hidden(),
+            TextColumn::make('vendor.name')->searchable()->hidden(),
         ])];
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('receive')->label('Receive Inventory')->icon('heroicon-o-inbox-arrow-down')->url(fn () => \App\Filament\Resources\PalletResource::getUrl()),
-            Action::make('guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => InventoryGuide::getUrl(parameters: ['tab'=>'tasks']))->visible(fn () => InventoryGuide::canAccess()),
+            Action::make('export')->label('Export CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
+                ->action(fn () => $this->exportHistory()),
+            Action::make('receive')->label('New Receiving')->icon('heroicon-o-inbox-arrow-down')->url(fn () => \App\Filament\Resources\PalletResource::getUrl()),
+            Action::make('guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => InventoryGuide::getUrl())->visible(fn () => InventoryGuide::canAccess()),
             Action::make('archived')
                 ->label('Archived Pallets')
                 ->icon('heroicon-o-trash')
@@ -85,15 +79,48 @@ class PalletReceivingHistory extends Page implements HasTable
         ];
     }
 
+    public function historySummary(): array
+    {
+        $query = static::historyQuery()->when($this->vendorId, fn ($q) => $q->where('vendor_id', $this->vendorId));
+        return [
+            'Total deliveries'=>(clone $query)->count(),
+            'Completed'=>(clone $query)->whereIn('status',['received','processed'])->count(),
+            'In progress'=>(clone $query)->where('status','receiving')->count(),
+            'Discrepancies'=>(clone $query)->whereHas('missingItems')->count(),
+        ];
+    }
+
+    public function exportHistory(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        abort_unless(static::canAccess(), 403);
+        $query = clone $this->getFilteredTableQuery();
+        return response()->streamDownload(function () use ($query) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Delivery','Vendor','Reference','Status','Received date','Expected cases','Received cases','Remaining cases','Missing-item reports','Recorded cost','Files'], ',', '"', '');
+            $query->reorder()->orderBy('pallets.id')->chunk(200, function ($records) use ($file) {
+                foreach ($records as $record) {
+                    $row = [$record->displayName(),$record->vendor?->name,$record->reference,$record->status,$record->received_date?->toDateString(),(int)$record->expected_cases_sum,(int)$record->received_cases_count,max(0,(int)$record->expected_cases_sum-(int)$record->received_cases_count),(int)$record->missing_items_count,$record->total_cost,(int)$record->attachments_count];
+                    $row = array_map(fn ($value) => is_string($value) && preg_match('/^[=+@\\-]/', $value) ? "'".$value : $value, $row);
+                    fputcsv($file, $row, ',', '"', '');
+                }
+            });
+            fclose($file);
+        }, 'receiving-history.csv', ['Content-Type'=>'text/csv']);
+    }
+
     public function table(Table $table): Table
     {
         return $table
             ->query(fn () => static::historyQuery()->when($this->vendorId, fn ($q) => $q->where('vendor_id', $this->vendorId)))
             ->defaultSort('received_date', 'desc')
             ->columns(static::receiptColumns())
-            ->contentGrid(['md' => 2, 'xl' => 3])
+            ->contentGrid(['md' => 2, 'xl' => 4])
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersFormColumns(['default'=>1, 'md'=>4])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('vendor_id')->label('Vendor')->relationship('vendor', 'name')->searchable()->preload(),
+                \Filament\Tables\Filters\SelectFilter::make('location')->label('Location')->options(\App\Models\InventoryLocation::activeOptions())->searchable()
+                    ->query(fn ($query, array $data) => $query->when($data['value'] ?? null, fn ($q,$id) => $q->whereHas('lines', fn ($lines) => $lines->where('inventory_location_id',$id)))),
                 \Filament\Tables\Filters\SelectFilter::make('status')->label('Progress')->options(['receiving'=>'In progress', 'received'=>'Complete', 'processed'=>'Complete (legacy)']),
                 \Filament\Tables\Filters\Filter::make('received_dates')->schema([
                     \Filament\Forms\Components\DatePicker::make('from')->label('Received from'),
@@ -105,6 +132,10 @@ class PalletReceivingHistory extends Page implements HasTable
             ->emptyStateHeading('No receiving history matches')
             ->emptyStateDescription('Clear filters or start receiving a delivery. Staged pallets stay on Receive Inventory.')
             ->actions([
+                Action::make('details')->label('Details')->icon('heroicon-o-information-circle')->color('gray')->slideOver()->modalWidth('md')
+                    ->modalHeading(fn (Pallet $record) => $record->displayName())
+                    ->modalContent(fn (Pallet $record) => view('filament.tables.receiving-details', ['record'=>$record->loadMissing(['attachments','createdBy'])]))
+                    ->modalSubmitAction(false)->modalCancelActionLabel('Close'),
                 Action::make('open')->label('Open delivery')->icon('heroicon-o-arrow-top-right-on-square')->url(fn (Pallet $record) => \App\Filament\Resources\PalletResource::getUrl('view', ['record'=>$record])),
                 Action::make('resume')->label('Resume receiving')->icon('heroicon-o-play')->visible(fn (Pallet $record) => $record->status === 'receiving')->url(fn (Pallet $record) => \App\Filament\Resources\PalletResource::getUrl('receive', ['record'=>$record])),
                 Action::make('view_items')

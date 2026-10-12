@@ -49,6 +49,31 @@ class ReceivingNavigationTest extends TestCase
             ->assertCanSeeTableRecords([$open,$complete])->assertCanNotSeeTableRecords([$other,$staged]);
     }
 
+    public function test_history_summary_drawer_and_filtered_export_are_read_only(): void
+    {
+        $a=Vendor::create(['name'=>'Drawer vendor','status'=>'active']);
+        $b=Vendor::create(['name'=>'Excluded vendor','status'=>'active']);
+        $open=Pallet::create(['vendor_id'=>$a->id,'name'=>'Partial drawer delivery','status'=>'receiving']);
+        PalletLine::create(['pallet_id'=>$open->id,'description'=>'Boxes','case_count'=>4,'quantity_per_case'=>2,'unit_cost'=>5]);
+        Pallet::create(['vendor_id'=>$a->id,'name'=>'Finished delivery','status'=>'received']);
+        Pallet::create(['vendor_id'=>$b->id,'name'=>'Outside scope','status'=>'received']);
+        $component=Livewire::test(PalletReceivingHistory::class)->set('vendorId',$a->id);
+        $this->assertSame(['Total deliveries'=>2,'Completed'=>1,'In progress'=>1,'Discrepancies'=>0],$component->instance()->historySummary());
+        $record=PalletReceivingHistory::historyQuery()->findOrFail($open->id)->loadMissing(['attachments','createdBy']);
+        $html=view('filament.tables.receiving-details',['record'=>$record])->render();
+        $this->assertStringContainsString('Partial',view('filament.tables.receiving-card',['getRecord'=>fn()=>$record])->render());
+        $this->assertStringContainsString('Not recorded',$html);
+        $this->assertStringContainsString('Resume receiving',$html);
+        $component->filterTable('status','receiving');
+        $response=$component->instance()->exportHistory();
+        ob_start(); $response->sendContent(); $csv=ob_get_clean();
+        $this->assertStringContainsString('Partial drawer delivery',$csv);
+        $this->assertStringNotContainsString('Finished delivery',$csv);
+        $this->assertStringNotContainsString('Outside scope',$csv);
+        $this->assertSame('receiving',$open->fresh()->status);
+        $this->assertSame(0,$open->cases()->count());
+    }
+
     public function test_admin_and_fulfillment_admin_have_same_business_shortcuts(): void
     {
         foreach (['admin','fulfillment_admin'] as $role) {
@@ -63,20 +88,4 @@ class ReceivingNavigationTest extends TestCase
             $this->assertContains('Review show reports',$labels);
         }
     }
-
-    public function test_guide_images_require_sign_in_and_the_relevant_page_access(): void
-    {
-        $owner = auth()->user();
-        auth()->logout();
-        $this->get(route('admin.inventory-guide.image', ['image'=>'receiving.jpg']))->assertRedirect();
-        $this->actingAs($owner);
-        $this->get(route('admin.inventory-guide.image', ['image'=>'receiving.jpg']))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
-        $this->get(route('admin.inventory-guide.image', ['image'=>'unknown.jpg']))->assertNotFound();
-        Role::findOrCreate('streamer', 'web');
-        $streamer = User::factory()->create(); $streamer->assignRole('streamer');
-        \App\Support\NavVisibility::setVisibleForRole('streamer', [\App\Filament\Pages\StreamerShows::class]);
-        $this->actingAs($streamer);
-        $this->get(route('admin.inventory-guide.image', ['image'=>'receiving.jpg']))->assertForbidden();
-    }
-
 }

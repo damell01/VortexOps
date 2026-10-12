@@ -74,7 +74,8 @@
         <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             @forelse($this->filteredMembers as $member)
                 @php $pay=$member->effectiveCompensation(); @endphp
-                <button wire:click="editMember({{$member->id}})" class="rounded-xl border border-gray-200 p-4 text-left transition hover:border-primary-500 dark:border-gray-700">
+                <div class="relative" wire:key="member-{{ $member->id }}">
+                <button wire:click="editMember({{$member->id}})" class="h-full w-full rounded-xl border border-gray-200 p-4 pb-10 text-left transition hover:border-primary-500 dark:border-gray-700">
                     <div class="flex items-center justify-between gap-3"><span class="font-bold">{{$member->name}}</span><span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-bold uppercase text-gray-500 dark:bg-gray-800">{{$member->isFulfillment()?'Fulfillment':($member->isRemote()?'Remote':'In-house')}}</span></div>
                     @if($member->status === 'inactive' || ! $member->user_id)
                         <div class="mt-1 flex flex-wrap gap-1">
@@ -87,6 +88,13 @@
                         @if(count($pay['overrides']??[])) Individual Override @else Standard {{ $member->isFulfillment() ? 'Fulfillment' : 'Streamer' }} Calculation @endif
                     </div>
                 </button>
+                {{-- Outside the card's own button: a button cannot hold another. --}}
+                @if($member->status === 'inactive')
+                    <button type="button" wire:click="restoreMember({{ $member->id }})" class="absolute bottom-2 right-2 inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Put {{ $member->name }} back on payroll"><x-heroicon-o-arrow-uturn-left class="h-4 w-4" aria-hidden="true" />Restore</button>
+                @else
+                    <button type="button" x-data x-on:click="if (await window.vxConfirm(@js('Remove '.$member->name.' from payroll? A profile with no shows or pay is deleted; one with history is archived and can be restored.'))) $wire.removeMember({{ $member->id }})" class="absolute bottom-2 right-2 inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-danger-700 hover:bg-danger-50 dark:text-danger-300 dark:hover:bg-danger-950/40" aria-label="Remove {{ $member->name }} from payroll"><x-heroicon-o-trash class="h-4 w-4" aria-hidden="true" />Remove</button>
+                @endif
+                </div>
             @empty
                 <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">No {{$member_filter}} team members found.</div>
             @endforelse

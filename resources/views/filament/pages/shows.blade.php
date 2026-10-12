@@ -94,6 +94,10 @@
 .vx-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--vx-p);color:#fff;font-size:.65rem;font-weight:800}
 .vx-legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 16px;border-bottom:1px solid var(--vx-line);font-size:.72rem;color:var(--vx-muted)}
 .vx-dot{display:inline-block;width:8px;height:8px;border-radius:999px;flex:none}
+.vx-chan{display:inline-flex;align-items:center;flex:none;max-width:10rem;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:700;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:color-mix(in srgb,var(--c) 14%,transparent);color:color-mix(in srgb,var(--c) 58%,#000);border:1px solid color-mix(in srgb,var(--c) 30%,transparent)}
+.dark .vx-chan{color:color-mix(in srgb,var(--c) 55%,#fff);background:color-mix(in srgb,var(--c) 22%,transparent)}
+.vx-chan.none{--c:#94a3b8}
+.vx-acard .tm{white-space:nowrap}.vx-acard .vx-chan{flex:0 1 auto;min-width:0}
 .vx-filters{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)) auto;gap:10px;align-items:end;padding:14px 16px;border-bottom:1px solid var(--vx-line);background:var(--vx-soft)}
 .vx-filters label{font-size:.7rem;font-weight:600;color:var(--vx-muted);min-width:0}
 .vx-filters input,.vx-filters select{margin-top:4px;width:100%;border-radius:10px;border:1px solid var(--vx-line);background:var(--vx-bg);font-size:.82rem;color:var(--vx-text)}
@@ -245,7 +249,7 @@
     </div>
     @include('filament.pages.partials.shows-filters')
     @if(($legend = $this->channelLegend())->isNotEmpty())
-        <div class="vx-legend">@foreach($legend as $c)<span class="inline-flex items-center gap-1.5"><span class="vx-dot" style="background:{{ $c['color'] }}"></span>{{ $c['name'] }}</span>@endforeach</div>
+        <div class="vx-legend">@foreach($legend as $c)<span class="vx-chan" style="--c:{{ $c['color'] }}">{{ $c['name'] }}</span>@endforeach</div>
     @endif
 
     @if($viewMode === 'month')
@@ -306,7 +310,7 @@
                 @foreach($shows->take(4) as $p)
                     <button type="button" class="vx-arow" @click="open({{ $p['id'] }})">
                         <span class="tm">{{ $p['time'] }}</span>
-                        <span class="tt"><span class="vx-dot" style="background:{{ $p['color'] }}"></span><span>{{ $p['title'] }}@if(auth()->user()?->isOwner())<small class="block text-xs font-normal text-gray-500">{{ $p['analytics'] }}</small>@endif</span></span>
+                        <span class="tt"><span class="vx-chan {{ $p['channel'] ? '' : 'none' }}" style="--c:{{ $p['color'] }}" title="Channel">{{ $p['channel'] ?? 'No channel' }}</span><span>{{ $p['title'] }}@if(auth()->user()?->isOwner())<small class="block text-xs font-normal text-gray-500">{{ $p['analytics'] }}</small>@endif</span></span>
                         <span class="who"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span><span class="truncate">{{ $p['streamers'] ?? 'Unassigned' }}</span></span>
                         <span class="vx-pill {{ $p['state'] }}">{{ $p['stateLabel'] }}</span>
                     </button>
@@ -331,7 +335,7 @@
                         @if($p['cover'])<img class="vx-cover" src="{{ $p['cover'] }}" alt="" loading="lazy">@endif
                         <span class="min-w-0 flex-1">
                             <span class="block truncate text-sm font-bold">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-xs text-gray-500">{{ $p['analytics'] }}</span>@endif
-                            <span class="mt-1 flex items-center gap-2 text-xs" style="color:var(--vx-muted)"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>{{ $p['streamers'] ?? 'Unassigned' }} · {{ $p['timeRange'] }}@if($p['channel']) · <span class="vx-dot" style="background:{{ $p['color'] }}"></span>{{ $p['channel'] }}@endif</span>
+                            <span class="mt-1 flex items-center gap-2 text-xs" style="color:var(--vx-muted)"><span class="vx-av">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>{{ $p['streamers'] ?? 'Unassigned' }} · {{ $p['timeRange'] }}@if($p['channel']) <span class="vx-chan">{{ $p['channel'] }}</span>@endif</span>
                         </span>
                         <span class="vx-pill {{ $p['state'] }}">{{ $p['stateLabel'] }}</span>
                     </button>
@@ -388,8 +392,8 @@
                         <template x-for="p in day(s)" :key="p.id">
                             <button type="button" class="vx-acard" :style="'--c:' + p.color" @click="open(p.id)">
                                 <span class="min-w-0 flex-1">
-                                    <span class="flex items-center justify-between gap-2"><span class="tm" x-text="p.timeRange"></span><span class="vx-pill" :class="p.state" x-text="p.stateLabel"></span></span>
-                                    <span class="tt"><span class="vx-dot" :style="'background:' + p.color"></span><span><span x-text="p.title"></span>@if(auth()->user()?->isOwner())<small class="block text-xs text-gray-500" x-text="p.analytics"></small>@endif</span></span>
+                                    <span class="flex items-center justify-between gap-2"><span class="flex min-w-0 items-center gap-2"><span class="tm" x-text="p.timeRange"></span><span class="vx-chan" :class="!p.channel && 'none'" x-text="p.channel || 'No channel'"></span></span><span class="vx-pill" :class="p.state" x-text="p.stateLabel"></span></span>
+                                    <span class="tt"><span><span x-text="p.title"></span>@if(auth()->user()?->isOwner())<small class="block text-xs text-gray-500" x-text="p.analytics"></small>@endif</span></span>
                                     <span class="who"><span class="vx-av" x-text="p.streamers ? p.initial : '?'"></span><span x-text="p.streamers || 'Unassigned'"></span></span>
                                 </span>
                                 <x-filament::icon icon="heroicon-m-chevron-right" class="h-5 w-5" style="color:var(--vx-faint)" />
@@ -429,7 +433,7 @@
                     <div class="mt-2 vx-m-only"><span class="vx-pill" :class="show.state" x-text="show.state === 'live' ? 'Live now' : show.stateLabel"></span></div>
                     <div class="mt-3 space-y-2 text-sm" style="color:var(--vx-muted)">
                         <div class="flex items-center gap-2"><x-filament::icon icon="heroicon-o-calendar" class="h-4 w-4" /><span x-text="show.dateLabel + ' · ' + show.timeRange + (show.duration ? ' (' + show.duration + ')' : '')"></span></div>
-                        <div class="flex items-center gap-2" x-show="show.channel"><span class="vx-dot" :style="'background:' + show.color"></span><span x-text="show.channel"></span></div>
+                        <div class="flex items-center gap-2" x-show="show.channel"><span class="vx-chan" x-text="show.channel"></span></div>
                         <div class="flex items-center gap-2"><span class="vx-av" x-text="show.streamers ? show.initial : '?'"></span><span class="font-semibold" style="color:var(--vx-text)" x-text="show.streamers || 'Unassigned'"></span></div>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2">

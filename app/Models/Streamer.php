@@ -102,15 +102,26 @@ class Streamer extends Model
             ->whereNotIn('shows.status', ['cancelled'])->sum('shows.gross_revenue');
     }
 
-    public function isPerformanceTrendingDown(float $thresholdPct = 30.0): bool
+    /**
+     * Last week's gross against the average of the three weeks before it.
+     *
+     * @return array{last_week: float, baseline: float, change_pct: float}|null null without both figures
+     */
+    public function performanceTrend(): ?array
     {
         $lastWeekStart = now()->copy()->subWeek()->startOfWeek(); $lastWeekRevenue = $this->weekRevenue($lastWeekStart);
-        if ($lastWeekRevenue <= 0) return false;
+        if ($lastWeekRevenue <= 0) return null;
         $baselineRevenues = [];
         for ($i = 1; $i <= 3; $i++) $baselineRevenues[] = $this->weekRevenue($lastWeekStart->copy()->subWeeks($i));
         $baselineAvg = array_sum($baselineRevenues) / count($baselineRevenues);
-        if ($baselineAvg <= 0) return false;
-        return ((($lastWeekRevenue - $baselineAvg) / $baselineAvg) * 100) <= -$thresholdPct;
+        if ($baselineAvg <= 0) return null;
+        return ['last_week' => $lastWeekRevenue, 'baseline' => $baselineAvg, 'change_pct' => (($lastWeekRevenue - $baselineAvg) / $baselineAvg) * 100];
+    }
+
+    public function isPerformanceTrendingDown(float $thresholdPct = 30.0): bool
+    {
+        $trend = $this->performanceTrend();
+        return $trend !== null && $trend['change_pct'] <= -$thresholdPct;
     }
 
     public static function memberTypeLabels(): array { return ['streamer' => 'Streamer', 'fulfillment' => 'Fulfillment']; }

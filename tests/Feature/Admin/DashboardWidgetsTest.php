@@ -129,6 +129,35 @@ class DashboardWidgetsTest extends TestCase
             ->assertSee('dead on the shelf');
     }
 
+    public function test_needs_attention_rows_open_the_list_behind_the_count(): void
+    {
+        $admin = $this->admin();
+        $item = \App\Models\InventoryItem::create(['name' => 'Stale Case', 'sku' => 'STALE-1', 'unit_cost' => 10, 'average_cost' => 10, 'is_active' => true]);
+        $loc  = \App\Models\InventoryLocation::create(['name' => 'Main']);
+        \App\Models\InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $loc->id, 'quantity' => 5]);
+        \App\Models\WhatnotShowOrder::create([
+            'show_id' => Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $admin->id])->id,
+            'inventory_item_id' => $item->id, 'buyer_username' => 'b', 'item_name' => 'Stale Case',
+            'quantity' => 1, 'unit_cost' => 10, 'total_price' => 12, 'status' => 'completed',
+            'show_date' => now()->subDays(200)->toDateString(),
+        ]);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertSee("wire:click=\"openDetail('dead_stock')\"", false)
+            ->call('openDetail', 'dead_stock')
+            ->assertSet('detail', 'dead_stock')
+            ->assertDispatched('open-modal')
+            ->assertSee('Stale Case · STALE-1')->assertSee('Tied up')->assertSee('$50.00')
+            ->assertSee(now()->subDays(200)->format('M j, Y'))
+            ->assertSee('Open Product Insights');
+
+        // Only known lists open, and failed jobs stay owner-only.
+        Livewire::test(NeedsAttentionWidget::class)->call('openDetail', 'everything')->assertStatus(404);
+        Livewire::test(NeedsAttentionWidget::class)->call('openDetail', 'failed_jobs')->assertStatus(403);
+    }
+
     public function test_needs_attention_surfaces_zero_stock_mapped_sale(): void
     {
         $admin = $this->admin();

@@ -28,18 +28,65 @@
                             default   => 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300',
                         };
                     @endphp
-                    <a href="{{ $item['url'] }}" wire:navigate
-                       class="flex items-center gap-3 py-3 -mx-2 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/5 transition">
+                    @php($rowClass = 'flex w-full items-center gap-3 py-3 -mx-2 px-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-white/5 transition')
+                    @if ($item['detail'])
+                        {{-- Opens the list behind the count instead of leaving the dashboard. --}}
+                        <button type="button" wire:click="openDetail('{{ $item['detail'] }}')" wire:loading.attr="disabled" class="{{ $rowClass }}" aria-haspopup="dialog">
+                    @else
+                        <a href="{{ $item['url'] }}" wire:navigate class="{{ $rowClass }}">
+                    @endif
                         <x-dynamic-component :component="$item['icon']" class="h-5 w-5 shrink-0 {{ $tone }}" />
                         <span class="inline-flex items-center justify-center min-w-7 h-6 px-2 rounded-full text-xs font-bold {{ $badge }}">
                             {{ number_format($item['count']) }}
                         </span>
                         <span class="text-sm text-gray-800 dark:text-gray-100 flex-1 min-w-0">{{ $item['label'] }}</span>
                         <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-300 dark:text-gray-600 shrink-0" />
-                    </a>
+                    @if ($item['detail'])
+                        </button>
+                    @else
+                        </a>
+                    @endif
                 @endforeach
             </div>
         @endif
         </div>
     </section>
+
+    <x-filament::modal :id="$this->detailModalId()" width="4xl">
+        @if ($detailData)
+            <x-slot name="heading">{{ $detailData['title'] }}</x-slot>
+            <x-slot name="description">{{ $detailData['description'] }}</x-slot>
+            <div class="-mx-2 max-h-[60vh] overflow-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="sticky top-0 bg-white text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900">
+                        <tr>@foreach ($detailData['columns'] as $i => $column)<th class="px-2 py-2 font-semibold {{ $i > 0 ? 'whitespace-nowrap' : '' }}">{{ $column }}</th>@endforeach</tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-white/5">
+                        @forelse ($detailData['rows'] as $row)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
+                                @foreach ($row['cells'] as $i => $cell)
+                                    <td class="px-2 py-2 align-top {{ $i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'tabular-nums text-gray-600 dark:text-gray-300' }}">
+                                        @if ($i === 0 && $row['url'])<a href="{{ $row['url'] }}" class="text-primary-600 hover:underline dark:text-primary-400">{{ $cell }}</a>@else{{ $cell }}@endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @empty
+                            <tr><td colspan="{{ count($detailData['columns']) }}" class="px-2 py-6 text-center text-gray-500">Nothing here any more.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <x-slot name="footer">
+                <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <span class="text-gray-500">
+                        Showing {{ count($detailData['rows']) }} of {{ number_format($detailData['total']) }}
+                    </span>
+                    <x-filament::button tag="a" :href="$detailData['more_url']" color="gray" icon="heroicon-o-arrow-top-right-on-square">{{ $detailData['more_label'] }}</x-filament::button>
+                </div>
+            </x-slot>
+        @else
+            <x-slot name="heading">Details</x-slot>
+            <p class="text-sm text-gray-500">These details could not be loaded. Use the full page instead.</p>
+        @endif
+    </x-filament::modal>
 </x-filament-widgets::widget>

@@ -13,10 +13,30 @@ class RepairShowChannels extends Command
 
     public function handle(ShowChannelRepair $repair): int
     {
+        // 1. Second copies the nightly discovery made of hourly-imported shows.
+        $duplicates = $repair->duplicatePlan();
+        if ($duplicates !== []) {
+            $this->info('Second copies to fold back into the original show:');
+            $this->table(['Show', 'Date now', 'Title', 'Copy', 'Correct date', 'Change'], collect($duplicates)->map(fn ($d) => [
+                $d['show']->id, $d['show']->show_date?->toDateString(), mb_strimwidth((string) $d['show']->title, 0, 40, '…'),
+                '#'.$d['copy']->id, $d['copy']->show_date?->toDateString(),
+                $d['blocked'] ? 'Needs a person: '.$d['blocked'] : 'Fold copy in, take its date/time',
+            ])->all());
+            if ($this->option('apply')) {
+                $t = $repair->applyDuplicates($duplicates);
+                $this->info("Folded {$t['merged']} copy(ies) back in.".($t['review'] ? " {$t['review']} left for a person." : ''));
+            }
+            $this->newLine();
+        }
+
+        // 2. Merged streams and shows on the wrong channel.
         $plans = $repair->plan();
 
         if ($plans === []) {
             $this->info('Nothing to repair: no show has evidence of being on the wrong channel or merged.');
+            if ($duplicates !== [] && ! $this->option('apply')) {
+                $this->line('Nothing was changed — run again with <comment>--apply</comment> to fold in the copies above.');
+            }
 
             return self::SUCCESS;
         }
@@ -43,7 +63,7 @@ class RepairShowChannels extends Command
 
         if (! $this->option('apply')) {
             $this->newLine();
-            $this->line(count($plans).' show(s) would change. Nothing was changed — run again with <comment>--apply</comment> to make these changes.');
+            $this->line(count($plans).' show(s) would change'.($duplicates ? ' (after folding in the copies above)' : '').'. Nothing was changed — run again with <comment>--apply</comment> to make these changes.');
 
             return self::SUCCESS;
         }

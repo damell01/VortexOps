@@ -505,10 +505,21 @@ class Show extends Model
     /** Recently ended shows can be checked without waiting until tomorrow. */
     public function scopeReadyForAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) {
-            $eligible->whereDate('show_date', '<', today())
-                ->orWhere(fn ($ended) => $ended->whereNotNull('end_time')->where('end_time', '<=', now()->subMinutes(30)))
-                ->orWhere(fn ($completed) => $completed->where('raw_import_payload->_seller_hub_state', 'past')->whereNull('end_time')->whereDate('show_date', '<=', today()));
+        // show_date and end_time are the show's local (Central) date and time
+        // of day. end_time is a TIME column: comparing it with a full
+        // date-time (as this used to) is a text comparison that is always
+        // true, so every future show with an end time counted as ended. A
+        // show is ready once its date has passed, or today once it ended
+        // half an hour ago or Seller Hub lists it under Past.
+        $local = \App\Support\BusinessTime::local();
+        $today = $local->toDateString();
+        $endedBy = $local->copy()->subMinutes(30);
+
+        return $query->whereNotIn('status', ['cancelled'])->where(function ($eligible) use ($today, $endedBy) {
+            $eligible->whereDate('show_date', '<', $today)
+                ->orWhere(fn ($ended) => $ended->whereDate('show_date', $today)->whereNotNull('end_time')
+                    ->when($endedBy->toDateString() === $today, fn ($q) => $q->whereTime('end_time', '<=', $endedBy->format('H:i:s')), fn ($q) => $q->whereRaw('1 = 0')))
+                ->orWhere(fn ($completed) => $completed->whereDate('show_date', $today)->where('raw_import_payload->_seller_hub_state', 'past')->whereNull('end_time'));
         });
     }
 

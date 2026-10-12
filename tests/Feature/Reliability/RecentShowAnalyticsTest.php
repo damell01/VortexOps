@@ -24,10 +24,12 @@ class RecentShowAnalyticsTest extends TestCase
     public function test_known_ends_and_confirmed_completed_shows_are_eligible_same_day(): void
     {
         Carbon::setTestNow('2026-10-08 18:00:00');
-        $ended = $this->show(['end_time' => now()->subMinutes(45)]);
-        $justEnded = $this->show(['raw_import_payload'=>['_seller_hub_state'=>'past'], 'end_time'=>now()->subMinutes(10)]);
+        // Show times are local (Central) times of day.
+        $local = fn (int $minutes) => \App\Support\BusinessTime::local()->addMinutes($minutes)->format('H:i:s');
+        $ended = $this->show(['end_time' => $local(-45)]);
+        $justEnded = $this->show(['raw_import_payload'=>['_seller_hub_state'=>'past'], 'end_time'=>$local(-10)]);
         $completed = $this->show(['raw_import_payload'=>['_seller_hub_state'=>'past']]);
-        $upcoming = $this->show(['end_time'=>now()->addHour()]);
+        $upcoming = $this->show(['end_time'=>$local(60)]);
         $cancelled = $this->show(['status'=>'cancelled', 'end_time'=>now()->subHour()]);
         $ids = Show::readyForAnalytics()->pluck('id')->all();
         $this->assertContains($ended->id, $ids);

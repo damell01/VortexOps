@@ -26,6 +26,7 @@ class SyncWhatnotReporting extends Command
         {--analytics-only : Check database shows that are missing/incomplete analytics by Whatnot UUID; skip discovery, orders, shipments, and ledger}
         {--without-orders : Skip order/buyer reconciliation (orders run by default)}
         {--without-shipments : Skip shipment/fulfillment reconciliation; manual --shipments-only remains available}
+        {--without-ledger : Skip the ledger / post-show adjustments step}
         {--order-batch=25 : Number of shows per authoritative order batch when --with-orders is used}
         {--wait=0 : Seconds to wait for another Whatnot pipeline; 0 fails fast}
         {--skip-if-busy : Exit cleanly if another Whatnot pipeline is active}
@@ -279,6 +280,7 @@ class SyncWhatnotReporting extends Command
                     }
                 }
 
+                if (! $this->option('without-ledger')) {
                 $this->line("  {$step}. Ledger / post-show adjustments");
                 try {
                     $ledger = $retry(fn () => $scraper->importLedger($channel, $since->toDateString(), today()->toDateString(), false), 'ledger');
@@ -298,6 +300,7 @@ class SyncWhatnotReporting extends Command
                     $this->line('     ledger rows created '.($ledger['created'] ?? 0).', skipped '.($ledger['skipped'] ?? 0));
                 } catch (\Throwable $e) {
                     $this->warn('     ledger refresh failed: '.$this->describeError($e));
+                }
                 }
 
                 $this->reportChannelCoverage($channel->id, $since);

@@ -37,12 +37,18 @@ class UserTeamProfileService
         if ($memberType === 'streamer' && $aliases !== null) {
             $normalized = collect($aliases)
                 ->map(fn ($alias) => trim((string) $alias))
-                ->filter()
+                ->filter(fn ($alias) => StreamerAlias::normalize($alias) !== '')
                 ->unique(fn ($alias) => StreamerAlias::normalize($alias))
                 ->values();
 
-            $profile->aliases()->where('source', 'manual')->delete();
-            foreach ($normalized as $alias) {
+            // The form lists every alias, including ones learned from show
+            // titles. Keep the ones still listed (whatever their source), drop
+            // the ones removed, and add only the new ones. Recreating them all
+            // collided with the learned ones and failed after the user saved.
+            $wanted = $normalized->keyBy(fn ($alias) => StreamerAlias::normalize($alias));
+            $profile->aliases()->whereNotIn('normalized_alias', $wanted->keys()->all())->delete();
+            $existing = $profile->aliases()->pluck('normalized_alias')->all();
+            foreach ($wanted->except($existing) as $alias) {
                 $profile->aliases()->create([
                     'alias' => $alias,
                     'source' => 'manual',

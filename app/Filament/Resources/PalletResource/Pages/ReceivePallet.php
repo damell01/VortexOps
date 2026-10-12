@@ -627,6 +627,10 @@ class ReceivePallet extends Page
         return [
             Action::make('history')->label('Receiving History')->icon('heroicon-o-clock')->url(fn () => \App\Filament\Pages\PalletReceivingHistory::getUrl()),
             Action::make('inventory_guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => \App\Filament\Pages\InventoryGuide::getUrl())->visible(fn () => \App\Filament\Pages\InventoryGuide::canAccess()),
+            Action::make('review_receiving')->label('Review receiving')->icon('heroicon-o-clipboard-document-list')
+                ->modalHeading('Receiving summary')
+                ->modalContent(fn () => view('filament.components.receiving-summary', ['review' => $this->receivingSummary()]))
+                ->modalSubmitAction(false)->modalCancelActionLabel('Close'),
             Action::make('complete_pallet')
                 ->label('Review & complete')
                 ->icon('heroicon-o-check-circle')

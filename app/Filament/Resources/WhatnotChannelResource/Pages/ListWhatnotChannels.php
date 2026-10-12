@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListWhatnotChannels extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = WhatnotChannelResource::class;
 
     public function getSubheading(): ?string

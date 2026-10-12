@@ -10,6 +10,8 @@ use Illuminate\Support\Carbon;
 
 class ListPayouts extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = PayoutResource::class;
 
     protected string $view = 'filament.resources.payout-resource.pages.list-payouts';

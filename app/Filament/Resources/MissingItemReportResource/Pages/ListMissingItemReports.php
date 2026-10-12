@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListMissingItemReports extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = MissingItemReportResource::class;
 
     protected function getHeaderActions(): array

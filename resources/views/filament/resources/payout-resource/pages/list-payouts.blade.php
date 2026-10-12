@@ -1,13 +1,7 @@
 <x-filament-panels::page>
     @php($stats = $this->payoutStats())
     <div class="space-y-6">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <p class="text-sm text-[var(--vx-muted)]">Week of {{ $stats['label'] }}</p>
-                <h2 class="text-[26px] font-semibold tracking-[-.02em] text-[var(--vx-text)]">Payouts</h2>
-            </div>
-            <div class="flex gap-2">{{ $this->getHeaderActions() }}</div>
-        </div>
+        <p class="text-sm font-semibold text-[var(--vx-muted)]">This week: {{ $stats['label'] }}</p>
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="vx-card p-4"><p class="text-xs font-semibold text-[var(--vx-muted)]">To pay this week</p><p class="vx-kpi-value mt-2">${{ number_format($stats['total'], 2) }}</p></div>

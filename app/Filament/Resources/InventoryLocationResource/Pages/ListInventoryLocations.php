@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListInventoryLocations extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = InventoryLocationResource::class;
 
     public function getSubheading(): ?string

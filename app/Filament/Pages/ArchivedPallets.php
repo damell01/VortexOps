@@ -17,7 +17,7 @@ use Filament\Tables\Table;
 
 class ArchivedPallets extends Page implements HasTable
 {
-    use HasModuleAccess, InteractsWithTable;
+    use HasModuleAccess, InteractsWithTable, \App\Filament\Concerns\DownloadsTableCsv;
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Archived Pallets';

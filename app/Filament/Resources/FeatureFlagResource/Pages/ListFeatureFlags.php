@@ -7,6 +7,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListFeatureFlags extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = FeatureFlagResource::class;
 
     public function getSubheading(): ?string

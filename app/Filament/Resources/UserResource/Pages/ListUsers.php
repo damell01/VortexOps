@@ -9,6 +9,8 @@ use Spatie\Permission\Models\Role;
 
 class ListUsers extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = UserResource::class;
 
     protected string $view = 'filament.resources.user-resource.pages.list-users';

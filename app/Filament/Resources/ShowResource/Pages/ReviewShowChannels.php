@@ -19,6 +19,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ReviewShowChannels extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ShowResource::class;
 
     public static function canAccess(array $parameters = []): bool

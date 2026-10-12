@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListShowIngestionLogs extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ShowIngestionLogResource::class;
 
     /** Per-request memo — the view reads each of these once, but renders repeat. */

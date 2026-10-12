@@ -7,6 +7,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListActivityLogs extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ActivityLogResource::class;
 
     public function getSubheading(): ?string

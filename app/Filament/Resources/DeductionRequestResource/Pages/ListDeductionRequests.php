@@ -7,6 +7,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListDeductionRequests extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = DeductionRequestResource::class;
 
     public function getSubheading(): ?string

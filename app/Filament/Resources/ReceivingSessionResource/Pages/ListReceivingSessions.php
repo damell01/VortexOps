@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListReceivingSessions extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ReceivingSessionResource::class;
 
     public function getSubheading(): ?string

@@ -23,6 +23,6 @@
 @endphp
 
 <span class="{{ $class }}" title="{{ $label }}">
-    <span class="fi-status-icon">{{ $icon }}</span>
+    <span class="fi-status-icon" aria-hidden="true">{{ $icon }}</span>
     <span class="fi-status-label">{{ $label ?: ucfirst($status) }}</span>
 </span>

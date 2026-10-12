@@ -10,6 +10,8 @@ use Livewire\Attributes\Url;
 
 class ListShipments extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ShipmentResource::class;
 
     /**

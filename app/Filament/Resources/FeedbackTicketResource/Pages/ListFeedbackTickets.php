@@ -7,6 +7,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListFeedbackTickets extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = FeedbackTicketResource::class;
 
     public function getSubheading(): ?string

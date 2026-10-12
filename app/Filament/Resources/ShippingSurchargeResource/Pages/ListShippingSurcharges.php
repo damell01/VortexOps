@@ -7,6 +7,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListShippingSurcharges extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ShippingSurchargeResource::class;
 
     public function getSubheading(): ?string

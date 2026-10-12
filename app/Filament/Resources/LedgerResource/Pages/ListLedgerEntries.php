@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListLedgerEntries extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = LedgerResource::class;
 
     public function getSubheading(): ?string

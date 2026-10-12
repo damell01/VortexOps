@@ -10,6 +10,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListStreamers extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = StreamerResource::class;
 
     public function getSubheading(): ?string

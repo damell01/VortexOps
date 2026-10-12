@@ -11,6 +11,8 @@ use Spatie\Permission\Models\Role;
 
 class ListRoles extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = RoleResource::class;
 
     protected string $view = 'filament.resources.role-resource.pages.list-roles';

@@ -51,6 +51,11 @@
                         Start at the beginning
                         <x-heroicon-o-arrow-right class="h-4 w-4" />
                     </button>
+                    <a href="{{ \App\Filament\Pages\HandbookFlipbook::getUrl() }}"
+                       class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                        <x-heroicon-o-book-open class="h-4 w-4" />
+                        Read as a book
+                    </a>
                     <a href="{{ route('export.inventory-manual-pdf') }}" target="_blank" rel="noopener"
                        class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
                         <x-heroicon-o-document-arrow-down class="h-4 w-4" />

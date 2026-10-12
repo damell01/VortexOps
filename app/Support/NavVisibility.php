@@ -18,6 +18,9 @@ class NavVisibility
         // New show-first shipment page is part of the existing Streams workflow;
         // its own canAccess() still restricts it to admin/streamer users.
         \App\Filament\Pages\ShowShipments::class,
+        // The handbook as a book. Its canAccess() asks the Handbook, so a role
+        // gets both or neither and the Roles page offers one switch, not two.
+        \App\Filament\Pages\HandbookFlipbook::class,
     ];
 
     private static ?array $roleMemo = null;

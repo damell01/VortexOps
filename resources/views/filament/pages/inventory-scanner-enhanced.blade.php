@@ -2,6 +2,7 @@
     <div
         class="mx-auto max-w-4xl space-y-3 pb-24 sm:space-y-5 sm:pb-0"
         data-vx-page="inventory-scanner"
+        data-vx-touch-page
         x-data="{
             openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner')); },
             useScan(event) {
@@ -12,6 +13,7 @@
         }"
         x-on:barcode-scanned.window="useScan($event)"
     >
+        <x-touch-mode-toggle />
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="p-4 sm:p-5">
                 <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Quick Scan</div>

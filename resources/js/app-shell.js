@@ -44,6 +44,10 @@ function bar(id, html, actions) {
     return el;
 }
 
+// ── Large controls ──────────────────────────────────────────────────────
+// Remembered per device by x-touch-mode-toggle; applied before anything paints.
+if (store.get('vx-touch-mode') === '1') document.documentElement.classList.add('vx-touch');
+
 // ── Install ─────────────────────────────────────────────────────────────
 let deferredPrompt = null;
 

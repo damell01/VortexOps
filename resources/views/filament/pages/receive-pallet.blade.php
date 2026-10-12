@@ -12,6 +12,7 @@
     <div
         class="mx-auto max-w-7xl pb-24 sm:pb-8"
         data-vx-page="pallet-receive"
+        data-vx-touch-page
         x-data="{
             {{-- Every scan is kept on this device until the server confirms it,
                  so a warehouse dead spot never loses one. Each carries an id the
@@ -76,6 +77,7 @@
         x-on:barcode-scanned.window="submitCameraScan($event)"
         x-on:receiving-item-matched.window="document.getElementById('receiving-line-' + $event.detail.lineId)?.scrollIntoView({ block: 'center', behavior: 'smooth' })"
     >
+        <div class="mb-3"><x-touch-mode-toggle /></div>
         {{-- Compact job header: identity + progress without making the user scroll through a dashboard first. --}}
         <section class="mb-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

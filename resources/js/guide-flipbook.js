@@ -50,6 +50,8 @@ async function mount(root) {
     const status = root.querySelector('[data-status]');
     const controls = root.querySelector('[data-controls]');
     const indicator = root.querySelector('[data-page]');
+    // The element that scrolls; falls back to the root for older markup.
+    const scroller = root.querySelector('[data-scroll]') || root;
     const state = { flip: null, urls: [], imgs: [], cancelled: false, task: null, pdf: null, generation: 0, onResize: null };
     instances.set(root, state);
 
@@ -64,9 +66,12 @@ async function mount(root) {
         // follows the window, rotation and full screen. Zoom levels are
         // relative to "fit width", which is where the text is readable.
         const layout = () => {
-            const cs = getComputedStyle(root);
-            const availW = root.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-            const availH = root.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - (controls.offsetHeight || 64) - 16;
+            // clientWidth already leaves out the scrollbar gutter (reserved in
+            // CSS), so a fit-width book never spills into a sideways scroll.
+            const cs = getComputedStyle(scroller);
+            const availW = scroller.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            const availH = scroller.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+                - (scroller === root ? (controls.offsetHeight || 64) + 16 : 0);
             // Spread vs single page follows the window, never the zoom, so
             // zooming in on a phone does not suddenly show two pages.
             const perRow = availW >= SPREAD_MIN ? 2 : 1;
@@ -100,7 +105,7 @@ async function mount(root) {
         const elements = pages.map((p, i) => {
             const el = document.createElement('div');
             el.className = 'vx-flip-page';
-            el.dataset.density = i === 0 || i === pages.length - 1 ? 'hard' : 'soft';
+            el.dataset.density = 'soft';
             const img = document.createElement('img');
             img.src = p.url;
             img.alt = `${root.dataset.title || 'Guide'} – page ${i + 1}`;
@@ -117,7 +122,8 @@ async function mount(root) {
             width, height, size: 'stretch',
             minWidth: MIN_PAGE / 2, maxWidth: 2400,
             minHeight: Math.round((MIN_PAGE / 2) * height / width), maxHeight: Math.round(2400 * height / width),
-            showCover: true, usePortrait: true, autoSize: true,
+            // No cover: the guide opens on pages 1 and 2 side by side.
+            showCover: false, usePortrait: true, autoSize: true,
             maxShadowOpacity: 0.35, flippingTime: 650, mobileScrollSupport: true,
             // Clicking or scrolling around a zoomed page must not turn it.
             disableFlipByClick: true,
@@ -164,12 +170,12 @@ async function mount(root) {
         const total = pages.length;
         const update = () => {
             const i = state.flip.getCurrentPageIndex();
-            const spread = state.flip.getOrientation() === 'landscape' && i > 0 && i + 1 < total;
+            const spread = state.flip.getOrientation() === 'landscape' && i + 1 < total;
             indicator.textContent = spread ? `Pages ${i + 1}–${i + 2} of ${total}` : `Page ${i + 1} of ${total}`;
             root.querySelector('[data-prev]').disabled = i === 0;
             root.querySelector('[data-next]').disabled = i + (spread ? 2 : 1) >= total;
         };
-        state.flip.on('flip', () => { update(); root.scrollTo({ top: 0 }); });
+        state.flip.on('flip', () => { update(); scroller.scrollTo({ top: 0 }); });
         state.flip.on('changeOrientation', update);
 
         root.querySelector('[data-prev]').addEventListener('click', () => state.flip.flipPrev());

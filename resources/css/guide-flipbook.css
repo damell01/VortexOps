@@ -24,19 +24,34 @@
 .vx-flipbook-controls button:disabled { opacity: .35; cursor: default; }
 .vx-flipbook-controls [data-page] { min-width: 9rem; text-align: center; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .vx-flipbook { padding: .75rem .5rem; } .vx-flipbook-controls { flex-wrap: wrap; gap: .5rem; } }
-/* "Read here" opens the guide as a full-viewport overlay above the panel chrome. */
-.vx-guide-overlay .vx-flipbook { background: none; overflow: auto; }
-/* Pages are sized from the measured space in JS; when zoomed wider than the
-   window the reader scrolls, and the controls stay pinned at the bottom. */
-.vx-guide-overlay .vx-flipbook-stage { max-width: none; }
-.vx-guide-overlay .vx-flipbook-controls {
-    position: sticky; bottom: 0; left: 0; z-index: 2; margin: .75rem -1rem -1rem; padding: .6rem 1rem;
-    background: rgb(18 12 38 / .88); backdrop-filter: blur(6px); flex-wrap: wrap;
+/* "Read here" opens the guide as a full-viewport overlay above the panel chrome:
+   pages scroll in the middle, the controls are a footer that never covers them. */
+.vx-guide-overlay .vx-flipbook { display: flex; flex-direction: column; min-height: 0; padding: 0; background: none; }
+.vx-guide-overlay .vx-flipbook.is-ready .vx-flipbook-status { display: none; }
+.vx-guide-overlay .vx-flipbook-scroll {
+    flex: 1; min-height: 0; overflow: auto; padding: 1rem 1.25rem 1.5rem;
+    /* Reserve the scrollbar's width up front so sizing the book to the
+       window cannot push it into a sideways scroll. */
+    scrollbar-gutter: stable both-edges;
 }
+.vx-guide-overlay .vx-flipbook-stage { max-width: none; margin: 0 auto; }
+/* Shadow on the pages, not a filter on the stage: a filter flattens the 3D page turn. */
+.vx-guide-overlay .vx-flip-page { box-shadow: 0 14px 34px rgb(0 0 0 / .4); }
+.vx-guide-overlay .vx-flipbook-controls {
+    flex: none; margin: 0; padding: .65rem 1rem; flex-wrap: wrap;
+    border-top: 1px solid rgb(255 255 255 / .1); background: rgb(14 9 30 / .92);
+}
+/* A soft spine where the two pages meet, so the spread reads as a book. */
+.vx-flip-page.--left::after, .vx-flip-page.--right::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 6%; pointer-events: none;
+}
+.vx-flip-page.--left::after { right: 0; background: linear-gradient(to left, rgb(0 0 0 / .14), transparent); }
+.vx-flip-page.--right::after { left: 0; background: linear-gradient(to right, rgb(0 0 0 / .14), transparent); }
 .vx-flipbook-zoom { display: inline-flex; align-items: center; gap: .25rem; }
 .vx-flipbook-zoom [data-zoom] { min-width: 5.5rem; text-align: center; }
 @media (max-width: 640px) {
-    .vx-guide-overlay .vx-flipbook-controls { margin: .5rem -.5rem -.75rem; padding: .5rem; gap: .4rem; }
+    .vx-guide-overlay .vx-flipbook-scroll { padding: .5rem .25rem 1rem; }
+    .vx-guide-overlay .vx-flipbook-controls { padding: .5rem; gap: .4rem; }
     .vx-flipbook-controls [data-page] { min-width: 6.5rem; }
     /* Keep the phone header to one row; Download still covers it. */
     .vx-guide-overlay .vx-guide-open { display: none; }

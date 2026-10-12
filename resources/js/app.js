@@ -2,6 +2,7 @@ import './action-feedback.js';
 import '../css/page-layout-fixes.css';
 import './confirmation-dialog.js';
 import './guided-help.js';
+import './app-shell.js';
 import './mobile-controls.js';
 import '../css/mobile-report-pass.css';
 

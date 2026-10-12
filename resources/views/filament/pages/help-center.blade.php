@@ -62,6 +62,21 @@
             </template>
         </div>
         @endif
+        <section x-data="{ ios: /iphone|ipad|ipod/i.test(navigator.userAgent), installed: window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true, canPrompt: !!document.documentElement.dataset.vxInstallable }"
+                 x-on:beforeinstallprompt.window="canPrompt = true"
+                 class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900" aria-labelledby="install-heading">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <h2 id="install-heading" class="font-bold">Use VortexOps as an app</h2>
+                    <p class="mt-1 text-sm text-gray-500">
+                        <span x-show="installed">You're using the installed app. It updates itself — there's nothing to reinstall.</span>
+                        <span x-show="!installed && ios">On iPhone: tap Share, then <strong>Add to Home Screen</strong>. It opens full screen and updates itself.</span>
+                        <span x-show="!installed && !ios">Install it on this device to open it full screen from your home screen or taskbar. It updates itself — there's nothing to reinstall.</span>
+                    </p>
+                </div>
+                <x-filament::button x-show="!installed && canPrompt" x-cloak icon="heroicon-o-arrow-down-tray" x-on:click="window.vxInstallApp()">Install app</x-filament::button>
+            </div>
+        </section>
         <div class="rounded-2xl border border-gray-200 p-5 dark:border-gray-700">
             <h2 class="font-bold">More reference help</h2>
             <div class="mt-3 flex flex-wrap gap-4 text-sm font-semibold text-primary-600">

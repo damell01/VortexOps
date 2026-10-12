@@ -17,7 +17,9 @@ final class GuidedHelp
         if ($user?->isAdmin()) {
             $docs['admin'] = ['title' => 'Admin, users & payroll', 'file' => 'admin-guide.pdf', 'description' => 'Set up users and aliases, review shows, and work through weekly payroll.'];
         }
-        if ($user && Pages\InventoryGuide::canAccess()) {
+        // canAccess() alone admits any signed-in user while the module is on,
+        // so the PDF also needs a role that is actually meant for inventory.
+        if ($user && Pages\InventoryGuide::canAccess() && ($user->isAdmin() || RoleAccess::grants(Pages\InventoryGuide::class, $user))) {
             $docs = ['inventory'=>['title'=>'Inventory receiving & stock','file'=>'inventory-guide.pdf','description'=>'Receive deliveries, resume partial receipts, attach files, find stock, and review transfers and corrections.']] + $docs;
         }
         return $docs;

@@ -22,18 +22,37 @@
             </div>
         </section>
         @if($selectedDocument)
-        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-label="Guide reader">
+        <section wire:key="guide-reader-{{ $selectedGuide }}" x-data="{ view: 'flip' }" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-label="Guide reader">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">
-                <div><h2 class="font-bold">{{ $selectedDocument['title'] }}</h2><p class="mt-1 text-xs text-gray-500">Use the PDF toolbar to change pages or zoom.</p></div>
+                <div>
+                    <h2 class="font-bold">{{ $selectedDocument['title'] }}</h2>
+                    <p class="mt-1 text-xs text-gray-500" x-text="view === 'flip' ? 'Drag a page corner, use the arrows, or press ← →  to turn pages.' : 'Use the PDF toolbar to change pages or zoom.'">Drag a page corner, use the arrows, or press ← → to turn pages.</p>
+                </div>
                 <div class="flex flex-wrap gap-2">
+                    <div class="inline-flex rounded-lg border border-gray-300 p-0.5 text-sm font-semibold dark:border-gray-600" role="group" aria-label="Reader view">
+                        <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'flip' ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="(view === 'flip').toString()" @click="view = 'flip'">Flip book</button>
+                        <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'pdf' ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="(view === 'pdf').toString()" @click="view = 'pdf'">Plain PDF</button>
+                    </div>
                     <x-filament::button color="gray" tag="a" :href="route('admin.guides.show',$selectedGuide)" target="_blank" rel="noopener">Open in browser</x-filament::button>
                     <x-filament::button tag="a" :href="route('admin.guides.show',['guide'=>$selectedGuide,'download'=>1])" icon="heroicon-o-arrow-down-tray">Download PDF</x-filament::button>
                 </div>
             </div>
-            <div wire:key="pdf-reader-{{ $selectedGuide }}">
-                <iframe src="{{ route('admin.guides.show',$selectedGuide) }}" title="{{ $selectedDocument['title'] }} PDF" class="w-full border-0" style="height:75vh;min-height:420px" loading="lazy"></iframe>
+            <div x-show="view === 'flip'" wire:ignore>
+                <div data-vx-flipbook data-src="{{ route('admin.guides.show',$selectedGuide) }}" data-title="{{ $selectedDocument['title'] }}" class="vx-flipbook" tabindex="0" aria-label="{{ $selectedDocument['title'] }} flip book">
+                    <p class="vx-flipbook-status" data-status role="status">Opening guide…</p>
+                    <div class="vx-flipbook-stage"><div data-book></div></div>
+                    <div class="vx-flipbook-controls" data-controls hidden>
+                        <button type="button" data-prev aria-label="Previous page">‹ Prev</button>
+                        <span data-page aria-live="polite"></span>
+                        <button type="button" data-next aria-label="Next page">Next ›</button>
+                        <button type="button" data-fullscreen>Full screen</button>
+                    </div>
+                </div>
             </div>
-            <p class="border-t border-gray-200 p-4 text-xs text-gray-500 dark:border-gray-700">If your device does not display the PDF here, choose Open in browser or Download PDF.</p>
+            <template x-if="view === 'pdf'">
+                <iframe src="{{ route('admin.guides.show',$selectedGuide) }}" title="{{ $selectedDocument['title'] }} PDF" class="w-full border-0" style="height:75vh;min-height:420px"></iframe>
+            </template>
+            <p class="border-t border-gray-200 p-4 text-xs text-gray-500 dark:border-gray-700">If the guide does not display here, choose Plain PDF, Open in browser, or Download PDF.</p>
         </section>
         @endif
         <div class="rounded-2xl border border-gray-200 p-5 dark:border-gray-700">

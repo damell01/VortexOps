@@ -53,7 +53,10 @@ class ReceivingNavigationTest extends TestCase
     {
         foreach (['admin','fulfillment_admin'] as $role) {
             Role::findOrCreate($role,'web');
+            \App\Support\NavVisibility::setVisibleForRole('admin', [\App\Filament\Resources\PalletResource::class]);
             $user=User::factory()->create(); $user->assignRole($role); $this->actingAs($user);
+            $this->assertTrue(PalletReceivingHistory::canAccess());
+            $this->assertTrue(\App\Filament\Pages\InventoryGuide::canAccess());
             $labels=array_column(DashboardShortcuts::forCurrentUser(),'label');
             $this->assertContains('Receive inventory',$labels);
             $this->assertContains('Find inventory',$labels);

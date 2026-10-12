@@ -35,7 +35,7 @@
             <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[10px] font-semibold uppercase text-gray-500">Items</div><div class="mt-1 text-xl font-black">{{ $total }}</div></div>
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[10px] font-semibold uppercase text-gray-500">Packed By</div><div class="mt-1 truncate text-sm font-bold">{{ $package->packedBy?->name ?: '—' }}</div></div>
-                <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[10px] font-semibold uppercase text-gray-500">Sealed</div><div class="mt-1 text-sm font-bold">{{ $package->sealed_at?->format('M j, g:i A') ?: 'Not yet' }}</div></div>
+                <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[10px] font-semibold uppercase text-gray-500">Sealed</div><div class="mt-1 text-sm font-bold">{{ $package->sealed_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, g:i A') ?: 'Not yet' }}</div></div>
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[10px] font-semibold uppercase text-gray-500">Label</div><div class="mt-1 text-sm font-bold">{{ $package->label_printed_at ? 'Printed' : 'Not printed' }}</div></div>
             </div>
         </section>

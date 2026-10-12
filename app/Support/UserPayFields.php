@@ -44,7 +44,7 @@ class UserPayFields
 
         $resolved = PaymentStructure::resolve($profile);
         foreach (self::fieldsFor($resolved['member_type']) as $field) {
-            $state[self::key($field)] = $resolved['overrides'][$field] ?? null;
+            $state[self::key($field)] = self::staleLegacyHourly($resolved, $field) ? null : ($resolved['overrides'][$field] ?? null);
         }
 
         return $state;
@@ -72,7 +72,7 @@ class UserPayFields
         // the team defaults (legacy) keeps every value it has, so switching it
         // over changes only what was edited here.
         $overrides = $resolved['legacy']
-            ? array_filter($resolved['overrides'], fn ($value) => $value !== null)
+            ? array_filter($resolved['overrides'], fn ($value, $field) => $value !== null && ! self::staleLegacyHourly($resolved, $field), ARRAY_FILTER_USE_BOTH)
             : $resolved['overrides'];
 
         foreach ($submitted as $field => $value) {
@@ -105,6 +105,15 @@ class UserPayFields
             'hourly_rate' => '$'.number_format((float) $value, 2).'/hr',
             default => '$'.number_format((float) $value, 2),
         };
+    }
+
+    /**
+     * A streamer's hourly rate on an old-style profile never paid anything
+     * (only fulfillment used it), so it is not shown or carried over.
+     */
+    private static function staleLegacyHourly(array $resolved, string $field): bool
+    {
+        return $field === 'hourly_rate' && $resolved['legacy'] && $resolved['member_type'] !== 'fulfillment';
     }
 
     private static function same(mixed $a, mixed $b): bool

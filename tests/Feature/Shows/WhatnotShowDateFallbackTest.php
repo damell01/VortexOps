@@ -88,7 +88,9 @@ class WhatnotShowDateFallbackTest extends TestCase
             'show_date_raw' => '2026-08-21T23:30:00Z',
         ]]);
 
-        $this->assertSame('23:30:00', Show::first()->start_time->format('H:i:s'));
+        // In the team's local time: 23:30 UTC is 6:30pm Central (CDT).
+        $this->assertSame('18:30:00', Show::first()->start_time->format('H:i:s'));
+        $this->assertSame('2026-08-21', Show::first()->show_date->toDateString());
     }
 
     public function test_a_date_the_scraper_did_parse_is_left_alone(): void

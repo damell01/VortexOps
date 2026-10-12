@@ -83,7 +83,7 @@
                         </div>
                     @endif
                     <div class="mt-1 text-xs text-gray-500">
-                        @if(!$member->isFulfillment()){{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@if($member->isInHouse() && (float)($pay['effective']['hourly_rate']??0) > 0) + ${{number_format((float)$pay['effective']['hourly_rate'],2)}}/hr @endif · @endif
+                        @if(!$member->isFulfillment()){{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@if($member->paidHourlyRate()) + ${{number_format($member->paidHourlyRate(),2)}}/hr @endif · @endif
                         @if(count($pay['overrides']??[])) Individual Override @else Standard {{ $member->isFulfillment() ? 'Fulfillment' : 'Streamer' }} Calculation @endif
                     </div>
                 </button>

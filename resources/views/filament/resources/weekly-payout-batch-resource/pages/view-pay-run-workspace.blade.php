@@ -195,7 +195,7 @@
                     </summary>
                     <div class="vxw-card-body" style="padding-top:0">
                         <dl class="vxw-dl">
-                            @foreach([['Status',$statusLabel],['Created by',$run->createdBy?->name],['Finalized by',$run->finalizedBy?->name],['Finalized at',$run->finalized_at?->format('M j, Y g:i A')],['Notes',$run->notes]] as [$label,$value])
+                            @foreach([['Status',$statusLabel],['Created by',$run->createdBy?->name],['Finalized by',$run->finalizedBy?->name],['Finalized at',$run->finalized_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A')],['Notes',$run->notes]] as [$label,$value])
                                 <div><dt>{{ $label }}</dt><dd>{{ $value ?: '—' }}</dd></div>
                             @endforeach
                         </dl>

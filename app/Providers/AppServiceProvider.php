@@ -71,6 +71,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Times are stored in UTC and shown in the team's timezone (Central).
+        // Filament applies this to date-time and time values only; plain dates
+        // such as a show's date are never shifted.
+        \Filament\Support\Facades\FilamentTimezone::set(\App\Support\BusinessTime::zone());
+        // A show's start and end time are local wall-clock values, not UTC
+        // moments, so the time pickers edit them as they are.
+        \Filament\Forms\Components\TimePicker::configureUsing(
+            fn (\Filament\Forms\Components\TimePicker $picker) => $picker->timezone(config('app.timezone')),
+        );
+
         Event::listen(PasswordReset::class, function (PasswordReset $event): void {
             if ($event->user->must_change_password && ! \Illuminate\Support\Facades\Hash::check('password123!', $event->user->password)) {
                 $event->user->forceFill(['must_change_password' => false])->save();

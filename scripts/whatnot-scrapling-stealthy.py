@@ -19,6 +19,15 @@ from pathlib import Path
 from typing import Any
 
 from scrapling.fetchers import StealthySession
+import time
+
+# Whatnot shows dates and times in the browser's timezone. The server runs on
+# UTC, where an 8pm Central show is already the next day, so run the browser
+# on the business's local time. Chrome inherits TZ from this process.
+os.environ["TZ"] = os.getenv("WHATNOT_TIMEZONE", "").strip() or "America/Chicago"
+if hasattr(time, "tzset"):
+    time.tzset()
+
 
 HERE = Path(__file__).resolve().parent
 BASE_SCRIPT = HERE / "whatnot-scrapling.py"

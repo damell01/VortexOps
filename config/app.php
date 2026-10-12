@@ -68,6 +68,13 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Times are stored in UTC (above) but shown to people in this timezone,
+    | and Whatnot show dates and times are read in it. The team works on
+    | Central time, where an 8pm show is already the next day in UTC.
+    */
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'America/Chicago'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

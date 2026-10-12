@@ -102,7 +102,7 @@
                     <a href="{{ $m->item ? $this->itemUrl($m->item->id) : $this->activityUrl() }}" class="ivx-row">
                         <span class="ivx-ic green" style="width:34px;height:34px"><x-heroicon-o-inbox-arrow-down /></span>
                         <span class="min-w-0 flex-1"><span class="ivx-name block">{{ $m->item?->name ?? 'Deleted item' }}</span><span class="ivx-meta block">{{ $m->toLocation?->name ?? '—' }}</span></span>
-                        <span class="ivx-right"><b class="text-sm" style="color:var(--green)">+{{ number_format((float) $m->quantity) }}</b><span class="ivx-meta">{{ $m->created_at?->format('M j') }}</span></span>
+                        <span class="ivx-right"><b class="text-sm" style="color:var(--green)">+{{ number_format((float) $m->quantity) }}</b><span class="ivx-meta">{{ $m->created_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j') }}</span></span>
                     </a>
                 @empty
                     <div class="ivx-empty">No stock received yet.</div>

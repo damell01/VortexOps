@@ -29,6 +29,11 @@ class PalletReceivingHistory extends Page implements HasTable
     #[\Livewire\Attributes\Url]
     public ?int $vendorId = null;
 
+    public static function canAccess(): bool
+    {
+        return \App\Filament\Resources\PalletResource::canAccess();
+    }
+
     public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('inventory'); }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-inbox-stack'; }
     public static function shouldRegisterNavigation(): bool

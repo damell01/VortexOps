@@ -15,6 +15,10 @@
             if ($links) $groups[$group->getLabel() ?: 'Navigation'] = $links;
         }
     }
+    if (isset($groups['Inventory']) && \App\Filament\Pages\InventoryGuide::canAccess()
+        && ! collect($groups['Inventory'])->contains(fn ($link) => $link[0] === 'Inventory Guide')) {
+        $groups['Inventory'][] = ['Inventory Guide', \App\Filament\Pages\InventoryGuide::getUrl(panel:'admin')];
+    }
     $navLogo = $navLogo ?? null;
     $homeUrl = $homeUrl ?? \App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin');
     $homeLabel = $homeLabel ?? 'Dashboard';

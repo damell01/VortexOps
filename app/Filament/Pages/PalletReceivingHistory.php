@@ -83,7 +83,7 @@ class PalletReceivingHistory extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(static::historyQuery()->when($this->vendorId, fn ($q) => $q->where('vendor_id', $this->vendorId)))
+            ->query(fn () => static::historyQuery()->when($this->vendorId, fn ($q) => $q->where('vendor_id', $this->vendorId)))
             ->defaultSort('received_date', 'desc')
             ->columns(static::receiptColumns())
             ->contentGrid(['md' => 2, 'xl' => 3])

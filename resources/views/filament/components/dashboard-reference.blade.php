@@ -20,11 +20,7 @@
         .vx-dashboard-reference .vx-middle .fi-wi,.vx-dashboard-reference .vx-middle .fi-section{height:100%}
         @media(max-width:640px){.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:1.25rem}.vx-dashboard-reference .fi-wi-stats-overview-stat{padding:.8rem}.vx-dashboard-reference .vx-hero-art{display:none}}
     </style>
-    <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6">
-        <div class="vx-hero-art pointer-events-none absolute inset-y-0 right-[23%] hidden w-[300px] opacity-35 lg:block" aria-hidden="true">
-            <img src="{{ asset('images/hit-slab.webp') }}" alt="" class="absolute -top-6 left-12 w-36 -rotate-12 rounded-lg" />
-            <img src="{{ asset('images/pack-cards.webp') }}" alt="" class="absolute bottom-0 right-0 w-44 rotate-12" />
-        </div>
+    <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center;">
         <div class="relative grid gap-5 lg:grid-cols-[1fr_260px]">
             <div class="min-w-0">
                 <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>

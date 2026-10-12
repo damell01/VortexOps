@@ -31,9 +31,9 @@
             </label>
         </div>
 
-        <label class="mt-4 block rounded-[10px] border border-[var(--vx-border)] p-4 md:max-w-sm">
+        <label class="mt-4 block rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:max-w-sm">
             <span class="text-xs font-semibold text-gray-500">In-house hourly rate</span>
-            <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer.hourly_rate" type="number" step=".01" min="0" placeholder="None" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"><span class="text-sm font-bold">/hr</span></div>
+            <div class="mt-2 flex items-center gap-2"><span class="font-bold">$</span><input wire:model.live.debounce.300ms="streamer.hourly_rate" type="number" step=".01" min="0" placeholder="None" class="w-full rounded-lg border-gray-300 bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"><span class="text-sm font-bold">/hr</span></div>
             <span class="mt-2 block text-xs text-gray-500">Paid to in-house streamers for the hours on each show, on top of their share. Remote streamers are not paid hourly. Leave blank for none.</span>
         </label>
 

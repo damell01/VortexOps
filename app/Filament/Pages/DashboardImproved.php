@@ -164,17 +164,14 @@ class DashboardImproved extends Dashboard
     private function dashboardOverview(): array
     {
         $local = now()->timezone(auth()->user()?->timezone ?: config('app.timezone'));
-        $start = $local->copy()->startOfMonth()->subMonthsNoOverflow(6);
-        $months = [];
-        for ($i = 0; $i < 7; $i++) {
-            $month = $start->copy()->addMonthsNoOverflow($i);
-            $months[] = ['key'=>$month->format('Y-m'), 'label'=>$month->format('M')];
-        }
+        // Channel Performance covers the current month only.
+        $start = $local->copy()->startOfMonth();
+        $months = [['key'=>$start->format('Y-m'), 'label'=>$start->format('M')]];
         $channelId = ChannelContext::currentId();
         // Net matches Show::profitAndLoss(): settled Whatnot earnings, or Whatnot's
         // estimate until a show settles, so recent months don't read as zero.
         $data = \Illuminate\Support\Facades\Cache::remember(
-            'dashboard:reference:v2:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
+            'dashboard:reference:v3:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
             function () use ($start, $local, $months, $channelId) {
                 $rows = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])
                     ->whereBetween('show_date', [$start->toDateString(), $local->copy()->endOfDay()->toDateTimeString()])
@@ -221,7 +218,7 @@ class DashboardImproved extends Dashboard
             'today'=>$today, 'months'=>$months,
             'greeting'=>$local->hour < 12 ? 'Good morning' : ($local->hour < 18 ? 'Good afternoon' : 'Good evening'),
             'name'=>explode(' ', trim(auth()->user()?->name ?: 'there'))[0],
-            'date'=>$local->format('M j, Y'), 'period'=>$start->format('M Y').' – '.$local->format('M Y'),
+            'date'=>$local->format('M j, Y'), 'period'=>$local->format('F Y').' so far',
         ];
     }
 

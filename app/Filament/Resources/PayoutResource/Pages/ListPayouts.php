@@ -18,8 +18,8 @@ class ListPayouts extends ListRecords
 
     public function payoutStats(): array
     {
-        $start = Carbon::now()->startOfWeek();
-        $end = Carbon::now()->endOfWeek();
+        [$start, $end] = \App\Support\PaySchedule::periodFor(now());
+        $end = $end->copy()->endOfDay();
         $query = PayoutResource::getEloquentQuery()->whereBetween('created_at', [$start, $end]);
 
         return [

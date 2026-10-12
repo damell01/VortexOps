@@ -131,12 +131,27 @@ class WeeklyPayoutBatchResource extends Resource
         return $schema->components([
             Section::make('Pay Run Details')->columns(2)->columnSpanFull()->schema([
                 DatePicker::make('week_start')
-                    ->label('Week Start (Monday)')
-                    ->required(),
+                    ->label('Period start')
+                    ->helperText(fn () => 'Pay weeks normally start on '.\App\Support\PaySchedule::startDayName().'. Change the start day for future runs under Rates & Adjustments.')
+                    ->required()
+                    ->rule(fn (?WeeklyPayoutBatch $record, \Filament\Schemas\Components\Utilities\Get $get) => function (string $attribute, $value, \Closure $fail) use ($record, $get) {
+                        if (! $value || ! $get('week_end')) {
+                            return;
+                        }
+                        $overlap = WeeklyPayoutBatch::overlapping(
+                            \Carbon\Carbon::parse($value)->toDateString(),
+                            \Carbon\Carbon::parse($get('week_end'))->toDateString(),
+                            $record?->id,
+                        );
+                        if ($overlap) {
+                            $fail('These dates overlap Pay Run #'.$overlap->id.' ('.$overlap->week_start->format('M j').' – '.$overlap->week_end->format('M j, Y').').');
+                        }
+                    }),
 
                 DatePicker::make('week_end')
-                    ->label('Week End (Sunday)')
-                    ->required(),
+                    ->label('Period end')
+                    ->required()
+                    ->afterOrEqual('week_start'),
 
                 Textarea::make('notes')
                     ->rows(2)

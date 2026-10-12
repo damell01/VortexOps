@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Setting;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use App\Support\PaySchedule;
 use App\Support\PaymentStructure;
 use App\Support\ProfitShareFormula;
 use Filament\Notifications\Notification;
@@ -35,12 +36,15 @@ class PaymentStructures extends Page
     public ?int $editing_member_id = null;
     public array $member_override_enabled = [];
     public array $member_override_values = [];
+    public bool $show_archived = false;
+    public int $payroll_week_start_day = 1;
 
     public function mount(): void
     {
         $this->streamer = $this->structureState('streamer', [
             'payout_type' => 'profit_share', 'payout_cadence' => 'weekly',
             'payout_percentage' => 8, 'include_tips' => true, 'custom_payout_formula' => null,
+            'hourly_rate' => null,
         ]);
         $this->fulfillment = $this->structureState('fulfillment', [
             'payout_type' => 'pwe_labels', 'payout_cadence' => 'weekly',
@@ -53,6 +57,7 @@ class PaymentStructures extends Page
         $this->payroll_auto_setup_enabled = Setting::getBool('payroll_auto_setup_enabled', false);
         $this->payroll_auto_recalculate_drafts = Setting::getBool('payroll_auto_recalculate_drafts', true);
         $this->payroll_include_zero_activity = Setting::getBool('payroll_include_zero_activity', false);
+        $this->payroll_week_start_day = PaySchedule::startDay();
     }
 
     private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type)); }
@@ -73,6 +78,8 @@ class PaymentStructures extends Page
         $this->validate([
             'streamer.payout_percentage' => 'required|numeric|min:0|max:100',
             'streamer.custom_payout_formula' => 'nullable|string|max:1000',
+            'streamer.hourly_rate' => 'nullable|numeric|min:0',
+            'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
             'streamer_burden_per_shipment' => 'required|numeric|min:0',
             'streamer_burden_per_hour' => 'required|numeric|min:0',
             'fulfillment.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::payoutTypeLabels())),
@@ -96,12 +103,15 @@ class PaymentStructures extends Page
         Setting::set('payroll_auto_setup_enabled', $this->payroll_auto_setup_enabled ? '1' : '0');
         Setting::set('payroll_auto_recalculate_drafts', $this->payroll_auto_recalculate_drafts ? '1' : '0');
         Setting::set('payroll_include_zero_activity', $this->payroll_include_zero_activity ? '1' : '0');
+        Setting::set(PaySchedule::SETTING, (string) $this->payroll_week_start_day);
         Notification::make()->title('Payment structures saved')->success()->send();
     }
 
     public function getMembersProperty()
     {
-        return Streamer::query()->orderBy('member_type')->orderBy('name')->get();
+        return Streamer::query()
+            ->when(! $this->show_archived, fn ($q) => $q->where(fn ($q) => $q->where('status', '!=', 'inactive')->orWhereNull('status')))
+            ->orderBy('member_type')->orderBy('name')->get();
     }
 
     public function getFilteredMembersProperty()
@@ -120,7 +130,7 @@ class PaymentStructures extends Page
         $this->member_override_values = [];
         $fields = $member->isFulfillment()
             ? ['payout_type','payout_percentage','hourly_rate','pwe_rate','label_rate','package_rate','include_tips','custom_payout_formula']
-            : ['payout_percentage','custom_payout_formula','include_tips'];
+            : ['payout_percentage','hourly_rate','custom_payout_formula','include_tips'];
         foreach ($fields as $field) {
             $this->member_override_enabled[$field] = ! $resolved['legacy'] && array_key_exists($field, $resolved['overrides']);
             $this->member_override_values[$field] = $resolved['effective'][$field] ?? null;
@@ -144,6 +154,45 @@ class PaymentStructures extends Page
         PaymentStructure::saveOverrides($member, $overrides);
         $this->closeMemberEditor();
         Notification::make()->title('Individual compensation saved')->success()->send();
+    }
+
+    /** The current pay period and the one after it, as saved. */
+    public function getSchedulePreviewProperty(): array
+    {
+        $current = PaySchedule::periodFor(now());
+        $next = PaySchedule::periodFor($current[1]->copy()->addDay());
+
+        return [
+            'current' => PaySchedule::label($current[0], $current[1]),
+            'next' => PaySchedule::label($next[0], $next[1]),
+            'changed' => (int) $this->payroll_week_start_day !== PaySchedule::startDay(),
+        ];
+    }
+
+    public function setShowArchived(bool $show): void
+    {
+        $this->show_archived = $show;
+        $this->closeMemberEditor();
+    }
+
+    public function removeMember(int $id): void
+    {
+        $member = Streamer::findOrFail($id);
+        $result = app(\App\Services\TeamProfileRemoval::class)->remove($member);
+        $this->closeMemberEditor();
+        Notification::make()
+            ->title($result === 'deleted' ? $member->name . ' removed' : $member->name . ' archived')
+            ->body($result === 'deleted'
+                ? 'The profile had no shows or pay history, so it was deleted.'
+                : 'The profile has past shows or pay, so it was archived: it is off payroll and new Pay Runs, and past runs keep the name. Use "Show archived" to restore it.')
+            ->success()->send();
+    }
+
+    public function restoreMember(int $id): void
+    {
+        $member = Streamer::findOrFail($id);
+        app(\App\Services\TeamProfileRemoval::class)->restore($member);
+        Notification::make()->title($member->name . ' is back on payroll')->success()->send();
     }
 
     public function resetMemberOverrides(int $id): void { $m=Streamer::findOrFail($id); PaymentStructure::resetOverrides($m); Notification::make()->title('Overrides removed; team defaults restored')->success()->send(); }

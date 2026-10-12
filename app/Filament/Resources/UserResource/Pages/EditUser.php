@@ -18,7 +18,7 @@ class EditUser extends EditRecord
     {
         $data['streamer_type'] = $this->record->streamer?->streamer_type ?? 'in_house';
         $data['streamer_aliases'] = $this->record->streamer?->aliases()->orderBy('alias')->pluck('alias')->all() ?? [];
-        return $data;
+        return $data + \App\Support\UserPayFields::prefill($this->record->streamer);
     }
 
     protected function beforeSave(): void
@@ -47,11 +47,16 @@ class EditUser extends EditRecord
         }
 
         // Admin and Fulfillment Admin are managed from this single Users flow.
-        app(UserTeamProfileService::class)->sync(
+        $profile = app(UserTeamProfileService::class)->sync(
             $this->record,
             $this->data['streamer_type'] ?? $this->record->streamer?->streamer_type ?? 'in_house',
             $this->data['streamer_aliases'] ?? null,
         );
+
+        // The Pay section: blank boxes follow the team default.
+        if ($profile) {
+            \App\Support\UserPayFields::apply($profile, $this->data);
+        }
     }
 
     protected function getHeaderActions(): array

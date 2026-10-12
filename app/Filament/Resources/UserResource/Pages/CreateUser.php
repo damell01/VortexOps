@@ -26,10 +26,15 @@ class CreateUser extends CreateRecord
         // Users is the single setup flow for operational staff. Streamer and
         // fulfillment roles automatically receive the backing team profile used
         // by shows, payroll, inventory and fulfillment.
-        app(UserTeamProfileService::class)->sync(
+        $profile = app(UserTeamProfileService::class)->sync(
             $this->record,
             $this->data['streamer_type'] ?? 'in_house',
             $this->data['streamer_aliases'] ?? [],
         );
+
+        // The Pay section: blank boxes follow the team default.
+        if ($profile) {
+            \App\Support\UserPayFields::apply($profile, $this->data);
+        }
     }
 }

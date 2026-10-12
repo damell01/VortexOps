@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Support;
+
+use App\Models\Streamer;
+
+/**
+ * The Pay section on a user's profile: the same individual overrides as
+ * Rates & Adjustments, so pay is set where the person is set up instead of in
+ * a second place.
+ *
+ * A blank field means "use the team default"; a filled one is that person's
+ * override. Overrides the profile has that this form does not show (a custom
+ * formula, tips handling) are kept as they are.
+ */
+class UserPayFields
+{
+    public const STREAMER = ['payout_percentage', 'hourly_rate'];
+
+    public const FULFILLMENT = ['payout_type', 'hourly_rate', 'pwe_rate', 'label_rate', 'package_rate'];
+
+    /** @return list<string> */
+    public static function fieldsFor(string $memberType): array
+    {
+        return $memberType === 'fulfillment' ? self::FULFILLMENT : self::STREAMER;
+    }
+
+    /** Form state key for a pay field. */
+    public static function key(string $field): string
+    {
+        return 'pay_'.$field;
+    }
+
+    /** @return array<string, mixed> form state for a profile (blank where it follows the default) */
+    public static function prefill(?Streamer $profile): array
+    {
+        $state = [];
+        foreach (array_unique([...self::STREAMER, ...self::FULFILLMENT]) as $field) {
+            $state[self::key($field)] = null;
+        }
+        if (! $profile) {
+            return $state;
+        }
+
+        $resolved = PaymentStructure::resolve($profile);
+        foreach (self::fieldsFor($resolved['member_type']) as $field) {
+            $state[self::key($field)] = $resolved['overrides'][$field] ?? null;
+        }
+
+        return $state;
+    }
+
+    /** Save the submitted Pay section onto the profile, if it changed. */
+    public static function apply(Streamer $profile, array $data): void
+    {
+        $resolved = PaymentStructure::resolve($profile);
+        $fields = self::fieldsFor($resolved['member_type']);
+
+        $submitted = [];
+        foreach ($fields as $field) {
+            $value = $data[self::key($field)] ?? null;
+            $submitted[$field] = $value === '' ? null : $value;
+        }
+
+        $before = self::prefill($profile);
+        $unchanged = collect($fields)->every(fn ($field) => self::same($before[self::key($field)], $submitted[$field]));
+        if ($unchanged) {
+            return;
+        }
+
+        // Start from what the person has today. A profile that never adopted
+        // the team defaults (legacy) keeps every value it has, so switching it
+        // over changes only what was edited here.
+        $overrides = $resolved['legacy']
+            ? array_filter($resolved['overrides'], fn ($value) => $value !== null)
+            : $resolved['overrides'];
+
+        foreach ($submitted as $field => $value) {
+            if ($value === null) {
+                unset($overrides[$field]);
+            } else {
+                $overrides[$field] = $value;
+            }
+        }
+
+        if ($resolved['member_type'] !== 'fulfillment') {
+            $overrides['payout_type'] = trim((string) ($overrides['custom_payout_formula'] ?? '')) !== '' ? 'custom_formula' : 'profit_share';
+        }
+        $overrides['payout_cadence'] = 'weekly';
+
+        PaymentStructure::saveOverrides($profile, $overrides);
+    }
+
+    /** "Team default: 8%" for a field's placeholder. */
+    public static function defaultHint(string $memberType, string $field): string
+    {
+        $value = PaymentStructure::defaults($memberType)[$field] ?? null;
+        if ($value === null || $value === '') {
+            return 'Team default: none';
+        }
+
+        return 'Team default: '.match ($field) {
+            'payout_percentage' => rtrim(rtrim(number_format((float) $value, 2), '0'), '.').'%',
+            'payout_type' => Streamer::payoutTypeLabels()[$value] ?? $value,
+            'hourly_rate' => '$'.number_format((float) $value, 2).'/hr',
+            default => '$'.number_format((float) $value, 2),
+        };
+    }
+
+    private static function same(mixed $a, mixed $b): bool
+    {
+        if (is_numeric($a) && is_numeric($b)) {
+            return abs((float) $a - (float) $b) < 0.00001;
+        }
+
+        return ($a === null || $a === '') ? ($b === null || $b === '') : (string) $a === (string) $b;
+    }
+}

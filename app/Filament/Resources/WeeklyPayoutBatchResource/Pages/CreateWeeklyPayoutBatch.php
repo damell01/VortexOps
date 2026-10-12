@@ -31,10 +31,10 @@ class CreateWeeklyPayoutBatch extends CreateRecord
         return $schema->components([
             Section::make('Pay Period')->columns(2)->schema([
                 DatePicker::make('week_start')
-                    ->label('Week Start (Monday)')
-                    ->helperText('Any selected date is normalized to Monday. VortexOps prevents overlapping weekly Pay Runs.')
+                    ->label('Any day in the pay week')
+                    ->helperText(fn () => 'Pay weeks run '.\App\Support\PaySchedule::startDayName().' to '.\App\Support\PaySchedule::endDayName().' (change it under Rates & Adjustments). The run covers the pay week containing this date; VortexOps prevents overlapping Pay Runs.')
                     ->required()
-                    ->default(now()->startOfWeek(Carbon::MONDAY)),
+                    ->default(fn () => \App\Support\PaySchedule::periodFor(now())[0]),
 
                 Textarea::make('notes')
                     ->label('Notes (optional)')
@@ -63,8 +63,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        $start = Carbon::parse($data['week_start'])->startOfWeek(Carbon::MONDAY);
-        $end = $start->copy()->endOfWeek(Carbon::SUNDAY);
+        [$start, $end] = \App\Support\PaySchedule::periodFor($data['week_start']);
         $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString());
 
         if ($overlap) {

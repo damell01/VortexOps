@@ -119,4 +119,17 @@ class ReceivingWorkflowTest extends TestCase
         $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
 
+
+    public function test_partial_receiving_review_opens_without_crediting_or_completing_stock(): void
+    {
+        [$pallet, $line, $item] = $this->delivery();
+        app(ReceivingService::class)->receiveCasesForLine($line, 1);
+        $component = Livewire::test(ReceivePallet::class, ['record' => $pallet->fresh()])
+            ->call('mountAction', 'review_receiving')
+            ->assertSet('mountedActions.0.name', 'review_receiving');
+        $this->assertSame('receiving', $pallet->fresh()->status);
+        $this->assertSame(1, $line->cases()->where('status', 'received')->count());
+        $this->assertEquals(2, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+    }
+
 }

@@ -540,6 +540,7 @@ class Shows extends Page
             ->whereBetween('show_date', [$a->copy()->startOfMonth()->toDateString(), $a->copy()->endOfMonth()->toDateString()])
             ->whereDoesntHave('streamers')
             ->whereNotIn('status', ['cancelled', 'closed'])
+            ->with('channel:id,name,display_title')
             ->orderBy('show_date')->orderBy('start_time')->limit(100)->get();
     }
 

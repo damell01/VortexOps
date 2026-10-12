@@ -586,10 +586,15 @@ class WhatnotScraperTest extends TestCase
         $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
         $scraper->importShows($this->channel);
 
-        $show = Show::where('title', 'Test Break Show')->first();
-        $this->assertTrue((bool) $show->channel_attribution_suspect, 'cross-channel match should be flagged');
-        // Original attribution is kept — we do not silently re-stamp the channel.
-        $this->assertEquals($otherChannel->id, $show->whatnot_channel_id);
+        // Same title and day on another channel is not proof it is the same
+        // stream (two channels often run same-named shows), so the import
+        // keeps both and flags the new one for Review show channels. Before,
+        // it folded this channel's show into the other channel's.
+        $original = Show::where('whatnot_channel_id', $otherChannel->id)->sole();
+        $this->assertFalse((bool) $original->channel_attribution_suspect);
+        $this->assertEquals($otherChannel->id, $original->whatnot_channel_id);
+        $imported = Show::where('whatnot_channel_id', $this->channel->id)->sole();
+        $this->assertTrue((bool) $imported->channel_attribution_suspect, 'same-named show on another channel goes to review');
     }
 
     public function test_import_does_not_flag_show_matched_under_same_channel(): void

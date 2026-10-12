@@ -23,6 +23,11 @@ Route::get('/offline', function () {
 
 Route::get('/health', HealthController::class)->name('health');
 
+// Open copies of the app poll this to notice a deploy (resources/js/app-shell.js).
+// JSON, so the service worker passes it straight to the network.
+Route::get('app-version', fn () => response()->json(['version' => \App\Support\AppVersion::current()])
+    ->header('Cache-Control', 'no-store'))->name('app-version');
+
 Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('inventory-guide/images/{image}', \App\Http\Controllers\InventoryGuideImageController::class)->name('inventory-guide.image');
     Route::get('guides/{guide}', \App\Http\Controllers\GuideDocumentController::class)->where('guide', 'streamer|admin|inventory')->name('guides.show');

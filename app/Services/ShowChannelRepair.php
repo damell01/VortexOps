@@ -94,8 +94,14 @@ class ShowChannelRepair
                 $actions[] = ['type' => 'review', 'live_id' => $own, 'reason' => 'This stream was seen under '.$this->names($ownChannels, $channels).'.'];
             }
 
-            $splitting = collect($actions)->whereIn('type', ['split', 'move_to_existing'])->isNotEmpty();
-            if ($splitting && $own && isset($evidence[$own])) {
+            // Restore the show's own figures only when its current figures are
+            // clearly another stream's (they match that stream's import
+            // exactly); otherwise they are its own, possibly refined since by
+            // analytics, and are left alone.
+            $overwritten = $own && isset($evidence[$own]) && $evidence->except([$own])
+                ->contains(fn ($seen) => $this->figuresMatch($show, $seen['payload']))
+                && ! $this->figuresMatch($show, $evidence[$own]['payload']);
+            if ($overwritten) {
                 $actions[] = $this->locked($show)
                     ? ['type' => 'check_figures', 'reason' => 'Show is '.$show->status.' or already paid, so its figures were left as they are; check they only cover this stream.']
                     : ['type' => 'restore_figures', 'live_id' => $own, 'payload' => $evidence[$own]['payload']];
@@ -372,6 +378,23 @@ class ShowChannelRepair
             $show->trackChanges($fields, 'channel_repair');
             $show->forceFill($fields)->save();
         }
+    }
+
+    /** The show's figures are exactly the ones in this scraped row (at least two present, all equal). */
+    private function figuresMatch(Show $show, array $payload): bool
+    {
+        $compared = 0;
+        foreach (['gross_revenue', 'whatnot_net', 'units_sold', 'show_duration'] as $field) {
+            if (! isset($payload[$field]) || $payload[$field] === '' || $show->{$field} === null) {
+                continue;
+            }
+            if (abs((float) $show->{$field} - (float) $payload[$field]) > 0.005) {
+                return false;
+            }
+            $compared++;
+        }
+
+        return $compared >= 2;
     }
 
     private function locked(Show $show): bool

@@ -135,6 +135,11 @@ class NotificationCatalog
             ],
 
             // ── System ───────────────────────────────────────────────────
+            'scraper_health_digest' => [
+                'group' => 'System', 'label' => 'Whatnot import health', 'level' => 'digest',
+                'description' => 'Monday email: shows, orders and shipments imported last week, failures, gaps, and when the saved Whatnot sign-in expires.',
+                'roles' => ['owner'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
             'system_health' => [
                 'group' => 'System', 'label' => 'System health problem', 'level' => 'alert',
                 'description' => 'The queue, worker, disk or Whatnot import needs attention.',

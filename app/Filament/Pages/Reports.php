@@ -73,6 +73,11 @@ class Reports extends Page
     public string $dateTo    = '';
     public bool $showAllWeeks = false;
 
+    /** What the selected range is compared with: previous | last_year | custom. */
+    public string $compareMode = 'previous';
+    public string $compareFrom = '';
+    public string $compareTo   = '';
+
     public function mount(): void
     {
         $this->dateFrom = now()->subDays(30)->toDateString();
@@ -253,6 +258,89 @@ class Reports extends Page
                 'trend_margin' => $trend($margin, $prevMargin),
             ];
         });
+    }
+
+    // ── Compare two periods ───────────────────────────────────────────────────
+
+    public function compareOptions(): array
+    {
+        return ['previous' => 'Previous period', 'last_year' => 'Same period last year', 'custom' => 'Custom range'];
+    }
+
+    public function updatedCompareMode(string $mode): void
+    {
+        abort_unless(array_key_exists($mode, $this->compareOptions()), 422);
+        if ($mode === 'custom' && ($this->compareFrom === '' || $this->compareTo === '')) {
+            [$from, $to] = $this->comparisonRange('previous');
+            $this->compareFrom = $from->toDateString();
+            $this->compareTo = $to->toDateString();
+        }
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} */
+    private function comparisonRange(?string $mode = null): array
+    {
+        $start = $this->periodStart();
+        $end = $this->periodEnd();
+
+        return match ($mode ?? $this->compareMode) {
+            'last_year' => [$start->copy()->subYear(), $end->copy()->subYear()],
+            'custom' => $this->validDate($this->compareFrom) && $this->validDate($this->compareTo) && $this->compareFrom <= $this->compareTo
+                ? [Carbon::parse($this->compareFrom)->startOfDay(), Carbon::parse($this->compareTo)->endOfDay()]
+                : $this->comparisonRange('previous'),
+            // The same number of days, ending the day before this period starts.
+            default => [$start->copy()->subDays((int) round($start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay())) + 1)->startOfDay(), $start->copy()->subDay()->endOfDay()],
+        };
+    }
+
+    /**
+     * The selected range beside the comparison range, metric by metric.
+     *
+     * @return array{a_label: string, b_label: string, rows: list<array{label: string, a: ?float, b: ?float, money: bool, change: ?float, change_pct: ?float, better: ?bool}>}
+     */
+    public function getComparisonProperty(): array
+    {
+        [$bFrom, $bTo] = $this->comparisonRange();
+        $key = $this->cacheKey('compare_'.$bFrom->toDateString().'_'.$bTo->toDateString());
+
+        return Cache::remember($key, 300, function () use ($bFrom, $bTo) {
+            $figures = app(\App\Services\PeriodFigures::class);
+            $channel = ChannelContext::currentId();
+            $a = $figures->totals($this->periodStart(), $this->periodEnd(), $channel);
+            $b = $figures->totals($bFrom, $bTo, $channel);
+
+            $rows = [];
+            foreach ([
+                ['shows', 'Shows', false, true], ['hours', 'Hours streamed', false, true],
+                ['gross', 'Gross sales', true, true], ['net', 'Net (after Whatnot fees)', true, true],
+                ['gross_per_hour', 'Gross per hour', true, true], ['units', 'Units sold', false, true],
+                ['tips', 'Tips', true, true], ['cogs', 'Cost of goods', true, false],
+                ['pay', 'Streamer pay', true, false], ['profit', 'Profit', true, true],
+                ['margin_pct', 'Profit margin %', false, true],
+            ] as [$field, $label, $money, $higherIsBetter]) {
+                $va = $a[$field] ?? null;
+                $vb = $b[$field] ?? null;
+                $change = $va !== null && $vb !== null ? round($va - $vb, 2) : null;
+                $rows[] = [
+                    'label' => $label, 'a' => $va, 'b' => $vb, 'money' => $money,
+                    'change' => $change,
+                    'change_pct' => $change !== null && $vb && $field !== 'margin_pct' ? round($change / abs($vb) * 100, 1) : null,
+                    'better' => $change === null || $change == 0 ? null : ($change > 0) === $higherIsBetter,
+                ];
+            }
+
+            $label = fn (Carbon $f, Carbon $t) => $f->format('M j, Y').' – '.$t->format('M j, Y');
+
+            return ['a_label' => $label($this->periodStart(), $this->periodEnd()), 'b_label' => $label($bFrom, $bTo), 'rows' => $rows];
+        });
+    }
+
+    // ── Channel profit ────────────────────────────────────────────────────────
+
+    public function getChannelProfitProperty(): array
+    {
+        return Cache::remember($this->cacheKey('channel_profit'), 300, fn () => app(\App\Services\PeriodFigures::class)
+            ->byChannel($this->periodStart(), $this->periodEnd(), ChannelContext::currentId()));
     }
 
     // ── Revenue by channel ────────────────────────────────────────────────────

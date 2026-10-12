@@ -298,6 +298,117 @@
         </div>
 
         {{-- Payout pipeline --}}
+        {{-- ── Compare two periods ─────────────────────────────────────── --}}
+        @php
+            $cmp = $this->comparison;
+            $fmt = fn ($v, $money) => $v === null ? '—' : ($money ? '$'.number_format($v, 2) : number_format($v, is_float($v) && floor($v) != $v ? 1 : 0));
+        @endphp
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="compare-heading">
+            <div class="flex flex-wrap items-end justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                <div>
+                    <h3 id="compare-heading" class="text-sm font-semibold text-gray-800 dark:text-gray-200">Compare two periods</h3>
+                    <p class="mt-0.5 text-xs text-gray-500">The period selected above against another. Profit is net plus tips, less cost of goods (approved report items) and streamer pay — the same rule as each show page.</p>
+                </div>
+                <div class="flex flex-wrap items-end gap-2 text-sm">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Compare with</span>
+                        <select wire:model.live="compareMode" class="min-h-10 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
+                            @foreach ($this->compareOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                        </select>
+                    </label>
+                    @if ($compareMode === 'custom')
+                        <input type="date" wire:model.live.debounce.500ms="compareFrom" aria-label="Compare from" class="min-h-10 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
+                        <span class="pb-2 text-gray-500">to</span>
+                        <input type="date" wire:model.live.debounce.500ms="compareTo" aria-label="Compare to" class="min-h-10 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
+                    @endif
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-[11px] uppercase tracking-wide text-gray-500">
+                        <tr>
+                            <th class="px-4 py-2">Metric</th>
+                            <th class="px-3 py-2 text-right">{{ $cmp['a_label'] }}</th>
+                            <th class="px-3 py-2 text-right">{{ $cmp['b_label'] }}</th>
+                            <th class="px-4 py-2 text-right">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($cmp['rows'] as $row)
+                            <tr>
+                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ $row['label'] }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums">{{ $fmt($row['a'], $row['money']) }}{{ $row['label'] === 'Profit margin %' && $row['a'] !== null ? '%' : '' }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums text-gray-500">{{ $fmt($row['b'], $row['money']) }}{{ $row['label'] === 'Profit margin %' && $row['b'] !== null ? '%' : '' }}</td>
+                                <td class="px-4 py-2 text-right tabular-nums font-semibold {{ $row['better'] === null ? 'text-gray-500' : ($row['better'] ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') }}">
+                                    @if ($row['change'] === null) —
+                                    @else
+                                        {{ $row['change'] > 0 ? '+' : '' }}{{ $row['label'] === 'Profit margin %' ? number_format($row['change'], 1).' pts' : $fmt($row['change'], $row['money']) }}
+                                        @if ($row['change_pct'] !== null)<span class="ml-1 text-xs font-normal">({{ $row['change_pct'] > 0 ? '+' : '' }}{{ number_format($row['change_pct'], 1) }}%)</span>@endif
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        {{-- ── Channel profit ─────────────────────────────────────────────── --}}
+        @php
+            $cp = $this->channelProfit;
+            $cpTotal = collect($cp);
+        @endphp
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="channel-profit-heading">
+            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                <h3 id="channel-profit-heading" class="text-sm font-semibold text-gray-800 dark:text-gray-200">Channel profit</h3>
+                <p class="mt-0.5 text-xs text-gray-500">What each channel actually made in the period above. Giveaway spend is Whatnot's figure, shown for reference — the cost of giveaway items is already in cost of goods, so it is not subtracted again.</p>
+            </div>
+            @if ($cp === [])
+                <p class="px-4 py-8 text-center text-sm text-gray-500">No shows in this period.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-[11px] uppercase tracking-wide text-gray-500">
+                            <tr>
+                                <th class="px-4 py-2">Channel</th><th class="px-3 py-2 text-right">Shows</th><th class="px-3 py-2 text-right">Gross</th>
+                                <th class="px-3 py-2 text-right">Whatnot fees</th><th class="px-3 py-2 text-right">Cost of goods</th><th class="px-3 py-2 text-right">Pay</th>
+                                <th class="px-3 py-2 text-right">Tips</th><th class="px-3 py-2 text-right">Profit</th><th class="px-3 py-2 text-right">Margin</th>
+                                <th class="px-3 py-2 text-right">Per show</th><th class="px-4 py-2 text-right">Giveaway spend</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @foreach ($cp as $row)
+                                <tr>
+                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums">{{ number_format($row['shows']) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums">${{ number_format($row['gross'], 2) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['fees'], 2) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['cogs'], 2) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['pay'], 2) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['tips'], 2) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums font-semibold {{ $row['profit'] < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400' }}">${{ number_format($row['profit'], 2) }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums">{{ $row['margin_pct'] === null ? '—' : number_format($row['margin_pct'], 1).'%' }}</td>
+                                    <td class="px-3 py-2 text-right tabular-nums">{{ $row['profit_per_show'] === null ? '—' : '$'.number_format($row['profit_per_show'], 2) }}</td>
+                                    <td class="px-4 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['giveaways'], 2) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        @if (count($cp) > 1)
+                            <tfoot class="border-t border-gray-200 font-semibold dark:border-gray-700">
+                                <tr>
+                                    <td class="px-4 py-2">All channels</td>
+                                    <td class="px-3 py-2 text-right tabular-nums">{{ number_format($cpTotal->sum('shows')) }}</td>
+                                    @foreach (['gross', 'fees', 'cogs', 'pay', 'tips', 'profit'] as $col)<td class="px-3 py-2 text-right tabular-nums">${{ number_format($cpTotal->sum($col), 2) }}</td>@endforeach
+                                    <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
+                                    <td class="px-4 py-2 text-right tabular-nums">${{ number_format($cpTotal->sum('giveaways'), 2) }}</td>
+                                </tr>
+                            </tfoot>
+                        @endif
+                    </table>
+                </div>
+            @endif
+        </section>
+
         @php $ps = $this->payoutStatusSummary; @endphp
         <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">

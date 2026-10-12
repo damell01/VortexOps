@@ -14,6 +14,8 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use Spatie\Activitylog\Models\Activity;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
@@ -90,9 +92,17 @@ class ActivityLogResource extends Resource
 
                 Placeholder::make('subject')
                     ->label('Record')
-                    ->content(fn (Activity $record): string => $record->subject_type
-                        ? class_basename($record->subject_type) . ' #' . $record->subject_id
-                        : '—'),
+                    ->content(function (Activity $record): string {
+                        if (! $record->subject_type) {
+                            return '—';
+                        }
+                        $label = class_basename($record->subject_type).' #'.$record->subject_id;
+                        // Name the record when it still exists ("Streamer #22 — Micha").
+                        $subject = rescue(fn () => $record->loadMissing('subject')->subject, null, false);
+                        $name = $subject?->name ?? $subject?->title ?? null;
+
+                        return is_string($name) && $name !== '' ? $label.' — '.$name : $label;
+                    }),
 
                 Placeholder::make('causer')
                     ->label('By')
@@ -105,56 +115,9 @@ class ActivityLogResource extends Resource
 
             Section::make('Changes')->columnSpanFull()->schema([
                 Placeholder::make('changes_display')
-                    ->label('')
+                    ->hiddenLabel()
                     ->columnSpanFull()
-                    ->content(function (Activity $record): \Illuminate\Support\HtmlString {
-                        $changes = $record->attribute_changes ?? $record->properties?->toArray() ?? [];
-
-                        if (empty($changes)) {
-                            return new \Illuminate\Support\HtmlString('<span class="text-gray-400 text-sm">No attribute changes recorded.</span>');
-                        }
-
-                        $old = $changes['old'] ?? [];
-                        $new = $changes['attributes'] ?? $changes['new'] ?? [];
-
-                        if (empty($old) && empty($new)) {
-                            $html = '<pre class="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg overflow-auto">' . e(json_encode($changes, JSON_PRETTY_PRINT)) . '</pre>';
-                            return new \Illuminate\Support\HtmlString($html);
-                        }
-
-                        $keys   = array_unique(array_merge(array_keys($old), array_keys($new)));
-                        $rows   = '';
-
-                        foreach ($keys as $key) {
-                            if ($key === 'password') {
-                                continue;
-                            }
-                            $oldVal = isset($old[$key]) ? (is_array($old[$key]) ? json_encode($old[$key]) : $old[$key]) : null;
-                            $newVal = isset($new[$key]) ? (is_array($new[$key]) ? json_encode($new[$key]) : $new[$key]) : null;
-
-                            $changed = $oldVal !== $newVal;
-                            $rowClass = $changed ? 'bg-amber-50 dark:bg-amber-950' : '';
-
-                            $rows .= '<tr class="' . $rowClass . '">'
-                                . '<td class="px-3 py-1.5 font-mono text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">' . e($key) . '</td>'
-                                . '<td class="px-3 py-1.5 text-xs text-red-600 dark:text-red-400 line-through">' . e($oldVal ?? '') . '</td>'
-                                . '<td class="px-3 py-1.5 text-xs text-green-600 dark:text-green-400">' . e($newVal ?? '') . '</td>'
-                                . '</tr>';
-                        }
-
-                        $html = '<div class="overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">'
-                            . '<table class="w-full text-left">'
-                            . '<thead class="bg-gray-100 dark:bg-gray-800">'
-                            . '<tr>'
-                            . '<th class="px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300">Field</th>'
-                            . '<th class="px-3 py-2 text-xs font-semibold text-red-500">Before</th>'
-                            . '<th class="px-3 py-2 text-xs font-semibold text-green-500">After</th>'
-                            . '</tr></thead>'
-                            . '<tbody class="divide-y divide-gray-100 dark:divide-gray-800">' . $rows . '</tbody>'
-                            . '</table></div>';
-
-                        return new \Illuminate\Support\HtmlString($html);
-                    }),
+                    ->content(fn (Activity $record): HtmlString => static::changesHtml($record))
             ]),
         ]);
     }
@@ -211,6 +174,13 @@ class ActivityLogResource extends Resource
                     ->label('ID')
                     ->width('60px'),
 
+                TextColumn::make('changed_fields')
+                    ->label('Changed')
+                    ->state(fn (Activity $record): ?string => static::changedFieldsSummary($record))
+                    ->placeholder('—')
+                    ->wrap()
+                    ->color('gray'),
+
                 TextColumn::make('causer.name')
                     ->label('By')
                     ->default('System'),
@@ -259,6 +229,103 @@ class ActivityLogResource extends Resource
             ->defaultSort('id', 'desc')
             ->recordAction(fn ($record) => 'view')
             ->actions([ViewAction::make()->iconButton()]);
+    }
+
+    /** Fields never shown, even when they changed. */
+    private const HIDDEN_FIELDS = ['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'];
+
+    /**
+     * The before and after values of an entry.
+     *
+     * Model updates are written by AuditsUpdates into `properties`; entries
+     * Spatie writes itself (created, deleted, and models without
+     * AuditsUpdates) land in `attribute_changes`. Each starts as an empty
+     * collection, so take whichever one actually holds old/new values.
+     *
+     * @return array{old: array<string, mixed>, new: array<string, mixed>, extra: array<string, mixed>}
+     */
+    public static function changesFor(Activity $record): array
+    {
+        $extra = [];
+        foreach ([$record->attribute_changes, $record->properties] as $source) {
+            $data = $source?->toArray() ?? [];
+            $old = (array) ($data['old'] ?? []);
+            $new = (array) ($data['attributes'] ?? $data['new'] ?? []);
+            if ($old !== [] || $new !== []) {
+                return ['old' => $old, 'new' => $new, 'extra' => []];
+            }
+            $extra += $data;
+        }
+
+        return ['old' => [], 'new' => [], 'extra' => $extra];
+    }
+
+    /** "Status, Hourly rate +2 more" for the list. */
+    public static function changedFieldsSummary(Activity $record): ?string
+    {
+        ['old' => $old, 'new' => $new] = static::changesFor($record);
+        $fields = collect(array_keys($new + $old))
+            ->reject(fn ($k) => in_array($k, self::HIDDEN_FIELDS, true) || in_array($k, ['created_at', 'updated_at'], true))
+            ->map(fn ($k) => Str::of($k)->replace('_', ' ')->ucfirst()->toString())
+            ->values();
+
+        if ($fields->isEmpty()) {
+            return null;
+        }
+
+        return $fields->take(3)->implode(', ').($fields->count() > 3 ? ' +'.($fields->count() - 3).' more' : '');
+    }
+
+    private static function displayValue(mixed $value): string
+    {
+        return match (true) {
+            $value === null, $value === '' => '—',
+            is_bool($value) => $value ? 'Yes' : 'No',
+            is_array($value) => json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            default => (string) $value,
+        };
+    }
+
+    public static function changesHtml(Activity $record): HtmlString
+    {
+        ['old' => $old, 'new' => $new, 'extra' => $extra] = static::changesFor($record);
+
+        if ($old === [] && $new === []) {
+            if ($extra === []) {
+                return new HtmlString('<span class="text-gray-500 dark:text-gray-400 text-sm">No field changes were recorded for this entry.</span>');
+            }
+
+            return new HtmlString('<pre class="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg overflow-auto">'
+                .e(json_encode($extra, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)).'</pre>');
+        }
+
+        // A created entry has only "after" values; a deleted one only "before".
+        $showBefore = $old !== [];
+        $showAfter = $new !== [];
+
+        $rows = '';
+        foreach (array_keys($new + $old) as $key) {
+            if (in_array($key, self::HIDDEN_FIELDS, true) || in_array($key, ['created_at', 'updated_at'], true)) {
+                continue;
+            }
+            $label = Str::of($key)->replace('_', ' ')->ucfirst()->toString();
+            $rows .= '<tr>'
+                .'<td class="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap align-top">'.e($label)
+                .'<div class="font-mono text-[11px] font-normal text-gray-400">'.e($key).'</div></td>'
+                .($showBefore ? '<td class="px-3 py-2 text-sm text-red-700 dark:text-red-300 align-top break-all">'.e(static::displayValue($old[$key] ?? null)).'</td>' : '')
+                .($showAfter ? '<td class="px-3 py-2 text-sm text-green-700 dark:text-green-300 align-top break-all">'.e(static::displayValue($new[$key] ?? null)).'</td>' : '')
+                .'</tr>';
+        }
+
+        return new HtmlString('<div class="overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">'
+            .'<table class="w-full text-left">'
+            .'<thead class="bg-gray-50 dark:bg-gray-800"><tr>'
+            .'<th class="px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300">Field</th>'
+            .($showBefore ? '<th class="px-3 py-2 text-xs font-semibold text-red-700 dark:text-red-300">Before</th>' : '')
+            .($showAfter ? '<th class="px-3 py-2 text-xs font-semibold text-green-700 dark:text-green-300">'.($showBefore ? 'After' : 'Value').'</th>' : '')
+            .'</tr></thead>'
+            .'<tbody class="divide-y divide-gray-100 dark:divide-gray-800">'.$rows.'</tbody>'
+            .'</table></div>');
     }
 
     public static function getPages(): array

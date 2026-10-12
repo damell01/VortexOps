@@ -58,11 +58,12 @@ class ShowChannelRepair
 
         foreach ($this->candidates() as $show) {
             $evidence = $this->evidence($show);
-            // The stream this record keeps: the one seen only under the channel
-            // the show is on (so its streamer report and pay stay with it),
-            // else its saved live id, else the first stream imported.
-            $own = $evidence->filter(fn ($seen) => $seen['channels'] === [(int) $show->whatnot_channel_id])->keys()->first()
-                ?? $this->ownLiveId($show)
+            // The stream this record keeps: its saved live id, which the nightly
+            // discovery refreshes the title, date and times from (so the record
+            // already describes that stream); else the stream seen only under
+            // the show's channel; else the first stream imported.
+            $own = $this->ownLiveId($show)
+                ?? $evidence->filter(fn ($seen) => $seen['channels'] === [(int) $show->whatnot_channel_id])->keys()->first()
                 ?? $evidence->sortBy('first_log_id')->keys()->first();
             $actions = [];
 

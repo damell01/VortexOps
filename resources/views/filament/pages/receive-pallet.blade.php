@@ -94,13 +94,7 @@
                     </div>
 
                     <div class="p-4">
-                        <label for="receiving-location" class="mb-1.5 block text-xs font-semibold">Default receiving location</label>
-                        <select id="receiving-location" wire:model.live="receivingLocationId" class="mb-3 min-h-11 w-full rounded-xl border-gray-300 bg-white text-sm dark:bg-gray-800 dark:text-white">
-                            <option value="">Choose location</option>
-                            @foreach(\App\Models\InventoryLocation::activeOptions() as $id => $name)
-                                <option value="{{ $id }}">{{ $name }}</option>
-                            @endforeach
-                        </select>
+                        <x-searchable-location-picker model="receivingLocationId" label="Default receiving location" />
                         <p class="mb-3 text-xs text-gray-500">Remembered for your next delivery. Existing mapped lines keep their assigned location.</p>
                         @if($targetLineId)
                             @php
@@ -356,4 +350,5 @@
         </div>
     </div>
 </x-filament-panels::page>
+
 

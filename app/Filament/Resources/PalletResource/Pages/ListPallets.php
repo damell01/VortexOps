@@ -54,10 +54,12 @@ class ListPallets extends ListRecords
                 ->url(fn () => PalletResource::getUrl('create')),
 
             Action::make('history')
-                ->label('Received Pallets')
+                ->label('Receiving History')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->url(fn () => PalletReceivingHistory::getUrl()),
+
+            Action::make('inventory_guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => \App\Filament\Pages\InventoryGuide::getUrl())->visible(fn () => \App\Filament\Pages\InventoryGuide::canAccess()),
 
             Action::make('archived')
                 ->label('Archived / Undo')
@@ -74,3 +76,4 @@ class ListPallets extends ListRecords
         ];
     }
 }
+

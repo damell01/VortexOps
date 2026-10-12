@@ -12,6 +12,11 @@ class ViewVendor extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [EditAction::make()];
+        return [EditAction::make(),
+            \Filament\Actions\Action::make('receiving_history')->label('Receiving history')->icon('heroicon-o-clock')
+                ->url(fn () => \App\Filament\Pages\PalletReceivingHistory::getUrl(parameters: ['vendorId'=>$this->record->id]))
+                ->visible(fn () => \App\Filament\Pages\PalletReceivingHistory::canAccess()),
+        ];
     }
 }
+

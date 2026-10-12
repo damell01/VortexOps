@@ -8,7 +8,7 @@
         .vx-received-history .fi-ta-row{min-height:68px}
         .vx-received-history .fi-ta-cell{padding-top:.85rem!important;padding-bottom:.85rem!important}
         .vx-received-history .fi-ta-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:.35rem!important;flex-wrap:nowrap!important;white-space:nowrap!important;min-width:82px!important}
-        .vx-received-history .fi-ta-actions .fi-btn,.vx-received-history .fi-ta-actions .fi-icon-btn{flex:0 0 auto!important;max-width:38px!important;min-width:34px!important;width:34px!important;height:34px!important;padding:.35rem!important;overflow:hidden!important}
+        .vx-received-history .fi-ta-actions{flex-wrap:wrap!important;white-space:normal!important}
         .vx-history-intro{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem;padding:1rem 1.1rem;border:1px solid rgb(221 214 254);border-radius:1rem;background:linear-gradient(135deg,rgb(250 245 255),rgb(238 242 255))}
         .dark .vx-history-intro{border-color:rgb(76 29 149);background:linear-gradient(135deg,rgba(76,29,149,.25),rgba(49,46,129,.2))}
         .vx-history-intro strong{display:block;font-size:.95rem;color:rgb(76 29 149)}.dark .vx-history-intro strong{color:rgb(221 214 254)}
@@ -18,10 +18,11 @@
     <div class="vx-received-history">
         <div class="vx-history-intro">
             <div>
-                <strong>Completed receiving archive</strong>
-                <span>Received and processed pallets live here so the main Receive Inventory screen stays focused on work still in progress.</span>
+                <strong>Receiving history</strong>
+                <span>Search received or unfinished pallets. Filter by vendor, progress or receipt date; open a delivery to view its files and details.</span>
             </div>
         </div>
         {{ $this->table }}
     </div>
 </x-filament-panels::page>
+

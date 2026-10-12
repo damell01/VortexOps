@@ -15,7 +15,7 @@ use App\Support\NavVisibility;
 
 class CostAdjustmentHistory extends Page implements HasTable
 {
-    use HasModuleAccess, InteractsWithTable;
+    use HasModuleAccess, InteractsWithTable, \App\Filament\Concerns\DownloadsTableCsv;
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Cost Adjustment History';

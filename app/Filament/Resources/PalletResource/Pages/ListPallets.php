@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListPallets extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = PalletResource::class;
 
     public function getTitle(): string

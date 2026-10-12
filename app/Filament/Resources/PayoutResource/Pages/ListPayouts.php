@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListPayouts extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = PayoutResource::class;
 
     public function getSubheading(): ?string

@@ -169,7 +169,7 @@ class InventoryMovementResource extends Resource
                 SelectFilter::make('from_location_id')->label('From Location')->relationship('fromLocation','name'),
                 SelectFilter::make('to_location_id')->label('To Location')->relationship('toLocation','name'),
             ])
-            ->headerActions([TableAction::make('export_csv')->label('Export CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')->url(fn()=>route('export.movement-log'))->openUrlInNewTab()])
+            ->headerActions([TableAction::make('export_csv')->label('Download CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')->url(fn()=>route('export.movement-log'))->openUrlInNewTab()])
             ->actions([ViewAction::make()->size('sm')->iconButton()])
             ->striped()->persistFiltersInSession()->paginationPageOptions(\App\Support\MobileTablePagination::options([10,25,50]))->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))->deferLoading()->defaultSort('created_at','desc');
     }

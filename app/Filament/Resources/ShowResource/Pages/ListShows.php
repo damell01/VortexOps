@@ -24,6 +24,8 @@ use Illuminate\Support\Facades\Cache;
 
 class ListShows extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ShowResource::class;
 
     protected ?array $statsMemo = null;

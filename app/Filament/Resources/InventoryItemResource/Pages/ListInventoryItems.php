@@ -26,6 +26,8 @@ use Livewire\Attributes\Url;
 
 class ListInventoryItems extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = InventoryItemResource::class;
     protected ?array $statsMemo = null;
 

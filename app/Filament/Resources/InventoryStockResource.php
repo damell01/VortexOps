@@ -249,7 +249,7 @@ class InventoryStockResource extends Resource
             ])
             ->headerActions([
                 TableAction::make('export_csv')
-                    ->label('Export CSV')
+                    ->label('Download CSV')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
                     ->url(fn () => route('export.stock-levels'))

@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListWeeklyPayoutBatches extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = WeeklyPayoutBatchResource::class;
 
     public function getSubheading(): ?string

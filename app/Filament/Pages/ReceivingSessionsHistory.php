@@ -17,7 +17,7 @@ use App\Support\NavVisibility;
 
 class ReceivingSessionsHistory extends Page implements HasTable
 {
-    use HasModuleAccess, InteractsWithTable;
+    use HasModuleAccess, InteractsWithTable, \App\Filament\Concerns\DownloadsTableCsv;
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Receiving Sessions';

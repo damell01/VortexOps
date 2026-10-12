@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListVendors extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = VendorResource::class;
 
     public function getSubheading(): ?string

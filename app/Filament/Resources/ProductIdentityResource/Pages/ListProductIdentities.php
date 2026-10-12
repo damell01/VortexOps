@@ -7,6 +7,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListProductIdentities extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ProductIdentityResource::class;
 
     public function getSubheading(): ?string

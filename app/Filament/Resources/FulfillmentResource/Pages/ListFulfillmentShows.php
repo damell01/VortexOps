@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Schema;
 
 class ListFulfillmentShows extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = FulfillmentResource::class;
 
     public function getView(): string

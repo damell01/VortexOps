@@ -8,6 +8,8 @@ use Filament\Resources\Pages\ListRecords;
 
 class ListFulfillmentPackages extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = FulfillmentPackageResource::class;
 
     protected function getHeaderActions(): array

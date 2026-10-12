@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListStreamerLogEntries extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = StreamerLogResource::class;
 
     /** Per-request memo — the tiles run several aggregates over the same set. */

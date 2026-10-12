@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListWhatnotLedgerEntries extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = WhatnotLedgerResource::class;
 
     public function getSubheading(): ?string

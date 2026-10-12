@@ -71,7 +71,7 @@ class PalletReceivingHistory extends Page implements HasTable
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('export')->label('Export CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
+            Action::make('export')->label('Download CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
                 ->action(fn () => $this->exportHistory()),
             Action::make('receive')->label('New Receiving')->icon('heroicon-o-inbox-arrow-down')->url(fn () => \App\Filament\Resources\PalletResource::getUrl()),
             Action::make('guide')->label('Inventory Guide')->icon('heroicon-o-book-open')->url(fn () => InventoryGuide::getUrl())->visible(fn () => InventoryGuide::canAccess()),

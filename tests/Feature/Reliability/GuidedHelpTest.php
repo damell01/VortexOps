@@ -50,7 +50,7 @@ class GuidedHelpTest extends TestCase
         $admin=User::factory()->create(); $admin->assignRole('admin'); $this->actingAs($admin);
         NavVisibility::flushMemo();
         Livewire::test(HelpCenter::class)->call('selectGuide','inventory')
-            ->assertSet('guide','inventory')->assertSee('Inventory receiving')->assertSee('iframe',false);
+            ->assertSet('guide','inventory')->assertSee('Inventory receiving')->assertSee('data-vx-flipbook',false)->assertSee('admin/guides/inventory',false)->assertSee('Plain PDF');
         $this->get('/admin/guides/inventory')->assertOk()->assertHeader('content-type','application/pdf');
         $this->get('/admin/guides/inventory?download=1')->assertOk()->assertHeader('content-disposition','attachment; filename=inventory-guide.pdf');
         Role::findOrCreate('streamer','web');

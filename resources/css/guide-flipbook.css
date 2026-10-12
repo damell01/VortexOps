@@ -1,0 +1,26 @@
+.vx-flipbook {
+    position: relative;
+    padding: 1.25rem 1rem 1rem;
+    background: radial-gradient(ellipse at top, #2a1b4d 0%, #120c26 70%);
+    outline: none;
+}
+.vx-flipbook:focus-visible { box-shadow: inset 0 0 0 2px rgb(167 139 250); }
+/* Keep a two-page spread inside the viewport: letter pages are 612x792,
+   so a spread is ~1.545x as wide as it is tall. */
+.vx-flipbook-stage { margin: 0 auto; max-width: min(100%, calc(78vh * 1.545)); }
+.vx-flipbook:fullscreen { display: flex; flex-direction: column; justify-content: center; }
+.vx-flipbook:fullscreen .vx-flipbook-stage { width: 100%; max-width: min(100%, calc(88vh * 1.545)); }
+.vx-flip-page { background: #fff; overflow: hidden; }
+.vx-flip-page img { display: block; width: 100%; height: 100%; object-fit: contain; user-select: none; }
+.vx-flipbook-status { padding: 4rem 1rem; text-align: center; font-size: .875rem; color: rgb(221 214 254); }
+.vx-flipbook-status.is-error { color: #fecaca; }
+.vx-flipbook-controls { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-top: 1rem; color: #fff; font-size: .875rem; }
+.vx-flipbook-controls[hidden] { display: none; }
+.vx-flipbook-controls button {
+    min-height: 2.75rem; min-width: 2.75rem; padding: 0 .9rem; border-radius: .75rem;
+    background: rgb(255 255 255 / .12); border: 1px solid rgb(255 255 255 / .2); color: #fff; font-weight: 600;
+}
+.vx-flipbook-controls button:hover:not(:disabled) { background: rgb(255 255 255 / .22); }
+.vx-flipbook-controls button:disabled { opacity: .35; cursor: default; }
+.vx-flipbook-controls [data-page] { min-width: 9rem; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .vx-flipbook { padding: .75rem .5rem; } .vx-flipbook-controls { flex-wrap: wrap; gap: .5rem; } }

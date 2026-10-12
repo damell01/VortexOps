@@ -327,3 +327,18 @@ if ('requestIdleCallback' in window) {
     window.setTimeout(loadOptionalUi, 1200);
 }
 
+// The guide flip reader (pdf.js + page-flip) is heavy, so it only loads when a
+// [data-vx-flipbook] element appears — including after SPA navigation and
+// Livewire re-renders when a different guide is chosen.
+let guideFlipbook = null;
+let flipbookScan = 0;
+const scanFlipbooks = () => {
+    if (flipbookScan) return;
+    flipbookScan = requestAnimationFrame(() => {
+        flipbookScan = 0;
+        if (!guideFlipbook && !document.querySelector('[data-vx-flipbook]')) return;
+        (guideFlipbook ??= import('./guide-flipbook.js')).then((m) => m.mountAll());
+    });
+};
+new MutationObserver(scanFlipbooks).observe(document.documentElement, { childList: true, subtree: true });
+scanFlipbooks();

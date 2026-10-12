@@ -8,11 +8,11 @@
             <h2 id="pdf-guides-heading" class="mb-3 text-lg font-bold">PDF guides</h2>
             <div class="grid gap-4 md:grid-cols-3">
                 @forelse($documents as $id => $doc)
-                    <article class="rounded-2xl border bg-white p-5 dark:bg-gray-900 {{ $selectedGuide === $id ? 'border-primary-400 ring-1 ring-primary-400' : 'border-gray-200 dark:border-gray-700' }}">
+                    <article class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                         <div class="flex items-center gap-3"><x-heroicon-o-document-text class="h-6 w-6 shrink-0 text-primary-500"/><h3 class="font-bold">{{ $doc['title'] }}</h3></div>
                         <p class="mt-3 text-sm text-gray-500">{{ $doc['description'] }}</p>
                         <div class="mt-4 flex flex-wrap gap-2">
-                            <x-filament::button type="button" wire:click="selectGuide('{{ $id }}')" wire:loading.attr="disabled" wire:target="selectGuide" :aria-pressed="$selectedGuide === $id ? 'true' : 'false'">{{ $selectedGuide === $id ? 'Reading now' : 'Read here' }}</x-filament::button>
+                            <x-filament::button type="button" wire:click="selectGuide('{{ $id }}')" wire:loading.attr="disabled" wire:target="selectGuide" icon="heroicon-o-book-open">Read here</x-filament::button>
                             <x-filament::button color="gray" tag="a" :href="route('admin.guides.show', ['guide'=>$id,'download'=>1])">Download</x-filament::button>
                         </div>
                     </article>
@@ -22,23 +22,25 @@
             </div>
         </section>
         @if($selectedDocument)
-        <section wire:key="guide-reader-{{ $selectedGuide }}" x-data="{ view: 'flip' }" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-label="Guide reader">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">
-                <div>
-                    <h2 class="font-bold">{{ $selectedDocument['title'] }}</h2>
-                    <p class="mt-1 text-xs text-gray-500" x-text="view === 'flip' ? 'Drag a page corner, use the arrows, or press ← →  to turn pages.' : 'Use the PDF toolbar to change pages or zoom.'">Drag a page corner, use the arrows, or press ← → to turn pages.</p>
+        <div wire:key="guide-reader-{{ $selectedGuide }}" x-data="{ view: 'flip' }" x-trap.noscroll="true" x-on:keydown.escape="$wire.closeReader()"
+            class="vx-guide-overlay fixed inset-0 flex flex-col" style="z-index:100;background:radial-gradient(ellipse at top,#2a1b4d 0%,#120c26 70%)" role="dialog" aria-modal="true" aria-label="{{ $selectedDocument['title'] }}">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-white sm:px-6">
+                <div class="min-w-0">
+                    <h2 class="truncate text-base font-bold">{{ $selectedDocument['title'] }}</h2>
+                    <p class="mt-0.5 hidden text-xs text-violet-200 sm:block" x-text="view === 'flip' ? 'Drag a page corner, use the arrows, or press ← → to turn pages. Esc closes.' : 'Use the PDF toolbar to change pages or zoom. Esc closes.'"></p>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <div class="inline-flex rounded-lg border border-gray-300 p-0.5 text-sm font-semibold dark:border-gray-600" role="group" aria-label="Reader view">
-                        <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'flip' ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="(view === 'flip').toString()" @click="view = 'flip'">Flip book</button>
-                        <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'pdf' ? 'bg-primary-600 text-white' : 'text-gray-600 dark:text-gray-300'" :aria-pressed="(view === 'pdf').toString()" @click="view = 'pdf'">Plain PDF</button>
+                <div class="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                    <div class="inline-flex rounded-lg border border-white/25 p-0.5" role="group" aria-label="Reader view">
+                        <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'flip' ? 'bg-white text-violet-800' : 'text-white'" :aria-pressed="(view === 'flip').toString()" @click="view = 'flip'">Flip book</button>
+                        <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'pdf' ? 'bg-white text-violet-800' : 'text-white'" :aria-pressed="(view === 'pdf').toString()" @click="view = 'pdf'">Plain PDF</button>
                     </div>
-                    <x-filament::button color="gray" tag="a" :href="route('admin.guides.show',$selectedGuide)" target="_blank" rel="noopener">Open in browser</x-filament::button>
-                    <x-filament::button tag="a" :href="route('admin.guides.show',['guide'=>$selectedGuide,'download'=>1])" icon="heroicon-o-arrow-down-tray">Download PDF</x-filament::button>
+                    <a href="{{ route('admin.guides.show',$selectedGuide) }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg px-3 hover:bg-white/10">Open in browser</a>
+                    <a href="{{ route('admin.guides.show',['guide'=>$selectedGuide,'download'=>1]) }}" class="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 hover:bg-white/10"><x-heroicon-o-arrow-down-tray class="h-4 w-4"/>Download</a>
+                    <button type="button" wire:click="closeReader" class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20" aria-label="Close guide"><x-heroicon-o-x-mark class="h-5 w-5"/></button>
                 </div>
             </div>
-            <div x-show="view === 'flip'" wire:ignore>
-                <div data-vx-flipbook data-src="{{ route('admin.guides.show',$selectedGuide) }}" data-title="{{ $selectedDocument['title'] }}" class="vx-flipbook" tabindex="0" aria-label="{{ $selectedDocument['title'] }} flip book">
+            <div x-show="view === 'flip'" wire:ignore class="flex min-h-0 flex-1 flex-col">
+                <div data-vx-flipbook data-src="{{ route('admin.guides.show',$selectedGuide) }}" data-title="{{ $selectedDocument['title'] }}" class="vx-flipbook flex-1" tabindex="0" aria-label="{{ $selectedDocument['title'] }} flip book">
                     <p class="vx-flipbook-status" data-status role="status">Opening guide…</p>
                     <div class="vx-flipbook-stage"><div data-book></div></div>
                     <div class="vx-flipbook-controls" data-controls hidden>
@@ -50,10 +52,9 @@
                 </div>
             </div>
             <template x-if="view === 'pdf'">
-                <iframe src="{{ route('admin.guides.show',$selectedGuide) }}" title="{{ $selectedDocument['title'] }} PDF" class="w-full border-0" style="height:75vh;min-height:420px"></iframe>
+                <iframe src="{{ route('admin.guides.show',$selectedGuide) }}" title="{{ $selectedDocument['title'] }} PDF" class="min-h-0 w-full flex-1 border-0 bg-white"></iframe>
             </template>
-            <p class="border-t border-gray-200 p-4 text-xs text-gray-500 dark:border-gray-700">If the guide does not display here, choose Plain PDF, Open in browser, or Download PDF.</p>
-        </section>
+        </div>
         @endif
         <div class="rounded-2xl border border-gray-200 p-5 dark:border-gray-700">
             <h2 class="font-bold">More reference help</h2>

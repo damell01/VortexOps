@@ -24,3 +24,6 @@
 .vx-flipbook-controls button:disabled { opacity: .35; cursor: default; }
 .vx-flipbook-controls [data-page] { min-width: 9rem; text-align: center; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .vx-flipbook { padding: .75rem .5rem; } .vx-flipbook-controls { flex-wrap: wrap; gap: .5rem; } }
+/* "Read here" opens the guide as a full-viewport overlay above the panel chrome. */
+.vx-guide-overlay .vx-flipbook { background: none; overflow: auto; }
+.vx-guide-overlay .vx-flipbook-stage { max-width: min(100%, calc((100dvh - 190px) * 1.545)); }

@@ -170,12 +170,14 @@ class DashboardImproved extends Dashboard
             $months[] = ['key'=>$month->format('Y-m'), 'label'=>$month->format('M')];
         }
         $channelId = ChannelContext::currentId();
+        // Net matches Show::profitAndLoss(): settled Whatnot earnings, or Whatnot's
+        // estimate until a show settles, so recent months don't read as zero.
         $data = \Illuminate\Support\Facades\Cache::remember(
-            'dashboard:reference:v1:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
+            'dashboard:reference:v2:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
             function () use ($start, $local, $months, $channelId) {
                 $rows = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])
                     ->whereBetween('show_date', [$start->toDateString(), $local->copy()->endOfDay()->toDateTimeString()])
-                    ->selectRaw('whatnot_channel_id, SUBSTR(show_date, 1, 7) as month, COALESCE(SUM(gross_revenue),0) as gross, COALESCE(SUM(completed_earnings),0) as net, COALESCE(SUM(units_sold),0) as units, COALESCE(SUM(show_duration),0)/60.0 as hours')
+                    ->selectRaw('whatnot_channel_id, SUBSTR(show_date, 1, 7) as month, COALESCE(SUM(gross_revenue),0) as gross, COALESCE(SUM(COALESCE(completed_earnings, whatnot_net, 0)),0) as net')
                     ->groupBy('whatnot_channel_id')->groupByRaw('SUBSTR(show_date, 1, 7)')->get();
                 $channels = \App\Models\WhatnotChannel::whereIn('id', $rows->pluck('whatnot_channel_id')->filter()->unique())->orderBy('name')->get(['id','name']);
                 $series = [];
@@ -183,7 +185,7 @@ class DashboardImproved extends Dashboard
                 foreach ($channels as $index => $channel) {
                     $byMonth = $rows->where('whatnot_channel_id', $channel->id)->keyBy('month');
                     $values = [];
-                    foreach (['gross','net','units','hours'] as $metric) {
+                    foreach (['gross','net'] as $metric) {
                         $values[$metric] = array_map(fn ($month) => (float) ($byMonth->get($month['key'])?->getAttribute($metric) ?? 0), $months);
                     }
                     $series[] = ['name'=>$channel->name,'color'=>$colors[$index % count($colors)],'values'=>$values];
@@ -191,7 +193,7 @@ class DashboardImproved extends Dashboard
                 if (! $channelId && $rows->whereNull('whatnot_channel_id')->isNotEmpty()) {
                     $byMonth = $rows->whereNull('whatnot_channel_id')->keyBy('month');
                     $values = [];
-                    foreach (['gross','net','units','hours'] as $metric) {
+                    foreach (['gross','net'] as $metric) {
                         $values[$metric] = array_map(fn ($month) => (float) ($byMonth->get($month['key'])?->getAttribute($metric) ?? 0), $months);
                     }
                     $series[] = ['name'=>'Unassigned channel','color'=>'#94a3b8','values'=>$values];

@@ -22,6 +22,10 @@ class GuidedHelpTest extends TestCase
         $this->actingAs($user);
         NavVisibility::flushMemo();
         Livewire::test(HelpCenter::class)->assertOk()->assertSee('PDF guides')->assertDontSee('Start walkthrough')->assertDontSee('Interactive walkthroughs');
+        // The reader is a full-screen overlay, so it opens only on request and closes cleanly.
+        Livewire::test(HelpCenter::class)->assertDontSee('data-vx-flipbook', false)
+            ->call('selectGuide', 'admin')->assertSee('data-vx-flipbook', false)
+            ->call('closeReader')->assertSet('guide', null)->assertDontSee('data-vx-flipbook', false);
         $response = $this->get('/admin/guides/admin')->assertOk()->assertHeader('content-type', 'application/pdf');
         $this->assertSame(1366657, $response->baseResponse->getFile()->getSize());
         $this->get('/admin/guides/streamer?download=1')->assertOk();
@@ -50,7 +54,7 @@ class GuidedHelpTest extends TestCase
         $admin=User::factory()->create(); $admin->assignRole('admin'); $this->actingAs($admin);
         NavVisibility::flushMemo();
         Livewire::test(HelpCenter::class)->call('selectGuide','inventory')
-            ->assertSet('guide','inventory')->assertSee('Inventory receiving')->assertSee('data-vx-flipbook',false)->assertSee('admin/guides/inventory',false)->assertSee('Plain PDF');
+            ->assertSet('guide','inventory')->assertSee('Inventory receiving')->assertSee('aria-modal',false)->assertSee('data-vx-flipbook',false)->assertSee('admin/guides/inventory',false)->assertSee('Plain PDF');
         $this->get('/admin/guides/inventory')->assertOk()->assertHeader('content-type','application/pdf');
         $this->get('/admin/guides/inventory?download=1')->assertOk()->assertHeader('content-disposition','attachment; filename=inventory-guide.pdf');
         Role::findOrCreate('streamer','web');

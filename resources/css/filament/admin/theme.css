@@ -123,16 +123,22 @@
  .vx-mega-brand{width:44px!important;flex-basis:44px!important;margin-right:6px!important}.vx-mega-brand img{width:40px!important;height:40px!important}
  .vx-desktop-mega-nav{gap:2px!important}.vx-mega-home,.vx-mega-trigger{min-height:44px;padding-inline:10px!important;font-size:13px!important}
  .vx-desktop-mega-nav .vx-mega-channel{min-width:132px!important;max-width:170px!important;flex-basis:170px!important;margin-left:auto!important}
- .fi-topbar .fi-global-search{position:relative;flex:0 0 44px!important;min-width:44px!important;max-width:44px!important;width:44px}
- .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){min-width:44px;width:44px;border-radius:12px}
- .fi-topbar .fi-global-search input{min-width:0;width:44px;cursor:pointer;padding-inline-start:40px}
- .fi-topbar .fi-global-search input::placeholder{color:transparent}
+ .fi-topbar .fi-global-search{position:relative;flex:0 1 260px!important;min-width:180px!important;max-width:260px!important}
+ .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){width:100%;border-radius:12px}
+ .fi-topbar .fi-global-search input{width:100%;cursor:text}
+ .fi-topbar .fi-global-search input::placeholder{color:#64748b}
  .fi-topbar .fi-global-search:focus-within{z-index:60}
- .fi-topbar .fi-global-search:focus-within :is(.fi-input-wrp,.fi-global-search-field){width:min(360px,55vw);position:relative;float:right;background:var(--vx-surface,#fff);box-shadow:0 8px 24px #0f172a20}
- .fi-topbar .fi-global-search:focus-within input{width:100%;cursor:text}.fi-topbar .fi-global-search:focus-within input::placeholder{color:#64748b}
  .vx-mega-menu{max-height:calc(100dvh - 100px);overflow-y:auto;width:270px}
 }
 @media(min-width:1024px) and (max-width:1150px){.vx-mega-home,.vx-mega-trigger{padding-inline:6px!important;font-size:12px!important}.vx-desktop-mega-nav .vx-mega-channel{flex-basis:132px!important}}
+@media(min-width:1024px) and (max-width:1150px){
+ .fi-topbar .fi-global-search{flex:0 0 44px!important;min-width:44px!important;max-width:44px!important;width:44px}
+ .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){min-width:44px;width:44px}
+ .fi-topbar .fi-global-search input{min-width:0;width:44px;cursor:pointer;padding-inline-start:40px}
+ .fi-topbar .fi-global-search input::placeholder{color:transparent}
+ .fi-topbar .fi-global-search:focus-within :is(.fi-input-wrp,.fi-global-search-field){width:min(360px,55vw);position:relative;float:right;background:var(--vx-surface,#fff);box-shadow:0 8px 24px #0f172a20}
+ .fi-topbar .fi-global-search:focus-within input{width:100%;cursor:text}.fi-topbar .fi-global-search:focus-within input::placeholder{color:#64748b}
+}
 .vx-owner-tools{border-top:1px solid var(--vx-border,#e2e8f0);margin-top:6px;padding-top:6px}.vx-owner-tools summary{display:flex;justify-content:space-between;cursor:pointer;min-height:44px;padding:12px 10px;font-size:13px;font-weight:650;color:var(--vx-muted,#64748b)}.vx-owner-tools[open] summary{color:#7c3aed}.vx-owner-tools>div{padding-inline-start:8px}
 .vx-mega-trigger:focus-visible,.vx-mega-menu a:focus-visible,.vx-owner-tools summary:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
 .fi-header-heading{line-height:1.25!important}.fi-header-subheading{line-height:1.5!important}

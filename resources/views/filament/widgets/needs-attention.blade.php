@@ -65,10 +65,16 @@
                         @forelse ($detailData['rows'] as $row)
                             <tr class="hover:bg-gray-50 dark:hover:bg-white/5">
                                 @foreach ($row['cells'] as $i => $cell)
+                                    @php($link = $row['links'][$i] ?? ($i === 0 ? $row['url'] : null))
                                     <td class="px-2 py-2 align-top {{ $i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'tabular-nums text-gray-600 dark:text-gray-300' }}">
-                                        @if ($i === 0 && $row['url'])<a href="{{ $row['url'] }}" class="text-primary-600 hover:underline dark:text-primary-400">{{ $cell }}</a>@else{{ $cell }}@endif
+                                        @if ($link)<a href="{{ $link }}" class="text-primary-600 hover:underline dark:text-primary-400">{{ $cell }}</a>@else{{ $cell }}@endif
                                     </td>
                                 @endforeach
+                                @if (! empty($row['action']))
+                                    <td class="px-2 py-2 text-right align-top">
+                                        <x-filament::button size="xs" color="gray" wire:click="{{ $row['action']['method'] }}('{{ $row['action']['arg'] }}')" wire:loading.attr="disabled">{{ $row['action']['label'] }}</x-filament::button>
+                                    </td>
+                                @endif
                             </tr>
                         @empty
                             <tr><td colspan="{{ count($detailData['columns']) }}" class="px-2 py-6 text-center text-gray-500">Nothing here any more.</td></tr>

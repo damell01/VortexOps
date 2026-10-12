@@ -91,6 +91,7 @@ class DashboardImproved extends Dashboard
             $data['roleMode'] = 'admin';
             $data['inventoryHealth'] = $this->inventoryHealth();
             $data['recentInventoryActivity'] = $this->recentInventoryActivity();
+            $data['dashboardOverview'] = $this->dashboardOverview();
         }
 
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
@@ -156,6 +157,69 @@ class DashboardImproved extends Dashboard
         }
 
         return $data;
+    }
+
+
+    private function dashboardOverview(): array
+    {
+        $local = now()->timezone(auth()->user()?->timezone ?: config('app.timezone'));
+        $start = $local->copy()->startOfMonth()->subMonthsNoOverflow(6);
+        $months = [];
+        for ($i = 0; $i < 7; $i++) {
+            $month = $start->copy()->addMonthsNoOverflow($i);
+            $months[] = ['key'=>$month->format('Y-m'), 'label'=>$month->format('M')];
+        }
+        $channelId = ChannelContext::currentId();
+        $data = \Illuminate\Support\Facades\Cache::remember(
+            'dashboard:reference:v1:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
+            function () use ($start, $local, $months, $channelId) {
+                $rows = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])
+                    ->whereBetween('show_date', [$start->toDateString(), $local->copy()->endOfDay()->toDateTimeString()])
+                    ->selectRaw('whatnot_channel_id, SUBSTR(show_date, 1, 7) as month, COALESCE(SUM(gross_revenue),0) as gross, COALESCE(SUM(completed_earnings),0) as net, COALESCE(SUM(units_sold),0) as units, COALESCE(SUM(show_duration),0)/60.0 as hours')
+                    ->groupBy('whatnot_channel_id')->groupByRaw('SUBSTR(show_date, 1, 7)')->get();
+                $channels = \App\Models\WhatnotChannel::whereIn('id', $rows->pluck('whatnot_channel_id')->filter()->unique())->orderBy('name')->get(['id','name']);
+                $series = [];
+                $colors = ['#7c3aed','#3b82f6','#ec4899','#10b981','#f59e0b'];
+                foreach ($channels as $index => $channel) {
+                    $byMonth = $rows->where('whatnot_channel_id', $channel->id)->keyBy('month');
+                    $values = [];
+                    foreach (['gross','net','units','hours'] as $metric) {
+                        $values[$metric] = array_map(fn ($month) => (float) ($byMonth->get($month['key'])?->getAttribute($metric) ?? 0), $months);
+                    }
+                    $series[] = ['name'=>$channel->name,'color'=>$colors[$index % count($colors)],'values'=>$values];
+                }
+                if (! $channelId && $rows->whereNull('whatnot_channel_id')->isNotEmpty()) {
+                    $byMonth = $rows->whereNull('whatnot_channel_id')->keyBy('month');
+                    $values = [];
+                    foreach (['gross','net','units','hours'] as $metric) {
+                        $values[$metric] = array_map(fn ($month) => (float) ($byMonth->get($month['key'])?->getAttribute($metric) ?? 0), $months);
+                    }
+                    $series[] = ['name'=>'Unassigned channel','color'=>'#94a3b8','values'=>$values];
+                }
+                return [
+                    'series'=>$series,
+                    'shows_today'=>Show::query()->inChannelContext()->whereDate('show_date',$local->toDateString())->whereNotIn('status',['cancelled'])->count(),
+                    'open_deliveries'=>\App\Models\Pallet::whereIn('status',['staged','receiving'])->count(),
+                    'reviews'=>StreamerLogEntry::query()->inChannelContext()->where('status','pending')->whereNotNull('submitted_at')->count(),
+                    'active_channels'=>\App\Models\WhatnotChannel::where('status','active')->when($channelId, fn ($q) => $q->whereKey($channelId))->count(),
+                ];
+            }
+        );
+        $today = [];
+        foreach ([
+            [\App\Filament\Pages\Shows::class, 'Shows today', 'shows_today'],
+            [\App\Filament\Resources\PalletResource::class, 'Open deliveries', 'open_deliveries'],
+            [\App\Filament\Resources\StreamerLogResource::class, 'Reports awaiting review', 'reviews'],
+            [\App\Filament\Pages\Shows::class, 'Active channels', 'active_channels'],
+        ] as [$page, $label, $key]) {
+            if ($page::canAccess()) $today[] = ['label'=>$label,'count'=>$data[$key],'url'=>$page::getUrl()];
+        }
+        return $data + [
+            'today'=>$today, 'months'=>$months,
+            'greeting'=>$local->hour < 12 ? 'Good morning' : ($local->hour < 18 ? 'Good afternoon' : 'Good evening'),
+            'name'=>explode(' ', trim(auth()->user()?->name ?: 'there'))[0],
+            'date'=>$local->format('M j, Y'), 'period'=>$start->format('M Y').' – '.$local->format('M Y'),
+        ];
     }
 
     private function inventoryHealth(): array

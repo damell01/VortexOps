@@ -42,7 +42,8 @@
             <div x-show="view === 'flip'" wire:ignore class="flex min-h-0 flex-1 flex-col">
                 <div data-vx-flipbook data-src="{{ route('admin.guides.show',$selectedGuide) }}" data-title="{{ $selectedDocument['title'] }}" class="vx-flipbook flex-1" tabindex="0" aria-label="{{ $selectedDocument['title'] }} flip book">
                     <p class="vx-flipbook-status" data-status role="status">Opening guide…</p>
-                    <div class="vx-flipbook-stage"><div data-book></div></div>
+                    {{-- Pages scroll here; the controls below stay put instead of covering them. --}}
+                    <div class="vx-flipbook-scroll" data-scroll><div class="vx-flipbook-stage"><div data-book></div></div></div>
                     <div class="vx-flipbook-controls" data-controls hidden>
                         <button type="button" data-prev aria-label="Previous page">‹ Prev</button>
                         <span data-page aria-live="polite"></span>

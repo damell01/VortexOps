@@ -8,7 +8,8 @@
          dispatches barcode-scanned, which the inputs below listen for. --}}
     @include('filament.components.camera-barcode-scanner')
 
-    <div class="vx-cs"
+    <x-touch-mode-toggle />
+    <div class="vx-cs" data-vx-touch-page
          x-data="{
              fill(model, value) {
                  @this.set(model, value);

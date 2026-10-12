@@ -40,3 +40,19 @@
 .vx-install-banner :focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
 /* The page header and cards sit 2rem inside .fi-page on desktop; match them. */
 @media (min-width: 1024px) { .fi-page > .vx-install-banner { margin-inline: 2rem; } }
+
+/* "Large controls" on warehouse screens (x-touch-mode-toggle): bigger targets
+   and text for gloves or a cart-mounted tablet. Only inside the screens that
+   opt in with [data-vx-touch-page]. */
+html.vx-touch [data-vx-touch-page] { font-size: 1.0625rem; }
+html.vx-touch [data-vx-touch-page] :is(button, .fi-btn, a[role="button"]):not(.vx-touch-toggle) {
+    min-height: 3.5rem !important; padding-inline: 1.15rem !important; font-size: 1.05rem !important;
+}
+html.vx-touch [data-vx-touch-page] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+    min-height: 3.75rem !important; font-size: 1.25rem !important;
+}
+html.vx-touch [data-vx-touch-page] :is(input[type="checkbox"], input[type="radio"]) { width: 1.6rem; height: 1.6rem; }
+html.vx-touch [data-vx-touch-page] .text-xs { font-size: .95rem !important; line-height: 1.35 !important; }
+html.vx-touch [data-vx-touch-page] .text-sm { font-size: 1.05rem !important; }
+html.vx-touch [data-vx-touch-page] :is(.gap-1, .gap-2) { gap: .75rem !important; }
+html.vx-touch [data-vx-touch-page] svg.h-4 { width: 1.35rem; height: 1.35rem; }

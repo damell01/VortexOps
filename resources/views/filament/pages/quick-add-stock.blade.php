@@ -1,5 +1,6 @@
 <x-filament-panels::page>
-    <div class="max-w-2xl mx-auto space-y-6">
+    <div class="max-w-2xl mx-auto space-y-6" data-vx-touch-page>
+        <x-touch-mode-toggle />
         {{-- Product Scanner Section --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Scan Product</h2>

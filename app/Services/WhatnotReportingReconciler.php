@@ -146,7 +146,7 @@ class WhatnotReportingReconciler
         $shows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereDate('show_date', '>=', $since->toDateString())
-            ->whereDate('show_date', '<=', today())
+            ->whereDate('show_date', '<=', \App\Support\BusinessTime::local()->toDateString())
             ->whereNotIn('status', ['cancelled'])
             ->whereNotNull('whatnot_show_id')
             ->withCount('orders')
@@ -651,7 +651,7 @@ class WhatnotReportingReconciler
     {
         $batchSize = max(1, min(30, $batchSize));
         $shows = Show::query()->where('whatnot_channel_id', $channel->id)
-            ->whereDate('show_date', '>=', $since->toDateString())->whereDate('show_date', '<=', today())
+            ->whereDate('show_date', '>=', $since->toDateString())->whereDate('show_date', '<=', \App\Support\BusinessTime::local()->toDateString())
             ->whereNotIn('status', ['cancelled'])->whereNotNull('whatnot_show_id')->orderBy('show_date')->orderBy('id')
             ->when($maxShows !== null, fn ($q) => $q->limit(max(1, $maxShows)))->get();
         $checked = $created = $updated = $skipped = 0;

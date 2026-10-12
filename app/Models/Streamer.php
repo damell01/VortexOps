@@ -128,6 +128,26 @@ class Streamer extends Model
     public static function streamerTypeLabels(): array { return ['in_house' => 'In-House', 'remote' => 'Remote']; }
     public function isRemote(): bool { return $this->streamer_type === 'remote'; }
     public function isInHouse(): bool { return ! $this->isRemote(); }
+
+    /**
+     * The hourly rate weekly pay adds on top of an in-house streamer's share,
+     * or null. Only rates set the current way count (team default, the Pay
+     * section, or a Rates & Adjustments override): a profile still on its old
+     * per-person columns may hold a stale hourly rate that never paid anything.
+     */
+    public function paidHourlyRate(): ?float
+    {
+        if ($this->isFulfillment() || ! $this->isInHouse()) {
+            return null;
+        }
+        $resolved = \App\Support\PaymentStructure::resolve($this);
+        if ($resolved['legacy'] || ! in_array($resolved['effective']['payout_type'] ?? null, ['profit_share', 'custom_formula'], true)) {
+            return null;
+        }
+        $rate = (float) ($resolved['effective']['hourly_rate'] ?? 0);
+
+        return $rate > 0 ? $rate : null;
+    }
     public function scopeStreamers(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder { return $query->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type')); }
     public function scopeFulfillment(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder { return $query->where('member_type', 'fulfillment'); }
     public function isFulfillment(): bool { return $this->member_type === 'fulfillment'; }

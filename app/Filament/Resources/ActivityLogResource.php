@@ -110,7 +110,7 @@ class ActivityLogResource extends Resource
 
                 Placeholder::make('created_at')
                     ->label('When')
-                    ->content(fn (Activity $record): string => $record->created_at->format('M j, Y g:i:s A')),
+                    ->content(fn (Activity $record): string => $record->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i:s A T')),
             ]),
 
             Section::make('Changes')->columnSpanFull()->schema([
@@ -179,6 +179,8 @@ class ActivityLogResource extends Resource
                     ->state(fn (Activity $record): ?string => static::changedFieldsSummary($record))
                     ->placeholder('—')
                     ->wrap()
+                    ->extraCellAttributes(['style' => 'min-width: 9rem'])
+                    ->extraHeaderAttributes(['style' => 'min-width: 9rem'])
                     ->color('gray'),
 
                 TextColumn::make('causer.name')

@@ -3,6 +3,10 @@
 return [
 
     'whatnot' => [
+        // The timezone the scraper's browser runs in, so Whatnot shows the
+        // team's local dates and times (see app.display_timezone).
+        'timezone' => env('WHATNOT_TIMEZONE', env('APP_DISPLAY_TIMEZONE', 'America/Chicago')),
+
         'email'    => env('WHATNOT_EMAIL'),
         'password' => env('WHATNOT_PASSWORD'),
         'node_bin' => env('WHATNOT_NODE_BIN', 'node'),

@@ -72,7 +72,7 @@
                                 @endphp
                                 <div>
                                     <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold {{ $ageTone }} {{ $ageBg }}"
-                                          @if($show->entered_status_at) title="Since {{ $show->entered_status_at->format('M j, Y g:i A') }}" @endif>
+                                          @if($show->entered_status_at) title="Since {{ $show->entered_status_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A') }}" @endif>
                                         @if(! is_null($age) && $age >= 7)
                                             <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
                                         @else

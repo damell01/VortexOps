@@ -86,6 +86,8 @@ class WhatnotLedgerResource extends Resource
                 TextColumn::make('created_date')
                     ->label('Created')
                     ->dateTime('M j, Y g:i A')
+                    // Copied from Whatnot's page in local time already.
+                    ->timezone(config('app.timezone'))
                     ->sortable(),
 
                 TextColumn::make('amount')
@@ -127,6 +129,8 @@ class WhatnotLedgerResource extends Resource
                 TextColumn::make('completed_date')
                     ->label('Completed')
                     ->dateTime('M j, Y g:i A')
+                    // Copied from Whatnot's page in local time already.
+                    ->timezone(config('app.timezone'))
                     ->toggleable()
                     ->sortable(),
             ])

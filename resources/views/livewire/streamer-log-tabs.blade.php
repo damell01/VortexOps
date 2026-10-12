@@ -269,7 +269,7 @@
                         </div>
                         <div class="pb-4">
                             <p class="font-semibold text-gray-900 dark:text-white">Created</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-400">{{ $show?->created_at?->format('M d, Y g:i A') ?? 'N/A' }}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">{{ $show?->created_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M d, Y g:i A') ?? 'N/A' }}</p>
                         </div>
                     </div>
 
@@ -281,7 +281,7 @@
                             </div>
                             <div class="pb-4">
                                 <p class="font-semibold text-gray-900 dark:text-white">Submitted</p>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">{{ $record->submitted_at->format('M d, Y g:i A') }}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">{{ $record->submitted_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M d, Y g:i A') }}</p>
                             </div>
                         </div>
                     @endif
@@ -293,7 +293,7 @@
                             </div>
                             <div>
                                 <p class="font-semibold text-gray-900 dark:text-white">Locked for Review</p>
-                                <p class="text-sm text-gray-600 dark:text-gray-400">{{ $record->locked_at->format('M d, Y g:i A') }}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">{{ $record->locked_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M d, Y g:i A') }}</p>
                             </div>
                         </div>
                     @endif

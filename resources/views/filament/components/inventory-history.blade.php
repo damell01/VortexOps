@@ -13,7 +13,7 @@
             <p class="mt-1 text-xs text-gray-500">
                 @if($movement->fromLocation) From {{ $movement->fromLocation->name }} @endif
                 @if($movement->toLocation) To {{ $movement->toLocation->name }} @endif
-                · {{ $movement->created_at?->format('M j, Y g:i A') }}
+                · {{ $movement->created_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A') }}
                 · {{ $movement->createdByUser?->name ?? 'System' }}
             </p>
         </article>

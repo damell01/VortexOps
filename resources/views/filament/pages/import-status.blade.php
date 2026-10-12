@@ -41,8 +41,8 @@
                     <span class="text-xs text-gray-500">{{ $row['channel']->include_in_import ? 'Included in imports' : 'Channel import flag off' }}</span>
                 </header>
                 <dl class="my-4 space-y-2 text-sm">
-                    <div><dt class="text-gray-500">Last successful run</dt><dd class="font-semibold">{{ $row['run']?->finished_at?->format('M j, Y g:i A') ?? 'No completed run recorded' }}</dd></div>
-                    <div><dt class="text-gray-500">Last successful record update</dt><dd>{{ $row['success']?->created_at?->format('M j, Y g:i A') ?? 'No update recorded' }}</dd></div>
+                    <div><dt class="text-gray-500">Last successful run</dt><dd class="font-semibold">{{ $row['run']?->finished_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A') ?? 'No completed run recorded' }}</dd></div>
+                    <div><dt class="text-gray-500">Last successful record update</dt><dd>{{ $row['success']?->created_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A') ?? 'No update recorded' }}</dd></div>
                 </dl>
                 <div class="vx-import-numbers grid grid-cols-3 gap-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
                     @foreach(['updates'=>'Updates · 24h','failures'=>'Failed / partial · 24h','missing_count'=>'Awaiting analytics'] as $key=>$label)
@@ -66,7 +66,7 @@
                     <div class="space-y-2">
                         @forelse($row['events'] as $event)
                             <article class="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
-                                <div class="flex flex-wrap justify-between gap-2"><strong>{{ $event->show?->title ?: $event->sourceLabel() }}</strong><span class="text-xs text-gray-500">{{ $event->created_at->format('g:i A') }} · {{ ucfirst($event->status) }}</span></div>
+                                <div class="flex flex-wrap justify-between gap-2"><strong>{{ $event->show?->title ?: $event->sourceLabel() }}</strong><span class="text-xs text-gray-500">{{ $event->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('g:i A') }} · {{ ucfirst($event->status) }}</span></div>
                                 <p class="mt-1">{{ $event->summary() }}</p>
                                 @if($event->show)<a class="mt-2 inline-block font-semibold text-primary-600" href="{{ \App\Filament\Resources\ShowResource::getUrl('view',['record'=>$event->show]) }}">Review show</a>@endif
                                 @if($event->status === 'success')

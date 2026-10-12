@@ -155,7 +155,7 @@
                                             <span class="rounded-full px-2.5 py-1 text-[11px] font-medium {{ in_array($item->status, ['open', 'in_progress']) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
                                                 {{ \App\Models\ReviewItem::statusLabels()[$item->status] ?? ucfirst($item->status) }}
                                             </span>
-                                            <span class="text-xs text-slate-400">{{ $item->created_at->format('M j') }}</span>
+                                            <span class="text-xs text-slate-400">{{ $item->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j') }}</span>
                                         </div>
                                         <h3 class="mt-3 line-clamp-1 font-semibold text-slate-900">{{ $item->page_title ?: 'Untitled page' }}</h3>
                                         <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $item->comment ?: 'Open the item to add more detail.' }}</p>
@@ -246,7 +246,7 @@
                                         {{ \App\Models\ProjectStatusUpdate::statusLabels()[$update->status] ?? ucfirst($update->status) }}
                                     </span>
                                 </div>
-                                <p class="mt-2 text-xs text-slate-400">{{ $update->created_at->format('M j, Y g:i A') }}{{ $update->author?->name ? ' · ' . $update->author->name : '' }}</p>
+                                <p class="mt-2 text-xs text-slate-400">{{ $update->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A') }}{{ $update->author?->name ? ' · ' . $update->author->name : '' }}</p>
                             </div>
                         @empty
                             <p class="text-sm text-slate-400">No status updates yet.</p>

@@ -74,6 +74,11 @@ class PayrollTeamSetupTest extends TestCase
         $this->assertEqualsWithDelta(105.00, (float) $payout->calculated_payout, 0.001);
         $this->assertStringContainsString('hourly', $payout->calculation_notes);
 
+        // A profile still on its old columns keeps paying exactly as before,
+        // even if a stale hourly rate sits in them.
+        $legacy = $this->streamer(['name' => 'Old Columns', 'hourly_rate' => 1]);
+        $this->assertEqualsWithDelta(60.00, (float) $this->showFor($legacy->fresh(), 3)->calculated_payout, 0.001);
+
         $remote = $this->streamer(['name' => 'Remy', 'streamer_type' => 'remote']);
         PaymentStructure::adoptDefaults($remote);
         $this->assertEqualsWithDelta(60.00, (float) $this->showFor($remote->fresh(), 3)->calculated_payout, 0.001);

@@ -311,7 +311,7 @@ class WhatnotScraper
         $holder=\App\Support\WhatnotBrowserLock::holder();$message=match(true){$holder===null=>'The browser lock looks free but could not be taken — another job took it in the same instant. Waiting.',$holder['host']!==gethostname()=>"The browser lock is held by PID {$holder['pid']} on {$holder['host']}.",$holder['alive']=>"Waiting for the shared browser lock — PID {$holder['pid']} is still scraping. This one will start when that finishes.",default=>"The browser lock holder PID {$holder['pid']} is stale; automatic recovery will run on the next acquisition."};Log::channel('stack')->warning('WhatnotScraper '.$message);if(PHP_SAPI==='cli'&&defined('STDERR'))fwrite(STDERR,"\n  ".$message."\n\n");
     }
 
-    private function parseScrapedTimestamp(mixed $raw):Carbon{if(is_int($raw)||is_float($raw)||preg_match('/^\d{9,14}$/',(string)$raw)){$n=(float)$raw;return Carbon::createFromTimestampMs($n<1e11?$n*1000:$n);}return Carbon::parse($raw);}
+    private function parseScrapedTimestamp(mixed $raw):Carbon{return \App\Support\BusinessTime::fromWhatnot($raw);}
 
     public function seedLiveIdFor(?WhatnotChannel $channel):?string
     {
@@ -379,7 +379,7 @@ class WhatnotScraper
         $diagnostics=implode("\n",array_slice(array_values(array_filter(explode("\n",$stderr),fn($l)=>trim($l)!=='')),0,80));if($diagnostics==='')$diagnostics="The scraper exited {$exitCode} without diagnostics. Command: ".($commandLine??'(not recorded)');if($exitCode===self::EXIT_AUTH_REQUIRED)throw new \App\Exceptions\WhatnotBlockedException("Whatnot returned an authentication/challenge page.\n".$diagnostics);if($exitCode===self::EXIT_RATE_LIMITED)throw new \App\Exceptions\WhatnotBlockedException("Whatnot is rate limiting this account. Wait and retry.\n\n".$diagnostics);if($exitCode===self::EXIT_SELECTOR_MISS)throw new \RuntimeException("Whatnot scraper: page selectors didn't match.\n\n".$diagnostics);
     }
 
-    private function baseEnv(bool $debug=false):array{$env=['WHATNOT_DEBUG'=>$debug?'1':'0'];$email=config('vortex.whatnot.email');$password=config('vortex.whatnot.password');if($email)$env['WHATNOT_EMAIL']=$email;if($password)$env['WHATNOT_PASSWORD']=$password;if(($cookiesFile=getenv('WHATNOT_COOKIES_FILE'))!==false&&$cookiesFile!=='')$env['WHATNOT_COOKIES_FILE']=$cookiesFile;return$env;}
+    private function baseEnv(bool $debug=false):array{$tz=(string)config('vortex.whatnot.timezone','America/Chicago');$env=['WHATNOT_DEBUG'=>$debug?'1':'0','WHATNOT_TIMEZONE'=>$tz,'TZ'=>$tz];$email=config('vortex.whatnot.email');$password=config('vortex.whatnot.password');if($email)$env['WHATNOT_EMAIL']=$email;if($password)$env['WHATNOT_PASSWORD']=$password;if(($cookiesFile=getenv('WHATNOT_COOKIES_FILE'))!==false&&$cookiesFile!=='')$env['WHATNOT_COOKIES_FILE']=$cookiesFile;return$env;}
     private function resolveCredentials():array{$email=config('vortex.whatnot.email');$password=config('vortex.whatnot.password');if(!$email||!$password)throw new \RuntimeException('WHATNOT_EMAIL and WHATNOT_PASSWORD are not set. Add them to your .env file.');return[$email,$password];}
 
     // ── Saved sign-in ─────────────────────────────────────────────────────

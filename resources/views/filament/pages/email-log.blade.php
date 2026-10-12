@@ -79,8 +79,8 @@
                     </div>
                     <dl class="mt-3 grid gap-1 text-xs" style="grid-template-columns:auto 1fr">
                         <dt class="muted pr-3">To</dt><dd class="break-all">{{ $opened->to_name ? $opened->to_name.' <'.$opened->to_email.'>' : $opened->to_email }}</dd>
-                        <dt class="muted pr-3">Queued</dt><dd>{{ $opened->created_at->format('D, M j Y · g:i:s A') }}</dd>
-                        <dt class="muted pr-3">Status</dt><dd><span class="pill {{ $opened->status }}">{{ $statusLabels[$opened->status] ?? $opened->status }}</span>@if($opened->sent_at) <span class="muted">at {{ $opened->sent_at->format('g:i:s A') }}</span>@endif @if($opened->is_test)<span class="pill test">Test</span>@endif</dd>
+                        <dt class="muted pr-3">Queued</dt><dd>{{ $opened->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('D, M j Y · g:i:s A') }}</dd>
+                        <dt class="muted pr-3">Status</dt><dd><span class="pill {{ $opened->status }}">{{ $statusLabels[$opened->status] ?? $opened->status }}</span>@if($opened->sent_at) <span class="muted">at {{ $opened->sent_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('g:i:s A') }}</span>@endif @if($opened->is_test)<span class="pill test">Test</span>@endif</dd>
                         @if($opened->error)<dt class="muted pr-3">Error</dt><dd style="color:#b91c1c">{{ $opened->error }}</dd>@endif
                     </dl>
                 </div>

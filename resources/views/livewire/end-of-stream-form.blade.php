@@ -20,7 +20,7 @@
                 </div>
                 <p class="text-sm font-medium text-gray-900 dark:text-white text-center">Streamer<br>Review</p>
                 @if($log->streamer_reviewed_at)
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $log->streamer_reviewed_at->format('M j, Y') }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $log->streamer_reviewed_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}</p>
                 @endif
             </div>
 
@@ -42,7 +42,7 @@
                 </div>
                 <p class="text-sm font-medium text-gray-900 dark:text-white text-center">Admin<br>Review</p>
                 @if($log->reviewed_at)
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $log->reviewed_at->format('M j, Y') }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $log->reviewed_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}</p>
                 @endif
             </div>
 
@@ -65,7 +65,7 @@
                     </div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white text-center">Fulfillment<br>Review</p>
                     @if($log->fulfillment_reviewed_at)
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $log->fulfillment_reviewed_at->format('M j, Y') }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $log->fulfillment_reviewed_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}</p>
                     @endif
                 </div>
             @endif
@@ -257,24 +257,24 @@
         <div class="space-y-2 text-sm">
             <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <span>📝</span>
-                <span>Created {{ $log->created_at->format('M j, Y') }}</span>
+                <span>Created {{ $log->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}</span>
             </div>
             @if($log->submitted_at)
                 <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <span>✉️</span>
-                    <span>Submitted {{ $log->submitted_at->format('M j, Y') }}</span>
+                    <span>Submitted {{ $log->submitted_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}</span>
                 </div>
             @endif
             @if($log->reviewed_at)
                 <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <span>👨‍💼</span>
-                    <span>Approved {{ $log->reviewed_at->format('M j, Y') }}@if($log->reviewedBy) by {{ $log->reviewedBy->name ?? $log->reviewedBy->email }}@endif</span>
+                    <span>Approved {{ $log->reviewed_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}@if($log->reviewedBy) by {{ $log->reviewedBy->name ?? $log->reviewedBy->email }}@endif</span>
                 </div>
             @endif
             @if($log->fulfillment_reviewed_at)
                 <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <span>📦</span>
-                    <span>Fulfillment {{ $log->fulfillment_reviewed_at->format('M j, Y') }}@if($log->fulfillmentReviewedBy) by {{ $log->fulfillmentReviewedBy->name ?? $log->fulfillmentReviewedBy->email }}@endif</span>
+                    <span>Fulfillment {{ $log->fulfillment_reviewed_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') }}@if($log->fulfillmentReviewedBy) by {{ $log->fulfillmentReviewedBy->name ?? $log->fulfillmentReviewedBy->email }}@endif</span>
                 </div>
             @endif
         </div>

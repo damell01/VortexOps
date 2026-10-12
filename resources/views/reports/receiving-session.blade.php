@@ -105,9 +105,9 @@
         <div class="info-row">
             <div class="info-label">Session Duration:</div>
             <div class="info-value">
-                {{ $session->started_at?->format('M d, Y H:i') ?? '—' }}
+                {{ $session->started_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M d, Y H:i') ?? '—' }}
                 to
-                {{ $session->ended_at?->format('H:i') ?? 'Ongoing' }}
+                {{ $session->ended_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('H:i') ?? 'Ongoing' }}
             </div>
             <div class="info-label">Items Scanned:</div>
             <div class="info-value">{{ $session->items_scanned ?? 0 }}</div>

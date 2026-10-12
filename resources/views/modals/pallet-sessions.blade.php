@@ -29,11 +29,11 @@
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs border-t border-gray-200 dark:border-gray-700 pt-3">
                 <div>
                     <p class="text-gray-600 dark:text-gray-400">Started</p>
-                    <p class="text-gray-900 dark:text-white font-medium">{{ $session->started_at?->format('M d, H:i') ?? '—' }}</p>
+                    <p class="text-gray-900 dark:text-white font-medium">{{ $session->started_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M d, H:i') ?? '—' }}</p>
                 </div>
                 <div>
                     <p class="text-gray-600 dark:text-gray-400">Ended</p>
-                    <p class="text-gray-900 dark:text-white font-medium">{{ $session->ended_at?->format('M d, H:i') ?? 'Ongoing' }}</p>
+                    <p class="text-gray-900 dark:text-white font-medium">{{ $session->ended_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M d, H:i') ?? 'Ongoing' }}</p>
                 </div>
                 <div>
                     <p class="text-gray-600 dark:text-gray-400">Status</p>

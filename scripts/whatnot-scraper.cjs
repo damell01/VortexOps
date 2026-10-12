@@ -37,6 +37,11 @@
  *   2  selector miss — page structure changed, update SELECTORS below
  */
 
+// Whatnot shows dates and times in the browser's timezone. The server runs
+// on UTC, where an 8pm Central show is already the next day, so run the
+// browser (and everything it starts) on the business's local time.
+process.env.TZ = process.env.WHATNOT_TIMEZONE || 'America/Chicago';
+
 'use strict';
 
 const { execSync } = require('child_process');

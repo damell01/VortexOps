@@ -6,7 +6,7 @@
     $locations = $record->lines->map(fn ($line) => $line->location?->name)->filter()->unique()->implode(', ');
 @endphp
 <article class="vx-receipt-card">
-    <div class="vx-receipt-top"><span class="vx-receipt-badge {{ $complete ? 'is-complete' : 'is-progress' }}">{{ $complete ? 'Completed' : 'In progress' }}</span><time>{{ $record->received_date?->format('M j, Y') ?? $record->receiving_started_at?->format('M j, Y') ?? 'Not completed' }}</time></div>
+    <div class="vx-receipt-top"><span class="vx-receipt-badge {{ $complete ? 'is-complete' : 'is-progress' }}">{{ $complete ? 'Completed' : 'In progress' }}</span><time>{{ $record->received_date?->format('M j, Y') ?? $record->receiving_started_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y') ?? 'Not completed' }}</time></div>
     <h3>{{ $record->displayName() }}</h3>
     <p class="vx-receipt-vendor">{{ $record->vendor?->name ?? 'No vendor assigned' }}</p>
     <p class="vx-receipt-reference">{{ $record->reference ?: 'No reference recorded' }}</p>

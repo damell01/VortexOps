@@ -25,7 +25,7 @@
                         @if($log)
                             <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">
                                 {{ $log->streamer?->name ?? 'Unknown streamer' }}
-                                @if($log->submitted_at) · submitted {{ $log->submitted_at->format('M j, g:i A') }} @endif
+                                @if($log->submitted_at) · submitted {{ $log->submitted_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, g:i A') }} @endif
                             </p>
                         @else
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">No streamer report has been started for this show yet.</p>

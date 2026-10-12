@@ -405,11 +405,8 @@ class WhatnotDesktopIngestor
         }
 
         try {
-            if (is_numeric($value)) {
-                $number = (float) $value;
-                return Carbon::createFromTimestampMs($number < 1e11 ? $number * 1000 : $number)->toDateString();
-            }
-            return Carbon::parse((string) $value)->toDateString();
+            // The show's local (Central) date, not the UTC one.
+            return \App\Support\BusinessTime::fromWhatnot($value)->toDateString();
         } catch (\Throwable) {
             return null;
         }

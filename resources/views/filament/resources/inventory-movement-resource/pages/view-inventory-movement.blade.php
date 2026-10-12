@@ -11,7 +11,7 @@
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                         <div class="text-sm text-gray-500">Date &amp; Time</div>
-                        <div class="font-medium">{{ $movement->created_at?->format('M j, Y g:i A') ?? '—' }}</div>
+                        <div class="font-medium">{{ $movement->created_at?->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i A') ?? '—' }}</div>
                     </div>
                     <div>
                         <div class="text-sm text-gray-500">Movement Type</div>

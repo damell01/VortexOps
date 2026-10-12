@@ -245,9 +245,8 @@ class PayoutService
         // Hours are the ones the share was worked out from (the streamer's
         // report, falling back to the show's length).
         $hourlyPay = 0.0;
-        $hourlyRate = (float) ($streamer->hourly_rate ?? 0);
-        if (in_array($streamer->payout_type, ['profit_share', 'custom_formula'], true)
-            && $streamer->isInHouse() && ! $streamer->isFulfillment() && $hourlyRate > 0) {
+        $hourlyRate = $streamer->paidHourlyRate();
+        if ($hourlyRate !== null) {
             $paidHours = (float) ($share['columns']['hours_worked'] ?? $hours);
             if ($paidHours > 0) {
                 $hourlyPay = round($hourlyRate * $paidHours, 2);

@@ -110,4 +110,63 @@ class ShowFormatAnalytics
             'classified' => $classified,
         ];
     }
+
+    /**
+     * Earnings per hour by title tag (giveaways, $1 starts, free packs…).
+     *
+     * A show with several tags counts toward each of them, so the rows are not
+     * meant to add up; each is "shows that offered X", set against the
+     * per-hour rate of every show in range. Per-hour figures only use shows
+     * with a recorded duration. Net is settled earnings, or Whatnot's estimate
+     * until a show settles — the same rule as the dashboard.
+     *
+     * @return array{rows: list<array{tag: ?string, label: string, shows: int, hours: float, gross_per_hour: ?float, net_per_hour: ?float, gross_vs_overall_pct: ?float}>, overall: array{shows: int, hours: float, gross_per_hour: ?float, net_per_hour: ?float}, untagged: int}
+     */
+    public function compareTitleTags(?Carbon $from = null, ?Carbon $until = null, ?int $channelId = null): array
+    {
+        $shows = Show::query()
+            ->whereNotIn('status', ['draft', 'cancelled'])
+            ->when($from, fn ($q) => $q->whereDate('show_date', '>=', $from))
+            ->when($until, fn ($q) => $q->whereDate('show_date', '<=', $until))
+            ->when($channelId, fn ($q) => $q->where('whatnot_channel_id', $channelId))
+            ->get(['id', 'title_tags', 'title_tags_version', 'gross_revenue', 'whatnot_net', 'completed_earnings', 'show_duration']);
+
+        $summarise = function ($group): array {
+            $timed = $group->filter(fn (Show $s) => (float) $s->show_duration > 0);
+            $hours = $timed->sum(fn (Show $s) => (float) $s->show_duration) / 60;
+            $net = fn (Show $s) => $s->completed_earnings !== null ? (float) $s->completed_earnings : (float) $s->whatnot_net;
+
+            return [
+                'shows' => $group->count(),
+                'hours' => round($hours, 1),
+                'gross_per_hour' => $hours > 0 ? round($timed->sum(fn (Show $s) => (float) $s->gross_revenue) / $hours, 2) : null,
+                'net_per_hour' => $hours > 0 ? round($timed->sum($net) / $hours, 2) : null,
+            ];
+        };
+
+        $overall = $summarise($shows);
+        $tagged = $shows->filter(fn (Show $s) => $s->title_tags_version !== null);
+        $rows = [];
+
+        foreach (\App\Support\ShowTitleTags::labels() as $key => $label) {
+            $group = $tagged->filter(fn (Show $s) => in_array($key, (array) $s->title_tags, true));
+            if ($group->isNotEmpty()) {
+                $rows[] = ['tag' => $key, 'label' => $label] + $summarise($group);
+            }
+        }
+        $none = $tagged->filter(fn (Show $s) => empty($s->title_tags));
+        if ($none->isNotEmpty()) {
+            $rows[] = ['tag' => null, 'label' => 'No tags in title'] + $summarise($none);
+        }
+
+        foreach ($rows as &$row) {
+            $row['gross_vs_overall_pct'] = $row['gross_per_hour'] !== null && ($overall['gross_per_hour'] ?? 0) > 0
+                ? round(($row['gross_per_hour'] - $overall['gross_per_hour']) / $overall['gross_per_hour'] * 100, 1)
+                : null;
+        }
+        unset($row);
+        usort($rows, fn ($a, $b) => ($b['gross_per_hour'] ?? -1) <=> ($a['gross_per_hour'] ?? -1));
+
+        return ['rows' => $rows, 'overall' => $overall, 'untagged' => $shows->count() - $tagged->count()];
+    }
 }

@@ -128,6 +128,12 @@ class NotificationCatalog
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
 
+            'weekly_owner_summary' => [
+                'group' => 'Summaries', 'label' => 'Weekly owner summary', 'level' => 'digest',
+                'description' => 'Monday email: last week against the week before, by channel, top streamers, what earned most per hour, and what needs you.',
+                'roles' => ['owner'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
+
             // ── System ───────────────────────────────────────────────────
             'system_health' => [
                 'group' => 'System', 'label' => 'System health problem', 'level' => 'alert',

@@ -14,6 +14,7 @@ use App\Notifications\ShowReadyNotification;
 use App\Notifications\ShowReconciledNotification;
 use App\Notifications\SystemHealthAlert;
 use App\Notifications\VortexAlert;
+use App\Notifications\WeeklyOwnerSummaryNotification;
 use App\Notifications\WeeklyReviewReminderNotification;
 use Illuminate\Notifications\Notification;
 
@@ -47,6 +48,7 @@ class NotificationSamples
                     ?? (new DeductionRequest)->forceFill(['id' => 0])
             ),
             'weekly_review_reminder' => new WeeklyReviewReminderNotification(3, now()->subWeek()->startOfWeek()->format('M j').' – '.now()->subWeek()->endOfWeek()->format('M j'), $showUrl, null),
+            'weekly_owner_summary' => new WeeklyOwnerSummaryNotification(app(\App\Services\WeeklyOwnerSummary::class)->build(now()->subWeek()->startOfWeek())),
             'midweek_report' => new MidweekReportNotification(now()->startOfWeek()->format('M j').' – '.now()->endOfWeek()->format('M j'), 6, 18420.0, 512, $showUrl, 104.0, null),
             'system_health' => new SystemHealthAlert(['Sample: queue worker heartbeat is 12 minutes old', 'Sample: 2 failed jobs in the last hour']),
             'approved_data_changed' => $alert('Whatnot data changed after approval', "{$title}: Gross Revenue changed after approval. Review Show Activity if the change affects operations or payout reporting.", 'warning'),

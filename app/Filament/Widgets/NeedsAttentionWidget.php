@@ -69,7 +69,7 @@ class NeedsAttentionWidget extends Widget
                 'shows need a channel confirmed',
                 'heroicon-o-check-badge',
                 'warning',
-                ShowResource::getUrl('index', ['tableFilters[channel_attribution_suspect][value]' => '1']),
+                ShowResource::getUrl('channel-review'),
             );
 
             $add(

@@ -10,6 +10,7 @@ use Filament\Widgets\Widget;
 class UpcomingShowsWidget extends Widget
 {
     protected static ?int $sort = 1;
+    public int $limit = 6;
     protected int | string | array $columnSpan = [
         'default' => 'full',
         'lg' => 1,
@@ -44,7 +45,7 @@ class UpcomingShowsWidget extends Widget
             })
             ->orderBy('show_date')
             ->orderBy('start_time')
-            ->limit(6)
+            ->limit(max(1, min(10, $this->limit)))
             ->get();
 
         return [

@@ -46,7 +46,7 @@ class ChannelReviewTest extends TestCase
         $clear = $this->show(['title' => 'Already confirmed', 'channel_attribution_suspect' => false]);
         Livewire::test(ReviewShowChannels::class)
             ->assertCanSeeTableRecords([$historical])->assertCanNotSeeTableRecords([$clear])
-            ->assertSee('Assigned channel:')->assertSee('Breaks')->assertSee('Confirm Channel')
+            ->assertSee('Assigned channel:')->assertSee('Breaks')->assertSee('Choose channel')
             ->assertDontSee('Whatnot Gross')->assertDontSee('Operational Revenue');
         $this->get(ShowResource::getUrl('channel-review'))->assertOk();
         $menu = view('filament.components.desktop-mega-nav')->render();
@@ -72,6 +72,30 @@ class ChannelReviewTest extends TestCase
             ->assertDontSee('Vortex Shop')
             ->assertSee('Other channel not recorded for this import');
         $this->assertNotNull($unknown);
+    }
+
+    public function test_accepting_and_bulk_confirming_suggestions_only_applies_high_confidence(): void
+    {
+        $this->admin();
+        $breaks = WhatnotChannel::create(['name' => 'Vortex Breaks', 'status' => 'active']);
+        $collects = WhatnotChannel::create(['name' => 'Vortex Collects', 'status' => 'active']);
+        $named = $this->show(['title' => 'Packs W/Dennis_VortexCollects', 'whatnot_channel_id' => $breaks->id]);
+        $alsoNamed = $this->show(['title' => 'Giveys w/Cate VortexCollects', 'whatnot_channel_id' => $breaks->id]);
+        $unknown = $this->show(['title' => 'Trail Blazing Thursday', 'whatnot_channel_id' => $breaks->id]);
+
+        Livewire::test(ReviewShowChannels::class)
+            ->assertSee('Suggested: Vortex Collects')->assertSee('High confidence')
+            ->assertSee('No suggestion')
+            ->callTableAction('accept_suggestion', $named)->assertHasNoTableActionErrors();
+        $this->assertSame($collects->id, $named->fresh()->whatnot_channel_id);
+        $this->assertFalse($named->fresh()->channel_attribution_suspect);
+
+        Livewire::test(ReviewShowChannels::class)->callAction('confirm_high_confidence');
+        $this->assertSame($collects->id, $alsoNamed->fresh()->whatnot_channel_id);
+        $this->assertFalse($alsoNamed->fresh()->channel_attribution_suspect);
+        // No suggestion: left for a person to decide.
+        $this->assertTrue($unknown->fresh()->channel_attribution_suspect);
+        $this->assertSame($breaks->id, $unknown->fresh()->whatnot_channel_id);
     }
 
     public function test_confirming_channel_moves_show_and_removes_it_from_queue(): void

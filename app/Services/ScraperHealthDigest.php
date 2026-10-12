@@ -56,7 +56,7 @@ class ScraperHealthDigest
             ],
             'pipelines' => $pipelines,
             'gaps' => $this->gaps($since),
-            'session' => $this->session(),
+            'session' => $this->sessionStatus(),
         ];
 
         $digest['needs_attention'] = $digest['failures']['count'] > 0
@@ -95,7 +95,7 @@ class ScraperHealthDigest
     }
 
     /** @return array{state: string, saved_at: ?Carbon, expires_at: ?Carbon, days_left: ?int} */
-    private function session(): array
+    public function sessionStatus(): array
     {
         $session = ScraperStatus::session();
         $expires = $session['expires_at'] ?? null;

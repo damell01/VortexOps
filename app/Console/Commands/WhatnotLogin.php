@@ -86,66 +86,16 @@ class WhatnotLogin extends Command
 
     private function importCookieJson(WhatnotScraper $scraper, string $json, string $cookiesFile): int
     {
-        $raw = json_decode(trim($json), true);
+        $result = app(\App\Services\WhatnotCookieImport::class)->import($json, $cookiesFile);
 
-        // Cookie-Editor emits a bare array; Playwright's storageState wraps one
-        // in an object alongside localStorage. Accepting both means not having
-        // to care which tool the session came out of.
-        if (is_array($raw) && isset($raw['cookies']) && is_array($raw['cookies'])) {
-            $raw = $raw['cookies'];
-        }
-
-        if (! is_array($raw) || $raw === []) {
-            $this->error('That is not a valid cookie JSON export. Export cookies as JSON from Cookie-Editor.');
+        if (! $result['ok']) {
+            $this->error($result['error']);
             return self::FAILURE;
         }
 
-        // Normalize various cookie export formats
-        $sameSiteMap = ['no_restriction' => 'None', 'strict' => 'Strict', 'lax' => 'Lax', 'unspecified' => 'Lax'];
-        $cookies = array_filter(array_map(function ($c) use ($sameSiteMap) {
-            if (! is_array($c) || ! isset($c['name'], $c['value'])) return null;
-            // Keep only whatnot.com cookies
-            $domain = $c['domain'] ?? '.whatnot.com';
-            if (! str_contains($domain, 'whatnot.com')) return null;
+        $this->info('Imported ' . $result['count'] . ' cookies → ' . $cookiesFile);
 
-            // Cloudflare edge/challenge cookies are connection-specific state,
-            // not Whatnot account authentication. Do not persist them as part
-            // of the reusable application session bootstrap.
-            if (in_array(strtolower($c['name']), [
-                'cf_clearance', '__cf_bm', '__cfwaitingroom',
-                'cf_chl_2', 'cf_chl_prog', 'cf_chl_rc_i', 'cf_chl_rc_ni', 'cf_chl_rc_m',
-            ], true)) {
-                return null;
-            }
-            return [
-                'name'     => $c['name'],
-                'value'    => $c['value'],
-                'domain'   => $domain,
-                'path'     => $c['path'] ?? '/',
-                'expires'  => $c['expirationDate'] ?? $c['expires'] ?? -1,
-                'httpOnly' => (bool) ($c['httpOnly'] ?? false),
-                'secure'   => (bool) ($c['secure'] ?? true),
-                'sameSite' => $sameSiteMap[strtolower($c['sameSite'] ?? '')] ?? 'Lax',
-            ];
-        }, $raw));
-
-        if (empty($cookies)) {
-            $this->error('No whatnot.com cookies found in the file. Make sure you exported from whatnot.com.');
-            return self::FAILURE;
-        }
-
-        file_put_contents($cookiesFile, json_encode(array_values($cookies), JSON_PRETTY_PRINT));
-        $this->invalidateLoadedMarker($cookiesFile);
-        $this->info('Imported ' . count($cookies) . ' cookies → ' . $cookiesFile);
-
-        // A session cookie is the whole point of the export. Saying so here beats
-        // a cookie test that fails for reasons nobody can read.
-        $looksSignedIn = (bool) array_filter(
-            $cookies,
-            fn ($c) => (bool) preg_match('/session|token|auth/i', $c['name']),
-        );
-
-        if (! $looksSignedIn) {
+        if (! $result['looks_signed_in']) {
             $this->warn('None of these look like a session cookie — document.cookie cannot see HttpOnly ones.');
             $this->line('If the check below fails, export with the Cookie-Editor extension instead.');
         }

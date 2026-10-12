@@ -11,6 +11,39 @@
 
 <div class="space-y-6" wire:poll.60000ms>
 
+    {{-- ── Whatnot sign-in ─────────────────────────────────────────────────── --}}
+    @php
+        $wn = $this->whatnotSession;
+        $wnTone = match ($wn['state']) {
+            'ok' => ['HEALTHY', 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'],
+            'expiring' => ['EXPIRES SOON', 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'],
+            'unknown' => ['NO EXPIRY RECORDED', 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'],
+            default => [$wn['state'] === 'missing' ? 'NOT SET UP' : 'EXPIRED', 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'],
+        };
+    @endphp
+    <div class="rounded-xl border border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex flex-wrap items-center gap-3">
+            <x-heroicon-o-key class="h-5 w-5 text-violet-500" />
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Whatnot sign-in</h3>
+            <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $wnTone[1] }}">{{ $wnTone[0] }}</span>
+        </div>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            @if ($wn['state'] === 'missing')
+                No saved sign-in. Imports cannot reach Whatnot until one is added.
+            @else
+                Saved {{ $wn['saved_at']?->format('M j, Y g:i A') ?? 'unknown' }}.
+                @if ($wn['expires_at'])
+                    {{ $wn['expires_at']->isPast() ? 'Expired' : 'Good until' }} {{ $wn['expires_at']->format('M j, Y') }}{{ $wn['expires_at']->isPast() ? '' : ' ('.$wn['days_left'].' '.Str::plural('day', $wn['days_left']).' left)' }}.
+                @else
+                    The cookies do not record an expiry date.
+                @endif
+            @endif
+            @if (auth()->user()?->isOwner() && $wn['state'] !== 'ok')
+                Use <strong>Refresh Whatnot sign-in</strong> above to renew it.
+            @endif
+        </p>
+    </div>
+
     {{-- ── Status Cards Grid ───────────────────────────────────────────────── --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 

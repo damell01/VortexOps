@@ -175,7 +175,7 @@ class DashboardImproved extends Dashboard
             'dashboard:reference:v1:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
             function () use ($start, $local, $months, $channelId) {
                 $rows = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])
-                    ->whereBetween('show_date', [$start->toDateString(), $local->toDateString()])
+                    ->whereBetween('show_date', [$start->toDateString(), $local->copy()->endOfDay()->toDateTimeString()])
                     ->selectRaw('whatnot_channel_id, SUBSTR(show_date, 1, 7) as month, COALESCE(SUM(gross_revenue),0) as gross, COALESCE(SUM(completed_earnings),0) as net, COALESCE(SUM(units_sold),0) as units, COALESCE(SUM(show_duration),0)/60.0 as hours')
                     ->groupBy('whatnot_channel_id')->groupByRaw('SUBSTR(show_date, 1, 7)')->get();
                 $channels = \App\Models\WhatnotChannel::whereIn('id', $rows->pluck('whatnot_channel_id')->filter()->unique())->orderBy('name')->get(['id','name']);

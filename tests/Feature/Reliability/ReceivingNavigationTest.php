@@ -63,4 +63,20 @@ class ReceivingNavigationTest extends TestCase
             $this->assertContains('Review show reports',$labels);
         }
     }
+
+    public function test_guide_images_require_sign_in_and_the_relevant_page_access(): void
+    {
+        $owner = auth()->user();
+        auth()->logout();
+        $this->get(route('admin.inventory-guide.image', ['image'=>'receiving.jpg']))->assertRedirect();
+        $this->actingAs($owner);
+        $this->get(route('admin.inventory-guide.image', ['image'=>'receiving.jpg']))->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        $this->get(route('admin.inventory-guide.image', ['image'=>'unknown.jpg']))->assertNotFound();
+        Role::findOrCreate('streamer', 'web');
+        $streamer = User::factory()->create(); $streamer->assignRole('streamer');
+        \App\Support\NavVisibility::setVisibleForRole('streamer', [\App\Filament\Pages\StreamerShows::class]);
+        $this->actingAs($streamer);
+        $this->get(route('admin.inventory-guide.image', ['image'=>'receiving.jpg']))->assertForbidden();
+    }
+
 }

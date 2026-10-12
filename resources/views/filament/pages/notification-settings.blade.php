@@ -18,7 +18,7 @@
 .vx-ns .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;font-size:.76rem;font-weight:600;color:var(--muted);background:transparent;cursor:pointer;user-select:none}
 .vx-ns .chip input{position:absolute;opacity:0;pointer-events:none}
 .vx-ns .chip:has(input:checked){background:var(--p);border-color:var(--p);color:#fff}
-.vx-ns .chip.involved:has(input:checked){background:#0ea5e9;border-color:#0ea5e9}
+.vx-ns .chip.involved:has(input:checked){background:#0369a1;border-color:#0369a1}
 .vx-ns .pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 .vx-ns .pill.action{background:#fee2e2;color:#b91c1c}.vx-ns .pill.alert{background:#fef3c7;color:#b45309}.vx-ns .pill.fyi{background:#e0f2fe;color:#0369a1}.vx-ns .pill.digest{background:#ede9fe;color:#6d28d9}
 .vx-ns .status{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.74rem;font-weight:700}

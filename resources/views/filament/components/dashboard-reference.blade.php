@@ -18,6 +18,11 @@
         .vx-dashboard-reference .vx-dashboard-hero{background:radial-gradient(ellipse at 58% 30%,rgba(109,40,217,.45),transparent 55%),linear-gradient(110deg,#080d22,#121a3b 55%,#21124d)}
         .vx-dashboard-reference .vx-donut{background:conic-gradient(#10b981 0 var(--green),#f59e0b var(--green) var(--amber),#fb7185 var(--amber) 100%)}
         .vx-dashboard-reference .vx-middle .fi-wi,.vx-dashboard-reference .vx-middle .fi-section{height:100%}
+        /* The widget wrapper carries a navy background in dark mode and is
+           stretched to the row's height, so it showed around the card. Let
+           the card fill the row instead, matching its neighbours. */
+        .vx-dashboard-reference .vx-middle .fi-wi{background:transparent!important}
+        .vx-dashboard-reference .vx-middle .fi-wi-widget,.vx-dashboard-reference .vx-middle .fi-wi-widget>section{height:100%}
         @media(max-width:640px){.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:1.25rem}.vx-dashboard-reference .fi-wi-stats-overview-stat{padding:.8rem}.vx-dashboard-reference .vx-hero-art{display:none}}
     </style>
     <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center;">

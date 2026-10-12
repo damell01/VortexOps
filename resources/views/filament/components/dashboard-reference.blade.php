@@ -11,7 +11,7 @@
 <div class="vx-dashboard-reference space-y-4" data-vx-page="admin-dashboard">
     <style>
         .vx-dashboard-reference .fi-wi-stats-overview-stat{border-radius:1rem;box-shadow:0 3px 12px rgba(30,41,59,.04);min-width:0}
-        .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1.1rem,1.7vw,1.5rem);line-height:1.25;overflow-wrap:anywhere}
+        .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1rem,1.3vw,1.2rem)!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:.75rem}
         .vx-dashboard-reference .fi-section{border-radius:1rem}
         .vx-dashboard-reference .fi-wi{min-width:0}

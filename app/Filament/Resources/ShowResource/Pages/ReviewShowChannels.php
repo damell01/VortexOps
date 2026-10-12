@@ -5,7 +5,7 @@ namespace App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Pages\Shows;
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
-use App\Models\ShowIngestionLog;
+use App\Services\ChannelSuggester;
 use App\Models\WhatnotChannel;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -26,35 +26,51 @@ class ReviewShowChannels extends ListRecords
         return (auth()->user()?->isAdmin() ?? false) && ShowResource::canAccess();
     }
 
-    /** @var array<int, list<int>> */
-    private array $importedUnderMemo = [];
+    private ?ChannelSuggester $suggester = null;
 
-    /** @var array<int, string>|null */
-    private ?array $channelNamesMemo = null;
+    /** @var array<int, array|null> */
+    private array $suggestionMemo = [];
 
-    /**
-     * Every channel this show's imports ran under, assigned channel first.
-     *
-     * Read from the ingestion logs, which record the channel each import ran
-     * for — the flag itself only says that a second channel was seen.
-     *
-     * @return list<int>
-     */
+    protected function suggester(): ChannelSuggester
+    {
+        return $this->suggester ??= app(ChannelSuggester::class);
+    }
+
+    /** Every channel this show's imports ran under, assigned channel first. */
     protected function importedUnder(Show $show): array
     {
-        return $this->importedUnderMemo[$show->id] ??= ShowIngestionLog::query()
-            ->where('show_id', $show->id)->whereNotNull('whatnot_channel_id')
-            ->distinct()->pluck('whatnot_channel_id')
-            ->map(fn ($id) => (int) $id)
-            ->prepend((int) $show->whatnot_channel_id)
-            ->filter()->unique()->values()->all();
+        return $this->suggester()->importedUnder($show);
     }
 
     protected function channelName(int $id): string
     {
-        $this->channelNamesMemo ??= WhatnotChannel::pluck('name', 'id')->all();
+        return $this->suggester()->channelName($id);
+    }
 
-        return $this->channelNamesMemo[$id] ?? "Channel #{$id}";
+    protected function suggestion(Show $show): ?array
+    {
+        return array_key_exists($show->id, $this->suggestionMemo)
+            ? $this->suggestionMemo[$show->id]
+            : $this->suggestionMemo[$show->id] = $this->suggester()->suggest($show);
+    }
+
+    protected static function confirm(Show $show, int $channelId): void
+    {
+        $show->update(['whatnot_channel_id' => $channelId, 'channel_attribution_suspect' => false]);
+    }
+
+    /**
+     * Every flagged show whose suggestion is high confidence.
+     *
+     * @return \Illuminate\Support\Collection<int, array{show: Show, suggestion: array}>
+     */
+    protected function highConfidence(): \Illuminate\Support\Collection
+    {
+        $shows = Show::query()->where('channel_attribution_suspect', true)->with('streamers:id,name')->get();
+        $this->suggester()->primeImportedUnder($shows);
+
+        return $shows->map(fn (Show $show) => ['show' => $show, 'suggestion' => $this->suggester()->suggest($show)])
+            ->filter(fn (array $row) => ($row['suggestion']['level'] ?? null) === ChannelSuggester::HIGH)->values();
     }
 
     protected function otherChannels(Show $show): array
@@ -101,6 +117,21 @@ class ReviewShowChannels extends ListRecords
                             ? 'Imported under '.count($this->importedUnder($record)).' channels. Confirm which one it actually ran on.'
                             : 'Imported under more than one channel. Confirm the correct assignment.')
                         ->wrap()->color('gray'),
+                    TextColumn::make('suggested_channel')->label('Suggested channel')
+                        ->state(function (Show $record) {
+                            $s = $this->suggestion($record);
+                            if (! $s) return null;
+                            $keeps = $s['channel_id'] === (int) $record->whatnot_channel_id ? ' (keeps current)' : '';
+                            return 'Suggested: '.$s['name'].$keeps.' · '.ucfirst($s['level']).' confidence';
+                        })
+                        ->badge()->icon('heroicon-o-light-bulb')
+                        ->color(fn (Show $record) => match ($this->suggestion($record)['level'] ?? null) {
+                            ChannelSuggester::HIGH => 'success', ChannelSuggester::MEDIUM => 'warning', default => 'gray',
+                        })
+                        ->placeholder('No suggestion — not enough history'),
+                    TextColumn::make('suggestion_reasons')->label('Why')
+                        ->state(fn (Show $record) => implode(' ', $this->suggestion($record)['reasons'] ?? []) ?: null)
+                        ->size('xs')->color('gray')->wrap(),
                 ])->space(2),
             ])
             ->contentGrid(['md' => 2, 'xl' => 3])
@@ -111,8 +142,19 @@ class ReviewShowChannels extends ListRecords
                 SelectFilter::make('whatnot_channel_id')->label('Assigned channel')->options(fn () => WhatnotChannel::orderBy('name')->pluck('name', 'id')),
             ])
             ->recordActions([
+                Action::make('accept_suggestion')
+                    ->label(fn (Show $record) => 'Accept '.($this->suggestion($record)['name'] ?? ''))
+                    ->icon('heroicon-o-check')->color('success')->button()
+                    ->visible(fn (Show $record) => $this->suggestion($record) !== null)
+                    ->action(function (Show $record): void {
+                        abort_unless(static::canAccess(), 403);
+                        $suggestion = $this->suggestion($record);
+                        abort_unless($suggestion !== null, 422);
+                        static::confirm($record, $suggestion['channel_id']);
+                        Notification::make()->title('Channel confirmed')->body($record->title.' → '.$suggestion['name'])->success()->send();
+                    }),
                 Action::make('confirm_channel')
-                    ->label('Confirm Channel')->icon('heroicon-o-check-badge')->color('warning')->button()
+                    ->label('Choose channel')->icon('heroicon-o-check-badge')->color('gray')->button()
                     ->modalHeading('Confirm the show channel')
                     ->modalDescription(fn (Show $record) => $record->title)
                     ->modalSubmitActionLabel('Save channel & clear review')
@@ -125,12 +167,12 @@ class ReviewShowChannels extends ListRecords
                                     ? $name.($id === (int) $record->whatnot_channel_id ? ' — assigned now' : ' — also imported under')
                                     : $name))
                             ->helperText(fn (Show $record) => 'Imported under: '.implode(', ', array_map(fn (int $id) => $this->channelName($id), $this->importedUnder($record))).'.')
-                            ->default(fn (Show $record) => $record->whatnot_channel_id)
+                            ->default(fn (Show $record) => $this->suggestion($record)['channel_id'] ?? $record->whatnot_channel_id)
                             ->searchable()->required()->exists('whatnot_channels', 'id'),
                     ])
                     ->action(function (Show $record, array $data): void {
                         abort_unless(static::canAccess(), 403);
-                        $record->update(['whatnot_channel_id' => $data['whatnot_channel_id'], 'channel_attribution_suspect' => false]);
+                        static::confirm($record, (int) $data['whatnot_channel_id']);
                         Notification::make()->title('Channel confirmed')->body('The show has been removed from this review queue.')->success()->send();
                     }),
                 Action::make('view_show')->label('Show details')->icon('heroicon-o-arrow-top-right-on-square')
@@ -143,6 +185,26 @@ class ReviewShowChannels extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [Action::make('shows')->label('Shows Overview')->color('gray')->url(Shows::getUrl())];
+        return [
+            Action::make('confirm_high_confidence')
+                ->label('Confirm high-confidence suggestions')->icon('heroicon-o-bolt')->color('success')
+                ->requiresConfirmation()
+                ->modalHeading('Confirm every high-confidence suggestion?')
+                ->modalDescription(function () {
+                    $rows = $this->highConfidence();
+                    if ($rows->isEmpty()) return 'No flagged show has a high-confidence suggestion right now.';
+                    $byChannel = $rows->countBy(fn (array $r) => $r['suggestion']['name'])->map(fn ($n, $name) => "{$name}: {$n}")->implode(', ');
+                    return "{$rows->count()} shows will be confirmed ({$byChannel}). Medium and low confidence shows stay in the queue for you to check.";
+                })
+                ->modalSubmitActionLabel('Confirm them')
+                ->action(function (): void {
+                    abort_unless(static::canAccess(), 403);
+                    $rows = $this->highConfidence();
+                    \Illuminate\Support\Facades\DB::transaction(fn () => $rows->each(fn (array $r) => static::confirm($r['show'], $r['suggestion']['channel_id'])));
+                    $this->suggestionMemo = [];
+                    Notification::make()->title($rows->count().' shows confirmed')->body('Only high-confidence suggestions were applied.')->success()->send();
+                }),
+            Action::make('shows')->label('Shows Overview')->color('gray')->url(Shows::getUrl()),
+        ];
     }
 }

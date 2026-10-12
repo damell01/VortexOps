@@ -91,6 +91,12 @@ class WhatnotReportingReconciler
                     'raw_import_payload' => array_merge($previousRaw, $raw, [
                         '_seller_hub_state' => $state,
                         '_seller_hub_seen_at' => now()->toIso8601String(),
+                        // Which channels' Seller Hub (scraped after switching to and
+                        // verifying that account) listed this show. The channel repair
+                        // uses it to tell which channel a show really belongs to.
+                        '_seller_hub_channels' => array_values(array_unique(array_map('intval', array_merge(
+                            (array) ($previousRaw['_seller_hub_channels'] ?? []), [$channel->id]
+                        )))),
                     ]),
                 ], fn ($v) => $v !== null);
 

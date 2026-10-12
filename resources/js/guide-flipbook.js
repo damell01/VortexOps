@@ -8,9 +8,13 @@ import { PageFlip } from 'page-flip/dist/js/page-flip.module.js';
 import 'page-flip/src/Style/stPageFlip.css';
 import '../css/guide-flipbook.css';
 import * as pdfjs from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+// Run pdf.js's parser in this bundle instead of loading pdf.worker.mjs as a
+// separate file: Apache serves .mjs with a non-JavaScript MIME type, which
+// browsers refuse for module workers, so the reader failed in production.
+// The guides are a few pages, so parsing on the main thread is fine.
+import * as pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs';
 
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+globalThis.pdfjsWorker = pdfjsWorker;
 
 const instances = new Map();
 
@@ -107,7 +111,7 @@ async function mount(root) {
     } catch (error) {
         if (state.cancelled) return;
         console.error('Guide flip view failed', error);
-        status.textContent = 'The flip view could not load on this device. Choose Plain PDF, Open in browser, or Download PDF.';
+        status.textContent = `The flip view could not load (${error?.message || error}). Choose Plain PDF, Open in browser, or Download PDF.`;
         status.classList.add('is-error');
     }
 }

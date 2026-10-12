@@ -24,10 +24,17 @@ class HelpCenter extends Page
         $this->guide = $guide;
     }
 
+    public function closeReader(): void
+    {
+        $this->guide = null;
+    }
+
     public function getViewData(): array
     {
         $documents = GuidedHelp::documents();
-        $selectedGuide = isset($documents[$this->guide ?? '']) ? $this->guide : array_key_first($documents);
+        // The reader opens full screen, so only an explicit choice (or a shared
+        // ?guide= link) opens it.
+        $selectedGuide = isset($documents[$this->guide ?? '']) ? $this->guide : null;
         return compact('documents', 'selectedGuide') + ['selectedDocument' => $documents[$selectedGuide ?? ''] ?? null];
     }
 }

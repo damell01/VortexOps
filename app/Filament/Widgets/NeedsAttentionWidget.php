@@ -85,6 +85,16 @@ class NeedsAttentionWidget extends Widget
             );
 
             $add(
+                AdminModules::isEnabled('streams'),
+                app(\App\Services\DuplicateShowFinder::class)->count(),
+                'possible duplicate shows — the same stream recorded twice',
+                'heroicon-o-document-duplicate',
+                'danger',
+                ShowResource::getUrl('index'),
+                'duplicates',
+            );
+
+            $add(
                 AdminModules::isEnabled('streams') && Schema::hasColumn('shows', 'financials_revised_after_lock'),
                 $this->financialsRevisedQuery()->count(),
                 'shows had financials change after being locked in — review before payroll',
@@ -172,7 +182,7 @@ class NeedsAttentionWidget extends Widget
     public function openDetail(string $key): void
     {
         abort_unless(static::canView(), 403);
-        abort_unless(in_array($key, ['channel_review', 'financials_revised', 'low_stock', 'dead_stock', 'zero_stock_sales', 'failed_jobs', 'trending_down'], true), 404);
+        abort_unless(in_array($key, ['duplicates', 'channel_review', 'financials_revised', 'low_stock', 'dead_stock', 'zero_stock_sales', 'failed_jobs', 'trending_down'], true), 404);
         abort_if($key === 'failed_jobs' && ! auth()->user()?->isOwner(), 403);
         $this->detail = $key;
         $this->dispatch('open-modal', id: $this->detailModalId());
@@ -193,6 +203,7 @@ class NeedsAttentionWidget extends Widget
         try {
             return match ($key) {
                 'dead_stock' => $this->deadStockDetail(),
+                'duplicates' => $this->duplicatesDetail(),
                 'low_stock' => $this->lowStockDetail(),
                 'zero_stock_sales' => $this->zeroStockDetail(),
                 'trending_down' => $this->trendingDownDetail(),
@@ -204,6 +215,38 @@ class NeedsAttentionWidget extends Widget
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /** "Not a duplicate": remember the pair so it is not raised again. */
+    public function dismissDuplicate(string $key): void
+    {
+        abort_unless(static::canView(), 403);
+        app(\App\Services\DuplicateShowFinder::class)->dismiss($key);
+        \Filament\Notifications\Notification::make()->title('Marked as two separate shows')->success()->send();
+    }
+
+    private function duplicatesDetail(): array
+    {
+        $pairs = app(\App\Services\DuplicateShowFinder::class)->pairs();
+        $label = fn (Show $s) => trim((string) $s->title).' · '.$this->money((float) $s->gross_revenue).($s->whatnot_show_id ? '' : ' · no Whatnot ID');
+
+        return [
+            'title' => 'Possible duplicate shows',
+            'description' => 'Same channel, same date, nearly the same title — usually one stream imported twice, which doubles it in every report. Open the extra one and cancel it, or mark the pair as two separate shows.',
+            'columns' => ['Date · channel', 'Show', 'Possible duplicate', 'Match', ''],
+            'rows' => collect($pairs)->take(self::DETAIL_LIMIT)->map(fn (array $p) => [
+                'cells' => [
+                    $p['a']->show_date?->format('M j, Y').' · '.($p['a']->channel?->name ?? 'No channel'),
+                    $label($p['a']), $label($p['b']), $p['similarity'].'%',
+                ],
+                'url' => null,
+                'links' => [1 => ShowResource::getUrl('view', ['record' => $p['a']]), 2 => ShowResource::getUrl('view', ['record' => $p['b']])],
+                'action' => ['label' => 'Not a duplicate', 'method' => 'dismissDuplicate', 'arg' => $p['key']],
+            ])->all(),
+            'total' => count($pairs),
+            'more_url' => ShowResource::getUrl('index'),
+            'more_label' => 'Open Shows',
+        ];
     }
 
     private function money(float $value): string

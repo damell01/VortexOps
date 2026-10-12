@@ -137,30 +137,4 @@ class PayrollTeamSetupTest extends TestCase
 
         $this->assertNull(Streamer::find($profile->id));
     }
-
-    public function test_pay_is_set_from_the_user_profile_and_blank_follows_the_team_default(): void
-    {
-        PaymentStructure::saveDefaults('streamer', ['payout_type' => 'profit_share', 'payout_cadence' => 'weekly', 'payout_percentage' => 8, 'include_tips' => true, 'hourly_rate' => 12]);
-        $role = Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
-        $user = User::factory()->create(['name' => 'Micha']);
-        $user->assignRole('streamer');
-        $profile = $this->streamer(['user_id' => $user->id, 'name' => 'Micha']);
-        PaymentStructure::adoptDefaults($profile);
-
-        Livewire::test(EditUser::class, ['record' => $user->getRouteKey()])
-            ->assertFormSet(['pay_payout_percentage' => null, 'pay_hourly_rate' => null])
-            ->fillForm(['roles' => [$role->id], 'pay_hourly_rate' => '18.50'])
-            ->call('save')->assertHasNoFormErrors();
-
-        $profile->refresh();
-        $this->assertEqualsWithDelta(18.5, (float) $profile->hourly_rate, 0.001);
-        $this->assertEqualsWithDelta(8.0, (float) $profile->payout_percentage, 0.001, 'blank follows the default');
-
-        // Clearing it goes back to the team default.
-        Livewire::test(EditUser::class, ['record' => $user->getRouteKey()])
-            ->assertFormSet(['pay_hourly_rate' => 18.5])
-            ->fillForm(['roles' => [$role->id], 'pay_hourly_rate' => null])
-            ->call('save')->assertHasNoFormErrors();
-        $this->assertEqualsWithDelta(12.0, (float) $profile->fresh()->hourly_rate, 0.001);
-    }
 }

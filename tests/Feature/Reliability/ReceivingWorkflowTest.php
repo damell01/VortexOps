@@ -74,7 +74,7 @@ class ReceivingWorkflowTest extends TestCase
             ->assertSet('receivedByName', 'Receiving teammate')
             ->assertSet('partialReceiveQuantity.' . $line->id, 2)
             ->assertSet('receivingLocationId', $location->id)
-            ->assertSee('Review & complete');
+            ->assertSee('Review receiving');
         $this->assertEquals(0, InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
     }
 

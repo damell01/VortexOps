@@ -76,7 +76,7 @@
             <span wire:loading wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Saving receipt…</span>
             <span wire:loading.remove wire:target="submitBarcode,receivePartialLine,receiveLine,assignPendingTo">Successful receipts are saved immediately. Unfinished inputs are restored in this signed-in session.</span>
         </div>
-        <button type="button" wire:click="mountAction('complete_pallet')" wire:loading.attr="disabled" class="mb-4 min-h-11 rounded-xl border border-primary-300 px-4 font-semibold text-primary-700 dark:text-primary-300">Review &amp; complete</button>
+        <button type="button" wire:click="mountAction('review_receiving')" wire:loading.attr="disabled" class="mb-4 min-h-11 rounded-xl border border-primary-300 px-4 font-semibold text-primary-700 dark:text-primary-300">Review receiving</button>
         {{-- Workstation: scan on the left, manifest on the right. On phones scan stays first. --}}
         <div class="grid items-start gap-4 lg:grid-cols-[360px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
             <aside class="space-y-4 lg:sticky lg:top-24">

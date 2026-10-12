@@ -186,4 +186,24 @@ class RepairShowChannelsTest extends TestCase
 
         $this->assertEquals(512.34, (float) $show->fresh()->gross_revenue);
     }
+
+    public function test_orders_the_streams_own_show_already_has_are_not_duplicated(): void
+    {
+        $show = $this->mergedShow();
+        // The Shop stream already has its own show, and the order import has
+        // re-fetched order S-1 there.
+        $shopShow = Show::create(['whatnot_channel_id' => $this->shop->id, 'whatnot_show_id' => self::SHOP_ID, 'title' => 'Sunday Night Rips',
+            'show_date' => '2026-10-11', 'status' => 'draft', 'import_source' => 'auto_whatnot']);
+        WhatnotShowOrder::create(['show_id' => $shopShow->id, 'whatnot_order_id' => 'S-1', 'whatnot_show_url' => $this->url(self::SHOP_ID), 'buyer_username' => 'buyer', 'item_name' => 'Pack', 'quantity' => 1, 'status' => 'completed']);
+        // Someone had matched the stray copy to stock.
+        WhatnotShowOrder::where('show_id', $show->id)->where('whatnot_order_id', 'S-1')->update(['unit_cost' => 4.25]);
+
+        $this->artisan('whatnot:repair-channels --apply')->assertSuccessful();
+
+        $this->assertSame(1, WhatnotShowOrder::where('whatnot_order_id', 'S-1')->count(), 'no duplicate');
+        $kept = WhatnotShowOrder::where('whatnot_order_id', 'S-1')->sole();
+        $this->assertSame($shopShow->id, $kept->show_id);
+        $this->assertEquals(4.25, (float) $kept->unit_cost, 'matching carried over');
+        $this->assertSame(['B-1', 'B-2'], $show->orders()->orderBy('whatnot_order_id')->pluck('whatnot_order_id')->all());
+    }
 }

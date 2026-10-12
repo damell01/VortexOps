@@ -119,12 +119,16 @@ class ShowChannelRepair
         return $plans;
     }
 
-    /** Carry out a plan. @return array{split: int, moved: int, confirmed: int, review: int, orders_moved: int} */
+    /** Carry out a plan. @return array{split: int, moved: int, confirmed: int, review: int, orders_moved: int, failed: array<int, string>} */
     public function apply(array $plans): array
     {
-        $totals = ['split' => 0, 'moved' => 0, 'confirmed' => 0, 'review' => 0, 'orders_moved' => 0];
+        $totals = ['split' => 0, 'moved' => 0, 'confirmed' => 0, 'review' => 0, 'orders_moved' => 0, 'failed' => []];
 
         foreach ($plans as ['show' => $show, 'actions' => $actions]) {
+            // One show failing is rolled back on its own and reported; the
+            // rest still go ahead.
+            $before = $totals;
+            try {
             DB::transaction(function () use ($show, $actions, &$totals) {
                 $needsReview = false;
                 foreach ($actions as $action) {
@@ -165,6 +169,12 @@ class ShowChannelRepair
                 $show->forceFill(['channel_attribution_suspect' => $needsReview])->save();
                 $totals['review'] += (int) $needsReview;
             });
+            } catch (\Throwable $e) {
+                $failed = $before['failed'];
+                $failed[$show->id] = \Illuminate\Support\Str::limit($e->getMessage(), 160);
+                $totals = ['failed' => $failed] + $before;
+                report($e);
+            }
         }
 
         return $totals;
@@ -353,12 +363,41 @@ class ShowChannelRepair
     /** Move one stream's orders, their shipments and its log entries. @return int orders moved */
     private function moveStream(Show $from, Show $to, string $liveId): int
     {
-        $orderIds = WhatnotShowOrder::where('show_id', $from->id)->where('whatnot_show_url', 'like', '%'.$liveId.'%')->pluck('id');
-        if ($orderIds->isNotEmpty()) {
-            WhatnotShowOrder::whereIn('id', $orderIds)->update(['show_id' => $to->id, 'show_date' => $to->show_date]);
-            // shipments.whatnot_order_id is the order row's id.
-            Shipment::where('show_id', $from->id)->whereIn('whatnot_order_id', $orderIds)->update(['show_id' => $to->id]);
+        $strays = WhatnotShowOrder::where('show_id', $from->id)->where('whatnot_show_url', 'like', '%'.$liveId.'%')->get();
+        // The stream's own show may already hold some of these orders (the
+        // order import has re-fetched them there since). Keep that copy, carry
+        // over any inventory matching or cost entered on the stray one, and
+        // drop the stray; move the rest.
+        $existing = WhatnotShowOrder::where('show_id', $to->id)
+            ->whereIn('whatnot_order_id', $strays->pluck('whatnot_order_id')->filter()->unique())
+            ->get()->keyBy('whatnot_order_id');
+
+        $moveIds = [];
+        foreach ($strays as $stray) {
+            $kept = $stray->whatnot_order_id ? $existing->get($stray->whatnot_order_id) : null;
+            if (! $kept) {
+                $moveIds[] = $stray->id;
+                continue;
+            }
+            $carry = [];
+            foreach (['inventory_item_id', 'inventory_location_id', 'unit_cost', 'total_cost'] as $field) {
+                if ($kept->{$field} === null && $stray->{$field} !== null) {
+                    $carry[$field] = $stray->{$field};
+                }
+            }
+            if ($carry) {
+                $kept->forceFill($carry)->save();
+            }
+            // The kept order's shipments stand; the stray's go with it.
+            $stray->delete();
         }
+
+        if ($moveIds) {
+            WhatnotShowOrder::whereIn('id', $moveIds)->update(['show_id' => $to->id, 'show_date' => $to->show_date]);
+            // shipments.whatnot_order_id is the order row's id.
+            Shipment::where('show_id', $from->id)->whereIn('whatnot_order_id', $moveIds)->update(['show_id' => $to->id]);
+        }
+        $orderIds = $strays->pluck('id');
 
         ShowIngestionLog::where('show_id', $from->id)->get(['id', 'raw_payload'])
             ->filter(fn ($log) => $this->liveIdFrom(is_array($log->raw_payload) ? $log->raw_payload : []) === $liveId)

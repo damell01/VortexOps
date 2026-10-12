@@ -69,9 +69,10 @@ class ChannelReviewTest extends TestCase
         Livewire::test(ReviewShowChannels::class)
             ->assertSee('Also imported under:')->assertSee('Vortex Collects')
             ->assertSee('Imported under 2 channels')
-            ->assertDontSee('Vortex Shop')
             ->assertSee('Other channel not recorded for this import');
-        $this->assertNotNull($unknown);
+        // A channel the show never came in under is not listed for it.
+        $this->assertSame([$collects->id], (fn () => $this->otherChannels($show))->call(new ReviewShowChannels));
+        $this->assertNotContains($unrelated->id, (fn () => $this->importedUnder($show))->call(new ReviewShowChannels));
     }
 
     public function test_accepting_and_bulk_confirming_suggestions_only_applies_high_confidence(): void

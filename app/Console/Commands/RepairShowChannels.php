@@ -82,6 +82,9 @@ class RepairShowChannels extends Command
         $totals = $repair->apply($plans);
         $this->newLine();
         $this->info("Done: {$totals['split']} stream(s) split out, {$totals['moved']} show(s) moved, {$totals['confirmed']} confirmed, {$totals['orders_moved']} order(s) moved.");
+        foreach ($totals['failed'] as $id => $error) {
+            $this->error("Show #{$id} was not changed: {$error}");
+        }
         if ($totals['review']) {
             $this->warn("{$totals['review']} show(s) still need a person — Dashboard → Needs Attention → shows need a channel confirmed.");
         }

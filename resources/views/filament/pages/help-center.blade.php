@@ -27,14 +27,14 @@
             <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-white sm:px-6">
                 <div class="min-w-0">
                     <h2 class="truncate text-base font-bold">{{ $selectedDocument['title'] }}</h2>
-                    <p class="mt-0.5 hidden text-xs text-violet-200 sm:block" x-text="view === 'flip' ? 'Drag a page corner, use the arrows, or press ← → to turn pages. Esc closes.' : 'Use the PDF toolbar to change pages or zoom. Esc closes.'"></p>
+                    <p class="mt-0.5 hidden text-xs text-violet-200 sm:block" x-text="view === 'flip' ? 'Drag a page corner, use the arrows, or press ← → to turn pages. + / − zooms. Esc closes.' : 'Use the PDF toolbar to change pages or zoom. Esc closes.'"></p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 text-sm font-semibold">
                     <div class="inline-flex rounded-lg border border-white/25 p-0.5" role="group" aria-label="Reader view">
                         <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'flip' ? 'bg-white text-violet-800' : 'text-white'" :aria-pressed="(view === 'flip').toString()" @click="view = 'flip'">Flip book</button>
                         <button type="button" class="min-h-9 rounded-md px-3" :class="view === 'pdf' ? 'bg-white text-violet-800' : 'text-white'" :aria-pressed="(view === 'pdf').toString()" @click="view = 'pdf'">Plain PDF</button>
                     </div>
-                    <a href="{{ route('admin.guides.show',$selectedGuide) }}" target="_blank" rel="noopener" class="inline-flex min-h-10 items-center rounded-lg px-3 hover:bg-white/10">Open in browser</a>
+                    <a href="{{ route('admin.guides.show',$selectedGuide) }}" target="_blank" rel="noopener" class="vx-guide-open inline-flex min-h-10 items-center rounded-lg px-3 hover:bg-white/10">Open in browser</a>
                     <a href="{{ route('admin.guides.show',['guide'=>$selectedGuide,'download'=>1]) }}" class="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 hover:bg-white/10"><x-heroicon-o-arrow-down-tray class="h-4 w-4"/>Download</a>
                     <button type="button" wire:click="closeReader" class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20" aria-label="Close guide"><x-heroicon-o-x-mark class="h-5 w-5"/></button>
                 </div>
@@ -47,6 +47,11 @@
                         <button type="button" data-prev aria-label="Previous page">‹ Prev</button>
                         <span data-page aria-live="polite"></span>
                         <button type="button" data-next aria-label="Next page">Next ›</button>
+                        <span class="vx-flipbook-zoom" role="group" aria-label="Zoom">
+                            <button type="button" data-zoom-out aria-label="Zoom out" title="Zoom out (−)">−</button>
+                            <span data-zoom aria-live="polite">Fit width</span>
+                            <button type="button" data-zoom-in aria-label="Zoom in" title="Zoom in (+)">+</button>
+                        </span>
                         <button type="button" data-fullscreen>Full screen</button>
                     </div>
                 </div>

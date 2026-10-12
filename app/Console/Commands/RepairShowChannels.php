@@ -7,14 +7,21 @@ use Illuminate\Console\Command;
 
 class RepairShowChannels extends Command
 {
-    protected $signature = 'whatnot:repair-channels {--apply : Make the changes (without it, only shows what would change)}';
+    protected $signature = 'whatnot:repair-channels
+        {--apply : Make the changes (without it, only shows what would change)}
+        {--moves-only : Only move shows to the right channel and confirm channels; leave splits and copies for later}
+        {--show=* : Only these show ids}';
 
     protected $description = 'Split shows that swallowed another channel\'s stream and move shows to the channel they ran on';
 
     public function handle(ShowChannelRepair $repair): int
     {
+        $only = array_map('intval', (array) $this->option('show'));
+        $movesOnly = (bool) $this->option('moves-only');
+
         // 1. Second copies the nightly discovery made of hourly-imported shows.
-        $duplicates = $repair->duplicatePlan();
+        $duplicates = $movesOnly ? [] : collect($repair->duplicatePlan())
+            ->filter(fn ($d) => ! $only || in_array($d['show']->id, $only, true))->values()->all();
         if ($duplicates !== []) {
             $this->info('Second copies to fold back into the original show:');
             $this->table(['Show', 'Date now', 'Title', 'Copy', 'Correct date', 'Change'], collect($duplicates)->map(fn ($d) => [
@@ -30,7 +37,11 @@ class RepairShowChannels extends Command
         }
 
         // 2. Merged streams and shows on the wrong channel.
-        $plans = $repair->plan();
+        $plans = collect($repair->plan())
+            ->filter(fn ($p) => ! $only || in_array($p['show']->id, $only, true))
+            // --moves-only: shows whose whole plan is a channel move or a confirmation.
+            ->filter(fn ($p) => ! $movesOnly || collect($p['actions'])->every(fn ($a) => in_array($a['type'], ['move', 'confirm'], true)))
+            ->values()->all();
 
         if ($plans === []) {
             $this->info('Nothing to repair: no show has evidence of being on the wrong channel or merged.');

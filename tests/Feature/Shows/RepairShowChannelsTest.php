@@ -157,4 +157,18 @@ class RepairShowChannelsTest extends TestCase
         $this->assertSame(self::BREAKS_ID, $original->whatnot_show_id);
         $this->assertSame('mapping', $original->status, 'the original keeps its own progress');
     }
+
+    public function test_moves_only_leaves_splits_alone_and_show_limits_to_given_ids(): void
+    {
+        $merged = $this->mergedShow();
+        $wrong = Show::create(['whatnot_channel_id' => $this->breaks->id, 'whatnot_show_id' => '33333333-3333-4333-8333-333333333333', 'title' => 'Shop restock',
+            'show_date' => '2026-10-12', 'status' => 'draft', 'raw_import_payload' => ['_seller_hub_channels' => [$this->shop->id]], 'channel_attribution_suspect' => true]);
+
+        $this->artisan('whatnot:repair-channels --apply --moves-only')->assertSuccessful();
+        $this->assertSame($this->shop->id, $wrong->fresh()->whatnot_channel_id);
+        $this->assertSame(2, Show::count(), 'the merged show was not split');
+
+        $this->artisan('whatnot:repair-channels --apply --show='.$merged->id)->assertSuccessful();
+        $this->assertSame(3, Show::count());
+    }
 }

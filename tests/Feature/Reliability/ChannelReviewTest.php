@@ -5,6 +5,7 @@ namespace Tests\Feature\Reliability;
 use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\ShowResource\Pages\ReviewShowChannels;
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Support\ChannelContext;
@@ -51,6 +52,26 @@ class ChannelReviewTest extends TestCase
         $menu = view('filament.components.desktop-mega-nav')->render();
         $this->assertStringContainsString(ShowResource::getUrl('channel-review'), $menu);
         ChannelContext::setActive(null);
+    }
+
+    public function test_card_lists_the_other_channels_the_show_was_imported_under(): void
+    {
+        $this->admin();
+        $breaks = WhatnotChannel::create(['name' => 'Vortex Breaks', 'status' => 'active']);
+        $collects = WhatnotChannel::create(['name' => 'Vortex Collects', 'status' => 'active']);
+        $unrelated = WhatnotChannel::create(['name' => 'Vortex Shop', 'status' => 'active']);
+        $show = $this->show(['whatnot_channel_id' => $breaks->id]);
+        foreach ([$breaks, $collects, $collects] as $channel) {
+            ShowIngestionLog::create(['show_id' => $show->id, 'whatnot_channel_id' => $channel->id, 'source' => 'whatnot', 'status' => 'success', 'raw_payload' => []]);
+        }
+        $unknown = $this->show(['title' => 'No second channel logged', 'whatnot_channel_id' => $breaks->id]);
+
+        Livewire::test(ReviewShowChannels::class)
+            ->assertSee('Also imported under:')->assertSee('Vortex Collects')
+            ->assertSee('Imported under 2 channels')
+            ->assertDontSee('Vortex Shop')
+            ->assertSee('Other channel not recorded for this import');
+        $this->assertNotNull($unknown);
     }
 
     public function test_confirming_channel_moves_show_and_removes_it_from_queue(): void

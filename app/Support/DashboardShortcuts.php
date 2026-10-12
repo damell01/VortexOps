@@ -23,7 +23,7 @@ class DashboardShortcuts
             if (! $class::canAccess()) continue;
             if ($user->isStreamer() && $class === \App\Filament\Resources\InventoryItemResource::class
                 && ! RoleAccess::grants($class)) continue;
-            $result[] = compact('label', 'description', 'icon') + ['url' => $class::getUrl()];
+            $result[] = compact('label', 'description', 'icon') + ['url' => $class::getUrl(parameters: $class === \App\Filament\Pages\InventoryGuide::class ? ['tab'=>'tasks'] : [])];
         }
         return $result;
     }

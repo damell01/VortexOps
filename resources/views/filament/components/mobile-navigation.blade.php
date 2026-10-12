@@ -17,7 +17,7 @@
     }
     if (isset($groups['Inventory']) && \App\Filament\Pages\InventoryGuide::canAccess()
         && ! collect($groups['Inventory'])->contains(fn ($link) => $link[0] === 'Inventory Guide')) {
-        $groups['Inventory'][] = ['Inventory Guide', \App\Filament\Pages\InventoryGuide::getUrl(panel:'admin')];
+        $groups['Inventory'][] = ['Inventory Guide', \App\Filament\Pages\InventoryGuide::getUrl(panel:'admin', parameters: ['tab'=>'tasks'])];
     }
     $navLogo = $navLogo ?? null;
     $homeUrl = $homeUrl ?? \App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin');

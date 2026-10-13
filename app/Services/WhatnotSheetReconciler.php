@@ -381,6 +381,20 @@ class WhatnotSheetReconciler
             }
         }
 
+        // Every package it shipped (by tracking number) also shipped from a
+        // show Whatnot does list.
+        $tracking = \App\Models\Shipment::where('show_id', $show->id)->whereNotNull('tracking_number')->where('tracking_number', '!=', '')
+            ->pluck('tracking_number')->unique();
+        if ($tracking->isNotEmpty()) {
+            $best = \App\Models\Shipment::whereIn('tracking_number', $tracking)->whereIn('show_id', $listedIds)->where('show_id', '!=', $show->id)
+                ->selectRaw('show_id, COUNT(DISTINCT tracking_number) as n')->groupBy('show_id')->orderByDesc('n')->first();
+            if ($best && (int) $best->n >= $tracking->count()) {
+                $twin = Show::find($best->show_id, ['id', 'title', 'show_date']);
+
+                return ['show_id' => $twin->id, 'title' => $twin->title, 'date' => $twin->show_date?->toDateString(), 'shared' => (int) $best->n, 'orders' => $tracking->count(), 'by' => 'shipments'];
+            }
+        }
+
         // The same title within a day of a show Whatnot does list, on any
         // channel. Had both aired, Whatnot would list both.
         if ($show->show_date) {

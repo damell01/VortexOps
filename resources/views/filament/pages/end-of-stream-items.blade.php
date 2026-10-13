@@ -259,24 +259,37 @@
                         @endif
 
                         @if ($this->step === 2)
-                            {{-- Hours and shipments are what the profit share's
-                                 burden is worked out from, so they are filled in
-                                 from the show rather than asked for cold — and
-                                 left editable, because the person who ran it knows
-                                 when the recorded length is wrong. --}}
+                            {{-- Hours Worked is what the person says they worked.
+                                 The clock is shown beside it to compare, and the
+                                 show's Whatnot length only as a reference: it is
+                                 never filled in or paid. --}}
+                            @php $clock = $this->clockRecord; @endphp
                             <section class="vxw-card">
                                 <div class="vxw-card-head">
                                     <div>
-                                        <h3 class="vxw-h2">Time &amp; Shipments</h3>
-                                        <p class="vxw-sub">Filled in from the show. Change either one if it's wrong — your pay is worked out from what's here.</p>
+                                        <h3 class="vxw-h2">Hours Worked &amp; Shipments</h3>
+                                        <p class="vxw-sub">Enter the hours you worked on this show. Your clock record is shown to compare — if they differ by more than 15 minutes an admin checks before payroll.</p>
                                     </div>
                                 </div>
                                 <div class="vxw-card-body grid gap-4 sm:grid-cols-2">
-                                    <label class="vxw-field">
-                                        <span class="vxw-label">Hours streamed</span>
-                                        <input type="number" min="0" step="0.01" inputmode="decimal" wire:model.blur="hoursStreamed" class="vxw-input vxw-num" />
-                                        <span class="vxw-hint">Show length on Whatnot: {{ $this->show?->show_duration ? number_format($this->show->show_duration / 60, 2) . ' hrs' : 'not recorded yet' }}</span>
-                                    </label>
+                                    <div class="vxw-field">
+                                        <label class="vxw-label" for="eos-hours">Hours worked</label>
+                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.blur="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
+                                        <div class="vxw-hint">
+                                            @if ($clock['minutes'] > 0)
+                                                Clocked for this show: <b>{{ \App\Models\TimeEntry::formatMinutes($clock['minutes']) }}</b> ({{ number_format($clock['minutes'] / 60, 2) }} hrs)
+                                                @if ((string) round($clock['minutes'] / 60, 2) !== (string) $hoursStreamed)
+                                                    · <button type="button" wire:click="useClockedHours" class="vxw-link">Use clocked time</button>
+                                                @endif
+                                            @elseif ($clock['open'])
+                                                You're still clocked in for this show.
+                                            @else
+                                                No clock record linked to this show. Link your time on <a class="vxw-link" href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}">Timekeeping</a>, or an admin will review these hours.
+                                            @endif
+                                        </div>
+                                        <div class="vxw-hint">Reference only — show length on Whatnot: {{ $this->show?->show_duration ? number_format($this->show->show_duration / 60, 2) . ' hrs' : 'not recorded' }}</div>
+                                        @if ($hoursStreamed === '')<div class="vxw-hint" style="color:var(--vxw-warn, #b45309)">Without hours worked, no hourly pay is added for this show.</div>@endif
+                                    </div>
                                     <label class="vxw-field">
                                         <span class="vxw-label">Shipments</span>
                                         <input type="number" min="0" step="1" inputmode="numeric" wire:model.blur="shipments" class="vxw-input vxw-num" />

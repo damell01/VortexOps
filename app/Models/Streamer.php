@@ -167,7 +167,13 @@ class Streamer extends Model
     {
         return ['profit_share' => 'Profit Share', 'package' => 'Package', 'hourly' => 'Hourly', 'flat_rate' => 'Flat Rate',
             'pwe_labels' => 'PWE + Labels', 'hybrid' => 'Hybrid (Hourly + Tips + Profit Share)', 'custom_formula' => 'Custom Formula',
-            'sales_split' => 'Sales Split (house keeps a %)'];
+            'sales_split' => 'Sales Split (house keeps a %)', 'clocked_time' => 'Time not on a show'];
+    }
+
+    /** Pay types a person can be set to; 'clocked_time' is a pay-run line, not a way to be paid. */
+    public static function assignablePayoutTypeLabels(): array
+    {
+        return array_diff_key(static::payoutTypeLabels(), ['clocked_time' => true]);
     }
 
     public static function payoutCadenceLabels(): array { return ['weekly' => 'Weekly', 'monthly' => 'Monthly']; }

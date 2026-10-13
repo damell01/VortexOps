@@ -7,6 +7,7 @@ use App\Models\Payout;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\TimeEntry;
 use App\Models\WeeklyPayoutBatch;
 use App\Support\BusinessContext;
 use Carbon\Carbon;
@@ -207,6 +208,8 @@ class PayRunAutomationService
                     ->update(['weekly_payout_batch_id' => $batch->id]);
             }
 
+            $this->syncClockedTime($batch, $start, $end, $businessId);
+
             $batch->recalculateTotal();
 
             foreach ($this->readiness->problems($batch) as $problem) {
@@ -225,6 +228,65 @@ class PayRunAutomationService
                 'warnings' => array_values(array_unique($warnings)),
             ];
         });
+    }
+
+    /**
+     * In-house streamers are paid hourly for time that was not on a show —
+     * prep, cleanup, packing, meetings. One line per person per run, from the
+     * entries that are fine as clocked or an admin approved; flagged time
+     * stays out until it is reviewed.
+     */
+    private function syncClockedTime(WeeklyPayoutBatch $batch, Carbon $start, Carbon $end, ?int $businessId): void
+    {
+        $keep = [];
+        $members = Streamer::query()->whereNotNull('user_id')
+            ->when($businessId !== null, fn ($q) => $q->where('business_id', $businessId))
+            ->get();
+
+        foreach ($members as $member) {
+            $rate = $member->paidHourlyRate();
+            if ($rate === null) {
+                continue;
+            }
+            $entries = TimeEntry::where('user_id', $member->user_id)->whereNull('show_id')->whereNotNull('clocked_out_at')
+                ->whereBetween('clocked_in_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+                ->get()->filter(fn (TimeEntry $e) => $e->payableMinutes() > 0);
+            $minutes = (int) $entries->sum(fn (TimeEntry $e) => $e->payableMinutes());
+            if ($minutes <= 0) {
+                continue;
+            }
+
+            $payout = Payout::firstOrNew([
+                'weekly_payout_batch_id' => $batch->id,
+                'streamer_id' => $member->id,
+                'payout_type' => 'clocked_time',
+                'show_id' => null,
+            ]);
+            if ($payout->exists && $payout->status !== 'draft') {
+                $keep[] = $payout->id;
+                continue;
+            }
+
+            $hours = round($minutes / 60, 2);
+            $breakdown = $entries->groupBy(fn (TimeEntry $e) => TimeEntry::REASONS[$e->reason] ?? 'No reason')
+                ->map(fn ($g, $label) => $label . ' ' . TimeEntry::formatMinutes((int) $g->sum(fn ($e) => $e->payableMinutes())))
+                ->join(' · ');
+
+            $payout->fill([
+                'whatnot_channel_id' => null,
+                'gross_show_revenue' => 0,
+                'hours_worked' => $hours,
+                'owner_fee_deducted' => 0,
+                'tips_included' => 0,
+                'calculated_payout' => round($rate * $hours, 2),
+                'calculation_notes' => "Time not on a show: \${$rate}/hr × {$hours}hrs ({$breakdown})",
+                'status' => 'draft',
+            ])->save();
+            $keep[] = $payout->id;
+        }
+
+        Payout::where('weekly_payout_batch_id', $batch->id)->where('payout_type', 'clocked_time')
+            ->where('status', 'draft')->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     /**

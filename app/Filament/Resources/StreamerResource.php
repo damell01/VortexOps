@@ -184,7 +184,7 @@ class StreamerResource extends Resource
                 ->description('Set the normal pay structure here. Pay Runs snapshot the calculated amount so future rate changes do not rewrite history.')
                 ->icon('heroicon-o-banknotes')->columns(3)->columnSpanFull()
                 ->schema([
-                    Select::make('payout_type')->label('Pay Type')->options(Streamer::payoutTypeLabels())->native(false),
+                    Select::make('payout_type')->label('Pay Type')->options(Streamer::assignablePayoutTypeLabels())->native(false),
                     TextInput::make('hourly_rate')->label('Hourly Rate')->numeric()->prefix('$')->suffix('/hr'),
                     TextInput::make('payout_percentage')->label('Payout %')->numeric()->suffix('%'),
                     TextInput::make('package_rate')->label('Package Rate')->numeric()->prefix('$'),

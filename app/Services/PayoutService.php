@@ -83,7 +83,6 @@ class PayoutService
         $calculatedPayout = 0;
         $calculationNotes = '';
 
-        $hours    = $show->show_duration ? round($show->show_duration / 60, 2) : 0;
         $pweCount   = 0;
         $labelCount = 0;
         $burdenRateApplied = null;
@@ -94,6 +93,14 @@ class PayoutService
         $logEntry = $show->relationLoaded('streamerLogEntry')
             ? $show->getRelation('streamerLogEntry')
             : $show->streamerLogEntry()->first();
+
+        // Hours Worked, never the show's length on Whatnot: the report's
+        // figure, else the time this person clocked against the show. With
+        // neither, the hours are missing — no hourly pay, and the pay run's
+        // sign-off names the show.
+        $workedHours = $this->workedHours($streamer, $show, $logEntry);
+        $hours = $workedHours ?? 0.0;
+        $hoursMissingNote = $workedHours === null ? ' · Hours missing' : '';
 
         $share = null;
 
@@ -144,16 +151,8 @@ class PayoutService
                 break;
 
             case 'hourly':
-                $actualHours = $hours > 0 ? $hours : 1;
-                if ($hours <= 0) {
-                    Log::warning('PayoutService: show_duration is 0 or missing; defaulting to 1 hour for hourly streamer', [
-                        'show_id'     => $show->id,
-                        'streamer_id' => $streamer->id,
-                    ]);
-                }
-                $calculatedPayout = round((float) $streamer->hourly_rate * $actualHours, 2);
-                $durationNote     = $hours > 0 ? "{$actualHours}hrs" : "1hr (show_duration missing)";
-                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$durationNote}";
+                $calculatedPayout = round((float) $streamer->hourly_rate * $hours, 2);
+                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$hours}hrs worked" . $hoursMissingNote;
                 break;
 
             case 'flat_rate':
@@ -182,6 +181,8 @@ class PayoutService
                 }
                 if ($hourlyEarned > 0) {
                     $calculationNotes .= " + \${$streamer->hourly_rate}/hr × {$hours}hrs";
+                } elseif ((float) ($streamer->hourly_rate ?? 0) > 0) {
+                    $calculationNotes .= $hoursMissingNote;
                 }
                 if ($streamer->include_tips) {
                     $calculatedPayout += $tipShare;
@@ -209,7 +210,7 @@ class PayoutService
                 }
 
                 $calculatedPayout = round($base, 2);
-                $calculationNotes = "Hybrid: \${$hourlyBase} hourly ({$hours}hrs) + {$streamer->payout_percentage}% profit (\${$profitComp})";
+                $calculationNotes = "Hybrid: \${$hourlyBase} hourly ({$hours}hrs){$hoursMissingNote} + {$streamer->payout_percentage}% profit (\${$profitComp})";
                 if ($streamer->include_tips) {
                     $calculationNotes .= " + \${$tipShare} tips";
                 }
@@ -226,8 +227,9 @@ class PayoutService
                         'whatnot_net'           => $netRevenue,
                         'streamer_share_net'    => $streamerShare,
                         'units_sold'            => (float) $show->units_sold,
-                        'show_duration_hours'   => $hours,
+                        'show_duration_hours'   => $show->show_duration ? round($show->show_duration / 60, 2) : 0,
                         'show_duration_minutes' => (float) ($show->show_duration ?? 0),
+                        'hours_worked'          => $hours,
                         'tips'                  => $tips,
                         'tip_share'             => $tipShare,
                         'payout_percentage'     => (float) ($streamer->payout_percentage ?? 0),
@@ -273,6 +275,8 @@ class PayoutService
                 $hourlyPay = round($hourlyRate * $paidHours, 2);
                 $calculatedPayout = round($calculatedPayout + $hourlyPay, 2);
                 $calculationNotes .= " + \${$hourlyPay} hourly (\${$hourlyRate}/hr × {$paidHours}hrs)";
+            } elseif ($workedHours === null) {
+                $calculationNotes .= ' · Hours missing — no hourly pay';
             }
         }
 
@@ -282,7 +286,7 @@ class PayoutService
             // The inputs the share was worked out from, so the payout can show
             // its working without anybody reopening the report to re-do it.
             'product_cost'         => $share['columns']['product_cost']      ?? null,
-            'hours_worked'         => $share['columns']['hours_worked']      ?? ($hourlyPay > 0 ? $paidHours : null),
+            'hours_worked'         => $workedHours === null ? null : ($share['columns']['hours_worked'] ?? ($hourlyPay > 0 ? $paidHours : $workedHours)),
             'shipments_count'      => $share['columns']['shipments_count']   ?? null,
             'burden_amount'        => $share['columns']['burden_amount']     ?? null,
             'net_revenue_basis'    => $share['columns']['net_revenue_basis'] ?? null,
@@ -352,9 +356,7 @@ class PayoutService
         // is exactly what an unreported show looks like until somebody files
         // it — and the sign-off gate names it before the run can be finalised.
         $productCost = (float) ($logEntry?->product_cost ?? 0);
-        $hoursWorked = $logEntry?->hours_streamed !== null
-            ? (float) $logEntry->hours_streamed
-            : $hours;
+        $hoursWorked = $hours;
         $shipments   = $logEntry?->number_of_shipments !== null
             ? (int) $logEntry->number_of_shipments
             : (int) $show->shipments()->count();
@@ -379,6 +381,22 @@ class PayoutService
                 'net_revenue_basis' => $working['net_revenue'],
             ],
         ];
+    }
+
+    /**
+     * The Hours Worked payroll pays for one person on one show, or null when
+     * there are none: the report's figure (as an admin settled it, if they
+     * did), else the time this person clocked against the show.
+     */
+    public function workedHours(Streamer $streamer, Show $show, ?StreamerLogEntry $logEntry): ?float
+    {
+        if ($logEntry?->hours_streamed !== null) {
+            return round((float) $logEntry->hours_streamed, 2);
+        }
+
+        $minutes = app(TimeTrackingService::class)->clockMinutesForShow($show->id, $streamer->user_id);
+
+        return $minutes > 0 ? round($minutes / 60, 2) : null;
     }
 
     private function defaultOwnerFee(): array
@@ -726,6 +744,22 @@ class PayoutService
             if ($entry->needsFulfillmentReview()) {
                 $problems[] = "{$title} — still waiting on fulfillment review.";
             }
+        }
+
+        // Hours Worked an admin has not settled: missing, or clock and report disagree.
+        $time = app(TimeTrackingService::class);
+        foreach ($time->showHoursIssues(null, $showIds->all()) as $issue) {
+            $title = $issue['entry']->show?->title ?? "Show #{$issue['entry']->show_id}";
+            $problems[] = "{$title} — Hours Worked: " . TimeTrackingService::issueLabel($issue['kind']) . '. Settle it on Time & Attendance.';
+        }
+
+        // Clocked time someone edited, added by hand, or left open is not paid until reviewed.
+        $userIds = Streamer::whereIn('id', $batch->payouts()->pluck('streamer_id')->unique())->pluck('user_id')->filter();
+        $flagged = \App\Models\TimeEntry::needsReview()->whereIn('user_id', $userIds)
+            ->whereBetween('clocked_in_at', [$batch->week_start->copy()->startOfDay(), $batch->week_end->copy()->endOfDay()])
+            ->count();
+        if ($flagged > 0) {
+            $problems[] = "{$flagged} time " . \Illuminate\Support\Str::plural('entry', $flagged) . ' in this period ' . ($flagged === 1 ? 'waits' : 'wait') . ' for review on Time & Attendance.';
         }
 
         return $problems;

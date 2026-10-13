@@ -55,7 +55,7 @@ class WeeklyOwnerSummaryNotification extends Notification
 
         if ($t['shows'] > 0) {
             $perHour = $t['hours'] > 0 ? ' · '.$this->money($t['gross'] / $t['hours']).'/hr gross' : '';
-            $mail->line("{$t['hours']} hours streamed · {$t['units']} units sold{$perHour}");
+            $mail->line("{$t['hours']} hours worked · {$t['units']} units sold{$perHour}");
         }
 
         if ($s['channels'] !== []) {

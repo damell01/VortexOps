@@ -50,6 +50,17 @@ class StreamerLogEntry extends Model
         'fulfillment_reviewed_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        // A settled Hours Worked figure is settled for the hours it settled.
+        // Change the hours afterwards and an admin looks again.
+        static::saving(function (self $entry) {
+            if ($entry->exists && $entry->isDirty('hours_streamed') && ! $entry->isDirty('hours_review')) {
+                $entry->hours_review = null;
+            }
+        });
+    }
+
     public static function statusLabels(): array
     {
         return [

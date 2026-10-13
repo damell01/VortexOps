@@ -7,7 +7,15 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use App\Models\WeeklyPayoutBatch;
 use App\Support\AdminModules;
+use App\Services\TimeTrackingService;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\On;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -170,7 +178,7 @@ class Timekeeping extends Page
 
     public function getEntriesProperty()
     {
-        $query = TimeEntry::with('user')
+        $query = TimeEntry::with(['user', 'show:id,title'])
             ->orderByDesc('clocked_in_at');
 
         if (! $this->canSeeTeamEntries()) {
@@ -217,43 +225,156 @@ class Timekeeping extends Page
 
     public function clockIn(): void
     {
-        if ($this->isClockedIn) {
+        try {
+            $entry = app(TimeTrackingService::class)->clockIn(auth()->user(), null, null, $this->note);
+        } catch (ValidationException) {
             Notification::make()->title('Already clocked in')->warning()->send();
             return;
         }
 
-        $now = now();
-        TimeEntry::create([
-            'user_id'       => auth()->id(),
-            'clocked_in_at' => $now,
-            'notes'         => trim($this->note) ?: null,
-        ]);
-
         $this->note = '';
 
         Notification::make()
-            ->title('Clocked in at ' . $this->formatTimeInUserTz($now))
+            ->title('Clocked in at ' . $this->formatTimeInUserTz($entry->clocked_in_at))
             ->success()
             ->send();
     }
 
     public function clockOut(): void
     {
-        $entry = $this->openEntry;
-
-        if (! $entry) {
+        try {
+            $entry = app(TimeTrackingService::class)->clockOut(auth()->user());
+        } catch (ValidationException) {
             Notification::make()->title('Not currently clocked in')->warning()->send();
             return;
         }
 
-        $now = now();
-        $entry->update(['clocked_out_at' => $now]);
-        $minutes = $entry->clocked_in_at->diffInMinutes($now);
-
         Notification::make()
-            ->title('Clocked out at ' . $this->formatTimeInUserTz($now) . ' — ' . TimeEntry::formatMinutes($minutes) . ' logged')
+            ->title('Clocked out at ' . $this->formatTimeInUserTz($entry->clocked_out_at) . ' — ' . TimeEntry::formatMinutes((int) $entry->duration_minutes) . ' logged')
             ->success()
             ->send();
+    }
+
+    #[On('clock-changed')]
+    public function clockChanged(): void
+    {
+        // Re-render: stats and history read fresh on every render.
+    }
+
+    /** "show:12" / "reason:cleanup" options for one person's entry. */
+    private function purposeOptions(?User $user, ?int $currentShowId = null): array
+    {
+        $user ??= auth()->user();
+        $shows = app(TimeTrackingService::class)->linkableShows($user, $currentShowId)
+            ->mapWithKeys(fn ($show) => ['show:' . $show->id => ($show->show_date?->format('M j') ?? '') . ' · ' . ($show->title ?: 'Show #' . $show->id)])
+            ->all();
+        $reasons = collect(TimeEntry::REASONS)->mapWithKeys(fn ($label, $key) => ['reason:' . $key => $label])->all();
+
+        return ['Reasons' => $reasons, 'Shows' => $shows];
+    }
+
+    /** @return array{0:?int,1:?string} */
+    private function splitPurpose(?string $purpose): array
+    {
+        return match (true) {
+            str_starts_with((string) $purpose, 'show:') => [(int) substr($purpose, 5), null],
+            str_starts_with((string) $purpose, 'reason:') => [null, substr($purpose, 7)],
+            default => [null, null],
+        };
+    }
+
+    private function entryFields(?User $user, ?int $showId = null): array
+    {
+        $tz = $this->userTimezone();
+
+        return [
+            DateTimePicker::make('in')->label('Clocked in')->timezone($tz)->seconds(false)->required(),
+            DateTimePicker::make('out')->label('Clocked out')->timezone($tz)->seconds(false)->after('in'),
+            Select::make('purpose')->label('Show or reason')->options($this->purposeOptions($user, $showId))->searchable()->placeholder('Choose later'),
+            TextInput::make('note')->label('Note')->maxLength(255),
+            Textarea::make('why')->label('Why is this changing?')->required()->rows(2)
+                ->helperText(fn () => app(TimeTrackingService::class)->isReviewer(auth()->user()) && $user?->id !== auth()->id()
+                    ? 'Logged with the entry. An admin change counts as reviewed.'
+                    : 'Logged with the entry. Changed times are flagged for an admin to review before they are paid.'),
+        ];
+    }
+
+    public function editEntryAction(): Action
+    {
+        return Action::make('editEntry')
+            ->label('Edit')->link()->size('sm')->icon('heroicon-m-pencil-square')
+            ->modalHeading('Correct this time')
+            ->modalSubmitActionLabel('Save change')
+            ->schema(function (array $arguments) {
+                $entry = TimeEntry::with('user')->find($arguments['entry'] ?? 0);
+
+                return $this->entryFields($entry?->user, $entry?->show_id);
+            })
+            ->fillForm(function (array $arguments) {
+                $entry = TimeEntry::find($arguments['entry'] ?? 0);
+
+                return $entry ? [
+                    'in' => $entry->clocked_in_at,
+                    'out' => $entry->clocked_out_at,
+                    'purpose' => $entry->show_id ? 'show:' . $entry->show_id : ($entry->reason ? 'reason:' . $entry->reason : null),
+                    'note' => $entry->notes,
+                ] : [];
+            })
+            ->action(function (array $data, array $arguments, Action $action) {
+                $entry = TimeEntry::with('user')->findOrFail($arguments['entry'] ?? 0);
+                [$showId, $reason] = $this->splitPurpose($data['purpose'] ?? null);
+                try {
+                    $entry = app(TimeTrackingService::class)->edit($entry, auth()->user(),
+                        Carbon::parse($data['in'], config('app.timezone')),
+                        filled($data['out'] ?? null) ? Carbon::parse($data['out'], config('app.timezone')) : null,
+                        (string) ($data['why'] ?? ''), $showId, $reason, $data['note'] ?? null);
+                } catch (ValidationException $e) {
+                    Notification::make()->title(collect($e->errors())->flatten()->first())->danger()->send();
+                    $action->halt();
+                }
+                Notification::make()->title('Time updated')
+                    ->body($entry->status === 'flagged' ? 'Flagged for an admin to review.' : null)->success()->send();
+            });
+    }
+
+    public function addTimeAction(): Action
+    {
+        return Action::make('addTime')
+            ->label('Add missed time')->icon('heroicon-m-plus')->color('gray')->size('sm')
+            ->modalHeading('Add time you forgot to clock')
+            ->modalDescription('Added time is flagged for an admin to review before it is paid.')
+            ->modalSubmitActionLabel('Add time')
+            ->schema(fn () => [
+                ...($this->canSeeTeamEntries() ? [Select::make('user_id')->label('Person')->options(User::orderBy('name')->pluck('name', 'id'))->searchable()->default(auth()->id())->required()] : []),
+                ...$this->entryFields(auth()->user()),
+            ])
+            ->action(function (array $data, Action $action) {
+                $user = $this->canSeeTeamEntries() && filled($data['user_id'] ?? null) ? User::findOrFail($data['user_id']) : auth()->user();
+                [$showId, $reason] = $this->splitPurpose($data['purpose'] ?? null);
+                if (blank($data['out'] ?? null)) {
+                    Notification::make()->title('Enter when the time ended.')->danger()->send();
+                    $action->halt();
+                }
+                try {
+                    app(TimeTrackingService::class)->addManual($user, auth()->user(),
+                        Carbon::parse($data['in'], config('app.timezone')), Carbon::parse($data['out'], config('app.timezone')),
+                        (string) ($data['why'] ?? ''), $showId, $reason, $data['note'] ?? null);
+                } catch (ValidationException $e) {
+                    Notification::make()->title(collect($e->errors())->flatten()->first())->danger()->send();
+                    $action->halt();
+                }
+                Notification::make()->title('Time added')->success()->send();
+            });
+    }
+
+    public function canEdit(TimeEntry $entry): bool
+    {
+        $user = auth()->user();
+        if (app(TimeTrackingService::class)->isReviewer($user)) {
+            return true;
+        }
+
+        return $entry->user_id === $user?->id && $entry->status !== 'approved';
     }
 
     public function nextPage(): void
@@ -319,7 +440,7 @@ class Timekeeping extends Page
 
     public function userTimezone(): string
     {
-        return auth()->user()?->timezone ?? 'UTC';
+        return auth()->user()?->timezone ?: \App\Support\BusinessTime::zone();
     }
 
     public function formatTimeInUserTz(Carbon $time): string

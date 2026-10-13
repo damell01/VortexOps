@@ -137,7 +137,7 @@ class StreamerLogResource extends Resource
                 ]),
 
             Section::make('Show Info')
-                ->description('Record key metrics from your show — hours streamed, shipments, and package counts.')
+                ->description('Record key metrics from your show — hours worked, shipments, and package counts.')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
                 ->columnSpanFull()
                 ->schema([
@@ -146,7 +146,7 @@ class StreamerLogResource extends Resource
                         ->label('Hard Copy (physical log filed)')
                         ->helperText('Check if you filed a physical log sheet for this show'),
                     TextInput::make('hours_streamed')
-                        ->label('Hours Streamed')
+                        ->label('Hours Worked')
                         ->numeric()
                         ->step(0.25)
                         ->helperText('Total time you were on stream — used for payout calculation')

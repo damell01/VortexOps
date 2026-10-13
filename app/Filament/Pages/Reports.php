@@ -287,7 +287,7 @@ class Reports extends Page
 
             $rows = [];
             foreach ([
-                ['shows', 'Shows', false, true], ['hours', 'Hours streamed', false, true],
+                ['shows', 'Shows', false, true], ['hours', 'Hours worked', false, true],
                 ['gross', 'Gross sales', true, true], ['net', 'Net (after Whatnot fees)', true, true],
                 ['gross_per_hour', 'Gross per hour', true, true], ['units', 'Units sold', false, true],
                 ['tips', 'Tips', true, true], ['cogs', 'Cost of goods', true, false],

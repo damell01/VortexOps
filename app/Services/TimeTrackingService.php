@@ -192,15 +192,23 @@ class TimeTrackingService
     public function review(TimeEntry $entry, User $admin, string $decision, ?int $minutes = null, ?string $note = null): TimeEntry
     {
         abort_unless($this->isReviewer($admin), 403);
-        if ($entry->clocked_out_at === null) {
-            throw ValidationException::withMessages(['decision' => 'This entry is still open. Set a clock-out time first.']);
-        }
+        $old = $this->snapshot($entry);
         $note = trim((string) $note);
-        if ($decision === 'corrected' && ($minutes === null || $minutes < 0 || $note === '')) {
-            throw ValidationException::withMessages(['minutes' => 'Enter the corrected time and the reason for it.']);
+        if ($decision === 'corrected' && ($minutes === null || $minutes < 0 || $minutes > 24 * 60 || $note === '')) {
+            throw ValidationException::withMessages(['minutes' => 'Enter the corrected time (up to 24h) and the reason for it.']);
+        }
+        if ($entry->clocked_out_at === null) {
+            // A forgotten clock-out: the corrected time is how long they
+            // actually worked, and closes the entry at that point.
+            if ($decision === 'corrected') {
+                $entry->clocked_out_at = $entry->clocked_in_at->copy()->addMinutes($minutes);
+            } elseif ($decision !== 'reject') {
+                throw ValidationException::withMessages(['decision' => 'This entry was never clocked out. Enter the time actually worked as a correction.']);
+            } else {
+                $entry->clocked_out_at = $entry->clocked_in_at->copy();
+            }
         }
 
-        $old = $this->snapshot($entry);
         $entry->fill(match ($decision) {
             'clock' => ['status' => 'approved', 'approved_minutes' => $entry->duration_minutes],
             'corrected' => ['status' => 'approved', 'approved_minutes' => $minutes],
@@ -230,13 +238,14 @@ class TimeTrackingService
      *
      * @return Collection<int, array{entry:StreamerLogEntry,kind:string,report_minutes:?int,clock_minutes:int,user_id:?int}>
      */
-    public function showHoursIssues(?int $userId = null): Collection
+    public function showHoursIssues(?int $userId = null, ?array $showIds = null): Collection
     {
         $entries = StreamerLogEntry::query()
             ->whereNotNull('submitted_at')
             ->whereNull('hours_review')
             ->whereHas('show', fn ($q) => $q->whereDate('show_date', '>=', self::since()->toDateString())->where('status', '!=', 'cancelled'))
             ->when($userId, fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('user_id', $userId)))
+            ->when($showIds !== null, fn ($q) => $q->whereIn('show_id', $showIds ?: [0]))
             ->with(['show:id,title,show_date,start_time,show_duration,whatnot_channel_id', 'streamer:id,name,user_id'])
             ->get();
 
@@ -325,7 +334,7 @@ class TimeTrackingService
                 $entry->save();
                 $count++;
 
-                $since = $entry->clocked_in_at->copy()->setTimezone($entry->user?->timezone ?: config('app.timezone'))->format('D M j, g:i A');
+                $since = $entry->clocked_in_at->copy()->setTimezone($entry->user?->timezone ?: \App\Support\BusinessTime::zone())->format('D M j, g:i A');
                 Notifier::send('missed_clock_out', new VortexAlert(
                     event: 'missed_clock_out',
                     title: 'Still clocked in?',
@@ -361,7 +370,7 @@ class TimeTrackingService
         $approvedClockOnly = $entries->filter(fn (TimeEntry $e) => ! in_array($e->show_id, $linkedShowIds, true))->sum(fn (TimeEntry $e) => $e->payableMinutes());
         $reportMinutes = (int) round($reports->sum(fn ($r) => (float) $r->hours_streamed) * 60);
 
-        $tz = $user->timezone ?: config('app.timezone');
+        $tz = $user->timezone ?: \App\Support\BusinessTime::zone();
 
         return [
             'clock' => (int) $entries->sum(fn (TimeEntry $e) => (int) ($e->duration_minutes ?? 0)),

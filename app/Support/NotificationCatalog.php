@@ -105,6 +105,11 @@ class NotificationCatalog
             ],
 
             // ── Payroll ──────────────────────────────────────────────────
+            'missed_clock_out' => [
+                'group' => 'Payroll', 'label' => 'Missed clock-out', 'level' => 'action',
+                'description' => 'Someone has been clocked in for 12 hours — probably a forgotten clock-out. The entry is flagged for review.',
+                'roles' => ['admins'], 'involved' => true, 'involved_label' => 'The person still clocked in', 'in_app' => true, 'email' => true,
+            ],
             'payout_processed' => [
                 'group' => 'Payroll', 'label' => 'Payout processed', 'level' => 'fyi',
                 'description' => 'A streamer payout was processed.',

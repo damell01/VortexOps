@@ -65,6 +65,7 @@ Schedule::command('db:backup --prune=14')->dailyAt('02:00')->name('daily-db-back
 Schedule::command('storage:prune-runtime --days=14 --imports-hours=48 --max-log-mb=25')->dailyAt('03:15')->name('prune-runtime-storage')->withoutOverlapping();
 Schedule::command('health:check')->everyThirtyMinutes()->sendOutputTo('/dev/null');
 Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflow-state-notifications')->withoutOverlapping(10);
+Schedule::command('timekeeping:missed-clock-outs')->everyFifteenMinutes()->name('timekeeping-missed-clock-outs')->withoutOverlapping(10);
 Schedule::command('payroll:sync-pay-runs')->hourly()->name('payroll-sync-current-week')->withoutOverlapping(15);
 Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class]])->dailyAt('03:00')->name('prune-ai-interactions')->withoutOverlapping();
 Schedule::command('activitylog:clean')->weeklyOn(7, '03:30')->name('clean-activity-log')->withoutOverlapping();

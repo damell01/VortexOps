@@ -44,88 +44,16 @@
             </div>
         @endif
 
-        {{-- ── Clock In / Out Card ──────────────────────────────────────────── --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        {{-- ── Clock In / Out ─────────────────────────────────────────────── --}}
+        @livewire('clock-widget')
 
-            <div class="px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
-
-                {{-- Status indicator --}}
-                <div class="flex items-center gap-3 flex-1 min-w-0">
-                    <div class="relative shrink-0">
-                        <div class="w-12 h-12 rounded-full flex items-center justify-center {{ $isIn ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-gray-100 dark:bg-gray-800' }}">
-                            <x-heroicon-o-clock class="h-6 w-6 {{ $isIn ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500' }}" />
-                        </div>
-                        @if ($isIn)
-                            <span class="absolute top-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-gray-900"></span>
-                        @endif
-                    </div>
-                    <div>
-                        <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {{ $isIn ? 'Currently clocked in' : 'Not clocked in' }}
-                        </p>
-                        @if ($isIn && $entry)
-                            <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
-                                Since {{ $this->formatTimeInUserTz($entry->clocked_in_at) }}
-                                @if ($stats['in_progress'] > 0)
-                                    &mdash; {{ \App\Models\TimeEntry::formatMinutes($stats['in_progress']) }} elapsed
-                                @endif
-                            </p>
-                            @if ($entry->notes)
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs">{{ $entry->notes }}</p>
-                            @endif
-                        @else
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Add an optional note before clocking in</p>
-                        @endif
-                    </div>
-                </div>
-
-                {{-- Note input + button --}}
-                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
-                    @if (! $isIn)
-                        <input
-                            wire:model.blur="note"
-                            type="text"
-                            placeholder="What are you working on? (optional)"
-                            maxlength="255"
-                            class="flex-1 sm:w-56 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
-                        />
-                    @endif
-
-                    @if ($isIn)
-                        <button
-                            wire:click="clockOut"
-                            wire:loading.attr="disabled"
-                            wire:target="clockOut"
-                            type="button"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-60 transition-colors"
-                        >
-                            <span wire:loading.remove wire:target="clockOut"><x-heroicon-o-stop-circle class="h-4 w-4" /></span>
-                            <span wire:loading wire:target="clockOut">
-                                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                            </span>
-                            <span wire:loading.remove wire:target="clockOut">Clock Out</span>
-                            <span wire:loading wire:target="clockOut">Clocking out…</span>
-                        </button>
-                    @else
-                        <button
-                            wire:click="clockIn"
-                            wire:loading.attr="disabled"
-                            wire:target="clockIn"
-                            type="button"
-                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 transition-colors"
-                        >
-                            <span wire:loading.remove wire:target="clockIn"><x-heroicon-o-play-circle class="h-4 w-4" /></span>
-                            <span wire:loading wire:target="clockIn">
-                                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                            </span>
-                            <span wire:loading.remove wire:target="clockIn">Clock In</span>
-                            <span wire:loading wire:target="clockIn">Clocking in…</span>
-                        </button>
-                    @endif
-                </div>
-            </div>
-
-        </div>
+        @if ($seesTeam && \App\Filament\Pages\TimeAttendance::canAccess())
+            @php $review = \App\Filament\Pages\TimeAttendance::reviewCount(); @endphp
+            <a href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}" class="flex items-center justify-between gap-3 rounded-xl border px-5 py-3 text-sm {{ $review ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200' }}">
+                <span><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ' need review before payroll' : 'nothing waiting for review' }}</span>
+                <x-heroicon-m-arrow-right class="h-4 w-4" />
+            </a>
+        @endif
 
         {{-- ── Stats Row ───────────────────────────────────────────────────── --}}
         <div class="grid grid-cols-3 gap-4">
@@ -226,6 +154,7 @@
                     @if ($entries->total() > 0)
                         <span class="text-xs text-gray-400">{{ number_format($entries->total()) }} entries</span>
                     @endif
+                    {{ $this->addTimeAction }}
                     <a
                         wire:click.prevent="exportCsv"
                         href="#"
@@ -272,8 +201,17 @@
                                         Active
                                     </span>
                                 @endif
-                                @if ($e->notes)
-                                    <span class="min-w-0 truncate text-gray-400">{{ $e->notes }}</span>
+                                <span class="min-w-0 truncate text-gray-500 dark:text-gray-400">{{ $e->purposeLabel() }}</span>
+                                @if ($e->source === 'manual')<span class="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">Added by hand</span>@endif
+                                @if ($e->status === 'flagged')
+                                    <span class="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="{{ implode(', ', $e->flagLabels()) }}">Needs review · {{ implode(', ', $e->flagLabels()) }}</span>
+                                @elseif ($e->status === 'approved')
+                                    <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">Approved{{ $e->approved_minutes !== null && $e->approved_minutes !== $e->duration_minutes ? ' · ' . \App\Models\TimeEntry::formatMinutes((int) $e->approved_minutes) : '' }}</span>
+                                @elseif ($e->status === 'rejected')
+                                    <span class="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-800 dark:bg-red-500/15 dark:text-red-300">Not paid</span>
+                                @endif
+                                @if ($this->canEdit($e))
+                                    <span class="ml-auto">{{ ($this->editEntryAction)(['entry' => $e->id]) }}</span>
                                 @endif
                             </div>
                         </div>

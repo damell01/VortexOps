@@ -20,7 +20,8 @@ class ListWeeklyPayoutBatches extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('New Pay Run'),
+            CreateAction::make()->label('New Pay Run')->icon('heroicon-o-plus')->color('primary'),
+            \Filament\Actions\Action::make('rates')->label('Rates & Adjustments')->icon('heroicon-o-adjustments-horizontal')->color('gray')->url(\App\Filament\Pages\PaymentStructures::getUrl()),
         ];
     }
 }

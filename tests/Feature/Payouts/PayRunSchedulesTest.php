@@ -174,6 +174,35 @@ class PayRunSchedulesTest extends TestCase
         $this->assertTrue($wages->exists);
     }
 
+    public function test_admin_can_save_a_manual_type_and_disable_its_automation(): void
+    {
+        Livewire::test(\App\Filament\Pages\PaymentStructures::class)
+            ->call('addRunType')
+            ->set('run_types.3.name', 'Bonus wages')
+            ->set('run_types.3.auto_create', true)
+            ->call('save')->assertHasNoErrors();
+        $type = PayRunType::where('name', 'Bonus wages')->sole();
+        $this->assertFalse($type->schedule_enabled);
+        $this->assertFalse($type->auto_create, 'Automatic creation requires a schedule');
+        $this->assertSame('wages', $type->kind);
+    }
+
+    public function test_schedule_suggests_dates_but_custom_dates_still_work(): void
+    {
+        $type = PayRunType::where('kind', 'share')->sole();
+        $type->update(['schedule_enabled' => true]);
+        Livewire::test(CreateWeeklyPayoutBatch::class)
+            ->fillForm(['pay_run_type_id' => $type->id, 'dates_mode' => 'schedule', 'week_start' => '2026-09-14'])
+            ->call('create')->assertHasNoFormErrors();
+        $run = WeeklyPayoutBatch::sole();
+        $this->assertSame(['2026-09-01', '2026-09-30'], [$run->week_start->toDateString(), $run->week_end->toDateString()]);
+        Livewire::test(CreateWeeklyPayoutBatch::class)
+            ->fillForm(['pay_run_type_id' => $type->id, 'week_start' => '2026-10-02', 'week_end' => '2026-10-09'])
+            ->call('create')->assertHasNoFormErrors();
+        $this->assertSame('2026-10-09', WeeklyPayoutBatch::orderByDesc('id')->first()->week_end->toDateString());
+        $this->assertFalse($type->auto_create);
+    }
+
     public function test_schedule_periods(): void
     {
         $this->assertSame(['2026-10-15', '2026-11-14'], $this->period('share', '2026-10-20', ['frequency' => 'monthly', 'anchor' => '2026-01-15']));

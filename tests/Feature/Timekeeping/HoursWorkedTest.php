@@ -372,4 +372,20 @@ class HoursWorkedTest extends TestCase
         $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
         $this->time->delete($this->clocked(null, '2026-10-14 16:00:00', '2026-10-14 17:00:00'), $this->person);
     }
+    public function test_streamer_can_select_and_clock_in_to_an_assigned_upcoming_show(): void
+    {
+        $upcoming = $this->show();
+        $upcoming->update(['show_date' => '2026-11-20', 'status' => 'scheduled']);
+        $other = \App\Models\Show::create([
+            'whatnot_channel_id' => $upcoming->whatnot_channel_id, 'title' => 'Someone else’s upcoming show',
+            'show_date' => '2026-11-21', 'status' => 'scheduled',
+        ]);
+        $this->actingAs($this->person);
+        $ids = collect($this->time->pickerShows($this->person))->pluck('id')->all();
+        $this->assertContains($upcoming->id, $ids);
+        $this->assertNotContains($other->id, $ids);
+        $entry = $this->time->clockIn($this->person, $upcoming->id);
+        $this->assertSame($upcoming->id, $entry->show_id);
+    }
+
 }

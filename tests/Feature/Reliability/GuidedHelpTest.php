@@ -27,7 +27,7 @@ class GuidedHelpTest extends TestCase
             ->call('selectGuide', 'admin')->assertSee('data-vx-flipbook', false)
             ->call('closeReader')->assertSet('guide', null)->assertDontSee('data-vx-flipbook', false);
         $response = $this->get('/admin/guides/admin')->assertOk()->assertHeader('content-type', 'application/pdf');
-        $this->assertSame(1366657, $response->baseResponse->getFile()->getSize());
+        $this->assertSame(filesize(resource_path('guides/admin-guide.pdf')), $response->baseResponse->getFile()->getSize());
         $this->get('/admin/guides/streamer?download=1')->assertOk();
     }
 

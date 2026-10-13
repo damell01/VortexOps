@@ -261,4 +261,17 @@ class WhatnotSheetCheckTest extends TestCase
         $this->actingAs($admin)->get(WhatnotSheetCheck::getUrl())->assertForbidden();
         $this->assertFalse(WhatnotSheetCheck::canAccess());
     }
+
+    public function test_an_unlisted_show_with_orders_is_never_deleted(): void
+    {
+        $aired = $this->show($this->cards, 'Renamed on Whatnot', '2026-10-03');
+        \App\Models\WhatnotShowOrder::create(['show_id' => $aired->id, 'whatnot_order_id' => 'o-1', 'show_date' => '2026-10-03']);
+        $plan = $this->plan([
+            $this->cards->id => [$this->csv([$this->row('Real', '10/01/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ]);
+
+        $this->assertSame(0, app(WhatnotSheetReconciler::class)->apply($plan, true, true)['deleted']);
+        $this->assertTrue(Show::whereKey($aired->id)->exists());
+    }
 }

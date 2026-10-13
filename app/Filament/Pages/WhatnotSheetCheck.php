@@ -183,12 +183,12 @@ class WhatnotSheetCheck extends Page
 
     public function deletableCount(): int
     {
-        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']))->count();
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']) && ($it['app_orders'] ?? 0) === 0)->count();
     }
 
     public function blockedCount(): int
     {
-        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']))->count();
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']) && ($it['app_orders'] ?? 0) === 0)->count();
     }
 
     public function plan(): ?array

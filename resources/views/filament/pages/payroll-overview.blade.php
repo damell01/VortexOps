@@ -64,8 +64,8 @@
                     @else
                         <button type="button" class="vxw-btn vxw-btn--primary" wire:click="prepareCurrentPayRun" wire:loading.attr="disabled" wire:target="prepareCurrentPayRun">
                             <span wire:loading wire:target="prepareCurrentPayRun" class="vxw-spin" aria-hidden="true"></span>
-                            <span wire:loading.remove wire:target="prepareCurrentPayRun">Prepare this week's pay run</span>
-                            <span wire:loading wire:target="prepareCurrentPayRun">Preparing…</span>
+                            <span wire:loading.remove wire:target="prepareCurrentPayRun">Create a pay run</span>
+                            <span wire:loading wire:target="prepareCurrentPayRun">Opening…</span>
                         </button>
                     @endif
                     <a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>

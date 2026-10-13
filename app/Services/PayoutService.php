@@ -29,8 +29,7 @@ class PayoutService
         $allExisting = Payout::where('show_id', $show->id)
             ->whereIn('streamer_id', $streamers->pluck('id'))
             ->get();
-        // A show's pay is one line per person, plus — when profit share runs
-        // on its own schedule — a separate line for their hourly pay.
+        // Wages and profit share always remain separate pay lines.
         $existingPayouts = $allExisting->where('payout_type', '!=', 'show_hours')->keyBy('streamer_id');
         $existingHours = $allExisting->where('payout_type', 'show_hours')->keyBy('streamer_id');
 
@@ -43,6 +42,13 @@ class PayoutService
 
         foreach ($streamers as $index => $streamer) {
             $existing = $existingPayouts->get($streamer->id);
+            // A calculation for a new wage/share run must never rewrite pay
+            // already submitted, finalized or paid on another run.
+            $protectedMain = $existing && ($existing->status !== 'draft' || ($existing->batch && $existing->batch->status !== 'draft'));
+            if ($protectedMain && ! $existingHours->has($streamer->id)) {
+                $payouts[] = $existing;
+                continue;
+            }
 
             $isPrimary = $hasExplicitPrimary
                 ? (bool) ($streamer->pivot->is_primary ?? false)
@@ -55,7 +61,7 @@ class PayoutService
             $hoursPayout = $existingHours->get($streamer->id);
             if ($hoursLine) {
                 $hoursPayout ??= new Payout(['show_id' => $show->id, 'streamer_id' => $streamer->id]);
-                if (! $hoursPayout->exists || $hoursPayout->status === 'draft') {
+                if (! $hoursPayout->exists || ($hoursPayout->status === 'draft' && (! $hoursPayout->batch || $hoursPayout->batch->status === 'draft'))) {
                     $hoursPayout->fill($hoursLine + [
                         'payout_type' => 'show_hours',
                         'gross_show_revenue' => 0,
@@ -64,21 +70,25 @@ class PayoutService
                         'routing_bank_label' => $result['routing_bank_label'] ?? null,
                         'status' => 'draft',
                     ])->save();
-                    $payouts[] = $hoursPayout;
                 }
-            } elseif ($hoursPayout && $hoursPayout->status === 'draft') {
+            } elseif ($hoursPayout && $hoursPayout->status === 'draft' && (! $hoursPayout->batch || $hoursPayout->batch->status === 'draft')) {
                 $hoursPayout->delete();
             }
 
             $payout = $existing
-                ? $existing->fill($result)
+                ? ($protectedMain ? $existing : $existing->fill($result))
                 : new Payout(array_merge($result, [
                     'show_id'     => $show->id,
                     'streamer_id' => $streamer->id,
                 ]));
 
-            $payout->save();
+            if (! $protectedMain) {
+                $payout->save();
+            }
             $payouts[] = $payout;
+            if ($hoursLine && $hoursPayout) {
+                $payouts[] = $hoursPayout;
+            }
         }
 
         return $payouts;
@@ -297,13 +307,13 @@ class PayoutService
             $paidHours = (float) ($share['columns']['hours_worked'] ?? $hours);
             if ($paidHours > 0) {
                 $hourlyPay = round($hourlyRate * $paidHours, 2);
-                if (\App\Support\PayRunSchedules::separate() && \App\Support\PayRunSchedules::kindOfType($streamer->payout_type) === 'share') {
+                if (\App\Support\PayRunSchedules::kindOfType($streamer->payout_type) === 'share') {
                     // Profit share is paid on its own schedule; the hours go
                     // on the wage run as their own line.
                     $splitHourly = [
                         'calculated_payout' => $hourlyPay,
                         'hours_worked' => $paidHours,
-                        'calculation_notes' => "Hourly for this show: \${$hourlyRate}/hr × {$paidHours}hrs (profit share is paid on its own run)",
+                        'calculation_notes' => "Hourly for this show: \${$hourlyRate}/hr × {$paidHours}hrs (separate wage line)",
                     ];
                 } else {
                     $calculatedPayout = round($calculatedPayout + $hourlyPay, 2);

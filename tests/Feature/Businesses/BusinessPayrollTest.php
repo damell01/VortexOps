@@ -125,7 +125,9 @@ class BusinessPayrollTest extends TestCase
         $show = $this->show($hourly);
         \App\Models\StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $hourly->id, 'hours_streamed' => 2]);
         [$payout] = app(PayoutService::class)->calculateForShow($show->load('streamers'));
-        $this->assertStringContainsString('hourly ($20/hr × 2hrs)', $payout->calculation_notes);
+        $line = \App\Models\Payout::where('show_id', $show->id)->where('payout_type', 'show_hours')->sole();
+        $this->assertEquals(40, (float) $line->calculated_payout);
+        $this->assertStringNotContainsString('hourly', $payout->calculation_notes);
     }
 
     public function test_a_vcx_streamer_keeps_the_shared_profit_share(): void

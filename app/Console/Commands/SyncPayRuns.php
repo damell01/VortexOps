@@ -8,17 +8,12 @@ use Illuminate\Console\Command;
 
 class SyncPayRuns extends Command
 {
-    protected $signature = 'payroll:sync-pay-runs {--week= : Any date in the Monday-Sunday week to sync} {--force : Run even when automation is disabled}';
+    protected $signature = 'payroll:sync-pay-runs {--week= : Any date in the scheduled period to sync} {--force : Recalculate drafts; only explicitly opted-in types can create runs}';
 
-    protected $description = 'Ensure the weekly Draft Pay Run exists and optionally refresh eligible show payouts.';
+    protected $description = 'Create drafts only for pay run types with a schedule and automatic creation enabled.';
 
     public function handle(PayRunAutomationService $automation): int
     {
-        if (! $this->option('force') && ! Setting::getBool('payroll_auto_setup_enabled', false)) {
-            $this->info('Automatic Pay Run setup is disabled. Use --force to run it manually.');
-            return self::SUCCESS;
-        }
-
         $recalculate = $this->option('force') || Setting::getBool('payroll_auto_recalculate_drafts', true);
 
         try {

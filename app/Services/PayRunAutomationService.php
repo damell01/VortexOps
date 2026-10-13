@@ -40,21 +40,23 @@ class PayRunAutomationService
             : [null];
 
         $results = [];
-        foreach ($businesses as $businessId) {
-            foreach (PayRunSchedules::activeKinds() as $kind) {
-                // A type set not to create runs automatically is still kept
-                // up to date once someone has created its run.
-                if ($scheduled && $kind !== null && ! PayRunSchedules::config()[$kind]['auto']) {
-                    [$start, $end] = PayRunSchedules::periodFor($kind, $weekStart, $businessId);
-                    $exists = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())->whereDate('week_end', $end->toDateString())
-                        ->where('kind', $kind)
-                        ->where(fn ($q) => $businessId === null ? $q->whereNull('business_id') : $q->where('business_id', $businessId))
-                        ->exists();
-                    if (! $exists) {
+        if ($scheduled) {
+            $types = \App\Models\PayRunType::query()->where('active', true)
+                ->where('schedule_enabled', true)->where('auto_create', true)->orderBy('id')->get();
+            foreach ($businesses as $businessId) {
+                foreach ($types as $type) {
+                    [$start] = PayRunSchedules::standardPeriod($type->kind ?? 'wages', $weekStart, $type->scheduleConfig());
+                    if ($type->anchor && Carbon::parse($weekStart)->startOfDay()->lt($type->anchor)) {
                         continue;
                     }
+                    $results[] = $this->syncWeek($start, $recalculate, $businessId, $type->kind, $type);
                 }
-                $results[] = $this->syncWeek($weekStart, $recalculate, $businessId, $kind);
+            }
+        } else {
+            foreach ($businesses as $businessId) {
+                foreach (PayRunSchedules::activeKinds() as $kind) {
+                    $results[] = $this->syncWeek($weekStart, $recalculate, $businessId, $kind);
+                }
             }
         }
 
@@ -67,7 +69,7 @@ class PayRunAutomationService
      *
      * @return array{batch:WeeklyPayoutBatch,created:bool,shows_scanned:int,payouts_attached:int,payouts_detached:int,warnings:array<int,string>}
      */
-    public function syncWeek(string|Carbon $weekStart, bool $recalculate = true, ?int $businessId = null, ?string $kind = null): array
+    public function syncWeek(string|Carbon $weekStart, bool $recalculate = true, ?int $businessId = null, ?string $kind = null, ?\App\Models\PayRunType $type = null): array
     {
         $ofKind = fn ($q) => match ($kind) {
             'share' => $q->whereIn('payout_type', PayRunSchedules::SHARE_TYPES),
@@ -77,9 +79,11 @@ class PayRunAutomationService
 
         // The pay period containing that date: an existing run's own dates,
         // otherwise the configured pay week (see PaySchedule).
-        [$start, $end] = PayRunSchedules::periodFor($kind, $weekStart, $businessId);
+        [$start, $end] = $type
+            ? PayRunSchedules::standardPeriod($kind ?? 'wages', $weekStart, $type->scheduleConfig())
+            : PayRunSchedules::periodFor($kind, $weekStart, $businessId);
 
-        return DB::transaction(function () use ($start, $end, $recalculate, $businessId, $kind, $ofKind) {
+        return DB::transaction(function () use ($start, $end, $recalculate, $businessId, $kind, $ofKind, $type) {
             $batch = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
                 ->whereDate('week_end', $end->toDateString())
                 ->where(fn ($q) => $businessId === null ? $q->whereNull('business_id') : $q->where('business_id', $businessId))
@@ -87,23 +91,6 @@ class PayRunAutomationService
                 ->lockForUpdate()
                 ->orderBy('id')
                 ->first();
-
-            // A draft run from before businesses covering this week is split
-            // into one run per business, so this business's people can be
-            // finalized and paid without touching anyone else's.
-            // Separate schedules just turned on: a draft "All pay" run for
-            // these dates becomes this type's run, and the lines it should
-            // not pay are taken off it below to join their own run.
-            if (! $batch && $kind !== null) {
-                $batch = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
-                    ->whereDate('week_end', $end->toDateString())
-                    ->whereNull('kind')
-                    ->where('status', 'draft')
-                    ->where(fn ($q) => $businessId === null ? $q->whereNull('business_id') : $q->where('business_id', $businessId))
-                    ->lockForUpdate()
-                    ->first();
-                $batch?->update(['kind' => $kind]);
-            }
 
             if (! $batch && $businessId !== null && $kind === null) {
                 $legacy = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
@@ -130,6 +117,8 @@ class PayRunAutomationService
                 $batch = WeeklyPayoutBatch::create([
                     'business_id' => $businessId,
                     'kind' => $kind,
+                    'pay_run_type_id' => $type?->id,
+                    'pay_run_type_name' => $type?->name,
                     'week_start' => $start->toDateString(),
                     'week_end' => $end->toDateString(),
                     'status' => 'draft',
@@ -384,6 +373,9 @@ class PayRunAutomationService
             foreach ($businessIds->reject(fn ($id) => $id === $first) as $businessId) {
                 $run = WeeklyPayoutBatch::create([
                     'business_id' => $businessId,
+                    'kind' => $batch->kind,
+                    'pay_run_type_id' => $batch->pay_run_type_id,
+                    'pay_run_type_name' => $batch->pay_run_type_name,
                     'week_start' => $batch->week_start->toDateString(),
                     'week_end' => $batch->week_end->toDateString(),
                     'status' => 'draft',

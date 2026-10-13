@@ -159,12 +159,15 @@ class BusinessPayrollTest extends TestCase
 
         BusinessContext::setActive($this->estill->id);
 
-        $this->assertSame(['Estill Person'], Streamer::query()->inChannelContext()->pluck('name')->all());
-        $this->assertEqualsCanonicalizing([$estillShow->id, $unassigned->id], Show::query()->inChannelContext()->pluck('id')->all());
-        $this->assertSame([$estill->id], Payout::query()->inChannelContext()->pluck('streamer_id')->all());
+        // Payroll pages opt in...
+        $this->assertSame(['Estill Person'], Streamer::query()->inBusinessContext()->pluck('name')->all());
+        $this->assertEqualsCanonicalizing([$estillShow->id, $unassigned->id], Show::query()->inBusinessContext()->pluck('id')->all());
+        $this->assertSame([$estill->id], Payout::query()->inBusinessContext()->pluck('streamer_id')->all());
 
-        BusinessContext::setActive(null);
+        // ...everything else keeps showing every business.
         $this->assertCount(2, Streamer::query()->inChannelContext()->get());
+        $this->assertCount(3, Show::query()->inChannelContext()->get());
+        $this->assertCount(2, Payout::query()->inChannelContext()->get());
     }
 
     public function test_each_business_gets_its_own_pay_run_for_the_same_week(): void
@@ -284,6 +287,24 @@ class BusinessPayrollTest extends TestCase
         $this->get(\App\Filament\Pages\PayrollOverview::getUrl())
             ->assertOk()
             ->assertSee('vx-business-banner', false)
+            ->assertSee('aria-label="Business: Estill Distribution"', false)
             ->assertSee('Estill Distribution');
+
+        // Not on other pages: the picker only means something for payroll.
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl())
+            ->assertOk()
+            ->assertDontSee('vx-business-banner', false)
+            ->assertDontSee('aria-label="Business:', false);
+    }
+
+    public function test_fulfillment_admins_can_open_the_businesses_page(): void
+    {
+        \Spatie\Permission\Models\Role::findOrCreate('fulfillment_admin', 'web');
+        $fulfillmentAdmin = User::factory()->create();
+        $fulfillmentAdmin->assignRole('fulfillment_admin');
+        $this->actingAs($fulfillmentAdmin);
+
+        $this->assertTrue(Businesses::canAccess());
+        $this->get(Businesses::getUrl())->assertOk()->assertSee('Estill Distribution');
     }
 }

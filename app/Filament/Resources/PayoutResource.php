@@ -232,7 +232,7 @@ class PayoutResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['show', 'streamer', 'batch'])->inChannelContext();
+        $query = parent::getEloquentQuery()->with(['show', 'streamer', 'batch'])->inChannelContext()->inBusinessContext();
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {

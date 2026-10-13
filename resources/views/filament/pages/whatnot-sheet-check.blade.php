@@ -143,13 +143,15 @@
                                     @elseif ($it['action'] === 'create')
                                         {{ $money($it['metrics']['gross_revenue'] ?? 0) }} sales · {{ $it['metrics']['show_duration'] ?? 0 }} min
                                     @elseif ($it['action'] === 'extra')
-                                        @if (($it['app_orders'] ?? 0) > 0 || ! empty($it['aired']))<span class="wsc-short">Kept: it has {{ ($it['app_orders'] ?? 0) > 0 ? $it['app_orders'].' imported orders' : 'sales' }}, so it aired — likely renamed on Whatnot or on a channel/page not uploaded</span>
+                                        @if (! empty($it['duplicate_of']))
+                                            Duplicate of <a class="wsc-link" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $it['duplicate_of']['show_id']]) }}" target="_blank">{{ \Illuminate\Support\Str::limit($it['duplicate_of']['title'], 50) }}</a>{{ $it['duplicate_of']['date'] ? ' ('.\Carbon\Carbon::parse($it['duplicate_of']['date'])->format('M j').')' : '' }} — {{ ($it['duplicate_of']['by'] ?? '') === 'live_id' ? 'same Whatnot stream' : 'all '.$it['duplicate_of']['orders'].' of its orders are on that show' }}. Deleted on apply.
+                                        @elseif (($it['app_orders'] ?? 0) > 0 || ! empty($it['aired']))<span class="wsc-short">Kept: it has {{ ($it['app_orders'] ?? 0) > 0 ? $it['app_orders'].' imported orders' : 'sales' }}, so it aired — likely renamed on Whatnot or on a channel/page not uploaded</span>
                                         @elseif (! empty($it['blocked']))<span class="wsc-short">Kept unless you switch on deleting ones with pay: {{ $it['blocked'] }}</span>@elseif ($plan['all_channels'] ?? false)Deleted on apply (if you leave the switch on)@else<span class="wsc-muted">Upload every channel to delete</span>@endif
                                     @elseif ($it['action'] === 'move' && ! $it['changes'])
                                         <span class="wsc-muted">Figures already match</span>
                                     @endif
                                 </td>
-                                <td class="wsc-nowrap">{{ $it['sheet_orders'] ?? '—' }} / <span @class(['wsc-short' => $it['sheet_orders'] !== null && $it['app_orders'] < $it['sheet_orders']])>{{ $it['app_orders'] }}</span></td>
+                                <td class="wsc-nowrap">@if (! empty($it['live_url']))<a class="wsc-link" href="{{ $it['live_url'] }}" target="_blank" rel="noopener">Whatnot ↗</a><br>@endif{{ $it['sheet_orders'] ?? '—' }} / <span @class(['wsc-short' => $it['sheet_orders'] !== null && $it['app_orders'] < $it['sheet_orders']])>{{ $it['app_orders'] }}</span></td>
                             </tr>
                         @empty
                             <tr><td colspan="6" class="wsc-muted" style="text-align:center;padding:24px">Nothing in this list.</td></tr>
@@ -198,6 +200,7 @@
 .wsc-details{font-size:12.5px;min-width:200px}
 .wsc-nowrap{white-space:nowrap}
 .wsc-short{color:#b45309;font-weight:700}
+.wsc-link{color:var(--primary-600,#7c3aed);text-decoration:underline;text-underline-offset:2px}
 .wsc-warn--inline{margin:0 0 8px;padding:8px 10px;border:1px solid #fcd34d;border-radius:10px;font-size:12.5px}
 .wsc-warn{grid-column:1/-1;border-color:#fcd34d;background:#fffbeb;font-size:13px}
 .dark .wsc-warn{background:#422006;border-color:#92400e}

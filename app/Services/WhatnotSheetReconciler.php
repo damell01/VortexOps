@@ -330,16 +330,16 @@ class WhatnotSheetReconciler
      *
      * @return array{moved:int,created:int,updated:int,failed:array<string,string>}
      */
-    public function apply(array $plan, bool $deleteExtras = false): array
+    public function apply(array $plan, bool $deleteExtras = false, bool $includePaid = false): array
     {
         $totals = ['moved' => 0, 'created' => 0, 'updated' => 0, 'deleted' => 0, 'failed' => []];
         $deleteExtras = $deleteExtras && ($plan['all_channels'] ?? false);
 
         foreach ($plan['items'] as $item) {
             if ($item['action'] === 'extra') {
-                if ($deleteExtras && empty($item['blocked'])) {
+                if ($deleteExtras && ($includePaid || empty($item['blocked']))) {
                     try {
-                        DB::transaction(fn () => $this->deleteShow($item));
+                        DB::transaction(fn () => $this->deleteShow($item, $includePaid));
                         $totals['deleted']++;
                     } catch (\Throwable $e) {
                         report($e);
@@ -489,15 +489,17 @@ class WhatnotSheetReconciler
     }
 
     /** Remove a show none of the exports list, with its draft pay. */
-    private function deleteShow(array $item): void
+    private function deleteShow(array $item, bool $includePaid = false): void
     {
         $show = Show::lockForUpdate()->find($item['show_id']);
-        if (! $show || $this->deleteBlocker($show)) {
+        if (! $show || (! $includePaid && $this->deleteBlocker($show))) {
             return;
         }
 
+        // Before payroll goes live, pay on a show that never ran goes with it,
+        // whatever its status.
         $batches = Payout::where('show_id', $show->id)->whereNotNull('weekly_payout_batch_id')->pluck('weekly_payout_batch_id')->unique();
-        Payout::where('show_id', $show->id)->where('status', 'draft')->delete();
+        Payout::where('show_id', $show->id)->when(! $includePaid, fn ($q) => $q->where('status', 'draft'))->delete();
         \App\Models\WeeklyPayoutBatch::whereKey($batches)->get()->each->recalculateTotal();
 
         $activity = activity('show')->withProperties([

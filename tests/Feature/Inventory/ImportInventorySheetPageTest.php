@@ -244,4 +244,83 @@ class ImportInventorySheetPageTest extends TestCase
 
         $this->assertFalse(ImportInventorySheet::canAccess());
     }
+
+    public function test_a_row_can_be_edited_before_importing(): void
+    {
+        $file = $this->workbook([
+            ['151 Aquatic Figurine', null, 'box', 'Auction', 14, 'TBD'],
+        ]);
+
+        $page = $this->page()->set('upload', $file);
+        $this->assertSame(1, $page->get('summary')['warnings']);
+
+        $page->call('startEdit', 2)
+            ->set('editForm.name', '151 Aquatic Figurine Box')
+            ->set('editForm.sale_price', '30')
+            ->call('saveEdit')
+            ->assertHasNoErrors();
+
+        $this->assertSame(0, $page->get('summary')['warnings']);
+        $this->assertSame(0, Product::count());
+
+        $page->call('import');
+
+        $product = Product::firstWhere('name', '151 Aquatic Figurine Box');
+        $this->assertNotNull($product);
+        $this->assertEquals(30.0, (float) $product->sale_price);
+        $this->assertSame(1, Product::count());
+    }
+
+    public function test_a_possible_duplicate_starts_as_dont_import_and_can_update_the_existing_item(): void
+    {
+        $existing = Product::create(['name' => 'Brilliant Fantasy Booster Box Jumbo', 'is_active' => true]);
+        Product::create(['name' => 'Terrarium Collection 12 Blind box', 'is_active' => true]);
+
+        $file = $this->workbook([
+            ['Brillant fantasy Booster box Jumbo', null, 'box', 'Both', 41, 80],
+            ['Terrarium Collection 13 Blind box', null, 'box', 'Auction', 10, 22],
+        ]);
+
+        $page = $this->page()->set('upload', $file);
+        $rows = collect($page->get('rows'))->keyBy('line');
+
+        $this->assertSame('skip', $rows[2]['decision']);
+        $this->assertSame($existing->id, $rows[2]['similar'][0]['id']);
+        // Different number, different product: never offered as a copy.
+        $this->assertSame([], $rows[3]['similar']);
+        $this->assertSame(1, $page->get('summary')['skipped']);
+
+        $page->call('decide', 2, 'match:'.$existing->id)->call('import');
+
+        $this->assertSame(3, Product::count());
+        $this->assertEquals(41.0, (float) $existing->fresh()->unit_cost);
+    }
+
+    public function test_dont_import_leaves_a_row_out(): void
+    {
+        $file = $this->workbook([
+            ['Gem 2 Booster box', null, 'box', 'Both', 65, 106],
+            ['Gem 3 Box', null, 'box', 'Both', 80, 129],
+        ]);
+
+        $this->page()->set('upload', $file)->call('decide', 3, 'skip')->call('import');
+
+        $this->assertSame(['Gem 2 Booster box'], Product::pluck('name')->all());
+    }
+
+    public function test_the_earlier_of_two_rows_for_one_product_starts_as_dont_import(): void
+    {
+        $file = $this->workbook([
+            ['CGC Slabs', null, 'single', 'Auction', 18, 30],
+            ['CGC Slabs', null, 'single', 'Auction', 20, 35],
+        ]);
+
+        $page = $this->page()->set('upload', $file);
+        $rows = collect($page->get('rows'))->keyBy('line');
+        $this->assertSame('skip', $rows[2]['decision']);
+        $this->assertSame('import', $rows[3]['decision']);
+
+        $page->call('import');
+        $this->assertEquals(20.0, (float) Product::firstWhere('name', 'CGC Slabs')->unit_cost);
+    }
 }

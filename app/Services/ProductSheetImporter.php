@@ -79,7 +79,7 @@ class ProductSheetImporter
         // Nothing to choose and nothing to validate in a single-sheet file, and
         // naming a sheet a CSV does not have would load no rows at all.
         if ($this->hasWorksheets($reader)) {
-            $sheet     = $sheet ?: self::DEFAULT_SHEET;
+            $sheet     = $sheet ?: $this->guessSheet($path, $this->sheetNames($path));
             $available = $this->sheetNames($path);
 
             if (! in_array($sheet, $available, true)) {
@@ -99,7 +99,10 @@ class ProductSheetImporter
             return [];
         }
 
-        $columns = $this->mapHeaders(array_shift($raw));
+        // The header row is wherever the headers are: a title or an
+        // instruction line above them is common on a hand-kept sheet.
+        [$headerIndex, $columns] = $this->locateHeader($raw);
+        $raw = array_slice($raw, $headerIndex + 1, null, true);
         $rows    = [];
 
         foreach ($raw as $offset => $line) {
@@ -128,8 +131,8 @@ class ProductSheetImporter
             }
 
             $rows[] = [
-                // +2: one for the header row, one because people count from 1.
-                'line'       => $offset + 2,
+                // +1 because people count rows from 1.
+                'line'       => $offset + 1,
                 'name'       => $name,
                 'sku'        => $this->text($line[$columns['sku']] ?? null),
                 'type'       => $this->text($line[$columns['type']] ?? null),
@@ -182,6 +185,7 @@ class ProductSheetImporter
                 'match'      => $product ? ['id' => $product->id, 'name' => $product->name, 'sku' => $product->sku] : null,
                 'changes'    => $this->changes($attributes, $product),
                 'warnings'   => $warnings,
+                'similar'    => $product === null && empty($row['force_new']) ? $this->similarProducts($row['name']) : [],
             ];
 
             $counts[$action]++;
@@ -235,28 +239,175 @@ class ProductSheetImporter
      * @param  array<int, mixed>  $header
      * @return array<string, int|null>
      */
+    /**
+     * Find the header row in the first rows of the sheet and map its columns.
+     *
+     * @param  array<int, array<int, mixed>>  $raw
+     * @return array{0:int,1:array<string,?int>}
+     */
+    private function locateHeader(array $raw): array
+    {
+        $best = null;
+
+        foreach (array_slice($raw, 0, 25, true) as $index => $line) {
+            $columns = $this->mapHeaders($line);
+            $score   = count(array_filter($columns, fn ($c) => $c !== null));
+
+            if ($columns['name'] !== null && $score >= 2) {
+                return [$index, $columns];
+            }
+
+            if ($score > ($best[2] ?? 0)) {
+                $best = [$index, $columns, $score];
+            }
+        }
+
+        // The product list in the original workbook leaves its name column's
+        // header blank: SKU, Type, Cost... sit beside an empty cell. When
+        // the other headers are there, the names are the blank-headed column
+        // just before them.
+        if ($best && $best[2] >= 2 && $best[1]['cost'] !== null) {
+            $header = $raw[$best[0]];
+            $first  = min(array_filter($best[1], fn ($c) => $c !== null));
+
+            for ($i = $first - 1; $i >= 0; $i--) {
+                if (trim((string) ($header[$i] ?? '')) === '') {
+                    $best[1]['name'] = $i;
+
+                    return [$best[0], $best[1]];
+                }
+            }
+        }
+
+        $looksLikeCalculations = collect(array_slice($raw, 0, 25))->flatten()
+            ->contains(fn ($v) => is_string($v) && preg_match('/number sold|profit share/i', $v));
+
+        throw new RuntimeException($looksLikeCalculations
+            ? 'This is the Calculations tab, not the product list. In Google Sheets use File → Download → Microsoft Excel (.xlsx) to get every tab, then pick "Product cost ref sheet".'
+            : 'No product name column found. The sheet needs a "PRODUCT NAME" header, or SKU / Cost headers beside an unlabelled name column — is this the right worksheet?');
+    }
+
+    /** @return array<string, ?int> */
     private function mapHeaders(array $header): array
     {
-        $normalise = fn ($v) => Str::of((string) $v)->lower()->replace(['/', '?'], ' ')->squish()->toString();
+        $normalise = fn ($v) => Str::of((string) $v)->lower()->replace(['/', '?', ':'], ' ')->squish()->toString();
         $found     = [];
 
         foreach ($header as $index => $label) {
-            $found[$normalise($label)] = $index;
+            $key = $normalise($label);
+            if ($key !== '' && ! isset($found[$key])) {
+                $found[$key] = $index;
+            }
         }
+
+        $aliases = [
+            'name'       => ['product name', 'product', 'name', 'item', 'item name'],
+            'sold_as'    => ['auction or bin', 'auction bin', 'auction or bin', 'sold as'],
+            'sale_price' => ['sale price target', 'sale price', 'target', 'target price'],
+        ];
 
         $columns = [];
 
         foreach (self::EXPECTED_HEADERS as $key => $label) {
             $columns[$key] = $found[$normalise($label)] ?? null;
+            foreach ($aliases[$key] ?? [] as $alias) {
+                $columns[$key] ??= $found[$alias] ?? null;
+            }
         }
 
-        if ($columns['name'] === null) {
-            throw new RuntimeException(
-                'No "PRODUCT NAME" column in the header row — is this the right worksheet?'
-            );
+        // "Auction or BIN?" is often cut short or reworded; any header that
+        // starts with "auction" is that column.
+        if ($columns['sold_as'] === null) {
+            foreach ($found as $text => $index) {
+                if (str_starts_with($text, 'auction')) {
+                    $columns['sold_as'] = $index;
+                    break;
+                }
+            }
         }
 
         return $columns;
+    }
+
+    /**
+     * The worksheet to start on: the product list by name (ignoring case and
+     * spacing), else the first sheet whose headers look like one.
+     *
+     * @param  array<int, string>  $sheets
+     */
+    public function guessSheet(string $path, array $sheets): ?string
+    {
+        foreach ($sheets as $name) {
+            if (Str::of($name)->lower()->squish()->toString() === Str::lower(self::DEFAULT_SHEET)) {
+                return $name;
+            }
+        }
+
+        if (count($sheets) > 1) {
+            foreach ($sheets as $name) {
+                try {
+                    $this->read($path, $name);
+
+                    return $name;
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+        }
+
+        return $sheets[0] ?? null;
+    }
+
+    /** @var array<int, array{id:int,name:string,sku:?string,key:string,digits:string}>|null */
+    private ?array $catalogue = null;
+
+    /**
+     * Existing products whose name is close to this one but not the same —
+     * "Brillant fantasy" beside "Brilliant Fantasy". Numbers must agree, so
+     * "Collection 12" is never offered as a copy of "Collection 13".
+     *
+     * @return array<int, array{id:int,name:string,sku:?string}>
+     */
+    public function similarProducts(string $name, int $limit = 3): array
+    {
+        $this->catalogue ??= Product::query()->get(['id', 'name', 'sku'])
+            ->map(fn (Product $p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku] + $this->fuzzyKey((string) $p->name))
+            ->all();
+
+        ['key' => $key, 'digits' => $digits] = $this->fuzzyKey($name);
+        if ($key === '') {
+            return [];
+        }
+
+        $hits = [];
+        foreach ($this->catalogue as $candidate) {
+            if ($candidate['digits'] !== $digits || $candidate['key'] === '') {
+                continue;
+            }
+            $a = strlen($key);
+            $b = strlen($candidate['key']);
+            if (min($a, $b) / max($a, $b) < 0.6) {
+                continue;
+            }
+            similar_text($key, $candidate['key'], $percent);
+            $contains = min($a, $b) >= 8 && (str_contains($key, $candidate['key']) || str_contains($candidate['key'], $key));
+            if ($percent >= 85 || $contains) {
+                $hits[] = ['id' => $candidate['id'], 'name' => $candidate['name'], 'sku' => $candidate['sku'], 'score' => $contains ? max($percent, 90) : $percent];
+            }
+        }
+
+        usort($hits, fn ($x, $y) => $y['score'] <=> $x['score']);
+
+        return array_map(fn ($h) => ['id' => $h['id'], 'name' => $h['name'], 'sku' => $h['sku']], array_slice($hits, 0, $limit));
+    }
+
+    /** @return array{key:string,digits:string} */
+    private function fuzzyKey(string $name): array
+    {
+        $text = Str::of($name)->lower()->replace('&', ' and ')->replaceMatches('/[^a-z0-9]+/', ' ')->squish()->toString();
+        preg_match_all('/\d+/', $text, $m);
+
+        return ['key' => str_replace(' ', '', $text), 'digits' => implode('-', $m[0])];
     }
 
     /**
@@ -265,6 +416,20 @@ class ProductSheetImporter
      */
     private function match(array $row): array
     {
+        // The person chose: update this existing product, or make a new one
+        // even though the name resembles something already there.
+        if (! empty($row['product_id'])) {
+            $chosen = Product::find($row['product_id']);
+
+            if ($chosen) {
+                return [$chosen, 'your choice'];
+            }
+        }
+
+        if (! empty($row['force_new']) && blank($row['sku'])) {
+            return [null, null];
+        }
+
         if (filled($row['sku'])) {
             $bySku = Product::where('sku', $row['sku'])->first();
 
@@ -307,11 +472,11 @@ class ProductSheetImporter
             $attributes['product_type'] = Str::lower($row['type']);
         }
 
-        if ($row['cost'] !== null && ($product === null || $product->unit_cost === null || $overwrite)) {
+        if ($row['cost'] !== null && ($product === null || (float) $product->unit_cost <= 0 || $overwrite)) {
             $attributes['unit_cost'] = $row['cost'];
         }
 
-        if ($row['sale_price'] !== null && ($product === null || $product->sale_price === null || $overwrite)) {
+        if ($row['sale_price'] !== null && ($product === null || (float) $product->sale_price <= 0 || $overwrite)) {
             $attributes['sale_price'] = $row['sale_price'];
         }
 

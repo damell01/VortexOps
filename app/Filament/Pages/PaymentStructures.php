@@ -221,7 +221,7 @@ class PaymentStructures extends Page
             // business's default, so moving business changes how they're paid.
             if (trim((string) ($overrides['custom_payout_formula'] ?? '')) !== '') {
                 $overrides['payout_type'] = 'custom_formula';
-            } elseif (isset($overrides['payout_type']) && ! in_array($overrides['payout_type'], ['profit_share', 'sales_split'], true)) {
+            } elseif (isset($overrides['payout_type']) && ! in_array($overrides['payout_type'], ['profit_share', 'sales_split', 'hourly'], true)) {
                 unset($overrides['payout_type']);
             }
         } else {

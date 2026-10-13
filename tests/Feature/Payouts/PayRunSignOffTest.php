@@ -98,6 +98,8 @@ class PayRunSignOffTest extends TestCase
             'show_id'     => $show->id,
             'streamer_id' => $this->streamer->id,
             'status'      => 'pending',
+            'hours_streamed' => 3,
+            'hours_review' => 'report', // settled on Time & Attendance
         ]);
     }
 

@@ -50,7 +50,7 @@
         @if ($seesTeam && \App\Filament\Pages\TimeAttendance::canAccess())
             @php $review = \App\Filament\Pages\TimeAttendance::reviewCount(); @endphp
             <a href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}" class="flex items-center justify-between gap-3 rounded-xl border px-5 py-3 text-sm {{ $review ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200' }}">
-                <span><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ' need review before payroll' : 'nothing waiting for review' }}</span>
+                <span><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ($review === 1 ? ' needs' : ' need') . ' review before payroll' : 'nothing waiting for review' }}</span>
                 <x-heroicon-m-arrow-right class="h-4 w-4" />
             </a>
         @endif

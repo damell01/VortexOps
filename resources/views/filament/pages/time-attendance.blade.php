@@ -149,8 +149,8 @@
 
 {{-- Review side panel --}}
 @if ($panel)
-    <div class="fixed inset-0 z-40 bg-gray-950/40" wire:click="closePanel" aria-hidden="true"></div>
-    <aside class="vxw fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-y-auto shadow-2xl" style="max-width:30rem;background:var(--vxw-surface);gap:0" role="dialog" aria-modal="true" aria-label="Review time" wire:key="panel-{{ $reviewing }}">
+    <div class="fixed inset-0 z-40" style="background:rgb(3 7 18 / .45)" wire:click="closePanel" aria-hidden="true"></div>
+    <aside class="vxw fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-y-auto shadow-2xl" style="max-width:30rem;background:var(--vxw-surface);gap:0;display:flex;align-content:start;justify-content:flex-start" role="dialog" aria-modal="true" aria-label="Review time" wire:key="panel-{{ $reviewing }}">
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4" style="border-color:var(--vxw-border)">
             <div>
                 <div class="vxw-eyebrow">{{ $panel['kind'] === 'entry' ? 'Time entry' : 'Show Hours Worked' }}</div>

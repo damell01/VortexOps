@@ -181,9 +181,12 @@ class PayoutMatchesTheCalculationsSheetTest extends TestCase
 
         $payout = $this->payoutFor($show);
 
-        // Burden falls to hours only (4.45 × $80 = $356.00 — no shipments on
-        // this show), net 7371.10 − 0 − 356.00 = 7015.10, × 8% = 561.21.
-        $this->assertSame(561.21, (float) $payout->calculated_payout);
+        // No report and nothing clocked, so no Hours Worked: the show's
+        // Whatnot length is never used. No hours and no shipments means no
+        // burden, net 7371.10, × 8% = 589.69 — and the sign-off gate names
+        // the missing hours before the run can be finalised.
+        $this->assertSame(589.69, (float) $payout->calculated_payout);
+        $this->assertStringContainsString('Hours missing', $payout->calculation_notes);
         $this->assertSame('0.00', (string) $payout->product_cost);
         $this->assertStringContainsString('No show report filed', $payout->calculation_notes);
     }

@@ -84,13 +84,13 @@ class StreamerResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = parent::getEloquentQuery()->withCount('inventoryLocations');
+        $query = parent::getEloquentQuery()->with('business')->withCount('inventoryLocations');
 
         if (ChannelContext::isScoped()) {
             $query->where('whatnot_channel_id', ChannelContext::currentId());
         }
 
-        return $query;
+        return $query->inBusinessContext();
     }
 
     public static function canCreate(): bool { return auth()->user()?->isAdmin() ?? false; }
@@ -149,6 +149,13 @@ class StreamerResource extends Resource
                             ->searchable()
                             ->preload()
                             ->helperText('Primary channel this team member is attributed to for stats and analytics.'),
+                        Select::make('business_id')
+                            ->label('Business')
+                            ->relationship('business', 'name')
+                            ->default(fn () => \App\Support\BusinessContext::currentId())
+                            ->placeholder('Not assigned')
+                            ->preload()
+                            ->helperText('Who they work for: decides which rates and Pay Runs they\'re paid in.'),
                     ]),
                 ]),
 
@@ -273,6 +280,7 @@ class StreamerResource extends Resource
                     ->description(fn (Streamer $record) => $record->email)
                     ->extraCellAttributes(['class' => 'vx-col-title'])
                     ->extraHeaderAttributes(['class' => 'vx-col-title']),
+                TextColumn::make('business.name')->label('Business')->badge()->default('Not assigned')->color(fn (Streamer $record) => $record->business_id ? 'primary' : 'gray')->toggleable(),
                 TextColumn::make('streamer_type')->label('Type')->badge()->formatStateUsing(fn ($state) => Streamer::streamerTypeLabels()[$state] ?? 'In-House')->color(fn ($state) => $state === 'remote' ? 'info' : 'gray'),
                 TextColumn::make('member_type')
                     ->label('Role')
@@ -319,6 +327,7 @@ class StreamerResource extends Resource
                 SelectFilter::make('member_type')->label('Role')->options(Streamer::memberTypeLabels()),
                 SelectFilter::make('streamer_type')->label('Streamer Type')->options(Streamer::streamerTypeLabels()),
                 SelectFilter::make('whatnot_channel_id')->label('Channel')->relationship('channel', 'name'),
+                SelectFilter::make('business_id')->label('Business')->relationship('business', 'name'),
             ])
             ->actions([
                 Action::make('analytics')

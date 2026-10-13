@@ -22,6 +22,7 @@ class PayRunReadinessService
             $batch->week_start->toDateString(),
             $batch->week_end->toDateString(),
             $batch->id,
+            $batch->business_id,
         );
         if ($overlap) {
             $problems[] = 'This Pay Run overlaps Pay Run #' . $overlap->id

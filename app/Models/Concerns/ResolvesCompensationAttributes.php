@@ -37,6 +37,16 @@ trait ResolvesCompensationAttributes
         return $this->resolvedCompensationAttribute('payout_percentage', $value);
     }
 
+    public function getHouseCutPercentageAttribute(mixed $value): mixed
+    {
+        return $this->resolvedCompensationAttribute('house_cut_percentage', $value);
+    }
+
+    public function getSalesSplitBasisAttribute(mixed $value): mixed
+    {
+        return $this->resolvedCompensationAttribute('sales_split_basis', $value);
+    }
+
     public function getPackageRateAttribute(mixed $value): mixed
     {
         return $this->resolvedCompensationAttribute('package_rate', $value);

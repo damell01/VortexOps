@@ -116,8 +116,21 @@ class PayrollOverview extends Page
     {
         $this->clearReadMemo();
         try {
-            $result = app(PayRunAutomationService::class)->syncWeek(now(), true);
-            $this->redirect(WeeklyPayoutBatchResource::getUrl('view', ['record' => $result['batch']]));
+            $automation = app(PayRunAutomationService::class);
+            if (\App\Support\BusinessContext::isScoped() || ! \App\Support\BusinessContext::inUse()) {
+                $result = $automation->syncWeek(now(), true, \App\Support\BusinessContext::currentId());
+                $this->redirect(WeeklyPayoutBatchResource::getUrl('view', ['record' => $result['batch']]));
+                return;
+            }
+
+            // Everyone's payroll at once: one run per business.
+            $results = $automation->syncAllForWeek(now(), true);
+            Notification::make()
+                ->title('This week\'s Pay Runs are ready')
+                ->body(collect($results)->map(fn ($r) => $r['batch']->businessLabel() . ' — $' . number_format((float) $r['batch']->total_payout, 2))->implode(' · '))
+                ->success()
+                ->send();
+            $this->redirect(WeeklyPayoutBatchResource::getUrl('index'));
         } catch (\Throwable $e) {
             report($e);
             Notification::make()
@@ -145,6 +158,7 @@ class PayrollOverview extends Page
         $weekEnd = $periodEnd->toDateString();
 
         return $this->payRunMemo = WeeklyPayoutBatch::query()
+            ->inBusinessContext()
             ->withCount('payouts')
             ->whereDate('week_start', '<=', $weekEnd)
             ->whereDate('week_end', '>=', $weekStart)
@@ -157,6 +171,7 @@ class PayrollOverview extends Page
         [$start, $end] = \App\Support\PaySchedule::periodFor(now());
 
         $payouts = Payout::query()
+            ->when(\App\Support\BusinessContext::isScoped(), fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', \App\Support\BusinessContext::currentId())))
             ->whereHas('show', fn ($q) => $q
                 ->inChannelContext()
                 ->where('is_operational', true)
@@ -467,7 +482,7 @@ class PayrollOverview extends Page
 
     public function recentPayRuns(): Collection
     {
-        return WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->limit(6)->get();
+        return WeeklyPayoutBatch::query()->inBusinessContext()->with('business')->withCount('payouts')->latest('week_start')->limit(6)->get();
     }
 
     private function clearReadMemo(): void

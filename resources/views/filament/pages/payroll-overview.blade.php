@@ -234,7 +234,7 @@
                         <a href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view', ['record' => $run]) }}" class="vxw-row" style="grid-template-columns:minmax(0,1fr) auto;text-decoration:none;padding:12px 18px">
                             <div class="vxw-row-main">
                                 <span class="text-[13.5px] font-semibold text-[var(--vxw-text)]">{{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}</span>
-                                <span class="vxw-meta">{{ $run->payouts_count }} {{ \Illuminate\Support\Str::plural('line', $run->payouts_count) }}</span>
+                                <span class="vxw-meta">{{ $run->payouts_count }} {{ \Illuminate\Support\Str::plural('line', $run->payouts_count) }}@unless(\App\Support\BusinessContext::isScoped()) · {{ $run->businessLabel() }}@endunless</span>
                             </div>
                             <div class="grid justify-items-end gap-1">
                                 <span class="vxw-num text-[13.5px] font-semibold text-[var(--vxw-text)]">{{ $money($run->total_payout) }}</span>

@@ -21,6 +21,8 @@ class PaymentStructure
         'payout_type',
         'payout_cadence',
         'payout_percentage',
+        'house_cut_percentage',
+        'sales_split_basis',
         'package_rate',
         'hourly_rate',
         'pwe_rate',
@@ -31,15 +33,44 @@ class PaymentStructure
         'burden_rate_value',
     ];
 
-    public static function settingKey(string $memberType): string
+    /**
+     * The setting holding a team's defaults. Each business can have its own
+     * (Estill streamers are paid differently from Vortex Collects'); a
+     * business that has not saved any uses the shared ones.
+     */
+    public static function settingKey(string $memberType, ?int $businessId = null): string
     {
-        return 'payment_structure_' . ($memberType === 'fulfillment' ? 'fulfillment' : 'streamer');
+        return 'payment_structure_' . ($memberType === 'fulfillment' ? 'fulfillment' : 'streamer')
+            . ($businessId ? '_business_' . $businessId : '');
     }
 
     /** @return array<string,mixed> */
-    public static function defaults(string $memberType): array
+    public static function defaults(string $memberType, ?int $businessId = null): array
     {
-        $raw = Setting::get(self::settingKey($memberType));
+        if ($businessId && self::hasOwnDefaults($memberType, $businessId)) {
+            return self::decode(Setting::get(self::settingKey($memberType, $businessId)));
+        }
+
+        return self::decode(Setting::get(self::settingKey($memberType)));
+    }
+
+    /** Whether a business has saved its own defaults rather than using the shared ones. */
+    public static function hasOwnDefaults(string $memberType, int $businessId): bool
+    {
+        $raw = Setting::get(self::settingKey($memberType, $businessId));
+
+        return $raw !== null && trim((string) $raw) !== '';
+    }
+
+    /** Go back to the shared defaults for this business. */
+    public static function clearBusinessDefaults(string $memberType, int $businessId): void
+    {
+        Setting::set(self::settingKey($memberType, $businessId), '');
+    }
+
+    /** @return array<string,mixed> */
+    private static function decode(mixed $raw): array
+    {
         if ($raw === null || trim((string) $raw) === '') {
             return [];
         }
@@ -50,7 +81,7 @@ class PaymentStructure
             : [];
     }
 
-    public static function saveDefaults(string $memberType, array $values): void
+    public static function saveDefaults(string $memberType, array $values, ?int $businessId = null): void
     {
         $payload = [];
         foreach (self::FIELDS as $field) {
@@ -59,15 +90,16 @@ class PaymentStructure
             }
         }
 
-        Setting::set(self::settingKey($memberType), json_encode($payload));
+        Setting::set(self::settingKey($memberType, $businessId), json_encode($payload));
 
         $activity = activity('payment_structure');
         if ($user = auth()->user()) {
             $activity->causedBy($user);
         }
         $activity
-            ->withProperties(['member_type' => $memberType, 'values' => $payload])
-            ->log(ucfirst($memberType) . ' payment structure updated');
+            ->withProperties(['member_type' => $memberType, 'business_id' => $businessId, 'values' => $payload])
+            ->log(ucfirst($memberType) . ' payment structure updated'
+                . ($businessId ? ' for ' . (\App\Models\Business::whereKey($businessId)->value('name') ?? "business #{$businessId}") : ''));
     }
 
     public static function adoptDefaults(Streamer $member): void
@@ -109,7 +141,7 @@ class PaymentStructure
     public static function resolve(Streamer $member): array
     {
         $memberType = $member->isFulfillment() ? 'fulfillment' : 'streamer';
-        $defaults = self::defaults($memberType);
+        $defaults = self::defaults($memberType, $member->getRawOriginal('business_id') ?? $member->business_id);
         $overrideFields = $member->compensation_override_fields;
         $legacy = $overrideFields === null;
 
@@ -167,7 +199,7 @@ class PaymentStructure
 
     private static function normalize(string $field, mixed $value): mixed
     {
-        if (in_array($field, ['payout_percentage', 'package_rate', 'hourly_rate', 'pwe_rate', 'label_rate', 'burden_rate_value'], true)) {
+        if (in_array($field, ['payout_percentage', 'house_cut_percentage', 'package_rate', 'hourly_rate', 'pwe_rate', 'label_rate', 'burden_rate_value'], true)) {
             return $value === null || $value === '' ? null : (float) $value;
         }
         if ($field === 'include_tips') {

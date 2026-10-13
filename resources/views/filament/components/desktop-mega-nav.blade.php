@@ -44,6 +44,7 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
  ['Pay Run History',\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')],
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
+ ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
 ];
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
@@ -101,6 +102,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 </div></div>
 @endforeach
 @if($user?->canSwitchChannels())
+@if(\App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
 </nav>

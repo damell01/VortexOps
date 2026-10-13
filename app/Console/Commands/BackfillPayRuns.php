@@ -63,8 +63,9 @@ class BackfillPayRuns extends Command
                 continue;
             }
 
-            $result = $automation->syncWeek($row['week_start']);
-            $this->info("Synced {$row['week_start']} — $" . number_format((float) $result['batch']->total_payout, 2));
+            foreach ($automation->syncAllForWeek($row['week_start']) as $result) {
+                $this->info("Synced {$row['week_start']} ({$result['batch']->businessLabel()}) — $" . number_format((float) $result['batch']->total_payout, 2));
+            }
         }
 
         return self::SUCCESS;

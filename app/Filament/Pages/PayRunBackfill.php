@@ -96,7 +96,7 @@ class PayRunBackfill extends Page
                 continue;
             }
 
-            $automation->syncWeek($row['week_start'], true);
+            $automation->syncAllForWeek($row['week_start'], true);
             $changed++;
         }
 

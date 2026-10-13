@@ -262,9 +262,29 @@ class Show extends Model
     /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return \App\Support\ChannelContext::isScoped()
-            ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
-            : $query;
+        return $query
+            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where($q->qualifyColumn('whatnot_channel_id'), \App\Support\ChannelContext::currentId()))
+            ->inBusinessContext();
+    }
+
+    /**
+     * Limit to the business payroll is being run for (App\Support\BusinessContext).
+     *
+     * Both businesses stream on the same channels, so a show belongs to the
+     * business of the people on it. A show nobody is assigned to yet stays
+     * visible under either: assigning someone is how it finds its business.
+     */
+    public function scopeInBusinessContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! \App\Support\BusinessContext::isScoped()) {
+            return $query;
+        }
+
+        $businessId = \App\Support\BusinessContext::currentId();
+
+        return $query->where(fn ($q) => $q
+            ->whereHas('streamers', fn ($s) => $s->where('streamers.business_id', $businessId))
+            ->orWhereDoesntHave('streamers'));
     }
 
     public function streamers(): BelongsToMany

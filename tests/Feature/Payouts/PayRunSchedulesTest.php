@@ -5,6 +5,7 @@ namespace Tests\Feature\Payouts;
 use App\Filament\Resources\WeeklyPayoutBatchResource\Pages\CreateWeeklyPayoutBatch;
 use App\Models\Business;
 use App\Models\Payout;
+use App\Models\PayRunType;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -66,15 +67,6 @@ class PayRunSchedulesTest extends TestCase
         parent::tearDown();
     }
 
-    private function separate(array $extra = []): void
-    {
-        PayRunSchedules::save(array_replace_recursive([
-            'separate' => true,
-            'wages' => ['frequency' => 'weekly', 'auto' => true],
-            'share' => ['frequency' => 'monthly', 'auto' => true],
-        ], $extra));
-    }
-
     private function show(string $date): Show
     {
         $show = Show::create([
@@ -91,68 +83,72 @@ class PayRunSchedulesTest extends TestCase
         return $show;
     }
 
-    public function test_off_by_default_one_run_pays_everything_as_before(): void
+    public function test_manual_is_default_even_when_the_old_global_switch_is_on(): void
     {
+        Setting::set('payroll_auto_setup_enabled', '1');
         $this->show('2026-10-14');
-        $batch = app(PayRunAutomationService::class)->syncAllForWeek('2026-10-14')[0]['batch'];
-
-        $this->assertNull($batch->kind);
-        $this->assertSame(['profit_share'], $batch->payouts()->pluck('payout_type')->all());
-        $this->assertStringContainsString('hourly ($15/hr × 2hrs)', $batch->payouts()->first()->calculation_notes);
+        $this->artisan('payroll:sync-pay-runs')->assertSuccessful();
+        $this->artisan('payroll:sync-pay-runs', ['--force' => true])->assertSuccessful();
+        $this->assertSame(0, WeeklyPayoutBatch::count());
+        $this->assertSame(0, PayRunType::where('auto_create', true)->count());
     }
 
-    public function test_separate_runs_pay_hours_weekly_and_profit_share_monthly(): void
+    public function test_only_explicitly_opted_in_types_create_runs(): void
     {
-        $this->separate();
-        $this->show('2026-10-06');
-        $this->show('2026-10-14');
-        TimeEntry::create(['user_id' => $this->person->id, 'reason' => 'cleanup', 'status' => 'ok', 'clocked_in_at' => '2026-10-13 14:00:00', 'clocked_out_at' => '2026-10-13 15:00:00']);
-
-        $service = app(PayRunAutomationService::class);
-        $service->syncAllForWeek('2026-10-14');
-        $service->syncWeek('2026-10-06', true, null, 'wages');
-
-        $share = WeeklyPayoutBatch::where('kind', 'share')->sole();
-        $this->assertSame(['2026-10-01', '2026-10-31'], [$share->week_start->toDateString(), $share->week_end->toDateString()]);
-        $this->assertSame(['profit_share', 'profit_share'], $share->payouts()->pluck('payout_type')->all());
-        $this->assertStringNotContainsString('hourly', $share->payouts()->first()->calculation_notes);
-
-        $week = WeeklyPayoutBatch::where('kind', 'wages')->whereDate('week_start', '2026-10-12')->sole();
-        $this->assertEqualsCanonicalizing(['show_hours', 'clocked_time'], $week->payouts()->pluck('payout_type')->all());
-        $this->assertEquals(30.0, (float) $week->payouts()->where('payout_type', 'show_hours')->value('calculated_payout'));
-
-        $this->assertSame(3, WeeklyPayoutBatch::count(), 'two weekly wage runs and one monthly share run');
-    }
-
-    public function test_turning_it_on_converts_this_weeks_draft_run_and_moves_share_lines(): void
-    {
+        $wages = PayRunType::where('kind', 'wages')->sole();
+        $wages->update(['schedule_enabled' => true, 'auto_create' => true]);
         $this->show('2026-10-14');
         $service = app(PayRunAutomationService::class);
-        $legacy = $service->syncAllForWeek('2026-10-14')[0]['batch'];
-
-        $this->separate();
-        $service->syncAllForWeek('2026-10-14');
-
-        $legacy->refresh();
-        $this->assertSame('wages', $legacy->kind);
-        $this->assertSame(['show_hours'], $legacy->payouts()->pluck('payout_type')->all());
-        $this->assertSame(['profit_share'], WeeklyPayoutBatch::where('kind', 'share')->sole()->payouts()->pluck('payout_type')->all());
+        $service->syncAllForWeek('2026-10-14', true, scheduled: true);
+        $service->syncAllForWeek('2026-10-14', true, scheduled: true);
+        $run = WeeklyPayoutBatch::sole();
+        $this->assertSame($wages->id, $run->pay_run_type_id);
+        $this->assertSame('wages', $run->kind);
+        $this->assertSame(['show_hours'], $run->payouts()->pluck('payout_type')->all());
+        $this->assertEquals(30, (float) $run->total_payout);
     }
 
-    public function test_a_type_set_not_to_auto_create_waits_for_an_admin(): void
+    public function test_combined_run_keeps_wages_and_share_as_separate_lines(): void
     {
-        $this->separate(['share' => ['auto' => false]]);
+        $show = $this->show('2026-10-14');
+        Livewire::test(CreateWeeklyPayoutBatch::class)
+            ->fillForm(['kind' => '', 'week_start' => '2026-10-10', 'week_end' => '2026-10-20'])
+            ->call('create')->assertHasNoFormErrors();
+        $run = WeeklyPayoutBatch::sole();
+        $this->assertNull($run->kind);
+        $this->assertEqualsCanonicalizing(['profit_share', 'show_hours'], $run->payouts()->pluck('payout_type')->all());
+        $this->assertSame('2026-10-20', $run->week_end->toDateString());
+    }
+
+    public function test_named_type_snapshots_coverage_and_name_when_created(): void
+    {
+        $type = PayRunType::create(['name' => 'October commissions', 'kind' => 'share']);
         $this->show('2026-10-14');
+        Livewire::test(CreateWeeklyPayoutBatch::class)
+            ->fillForm(['pay_run_type_id' => $type->id, 'week_start' => '2026-10-01', 'week_end' => '2026-10-20'])
+            ->call('create')->assertHasNoFormErrors();
+        $run = WeeklyPayoutBatch::sole();
+        $type->update(['name' => 'Renamed', 'kind' => 'wages']);
+        $this->assertSame('share', $run->fresh()->kind);
+        $this->assertSame('October commissions', $run->kindLabel());
+        $this->assertSame(['profit_share'], $run->payouts()->pluck('payout_type')->all());
+    }
 
-        app(PayRunAutomationService::class)->syncAllForWeek('2026-10-14', true, scheduled: true);
-
-        $this->assertSame(0, WeeklyPayoutBatch::where('kind', 'share')->count());
-        $this->assertSame(1, WeeklyPayoutBatch::where('kind', 'wages')->count());
+    public function test_finalized_pay_is_not_recalculated_by_another_run(): void
+    {
+        $show = $this->show('2026-10-14');
+        $service = app(PayRunAutomationService::class);
+        $run = $service->syncWeek('2026-10-14', true, null, 'share')['batch'];
+        $run->update(['status' => 'finalized']);
+        $line = $run->payouts()->sole();
+        $before = $line->getAttributes();
+        $show->update(['whatnot_net' => 5000]);
+        $service->syncWeek('2026-10-14', true, null, 'wages');
+        $this->assertSame($before, $line->fresh()->getAttributes());
     }
 
     public function test_an_admin_creates_a_run_of_any_type_for_custom_dates(): void
     {
-        $this->separate(['share' => ['auto' => false]]);
         $this->show('2026-10-03');
         $this->show('2026-10-14');
 

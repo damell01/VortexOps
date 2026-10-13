@@ -214,39 +214,44 @@
         @endif
     </section>
 
-    @php $runPreview = $this->runSchedulePreview; @endphp
-    <section class="vx-card p-5" aria-labelledby="run-schedules-heading">
-        <h2 id="run-schedules-heading" class="text-lg font-bold">Pay run schedules</h2>
-        <p class="mt-1 text-sm text-gray-500">Pay profit share on its own schedule — monthly, say — while hourly pay and other wages stay weekly. Off, every run pays everything on the pay week above. Either way an admin can create a run of any type for any dates from Pay Runs → New.</p>
-        <label class="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="run_schedules.separate"> Pay profit share and wages on separate runs</label>
-        @if($run_schedules['separate'] ?? false)
-            <div class="mt-4 grid gap-4 md:grid-cols-2">
-                @foreach(\App\Support\PayRunSchedules::KINDS as $kind => $kindLabel)
-                    <div class="rounded-[10px] border border-[var(--vx-border)] p-4 text-sm" wire:key="run-schedule-{{ $kind }}">
-                        <div class="font-bold">{{ $kindLabel }}</div>
-                        <div class="text-xs text-gray-500">{{ $kind === 'share' ? 'Profit share and sales split, for both businesses.' : 'Hourly pay (show hours and time not on a show), per-package, flat and other pay.' }}</div>
-                        <label class="mt-3 block"><span class="text-xs font-semibold text-gray-500">How often</span>
-                            <select wire:model.live="run_schedules.{{ $kind }}.frequency" class="mt-1 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+    <section class="vx-card p-5" aria-labelledby="run-types-heading">
+        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types</h2>
+        <p class="mt-1 text-sm text-gray-500">Create runs whenever you need them from Pay Runs → New, for any start and end dates. Wages and profit share stay separate pay lines, even in a combined run. Scheduling and automatic creation are optional for each type.</p>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+            @foreach($run_types as $index => $type)
+                <div class="rounded-[10px] border border-[var(--vx-border)] p-4 text-sm" wire:key="run-type-{{ $index }}">
+                    <label class="block"><span class="text-xs font-semibold">Type name</span>
+                        <input wire:model="run_types.{{ $index }}.name" maxlength="100" placeholder="e.g. Monthly profit share" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
+                    </label>
+                    @error("run_types.$index.name")<p class="text-danger-600">{{ $message }}</p>@enderror
+                    <label class="mt-3 block"><span class="text-xs font-semibold">What it pays</span>
+                        <select wire:model="run_types.{{ $index }}.kind" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
+                            <option value="wages">Hourly & wages</option><option value="share">Profit share</option><option value="">Wages + profit share</option>
+                        </select>
+                    </label>
+                    <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.active"> Available for new runs</label>
+                    <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model.live="run_types.{{ $index }}.schedule_enabled"> Use a schedule to suggest dates</label>
+                    @if($type['schedule_enabled'])
+                        <label class="mt-3 block"><span class="text-xs font-semibold">Frequency</span>
+                            <select wire:model="run_types.{{ $index }}.frequency" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
                                 @foreach(\App\Support\PayRunSchedules::FREQUENCIES as $value => $text)<option value="{{ $value }}">{{ $text }}</option>@endforeach
                             </select>
                         </label>
-                        @if(in_array($run_schedules[$kind]['frequency'] ?? 'weekly', ['weekly', 'biweekly', 'monthly'], true))
-                            <label class="mt-3 block"><span class="text-xs font-semibold text-gray-500">{{ ($run_schedules[$kind]['frequency'] ?? '') === 'monthly' ? 'Starts on this day of the month (optional, 1st by default)' : 'A date a period starts on (optional)' }}</span>
-                                <input type="date" wire:model.live="run_schedules.{{ $kind }}.anchor" class="mt-1 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
-                            </label>
-                        @endif
-                        <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_schedules.{{ $kind }}.auto"> Create these runs automatically</label>
-                        <div class="mt-3 text-xs text-gray-500">Current period: <b class="text-gray-900 dark:text-white">{{ $runPreview[$kind] ?? '—' }}</b></div>
-                    </div>
-                @endforeach
-            </div>
-            <p class="mt-3 text-xs text-gray-500">Turning this on changes runs from now on: a draft run covering this week becomes the wages run, and its profit share lines move to the profit share run. Finalized runs keep what they paid. Automatic creation also needs "Automatic weekly setup" below.</p>
-        @endif
+                        <label class="mt-3 block"><span class="text-xs font-semibold">Schedule start date (optional)</span><input type="date" wire:model="run_types.{{ $index }}.anchor" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800"></label>
+                        @error("run_types.$index.anchor")<p class="text-danger-600">{{ $message }}</p>@enderror
+                        <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.auto_create"> Automatically create draft runs for this type</label>
+                        <p class="mt-2 text-xs text-gray-500">Leave unchecked to create runs yourself. Any scheduled dates can be overridden when creating a run. Nothing is finalized or paid automatically.</p>
+                    @else
+                        <p class="mt-3 text-xs text-gray-500">Manual creation · Choose dates each time.</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+        <button type="button" wire:click="addRunType" class="mt-4 rounded-lg border border-[var(--vx-border)] px-4 py-2 text-sm font-semibold">Add pay run type</button>
     </section>
-
     <details class="vx-card p-5">
-        <summary class="cursor-pointer text-lg font-bold">Pay Run Automation</summary>
-        <div class="mt-4 grid gap-3 md:grid-cols-3"><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_setup_enabled">Automatic weekly setup</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_recalculate_drafts">Recalculate drafts</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_include_zero_activity">Include no-activity members</label></div>
+        <summary class="cursor-pointer text-lg font-bold">Draft calculation options</summary>
+        <div class="mt-4 grid gap-3 md:grid-cols-2"><label class="rounded-lg border p-4 text-sm"><input class="mr-2" type="checkbox" wire:model="payroll_auto_recalculate_drafts">Recalculate drafts during opted-in scheduled setup</label><label class="rounded-lg border p-4 text-sm"><input class="mr-2" type="checkbox" wire:model="payroll_include_zero_activity">Include no-activity members</label></div>
     </details>
 
     <div class="flex justify-end"><button wire:click="save" class="rounded-[10px] bg-primary-600 px-6 py-3 text-sm font-bold text-white ">Save Payment Structures</button></div>

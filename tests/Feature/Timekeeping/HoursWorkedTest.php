@@ -240,7 +240,9 @@ class HoursWorkedTest extends TestCase
         [$payout] = app(PayoutService::class)->calculateForShow($show->load('streamers'));
 
         $this->assertEquals(2.5, (float) $payout->hours_worked);
-        $this->assertStringContainsString('hourly ($15/hr × 2.5hrs)', $payout->calculation_notes);
+        $line = \App\Models\Payout::where('show_id', $show->id)->where('payout_type', 'show_hours')->sole();
+        $this->assertEquals(37.5, (float) $line->calculated_payout);
+        $this->assertStringNotContainsString('hourly', $payout->calculation_notes);
     }
 
     public function test_sign_off_names_unsettled_hours_and_flagged_time(): void

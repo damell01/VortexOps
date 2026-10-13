@@ -14,7 +14,7 @@
             @media(max-width:640px){.vx-global-clock:has(.vx-clock-banner){top:64px}.vx-clock-banner{padding:12px;gap:10px;flex-wrap:wrap}.vx-clock-banner-copy p{max-width:70vw}.vx-clock-banner-actions{width:100%;justify-content:space-between}.vx-clock-banner-actions button{padding:8px 18px}}
         </style>
         <aside class="vx-clock-banner" aria-label="Active time clock reminder" wire:key="clock-banner-{{ $entry->id }}"
-            x-data="{seconds:{{ max(0, (int) $entry->clocked_in_at->diffInSeconds(now())) }}, timer:null, init(){this.timer=setInterval(()=>this.seconds++,1000)}, destroy(){clearInterval(this.timer)}, get elapsed(){return Math.floor(this.seconds/3600)+':'+String(Math.floor(this.seconds/60)%60).padStart(2,'0')+':'+String(this.seconds%60).padStart(2,'0')}}">
+            x-data="{seconds:{{ max(0, (int) $entry->clocked_in_at->diffInSeconds(now())) }}, timer:null, started:0, init(){this.started=Date.now()-this.seconds*1000;this.timer=setInterval(()=>this.seconds=Math.max(0,Math.floor((Date.now()-this.started)/1000)),1000)}, destroy(){clearInterval(this.timer)}, get elapsed(){return Math.floor(this.seconds/3600)+':'+String(Math.floor(this.seconds/60)%60).padStart(2,'0')+':'+String(this.seconds%60).padStart(2,'0')}}">
             <div class="vx-clock-banner-info">
                 <x-filament::icon icon="heroicon-o-clock" />
                 <div class="vx-clock-banner-copy"><strong>You are clocked in</strong>

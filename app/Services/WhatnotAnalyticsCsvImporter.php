@@ -167,7 +167,7 @@ class WhatnotAnalyticsCsvImporter
         return [$matches->first(), $sameDay->isNotEmpty() ? 'exact' : 'date_tolerant', false];
     }
 
-    private function metrics(array $row): array
+    public function metrics(array $row): array
     {
         $map = [
             ['gross_revenue', ['Est. Sales', 'Estimated Sales']],
@@ -190,13 +190,13 @@ class WhatnotAnalyticsCsvImporter
         return $out;
     }
 
-    private function number(mixed $raw, bool $percent = false): ?float
+    public function number(mixed $raw, bool $percent = false): ?float
     {
         $value = str_replace([',', '$', '%'], '', trim((string) ($raw ?? '')));
         return is_numeric($value) ? (float) $value / ($percent ? 100 : 1) : null;
     }
 
-    private function complete(array $metrics): bool
+    public function complete(array $metrics): bool
     {
         return isset($metrics['gross_revenue'], $metrics['whatnot_net'], $metrics['show_duration']) && $metrics['show_duration'] > 0
             && ($metrics['gross_revenue'] <= 0 || (float) ($metrics['completed_earnings'] ?? 0) > 0);
@@ -207,12 +207,12 @@ class WhatnotAnalyticsCsvImporter
         if (count($stats['examples']) < 20) $stats['examples'][] = compact('title', 'date', 'action');
     }
 
-    private function normalize(?string $value): string
+    public function normalize(?string $value): string
     {
         return (string) Str::of((string) $value)->lower()->squish()->replaceMatches('/[^\\pL\\pN]+/u', '');
     }
 
-    private function different(mixed $a, mixed $b): bool
+    public function different(mixed $a, mixed $b): bool
     {
         if (is_numeric($a) && is_numeric($b)) return abs((float) $a - (float) $b) > 0.0001;
         return (string) ($a ?? '') !== (string) ($b ?? '');

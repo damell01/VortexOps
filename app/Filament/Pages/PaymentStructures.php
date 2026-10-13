@@ -47,6 +47,7 @@ class PaymentStructures extends Page
     protected function getHeaderActions(): array
     {
         return [
+            \Filament\Actions\Action::make('save_rates')->label('Save changes')->icon('heroicon-o-check')->color('gray')->action(fn () => $this->save()),
             \Filament\Actions\Action::make('new_pay_run')->label('New Pay Run')->icon('heroicon-o-plus')
                 ->url(\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create'))
                 ->visible(fn () => auth()->user()?->can('create', \App\Models\WeeklyPayoutBatch::class)),

@@ -156,6 +156,7 @@ class PayRunLifecycleHardeningTest extends TestCase
             'product_cost' => 100,
             'gross_revenue' => 500,
             'hours_streamed' => 1,
+            'hours_review' => 'report', // settled on Time & Attendance
         ]);
     }
 }

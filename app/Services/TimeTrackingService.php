@@ -246,7 +246,7 @@ class TimeTrackingService
             ->whereHas('show', fn ($q) => $q->whereDate('show_date', '>=', self::since()->toDateString())->where('status', '!=', 'cancelled'))
             ->when($userId, fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('user_id', $userId)))
             ->when($showIds !== null, fn ($q) => $q->whereIn('show_id', $showIds ?: [0]))
-            ->with(['show:id,title,show_date,start_time,show_duration,whatnot_channel_id', 'streamer:id,name,user_id'])
+            ->with(['show:id,title,show_date,start_time,show_duration,whatnot_channel_id', 'streamer:id,name,user_id,streamer_type'])
             ->get();
 
         $clock = TimeEntry::whereIn('show_id', $entries->pluck('show_id'))->whereNotNull('clocked_out_at')
@@ -260,7 +260,8 @@ class TimeTrackingService
             $reportMinutes = $entry->hours_streamed !== null ? (int) round((float) $entry->hours_streamed * 60) : null;
             $kind = match (true) {
                 $reportMinutes === null => 'missing',
-                $clockMinutes === 0 => 'no_clock',
+                // Remote streamers are not on site to clock in.
+                $clockMinutes === 0 => $entry->streamer?->streamer_type === 'remote' ? null : 'no_clock',
                 abs($reportMinutes - $clockMinutes) > self::MISMATCH_MINUTES => 'mismatch',
                 default => null,
             };

@@ -29,6 +29,8 @@ use Illuminate\Validation\ValidationException;
 
 class ReviewShowStreamers extends ListRecords
 {
+    use \App\Filament\Concerns\DownloadsTableCsv;
+
     protected static string $resource = ShowResource::class;
     private ?ShowStreamerSuggester $suggester = null;
     private array $suggestionMemo = [];

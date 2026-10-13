@@ -201,11 +201,13 @@ class ShowCostAndHoursComeFromTheSystemTest extends TestCase
 
     // ── Hours and shipments ────────────────────────────────────────────────
 
-    public function test_hours_are_filled_in_from_the_length_of_the_show(): void
+    public function test_hours_are_not_filled_in_from_the_length_of_the_show(): void
     {
-        $this->form()->assertSet('hoursStreamed', '4.45');
+        // Hours Worked is what the person worked, not how long the stream
+        // ran on Whatnot. The length is shown for reference and never used.
+        $this->form()->assertSet('hoursStreamed', '');
 
-        $this->assertSame('4.45', (string) $this->entry()->hours_streamed);
+        $this->assertNull($this->entry()->hours_streamed);
     }
 
     public function test_shipments_are_counted_off_the_show(): void
@@ -223,8 +225,8 @@ class ShowCostAndHoursComeFromTheSystemTest extends TestCase
     {
         $this->form()
             ->call('goToStep', 2)
-            ->assertSee('Hours streamed')
-            ->assertSee('Show length on Whatnot: 4.45 hrs')
+            ->assertSee('Hours worked')
+            ->assertSee('show length on Whatnot: 4.45 hrs')
             ->assertSee('shipments: 0');
     }
 

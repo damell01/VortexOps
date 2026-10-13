@@ -303,7 +303,7 @@ class Timekeeping extends Page
     {
         return Action::make('editEntry')
             ->label('Edit')->link()->size('sm')->icon('heroicon-m-pencil-square')
-            ->modalHeading('Correct this time')
+            ->modalHeading('Correct this time')->modalWidth('lg')
             ->modalSubmitActionLabel('Save change')
             ->schema(function (array $arguments) {
                 $entry = TimeEntry::with('user')->find($arguments['entry'] ?? 0);
@@ -341,7 +341,7 @@ class Timekeeping extends Page
     {
         return Action::make('addTime')
             ->label('Add missed time')->icon('heroicon-m-plus')->color('gray')->size('sm')
-            ->modalHeading('Add time you forgot to clock')
+            ->modalHeading('Add time you forgot to clock')->modalWidth('lg')
             ->modalDescription('Added time is flagged for an admin to review before it is paid.')
             ->modalSubmitActionLabel('Add time')
             ->schema(fn () => [

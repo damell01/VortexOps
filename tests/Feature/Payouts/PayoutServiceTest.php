@@ -44,6 +44,15 @@ class PayoutServiceTest extends TestCase
         ]);
     }
 
+    /**
+     * Two Hours Worked on the show's report. Pay reads hours from the report
+     * (or the clock), never from the show's length on Whatnot.
+     */
+    private function workedTwoHours(Streamer $streamer): void
+    {
+        StreamerLogEntry::create(['show_id' => $this->show->id, 'streamer_id' => $streamer->id, 'hours_streamed' => 2]);
+    }
+
     private function makeStreamer(array $attrs): Streamer
     {
         return Streamer::create(array_merge([
@@ -60,6 +69,7 @@ class PayoutServiceTest extends TestCase
             'payout_percentage' => 35,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -77,6 +87,7 @@ class PayoutServiceTest extends TestCase
             'include_tips'      => true,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -94,6 +105,7 @@ class PayoutServiceTest extends TestCase
             'include_tips' => false,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -121,6 +133,7 @@ class PayoutServiceTest extends TestCase
             'status'      => 'admin_approved',
             'pwe_count'   => 10,
             'label_count' => 40,
+            'hours_streamed' => 2,
         ]);
 
         $payouts = $this->service->calculateForShow($this->show->fresh());
@@ -143,6 +156,7 @@ class PayoutServiceTest extends TestCase
             'include_tips'      => true,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -166,6 +180,7 @@ class PayoutServiceTest extends TestCase
             'owner_fee_deduct_from_payout' => true,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -187,6 +202,7 @@ class PayoutServiceTest extends TestCase
             'payout_percentage' => 40,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -209,6 +225,7 @@ class PayoutServiceTest extends TestCase
             'owner_fee_deduct_from_payout' => true,
         ]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -221,6 +238,7 @@ class PayoutServiceTest extends TestCase
     {
         $streamer = $this->makeStreamer(['payout_type' => 'profit_share', 'payout_percentage' => 40]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -232,6 +250,7 @@ class PayoutServiceTest extends TestCase
     {
         $streamer = $this->makeStreamer(['payout_type' => 'hourly', 'hourly_rate' => 25]);
         $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $this->workedTwoHours($streamer);
 
         $payouts = $this->service->calculateForShow($this->show);
 
@@ -245,6 +264,7 @@ class PayoutServiceTest extends TestCase
 
         $this->show->streamers()->attach($s1->id, ['is_primary' => true]);
         $this->show->streamers()->attach($s2->id, ['is_primary' => false]);
+        $this->workedTwoHours($s1);
 
         $payouts = collect($this->service->calculateForShow($this->show))->keyBy('streamer_id');
 
@@ -268,6 +288,7 @@ class PayoutServiceTest extends TestCase
 
         $this->show->streamers()->attach($s1->id);
         $this->show->streamers()->attach($s2->id);
+        $this->workedTwoHours($s1);
 
         $payouts = collect($this->service->calculateForShow($this->show))->keyBy('streamer_id');
 

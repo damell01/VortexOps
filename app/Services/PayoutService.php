@@ -112,7 +112,7 @@ class PayoutService
                     ? ' — non-primary on collab show, revenue share goes to the primary streamer; split manually outside VortexOps'
                     : '';
 
-                $calculationNotes = $share['note'] . $notPrimaryNote;
+                $calculationNotes = $share['note'] . $notPrimaryNote . $hoursMissingNote;
 
                 if ($streamer->include_tips) {
                     $calculatedPayout = round($calculatedPayout + $tipShare, 2);

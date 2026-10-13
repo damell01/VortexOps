@@ -32,6 +32,9 @@ class PaymentStructures extends Page
     public bool $payroll_auto_recalculate_drafts = true;
     public bool $payroll_include_zero_activity = false;
     public string $member_filter = 'streamer';
+    public string $member_search = '';
+    public string $pay_method_filter = '';
+    public int $member_page = 1;
     public ?int $editing_member_id = null;
     public array $member_override_enabled = [];
     public array $member_override_values = [];
@@ -123,6 +126,7 @@ class PaymentStructures extends Page
     public function setMemberFilter(string $filter): void
     {
         $this->member_filter = in_array($filter, ['streamer', 'fulfillment'], true) ? $filter : 'streamer';
+        $this->member_page = 1;
         $this->closeMemberEditor();
     }
 
@@ -192,6 +196,8 @@ class PaymentStructures extends Page
         return Streamer::query()
             ->inBusinessContext()
             ->when(! $this->show_archived, fn ($q) => $q->where(fn ($q) => $q->where('status', '!=', 'inactive')->orWhereNull('status')))
+            ->when(trim($this->member_search) !== '', fn ($q) => $q->where('name', 'like', '%' . trim($this->member_search) . '%'))
+            ->with(['channel', 'business', 'user'])
             ->orderBy('member_type')->orderBy('name')->get();
     }
 
@@ -199,7 +205,63 @@ class PaymentStructures extends Page
     {
         return $this->members->filter(fn (Streamer $member) => $this->member_filter === 'fulfillment'
             ? $member->isFulfillment()
-            : ! $member->isFulfillment());
+            : ! $member->isFulfillment())->filter(fn (Streamer $member) => $this->pay_method_filter === '' || ($member->effectiveCompensation()['effective']['payout_type'] ?? null) === $this->pay_method_filter);
+    }
+
+    public function updatedMemberSearch(): void { $this->member_page = 1; }
+    public function updatedPayMethodFilter(): void { $this->member_page = 1; }
+    public function setMemberPage(int $page): void { $this->member_page = max(1, min($page, max(1, (int) ceil($this->filteredMembers->count() / 10)))); }
+
+    public function getPayrollSummaryProperty(): array
+    {
+        return [
+            'people' => Streamer::query()->inBusinessContext()->where('status', 'active')->count(),
+            'draft_total' => \App\Models\WeeklyPayoutBatch::query()->inBusinessContext()->where('status', 'draft')->sum('total_payout'),
+            'scheduled' => \App\Models\PayRunType::where('active', true)->where('schedule_enabled', true)->count(),
+            'types' => \App\Models\PayRunType::where('active', true)->count(),
+        ];
+    }
+
+    public function getRosterRowsProperty(): \Illuminate\Support\Collection
+    {
+        $members = $this->filteredMembers;
+        $page = max(1, min($this->member_page, max(1, (int) ceil($members->count() / 10))));
+        return $members->slice(($page - 1) * 10, 10)->map(function (Streamer $member) {
+            $pay = $member->effectiveCompensation();
+            $effective = $pay['effective'];
+            $kind = $effective['payout_type'] ?? '';
+            $method = match ($kind) {
+                'profit_share' => 'Show formula', 'sales_split' => 'Sales earnings', 'hourly' => 'Hourly wages',
+                default => Streamer::payoutTypeLabels()[$kind] ?? 'Custom calculation',
+            };
+            $rate = match ($kind) {
+                'hourly' => '$' . number_format((float) ($effective['hourly_rate'] ?? 0), 2) . ' / hour',
+                'sales_split' => number_format(100 - (float) ($effective['house_cut_percentage'] ?? 0), 2) . '% of earnings',
+                'profit_share' => number_format((float) ($effective['payout_percentage'] ?? 0), 2) . '% · show formula',
+                'package' => '$' . number_format((float) ($effective['package_rate'] ?? 0), 2) . ' / package',
+                default => 'Configured calculation',
+            };
+            if ($member->paidHourlyRate() !== null) $rate .= ' + $' . number_format($member->paidHourlyRate(), 2) . ' / hr';
+            return ['member' => $member, 'method' => $method, 'rate' => $rate,
+                'initials' => collect(explode(' ', trim($member->name)))->filter()->take(2)->map(fn ($word) => mb_substr($word, 0, 1))->join(''),
+                'override' => count($pay['overrides'] ?? []) > 0];
+        });
+    }
+
+    public function deleteRunType(int $index): void
+    {
+        abort_unless(static::canAccess(), 403);
+        if (! array_key_exists($index, $this->run_types)) return;
+        $id = $this->run_types[$index]['id'] ?? null;
+        if ($id) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($id) {
+                $type = \App\Models\PayRunType::lockForUpdate()->findOrFail($id);
+                \App\Models\WeeklyPayoutBatch::where('pay_run_type_id', $id)->whereNull('pay_run_type_name')->update(['pay_run_type_name' => $type->name]);
+                $type->delete();
+            });
+        }
+        array_splice($this->run_types, $index, 1);
+        Notification::make()->title('Pay run type deleted')->body('Existing pay runs keep their names, dates and pay coverage.')->success()->send();
     }
 
     public function editMember(int $id): void
@@ -259,6 +321,7 @@ class PaymentStructures extends Page
     public function setShowArchived(bool $show): void
     {
         $this->show_archived = $show;
+        $this->member_page = 1;
         $this->closeMemberEditor();
     }
 

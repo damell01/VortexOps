@@ -41,7 +41,7 @@ class Businesses extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Each person works for one business. Drag people between columns, or tick several and move them together. Payroll, pay runs and the dashboard follow the Business picker at the top.';
+        return 'Each person works for one business. Drag people between columns, or tick several and move them together. The Business picker on payroll pages then shows just that business\'s people and Pay Runs.';
     }
 
     /** @return Collection<int, Business> */

@@ -56,10 +56,14 @@ class InventoryManualPdfTest extends TestCase
         // becomes a 90-file folder nobody dares tidy.
         $referenced = [];
 
-        foreach (InventoryManual::sections() as $section) {
-            foreach ($section['steps'] as $step) {
-                foreach (array_filter(array_merge([$step['shot'] ?? null], $step['more'] ?? [])) as $shot) {
-                    $referenced[$shot] = true;
+        // The folder is shared by every module's handbook.
+        $manuals = [InventoryManual::class, \App\Support\PayrollManual::class, \App\Support\ShowsManual::class, \App\Support\FulfillmentManual::class];
+        foreach ($manuals as $manual) {
+            foreach ($manual::sections() as $section) {
+                foreach ($section['steps'] as $step) {
+                    foreach (array_filter(array_merge([$step['shot'] ?? null], $step['more'] ?? [])) as $shot) {
+                        $referenced[$shot] = true;
+                    }
                 }
             }
         }

@@ -9,7 +9,7 @@
             .vx-clock-banner-copy{min-width:0}.vx-clock-banner-copy strong{font-size:14px}.vx-clock-banner-copy p{font-size:12px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55vw}
             .vx-clock-banner-actions{display:flex;align-items:center;gap:14px;flex-shrink:0}
             .vx-clock-banner-time{font-size:18px;font-weight:750;font-variant-numeric:tabular-nums}
-            .vx-clock-banner button{border:0;background:#047857;color:white;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;min-height:40px}
+            .vx-clock-banner button{border:0;background:#047857!important;color:white!important;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;min-height:40px}
             .vx-clock-banner button:hover{background:#065f46}.vx-clock-banner button:focus-visible{outline:3px solid #34d399;outline-offset:3px}.vx-clock-banner button:disabled{opacity:.6;cursor:wait}
             @media(max-width:640px){.vx-global-clock:has(.vx-clock-banner){top:64px}.vx-clock-banner{padding:12px;gap:10px;flex-wrap:wrap}.vx-clock-banner-copy p{max-width:70vw}.vx-clock-banner-actions{width:100%;justify-content:space-between}.vx-clock-banner-actions button{padding:8px 18px}}
         </style>

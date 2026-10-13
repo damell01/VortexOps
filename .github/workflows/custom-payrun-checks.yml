@@ -40,7 +40,7 @@ jobs:
         run: php artisan test tests/Feature/Payouts/PayRunSchedulesTest.php
       - name: Wages and business isolation
         if: '!cancelled()'
-        run: php artisan test tests/Feature/Businesses/BusinessPayrollTest.php tests/Feature/Payroll/PayrollTeamSetupTest.php
+        run: php artisan test tests/Feature/Businesses/BusinessPayrollTest.php tests/Feature/Payroll/PayrollTeamSetupTest.php tests/Feature/Payroll/PayrollOverviewUiTest.php
       - name: Hours and upcoming show picker
         if: '!cancelled()'
         run: php artisan test tests/Feature/Timekeeping/HoursWorkedTest.php tests/Feature/Timekeeping/TimekeepingTest.php
@@ -67,7 +67,8 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           touch database/database.sqlite
-          php artisan migrate:fresh --seed --force
+          php artisan migrate:fresh --force
+          php artisan db:seed --class=PayrollWorkspaceScreenshotSeeder --force
       - name: Desktop and mobile payroll UI checks
         if: '!cancelled()'
         shell: bash
@@ -79,7 +80,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8000/admin/login >/dev/null; then break; fi
             sleep 1
           done
-          npx playwright test tests/Browser/payroll-workspace.spec.ts --workers=1
+          npx playwright test tests/Browser/payroll-workspace.spec.ts --workers=1 --timeout=90000
       - name: Upload payroll UI previews
         if: always()
         uses: actions/upload-artifact@v4

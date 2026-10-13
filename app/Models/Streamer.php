@@ -173,7 +173,7 @@ class Streamer extends Model
     }
 
     public static function payoutCadenceLabels(): array { return ['weekly' => 'Weekly', 'monthly' => 'Monthly']; }
-    public static function salesSplitBasisLabels(): array { return ['net' => 'Net earnings (after Whatnot fees)', 'gross' => 'Gross sales']; }
+    public static function salesSplitBasisLabels(): array { return ['net' => 'Estimated net earnings', 'gross' => 'Gross sales']; }
     public static function ownerFeeTypeLabels(): array { return ['percentage' => 'Percentage (%)', 'flat' => 'Flat Amount ($)']; }
     public static function statusLabels(): array { return ['active' => 'Active', 'inactive' => 'Inactive', 'on_leave' => 'On Leave']; }
 }

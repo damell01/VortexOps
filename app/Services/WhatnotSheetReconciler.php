@@ -294,6 +294,12 @@ class WhatnotSheetReconciler
                     'earnings' => round((float) (clone $appNow)->sum('whatnot_net'), 2),
                     'orders' => WhatnotShowOrder::whereIn('show_id', (clone $appNow)->select('id'))->count(),
                 ],
+                // Whatnot lists newest first, so a missing first page shows up as
+                // an export that stops early while the app has shows with sales
+                // after it.
+                'last_row' => $dates->max(),
+                'aired_after_last_row' => $dates->isEmpty() ? 0 : Show::where('whatnot_channel_id', $channelId)
+                    ->where('show_date', '>', $dates->max())->where('show_date', '<=', $cTo)->where('gross_revenue', '>', 0)->count(),
                 'counts' => [
                     'ok' => $mine->where('action', 'ok')->count(),
                     'update' => $mine->where('action', 'update')->count(),

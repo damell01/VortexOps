@@ -65,6 +65,9 @@
                         <span class="wsc-muted">{{ \Carbon\Carbon::parse($c['from'])->format('M j') }} – {{ \Carbon\Carbon::parse($c['to'])->format('M j, Y') }}</span>
                         <span @class(['wsc-pill', $lines ? 'wsc-pill--ok' : 'wsc-pill--extra'])>{{ $lines ? 'Lines up' : 'Differs' }}</span>
                     </header>
+                    @if (($c['aired_after_last_row'] ?? 0) > 0 && $c['last_row'] && $c['last_row'] < \Carbon\Carbon::parse($c['to'])->subDays(2)->toDateString())
+                        <div class="wsc-warn wsc-warn--inline">Whatnot's rows stop at <b>{{ \Carbon\Carbon::parse($c['last_row'])->format('M j') }}</b>, but the app has <b>{{ $c['aired_after_last_row'] }}</b> shows with sales after that. The newest page of this channel's download is probably missing — check the show count on Whatnot's Analytics Overview and add that page.</div>
+                    @endif
                     <table class="wsc-totals">
                         <thead><tr><th></th><th>Whatnot</th><th>App</th></tr></thead>
                         <tbody>
@@ -188,6 +191,7 @@
 .wsc-details{font-size:12.5px;min-width:200px}
 .wsc-nowrap{white-space:nowrap}
 .wsc-short{color:#b45309;font-weight:700}
+.wsc-warn--inline{margin:0 0 8px;padding:8px 10px;border:1px solid #fcd34d;border-radius:10px;font-size:12.5px}
 .wsc-warn{grid-column:1/-1;border-color:#fcd34d;background:#fffbeb;font-size:13px}
 .dark .wsc-warn{background:#422006;border-color:#92400e}
 .wsc-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;white-space:nowrap;background:#f3f4f6;color:#374151}

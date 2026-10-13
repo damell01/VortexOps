@@ -112,10 +112,9 @@ class TimeTrackingService
     public function edit(TimeEntry $entry, User $actor, Carbon $in, ?Carbon $out, string $why, ?int $showId = null, ?string $reason = null, ?string $note = null): TimeEntry
     {
         $this->authorizeEntry($entry, $actor);
+        // A reason helps the reviewer but is not required; the change is
+        // logged and flagged for review either way.
         $why = trim($why);
-        if ($why === '') {
-            throw ValidationException::withMessages(['why' => 'Say why the time is changing.']);
-        }
         $this->validateTimes($in, $out);
         [$showId, $reason] = $this->purpose($entry->user ?? $actor, $showId, $reason, $actor);
 
@@ -130,12 +129,12 @@ class TimeTrackingService
                 'edited_at' => now(),
             ]);
             if ($this->isReviewer($actor) && $actor->id !== $entry->user_id) {
-                $entry->fill(['status' => 'approved', 'approved_minutes' => $entry->duration_minutes, 'approved_by' => $actor->id, 'approved_at' => now(), 'review_note' => $why]);
+                $entry->fill(['status' => 'approved', 'approved_minutes' => $entry->duration_minutes, 'approved_by' => $actor->id, 'approved_at' => now(), 'review_note' => $why ?: null]);
             } else {
                 $this->addFlag($entry, 'edited');
             }
             $entry->save();
-            $this->log($entry, $actor, 'edited', $old, $this->snapshot($entry), $why);
+            $this->log($entry, $actor, 'edited', $old, $this->snapshot($entry), $why !== '' ? $why : null);
             if ($entry->clocked_out_at) {
                 $this->checkOverlaps($entry);
             }
@@ -151,9 +150,6 @@ class TimeTrackingService
             abort(403);
         }
         $why = trim($why);
-        if ($why === '') {
-            throw ValidationException::withMessages(['why' => 'Say why this time was not clocked.']);
-        }
         $this->validateTimes($in, $out);
         [$showId, $reason] = $this->purpose($user, $showId, $reason, $actor);
 
@@ -170,12 +166,12 @@ class TimeTrackingService
                 'clocked_out_at' => $out->copy()->startOfMinute(),
             ]);
             if ($byAdmin) {
-                $entry->fill(['status' => 'approved', 'approved_minutes' => $entry->duration_minutes, 'approved_by' => $actor->id, 'approved_at' => now(), 'review_note' => $why]);
+                $entry->fill(['status' => 'approved', 'approved_minutes' => $entry->duration_minutes, 'approved_by' => $actor->id, 'approved_at' => now(), 'review_note' => $why ?: null]);
             } else {
                 $this->addFlag($entry, 'manual');
             }
             $entry->save();
-            $this->log($entry, $actor, 'added', null, $this->snapshot($entry), $why);
+            $this->log($entry, $actor, 'added', null, $this->snapshot($entry), $why !== '' ? $why : null);
             $this->checkOverlaps($entry);
 
             return $entry;
@@ -384,22 +380,76 @@ class TimeTrackingService
         ];
     }
 
-    /** Shows a person can link time to: theirs (as streamer or fulfillment) from the last two weeks and the next two days. */
-    public function linkableShows(User $user, ?int $include = null): Collection
+    /**
+     * Shows a person can link time to, newest first: the ones they are on
+     * (as streamer or fulfillment) from the last two weeks and the next two
+     * days. With $all (admins only), every show in that window.
+     */
+    public function linkableShows(User $user, ?int $include = null, bool $all = false): Collection
     {
         $streamerId = $user->streamer?->id;
+        $all = $all && $this->isReviewer($user);
 
-        return Show::query()
+        $shows = Show::query()
             ->where('status', '!=', 'cancelled')
             ->whereBetween('show_date', [now()->subDays(14)->toDateString(), now()->addDays(2)->endOfDay()->toDateTimeString()])
-            ->when(! $this->isReviewer($user), fn ($q) => $q->where(fn ($w) => $w
+            ->when(! $all, fn ($q) => $q->where(fn ($w) => $w
                 ->when($streamerId, fn ($s) => $s->whereHas('streamers', fn ($x) => $x->where('streamers.id', $streamerId)))
                 ->orWhereHas('fulfillmentUsers', fn ($x) => $x->where('users.id', $user->id))))
-            ->orderByDesc('show_date')->orderByDesc('start_time')->limit(60)
-            ->get(['id', 'title', 'show_date', 'start_time'])
-            ->when($include && ! Show::query()->whereKey($include)->doesntExist(), function ($shows) use ($include) {
-                return $shows->contains('id', $include) ? $shows : $shows->push(Show::find($include, ['id', 'title', 'show_date', 'start_time']));
-            });
+            ->with('channel:id,name')
+            ->orderByDesc('show_date')->orderByDesc('start_time')->limit($all ? 300 : 80)
+            ->get(['id', 'title', 'show_date', 'start_time', 'whatnot_channel_id']);
+
+        if ($include && ! $shows->contains('id', $include) && ($extra = Show::with('channel:id,name')->find($include, ['id', 'title', 'show_date', 'start_time', 'whatnot_channel_id']))) {
+            $shows->push($extra);
+        }
+
+        return $shows;
+    }
+
+    /**
+     * Shows for the clock's show picker, grouped by day: the person's own,
+     * and for admins every other show in the window too.
+     *
+     * @return list<array{id:int,title:string,time:?string,day:string,day_key:string,channel:?string,mine:bool}>
+     */
+    public function pickerShows(User $user, ?int $include = null): array
+    {
+        $mine = $this->linkableShows($user, $include)->pluck('id')->all();
+        $shows = $this->isReviewer($user) ? $this->linkableShows($user, $include, true) : $this->linkableShows($user, $include);
+        $today = \App\Support\BusinessTime::local()->toDateString();
+
+        // Today first, then what is coming up soonest, then earlier shows newest first.
+        $rank = function (Show $s) use ($today) {
+            $date = $s->show_date?->toDateString() ?? '0000-00-00';
+            $time = $s->start_time?->format('H:i') ?? '00:00';
+            if ($date === $today) {
+                return '0'.$time;
+            }
+
+            return $date > $today ? '1'.$date.$time : '2'.(99999999 - (int) str_replace('-', '', $date)).str_pad((string) (2400 - (int) str_replace(':', '', $time)), 4, '0', STR_PAD_LEFT);
+        };
+
+        return $shows->sortBy($rank)
+            ->map(function (Show $s) use ($mine, $today) {
+                $date = $s->show_date?->toDateString();
+                $diff = $date ? (int) Carbon::parse($today)->diffInDays(Carbon::parse($date), false) : null;
+
+                return [
+                    'id' => $s->id,
+                    'title' => $s->title ?: 'Show #'.$s->id,
+                    'time' => $s->start_time?->format('g:i A'),
+                    'day_key' => $date ?? '',
+                    'day' => match (true) {
+                        $diff === 0 => 'Today',
+                        $diff === -1 => 'Yesterday',
+                        $diff === 1 => 'Tomorrow',
+                        default => $s->show_date?->format('l, M j') ?? 'No date',
+                    },
+                    'channel' => $s->channel?->name,
+                    'mine' => in_array($s->id, $mine, true),
+                ];
+            })->values()->all();
     }
 
     public function isReviewer(?User $user): bool

@@ -22,6 +22,9 @@ class ClockWidget extends Component
     public string $note = '';
     public bool $changing = false;
 
+    /** Timekeeping shows today / week / month / all-time totals inside the card. */
+    public bool $withStats = false;
+
     private function service(): TimeTrackingService
     {
         return app(TimeTrackingService::class);
@@ -34,15 +37,32 @@ class ClockWidget extends Component
         return $user ? TimeEntry::where('user_id', $user->id)->whereNull('clocked_out_at')->with('show:id,title')->latest('clocked_in_at')->first() : null;
     }
 
-    public function shows(): array
+    /** Shows offered in the picker; see TimeTrackingService::pickerShows(). */
+    public function pickerShows(): array
     {
         $user = auth()->user();
-        if (! $user) {
-            return [];
+
+        return $user ? $this->service()->pickerShows($user, $this->openEntry()?->show_id ?: ($this->showId !== '' ? (int) $this->showId : null)) : [];
+    }
+
+    public function pickShow(int $id): void
+    {
+        $this->showId = (string) $id;
+        $this->reason = '';
+    }
+
+    public function clearShow(): void
+    {
+        $this->showId = '';
+    }
+
+    public function pickReason(string $reason): void
+    {
+        if (! array_key_exists($reason, TimeEntry::REASONS)) {
+            return;
         }
-        return $this->service()->linkableShows($user, $this->openEntry()?->show_id)
-            ->mapWithKeys(fn ($show) => [$show->id => trim(($show->show_date?->format('D M j') ?? '').($show->start_time ? ' '.$show->start_time->format('g:i A') : '').' · '.($show->title ?: 'Show #'.$show->id))])
-            ->all();
+        $this->reason = $this->reason === $reason ? '' : $reason;
+        $this->showId = '';
     }
 
     public function todayMinutes(): int
@@ -55,6 +75,24 @@ class ClockWidget extends Component
             ->sum(fn (TimeEntry $e) => (int) $e->clocked_in_at->diffInMinutes($e->clocked_out_at ?? now()));
     }
 
+    /** @return array{today:int,week:int,month:int,total:int} minutes, the open entry counted up to now */
+    public function totals(): array
+    {
+        $user = auth()->user();
+        $tz = $user?->timezone ?: \App\Support\BusinessTime::zone();
+        $now = now($tz);
+        $entries = TimeEntry::where('user_id', $user?->id)->where('status', '!=', 'rejected')->get(['clocked_in_at', 'clocked_out_at']);
+        $sum = fn ($from) => (int) $entries->filter(fn ($e) => $from === null || $e->clocked_in_at->gte($from))
+            ->sum(fn ($e) => (int) $e->clocked_in_at->diffInMinutes($e->clocked_out_at ?? now()));
+
+        return [
+            'today' => $sum($now->copy()->startOfDay()->utc()),
+            'week' => $sum($now->copy()->startOfWeek()->utc()),
+            'month' => $sum($now->copy()->startOfMonth()->utc()),
+            'total' => $sum(null),
+        ];
+    }
+
     public function clockIn(): void
     {
         try {
@@ -65,7 +103,7 @@ class ClockWidget extends Component
             return;
         }
         $this->reset(['showId', 'reason', 'note', 'changing']);
-        Notification::make()->title('Clocked in')->body($entry->show_id ? 'Linked to '.$this->shows()[$entry->show_id] : 'Link a show or give a reason any time before you clock out.')->success()->send();
+        Notification::make()->title('Clocked in')->body($entry->show_id ? 'Linked to '.(\App\Models\Show::whereKey($entry->show_id)->value('title') ?? 'the show') : 'Link a show or give a reason any time before you clock out.')->success()->send();
         $this->dispatch('clock-changed');
     }
 
@@ -117,11 +155,16 @@ class ClockWidget extends Component
 
     public function render()
     {
+        $picker = $this->pickerShows();
+
         return view('livewire.clock-widget', [
             'entry' => $this->openEntry(),
-            'shows' => $this->shows(),
+            'picker' => $picker,
+            'selected' => $this->showId !== '' ? collect($picker)->firstWhere('id', (int) $this->showId) : null,
+            'isReviewer' => $this->service()->isReviewer(auth()->user()),
             'reasons' => TimeEntry::REASONS,
             'today' => $this->todayMinutes(),
+            'totals' => $this->withStats ? $this->totals() : null,
         ]);
     }
 }

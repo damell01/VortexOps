@@ -14,13 +14,14 @@ class ListWeeklyPayoutBatches extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Payroll history by week — review totals and status, then open a pay run for payout-level detail.';
+        return 'Create a run for any dates, or open an existing run to review its pay lines and status.';
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('New Pay Run'),
+            CreateAction::make()->label('New Pay Run')->icon('heroicon-o-plus')->color('primary'),
+            \Filament\Actions\Action::make('rates')->label('Rates & Adjustments')->icon('heroicon-o-adjustments-horizontal')->color('gray')->url(\App\Filament\Pages\PaymentStructures::getUrl()),
         ];
     }
 }

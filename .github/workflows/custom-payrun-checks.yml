@@ -62,3 +62,30 @@ jobs:
           (cd "$payroll_baseline_dir" && php artisan test tests/Feature/Payouts --log-junit /tmp/payroll-baseline.xml)
           set -e
           python3 .github/scripts/compare-payroll-results.py /tmp/payroll-baseline.xml /tmp/payroll-current.xml
+      - name: Prepare browser checks
+        if: '!cancelled()'
+        run: |
+          npx playwright install --with-deps chromium
+          touch database/database.sqlite
+          php artisan migrate:fresh --seed --force
+      - name: Desktop and mobile payroll UI checks
+        if: '!cancelled()'
+        shell: bash
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/payroll-workspace-server.log 2>&1 &
+          payroll_ui_server_pid=$!
+          trap 'kill "$payroll_ui_server_pid" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/admin/login >/dev/null; then break; fi
+            sleep 1
+          done
+          npx playwright test tests/Browser/payroll-workspace.spec.ts --workers=1
+      - name: Upload payroll UI previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: payroll-workspace-previews
+          path: |
+            tests/Browser/screenshots/payroll-workspace/*.png
+            tests/Browser/output
+          if-no-files-found: ignore

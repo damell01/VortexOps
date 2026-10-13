@@ -9,7 +9,25 @@
     $cut=(float)($streamer['house_cut_percentage']??0);
     $basisLabel=($streamer['sales_split_basis']??'net')==='gross'?'Gross Sales':'Estimated Net Earnings';
 @endphp
-<div class="space-y-6">
+<div class="space-y-6 vx-rates">
+    <style>
+        .vx-rates{max-width:100%;min-width:0}.vx-rates .vx-card{border-radius:18px;padding:24px}
+        .vx-rates input[type=number],.vx-rates input[type=text],.vx-rates input[type=date],.vx-rates input:not([type]),.vx-rates select,.vx-rates textarea{min-height:44px;padding:10px 12px;border:1px solid var(--vx-border,#dce0e8);background:var(--vxw-surface,#fff);color:var(--vxw-text,#111827);border-radius:10px;font-size:14px;transition:border-color .15s,box-shadow .15s}
+        .vx-rates input:focus,.vx-rates select:focus,.vx-rates textarea:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 3px rgb(139 92 246 / .13)}
+        .vx-rates label input[type=checkbox]{accent-color:#7c3aed;width:16px;height:16px;flex-shrink:0}.vx-rates label{line-height:1.5}
+        .vx-rates-nav{display:flex;flex-wrap:wrap;gap:8px}.vx-rates-nav a{padding:10px 16px;border:1px solid var(--vx-border,#dce0e8);border-radius:999px;background:var(--vxw-surface,#fff);font-size:13px;font-weight:650}
+        .vx-rates section,.vx-rates [id]{scroll-margin-top:160px}.vx-rates .vx-type-card{border-radius:14px;background:var(--vxw-surface,#fff);box-shadow:0 2px 5px rgb(15 23 42 / .025)}
+        .vx-type-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;font-size:15px;font-weight:700}.vx-type-create{padding:8px 12px;background:#7c3aed;color:#fff;border-radius:9px;font-size:12px;white-space:nowrap}
+        .vx-rates-save{position:sticky;bottom:12px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border:1px solid var(--vx-border,#dce0e8);border-radius:14px;background:var(--vxw-surface,#fff);box-shadow:0 4px 24px rgb(15 23 42 / .12)}
+        .vx-rates-save span{font-size:13px;color:var(--vxw-muted,#64748b)}.vx-rates-save button{flex-shrink:0}
+        @media(max-width:640px){.vx-rates .vx-card{padding:16px}.vx-rates-save{bottom:76px;padding:12px;flex-wrap:wrap}.vx-rates-save button{width:100%}.vx-type-title{flex-wrap:wrap}}
+    </style>
+    <div class="vx-card" style="background:linear-gradient(120deg,var(--vxw-surface,#fff),rgb(124 58 237 / .06))">
+        <p class="text-xs font-bold uppercase tracking-widest text-primary-600">Payroll setup</p>
+        <h2 class="mt-1 text-2xl font-bold">Rates & Adjustments</h2>
+        <p class="mt-2 text-sm text-gray-500">Set team rates, adjust individual pay, and create a draft run whenever you need one.</p>
+        <nav class="vx-rates-nav mt-4" aria-label="Payroll settings sections"><a href="#run-types-heading">Pay run types</a><a href="#rates-defaults">Team rates</a><a href="#rates-people">Individual overrides</a></nav>
+    </div>
     <div class="vx-card p-4 text-sm" style="border-left:4px solid {{ $business?->color ?? '#9ca3af' }}">
         @if($business)
             <strong>Rates for {{ $business->name }}.</strong>
@@ -25,8 +43,49 @@
         <span class="text-gray-500">Burden rates, the pay schedule and automation are the same for every business.</span>
     </div>
 
+    <section class="vx-card p-5" aria-labelledby="run-types-heading">
+        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types</h2>
+        <p class="mt-1 text-sm text-gray-500">Create runs whenever you need them from Pay Runs → New, for any start and end dates. Wages and profit share stay separate pay lines, even in a combined run. Scheduling and automatic creation are optional for each type.</p>
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+            @foreach($run_types as $index => $type)
+                <div class="vx-type-card border border-[var(--vx-border)] p-4 text-sm" wire:key="run-type-{{ $index }}">
+                    <div class="vx-type-title"><span>{{ $type['name'] ?: 'New pay run type' }}</span>
+                        @if(($type['id'] ?? null) && ($type['active'] ?? false) && auth()->user()?->can('create', \App\Models\WeeklyPayoutBatch::class))
+                            <a class="vx-type-create" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create', ['pay_run_type_id' => $type['id']]) }}">+ Create run</a>
+                        @endif
+                    </div>
+                    <label class="block"><span class="text-xs font-semibold">Type name</span>
+                        <input wire:model="run_types.{{ $index }}.name" maxlength="100" placeholder="e.g. Monthly profit share" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
+                    </label>
+                    @error("run_types.$index.name")<p class="text-danger-600">{{ $message }}</p>@enderror
+                    <label class="mt-3 block"><span class="text-xs font-semibold">What it pays</span>
+                        <select wire:model="run_types.{{ $index }}.kind" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
+                            <option value="wages">Hourly & wages</option><option value="share">Profit share</option><option value="">Wages + profit share</option>
+                        </select>
+                    </label>
+                    <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.active"> Available for new runs</label>
+                    <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model.live="run_types.{{ $index }}.schedule_enabled"> Use a schedule to suggest dates</label>
+                    @if($type['schedule_enabled'])
+                        <label class="mt-3 block"><span class="text-xs font-semibold">Frequency</span>
+                            <select wire:model="run_types.{{ $index }}.frequency" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
+                                @foreach(\App\Support\PayRunSchedules::FREQUENCIES as $value => $text)<option value="{{ $value }}">{{ $text }}</option>@endforeach
+                            </select>
+                        </label>
+                        <label class="mt-3 block"><span class="text-xs font-semibold">Schedule start date (optional)</span><input type="date" wire:model="run_types.{{ $index }}.anchor" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800"></label>
+                        @error("run_types.$index.anchor")<p class="text-danger-600">{{ $message }}</p>@enderror
+                        <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.auto_create"> Automatically create draft runs for this type</label>
+                        <p class="mt-2 text-xs text-gray-500">Leave unchecked to create runs yourself. Any scheduled dates can be overridden when creating a run. Nothing is finalized or paid automatically.</p>
+                    @else
+                        <p class="mt-3 text-xs text-gray-500">Manual creation · Choose dates each time.</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+        <button type="button" wire:click="addRunType" class="mt-4 rounded-lg border border-[var(--vx-border)] px-4 py-2 text-sm font-semibold">Add pay run type</button>
+    </section>
+
     <div class="vx-card p-5">
-        <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Regular payouts{{ $business ? ' · '.$business->name : '' }}</p>
+        <p id="rates-defaults" class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Regular payouts{{ $business ? ' · '.$business->name : '' }}</p>
         <div class="mt-3 grid gap-3 md:grid-cols-2">
             <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ ! $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
                 <input type="radio" wire:model.live="streamer.payout_type" value="profit_share" class="mt-1">
@@ -112,7 +171,7 @@
     <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-                <h2 class="text-lg font-bold">Individual Overrides</h2>
+                <h2 class="text-lg font-bold" id="rates-people">Individual Overrides</h2>
                 <p class="mt-1 text-sm text-gray-500">Filter the roster, then select a person only when their compensation should differ from the role default.</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -215,41 +274,6 @@
         @endif
     </section>
 
-    <section class="vx-card p-5" aria-labelledby="run-types-heading">
-        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types</h2>
-        <p class="mt-1 text-sm text-gray-500">Create runs whenever you need them from Pay Runs → New, for any start and end dates. Wages and profit share stay separate pay lines, even in a combined run. Scheduling and automatic creation are optional for each type.</p>
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-            @foreach($run_types as $index => $type)
-                <div class="rounded-[10px] border border-[var(--vx-border)] p-4 text-sm" wire:key="run-type-{{ $index }}">
-                    <label class="block"><span class="text-xs font-semibold">Type name</span>
-                        <input wire:model="run_types.{{ $index }}.name" maxlength="100" placeholder="e.g. Monthly profit share" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
-                    </label>
-                    @error("run_types.$index.name")<p class="text-danger-600">{{ $message }}</p>@enderror
-                    <label class="mt-3 block"><span class="text-xs font-semibold">What it pays</span>
-                        <select wire:model="run_types.{{ $index }}.kind" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
-                            <option value="wages">Hourly & wages</option><option value="share">Profit share</option><option value="">Wages + profit share</option>
-                        </select>
-                    </label>
-                    <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.active"> Available for new runs</label>
-                    <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model.live="run_types.{{ $index }}.schedule_enabled"> Use a schedule to suggest dates</label>
-                    @if($type['schedule_enabled'])
-                        <label class="mt-3 block"><span class="text-xs font-semibold">Frequency</span>
-                            <select wire:model="run_types.{{ $index }}.frequency" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
-                                @foreach(\App\Support\PayRunSchedules::FREQUENCIES as $value => $text)<option value="{{ $value }}">{{ $text }}</option>@endforeach
-                            </select>
-                        </label>
-                        <label class="mt-3 block"><span class="text-xs font-semibold">Schedule start date (optional)</span><input type="date" wire:model="run_types.{{ $index }}.anchor" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800"></label>
-                        @error("run_types.$index.anchor")<p class="text-danger-600">{{ $message }}</p>@enderror
-                        <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.auto_create"> Automatically create draft runs for this type</label>
-                        <p class="mt-2 text-xs text-gray-500">Leave unchecked to create runs yourself. Any scheduled dates can be overridden when creating a run. Nothing is finalized or paid automatically.</p>
-                    @else
-                        <p class="mt-3 text-xs text-gray-500">Manual creation · Choose dates each time.</p>
-                    @endif
-                </div>
-            @endforeach
-        </div>
-        <button type="button" wire:click="addRunType" class="mt-4 rounded-lg border border-[var(--vx-border)] px-4 py-2 text-sm font-semibold">Add pay run type</button>
-    </section>
     <details class="vx-card p-5">
         <summary class="cursor-pointer text-lg font-bold">Draft calculation options</summary>
         <div class="mt-4 grid gap-3 md:grid-cols-2"><label class="rounded-lg border p-4 text-sm"><input class="mr-2" type="checkbox" wire:model="payroll_auto_recalculate_drafts">Recalculate drafts during opted-in scheduled setup</label><label class="rounded-lg border p-4 text-sm"><input class="mr-2" type="checkbox" wire:model="payroll_include_zero_activity">Include no-activity members</label></div>

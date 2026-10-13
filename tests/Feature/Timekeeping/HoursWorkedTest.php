@@ -388,4 +388,31 @@ class HoursWorkedTest extends TestCase
         $this->assertSame($upcoming->id, $entry->show_id);
     }
 
+    public function test_global_clock_banner_only_shows_the_signed_in_person_and_can_clock_out(): void
+    {
+        $this->actingAs($this->person);
+        $entry = $this->time->clockIn($this->person);
+        $component = Livewire::test(ClockWidget::class, ['banner' => true])
+            ->assertSee('You are clocked in')->assertSee('Clock out');
+        $component->call('clockOut')->assertDontSee('You are clocked in');
+        $this->assertNotNull($entry->fresh()->clocked_out_at);
+    }
+
+    public function test_global_clock_banner_does_not_display_or_close_another_persons_clock(): void
+    {
+        $otherEntry = $this->time->clockIn($this->owner);
+        $this->actingAs($this->person);
+        Livewire::test(ClockWidget::class, ['banner' => true])
+            ->assertDontSee('You are clocked in')->call('clockOut');
+        $this->assertNull($otherEntry->fresh()->clocked_out_at);
+    }
+
+    public function test_global_clock_banner_refreshes_when_a_clock_changes(): void
+    {
+        $this->actingAs($this->person);
+        $component = Livewire::test(ClockWidget::class, ['banner' => true])->assertDontSee('You are clocked in');
+        $this->time->clockIn($this->person);
+        $component->dispatch('clock-changed')->assertSee('You are clocked in');
+    }
+
 }

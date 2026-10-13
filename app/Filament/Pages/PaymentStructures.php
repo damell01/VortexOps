@@ -41,6 +41,17 @@ class PaymentStructures extends Page
     /** The business whose rates are being edited (the Business picker), or null for the shared rates. */
     public ?int $business_id = null;
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('new_pay_run')->label('New Pay Run')->icon('heroicon-o-plus')
+                ->url(\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create'))
+                ->visible(fn () => auth()->user()?->can('create', \App\Models\WeeklyPayoutBatch::class)),
+            \Filament\Actions\Action::make('pay_runs')->label('View Pay Runs')->color('gray')->icon('heroicon-o-banknotes')
+                ->url(\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')),
+        ];
+    }
+
     public function mount(): void
     {
         $this->business_id = \App\Support\BusinessContext::currentId();

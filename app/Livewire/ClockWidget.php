@@ -28,6 +28,9 @@ class ClockWidget extends Component
     /** On a dashboard the show/reason picker folds away until opened. */
     public bool $compact = false;
 
+    /** Lightweight clock reminder used throughout the signed-in panel. */
+    public bool $banner = false;
+
     private function service(): TimeTrackingService
     {
         return app(TimeTrackingService::class);
@@ -158,6 +161,10 @@ class ClockWidget extends Component
 
     public function render()
     {
+        if ($this->banner) {
+            return view('livewire.clock-banner', ['entry' => $this->openEntry()]);
+        }
+
         $picker = $this->pickerShows();
 
         return view('livewire.clock-widget', [

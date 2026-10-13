@@ -36,7 +36,7 @@ class Businesses extends Page
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-building-office-2'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Payroll'; }
     public static function getNavigationSort(): ?int { return 3; }
-    public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner()) ?? false; }
+    public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner() || $u?->isFulfillmentAdmin()) ?? false; }
     public function getView(): string { return 'filament.pages.businesses'; }
 
     public function getSubheading(): ?string

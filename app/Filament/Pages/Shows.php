@@ -718,7 +718,7 @@ class Shows extends Page
                     ->when($streamer, fn ($query) => $query->where('streamer_id', '!=', $streamer->id))->exists();
                 if ($conflict) throw \Illuminate\Validation\ValidationException::withMessages(['aliases' => 'An alias belongs to another streamer. Review it before saving.']);
             }
-            $streamer ??= Streamer::create(['name' => trim($data['name']), 'status' => 'active', 'member_type' => 'streamer', 'streamer_type' => 'in_house', 'whatnot_channel_id' => \App\Support\ChannelContext::currentId(), 'business_id' => \App\Support\BusinessContext::currentId()]);
+            $streamer ??= Streamer::create(['name' => trim($data['name']), 'status' => 'active', 'member_type' => 'streamer', 'streamer_type' => 'in_house', 'whatnot_channel_id' => \App\Support\ChannelContext::currentId()]);
             if (! $streamer->user_id) {
                 $base = substr(\Illuminate\Support\Str::slug($streamer->name, ''), 0, 50) ?: 'streamer'.$streamer->id;
                 $email = $base.'@vortexops.tech';

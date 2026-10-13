@@ -50,9 +50,7 @@ class Streamer extends Model
 
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query
-            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))
-            ->inBusinessContext();
+        return \App\Support\ChannelContext::isScoped() ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()) : $query;
     }
 
     /** Limit to the business payroll is being run for (App\Support\BusinessContext), if any. */

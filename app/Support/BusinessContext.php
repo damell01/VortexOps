@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Which business (Vortex Collects, Estill Distribution) an admin is running
- * payroll for, if any. Session-based, like ChannelContext, and applied the
- * same way: the models' inChannelContext() scopes also narrow to the chosen
- * business, so payroll, the dashboard and the show pages follow it without
- * each one opting in.
+ * payroll for, if any. Session-based, like ChannelContext, but it only
+ * narrows the payroll pages (see PAYROLL_PAGES): they opt in with the
+ * models' inBusinessContext() scopes. Everywhere else shows every business,
+ * and the picker and banner are only shown on those pages.
  *
  * Both businesses sell on the same channels, so the line is drawn through
  * people: a team member belongs to one business, and a show belongs to the
@@ -20,6 +20,16 @@ use Illuminate\Database\Eloquent\Collection;
 class BusinessContext
 {
     private const SESSION_KEY = 'active_business_id';
+
+    /** The pages the business picker applies to: payroll, pay runs, payouts. */
+    public const PAYROLL_PAGES = [
+        \App\Filament\Pages\PayrollOverview::class,
+        \App\Filament\Pages\PaymentStructures::class,
+        \App\Filament\Pages\Businesses::class,
+        \App\Filament\Pages\PayRunBackfill::class,
+        \App\Filament\Resources\WeeklyPayoutBatchResource::class,
+        \App\Filament\Resources\PayoutResource::class,
+    ];
 
     private static bool $memoized = false;
     private static ?Business $currentMemo = null;
@@ -52,6 +62,24 @@ class BusinessContext
     public static function isScoped(): bool
     {
         return self::currentId() !== null;
+    }
+
+    /** Whether the page being rendered is one the business picker applies to. */
+    public static function appliesToCurrentPage(): bool
+    {
+        $controller = request()->route()?->getAction('controller');
+        $class = is_string($controller) ? explode('@', $controller)[0] : null;
+        if (! $class) {
+            return false;
+        }
+
+        foreach (self::PAYROLL_PAGES as $page) {
+            if ($class === $page || str_starts_with($class, $page.'\\')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function setActive(?int $businessId): void

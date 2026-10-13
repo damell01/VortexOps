@@ -53,6 +53,10 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
  ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index')],
 ];
+// Fulfillment admins don't get the Payroll menu, so Businesses sits under Admin for them.
+if(! $user?->isAdmin() && ! $user?->isOwner() && $user?->isFulfillmentAdmin()) $groups['Admin']=[
+ ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
+];
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
  ...($user?->isOwner() ? [
@@ -102,7 +106,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 </div></div>
 @endforeach
 @if($user?->canSwitchChannels())
-@if(\App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
+@if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
 </nav>

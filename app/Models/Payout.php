@@ -122,9 +122,17 @@ class Payout extends Model
 
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query
-            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))
-            ->when(\App\Support\BusinessContext::isScoped(), fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', \App\Support\BusinessContext::currentId())));
+        return \App\Support\ChannelContext::isScoped()
+            ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+            : $query;
+    }
+
+    /** Limit to the business payroll is being run for (App\Support\BusinessContext), if any. Payroll pages only. */
+    public function scopeInBusinessContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return \App\Support\BusinessContext::isScoped()
+            ? $query->whereHas('streamer', fn ($s) => $s->where('business_id', \App\Support\BusinessContext::currentId()))
+            : $query;
     }
 
     public static function statusLabels(): array

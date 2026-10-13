@@ -90,7 +90,7 @@ class StreamerResource extends Resource
             $query->where('whatnot_channel_id', ChannelContext::currentId());
         }
 
-        return $query->inBusinessContext();
+        return $query;
     }
 
     public static function canCreate(): bool { return auth()->user()?->isAdmin() ?? false; }

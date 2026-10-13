@@ -173,7 +173,7 @@ class PayrollOverview extends Page
         $payouts = Payout::query()
             ->when(\App\Support\BusinessContext::isScoped(), fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', \App\Support\BusinessContext::currentId())))
             ->whereHas('show', fn ($q) => $q
-                ->inChannelContext()
+                ->inChannelContext()->inBusinessContext()
                 ->where('is_operational', true)
                 ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
                 ->whereNotIn('status', ['cancelled']))
@@ -408,14 +408,14 @@ class PayrollOverview extends Page
 
     public function streamerOptions(): array
     {
-        return $this->streamerOptionsMemo ??= Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+        return $this->streamerOptionsMemo ??= Streamer::query()->inChannelContext()->inBusinessContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
     }
 
     public function assignStreamerToShow(int $showId, int $streamerId): void
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
-        $show = Show::query()->inChannelContext()->findOrFail($showId);
-        $streamer = Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->findOrFail($streamerId);
+        $show = Show::query()->inChannelContext()->inBusinessContext()->findOrFail($showId);
+        $streamer = Streamer::query()->inChannelContext()->inBusinessContext()->streamers()->where('status', 'active')->findOrFail($streamerId);
         $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);
         $this->clearReadMemo();
         Notification::make()->title('Streamer assigned')->body($streamer->name . ' → ' . ($show->title ?: 'Show #' . $show->id))->success()->send();
@@ -424,7 +424,7 @@ class PayrollOverview extends Page
     public function approveReportInline(int $showId): void
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
-        $show = Show::query()->inChannelContext()->with('streamerLogEntry')->findOrFail($showId);
+        $show = Show::query()->inChannelContext()->inBusinessContext()->with('streamerLogEntry')->findOrFail($showId);
         $report = $show->streamerLogEntry;
         if (! $report || ! $report->isSubmitted() || $report->approval_status === 'approved') {
             Notification::make()->title('Report is not awaiting approval')->warning()->send();
@@ -504,7 +504,7 @@ class PayrollOverview extends Page
         $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
 
         return $this->weekShowsMemo = Show::query()
-            ->inChannelContext()
+            ->inChannelContext()->inBusinessContext()
             ->where('is_operational', true)
             ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
             ->whereNotIn('status', ['cancelled'])

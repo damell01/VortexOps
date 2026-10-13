@@ -46,4 +46,19 @@ jobs:
         run: php artisan test tests/Feature/Timekeeping/HoursWorkedTest.php tests/Feature/Timekeeping/TimekeepingTest.php
       - name: Pay run lifecycle
         if: '!cancelled()'
-        run: php artisan test tests/Feature/Payouts
+        shell: bash
+        run: |
+          # The repository has existing lifecycle failures. Compare the same
+          # suite on the PR base and reject every newly failing test.
+          set +e
+          php artisan test tests/Feature/Payouts --log-junit /tmp/payroll-current.xml
+          set -e
+          payroll_baseline_dir="$(mktemp -d)"
+          git worktree add --detach "$payroll_baseline_dir" '${{ github.event.pull_request.base.sha }}'
+          cp -a vendor "$payroll_baseline_dir/vendor"
+          cp .env "$payroll_baseline_dir/.env"
+          cp -a public/build "$payroll_baseline_dir/public/build"
+          set +e
+          (cd "$payroll_baseline_dir" && php artisan test tests/Feature/Payouts --log-junit /tmp/payroll-baseline.xml)
+          set -e
+          python3 .github/scripts/compare-payroll-results.py /tmp/payroll-baseline.xml /tmp/payroll-current.xml

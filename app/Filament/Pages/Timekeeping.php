@@ -74,6 +74,14 @@ class Timekeeping extends Page
     // ── State ────────────────────────────────────────────────────────────────
 
     public string $note = '';
+
+    /** 'history' | 'team' */
+    public string $tab = 'history';
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab === 'team' && $this->canSeeTeamEntries() ? 'team' : 'history';
+    }
     public int    $page = 1;
     public int    $perPage = 15;
 
@@ -265,12 +273,19 @@ class Timekeeping extends Page
     private function purposeOptions(?User $user, ?int $currentShowId = null): array
     {
         $user ??= auth()->user();
-        $shows = app(TimeTrackingService::class)->linkableShows($user, $currentShowId)
-            ->mapWithKeys(fn ($show) => ['show:' . $show->id => ($show->show_date?->format('M j') ?? '') . ' · ' . ($show->title ?: 'Show #' . $show->id)])
-            ->all();
-        $reasons = collect(TimeEntry::REASONS)->mapWithKeys(fn ($label, $key) => ['reason:' . $key => $label])->all();
+        $time = app(TimeTrackingService::class);
+        $label = fn ($show) => ($show->show_date?->format('D M j') ?? '') . ($show->start_time ? ' ' . $show->start_time->format('g:i A') : '') . ' · ' . ($show->title ?: 'Show #' . $show->id);
+        $mine = $time->linkableShows($user, $currentShowId)->mapWithKeys(fn ($show) => ['show:' . $show->id => $label($show)])->all();
+        $others = $time->isReviewer(auth()->user())
+            ? $time->linkableShows(auth()->user(), $currentShowId, true)->reject(fn ($show) => isset($mine['show:' . $show->id]))->mapWithKeys(fn ($show) => ['show:' . $show->id => $label($show)])->all()
+            : [];
+        $reasons = collect(TimeEntry::REASONS)->mapWithKeys(fn ($l, $key) => ['reason:' . $key => $l])->all();
 
-        return ['Reasons' => $reasons, 'Shows' => $shows];
+        return array_filter([
+            'Reasons' => $reasons,
+            ($user->id === auth()->id() ? 'Your shows' : $user->name . "'s shows") => $mine,
+            'Other shows' => $others,
+        ]);
     }
 
     /** @return array{0:?int,1:?string} */
@@ -292,7 +307,7 @@ class Timekeeping extends Page
             DateTimePicker::make('out')->label('Clocked out')->timezone($tz)->seconds(false)->after('in'),
             Select::make('purpose')->label('Show or reason')->options($this->purposeOptions($user, $showId))->searchable()->placeholder('Choose later'),
             TextInput::make('note')->label('Note')->maxLength(255),
-            Textarea::make('why')->label('Why is this changing?')->required()->rows(2)
+            Textarea::make('why')->label('Why? (optional)')->rows(2)
                 ->helperText(fn () => app(TimeTrackingService::class)->isReviewer(auth()->user()) && $user?->id !== auth()->id()
                     ? 'Logged with the entry. An admin change counts as reviewed.'
                     : 'Logged with the entry. Changed times are flagged for an admin to review before they are paid.'),

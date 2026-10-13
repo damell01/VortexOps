@@ -1,244 +1,156 @@
 <x-filament-panels::page>
     @php
-        $entry   = $this->openEntry;
-        $stats   = $this->stats;
         $entries = $this->entries;
-        $team    = $this->teamHours;
-        $isIn    = $this->isClockedIn;
-        $user    = auth()->user();
+        $user = auth()->user();
         $seesTeam = ($user?->isOwner() || $user?->isAdmin()) ?? false;
-
-        $periodOptions = [
-            'this_week'  => 'This Week',
-            'last_week'  => 'Last Week',
-            'pay_period' => 'Current Pay Period',
-            'this_month' => 'This Month',
-            'custom'     => 'Custom Range',
-        ];
+        $team = $seesTeam && $tab === 'team' ? $this->teamHours : [];
+        $tz = $this->userTimezone();
+        $periodOptions = ['this_week' => 'This week', 'last_week' => 'Last week', 'pay_period' => 'Current pay period', 'this_month' => 'This month', 'custom' => 'Custom range'];
+        $fmt = fn (?int $m) => $m === null ? '—' : intdiv($m, 60) . 'h ' . str_pad((string) ($m % 60), 2, '0', STR_PAD_LEFT) . 'm';
     @endphp
 
-    <div class="space-y-6 max-w-4xl">
-
-        {{-- ── Timezone Notice ──────────────────────────────────────────────── --}}
-        @php
-            $userTz = $this->userTimezone();
-            $isDefaultTz = $userTz === 'UTC';
-        @endphp
-        @if ($isDefaultTz)
-            <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-start gap-3"
-                 x-data="{ detectingTz: false }">
-                <x-heroicon-o-exclamation-triangle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                <div class="flex-1">
-                    <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Timezone not set</p>
-                    <p class="text-xs text-amber-800 dark:text-amber-200 mt-0.5">Your times are showing in UTC. Click below to auto-detect and save your timezone, or <a href="{{ route('filament.admin.pages.edit-profile') }}" class="underline font-medium hover:no-underline">update it manually</a>.</p>
-                </div>
-                <button
-                    type="button"
-                    @click="detectingTz = true; $wire.saveDetectedTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)"
-                    :disabled="detectingTz"
-                    class="shrink-0 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500 transition-colors disabled:opacity-60">
-                    <span x-show="!detectingTz"><x-heroicon-o-arrow-path class="h-3.5 w-3.5" /></span>
-                    <span x-show="detectingTz"><svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
-                    <span x-text="detectingTz ? 'Saving...' : 'Auto-detect'"></span>
-                </button>
+    <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="timekeeping">
+        @if (! $user?->timezone)
+            <div class="vxw-alert vxw-alert--warn" x-data="{ busy: false }" style="align-items:center">
+                <x-filament::icon icon="heroicon-m-globe-americas" />
+                <span class="flex-1">Times are shown in {{ str_replace('_', ' ', $tz) }}. Set your own timezone so clock times match your watch.</span>
+                <button type="button" class="vxw-btn vxw-btn--sm" :disabled="busy" @click="busy = true; $wire.saveDetectedTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)">Use this device's timezone</button>
             </div>
         @endif
 
-        {{-- ── Clock In / Out ─────────────────────────────────────────────── --}}
-        @livewire('clock-widget')
+        @livewire('clock-widget', ['withStats' => true])
 
         @if ($seesTeam && \App\Filament\Pages\TimeAttendance::canAccess())
             @php $review = \App\Filament\Pages\TimeAttendance::reviewCount(); @endphp
-            <a href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}" class="flex items-center justify-between gap-3 rounded-xl border px-5 py-3 text-sm {{ $review ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100' : 'border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200' }}">
-                <span><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ($review === 1 ? ' needs' : ' need') . ' review before payroll' : 'nothing waiting for review' }}</span>
-                <x-heroicon-m-arrow-right class="h-4 w-4" />
+            <a href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}" class="vxw-alert {{ $review ? 'vxw-alert--warn' : 'vxw-alert--info' }}" style="align-items:center;text-decoration:none">
+                <x-filament::icon icon="heroicon-m-clipboard-document-check" />
+                <span class="flex-1"><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ($review === 1 ? ' needs' : ' need') . ' review before payroll' : 'nothing waiting for review' }}</span>
+                <x-filament::icon icon="heroicon-m-arrow-right" />
             </a>
         @endif
 
-        {{-- ── Stats Row ───────────────────────────────────────────────────── --}}
-        <div class="grid grid-cols-3 gap-4">
-            @php
-            $statCards = [
-                ['label' => 'Today',      'minutes' => $stats['today']],
-                ['label' => 'This Week',  'minutes' => $stats['week']],
-                ['label' => 'This Month', 'minutes' => $stats['month']],
-            ];
-            @endphp
-
-            @foreach ($statCards as $card)
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ $card['label'] }}</p>
-                    <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
-                        {{ $card['minutes'] > 0 ? \App\Models\TimeEntry::formatMinutes($card['minutes']) : '—' }}
-                    </p>
+        <section class="vxw-card">
+            <div class="vxw-card-head" style="flex-wrap:wrap;gap:12px">
+                <div class="vxw-chips" role="tablist" aria-label="Timekeeping views">
+                    <button type="button" role="tab" wire:click="setTab('history')" @class(['vxw-chip', 'is-active' => $tab === 'history'])>{{ $seesTeam ? 'All entries' : 'My history' }} <span class="vxw-chip-count">{{ number_format($entries->total()) }}</span></button>
+                    @if ($seesTeam)
+                        <button type="button" role="tab" wire:click="setTab('team')" @class(['vxw-chip', 'is-active' => $tab === 'team'])>Team hours</button>
+                    @endif
                 </div>
-            @endforeach
-        </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($tab === 'history')
+                        {{ $this->addTimeAction }}
+                        <button type="button" wire:click="exportCsv" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> Export CSV</button>
+                    @elseif (count($team))
+                        <button type="button" wire:click="exportTeamHoursCsv" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> Export CSV</button>
+                    @endif
+                </div>
+            </div>
 
-        {{-- ── Team Hours (admin/owner) ────────────────────────────────────── --}}
-        @if ($seesTeam)
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 space-y-3">
-                    <div class="flex items-center justify-between gap-3 flex-wrap">
-                        <div>
-                            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Hours</h2>
-                            <p class="text-xs text-gray-400 mt-0.5">{{ $this->periodLabel }} — non-admin/hourly workers only</p>
-                        </div>
-                        @if (count($team) > 0)
-                            <a
-                                wire:click.prevent="exportTeamHoursCsv"
-                                href="#"
-                                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
-                            >
-                                <x-heroicon-o-arrow-down-tray class="h-3 w-3" />
-                                Export CSV
-                            </a>
-                        @endif
+            @if ($tab === 'history')
+                @if ($entries->isEmpty())
+                    <div class="vxw-empty">
+                        <x-filament::icon icon="heroicon-o-clock" />
+                        <div class="vxw-empty-title">No time yet</div>
+                        <div class="vxw-empty-text">Clock in above, or add time you forgot to clock.</div>
                     </div>
-
-                    {{-- Period picker --}}
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm" style="min-width:860px">
+                            <thead>
+                                <tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)">
+                                    @if ($seesTeam)<th class="px-4 py-2.5">Person</th>@endif
+                                    <th class="px-4 py-2.5">Date</th><th class="px-4 py-2.5">Clock in</th><th class="px-4 py-2.5">Clock out</th><th class="px-4 py-2.5 text-right">Duration</th>
+                                    <th class="px-4 py-2.5">Show or reason</th><th class="px-4 py-2.5">Status</th><th class="px-4 py-2.5 text-right"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($entries as $e)
+                                    @php $mins = $e->duration_minutes; @endphp
+                                    <tr wire:key="te-{{ $e->id }}" style="border-top:1px solid var(--vxw-border)">
+                                        @if ($seesTeam)<td class="px-4 py-3 font-medium">{{ $e->user?->name ?? '—' }}</td>@endif
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ $e->clocked_in_at->copy()->setTimezone($tz)->format('D, M j') }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap tabular-nums">{{ $this->formatTimeInUserTz($e->clocked_in_at) }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap tabular-nums">
+                                            @if ($e->clocked_out_at){{ $this->formatTimeInUserTz($e->clocked_out_at) }}@if(! $e->clocked_out_at->copy()->setTimezone($tz)->isSameDay($e->clocked_in_at->copy()->setTimezone($tz)))<span class="vxw-meta"> +1d</span>@endif
+                                            @else<span class="vxw-pill vxw-pill--ok vxw-pill--dot">Active</span>@endif
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $fmt($mins) }}</td>
+                                        <td class="px-4 py-3" style="max-width:320px">
+                                            @if ($e->show_id)
+                                                <div class="flex items-center gap-1.5"><x-filament::icon icon="heroicon-m-video-camera" class="h-4 w-4 shrink-0" style="color:#7c3aed" /><span class="truncate">{{ $e->show?->title ?? 'Show #'.$e->show_id }}</span></div>
+                                            @elseif ($e->reason)
+                                                <span class="vxw-pill">{{ \App\Models\TimeEntry::REASONS[$e->reason] ?? $e->reason }}</span>
+                                            @else
+                                                <span class="vxw-meta">Not set yet</span>
+                                            @endif
+                                            @if ($e->notes)<div class="vxw-meta mt-0.5 truncate">{{ $e->notes }}</div>@endif
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            @if ($e->status === 'flagged')
+                                                <span class="vxw-pill vxw-pill--warn" title="{{ implode(', ', $e->flagLabels()) }}">Needs review</span>
+                                                <div class="vxw-meta mt-0.5 text-xs">{{ implode(', ', $e->flagLabels()) }}</div>
+                                            @elseif ($e->status === 'approved')
+                                                <span class="vxw-pill vxw-pill--ok">Approved{{ $e->approved_minutes !== null && $e->approved_minutes !== $mins ? ' · ' . $fmt((int) $e->approved_minutes) : '' }}</span>
+                                            @elseif ($e->status === 'rejected')
+                                                <span class="vxw-pill vxw-pill--bad">Not paid</span>
+                                            @else
+                                                <span class="vxw-meta">{{ $e->source === 'manual' ? 'Added by hand' : 'OK' }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-3 text-right">@if ($this->canEdit($e)){{ ($this->editEntryAction)(['entry' => $e->id]) }}@endif</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    @if ($entries->lastPage() > 1)
+                        <div class="flex items-center justify-between px-4 py-3" style="border-top:1px solid var(--vxw-border)">
+                            <span class="vxw-meta">Page {{ $entries->currentPage() }} of {{ $entries->lastPage() }}</span>
+                            <div class="flex gap-2">
+                                <button type="button" wire:click="prevPage" class="vxw-btn vxw-btn--sm" @disabled($entries->currentPage() === 1)>Previous</button>
+                                <button type="button" wire:click="nextPage" class="vxw-btn vxw-btn--sm" @disabled($entries->currentPage() === $entries->lastPage())>Next</button>
+                            </div>
+                        </div>
+                    @endif
+                @endif
+            @else
+                <div class="vxw-card-body" style="display:grid;gap:12px">
                     <div class="flex flex-wrap items-center gap-2">
                         @foreach ($periodOptions as $mode => $label)
-                            <button
-                                wire:click="setPeriodMode('{{ $mode }}')"
-                                type="button"
-                                class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $periodMode === $mode ? 'bg-violet-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700' }}"
-                            >{{ $label }}</button>
+                            <button type="button" wire:click="setPeriodMode('{{ $mode }}')" @class(['vxw-chip', 'is-active' => $periodMode === $mode])>{{ $label }}</button>
                         @endforeach
+                        <span class="vxw-meta ml-auto">{{ $this->periodLabel }}</span>
                     </div>
-
                     @if ($periodMode === 'custom')
-                        <div class="flex items-center gap-2">
-                            <input wire:model.live="periodFrom" type="date"
-                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500" />
-                            <span class="text-xs text-gray-400">to</span>
-                            <input wire:model.live="periodTo" type="date"
-                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input wire:model.live="periodFrom" type="date" class="vxw-input" style="width:auto" aria-label="From">
+                            <span class="vxw-meta">to</span>
+                            <input wire:model.live="periodTo" type="date" class="vxw-input" style="width:auto" aria-label="To">
                         </div>
                     @endif
                 </div>
-
                 @if (count($team) === 0)
-                    <div class="px-6 py-8 text-center text-sm text-gray-400">No hours logged by the team for this period.</div>
+                    <div class="vxw-empty"><div class="vxw-empty-title">No hours logged by the team for this period</div><div class="vxw-empty-text">Hourly team members' clocked time appears here.</div></div>
                 @else
-                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach ($team as $member)
-                            @php $pct = $team[0]['minutes'] > 0 ? round(($member['minutes'] / $team[0]['minutes']) * 100) : 0; @endphp
-                            <div class="px-6 py-3 flex items-center gap-4">
-                                <div class="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
-                                    <span class="text-xs font-bold text-violet-600 dark:text-violet-400">{{ strtoupper(substr($member['name'], 0, 1)) }}</span>
-                                </div>
-                                <span class="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0 truncate">{{ $member['name'] }}</span>
-                                <span class="text-xs text-gray-400 shrink-0">{{ $member['entries'] }} {{ $member['entries'] === 1 ? 'entry' : 'entries' }}</span>
-                                <div class="hidden sm:flex items-center gap-2 w-32">
-                                    <div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                                        <div class="h-1.5 rounded-full bg-violet-500" style="width: {{ $pct }}%"></div>
-                                    </div>
-                                </div>
-                                <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums shrink-0">
-                                    {{ \App\Models\TimeEntry::formatMinutes($member['minutes']) }}
-                                </span>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-        @endif
-
-        {{-- ── History Table ───────────────────────────────────────────────── --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-
-            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">History</h2>
-                <div class="flex items-center gap-3">
-                    @if ($entries->total() > 0)
-                        <span class="text-xs text-gray-400">{{ number_format($entries->total()) }} entries</span>
-                    @endif
-                    {{ $this->addTimeAction }}
-                    <a
-                        wire:click.prevent="exportCsv"
-                        href="#"
-                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
-                    >
-                        <x-heroicon-o-arrow-down-tray class="h-3 w-3" />
-                        Export CSV
-                    </a>
-                </div>
-            </div>
-
-            @if ($entries->isEmpty())
-                <div class="px-6 py-10 text-center">
-                    <x-heroicon-o-clock class="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p class="text-sm text-gray-500 dark:text-gray-400">No time entries yet. Clock in to get started.</p>
-                </div>
-            @else
-                <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($entries as $e)
-                        <div class="px-6 py-3">
-                            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                                <span class="font-medium text-gray-900 dark:text-gray-100">
-                                    @if ($seesTeam)
-                                        {{ $e->user->name ?? '—' }} ·
-                                    @endif
-                                    {{ $e->clocked_in_at->setTimezone($this->userTimezone())->format('M j, Y') }}
-                                </span>
-                                <span class="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                                    @php $mins = $e->duration_minutes; @endphp
-                                    @if ($mins !== null)
-                                        {{ \App\Models\TimeEntry::formatMinutes($mins) }}
-                                    @else
-                                        <span class="font-normal text-gray-400">—</span>
-                                    @endif
-                                </span>
-                            </div>
-                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                                <span class="tabular-nums text-gray-500 dark:text-gray-400">In {{ $this->formatTimeInUserTz($e->clocked_in_at) }}</span>
-                                @if ($e->clocked_out_at)
-                                    <span class="tabular-nums text-gray-500 dark:text-gray-400">Out {{ $this->formatTimeInUserTz($e->clocked_out_at) }}</span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
-                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Active
-                                    </span>
-                                @endif
-                                <span class="min-w-0 truncate text-gray-500 dark:text-gray-400">{{ $e->purposeLabel() }}</span>
-                                @if ($e->source === 'manual')<span class="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">Added by hand</span>@endif
-                                @if ($e->status === 'flagged')
-                                    <span class="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" title="{{ implode(', ', $e->flagLabels()) }}">Needs review · {{ implode(', ', $e->flagLabels()) }}</span>
-                                @elseif ($e->status === 'approved')
-                                    <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">Approved{{ $e->approved_minutes !== null && $e->approved_minutes !== $e->duration_minutes ? ' · ' . \App\Models\TimeEntry::formatMinutes((int) $e->approved_minutes) : '' }}</span>
-                                @elseif ($e->status === 'rejected')
-                                    <span class="rounded bg-red-100 px-1.5 py-0.5 font-medium text-red-800 dark:bg-red-500/15 dark:text-red-300">Not paid</span>
-                                @endif
-                                @if ($this->canEdit($e))
-                                    <span class="ml-auto">{{ ($this->editEntryAction)(['entry' => $e->id]) }}</span>
-                                @endif
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                {{-- Pagination --}}
-                @if ($entries->lastPage() > 1)
-                    <div class="px-6 py-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                        <span>Page {{ $entries->currentPage() }} of {{ $entries->lastPage() }}</span>
-                        <div class="flex items-center gap-2">
-                            <button
-                                wire:click="prevPage"
-                                @if ($entries->currentPage() === 1) disabled @endif
-                                class="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            >Previous</button>
-                            <button
-                                wire:click="nextPage"
-                                @if ($entries->currentPage() === $entries->lastPage()) disabled @endif
-                                class="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                            >Next</button>
-                        </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm" style="min-width:520px">
+                            <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)"><th class="px-4 py-2.5">Person</th><th class="px-4 py-2.5 text-right">Entries</th><th class="px-4 py-2.5 text-right">Hours</th><th class="px-4 py-2.5" style="width:35%"></th></tr></thead>
+                            <tbody>
+                                @foreach ($team as $member)
+                                    @php $pct = $team[0]['minutes'] > 0 ? round(($member['minutes'] / $team[0]['minutes']) * 100) : 0; @endphp
+                                    <tr style="border-top:1px solid var(--vxw-border)">
+                                        <td class="px-4 py-3 font-medium">{{ $member['name'] }}</td>
+                                        <td class="px-4 py-3 text-right tabular-nums">{{ $member['entries'] }}</td>
+                                        <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $fmt($member['minutes']) }}</td>
+                                        <td class="px-4 py-3"><div style="height:8px;border-radius:4px;background:var(--vxw-sunken)"><div style="height:8px;border-radius:4px;width:{{ $pct }}%;background:#7c3aed"></div></div></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 @endif
             @endif
-
-        </div>
-
+        </section>
     </div>
 </x-filament-panels::page>

@@ -23,6 +23,38 @@
 <x-filament-panels::page>
     <x-dashboard-shortcuts />
     <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="streamer-shows" x-data="{ tab: @js($defaultTab), sort: 'newest' }">
+        {{-- What needs doing at a glance; each tile opens its list below. --}}
+        @php
+            $tiles = [
+                ['needs_you', $summary['needs_you'], 'Waiting on you', $summary['needs_you'] ? 'Need items logged' : "You're all caught up", 'heroicon-o-exclamation-circle', '#ea580c', 'rgb(234 88 12 / .12)'],
+                ['upcoming', $summary['upcoming'], 'Upcoming', 'Scheduled shows', 'heroicon-o-calendar-days', '#2563eb', 'rgb(37 99 235 / .12)'],
+                ['waiting', $summary['submitted'], 'Submitted', 'Waiting on review', 'heroicon-o-paper-airplane', '#dc2626', 'rgb(220 38 38 / .1)'],
+                ['done', $summary['approved'], 'Approved', 'Ready for pay', 'heroicon-o-check-badge', '#059669', 'rgb(5 150 105 / .12)'],
+            ];
+        @endphp
+        <div class="flex flex-wrap items-center justify-end gap-2">
+            @if($calendarUrl)
+                <a class="vxw-btn" href="{{ $calendarUrl }}"><x-filament::icon icon="heroicon-m-calendar-days" /> Calendar</a>
+            @endif
+            @if($nextUp && $nextUp['url'])
+                <a class="vxw-btn vxw-btn--primary" href="{{ $nextUp['url'] }}">Log next show <x-filament::icon icon="heroicon-m-arrow-right" /></a>
+            @endif
+        </div>
+        <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))">
+            @foreach ($tiles as [$key, $count, $label, $sub, $icon, $color, $soft])
+                <button type="button" class="vxw-card flex items-center text-left" style="gap:14px;padding:16px;transition:box-shadow .15s"
+                    @click="tab='{{ $key }}'; document.getElementById('show-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                    :style="{ boxShadow: tab==='{{ $key }}' ? '0 0 0 2px {{ $color }}' : '' }">
+                    <span style="display:flex;flex:none;height:44px;width:44px;align-items:center;justify-content:center;border-radius:12px;background:{{ $soft }};color:{{ $color }}"><x-filament::icon :icon="$icon" style="height:24px;width:24px" /></span>
+                    <span class="min-w-0">
+                        <span class="block tabular-nums" style="font-size:24px;font-weight:700;line-height:1.1">{{ number_format($count) }}</span>
+                        <span class="block font-semibold" style="font-size:13.5px">{{ $label }}</span>
+                        <span class="vxw-meta block">{{ $sub }}</span>
+                    </span>
+                </button>
+            @endforeach
+        </div>
+
         @if (\App\Support\AdminModules::isEnabled('timekeeping'))
             @livewire('clock-widget')
         @endif
@@ -50,36 +82,6 @@
             </div>
         </section>
 
-        {{-- What needs doing, in one line, with the one button that does it. --}}
-        <section class="vxw-card">
-            <div class="vxw-card-body">
-                <div class="vxw-hero">
-                    <div>
-                        <div class="vxw-eyebrow">Your shows</div>
-                        @if($summary['needs_you'] > 0)
-                            <h2 class="vxw-h1">{{ $summary['needs_you'] }} {{ \Illuminate\Support\Str::plural('show', $summary['needs_you']) }} waiting on you</h2>
-                            <p class="vxw-sub">Log the items you used so your report can be approved and paid.</p>
-                        @else
-                            <h2 class="vxw-h1">You're all caught up</h2>
-                            <p class="vxw-sub">Every show you've streamed has a report. New shows appear here after they air.</p>
-                        @endif
-                    </div>
-                    <div class="vxw-hero-actions">
-                        @if($calendarUrl)
-                            <a class="vxw-btn" href="{{ $calendarUrl }}">
-                                <x-filament::icon icon="heroicon-m-calendar-days" /> Calendar
-                            </a>
-                        @endif
-                        @if($nextUp && $nextUp['url'])
-                            <a class="vxw-btn vxw-btn--primary" href="{{ $nextUp['url'] }}">
-                                Log next show
-                                <x-filament::icon icon="heroicon-m-arrow-right" />
-                            </a>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="vxw-chips" role="tablist" aria-label="Filter your shows">

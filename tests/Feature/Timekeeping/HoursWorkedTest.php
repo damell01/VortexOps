@@ -130,23 +130,22 @@ class HoursWorkedTest extends TestCase
         $this->time->clockIn($this->person, $other->id);
     }
 
-    public function test_editing_your_own_time_needs_a_reason_is_logged_and_flagged(): void
+    public function test_editing_your_own_time_is_logged_and_flagged_with_an_optional_reason(): void
     {
         $entry = $this->clocked(null, '2026-10-14 14:00:00', '2026-10-14 16:00:00', ['reason' => 'packing']);
 
-        try {
-            $this->time->edit($entry, $this->person, Carbon::parse('2026-10-14 13:00:00'), Carbon::parse('2026-10-14 16:00:00'), '  ');
-            $this->fail('An edit without a reason was accepted.');
-        } catch (ValidationException) {
-        }
+        // No reason given: still allowed, still logged and flagged.
+        $quiet = $this->time->edit($entry, $this->person, Carbon::parse('2026-10-14 14:00:00'), Carbon::parse('2026-10-14 16:15:00'), '  ');
+        $this->assertSame('flagged', $quiet->status);
+        $this->assertNull(TimeEntryChange::where('time_entry_id', $entry->id)->where('action', 'edited')->latest('id')->value('reason'));
 
         $entry = $this->time->edit($entry->fresh(), $this->person, Carbon::parse('2026-10-14 13:00:00'), Carbon::parse('2026-10-14 16:00:00'), 'Forgot to clock in when I started packing', null, 'packing');
 
         $this->assertSame('flagged', $entry->status);
         $this->assertTrue($entry->hasFlag('edited'));
         $this->assertSame(0, $entry->payableMinutes(), 'flagged time is not paid until reviewed');
-        $change = TimeEntryChange::where('time_entry_id', $entry->id)->where('action', 'edited')->firstOrFail();
-        $this->assertSame(120, $change->old_values['minutes']);
+        $change = TimeEntryChange::where('time_entry_id', $entry->id)->where('action', 'edited')->latest('id')->firstOrFail();
+        $this->assertSame(135, $change->old_values['minutes']);
         $this->assertSame(180, $change->new_values['minutes']);
         $this->assertSame('Forgot to clock in when I started packing', $change->reason);
         $this->assertSame($this->person->id, $change->user_id);
@@ -334,5 +333,26 @@ class HoursWorkedTest extends TestCase
         $this->actingAs($this->person);
 
         $this->assertFalse(TimeAttendance::canAccess());
+    }
+
+    public function test_the_show_picker_lists_only_your_shows_and_admins_can_see_all(): void
+    {
+        $mine = $this->show();
+        $other = Show::create(['whatnot_channel_id' => $this->channel->id, 'title' => 'Someone else', 'show_date' => '2026-10-14', 'status' => 'reconciled', 'created_by' => $this->owner->id]);
+
+        $forStreamer = collect($this->time->pickerShows($this->person));
+        $this->assertSame([$mine->id], $forStreamer->pluck('id')->all());
+        $this->assertSame('Yesterday', $forStreamer->first()['day']);
+
+        $forAdmin = collect($this->time->pickerShows($this->owner))->keyBy('id');
+        $this->assertTrue($forAdmin->has($other->id));
+        $this->assertFalse($forAdmin[$other->id]['mine']);
+
+        $this->actingAs($this->person);
+        Livewire::test(ClockWidget::class)
+            ->call('pickShow', $mine->id)
+            ->assertSee('Tuesday Breaks')
+            ->call('clockIn');
+        $this->assertSame($mine->id, TimeEntry::sole()->show_id);
     }
 }

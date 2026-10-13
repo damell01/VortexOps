@@ -45,7 +45,7 @@ class WhatnotSheetCheck extends Page
 
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Shows'; }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-table-cells'; }
-    public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner()) ?? false; }
+    public static function canAccess(): bool { return (bool) auth()->user()?->isOwner(); }
     public function getView(): string { return 'filament.pages.whatnot-sheet-check'; }
 
     public function getSubheading(): ?string
@@ -118,6 +118,11 @@ class WhatnotSheetCheck extends Page
                         : 'Upload every channel\'s export to allow this — missing: '.implode(', ', $this->plan()['missing_channels'] ?? []).'.')
                     ->default(($this->plan()['all_channels'] ?? false) && $this->deletableCount() > 0)
                     ->disabled(! ($this->plan()['all_channels'] ?? false) || $this->deletableCount() === 0),
+                \Filament\Forms\Components\Toggle::make('include_paid')
+                    ->label('Also delete the '.$this->blockedCount().' with pay or an approved report')
+                    ->helperText('Only while payroll is not live: their pay lines are removed with them.')
+                    ->default(false)
+                    ->visible(fn () => ($this->plan()['all_channels'] ?? false) && $this->blockedCount() > 0),
             ])
             ->modalDescription(function () {
                 $items = collect($this->plan()['items'] ?? []);
@@ -133,7 +138,7 @@ class WhatnotSheetCheck extends Page
                 if (! $plan) {
                     return;
                 }
-                $this->result = app(WhatnotSheetReconciler::class)->apply($plan, (bool) ($data['delete_extras'] ?? false));
+                $this->result = app(WhatnotSheetReconciler::class)->apply($plan, (bool) ($data['delete_extras'] ?? false), (bool) ($data['include_paid'] ?? false));
                 $this->check(notify: false);
                 $failed = count($this->result['failed']);
                 Notification::make()
@@ -179,6 +184,11 @@ class WhatnotSheetCheck extends Page
     public function deletableCount(): int
     {
         return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']))->count();
+    }
+
+    public function blockedCount(): int
+    {
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']))->count();
     }
 
     public function plan(): ?array

@@ -236,4 +236,29 @@ class WhatnotSheetCheckTest extends TestCase
         $this->assertFalse(Payout::whereKey($draft->id)->exists());
         $this->assertTrue(Show::whereKey($paid->id)->exists());
     }
+
+    public function test_before_payroll_is_live_paid_unlisted_shows_can_go_too(): void
+    {
+        $paid = $this->show($this->cards, 'Paid but unlisted', '2026-10-03');
+        $streamer = Streamer::create(['name' => 'S', 'status' => 'active', 'member_type' => 'streamer']);
+        $payout = Payout::create(['show_id' => $paid->id, 'streamer_id' => $streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 10, 'status' => 'paid']);
+        $plan = $this->plan([
+            $this->cards->id => [$this->csv([$this->row('Real', '10/01/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ]);
+
+        $this->assertSame(1, app(WhatnotSheetReconciler::class)->apply($plan, true, true)['deleted']);
+        $this->assertFalse(Show::whereKey($paid->id)->exists());
+        $this->assertFalse(Payout::whereKey($payout->id)->exists());
+    }
+
+    public function test_only_the_owner_can_open_it(): void
+    {
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin)->get(WhatnotSheetCheck::getUrl())->assertForbidden();
+        $this->assertFalse(WhatnotSheetCheck::canAccess());
+    }
 }

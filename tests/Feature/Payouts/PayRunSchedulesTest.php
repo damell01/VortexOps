@@ -104,7 +104,7 @@ class PayRunSchedulesTest extends TestCase
         $run = WeeklyPayoutBatch::sole();
         $this->assertSame($wages->id, $run->pay_run_type_id);
         $this->assertSame('wages', $run->kind);
-        $this->assertSame(['show_hours'], $run->payouts()->pluck('payout_type')->all(), json_encode(['first' => $first, 'second' => $second, 'lines' => Payout::all()->toArray()]));
+        $this->assertSame(['show_hours'], $run->payouts()->pluck('payout_type')->all());
         $this->assertEquals(30, (float) $run->total_payout);
     }
 

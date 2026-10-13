@@ -26,7 +26,7 @@ class PayoutService
 
         $payouts = [];
 
-        $allExisting = Payout::where('show_id', $show->id)
+        $allExisting = Payout::with('batch')->where('show_id', $show->id)
             ->whereIn('streamer_id', $streamers->pluck('id'))
             ->get();
         // Wages and profit share always remain separate pay lines.

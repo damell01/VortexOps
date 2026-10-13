@@ -36,6 +36,9 @@ class WhatnotSheetCheck extends Page
     public string $since = '2026-06-01';
 
     #[Locked]
+    public ?string $until = null;
+
+    #[Locked]
     public ?string $planKey = null;
 
     #[Locked]
@@ -63,7 +66,11 @@ class WhatnotSheetCheck extends Page
                 ->modalDescription('One box per channel. Upload every page of each channel\'s export (Show 100 per page, so 176 shows is two files). Upload all channels together so a show can be moved to the right one.')
                 ->modalSubmitActionLabel('Check')
                 ->schema(fn () => [
-                    DatePicker::make('since')->label('Check shows from')->default($this->since)->required(),
+                    \Filament\Schemas\Components\Grid::make(2)->schema([
+                        DatePicker::make('since')->label('Exports start')->default($this->since)->required(),
+                        DatePicker::make('until')->label('Exports end')->default($this->until)->required()
+                            ->helperText('The date range you chose in Seller Hub. Every channel is checked across all of it.'),
+                    ]),
                     Section::make('Exports by channel')->schema(
                         WhatnotChannel::where('status', 'active')->orderBy('name')->get()->map(fn (WhatnotChannel $c) => FileUpload::make('files_'.$c->id)
                             ->label($c->name)
@@ -87,6 +94,7 @@ class WhatnotSheetCheck extends Page
                         }
                     }
                     $this->since = \Carbon\Carbon::parse($data['since'])->toDateString();
+                    $this->until = filled($data['until'] ?? null) ? \Carbon\Carbon::parse($data['until'])->toDateString() : null;
                     $this->result = null;
                     $this->check();
                 }),
@@ -164,7 +172,7 @@ class WhatnotSheetCheck extends Page
                 }
             }
 
-            $plan = app(WhatnotSheetReconciler::class)->plan($paths, $this->since);
+            $plan = app(WhatnotSheetReconciler::class)->plan($paths, $this->since, $this->until);
             $this->planKey = 'whatnot-sheet-check:'.auth()->id().':'.Str::uuid();
             Cache::put($this->planKey, $plan, now()->addHours(2));
 
@@ -183,12 +191,12 @@ class WhatnotSheetCheck extends Page
 
     public function deletableCount(): int
     {
-        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']) && ($it['app_orders'] ?? 0) === 0)->count();
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']) && empty($it['aired']) && ($it['app_orders'] ?? 0) === 0)->count();
     }
 
     public function blockedCount(): int
     {
-        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']) && ($it['app_orders'] ?? 0) === 0)->count();
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']) && empty($it['aired']) && ($it['app_orders'] ?? 0) === 0)->count();
     }
 
     public function plan(): ?array

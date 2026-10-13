@@ -45,7 +45,7 @@ class WhatnotSheetReconciler
      * @param  list<string>  $paths
      * @return list<array{title:string,date:string,key:string,metrics:array<string,float|int>,orders:?int,raw:array<string,string>}>
      */
-    public function rows(array $paths, string $since): array
+    public function rows(array $paths, string $since, ?string $until = null): array
     {
         $rows = [];
         $seen = [];
@@ -76,7 +76,7 @@ class WhatnotSheetReconciler
                     } catch (\Throwable) {
                         continue;
                     }
-                    if ($title === '' || ! $date || $date->toDateString() < $since) {
+                    if ($title === '' || ! $date || $date->toDateString() < $since || ($until !== null && $date->toDateString() > $until)) {
                         continue;
                     }
 
@@ -113,7 +113,7 @@ class WhatnotSheetReconciler
      * @param  array<int, list<string>>  $sheets  channel id => export file paths
      * @return array{channels: array<int, array<string, mixed>>, items: list<array<string, mixed>>}
      */
-    public function plan(array $sheets, string $since = '2026-06-01'): array
+    public function plan(array $sheets, string $since = '2026-06-01', ?string $until = null): array
     {
         $channels = WhatnotChannel::whereIn('id', array_keys($sheets))->pluck('name', 'id');
         $allNames = WhatnotChannel::pluck('name', 'id');
@@ -122,7 +122,7 @@ class WhatnotSheetReconciler
         $from = null;
         $to = null;
         foreach ($sheets as $channelId => $paths) {
-            $rows = $this->rows($paths, $since);
+            $rows = $this->rows($paths, $since, $until);
             $rowsByChannel[$channelId] = $rows;
             foreach ($rows as $row) {
                 $from = min($from ?? $row['date'], $row['date']);
@@ -130,8 +130,14 @@ class WhatnotSheetReconciler
             }
         }
 
-        if ($from === null) {
+        if ($from === null && $until === null) {
             return ['channels' => [], 'items' => []];
+        }
+        // With the export's own date range given, every channel is checked
+        // across all of it, including days after its last show.
+        if ($until !== null) {
+            $from = $since;
+            $to = $until;
         }
 
         $shows = Show::query()
@@ -238,16 +244,21 @@ class WhatnotSheetReconciler
         $summary = [];
         foreach ($rowsByChannel as $channelId => $rows) {
             $dates = collect($rows)->pluck('date');
-            $cFrom = $dates->min();
-            $cTo = $dates->max();
+            $cFrom = $until !== null ? $since : $dates->min();
+            $cTo = $until !== null ? $until : $dates->max();
             $mine = collect($items)->where('channel_id', (int) $channelId);
 
             $extras = $shows->filter(fn (Show $s) => (int) $s->whatnot_channel_id === (int) $channelId && ! isset($claimed[$s->id])
-                && $s->status !== 'cancelled' && $s->show_date && $s->show_date->toDateString() > $cFrom && $s->show_date->toDateString() <= $cTo);
+                && $s->status !== 'cancelled' && $s->show_date
+                && ($until !== null ? $s->show_date->toDateString() >= $cFrom : $s->show_date->toDateString() > $cFrom)
+                && $s->show_date->toDateString() <= $cTo);
             foreach ($extras as $show) {
                 $items[] = [
                     'action' => 'extra',
                     'blocked' => $this->deleteBlocker($show),
+                    // Sales or orders mean it really aired; it is kept whatever
+                    // the exports say (renamed since, or a page was missed).
+                    'aired' => (float) $show->gross_revenue > 0 || (int) $show->units_sold > 0 || (int) ($orderRows[$show->id] ?? 0) > 0,
                     'how' => 'not_on_whatnot_list',
                     'channel_id' => (int) $channelId,
                     'channel' => $channels[$channelId] ?? '#'.$channelId,
@@ -339,7 +350,7 @@ class WhatnotSheetReconciler
             if ($item['action'] === 'extra') {
                 // Imported orders mean the show really aired (most likely renamed
                 // on Whatnot since), so it is never deleted from here.
-                if ($deleteExtras && ($item['app_orders'] ?? 0) === 0 && ($includePaid || empty($item['blocked']))) {
+                if ($deleteExtras && empty($item['aired']) && ($item['app_orders'] ?? 0) === 0 && ($includePaid || empty($item['blocked']))) {
                     try {
                         DB::transaction(fn () => $this->deleteShow($item, $includePaid));
                         $totals['deleted']++;
@@ -494,7 +505,8 @@ class WhatnotSheetReconciler
     private function deleteShow(array $item, bool $includePaid = false): void
     {
         $show = Show::lockForUpdate()->find($item['show_id']);
-        if (! $show || (! $includePaid && $this->deleteBlocker($show)) || WhatnotShowOrder::where('show_id', $show->id)->exists()) {
+        if (! $show || (! $includePaid && $this->deleteBlocker($show)) || WhatnotShowOrder::where('show_id', $show->id)->exists()
+            || (float) $show->gross_revenue > 0 || (int) $show->units_sold > 0) {
             return;
         }
 

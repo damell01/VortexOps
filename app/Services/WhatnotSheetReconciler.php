@@ -86,6 +86,16 @@ class WhatnotSheetReconciler
                     }
 
                     $metrics = $this->csv->metrics($raw);
+                    // A dash under Est. Sales / Est. Earnings is Whatnot saying
+                    // the show it lists sold nothing: that is $0, not unknown.
+                    foreach (['gross_revenue' => ['Est. Sales', 'Estimated Sales'], 'whatnot_net' => ['Est. Earnings', 'Estimated Earnings']] as $field => $columns) {
+                        foreach ($columns as $column) {
+                            if (array_key_exists($column, $raw) && ! isset($metrics[$field]) && in_array(trim((string) $raw[$column]), ['—', '-', '–', ''], true)) {
+                                $metrics[$field] = 0.0;
+                                break;
+                            }
+                        }
+                    }
                     $orders = $this->csv->number($raw['Orders'] ?? null);
                     // Overlapping pages repeat rows exactly; two different shows
                     // with the same title on one day differ somewhere.

@@ -399,4 +399,16 @@ class WhatnotSheetCheckTest extends TestCase
         app(WhatnotSheetReconciler::class)->apply($plan, true, true);
         $this->assertTrue(Show::whereKey($real->id)->exists());
     }
+
+    public function test_a_dash_for_sales_sets_a_listed_show_to_zero(): void
+    {
+        $show = $this->show($this->cards, 'Listed with no sales', '2026-10-02', ['gross_revenue' => 5197, 'whatnot_net' => 0]);
+        $plan = $this->plan([$this->cards->id => [$this->csv([
+            ['Listed with no sales', '10/02/2026', '270', '3.33%', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '0', '47', '13', '13', '—'],
+        ])]]);
+
+        $this->assertSame([5197.0, 0.0], $this->item($plan, 'Listed with no sales')['changes']['gross_revenue']);
+        app(WhatnotSheetReconciler::class)->apply($plan);
+        $this->assertEqualsWithDelta(0, (float) $show->fresh()->gross_revenue, 0.001);
+    }
 }

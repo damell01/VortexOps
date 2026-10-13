@@ -17,6 +17,7 @@ class StreamerLogEntry extends Model
         'fulfillment_reviewed_at', 'notes', 'draft_step', 'draft_saved_at', 'submitted_at', 'locked_at', 'edit_window_minutes',
         'revision_requested_at', 'revision_reason',
         'approval_requested_at', 'approval_status', 'approval_notes',
+        'hours_review', 'hours_reviewed_by', 'hours_reviewed_at', 'hours_review_note',
     ];
 
     protected $casts = [
@@ -39,6 +40,7 @@ class StreamerLogEntry extends Model
         'edit_window_minutes' => 'integer',
         'draft_step' => 'integer',
         'draft_saved_at' => 'datetime',
+        'hours_reviewed_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'streamer_reviewed_at' => 'datetime',
         'submitted_at' => 'datetime',

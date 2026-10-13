@@ -174,15 +174,13 @@ class PayrollOverview extends Page
     {
         if ($this->payRunResolved) return $this->payRunMemo;
         $this->payRunResolved = true;
-        [$periodStart, $periodEnd] = \App\Support\PaySchedule::periodFor($this->period_date ?: now());
-        $weekStart = $periodStart->toDateString();
-        $weekEnd = $periodEnd->toDateString();
+        $date = \Carbon\Carbon::parse($this->period_date ?: now())->toDateString();
 
         return $this->payRunMemo = WeeklyPayoutBatch::query()
             ->inBusinessContext()
             ->withCount('payouts')
-            ->whereDate('week_start', '<=', $weekEnd)
-            ->whereDate('week_end', '>=', $weekStart)
+            ->whereDate('week_start', '<=', $date)
+            ->whereDate('week_end', '>=', $date)
             ->latest('week_start')
             ->first();
     }

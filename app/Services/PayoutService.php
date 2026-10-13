@@ -122,7 +122,7 @@ class PayoutService
                 $basis     = ($isPrimary || $streamerCount <= 1) ? ($basisKey === 'gross' ? $grossRevenue : $netRevenue) : 0.0;
                 $houseCut  = min(100.0, max(0.0, (float) ($streamer->house_cut_percentage ?? 0)));
                 $calculatedPayout = round($basis * (100 - $houseCut) / 100, 2);
-                $basisLabel = $basisKey === 'gross' ? 'gross sales' : 'net earnings';
+                $basisLabel = $basisKey === 'gross' ? 'gross sales' : 'estimated net earnings';
                 $calculationNotes = 'Sales split: $' . number_format($basis, 2) . " {$basisLabel} − {$houseCut}% kept by the business";
                 if ($streamerCount > 1 && ! $isPrimary) {
                     $calculationNotes .= ' — non-primary on collab show, the split goes to the primary streamer';

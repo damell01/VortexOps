@@ -7,7 +7,7 @@
     $business=$this->business;
     $isSplit=($streamer['payout_type']??'profit_share')==='sales_split';
     $cut=(float)($streamer['house_cut_percentage']??0);
-    $basisLabel=($streamer['sales_split_basis']??'net')==='gross'?'Gross Sales':'Net Earnings (after Whatnot fees)';
+    $basisLabel=($streamer['sales_split_basis']??'net')==='gross'?'Gross Sales':'Estimated Net Earnings';
 @endphp
 <div class="space-y-6">
     <div class="vx-card p-4 text-sm" style="border-left:4px solid {{ $business?->color ?? '#9ca3af' }}">

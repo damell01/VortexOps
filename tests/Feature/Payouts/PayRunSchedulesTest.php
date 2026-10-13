@@ -99,12 +99,12 @@ class PayRunSchedulesTest extends TestCase
         $wages->update(['schedule_enabled' => true, 'auto_create' => true]);
         $this->show('2026-10-14');
         $service = app(PayRunAutomationService::class);
-        $service->syncAllForWeek('2026-10-14', true, scheduled: true);
-        $service->syncAllForWeek('2026-10-14', true, scheduled: true);
+        $first = $service->syncAllForWeek('2026-10-14', true, scheduled: true);
+        $second = $service->syncAllForWeek('2026-10-14', true, scheduled: true);
         $run = WeeklyPayoutBatch::sole();
         $this->assertSame($wages->id, $run->pay_run_type_id);
         $this->assertSame('wages', $run->kind);
-        $this->assertSame(['show_hours'], $run->payouts()->pluck('payout_type')->all());
+        $this->assertSame(['show_hours'], $run->payouts()->pluck('payout_type')->all(), json_encode(['first' => $first, 'second' => $second, 'lines' => Payout::all()->toArray()]));
         $this->assertEquals(30, (float) $run->total_payout);
     }
 

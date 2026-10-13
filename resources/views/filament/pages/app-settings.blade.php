@@ -201,7 +201,7 @@
                         </label>
                     </div>
                 @endforeach
-                <p class="text-xs text-gray-400 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <strong>Roles &amp; Permissions</strong>. Changes apply on the next page load after saving.</p>
+                <p class="text-xs text-gray-400 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <a href="{{ \App\Filament\Resources\RoleResource::getUrl('index') }}" class="font-semibold text-primary-600 underline">Roles &amp; Permissions</a>. Changes apply on the next page load after saving.</p>
             </div>
         </div>
         @endif

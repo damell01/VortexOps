@@ -198,7 +198,7 @@ class WhatnotSheetCheckTest extends TestCase
 
         Livewire::test(WhatnotSheetCheck::class)
             ->assertOk()->assertSee('How it works')
-            ->callAction('upload', data: ['since' => '2026-06-01', 'files_'.$this->cards->id => [$upload]])
+            ->callAction('upload', data: ['since' => '2026-06-01', 'until' => '2026-10-09', 'files_'.$this->cards->id => [$upload]])
             ->assertHasNoActionErrors()
             ->assertSee('Move to right channel')
             ->assertSee('Vortex Breaks →', false)
@@ -272,6 +272,26 @@ class WhatnotSheetCheckTest extends TestCase
         ]);
 
         $this->assertSame(0, app(WhatnotSheetReconciler::class)->apply($plan, true, true)['deleted']);
+        $this->assertTrue(Show::whereKey($aired->id)->exists());
+    }
+
+    public function test_the_whole_export_range_is_checked_and_shows_with_sales_are_kept(): void
+    {
+        // Shop's last show was Aug 10; the app has two more after it.
+        $junk = $this->show($this->cards, 'Scheduled, never aired', '2026-09-01');
+        $aired = $this->show($this->cards, 'Aired but not listed', '2026-09-02', ['gross_revenue' => 900]);
+        $plan = app(WhatnotSheetReconciler::class)->plan([
+            $this->cards->id => [$this->csv([$this->row('Early', '06/02/2026'), $this->row('Last', '08/10/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ], '2026-06-01', '2026-10-09');
+
+        $this->assertSame('2026-10-09', $plan['channels'][$this->cards->id]['to']);
+        $this->assertSame('extra', collect($plan['items'])->firstWhere('show_id', $junk->id)['action']);
+        $this->assertTrue(collect($plan['items'])->firstWhere('show_id', $aired->id)['aired']);
+
+        $result = app(WhatnotSheetReconciler::class)->apply($plan, true, true);
+        $this->assertSame(1, $result['deleted']);
+        $this->assertFalse(Show::whereKey($junk->id)->exists());
         $this->assertTrue(Show::whereKey($aired->id)->exists());
     }
 }

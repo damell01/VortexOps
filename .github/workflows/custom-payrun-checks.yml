@@ -73,7 +73,7 @@ jobs:
         if: '!cancelled()'
         shell: bash
         run: |
-          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/payroll-workspace-server.log 2>&1 &
+          APP_DEBUG=false DEBUGBAR_ENABLED=false php artisan serve --host=127.0.0.1 --port=8000 > /tmp/payroll-workspace-server.log 2>&1 &
           payroll_ui_server_pid=$!
           trap 'kill "$payroll_ui_server_pid" 2>/dev/null || true' EXIT
           for i in {1..30}; do

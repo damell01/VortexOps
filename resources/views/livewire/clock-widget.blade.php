@@ -120,7 +120,7 @@
                         <x-filament::icon icon="heroicon-o-video-camera" class="h-6 w-6 shrink-0" style="color:#7c3aed" />
                         <span class="min-w-0 flex-1">
                             <span class="block font-semibold">Link one of {{ $isReviewer ? 'the' : 'your' }} shows</span>
-                            <span class="vxw-meta block">{{ $mineCount ? $mineCount.' '.\Illuminate\Support\Str::plural('show', $mineCount).' of yours in the last two weeks' : ($isReviewer ? 'Every show from the last two weeks' : 'No recent shows assigned to you') }}</span>
+                            <span class="vxw-meta block">{{ $mineCount ? $mineCount.' '.\Illuminate\Support\Str::plural('show', $mineCount).' of yours — recent and upcoming' : ($isReviewer ? 'Recent and upcoming shows' : 'No recent or upcoming shows assigned to you') }}</span>
                         </span>
                         <x-filament::icon icon="heroicon-m-chevron-right" class="h-5 w-5" style="color:var(--vxw-muted)" />
                     </button>
@@ -193,7 +193,7 @@
                     </template>
                     <div x-show="list.length === 0" class="px-4 py-10 text-center">
                         <div class="font-semibold">No shows match</div>
-                        <div class="vxw-meta mt-1" x-text="tab === 'mine' ? 'Only shows you are assigned to from the last two weeks are listed. Pick a reason instead, or link the show later.' : 'Try a different search.'"></div>
+                        <div class="vxw-meta mt-1" x-text="tab === 'mine' ? 'Your assigned upcoming shows and shows from the last two weeks are listed. Pick a reason instead, or link the show later.' : 'Try a different search.'"></div>
                     </div>
                 </div>
             </div>

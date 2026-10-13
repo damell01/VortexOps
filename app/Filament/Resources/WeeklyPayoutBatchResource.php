@@ -96,7 +96,7 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
     {
-        return 'Pay Run — ' . $record->week_start?->format('M j, Y') . ($record->kind ? ' (' . $record->kindLabel() . ')' : '');
+        return 'Pay Run — ' . $record->week_start?->format('M j, Y') . ($record->kind || $record->pay_run_type_name ? ' (' . $record->kindLabel() . ')' : '');
     }
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
@@ -143,6 +143,7 @@ class WeeklyPayoutBatchResource extends Resource
                             \Carbon\Carbon::parse($get('week_end'))->toDateString(),
                             $record?->id,
                             $record?->business_id,
+                            $record?->kind,
                         );
                         if ($overlap) {
                             $fail('These dates overlap Pay Run #'.$overlap->id.' ('.$overlap->week_start->format('M j').' – '.$overlap->week_end->format('M j, Y').').');
@@ -166,9 +167,9 @@ class WeeklyPayoutBatchResource extends Resource
         return $table
             ->extraAttributes(['class' => 'vx-finance-table'])
             ->heading('Pay Run History')
-            ->description('Completed and in-progress weekly payroll runs, newest first.')
+            ->description('Custom payroll runs, newest first.')
             ->emptyStateHeading('No pay runs')
-            ->emptyStateDescription('Weekly pay runs are created when payouts are grouped for payment.')
+            ->emptyStateDescription('Create a pay run for any dates, paying wages, profit share, or both.')
             ->emptyStateIcon('heroicon-o-queue-list')
             ->columns([
                 TextColumn::make('week_start')

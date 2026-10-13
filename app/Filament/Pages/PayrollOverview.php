@@ -114,32 +114,8 @@ class PayrollOverview extends Page
 
     public function prepareCurrentPayRun(): void
     {
-        $this->clearReadMemo();
-        try {
-            $automation = app(PayRunAutomationService::class);
-            if (\App\Support\BusinessContext::isScoped() || ! \App\Support\BusinessContext::inUse()) {
-                $result = $automation->syncWeek(now(), true, \App\Support\BusinessContext::currentId());
-                $this->redirect(WeeklyPayoutBatchResource::getUrl('view', ['record' => $result['batch']]));
-                return;
-            }
-
-            // Everyone's payroll at once: one run per business.
-            $results = $automation->syncAllForWeek(now(), true);
-            Notification::make()
-                ->title('This week\'s Pay Runs are ready')
-                ->body(collect($results)->map(fn ($r) => $r['batch']->businessLabel() . ' — $' . number_format((float) $r['batch']->total_payout, 2))->implode(' · '))
-                ->success()
-                ->send();
-            $this->redirect(WeeklyPayoutBatchResource::getUrl('index'));
-        } catch (\Throwable $e) {
-            report($e);
-            Notification::make()
-                ->title('Could not prepare this week\'s Pay Run')
-                ->body($e->getMessage())
-                ->danger()
-                ->persistent()
-                ->send();
-        }
+        abort_unless(static::canAccess(), 403);
+        $this->redirect(WeeklyPayoutBatchResource::getUrl('create'));
     }
 
     protected function getHeaderActions(): array

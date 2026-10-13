@@ -1,0 +1,64 @@
+name: Custom Pay Run Checks
+
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'app/**'
+      - 'database/migrations/**'
+      - 'resources/views/**'
+      - 'tests/**'
+      - '.github/workflows/custom-payrun-checks.yml'
+
+jobs:
+  payroll:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+      - run: cp .env.example .env && php artisan key:generate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - name: Compile Blade views
+        run: php artisan view:cache
+      - name: Pay run types and dates
+        run: php artisan test tests/Feature/Payouts/PayRunSchedulesTest.php
+      - name: Wages and business isolation
+        if: '!cancelled()'
+        run: php artisan test tests/Feature/Businesses/BusinessPayrollTest.php tests/Feature/Payroll/PayrollTeamSetupTest.php
+      - name: Hours and upcoming show picker
+        if: '!cancelled()'
+        run: php artisan test tests/Feature/Timekeeping/HoursWorkedTest.php tests/Feature/Timekeeping/TimekeepingTest.php
+      - name: Pay run lifecycle
+        if: '!cancelled()'
+        shell: bash
+        run: |
+          # The repository has existing lifecycle failures. Compare the same
+          # suite on the PR base and reject every newly failing test.
+          set +e
+          php artisan test tests/Feature/Payouts --log-junit /tmp/payroll-current.xml
+          set -e
+          payroll_baseline_dir="$(mktemp -d)"
+          git worktree add --detach "$payroll_baseline_dir" '${{ github.event.pull_request.base.sha }}'
+          cp -a vendor "$payroll_baseline_dir/vendor"
+          cp .env "$payroll_baseline_dir/.env"
+          cp -a public/build "$payroll_baseline_dir/public/build"
+          set +e
+          (cd "$payroll_baseline_dir" && php artisan test tests/Feature/Payouts --log-junit /tmp/payroll-baseline.xml)
+          set -e
+          python3 .github/scripts/compare-payroll-results.py /tmp/payroll-baseline.xml /tmp/payroll-current.xml

@@ -29,7 +29,6 @@ class PaymentStructures extends Page
     public array $fulfillment = [];
     public ?float $streamer_burden_per_shipment = null;
     public ?float $streamer_burden_per_hour = null;
-    public bool $payroll_auto_setup_enabled = false;
     public bool $payroll_auto_recalculate_drafts = true;
     public bool $payroll_include_zero_activity = false;
     public string $member_filter = 'streamer';
@@ -62,30 +61,23 @@ class PaymentStructures extends Page
         ]);
         $this->streamer_burden_per_shipment = ProfitShareFormula::ratePerShipment() ?? ProfitShareFormula::SUGGESTED_PER_SHIPMENT;
         $this->streamer_burden_per_hour = ProfitShareFormula::ratePerHour() ?? ProfitShareFormula::SUGGESTED_PER_HOUR;
-        $this->payroll_auto_setup_enabled = Setting::getBool('payroll_auto_setup_enabled', false);
         $this->payroll_auto_recalculate_drafts = Setting::getBool('payroll_auto_recalculate_drafts', true);
         $this->payroll_include_zero_activity = Setting::getBool('payroll_include_zero_activity', false);
         $this->payroll_week_start_day = PaySchedule::startDay();
-        $this->run_schedules = \App\Support\PayRunSchedules::config();
+        $this->run_types = \App\Models\PayRunType::orderBy('id')->get()->map(fn ($type) => [
+            'id' => $type->id, 'name' => $type->name, 'kind' => $type->kind ?? '', 'active' => $type->active,
+            'schedule_enabled' => $type->schedule_enabled, 'frequency' => $type->frequency,
+            'anchor' => $type->anchor?->toDateString(), 'auto_create' => $type->auto_create,
+        ])->all();
     }
 
-    /** Separate schedules for profit share and wages; see PayRunSchedules. */
-    public array $run_schedules = [];
+    public array $run_types = [];
 
-    /** @return array<string, string> the scheduled period each run type is on today */
-    public function getRunSchedulePreviewProperty(): array
+    public function addRunType(): void
     {
-        $out = [];
-        foreach (\App\Support\PayRunSchedules::KINDS as $kind => $label) {
-            try {
-                [$a, $b] = \App\Support\PayRunSchedules::standardPeriod($kind, now(), $this->run_schedules[$kind] ?? null);
-                $out[$kind] = PaySchedule::label($a, $b);
-            } catch (\Throwable) {
-                $out[$kind] = '—';
-            }
-        }
-
-        return $out;
+        abort_unless(static::canAccess(), 403);
+        $this->run_types[] = ['id' => null, 'name' => '', 'kind' => 'wages', 'active' => true,
+            'schedule_enabled' => false, 'frequency' => 'weekly', 'anchor' => null, 'auto_create' => false];
     }
 
     private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type, $this->business_id)); }
@@ -125,6 +117,7 @@ class PaymentStructures extends Page
 
     public function save(): void
     {
+        abort_unless(static::canAccess(), 403);
         $this->validate([
             'streamer.payout_type' => 'required|in:profit_share,sales_split',
             'streamer.house_cut_percentage' => 'nullable|required_if:streamer.payout_type,sales_split|numeric|min:0|max:100',
@@ -133,10 +126,15 @@ class PaymentStructures extends Page
             'streamer.custom_payout_formula' => 'nullable|string|max:1000',
             'streamer.hourly_rate' => 'nullable|numeric|min:0',
             'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
-            'run_schedules.separate' => 'boolean',
-            'run_schedules.*.frequency' => 'sometimes|in:' . implode(',', array_keys(\App\Support\PayRunSchedules::FREQUENCIES)),
-            'run_schedules.*.anchor' => 'sometimes|nullable|date',
-            'run_schedules.*.auto' => 'sometimes|boolean',
+            'run_types' => 'array|max:50',
+            'run_types.*.id' => 'nullable|integer|exists:pay_run_types,id',
+            'run_types.*.name' => 'required|string|max:100|regex:/\\S/',
+            'run_types.*.kind' => 'nullable|in:wages,share',
+            'run_types.*.active' => 'required|boolean',
+            'run_types.*.schedule_enabled' => 'required|boolean',
+            'run_types.*.frequency' => 'required|in:' . implode(',', array_keys(\App\Support\PayRunSchedules::FREQUENCIES)),
+            'run_types.*.anchor' => 'nullable|date',
+            'run_types.*.auto_create' => 'required|boolean',
             'streamer_burden_per_shipment' => 'required|numeric|min:0',
             'streamer_burden_per_hour' => 'required|numeric|min:0',
             'fulfillment.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::assignablePayoutTypeLabels())),
@@ -160,11 +158,21 @@ class PaymentStructures extends Page
         PaymentStructure::saveDefaults('fulfillment', $this->fulfillment, $this->business_id);
         Setting::set('payroll_burden_per_shipment', (string)$this->streamer_burden_per_shipment);
         Setting::set('payroll_burden_per_hour', (string)$this->streamer_burden_per_hour);
-        Setting::set('payroll_auto_setup_enabled', $this->payroll_auto_setup_enabled ? '1' : '0');
         Setting::set('payroll_auto_recalculate_drafts', $this->payroll_auto_recalculate_drafts ? '1' : '0');
         Setting::set('payroll_include_zero_activity', $this->payroll_include_zero_activity ? '1' : '0');
         Setting::set(PaySchedule::SETTING, (string) $this->payroll_week_start_day);
-        \App\Support\PayRunSchedules::save($this->run_schedules);
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            foreach ($this->run_types as $row) {
+                $type = filled($row['id'] ?? null) ? \App\Models\PayRunType::findOrFail($row['id']) : new \App\Models\PayRunType;
+                $type->fill([
+                    'name' => trim($row['name']), 'kind' => filled($row['kind']) ? $row['kind'] : null,
+                    'active' => $row['active'], 'schedule_enabled' => $row['schedule_enabled'],
+                    'frequency' => $row['frequency'], 'anchor' => $row['anchor'] ?: null,
+                    'auto_create' => $row['schedule_enabled'] && $row['active'] && $row['auto_create'],
+                ])->save();
+            }
+        });
+        $this->mount();
         Notification::make()->title('Payment structures saved')->success()->send();
     }
 

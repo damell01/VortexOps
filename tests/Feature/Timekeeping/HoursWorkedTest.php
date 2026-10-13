@@ -375,10 +375,10 @@ class HoursWorkedTest extends TestCase
     public function test_streamer_can_select_and_clock_in_to_an_assigned_upcoming_show(): void
     {
         $upcoming = $this->show();
-        $upcoming->update(['show_date' => '2026-11-20', 'status' => 'scheduled']);
+        $upcoming->update(['show_date' => '2026-11-20', 'status' => 'draft']);
         $other = \App\Models\Show::create([
             'whatnot_channel_id' => $upcoming->whatnot_channel_id, 'title' => 'Someone else’s upcoming show',
-            'show_date' => '2026-11-21', 'status' => 'scheduled',
+            'show_date' => '2026-11-21', 'status' => 'draft',
         ]);
         $this->actingAs($this->person);
         $ids = collect($this->time->pickerShows($this->person))->pluck('id')->all();

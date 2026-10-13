@@ -21,6 +21,7 @@ if($streamerOnly){
 }elseif(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
  ...($user?->isAdmin() ? [['Channel Review',\App\Filament\Resources\ShowResource::getUrl('channel-review')]] : []),
+ ...(\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? [['Stream Review',\App\Filament\Resources\ShowResource::getUrl('stream-review')]] : []),
  ...($user?->isOwner() ? [['Whatnot Sheet Check',\App\Filament\Pages\WhatnotSheetCheck::getUrl(panel:'admin')]] : []),
  ['Show Report Inbox',\App\Filament\Resources\StreamerLogResource::getUrl('index')],
 ];

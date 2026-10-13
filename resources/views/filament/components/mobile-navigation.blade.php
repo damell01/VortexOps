@@ -19,6 +19,10 @@
         && ! collect($groups['Inventory'])->contains(fn ($link) => $link[0] === 'Inventory Guide')) {
         $groups['Inventory'][] = ['Inventory Guide', \App\Filament\Pages\InventoryGuide::getUrl(panel:'admin', parameters: ['tab'=>'tasks'])];
     }
+    if (\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess()
+        && ! collect($groups['Shows'] ?? [])->contains(fn ($link) => $link[0] === 'Stream Review')) {
+        $groups['Shows'][] = ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review')];
+    }
     $navLogo = $navLogo ?? null;
     $homeUrl = $homeUrl ?? \App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin');
     $homeLabel = $homeLabel ?? 'Dashboard';

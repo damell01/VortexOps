@@ -360,4 +360,22 @@ class WhatnotSheetCheckTest extends TestCase
         $this->assertTrue(app(WhatnotSheetReconciler::class)->deleteUnlisted($kept->id, $this->cards->id));
         $this->assertFalse(Show::whereKey($kept->id)->exists());
     }
+
+    public function test_a_copy_whose_packages_all_shipped_from_a_listed_show_is_a_duplicate(): void
+    {
+        $real = $this->show($this->cards, 'Late night pokemon w/Tucker', '2026-09-02');
+        $copy = $this->show($this->cards, 'FREE GIVEYS LATE.NIGHT POKEMON w/Tucker', '2026-09-03', ['gross_revenue' => 2767]);
+        foreach (['1Z1', '1Z2'] as $t) {
+            \App\Models\Shipment::create(['show_id' => $real->id, 'tracking_number' => $t]);
+            \App\Models\Shipment::create(['show_id' => $copy->id, 'tracking_number' => $t]);
+        }
+        $plan = $this->plan([
+            $this->cards->id => [$this->csv([$this->row('Late night pokemon w/Tucker', '09/02/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ]);
+
+        $item = collect($plan['items'])->firstWhere('show_id', $copy->id);
+        $this->assertSame('shipments', $item['duplicate_of']['by']);
+        $this->assertSame($real->id, $item['duplicate_of']['show_id']);
+    }
 }

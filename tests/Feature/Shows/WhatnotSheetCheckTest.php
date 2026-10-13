@@ -164,6 +164,8 @@ class WhatnotSheetCheckTest extends TestCase
         $this->assertEqualsWithDelta(3000, $c['sheet']['sales'], 0.01);
         $this->assertSame(1, $c['app']['shows']);
         $this->assertSame(1, $c['counts']['create']);
+        $this->assertSame([2, 1], array_values(array_map(fn ($f) => $f['rows'], $c['files'])));
+        $this->assertSame([2, 0], array_values(array_map(fn ($f) => $f['new'], $c['files'])), 'the repeat page adds nothing');
     }
 
     public function test_two_shows_with_one_title_on_one_day_pair_by_their_figures(): void

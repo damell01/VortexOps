@@ -71,8 +71,9 @@ class PayrollTeamSetupTest extends TestCase
         PaymentStructure::adoptDefaults($inHouse);
         $payout = $this->showFor($inHouse->fresh(), 3);
         // Share: (1000 − 400) × 10% = 60; hourly: 3 × 15 = 45.
-        $this->assertEqualsWithDelta(105.00, (float) $payout->calculated_payout, 0.001);
-        $this->assertStringContainsString('hourly', $payout->calculation_notes);
+        $this->assertEqualsWithDelta(60.00, (float) $payout->calculated_payout, 0.001);
+        $line = \App\Models\Payout::where('show_id', $payout->show_id)->where('payout_type', 'show_hours')->sole();
+        $this->assertEqualsWithDelta(45.00, (float) $line->calculated_payout, 0.001);
 
         // A profile still on its old columns keeps paying exactly as before,
         // even if a stale hourly rate sits in them.

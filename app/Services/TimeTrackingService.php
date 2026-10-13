@@ -399,8 +399,8 @@ class TimeTrackingService
 
     /**
      * Shows a person can link time to, newest first: the ones they are on
-     * (as streamer or fulfillment) from the last two weeks and the next two
-     * days. With $all (admins only), every show in that window.
+     * (as streamer or fulfillment) from the last two weeks and all upcoming
+     * assigned shows. With $all (admins only), other shows are offered too.
      */
     public function linkableShows(User $user, ?int $include = null, bool $all = false): Collection
     {
@@ -409,12 +409,13 @@ class TimeTrackingService
 
         $shows = Show::query()
             ->where('status', '!=', 'cancelled')
-            ->whereBetween('show_date', [now()->subDays(14)->toDateString(), now()->addDays(2)->endOfDay()->toDateTimeString()])
+            ->whereDate('show_date', '>=', \App\Support\BusinessTime::local()->subDays(14)->toDateString())
             ->when(! $all, fn ($q) => $q->where(fn ($w) => $w
                 ->when($streamerId, fn ($s) => $s->whereHas('streamers', fn ($x) => $x->where('streamers.id', $streamerId)))
                 ->orWhereHas('fulfillmentUsers', fn ($x) => $x->where('users.id', $user->id))))
             ->with('channel:id,name')
-            ->orderByDesc('show_date')->orderByDesc('start_time')->limit($all ? 300 : 80)
+            ->orderByDesc('show_date')->orderByDesc('start_time')
+            ->when($all, fn ($q) => $q->limit(300))
             ->get(['id', 'title', 'show_date', 'start_time', 'whatnot_channel_id']);
 
         if ($include && ! $shows->contains('id', $include) && ($extra = Show::with('channel:id,name')->find($include, ['id', 'title', 'show_date', 'start_time', 'whatnot_channel_id']))) {

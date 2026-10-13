@@ -3,25 +3,13 @@
 namespace App\Support;
 
 use App\Models\Payout;
-use App\Models\Setting;
 use App\Models\WeeklyPayoutBatch;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
-/**
- * Pay run types and their schedules.
- *
- * Off by default: every run pays everything ("All pay") on the weekly
- * schedule, as it always has. Turned on, profit share is paid on its own
- * runs and everything else — hourly pay, time not on a show, per-package and
- * flat pay — on wage runs, each type with its own frequency, start date and
- * whether runs are created automatically. A run of any type can still be
- * created by hand for any dates.
- */
+/** Period calculation and wage/share coverage for manual and optional scheduled runs. */
 class PayRunSchedules
 {
-    public const SETTING = 'pay_run_schedules';
-
     public const KINDS = [
         'wages' => 'Hourly & wages',
         'share' => 'Profit share',
@@ -35,48 +23,12 @@ class PayRunSchedules
     ];
 
     /** Pay line types that are paid on profit share runs. */
-    public const SHARE_TYPES = ['profit_share', 'sales_split'];
+    public const SHARE_TYPES = ['profit_share', 'sales_split', 'custom_formula'];
 
-    /** @return array{separate:bool,wages:array{frequency:string,anchor:?string,auto:bool},share:array{frequency:string,anchor:?string,auto:bool}} */
-    public static function config(): array
-    {
-        $raw = json_decode((string) Setting::get(self::SETTING, ''), true);
-        $raw = is_array($raw) ? $raw : [];
-        $kind = fn (string $k, string $freq) => [
-            'frequency' => array_key_exists($raw[$k]['frequency'] ?? '', self::FREQUENCIES) ? $raw[$k]['frequency'] : $freq,
-            'anchor' => self::validDate($raw[$k]['anchor'] ?? null),
-            'auto' => (bool) ($raw[$k]['auto'] ?? true),
-        ];
-
-        return [
-            'separate' => (bool) ($raw['separate'] ?? false),
-            'wages' => $kind('wages', 'weekly'),
-            'share' => $kind('share', 'monthly'),
-        ];
-    }
-
-    public static function save(array $config): void
-    {
-        $clean = ['separate' => (bool) ($config['separate'] ?? false)];
-        foreach (array_keys(self::KINDS) as $k) {
-            $clean[$k] = [
-                'frequency' => array_key_exists($config[$k]['frequency'] ?? '', self::FREQUENCIES) ? $config[$k]['frequency'] : ($k === 'share' ? 'monthly' : 'weekly'),
-                'anchor' => self::validDate($config[$k]['anchor'] ?? null),
-                'auto' => (bool) ($config[$k]['auto'] ?? false),
-            ];
-        }
-        Setting::set(self::SETTING, json_encode($clean));
-    }
-
-    public static function separate(): bool
-    {
-        return self::config()['separate'];
-    }
-
-    /** The kinds runs are made for right now: both types when separate, else "All pay" (null). */
+    /** Explicit backfill/setup still defaults to a combined run. */
     public static function activeKinds(): array
     {
-        return self::separate() ? array_keys(self::KINDS) : [null];
+        return [null];
     }
 
     public static function label(?string $kind): string
@@ -104,7 +56,7 @@ class PayRunSchedules
     public static function standardPeriod(string $kind, CarbonInterface|string $date, ?array $cfg = null): array
     {
         $date = Carbon::parse($date)->startOfDay();
-        $cfg = $cfg ?? self::config()[$kind] ?? [];
+        $cfg = $cfg ?? [];
         $cfg = [
             'frequency' => array_key_exists($cfg['frequency'] ?? '', self::FREQUENCIES) ? $cfg['frequency'] : 'weekly',
             'anchor' => self::validDate($cfg['anchor'] ?? null),

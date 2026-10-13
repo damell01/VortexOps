@@ -78,6 +78,8 @@ class WeeklyPayoutBatch extends Model
     protected $fillable = [
         'business_id',
         'kind',
+        'pay_run_type_id',
+        'pay_run_type_name',
         'week_start',
         'week_end',
         'status',
@@ -131,7 +133,7 @@ class WeeklyPayoutBatch extends Model
 
     public function kindLabel(): string
     {
-        return \App\Support\PayRunSchedules::label($this->kind);
+        return $this->pay_run_type_name ?: \App\Support\PayRunSchedules::label($this->kind);
     }
 
     /** Runs for the business payroll is being run for, when one is chosen. */

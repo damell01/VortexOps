@@ -98,7 +98,7 @@
                                                 <span class="vxw-meta">{{ $e->source === 'manual' ? 'Added by hand' : 'OK' }}</span>
                                             @endif
                                         </td>
-                                        <td class="px-4 py-3 text-right">@if ($this->canEdit($e)){{ ($this->editEntryAction)(['entry' => $e->id]) }}@endif</td>
+                                        <td class="px-4 py-3 text-right whitespace-nowrap">@if ($this->canEdit($e)){{ ($this->editEntryAction)(['entry' => $e->id]) }}@endif @if ($seesTeam)<span class="ml-2">{{ ($this->deleteEntryAction)(['entry' => $e->id]) }}</span>@endif</td>
                                     </tr>
                                 @endforeach
                             </tbody>

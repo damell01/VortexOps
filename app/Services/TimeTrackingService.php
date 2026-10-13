@@ -178,6 +178,23 @@ class TimeTrackingService
         });
     }
 
+    /** Admins can remove an entry outright (a mistake, or test data). The removal is logged. */
+    public function delete(TimeEntry $entry, User $admin): void
+    {
+        abort_unless($this->isReviewer($admin), 403);
+
+        DB::transaction(function () use ($entry, $admin) {
+            TimeEntryChange::create([
+                'time_entry_id' => null,
+                'user_id' => $admin->id,
+                'action' => 'deleted',
+                'old_values' => $this->snapshot($entry) + ['entry_id' => $entry->id, 'person' => $entry->user_id],
+                'new_values' => null,
+            ]);
+            $entry->delete();
+        });
+    }
+
     // ── Review ──────────────────────────────────────────────────────────────
 
     /**

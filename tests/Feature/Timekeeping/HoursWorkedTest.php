@@ -355,4 +355,19 @@ class HoursWorkedTest extends TestCase
             ->call('clockIn');
         $this->assertSame($mine->id, TimeEntry::sole()->show_id);
     }
+
+    public function test_admins_can_delete_an_entry_and_it_is_logged(): void
+    {
+        $entry = $this->clocked(null, '2026-10-14 14:00:00', '2026-10-14 15:00:00', ['reason' => 'cleanup']);
+
+        $this->actingAs($this->owner);
+        Livewire::test(\App\Filament\Pages\Timekeeping::class)
+            ->callAction('deleteEntry', arguments: ['entry' => $entry->id]);
+
+        $this->assertModelMissing($entry);
+        $this->assertSame('deleted', TimeEntryChange::latest('id')->value('action'));
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->time->delete($this->clocked(null, '2026-10-14 16:00:00', '2026-10-14 17:00:00'), $this->person);
+    }
 }

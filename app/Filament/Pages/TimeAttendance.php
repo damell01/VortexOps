@@ -221,6 +221,18 @@ class TimeAttendance extends Page
         $next ? $this->openPanel($next['key']) : $this->closePanel();
     }
 
+    public function deleteEntry(int $id): void
+    {
+        abort_unless(static::canAccess(), 403);
+        $entry = TimeEntry::find($id);
+        if (! $entry) {
+            return;
+        }
+        $this->service()->delete($entry, auth()->user());
+        Notification::make()->title('Time entry deleted')->success()->send();
+        $this->closePanel();
+    }
+
     // ── By person ───────────────────────────────────────────────────────────
 
     /** @return array{0:Carbon,1:Carbon} */

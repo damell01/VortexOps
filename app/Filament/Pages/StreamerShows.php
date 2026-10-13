@@ -177,15 +177,15 @@ class StreamerShows extends Page
             $entry && $entry->status === 'changes_requested'
                 => ['Changes requested', 'danger', 'Review changes'],
             ! $entry
-                => ['Needs items logged', 'warning', 'Add items'],
+                => ['Needs items logged', 'warning', 'Open show'],
             $isDraft
-                => ['Draft saved', 'warning', 'Finish report'],
+                => ['Draft saved', 'warning', 'Open show'],
             $entry->hasPendingRevisionRequest()
-                => ['Changes asked for', 'info', 'View report'],
+                => ['Changes asked for', 'info', 'Open show'],
             $entry->status === 'admin_approved'
-                => ['Approved', 'success', 'View report'],
+                => ['Approved', 'success', 'Open show'],
             default
-                => ['Submitted', 'info', 'View report'],
+                => ['Submitted', 'info', 'Open show'],
         };
 
         return [

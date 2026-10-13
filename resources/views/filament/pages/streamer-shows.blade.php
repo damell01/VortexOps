@@ -98,6 +98,11 @@
             </div>
         </section>
 
+        {{-- The two things a streamer comes here to do: clock in, and log a show (above). --}}
+        @if (\App\Support\AdminModules::isEnabled('timekeeping'))
+            @livewire('clock-widget', ['compact' => true])
+        @endif
+
         {{-- At a glance; each tile opens its list below. --}}
         <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(150px,44%),1fr))">
             @foreach ($tiles as [$key, $count, $label, $sub, $icon, $color, $soft])
@@ -208,9 +213,6 @@
             </section>
         </div>
 
-        @if (\App\Support\AdminModules::isEnabled('timekeeping'))
-            @livewire('clock-widget', ['compact' => true])
-        @endif
 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="vxw-chips" role="tablist" aria-label="Filter your shows">

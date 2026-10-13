@@ -1,4 +1,4 @@
-<section class="vxw-card" data-vx="clock-widget">
+<section class="vxw-card" data-vx="clock-widget" style="min-width:0;max-width:100%">
     <div class="vxw-card-body">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div class="flex items-center gap-3 min-w-0">
@@ -35,7 +35,7 @@
         </div>
 
         @if (! $entry || $changing)
-            <div class="mt-4 grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+            <div class="mt-4 grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))">
                 <label class="vxw-field">
                     <span class="vxw-label">Link a show <span class="vxw-meta font-normal">(optional)</span></span>
                     <select wire:model.live="showId" class="vxw-select">

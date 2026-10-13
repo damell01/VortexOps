@@ -22,10 +22,33 @@
 
 <x-filament-panels::page>
     <x-dashboard-shortcuts />
-    <div class="vxw" data-vx-page="streamer-shows" x-data="{ tab: @js($defaultTab), sort: 'newest' }">
+    <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="streamer-shows" x-data="{ tab: @js($defaultTab), sort: 'newest' }">
         @if (\App\Support\AdminModules::isEnabled('timekeeping'))
             @livewire('clock-widget')
         @endif
+
+        @php [$pFrom, $pTo, $pLabel] = $this->periodRange(); $n = $this->numbers(); @endphp
+        <section class="vxw-card" data-vx="my-numbers" style="min-width:0">
+            <div class="vxw-card-head">
+                <div>
+                    <h3 class="vxw-h2">Your numbers · {{ $pLabel }}</h3>
+                    <p class="vxw-sub">Across the shows you hosted. Pay waiting on a pay run is an estimate until payroll finalizes it.</p>
+                </div>
+                <div class="vxw-chips" role="tablist" aria-label="Period">
+                    @foreach (['month' => 'This month', 'last_month' => 'Last month', 'year' => 'This year', 'last_year' => 'Last year'] as $key => $label)
+                        <button type="button" role="tab" wire:click="setPeriod('{{ $key }}')" @class(['vxw-chip', 'is-active' => $period === $key]) aria-selected="{{ $period === $key ? 'true' : 'false' }}">{{ $label }}</button>
+                    @endforeach
+                </div>
+            </div>
+            <div class="vxw-stats" style="grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr))">
+                <div class="vxw-stat"><div class="vxw-stat-label">Shows</div><div class="vxw-stat-value">{{ number_format($n['shows']) }}</div></div>
+                <div class="vxw-stat"><div class="vxw-stat-label">Hours worked</div><div class="vxw-stat-value">{{ rtrim(rtrim(number_format($n['hours'], 2), '0'), '.') ?: '0' }}</div></div>
+                <div class="vxw-stat"><div class="vxw-stat-label">Gross sales</div><div class="vxw-stat-value">${{ number_format($n['gross'], 0) }}</div></div>
+                <div class="vxw-stat"><div class="vxw-stat-label">Units sold</div><div class="vxw-stat-value">{{ number_format($n['units']) }}</div></div>
+                <div class="vxw-stat"><div class="vxw-stat-label">Paid</div><div class="vxw-stat-value">${{ number_format($n['paid'], 2) }}</div></div>
+                <div class="vxw-stat"><div class="vxw-stat-label">Awaiting payment</div><div class="vxw-stat-value">${{ number_format($n['awaiting'], 2) }}</div></div>
+            </div>
+        </section>
 
         {{-- What needs doing, in one line, with the one button that does it. --}}
         <section class="vxw-card">
@@ -137,6 +160,67 @@
                     </div>
                 @endif
             @endforeach
+        </section>
+
+
+        {{-- Every show they hosted, past and upcoming, not only the ones with a report to file. --}}
+        @php $list = $this->allShows(); @endphp
+        <section class="vxw-card" id="all-my-shows" style="min-width:0">
+            <div class="vxw-card-head">
+                <div>
+                    <h3 class="vxw-h2">All my shows</h3>
+                    <p class="vxw-sub">Every show you've been on — search by title, or narrow by channel and date.</p>
+                </div>
+            </div>
+            <div class="vxw-card-body grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr))">
+                <label class="vxw-field"><span class="vxw-label">Search</span><input type="search" wire:model.live.debounce.400ms="search" class="vxw-input" placeholder="Show title"></label>
+                <label class="vxw-field"><span class="vxw-label">Channel</span><select wire:model.live="channelFilter" class="vxw-select"><option value="">All channels</option>@foreach ($this->myChannels() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select></label>
+                <label class="vxw-field"><span class="vxw-label">When</span><select wire:model.live="when" class="vxw-select"><option value="all">Any time</option><option value="upcoming">Upcoming</option><option value="past">Past</option><option value="month">This month</option><option value="year">This year</option></select></label>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" style="min-width:680px">
+                    <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)">
+                        <th class="px-4 py-2">Date</th><th class="px-4 py-2">Show</th><th class="px-4 py-2 text-right">Gross sales</th><th class="px-4 py-2 text-right">Units</th><th class="px-4 py-2 text-right">Hours worked</th><th class="px-4 py-2">Report</th><th class="px-4 py-2 text-right">Your pay</th>
+                    </tr></thead>
+                    <tbody>
+                        @forelse ($list as $show)
+                            @php
+                                $entry = $show->streamerLogEntry;
+                                $upcoming = $show->show_date && $show->show_date->isFuture();
+                                $pay = $show->payouts;
+                                $reportState = $show->status === 'cancelled' ? 'Cancelled' : ($upcoming ? 'Scheduled' : (! $entry || ! $entry->submitted_at ? 'Not filed' : (\App\Models\StreamerLogEntry::statusLabels()[$entry->status] ?? ucfirst($entry->status))));
+                            @endphp
+                            <tr wire:key="mine-{{ $show->id }}" style="border-top:1px solid var(--vxw-border)">
+                                <td class="px-4 py-2.5 whitespace-nowrap">{{ $show->show_date?->format('D M j, Y') }}</td>
+                                <td class="px-4 py-2.5"><div class="font-medium">{{ $show->title ?: 'Show #'.$show->id }}</div>@if($show->channel)<div class="vxw-meta">{{ $show->channel->name }}</div>@endif</td>
+                                <td class="px-4 py-2.5 text-right tabular-nums">{{ $upcoming ? '—' : '$'.number_format((float) $show->gross_revenue, 2) }}</td>
+                                <td class="px-4 py-2.5 text-right tabular-nums">{{ $upcoming ? '—' : number_format((int) $show->units_sold) }}</td>
+                                <td class="px-4 py-2.5 text-right tabular-nums">{{ $entry?->hours_streamed !== null ? rtrim(rtrim(number_format((float) $entry->hours_streamed, 2), '0'), '.') : '—' }}</td>
+                                <td class="px-4 py-2.5">{{ $reportState }}</td>
+                                <td class="px-4 py-2.5 text-right tabular-nums">
+                                    @if ($pay->isEmpty())
+                                        <span class="vxw-meta">—</span>
+                                    @else
+                                        ${{ number_format((float) $pay->sum('calculated_payout'), 2) }}
+                                        <div class="vxw-meta">{{ $pay->every(fn ($p) => $p->status === 'paid') ? 'Paid' : 'Awaiting payment' }}</div>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" class="px-4 py-8 text-center vxw-meta">No shows match.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if ($list->lastPage() > 1)
+                <div class="flex items-center justify-between px-4 py-3" style="border-top:1px solid var(--vxw-border)">
+                    <span class="vxw-meta">Page {{ $list->currentPage() }} of {{ $list->lastPage() }} · {{ number_format($list->total()) }} shows</span>
+                    <div class="flex gap-2">
+                        <button type="button" class="vxw-btn vxw-btn--sm" wire:click="gotoListPage({{ $list->currentPage() - 1 }})" @disabled($list->onFirstPage())>Previous</button>
+                        <button type="button" class="vxw-btn vxw-btn--sm" wire:click="gotoListPage({{ $list->currentPage() + 1 }})" @disabled(! $list->hasMorePages())>Next</button>
+                    </div>
+                </div>
+            @endif
         </section>
 
         @if ($allShows->isEmpty())

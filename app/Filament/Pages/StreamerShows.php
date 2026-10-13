@@ -186,6 +186,77 @@ class StreamerShows extends Page
         ];
     }
 
+    // ── Your numbers ────────────────────────────────────────────────────────
+
+    public string $period = 'month';
+
+    /** @return array{0:\Illuminate\Support\Carbon,1:\Illuminate\Support\Carbon,2:string} */
+    public function periodRange(): array
+    {
+        $now = \App\Support\BusinessTime::local();
+
+        return match ($this->period) {
+            'last_month' => [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth(), $now->copy()->subMonthNoOverflow()->format('F Y')],
+            'year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear(), (string) $now->year],
+            'last_year' => [$now->copy()->subYear()->startOfYear(), $now->copy()->subYear()->endOfYear(), (string) ($now->year - 1)],
+            default => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth(), $now->format('F Y')],
+        };
+    }
+
+    public function setPeriod(string $period): void
+    {
+        $this->period = in_array($period, ['month', 'last_month', 'year', 'last_year'], true) ? $period : 'month';
+    }
+
+    public function numbers(): array
+    {
+        [$from, $to] = $this->periodRange();
+
+        return \App\Support\StreamerNumbers::for($this->getStreamer(), $from, $to);
+    }
+
+    // ── Every show, searchable ──────────────────────────────────────────────
+
+    public string $search = '';
+    public string $channelFilter = '';
+    public string $when = 'all';
+    public int $listPage = 1;
+
+    public function updatedSearch(): void { $this->listPage = 1; }
+    public function updatedChannelFilter(): void { $this->listPage = 1; }
+    public function updatedWhen(): void { $this->listPage = 1; }
+    public function gotoListPage(int $page): void { $this->listPage = max(1, $page); }
+
+    public function allShows()
+    {
+        $streamer = $this->getStreamer();
+        $today = \App\Support\BusinessTime::local()->toDateString();
+
+        return Show::query()
+            ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
+            ->when(trim($this->search) !== '', fn ($q) => $q->where('title', 'like', '%'.trim($this->search).'%'))
+            ->when($this->channelFilter !== '', fn ($q) => $q->where('whatnot_channel_id', (int) $this->channelFilter))
+            ->when($this->when === 'upcoming', fn ($q) => $q->whereDate('show_date', '>=', $today)->where('status', '!=', 'cancelled'))
+            ->when($this->when === 'past', fn ($q) => $q->whereDate('show_date', '<', $today))
+            ->when($this->when === 'month', fn ($q) => $q->whereBetween('show_date', [substr($today, 0, 7).'-01', $today.' 23:59:59']))
+            ->when($this->when === 'year', fn ($q) => $q->whereBetween('show_date', [substr($today, 0, 4).'-01-01', substr($today, 0, 4).'-12-31 23:59:59']))
+            ->with([
+                'channel:id,name',
+                'streamerLogEntry:id,show_id,status,submitted_at,hours_streamed',
+                'payouts' => fn ($q) => $q->where('streamer_id', $streamer->id)->select('id', 'show_id', 'streamer_id', 'status', 'calculated_payout'),
+            ])
+            ->orderByDesc('show_date')->orderByDesc('start_time')
+            ->paginate(20, ['id', 'title', 'show_date', 'start_time', 'status', 'whatnot_channel_id', 'gross_revenue', 'units_sold'], 'p', $this->listPage);
+    }
+
+    public function myChannels(): array
+    {
+        $streamer = $this->getStreamer();
+
+        return \App\Models\WhatnotChannel::whereIn('id', Show::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))->select('whatnot_channel_id'))
+            ->orderBy('name')->pluck('name', 'id')->all();
+    }
+
     public ?int $revisionFor = null;
     public string $revisionReason = '';
 

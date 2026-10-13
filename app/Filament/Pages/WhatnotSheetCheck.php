@@ -213,6 +213,19 @@ class WhatnotSheetCheck extends Page
         return $this->planKey ? Cache::get($this->planKey) : null;
     }
 
+    /** Delete one leftover the exports do not list, chosen by the owner. */
+    public function deleteUnlisted(int $showId): void
+    {
+        abort_unless(static::canAccess(), 403);
+        $item = collect($this->plan()['items'] ?? [])->first(fn ($it) => $it['action'] === 'extra' && (int) $it['show_id'] === $showId);
+        if (! $item) {
+            return;
+        }
+        app(WhatnotSheetReconciler::class)->deleteUnlisted($showId, $item['channel_id']);
+        $this->check(notify: false);
+        Notification::make()->title('Show deleted')->body($item['title'])->success()->send();
+    }
+
     public function setFilter(string $filter): void
     {
         $this->filter = $filter;

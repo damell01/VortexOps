@@ -371,17 +371,61 @@ class WhatnotSheetReconciler
         }
 
         $orderIds = WhatnotShowOrder::where('show_id', $show->id)->whereNotNull('whatnot_order_id')->pluck('whatnot_order_id')->unique();
-        if ($orderIds->isEmpty()) {
-            return null;
-        }
-        $best = WhatnotShowOrder::whereIn('whatnot_order_id', $orderIds)->whereIn('show_id', $listedIds)->where('show_id', '!=', $show->id)
-            ->selectRaw('show_id, COUNT(DISTINCT whatnot_order_id) as n')->groupBy('show_id')->orderByDesc('n')->first();
-        if (! $best || (int) $best->n < $orderIds->count()) {
-            return null;
-        }
-        $twin = Show::find($best->show_id, ['id', 'title', 'show_date']);
+        if ($orderIds->isNotEmpty()) {
+            $best = WhatnotShowOrder::whereIn('whatnot_order_id', $orderIds)->whereIn('show_id', $listedIds)->where('show_id', '!=', $show->id)
+                ->selectRaw('show_id, COUNT(DISTINCT whatnot_order_id) as n')->groupBy('show_id')->orderByDesc('n')->first();
+            if ($best && (int) $best->n >= $orderIds->count()) {
+                $twin = Show::find($best->show_id, ['id', 'title', 'show_date']);
 
-        return ['show_id' => $twin->id, 'title' => $twin->title, 'date' => $twin->show_date?->toDateString(), 'shared' => (int) $best->n, 'orders' => $orderIds->count(), 'by' => 'orders'];
+                return ['show_id' => $twin->id, 'title' => $twin->title, 'date' => $twin->show_date?->toDateString(), 'shared' => (int) $best->n, 'orders' => $orderIds->count(), 'by' => 'orders'];
+            }
+        }
+
+        // The same title within a day of a show Whatnot does list, on any
+        // channel. Had both aired, Whatnot would list both.
+        if ($show->show_date) {
+            $key = $this->csv->normalize($show->title);
+            $twin = Show::whereIn('id', $listedIds)->where('id', '!=', $show->id)
+                ->whereBetween('show_date', [$show->show_date->copy()->subDay()->toDateString(), $show->show_date->copy()->addDay()->toDateString()])
+                ->get(['id', 'title', 'show_date'])
+                ->first(fn (Show $s) => $key !== '' && $this->csv->normalize($s->title) === $key);
+            if ($twin) {
+                return ['show_id' => $twin->id, 'title' => $twin->title, 'date' => $twin->show_date?->toDateString(), 'shared' => 0, 'orders' => $orderIds->count(), 'by' => 'title'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Delete one show the exports do not list, whatever it holds — for the
+     * owner deciding a leftover by hand. Its draft and paid pay go with it.
+     */
+    public function deleteUnlisted(int $showId, int $channelId): bool
+    {
+        $show = Show::find($showId);
+        if (! $show) {
+            return false;
+        }
+
+        DB::transaction(function () use ($show, $channelId) {
+            $batches = Payout::where('show_id', $show->id)->whereNotNull('weekly_payout_batch_id')->pluck('weekly_payout_batch_id')->unique();
+            Payout::where('show_id', $show->id)->delete();
+            \App\Models\WeeklyPayoutBatch::whereKey($batches)->get()->each->recalculateTotal();
+
+            $activity = activity('show')->withProperties([
+                'title' => $show->title, 'show_date' => $show->show_date?->toDateString(), 'channel_id' => $channelId,
+                'reason' => 'Deleted by the owner from Whatnot Sheet Check: not on any Whatnot export',
+            ]);
+            if ($user = auth()->user()) {
+                $activity->causedBy($user);
+            }
+            $activity->log('Show deleted: not on Whatnot\'s list (chosen by hand)');
+
+            $show->delete();
+        });
+
+        return true;
     }
 
     private function liveIdOf(Show $show): ?string

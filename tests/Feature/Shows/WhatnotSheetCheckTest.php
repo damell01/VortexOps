@@ -339,4 +339,25 @@ class WhatnotSheetCheckTest extends TestCase
         $this->assertSame('live_id', $item['duplicate_of']['by']);
         $this->assertSame('https://www.whatnot.com/live/aaaaaaaa-1111-2222-3333-444444444444', $item['live_url']);
     }
+
+    public function test_a_same_title_copy_on_another_channel_is_a_duplicate(): void
+    {
+        $listed = $this->show($this->breaks, 'FREE TREEKACHU & MORE W/ TRAINER J', '2026-09-29');
+        $copy = $this->show($this->cards, 'FREE TREEKACHU & MORE W TRAINER J', '2026-09-29', ['gross_revenue' => 11091]);
+        $plan = $this->plan([
+            $this->cards->id => [$this->csv([$this->row('Cards show', '09/20/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('FREE TREEKACHU & MORE W/ TRAINER J', '09/29/2026')])],
+        ]);
+
+        $item = collect($plan['items'])->firstWhere('show_id', $copy->id);
+        $this->assertSame('title', $item['duplicate_of']['by']);
+        $this->assertSame($listed->id, $item['duplicate_of']['show_id']);
+    }
+
+    public function test_the_owner_can_delete_a_kept_leftover_by_hand(): void
+    {
+        $kept = $this->show($this->cards, 'Aired somewhere', '2026-10-03', ['gross_revenue' => 900]);
+        $this->assertTrue(app(WhatnotSheetReconciler::class)->deleteUnlisted($kept->id, $this->cards->id));
+        $this->assertFalse(Show::whereKey($kept->id)->exists());
+    }
 }

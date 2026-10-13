@@ -210,6 +210,9 @@
             <div class="flex gap-2">
                 <button type="button" wire:click="saveReview" wire:loading.attr="disabled" class="vxw-btn vxw-btn--primary" @disabled($decision === '')>Save decision</button>
                 <button type="button" wire:click="closePanel" class="vxw-btn vxw-btn--ghost">Cancel</button>
+                @if ($panel['kind'] === 'entry')
+                    <button type="button" wire:click="deleteEntry({{ $panel['entry']->id }})" wire:confirm="Delete this time entry? It is removed from timekeeping and payroll; the deletion is recorded with your name." class="vxw-btn vxw-btn--ghost" style="margin-left:auto;color:#dc2626"><x-filament::icon icon="heroicon-m-trash" /> Delete entry</button>
+                @endif
             </div>
 
             <div>

@@ -91,7 +91,7 @@ class StreamerShowsPageTest extends TestCase
 
         $this->assertCount(1, $needsYou);
         $this->assertSame($show->id, $needsYou[0]['id']);
-        $this->assertSame('Add items', $needsYou[0]['action']);
+        $this->assertSame('Open show', $needsYou[0]['action']);
     }
 
     public function test_a_saved_draft_still_counts_as_waiting_on_the_streamer(): void
@@ -102,7 +102,7 @@ class StreamerShowsPageTest extends TestCase
         $needsYou = $this->shows()['needs_you'];
 
         $this->assertCount(1, $needsYou);
-        $this->assertSame('Finish report', $needsYou[0]['action']);
+        $this->assertSame('Open show', $needsYou[0]['action']);
     }
 
     public function test_changes_requested_comes_back_to_the_streamer(): void

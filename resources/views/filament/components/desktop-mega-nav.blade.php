@@ -49,19 +49,19 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
- ...(\App\Filament\Pages\TimeAttendance::canAccess() ? [['Time & Attendance',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin')]] : []),
- ...(\App\Filament\Pages\Timekeeping::canAccess() ? [['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]] : []),
 ];
+// Timekeeping has its own menu: clocking in, and settling hours before payroll.
+if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=array_values(array_filter([
+ ['Clock in & my time',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
+ \App\Filament\Pages\TimeAttendance::canAccess() ? ['Time & Attendance',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin')] : null,
+ \App\Filament\Pages\TimeAttendance::canAccess() ? ['Team hours',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin', parameters: ['tab' => 'people'])] : null,
+]));
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
  ...(\App\Filament\Pages\ProfitLoss::canAccess() ? [['Profit & Loss',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin')]] : []),
  ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],
  ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin')],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
  ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index')],
-];
-// People with no Payroll menu (fulfillment) still need somewhere to clock in.
-if(! $streamerOnly && ! isset($groups['Payroll']) && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Time']=[
- ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
 ];
 // Fulfillment admins don't get the Payroll menu, so Businesses sits under Admin for them.
 if(! $user?->isAdmin() && ! $user?->isOwner() && $user?->isFulfillmentAdmin()) $groups['Admin']=[

@@ -352,6 +352,24 @@ class Timekeeping extends Page
             });
     }
 
+    public function deleteEntryAction(): Action
+    {
+        return Action::make('deleteEntry')
+            ->label('Delete')->link()->size('sm')->color('danger')->icon('heroicon-m-trash')
+            ->visible(fn () => app(TimeTrackingService::class)->isReviewer(auth()->user()))
+            ->requiresConfirmation()
+            ->modalHeading('Delete this time entry?')
+            ->modalDescription('It is removed from timekeeping and payroll. The deletion is recorded with your name.')
+            ->modalSubmitActionLabel('Delete')
+            ->action(function (array $arguments) {
+                $entry = TimeEntry::find($arguments['entry'] ?? 0);
+                if ($entry) {
+                    app(TimeTrackingService::class)->delete($entry, auth()->user());
+                    Notification::make()->title('Time entry deleted')->success()->send();
+                }
+            });
+    }
+
     public function addTimeAction(): Action
     {
         return Action::make('addTime')

@@ -223,7 +223,7 @@ class WeeklyBatchTest extends TestCase
         $this->assertGreaterThan(0, (float) $streamer->total_earnings_paid);
     }
 
-    public function test_new_pay_run_form_defaults_to_weekly_cadence_streamers_only(): void
+    public function test_new_pay_run_form_defaults_to_manual_custom_dates(): void
     {
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $admin = User::factory()->create();
@@ -235,7 +235,7 @@ class WeeklyBatchTest extends TestCase
         Livewire::actingAs($admin);
 
         Livewire::test(CreateWeeklyPayoutBatch::class)
-            ->assertFormSet(['streamer_ids' => [$weeklyStreamer->id]]);
+            ->assertFormSet(['dates_mode' => 'custom', 'kind' => '', 'week_start' => now()->toDateString(), 'week_end' => now()->toDateString()]);
     }
 
     public function test_finalize_draft_only_guard(): void

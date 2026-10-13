@@ -29,8 +29,7 @@ class PayoutService
         $allExisting = Payout::where('show_id', $show->id)
             ->whereIn('streamer_id', $streamers->pluck('id'))
             ->get();
-        // A show's pay is one line per person, plus — when profit share runs
-        // on its own schedule — a separate line for their hourly pay.
+        // Wages and profit share always remain separate pay lines.
         $existingPayouts = $allExisting->where('payout_type', '!=', 'show_hours')->keyBy('streamer_id');
         $existingHours = $allExisting->where('payout_type', 'show_hours')->keyBy('streamer_id');
 
@@ -45,7 +44,8 @@ class PayoutService
             $existing = $existingPayouts->get($streamer->id);
             // A calculation for a new wage/share run must never rewrite pay
             // already submitted, finalized or paid on another run.
-            if ($existing && ($existing->status !== 'draft' || ($existing->batch && $existing->batch->status !== 'draft'))) {
+            $protectedMain = $existing && ($existing->status !== 'draft' || ($existing->batch && $existing->batch->status !== 'draft'));
+            if ($protectedMain && ! $existingHours->has($streamer->id)) {
                 $payouts[] = $existing;
                 continue;
             }
@@ -61,7 +61,7 @@ class PayoutService
             $hoursPayout = $existingHours->get($streamer->id);
             if ($hoursLine) {
                 $hoursPayout ??= new Payout(['show_id' => $show->id, 'streamer_id' => $streamer->id]);
-                if (! $hoursPayout->exists || $hoursPayout->status === 'draft') {
+                if (! $hoursPayout->exists || ($hoursPayout->status === 'draft' && (! $hoursPayout->batch || $hoursPayout->batch->status === 'draft'))) {
                     $hoursPayout->fill($hoursLine + [
                         'payout_type' => 'show_hours',
                         'gross_show_revenue' => 0,
@@ -71,18 +71,20 @@ class PayoutService
                         'status' => 'draft',
                     ])->save();
                 }
-            } elseif ($hoursPayout && $hoursPayout->status === 'draft') {
+            } elseif ($hoursPayout && $hoursPayout->status === 'draft' && (! $hoursPayout->batch || $hoursPayout->batch->status === 'draft')) {
                 $hoursPayout->delete();
             }
 
             $payout = $existing
-                ? $existing->fill($result)
+                ? ($protectedMain ? $existing : $existing->fill($result))
                 : new Payout(array_merge($result, [
                     'show_id'     => $show->id,
                     'streamer_id' => $streamer->id,
                 ]));
 
-            $payout->save();
+            if (! $protectedMain) {
+                $payout->save();
+            }
             $payouts[] = $payout;
             if ($hoursLine && $hoursPayout) {
                 $payouts[] = $hoursPayout;

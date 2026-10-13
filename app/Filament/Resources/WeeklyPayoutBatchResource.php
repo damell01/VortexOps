@@ -96,7 +96,7 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
     {
-        return 'Pay Run — ' . $record->week_start?->format('M j, Y') . ($record->kind ? ' (' . $record->kindLabel() . ')' : '');
+        return 'Pay Run — ' . $record->week_start?->format('M j, Y') . ($record->kind || $record->pay_run_type_name ? ' (' . $record->kindLabel() . ')' : '');
     }
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array

@@ -13,6 +13,12 @@ test('payroll workspace, full-width creation and persistent clock reminder', asy
         await page.locator('[data-vx="clock-widget"]').getByRole('button', { name: 'Clock in', exact: true }).click();
     }
     await expect(banner.getByText('You are clocked in', { exact: true })).toBeVisible();
+    await page.goto('/admin/payroll-overview');
+    await expect(page.getByRole('heading', { name: 'Payout trend', exact: true })).toBeVisible();
+    await expect(banner.getByText('You are clocked in', { exact: true })).toBeVisible();
+    fs.mkdirSync('tests/Browser/screenshots/payroll-workspace', { recursive: true });
+    await page.screenshot({ path: `tests/Browser/screenshots/payroll-workspace/overview-${testInfo.project.name}.png`, fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2)).toBe(false);
     await page.goto('/admin/payment-structures');
     await expect(banner.getByText('You are clocked in', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Rates & Adjustments', exact: true }).first()).toBeVisible();

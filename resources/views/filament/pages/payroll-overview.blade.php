@@ -23,8 +23,11 @@
         default => '',
     };
     $runStatus = $current ? ($statusLabels[$current->status] ?? ucfirst($current->status)) : 'No pay run yet';
-    $periodStart = $current?->week_start ?? now()->startOfWeek();
-    $periodEnd = $current?->week_end ?? now()->endOfWeek();
+    [$periodStart,$periodEnd] = $this->periodBounds();
+    $trend = $this->payoutTrend();
+    $trendMax = max(1, max(array_column($trend, 'total')));
+    $processed = $workflow['paid'] + $workflow['in_run'] + $workflow['ready'];
+    $processedPercent = $progress['total'] ? min(100, (int)round($processed / $progress['total'] * 100)) : 0;
 
     // The pipeline reads left to right in the order a show actually moves.
     $stages = [
@@ -42,66 +45,28 @@
 @endphp
 
 <div class="vxw" data-vx-page="payroll">
-    {{-- Period header: where this week stands and the one thing to do next. --}}
-    <section class="vxw-card">
-        <div class="vxw-card-body">
-            <div class="vxw-hero">
-                <div>
-                    <div class="vxw-eyebrow">Pay period</div>
-                    <h2 class="vxw-h1">{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</h2>
-                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                        <span class="vxw-pill vxw-pill--dot vxw-pill--{{ $runTone($current?->status) }}">{{ $runStatus }}</span>
-                        <span class="vxw-meta">{{ $readiness['ready'] }} of {{ $readiness['shows'] }} shows ready or in the run
-                        @if($readiness['review']) · <span class="vxw-tone-warn font-semibold">{{ $readiness['review'] }} need attention</span>@endif</span>
-                    </div>
-                </div>
-                <div class="vxw-hero-actions">
-                    @if($current)
-                        <a class="vxw-btn vxw-btn--primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view', ['record' => $current]) }}">
-                            Review pay run
-                            <x-filament::icon icon="heroicon-m-arrow-right" />
-                        </a>
-                    @else
-                        <button type="button" class="vxw-btn vxw-btn--primary" wire:click="prepareCurrentPayRun" wire:loading.attr="disabled" wire:target="prepareCurrentPayRun">
-                            <span wire:loading wire:target="prepareCurrentPayRun" class="vxw-spin" aria-hidden="true"></span>
-                            <span wire:loading.remove wire:target="prepareCurrentPayRun">Create a pay run</span>
-                            <span wire:loading wire:target="prepareCurrentPayRun">Opening…</span>
-                        </button>
-                    @endif
-                    <a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>
-                    <details class="vxw-menu" x-data @click.outside="$el.removeAttribute('open')" @keydown.escape="$el.removeAttribute('open')">
-                        <summary class="vxw-btn" aria-label="More payroll tools"><x-filament::icon icon="heroicon-m-ellipsis-horizontal" /></summary>
-                        <div class="vxw-menu-panel">
-                            <a href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><x-filament::icon icon="heroicon-o-adjustments-horizontal" /> Payment structures</a>
-                            <a href="{{ \App\Filament\Pages\PayrollSimulator::getUrl() }}"><x-filament::icon icon="heroicon-o-calculator" /> Payroll simulator</a>
-                        </div>
-                    </details>
-                </div>
-            </div>
-        </div>
-        <div class="vxw-stats">
-            <div class="vxw-stat">
-                <div class="vxw-stat-label">Pay run total</div>
-                <div class="vxw-stat-value">{{ $money($current?->total_payout ?? 0) }}</div>
-                <div class="vxw-stat-note">{{ $current ? $current->payouts_count . ' payout ' . \Illuminate\Support\Str::plural('line', $current->payouts_count) : 'Not prepared yet' }}</div>
-            </div>
-            <div class="vxw-stat">
-                <div class="vxw-stat-label">People paid</div>
-                <div class="vxw-stat-value">{{ $breakdown['people'] }}</div>
-                <div class="vxw-stat-note">{{ $breakdown['streamers'] }} streamers · {{ $breakdown['fulfillment'] }} fulfillment</div>
-            </div>
-            <div class="vxw-stat">
-                <div class="vxw-stat-label">Reports</div>
-                <div class="vxw-stat-value">{{ $progress['approved'] }}<span class="text-[14px] font-medium text-[var(--vxw-faint)]"> / {{ $progress['logged'] }}</span></div>
-                <div class="vxw-stat-note">approved / submitted</div>
-            </div>
-            <div class="vxw-stat">
-                <div class="vxw-stat-label">Needs attention</div>
-                <div class="vxw-stat-value {{ $readiness['review'] ? 'vxw-tone-warn' : 'vxw-tone-ok' }}">{{ $readiness['review'] }}</div>
-                <div class="vxw-stat-note">{{ $readiness['review'] ? 'shows blocking payroll' : 'Nothing blocking' }}</div>
-            </div>
-        </div>
-    </section>
+    <style>
+        .vx-payroll-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}.vx-payroll-period{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--vxw-border);border-radius:12px;background:var(--vxw-surface)}.vx-payroll-period button{padding:4px 9px;border-radius:7px;font-size:18px}.vx-payroll-period strong{font-size:14px}.vx-payroll-period input{max-width:130px;border:0;background:transparent;font-size:12px;color:var(--vxw-muted)}
+        .vx-payroll-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}.vx-payroll-kpi{display:flex;align-items:center;gap:12px;padding:18px;border:1px solid var(--vxw-border);border-radius:15px;background:var(--vxw-surface)}.vx-payroll-kpi strong{font-size:24px;font-variant-numeric:tabular-nums}.vx-payroll-kpi p{font-size:12px;color:var(--vxw-muted)}.vx-payroll-icon{padding:12px;border-radius:14px;background:rgb(124 58 237 / .1);color:#7c3aed;flex-shrink:0}.vx-payroll-icon svg{width:22px;height:22px}
+        .vx-payroll-insights{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-bottom:18px}.vx-payroll-trend{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;align-items:end;height:180px;margin-top:24px;border-bottom:1px solid var(--vxw-border)}.vx-payroll-bar{border-radius:5px 5px 0 0;background:linear-gradient(#ac86ff,#7c3aed);min-height:3px}.vx-payroll-trend-point{display:flex;flex-direction:column;justify-content:flex-end;gap:8px;height:100%;text-align:center;font-size:10px;color:var(--vxw-muted)}.vx-payroll-status-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--vxw-border);font-size:12px;width:100%;text-align:left}.vx-payroll-progress{height:12px;border-radius:20px;background:rgb(124 58 237 / .14);overflow:hidden;margin:16px 0}.vx-payroll-progress span{display:block;height:100%;background:#8b5cf6}.vx-payroll-quick{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:12px;background:rgb(124 58 237 / .06);margin-top:10px;font-size:13px;font-weight:650}.vx-payroll-quick.primary{background:#7c3aed;color:white}.vx-payroll-quick small{display:block;font-size:11px;font-weight:400;opacity:.75}
+        .vx-payroll-table{width:100%;border-collapse:collapse;font-size:12px}.vx-payroll-table th{text-align:left;padding:12px;background:var(--vxw-surface-2);color:var(--vxw-muted);font-size:10px;text-transform:uppercase}.vx-payroll-table td{padding:14px 12px;border-top:1px solid var(--vxw-border);vertical-align:middle}.vx-payroll-table .show-title{display:block;font-weight:650;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vx-payroll-mobile-queue{display:none}.vx-payroll-search{margin:14px 18px;display:flex;gap:12px;align-items:center}.vx-payroll-search input{width:100%;max-width:400px;border:1px solid var(--vxw-border);border-radius:10px;padding:10px 12px;background:var(--vxw-surface);font-size:13px}
+        @media(max-width:1200px){.vx-payroll-insights{grid-template-columns:1fr 1fr}.vx-payroll-insights>section:last-child{grid-column:1/-1}.vx-payroll-kpi{flex-direction:column;align-items:flex-start;padding:14px}.vx-payroll-kpi strong{font-size:22px}}
+        @media(max-width:900px){.vx-payroll-table{display:none}.vx-payroll-mobile-queue{display:block}.vx-payroll-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-payroll-kpi:first-child{grid-column:1/-1}.vx-payroll-insights{grid-template-columns:1fr}.vx-payroll-insights>section:last-child{grid-column:auto}.vx-payroll-head{align-items:stretch}.vx-payroll-period{width:100%;justify-content:space-between}.vx-payroll-period input{display:none}.vx-payroll-search{flex-wrap:wrap}.vx-payroll-search input{max-width:none}}
+    </style>
+    <div class="vx-payroll-head">
+        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" aria-label="Next pay period">›</button></div>
+        <div class="flex flex-wrap items-center gap-2"><a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>@if($current)<a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review run</a>@endif<a class="vxw-btn vxw-btn--primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}">+ Create Pay Run</a></div>
+    </div>
+    <div class="vx-payroll-kpis">
+        @foreach([['Selected run total',$money($current?->total_payout ?? 0),$current ? 'Saved pay lines' : 'No run created','heroicon-o-banknotes'],['People in run',$breakdown['people'],'Streamers & fulfillment','heroicon-o-user-group'],['Ready for payroll',$readiness['ready'],'Ready or in a pay run','heroicon-o-check-circle'],['Needs attention',$readiness['review'],'Reports, time or pay setup','heroicon-o-clock'],['Pending approval',$progress['needs_review'],'Awaiting report review','heroicon-o-document-text']] as [$label,$value,$hint,$icon])
+            <div class="vx-payroll-kpi"><span class="vx-payroll-icon"><x-filament::icon :icon="$icon" /></span><div><p>{{ $label }}</p><strong>{{ $value }}</strong><p>{{ $hint }}</p></div></div>
+        @endforeach
+    </div>
+    <div class="vx-payroll-insights">
+        <section class="vxw-card"><div class="vxw-card-body"><div class="flex items-center justify-between gap-3"><h3 class="vxw-h2">Payout trend</h3><span class="vxw-meta">Last 8 weeks</span></div><p class="vxw-sub">Paid runs grouped by period start.</p><div class="vx-payroll-trend" role="img" aria-label="Paid pay run totals for the last eight weeks">@foreach($trend as $point)<div class="vx-payroll-trend-point" title="{{ $point['label'] }}: {{ $money($point['total']) }}"><div class="vx-payroll-bar" style="height:{{ $point['total'] ? round($point['total']/$trendMax*145) : 3 }}px"></div><span>{{ $point['label'] }}</span></div>@endforeach</div>@if(!array_sum(array_column($trend,'total')))<p class="vxw-meta mt-3">No paid runs in this range.</p>@endif</div></section>
+        <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Pay period status</h3><p class="vxw-sub">{{ $processed }} of {{ $progress['total'] }} shows ready, in a run or paid</p><div class="vx-payroll-progress" role="progressbar" aria-valuenow="{{ $processedPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Payroll progress"><span style="width:{{ $processedPercent }}%"></span></div>@foreach([['paid','Completed & paid',$workflow['paid']],['ready','Ready for a run',$workflow['ready']],['in_run','In a pay run',$workflow['in_run']],['review','Pending approval',$progress['needs_review']],['blocked','Blocked',$workflow['blocked']]] as [$filter,$label,$count])<button type="button" class="vx-payroll-status-row" wire:click="setWorkflow('{{ $filter }}')"><span>{{ $label }}</span><strong>{{ $count }} ›</strong></button>@endforeach</div></section>
+        <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
+    </div>
 
     <div class="vxw-split">
         {{-- Work queue --}}
@@ -127,7 +92,14 @@
                 @endif
             </div>
 
-            <div class="vxw-rows" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage" style="transition:opacity 150ms">
+            <div class="vx-payroll-search"><input type="search" wire:model.live.debounce.300ms="queue_search" placeholder="Search shows or streamers…" aria-label="Search payroll shows"><span class="vxw-meta">{{ $totalFilteredShows }} matching shows</span></div>
+            <table class="vx-payroll-table"><thead><tr><th>Show / streamer</th><th>Channel</th><th>Date</th><th>Sales</th><th>Pay lines</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+                @forelse($shows as $show)
+                    @php $state=$show->getAttribute('workflow_state'); $resolution=$this->showResolution($show); @endphp
+                    <tr wire:key="payroll-table-{{ $show->id }}"><td><a class="show-title" href="{{ \App\Filament\Resources\ShowResource::getUrl('view',['record'=>$show]) }}" title="{{ $show->title }}">{{ $show->title ?: 'Show #'.$show->id }}</a><p class="vxw-meta">{{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer assigned' }}</p></td><td>{{ $show->channel?->name ?? '—' }}</td><td>{{ $show->show_date?->format('D, M j') }}</td><td class="font-semibold">{{ $money($show->gross_revenue) }}</td><td class="font-semibold">{{ $show->payouts_sum_calculated_payout === null ? '—' : $money($show->payouts_sum_calculated_payout) }}</td><td><span class="vxw-pill vxw-pill--dot">{{ $state['label'] ?? 'Needs review' }}</span></td><td><a class="vxw-btn vxw-btn--sm" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a></td></tr>
+                @empty <tr><td colspan="7" class="text-center vxw-meta">No shows match this pay period and filter.</td></tr> @endforelse
+            </tbody></table>
+            <div class="vxw-rows vx-payroll-mobile-queue" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage" style="transition:opacity 150ms">
                 @forelse($shows as $show)
                     @php
                         $state = $show->getAttribute('workflow_state');
@@ -202,7 +174,7 @@
                     <div class="vxw-empty">
                         <x-filament::icon icon="heroicon-o-check-circle" />
                         <div class="vxw-empty-title">{{ $activeWorkflow === 'all' ? 'No shows in this pay period' : 'Nothing here' }}</div>
-                        <div class="vxw-empty-text">{{ $activeWorkflow === 'all' ? 'Shows dated inside this week appear here as they are scheduled or imported.' : 'No show in this period is at this stage right now.' }}</div>
+                        <div class="vxw-empty-text">{{ $activeWorkflow === 'all' ? 'Shows dated inside this pay period appear here as they are scheduled or imported.' : 'No show in this period is at this stage right now.' }}</div>
                     </div>
                 @endforelse
             </div>

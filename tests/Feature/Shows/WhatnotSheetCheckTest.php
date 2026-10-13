@@ -378,4 +378,25 @@ class WhatnotSheetCheckTest extends TestCase
         $this->assertSame('shipments', $item['duplicate_of']['by']);
         $this->assertSame($real->id, $item['duplicate_of']['show_id']);
     }
+
+    public function test_a_confirmed_real_show_is_no_longer_flagged(): void
+    {
+        $real = $this->show($this->cards, 'Tucker real stream', '2026-10-03', ['gross_revenue' => 6388]);
+        $sheets = [
+            $this->cards->id => [$this->csv([$this->row('Listed', '10/01/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ];
+        $this->assertSame('extra', collect($this->plan($sheets)['items'])->firstWhere('show_id', $real->id)['action']);
+
+        app(WhatnotSheetReconciler::class)->confirmReal($real->id);
+        $plan = $this->plan($sheets);
+        $this->assertSame('confirmed', collect($plan['items'])->firstWhere('show_id', $real->id)['action']);
+        $this->assertSame(0, $plan['channels'][$this->cards->id]['counts']['extra']);
+        $this->assertSame(1, $plan['channels'][$this->cards->id]['counts']['confirmed']);
+        $this->assertEqualsWithDelta(6388, $plan['channels'][$this->cards->id]['counts']['confirmed_sales'], 0.01);
+
+        // Apply never deletes it.
+        app(WhatnotSheetReconciler::class)->apply($plan, true, true);
+        $this->assertTrue(Show::whereKey($real->id)->exists());
+    }
 }

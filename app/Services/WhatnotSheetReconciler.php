@@ -266,6 +266,21 @@ class WhatnotSheetReconciler
                 && $s->status !== 'cancelled' && $s->show_date
                 && ($until !== null ? $s->show_date->toDateString() >= $cFrom : $s->show_date->toDateString() > $cFrom)
                 && $s->show_date->toDateString() <= $cTo);
+            // Shows the owner checked and confirmed real (Whatnot's analytics
+            // leaves some streams out) are listed apart and not flagged again.
+            $confirmedIds = $extras->isEmpty() ? collect() : Show::whereKey($extras->modelKeys())
+                ->where('raw_import_payload->_sheet_check_confirmed', true)->pluck('id')->flip();
+            $confirmed = $extras->filter(fn (Show $s) => isset($confirmedIds[$s->id]));
+            $extras = $extras->reject(fn (Show $s) => isset($confirmedIds[$s->id]));
+            foreach ($confirmed as $show) {
+                $items[] = [
+                    'action' => 'confirmed', 'how' => 'confirmed_by_owner', 'channel_id' => (int) $channelId,
+                    'channel' => $channels[$channelId] ?? '#'.$channelId, 'from_channel' => null, 'show_id' => $show->id,
+                    'title' => $show->title, 'date' => $show->show_date->toDateString(), 'app_date' => $show->show_date->toDateString(),
+                    'changes' => [], 'metrics' => [], 'sheet_orders' => null, 'app_orders' => (int) ($orderRows[$show->id] ?? 0),
+                    'raw' => [], 'live_url' => $this->liveUrl($show), 'gross' => (float) $show->gross_revenue,
+                ];
+            }
             foreach ($extras as $show) {
                 $items[] = [
                     'action' => 'extra',
@@ -326,12 +341,15 @@ class WhatnotSheetReconciler
                     'create' => $mine->where('action', 'create')->count(),
                     'skip_empty' => $mine->where('action', 'skip_empty')->count(),
                     'extra' => $extras->count(),
+                    'confirmed' => $confirmed->count(),
+                    'confirmed_sales' => round((float) $confirmed->sum('gross_revenue'), 2),
+                    'confirmed_earnings' => round((float) $confirmed->sum('whatnot_net'), 2),
                     'orders_short' => $mine->filter(fn ($it) => $it['sheet_orders'] !== null && $it['app_orders'] < $it['sheet_orders'])->count(),
                 ],
             ];
         }
 
-        $order = ['move' => 0, 'create' => 1, 'extra' => 2, 'update' => 3, 'skip_empty' => 4, 'ok' => 5];
+        $order = ['move' => 0, 'create' => 1, 'extra' => 2, 'update' => 3, 'skip_empty' => 4, 'confirmed' => 5, 'ok' => 6];
         usort($items, fn ($a, $b) => [$order[$a['action']], $a['channel'], $b['date'], $a['title']] <=> [$order[$b['action']], $b['channel'], $a['date'], $b['title']]);
 
         $active = WhatnotChannel::where('status', 'active')->pluck('id')->map(fn ($id) => (int) $id);
@@ -409,6 +427,21 @@ class WhatnotSheetReconciler
         }
 
         return null;
+    }
+
+    /** Mark (or unmark) a show the exports do not list as checked and real. */
+    public function confirmReal(int $showId, bool $confirmed = true): void
+    {
+        $show = Show::findOrFail($showId);
+        $raw = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
+        if ($confirmed) {
+            $raw['_sheet_check_confirmed'] = true;
+            $raw['_sheet_check_confirmed_at'] = now()->toIso8601String();
+            $raw['_sheet_check_confirmed_by'] = auth()->id();
+        } else {
+            unset($raw['_sheet_check_confirmed'], $raw['_sheet_check_confirmed_at'], $raw['_sheet_check_confirmed_by']);
+        }
+        $show->forceFill(['raw_import_payload' => $raw])->save();
     }
 
     /**

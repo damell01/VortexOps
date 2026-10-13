@@ -226,6 +226,19 @@ class WhatnotSheetCheck extends Page
         Notification::make()->title('Show deleted')->body($item['title'])->success()->send();
     }
 
+    /** The owner checked this leftover on Whatnot: it is real, keep it and stop flagging it. */
+    public function confirmReal(int $showId, bool $confirmed = true): void
+    {
+        abort_unless(static::canAccess(), 403);
+        $item = collect($this->plan()['items'] ?? [])->first(fn ($it) => in_array($it['action'], ['extra', 'confirmed'], true) && (int) $it['show_id'] === $showId);
+        if (! $item) {
+            return;
+        }
+        app(WhatnotSheetReconciler::class)->confirmReal($showId, $confirmed);
+        $this->check(notify: false);
+        Notification::make()->title($confirmed ? 'Kept as a real show' : 'Flagged again')->body($item['title'])->success()->send();
+    }
+
     public function setFilter(string $filter): void
     {
         $this->filter = $filter;

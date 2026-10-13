@@ -8,6 +8,7 @@
         'create' => ['Missing — create', 'wsc-pill--create'],
         'update' => ['Update figures', 'wsc-pill--update'],
         'extra' => ['Not on Whatnot\'s list', 'wsc-pill--extra'],
+        'confirmed' => ['Confirmed real', 'wsc-pill--ok'],
         'skip_empty' => ['No sales — skipped', 'wsc-pill--muted'],
         'ok' => ['Lines up', 'wsc-pill--ok'],
     ];
@@ -63,7 +64,8 @@
             @endunless
             @foreach ($plan['channels'] as $channelId => $c)
                 @php
-                    $lines = abs($c['sheet']['shows'] - $c['app']['shows']) === 0 && abs($c['sheet']['sales'] - $c['app']['sales']) < max(5, $c['sheet']['shows']);
+                    $cShows = $c['counts']['confirmed'] ?? 0; $cSales = $c['counts']['confirmed_sales'] ?? 0;
+                    $lines = abs($c['sheet']['shows'] - ($c['app']['shows'] - $cShows)) <= 1 && abs($c['sheet']['sales'] - ($c['app']['sales'] - $cSales)) < max(25, $c['sheet']['sales'] * 0.002);
                 @endphp
                 <section class="wsc-card wsc-channel">
                     <header>
@@ -87,6 +89,7 @@
                         @foreach (['move' => 'to move here', 'create' => 'missing', 'update' => 'figures to update', 'extra' => 'not on Whatnot\'s list', 'orders_short' => 'missing some orders'] as $k => $label)
                             @if ($c['counts'][$k] ?? 0)<span><b>{{ $c['counts'][$k] }}</b> {{ $label }}</span>@endif
                         @endforeach
+                        @if ($cShows)<span class="wsc-muted">App includes {{ $cShows }} confirmed {{ \Illuminate\Support\Str::plural('show', $cShows) }} Whatnot leaves out ({{ $money($cSales) }})</span>@endif
                         @if (! array_filter(\Illuminate\Support\Arr::only($c['counts'], ['move', 'create', 'update', 'extra'])))<span class="wsc-muted">Every show matched.</span>@endif
                     </div>
                 </section>
@@ -97,7 +100,7 @@
             <div class="wsc-bar">
                 <div class="wsc-seg">
                     @php $all = collect($plan['items']); @endphp
-                    @foreach (['changes' => 'Changes', 'move' => 'Wrong channel', 'create' => 'Missing', 'update' => 'Figures', 'extra' => 'Not on Whatnot', 'orders_short' => 'Orders short', 'all' => 'Everything'] as $key => $label)
+                    @foreach (['changes' => 'Changes', 'move' => 'Wrong channel', 'create' => 'Missing', 'update' => 'Figures', 'extra' => 'Not on Whatnot', 'confirmed' => 'Confirmed real', 'orders_short' => 'Orders short', 'all' => 'Everything'] as $key => $label)
                         @php
                             $n = match ($key) {
                                 'changes' => $all->whereIn('action', ['move', 'create', 'update', 'extra'])->count(),
@@ -147,11 +150,13 @@
                                             Duplicate of <a class="wsc-link" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $it['duplicate_of']['show_id']]) }}" target="_blank">{{ \Illuminate\Support\Str::limit($it['duplicate_of']['title'], 50) }}</a>{{ $it['duplicate_of']['date'] ? ' ('.\Carbon\Carbon::parse($it['duplicate_of']['date'])->format('M j').')' : '' }} — {{ match ($it['duplicate_of']['by'] ?? '') { 'live_id' => 'same Whatnot stream', 'title' => 'same title, and only that one is on Whatnot\'s list', 'shipments' => 'all '.$it['duplicate_of']['orders'].' of its packages shipped from that show', default => 'all '.$it['duplicate_of']['orders'].' of its orders are on that show' } }}. Deleted on apply.
                                         @elseif (($it['app_orders'] ?? 0) > 0 || ! empty($it['aired']))<span class="wsc-short">Kept: it has {{ ($it['app_orders'] ?? 0) > 0 ? $it['app_orders'].' imported orders' : 'sales' }}, so it aired — likely renamed on Whatnot or on a channel/page not uploaded</span>
                                         @elseif (! empty($it['blocked']))<span class="wsc-short">Kept unless you switch on deleting ones with pay: {{ $it['blocked'] }}</span>@elseif ($plan['all_channels'] ?? false)Deleted on apply (if you leave the switch on)@else<span class="wsc-muted">Upload every channel to delete</span>@endif
+                                    @elseif ($it['action'] === 'confirmed')
+                                        <span class="wsc-muted">You confirmed it aired on this channel; Whatnot's analytics leaves it out. {{ $money($it['gross'] ?? 0) }} sales.</span>
                                     @elseif ($it['action'] === 'move' && ! $it['changes'])
                                         <span class="wsc-muted">Figures already match</span>
                                     @endif
                                 </td>
-                                <td class="wsc-nowrap">@if ($it['action'] === 'extra' && empty($it['duplicate_of']) && (! empty($it['aired']) || ! empty($it['blocked']) || ($it['app_orders'] ?? 0) > 0))<button type="button" class="wsc-del" wire:click="deleteUnlisted({{ $it['show_id'] }})" wire:confirm="Delete this show? It is not on any Whatnot export. Its pay lines and imported orders go with it.">Delete</button><br>@endif @if (! empty($it['live_url']))<a class="wsc-link" href="{{ $it['live_url'] }}" target="_blank" rel="noopener">Whatnot ↗</a><br>@endif{{ $it['sheet_orders'] ?? '—' }} / <span @class(['wsc-short' => $it['sheet_orders'] !== null && $it['app_orders'] < $it['sheet_orders']])>{{ $it['app_orders'] }}</span></td>
+                                <td class="wsc-nowrap">@if ($it['action'] === 'extra' && empty($it['duplicate_of']) && (! empty($it['aired']) || ! empty($it['blocked']) || ($it['app_orders'] ?? 0) > 0))<button type="button" class="wsc-keep" wire:click="confirmReal({{ $it['show_id'] }})" title="You checked it on Whatnot: it aired on this channel. It stays and is no longer flagged.">Confirmed real — keep</button><br><button type="button" class="wsc-del" wire:click="deleteUnlisted({{ $it['show_id'] }})" wire:confirm="Delete this show? It is not on any Whatnot export. Its pay lines and imported orders go with it.">Delete</button><br>@endif @if ($it['action'] === 'confirmed')<button type="button" class="wsc-link" wire:click="confirmReal({{ $it['show_id'] }}, false)">Flag again</button><br>@endif @if (! empty($it['live_url']))<a class="wsc-link" href="{{ $it['live_url'] }}" target="_blank" rel="noopener">Whatnot ↗</a><br>@endif{{ $it['sheet_orders'] ?? '—' }} / <span @class(['wsc-short' => $it['sheet_orders'] !== null && $it['app_orders'] < $it['sheet_orders']])>{{ $it['app_orders'] }}</span></td>
                             </tr>
                         @empty
                             <tr><td colspan="6" class="wsc-muted" style="text-align:center;padding:24px">Nothing in this list.</td></tr>
@@ -200,6 +205,7 @@
 .wsc-details{font-size:12.5px;min-width:200px}
 .wsc-nowrap{white-space:nowrap}
 .wsc-short{color:#b45309;font-weight:700}
+.wsc-keep{font-size:12px;font-weight:800;color:#166534;border:1px solid #bbf7d0;border-radius:7px;padding:1px 8px;margin-bottom:4px;white-space:nowrap}
 .wsc-del{font-size:12px;font-weight:800;color:#b91c1c;border:1px solid #fecaca;border-radius:7px;padding:1px 8px;margin-bottom:4px}
 .wsc-link{color:var(--primary-600,#7c3aed);text-decoration:underline;text-underline-offset:2px}
 .wsc-warn--inline{margin:0 0 8px;padding:8px 10px;border:1px solid #fcd34d;border-radius:10px;font-size:12.5px}

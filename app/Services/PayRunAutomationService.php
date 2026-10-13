@@ -10,6 +10,7 @@ use App\Models\Streamer;
 use App\Models\TimeEntry;
 use App\Models\WeeklyPayoutBatch;
 use App\Support\BusinessContext;
+use App\Support\PayRunSchedules;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -32,16 +33,29 @@ class PayRunAutomationService
      *
      * @return list<array{batch:WeeklyPayoutBatch,created:bool,shows_scanned:int,payouts_attached:int,payouts_detached:int,warnings:array<int,string>}>
      */
-    public function syncAllForWeek(string|Carbon $weekStart, bool $recalculate = true): array
+    public function syncAllForWeek(string|Carbon $weekStart, bool $recalculate = true, bool $scheduled = false): array
     {
-        if (! BusinessContext::inUse()) {
-            return [$this->syncWeek($weekStart, $recalculate)];
-        }
+        $businesses = BusinessContext::inUse()
+            ? Business::ordered()->whereIn('id', Streamer::query()->whereNotNull('business_id')->distinct()->pluck('business_id'))->pluck('id')->all()
+            : [null];
 
         $results = [];
-        $businessIds = Streamer::query()->whereNotNull('business_id')->distinct()->pluck('business_id');
-        foreach (Business::ordered()->whereIn('id', $businessIds) as $business) {
-            $results[] = $this->syncWeek($weekStart, $recalculate, $business->id);
+        foreach ($businesses as $businessId) {
+            foreach (PayRunSchedules::activeKinds() as $kind) {
+                // A type set not to create runs automatically is still kept
+                // up to date once someone has created its run.
+                if ($scheduled && $kind !== null && ! PayRunSchedules::config()[$kind]['auto']) {
+                    [$start, $end] = PayRunSchedules::periodFor($kind, $weekStart, $businessId);
+                    $exists = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())->whereDate('week_end', $end->toDateString())
+                        ->where('kind', $kind)
+                        ->where(fn ($q) => $businessId === null ? $q->whereNull('business_id') : $q->where('business_id', $businessId))
+                        ->exists();
+                    if (! $exists) {
+                        continue;
+                    }
+                }
+                $results[] = $this->syncWeek($weekStart, $recalculate, $businessId, $kind);
+            }
         }
 
         return $results;
@@ -53,16 +67,23 @@ class PayRunAutomationService
      *
      * @return array{batch:WeeklyPayoutBatch,created:bool,shows_scanned:int,payouts_attached:int,payouts_detached:int,warnings:array<int,string>}
      */
-    public function syncWeek(string|Carbon $weekStart, bool $recalculate = true, ?int $businessId = null): array
+    public function syncWeek(string|Carbon $weekStart, bool $recalculate = true, ?int $businessId = null, ?string $kind = null): array
     {
+        $ofKind = fn ($q) => match ($kind) {
+            'share' => $q->whereIn('payout_type', PayRunSchedules::SHARE_TYPES),
+            'wages' => $q->whereNotIn('payout_type', PayRunSchedules::SHARE_TYPES),
+            default => $q,
+        };
+
         // The pay period containing that date: an existing run's own dates,
         // otherwise the configured pay week (see PaySchedule).
-        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart, $businessId);
+        [$start, $end] = PayRunSchedules::periodFor($kind, $weekStart, $businessId);
 
-        return DB::transaction(function () use ($start, $end, $recalculate, $businessId) {
+        return DB::transaction(function () use ($start, $end, $recalculate, $businessId, $kind, $ofKind) {
             $batch = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
                 ->whereDate('week_end', $end->toDateString())
                 ->where(fn ($q) => $businessId === null ? $q->whereNull('business_id') : $q->where('business_id', $businessId))
+                ->where(fn ($q) => $kind === null ? $q->whereNull('kind') : $q->where('kind', $kind))
                 ->lockForUpdate()
                 ->orderBy('id')
                 ->first();
@@ -70,7 +91,21 @@ class PayRunAutomationService
             // A draft run from before businesses covering this week is split
             // into one run per business, so this business's people can be
             // finalized and paid without touching anyone else's.
-            if (! $batch && $businessId !== null) {
+            // Separate schedules just turned on: a draft "All pay" run for
+            // these dates becomes this type's run, and the lines it should
+            // not pay are taken off it below to join their own run.
+            if (! $batch && $kind !== null) {
+                $batch = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
+                    ->whereDate('week_end', $end->toDateString())
+                    ->whereNull('kind')
+                    ->where('status', 'draft')
+                    ->where(fn ($q) => $businessId === null ? $q->whereNull('business_id') : $q->where('business_id', $businessId))
+                    ->lockForUpdate()
+                    ->first();
+                $batch?->update(['kind' => $kind]);
+            }
+
+            if (! $batch && $businessId !== null && $kind === null) {
                 $legacy = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
                     ->whereDate('week_end', $end->toDateString())
                     ->whereNull('business_id')
@@ -84,7 +119,7 @@ class PayRunAutomationService
             }
 
             if (! $batch) {
-                $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId);
+                $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
                 if ($overlap) {
                     throw new \RuntimeException(
                         'Cannot create this Pay Run because it overlaps Pay Run #' . $overlap->id
@@ -94,6 +129,7 @@ class PayRunAutomationService
 
                 $batch = WeeklyPayoutBatch::create([
                     'business_id' => $businessId,
+                    'kind' => $kind,
                     'week_start' => $start->toDateString(),
                     'week_end' => $end->toDateString(),
                     'status' => 'draft',
@@ -182,12 +218,24 @@ class PayRunAutomationService
                 ->where('weekly_payout_batch_id', $batch->id)
                 ->where('status', 'draft')
                 ->whereNotNull('show_id')
+                ->tap($ofKind)
                 ->when(
                     $eligibleShowIds->isNotEmpty(),
                     fn ($query) => $query->whereNotIn('show_id', $eligibleShowIds),
                     fn ($query) => $query
                 )
                 ->update(['weekly_payout_batch_id' => null]);
+
+            // Lines this type of run does not pay go back to wait for their own run.
+            if ($kind !== null) {
+                $detached += Payout::query()
+                    ->where('weekly_payout_batch_id', $batch->id)
+                    ->where('status', 'draft')
+                    ->where(fn ($q) => $kind === 'share'
+                        ? $q->whereNotIn('payout_type', PayRunSchedules::SHARE_TYPES)
+                        : $q->whereIn('payout_type', PayRunSchedules::SHARE_TYPES))
+                    ->update(['weekly_payout_batch_id' => null]);
+            }
 
             // Someone moved to another business takes their unpaid pay with them.
             if ($businessId !== null) {
@@ -204,11 +252,14 @@ class PayRunAutomationService
                     ->whereNull('weekly_payout_batch_id')
                     ->where('status', 'draft')
                     ->whereIn('show_id', $eligibleShowIds)
+                    ->tap($ofKind)
                     ->when($businessId !== null, fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', $businessId)))
                     ->update(['weekly_payout_batch_id' => $batch->id]);
             }
 
-            $this->syncClockedTime($batch, $start, $end, $businessId);
+            if ($kind !== 'share') {
+                $this->syncClockedTime($batch, $start, $end, $businessId);
+            }
 
             $batch->recalculateTotal();
 

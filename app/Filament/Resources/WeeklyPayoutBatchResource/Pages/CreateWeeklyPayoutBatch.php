@@ -41,11 +41,34 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterStateUpdated(fn ($state, \Filament\Schemas\Components\Utilities\Set $set) => $set('streamer_ids', self::memberQuery($state)->pluck('id')->all()))
                     ->columnSpanFull(),
 
+                \Filament\Forms\Components\Select::make('kind')
+                    ->label('What this run pays')
+                    ->options(fn () => ['' => 'All pay'] + \App\Support\PayRunSchedules::KINDS)
+                    ->default(fn () => \App\Support\PayRunSchedules::separate() ? 'wages' : '')
+                    ->selectablePlaceholder(false)
+                    ->helperText('Profit share and wages can run on their own schedules — set them under Rates & Adjustments → Pay run schedules.')
+                    ->live(),
+
+                \Filament\Forms\Components\Radio::make('dates_mode')
+                    ->label('Dates')
+                    ->options(['schedule' => 'The scheduled period', 'custom' => 'Custom dates'])
+                    ->default('schedule')
+                    ->inline()
+                    ->live(),
+
                 DatePicker::make('week_start')
-                    ->label('Any day in the pay week')
-                    ->helperText(fn () => 'Pay weeks run '.\App\Support\PaySchedule::startDayName().' to '.\App\Support\PaySchedule::endDayName().' (change it under Rates & Adjustments). The run covers the pay week containing this date; VortexOps prevents overlapping Pay Runs.')
+                    ->label(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('dates_mode') === 'custom' ? 'Start date' : 'Any day in the period')
+                    ->helperText(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('dates_mode') === 'custom'
+                        ? 'The run covers exactly these dates. Runs that pay the same thing cannot overlap.'
+                        : 'The run covers the scheduled period containing this date ('.(\App\Support\PayRunSchedules::FREQUENCIES[filled($get('kind')) ? \App\Support\PayRunSchedules::config()[$get('kind')]['frequency'] : 'weekly'] ?? 'Every week').'). Runs that pay the same thing cannot overlap.')
                     ->required()
                     ->default(fn () => \App\Support\PaySchedule::periodFor(now())[0]),
+
+                DatePicker::make('week_end')
+                    ->label('End date')
+                    ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('dates_mode') === 'custom')
+                    ->required(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('dates_mode') === 'custom')
+                    ->afterOrEqual('week_start'),
 
                 Textarea::make('notes')
                     ->label('Notes (optional)')
@@ -54,10 +77,10 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->columnSpanFull(),
             ]),
 
-            Section::make('Team Members to Include')->schema([
+            Section::make('Team Members to Include')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => blank($get('kind')) && $get('dates_mode') !== 'custom')->schema([
                 CheckboxList::make('streamer_ids')
                     ->label('Active Team Members')
-                    ->helperText('All active team members are included by default. Every Pay Run is weekly; show-based payouts still have to pass the show/admin/fulfillment readiness gates before finalization.')
+                    ->helperText('All active team members are included by default. Show-based payouts still have to pass the show/admin/fulfillment readiness gates before finalization.')
                     ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => self::memberQuery($get('business_id'))
                         ->orderBy('name')
                         ->pluck('name', 'id')
@@ -81,14 +104,43 @@ class CreateWeeklyPayoutBatch extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         $businessId = filled($data['business_id'] ?? null) ? (int) $data['business_id'] : null;
-        [$start, $end] = \App\Support\PaySchedule::periodFor($data['week_start'], $businessId);
-        $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId);
+        $kind = filled($data['kind'] ?? null) && array_key_exists($data['kind'], \App\Support\PayRunSchedules::KINDS) ? $data['kind'] : null;
+        $custom = ($data['dates_mode'] ?? 'schedule') === 'custom';
+
+        [$start, $end] = $custom
+            ? [\Carbon\Carbon::parse($data['week_start'])->startOfDay(), \Carbon\Carbon::parse($data['week_end'])->startOfDay()]
+            : \App\Support\PayRunSchedules::periodFor($kind, $data['week_start'], $businessId);
+        $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
 
         if ($overlap) {
             throw ValidationException::withMessages([
-                'data.week_start' => 'That week already overlaps Pay Run #' . $overlap->id
+                'data.week_start' => 'Those dates overlap ' . $overlap->kindLabel() . ' Pay Run #' . $overlap->id
                     . ' (' . $overlap->week_start->format('M j') . '–' . $overlap->week_end->format('M j, Y') . '). Open the existing Pay Run instead.',
             ]);
+        }
+
+        // A typed run, or one with custom dates, is filled the way the
+        // schedule fills runs: every ready pay line of that type in its dates.
+        if ($kind !== null || $custom) {
+            $batch = WeeklyPayoutBatch::create([
+                'business_id' => $businessId,
+                'kind' => $kind,
+                'week_start' => $start->toDateString(),
+                'week_end' => $end->toDateString(),
+                'status' => 'draft',
+                'notes' => $data['notes'] ?? null,
+                'created_by' => auth()->id(),
+            ]);
+            $result = app(\App\Services\PayRunAutomationService::class)->syncWeek($start, true, $businessId, $kind);
+            $batch = $result['batch'];
+
+            Notification::make()
+                ->title($batch->kindLabel() . ' pay run created — ' . $batch->week_start->format('M j') . ' to ' . $batch->week_end->format('M j, Y'))
+                ->body($result['payouts_attached'] . ' pay line(s) added.' . ($result['warnings'] ? ' ' . count($result['warnings']) . ' item(s) need attention on the run.' : ''))
+                ->success()
+                ->send();
+
+            return $batch;
         }
 
         $batch = app(PayoutService::class)->createManualBatch(

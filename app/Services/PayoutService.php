@@ -26,10 +26,13 @@ class PayoutService
 
         $payouts = [];
 
-        $existingPayouts = Payout::where('show_id', $show->id)
+        $allExisting = Payout::where('show_id', $show->id)
             ->whereIn('streamer_id', $streamers->pluck('id'))
-            ->get()
-            ->keyBy('streamer_id');
+            ->get();
+        // A show's pay is one line per person, plus — when profit share runs
+        // on its own schedule — a separate line for their hourly pay.
+        $existingPayouts = $allExisting->where('payout_type', '!=', 'show_hours')->keyBy('streamer_id');
+        $existingHours = $allExisting->where('payout_type', 'show_hours')->keyBy('streamer_id');
 
         // Prefer the pivot's actual is_primary flag. Shows that predate that
         // flag (or where detectStreamers() never set one) have no streamer
@@ -46,6 +49,26 @@ class PayoutService
                 : $index === 0;
 
             $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $isPrimary);
+            $hoursLine = $result['split_hourly'] ?? null;
+            unset($result['split_hourly']);
+
+            $hoursPayout = $existingHours->get($streamer->id);
+            if ($hoursLine) {
+                $hoursPayout ??= new Payout(['show_id' => $show->id, 'streamer_id' => $streamer->id]);
+                if (! $hoursPayout->exists || $hoursPayout->status === 'draft') {
+                    $hoursPayout->fill($hoursLine + [
+                        'payout_type' => 'show_hours',
+                        'gross_show_revenue' => 0,
+                        'owner_fee_deducted' => 0,
+                        'tips_included' => 0,
+                        'routing_bank_label' => $result['routing_bank_label'] ?? null,
+                        'status' => 'draft',
+                    ])->save();
+                    $payouts[] = $hoursPayout;
+                }
+            } elseif ($hoursPayout && $hoursPayout->status === 'draft') {
+                $hoursPayout->delete();
+            }
 
             $payout = $existing
                 ? $existing->fill($result)
@@ -268,13 +291,24 @@ class PayoutService
         // Hours are the ones the share was worked out from (the streamer's
         // report, falling back to the show's length).
         $hourlyPay = 0.0;
+        $splitHourly = null;
         $hourlyRate = $streamer->paidHourlyRate();
         if ($hourlyRate !== null) {
             $paidHours = (float) ($share['columns']['hours_worked'] ?? $hours);
             if ($paidHours > 0) {
                 $hourlyPay = round($hourlyRate * $paidHours, 2);
-                $calculatedPayout = round($calculatedPayout + $hourlyPay, 2);
-                $calculationNotes .= " + \${$hourlyPay} hourly (\${$hourlyRate}/hr × {$paidHours}hrs)";
+                if (\App\Support\PayRunSchedules::separate() && \App\Support\PayRunSchedules::kindOfType($streamer->payout_type) === 'share') {
+                    // Profit share is paid on its own schedule; the hours go
+                    // on the wage run as their own line.
+                    $splitHourly = [
+                        'calculated_payout' => $hourlyPay,
+                        'hours_worked' => $paidHours,
+                        'calculation_notes' => "Hourly for this show: \${$hourlyRate}/hr × {$paidHours}hrs (profit share is paid on its own run)",
+                    ];
+                } else {
+                    $calculatedPayout = round($calculatedPayout + $hourlyPay, 2);
+                    $calculationNotes .= " + \${$hourlyPay} hourly (\${$hourlyRate}/hr × {$paidHours}hrs)";
+                }
             } elseif ($workedHours === null) {
                 $calculationNotes .= ' · Hours missing — no hourly pay';
             }
@@ -299,6 +333,7 @@ class PayoutService
             'calculation_notes'    => $calculationNotes,
             'routing_bank_label'   => $this->resolveRoutingLabel($streamer, $show),
             'status'               => 'draft',
+            'split_hourly'         => $splitHourly,
         ];
     }
 
@@ -715,7 +750,7 @@ class PayoutService
     {
         $entries = StreamerLogEntry::query()
             ->whereIn('show_id', $batch->payouts()->whereNotNull('show_id')->pluck('show_id')->unique())
-            ->with('show')
+            ->with(['show', 'streamer'])
             ->get();
 
         $showIds = $batch->payouts()->whereNotNull('show_id')->pluck('show_id')->unique();

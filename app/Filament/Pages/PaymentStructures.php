@@ -66,6 +66,26 @@ class PaymentStructures extends Page
         $this->payroll_auto_recalculate_drafts = Setting::getBool('payroll_auto_recalculate_drafts', true);
         $this->payroll_include_zero_activity = Setting::getBool('payroll_include_zero_activity', false);
         $this->payroll_week_start_day = PaySchedule::startDay();
+        $this->run_schedules = \App\Support\PayRunSchedules::config();
+    }
+
+    /** Separate schedules for profit share and wages; see PayRunSchedules. */
+    public array $run_schedules = [];
+
+    /** @return array<string, string> the scheduled period each run type is on today */
+    public function getRunSchedulePreviewProperty(): array
+    {
+        $out = [];
+        foreach (\App\Support\PayRunSchedules::KINDS as $kind => $label) {
+            try {
+                [$a, $b] = \App\Support\PayRunSchedules::standardPeriod($kind, now(), $this->run_schedules[$kind] ?? null);
+                $out[$kind] = PaySchedule::label($a, $b);
+            } catch (\Throwable) {
+                $out[$kind] = '—';
+            }
+        }
+
+        return $out;
     }
 
     private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type, $this->business_id)); }
@@ -113,6 +133,10 @@ class PaymentStructures extends Page
             'streamer.custom_payout_formula' => 'nullable|string|max:1000',
             'streamer.hourly_rate' => 'nullable|numeric|min:0',
             'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
+            'run_schedules.separate' => 'boolean',
+            'run_schedules.*.frequency' => 'sometimes|in:' . implode(',', array_keys(\App\Support\PayRunSchedules::FREQUENCIES)),
+            'run_schedules.*.anchor' => 'sometimes|nullable|date',
+            'run_schedules.*.auto' => 'sometimes|boolean',
             'streamer_burden_per_shipment' => 'required|numeric|min:0',
             'streamer_burden_per_hour' => 'required|numeric|min:0',
             'fulfillment.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::assignablePayoutTypeLabels())),
@@ -140,6 +164,7 @@ class PaymentStructures extends Page
         Setting::set('payroll_auto_recalculate_drafts', $this->payroll_auto_recalculate_drafts ? '1' : '0');
         Setting::set('payroll_include_zero_activity', $this->payroll_include_zero_activity ? '1' : '0');
         Setting::set(PaySchedule::SETTING, (string) $this->payroll_week_start_day);
+        \App\Support\PayRunSchedules::save($this->run_schedules);
         Notification::make()->title('Payment structures saved')->success()->send();
     }
 

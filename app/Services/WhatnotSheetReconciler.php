@@ -45,12 +45,17 @@ class WhatnotSheetReconciler
      * @param  list<string>  $paths
      * @return list<array{title:string,date:string,key:string,metrics:array<string,float|int>,orders:?int,raw:array<string,string>}>
      */
+    /** Per file of the last rows() call: path => rows read, rows new to the set, first and last date. */
+    public array $fileStats = [];
+
     public function rows(array $paths, string $since, ?string $until = null): array
     {
         $rows = [];
         $seen = [];
+        $this->fileStats = [];
 
         foreach ($paths as $path) {
+            $this->fileStats[$path] = ['rows' => 0, 'new' => 0, 'first' => null, 'last' => null];
             $handle = fopen($path, 'rb');
             if (! $handle) {
                 throw new RuntimeException('Could not open '.basename($path).'.');
@@ -85,9 +90,16 @@ class WhatnotSheetReconciler
                     // Overlapping pages repeat rows exactly; two different shows
                     // with the same title on one day differ somewhere.
                     $fingerprint = $date->toDateString().'|'.$this->csv->normalize($title).'|'.md5(json_encode([$metrics, $orders]));
+                    $stat = &$this->fileStats[$path];
+                    $stat['rows']++;
+                    $stat['first'] = min($stat['first'] ?? $date->toDateString(), $date->toDateString());
+                    $stat['last'] = max($stat['last'] ?? $date->toDateString(), $date->toDateString());
                     if (isset($seen[$fingerprint])) {
+                        unset($stat);
                         continue;
                     }
+                    $stat['new']++;
+                    unset($stat);
                     $seen[$fingerprint] = true;
 
                     $rows[] = [
@@ -119,11 +131,13 @@ class WhatnotSheetReconciler
         $allNames = WhatnotChannel::pluck('name', 'id');
 
         $rowsByChannel = [];
+        $statsByChannel = [];
         $from = null;
         $to = null;
         foreach ($sheets as $channelId => $paths) {
             $rows = $this->rows($paths, $since, $until);
             $rowsByChannel[$channelId] = $rows;
+            $statsByChannel[$channelId] = collect($this->fileStats)->mapWithKeys(fn ($s, $path) => [basename($path) => $s])->all();
             foreach ($rows as $row) {
                 $from = min($from ?? $row['date'], $row['date']);
                 $to = max($to ?? $row['date'], $row['date']);
@@ -298,6 +312,7 @@ class WhatnotSheetReconciler
                 // an export that stops early while the app has shows with sales
                 // after it.
                 'last_row' => $dates->max(),
+                'files' => $statsByChannel[$channelId] ?? [],
                 'aired_after_last_row' => $dates->isEmpty() ? 0 : Show::where('whatnot_channel_id', $channelId)
                     ->where('show_date', '>', $dates->max())->where('show_date', '<=', $cTo)->where('gross_revenue', '>', 0)->count(),
                 'counts' => [

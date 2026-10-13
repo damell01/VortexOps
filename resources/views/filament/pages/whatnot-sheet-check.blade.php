@@ -34,7 +34,13 @@
             <h3 class="wsc-h">Uploaded</h3>
             <div class="wsc-files">
                 @foreach ($files as $channelId => $list)
-                    <div><b>{{ \App\Models\WhatnotChannel::whereKey($channelId)->value('name') }}</b>: {{ collect($list)->pluck('name')->implode(', ') }}</div>
+                    @php $stats = $plan['channels'][$channelId]['files'] ?? []; @endphp
+                    <div><b>{{ \App\Models\WhatnotChannel::whereKey($channelId)->value('name') }}</b>:
+                        @foreach ($list as $f)
+                            @php $st = $stats[basename($f['path'])] ?? null; @endphp
+                            <span class="wsc-file @if ($st && $st['rows'] > 0 && $st['new'] === 0) is-dupe @endif">{{ $f['name'] }}@if ($st) <span class="wsc-muted">({{ $st['rows'] }} rows{{ $st['first'] ? ', '.\Carbon\Carbon::parse($st['last'])->format('M j').'–'.\Carbon\Carbon::parse($st['first'])->format('M j') : '' }})</span>@if ($st['rows'] > 0 && $st['new'] === 0) <b class="wsc-short">same page as another file</b>@endif @endif</span>@unless ($loop->last), @endunless
+                        @endforeach
+                    </div>
                 @endforeach
             </div>
         </section>
@@ -163,6 +169,7 @@
 .wsc-empty ol{list-style:decimal;padding-left:20px;display:grid;gap:6px;font-size:14px}
 .wsc-h{font-size:13px;font-weight:800;margin-bottom:6px}
 .wsc-files{display:grid;gap:4px;font-size:13px}
+.wsc-file.is-dupe{background:#fef3c7;border-radius:6px;padding:0 4px}
 .wsc-done{border-color:#86efac;background:#f0fdf4}
 .dark .wsc-done{background:#052e16;border-color:#166534}
 .wsc-failed{margin-top:6px;color:#b91c1c;font-size:13px}

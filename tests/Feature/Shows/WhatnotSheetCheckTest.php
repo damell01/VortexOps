@@ -286,6 +286,8 @@ class WhatnotSheetCheckTest extends TestCase
         ], '2026-06-01', '2026-10-09');
 
         $this->assertSame('2026-10-09', $plan['channels'][$this->cards->id]['to']);
+        $this->assertSame('2026-08-10', $plan['channels'][$this->cards->id]['last_row']);
+        $this->assertSame(1, $plan['channels'][$this->cards->id]['aired_after_last_row'], 'a missing newest page is flagged');
         $this->assertSame('extra', collect($plan['items'])->firstWhere('show_id', $junk->id)['action']);
         $this->assertTrue(collect($plan['items'])->firstWhere('show_id', $aired->id)['aired']);
 

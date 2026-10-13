@@ -154,7 +154,7 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hours Streamed</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hours Worked</label>
                             <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white font-semibold">
                                 {{ number_format((float) $log->hours_streamed, 2) }} hrs
                             </div>

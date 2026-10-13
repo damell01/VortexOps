@@ -364,16 +364,45 @@ class EndOfStreamForm extends Page implements HasForms
         StreamerLogEntry::whereKey($entry->id)->update(['product_cost' => round((float) $cost, 2)]);
     }
 
-    private function suggestedHours(): ?float { $minutes = (int) ($this->show?->show_duration ?? 0); return $minutes > 0 ? round($minutes / 60, 2) : null; }
+    /**
+     * Time clocked against this show by the person filing the report. It is
+     * only ever offered, never filled in: Hours Worked is what they say, and
+     * a gap between the two goes to an admin rather than being papered over.
+     * The show's length on Whatnot is not hours worked and is never used.
+     *
+     * @return array{minutes:int,entries:\Illuminate\Support\Collection,open:bool}
+     */
+    public function getClockRecordProperty(): array
+    {
+        $entry = $this->logEntry();
+        $userId = $entry?->streamer()->value('user_id') ?? auth()->id();
+        $entries = $this->show && $userId
+            ? \App\Models\TimeEntry::where('show_id', $this->show->id)->where('user_id', $userId)->orderBy('clocked_in_at')->get()
+            : collect();
+
+        return [
+            'minutes' => (int) $entries->whereNotNull('clocked_out_at')->where('status', '!=', 'rejected')->sum(fn ($e) => $e->status === 'approved' ? (int) $e->approved_minutes : (int) $e->duration_minutes),
+            'entries' => $entries,
+            'open' => $entries->contains(fn ($e) => $e->clocked_out_at === null),
+        ];
+    }
+
+    public function useClockedHours(): void
+    {
+        $minutes = $this->clockRecord['minutes'];
+        if ($minutes <= 0) return;
+        $this->hoursStreamed = (string) round($minutes / 60, 2);
+        $this->saveDetails();
+    }
+
     private function suggestedShipments(): ?int { $count = (int) ($this->show?->shipments()->count() ?? 0); return $count > 0 ? $count : null; }
 
     public function loadDetails(): void
     {
         $entry = $this->logEntry(); if (! $entry) return;
-        $this->hoursStreamed = (string) ($entry->hours_streamed ?? $this->suggestedHours() ?? '');
+        $this->hoursStreamed = $entry->hours_streamed !== null ? (string) (float) $entry->hours_streamed : '';
         $this->shipments = (string) ($entry->number_of_shipments ?? $this->suggestedShipments() ?? '');
         $fill = array_filter([
-            'hours_streamed' => $entry->hours_streamed === null && $this->hoursStreamed !== '' ? (float) $this->hoursStreamed : null,
             'number_of_shipments' => $entry->number_of_shipments === null && $this->shipments !== '' ? (int) $this->shipments : null,
         ], fn ($value) => $value !== null);
         if ($fill !== []) StreamerLogEntry::whereKey($entry->id)->update($fill);
@@ -385,8 +414,9 @@ class EndOfStreamForm extends Page implements HasForms
     public function saveDetails(): void
     {
         $entry = $this->logEntry(); if (! $entry) return; $savedAt = now();
+        $hours = $this->hoursStreamed !== '' && is_numeric($this->hoursStreamed) ? round(min(24, max(0, (float) $this->hoursStreamed)), 2) : null;
         $entry->update([
-            'hours_streamed' => $this->hoursStreamed !== '' ? (float) $this->hoursStreamed : null,
+            'hours_streamed' => $hours,
             'number_of_shipments' => $this->shipments !== '' ? (int) $this->shipments : null,
             'pwe_count' => $this->pweCount !== '' ? (int) $this->pweCount : null,
             'label_count' => $this->labelCount !== '' ? (int) $this->labelCount : null,

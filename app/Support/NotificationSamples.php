@@ -62,6 +62,7 @@ class NotificationSamples
             'low_stock' => $alert('Low Stock: Sample Booster Box', '3 units remaining (reorder at 10)', 'warning'),
             'damaged' => $alert('Items Marked Damaged', '2x Sample Booster Box moved to damaged from A Main Warehouse', 'danger'),
             'ai_manifest' => $alert('AI manifest ready for review', 'Pallet PO-1042: 48 manifest lines added · 41 existing items preselected · 7 need review.', 'success'),
+            'missed_clock_out' => $alert('Still clocked in?', 'Sam has been clocked in since Mon Oct 13, 9:02 AM. Clock out and correct the time — an admin will review it.', 'warning'),
             'fulfillment_assigned' => $alert('Fulfillment show assigned', "You are assigned to fulfillment for {$title}. Open the Fulfillment Center to work its shipment and packing queue."),
             default => $alert(NotificationCatalog::label($event), 'This is a sample of this notification.'),
         };

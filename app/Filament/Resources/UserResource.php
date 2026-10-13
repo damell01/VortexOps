@@ -269,7 +269,7 @@ class UserResource extends Resource
 
                     Select::make(UserPayFields::key('payout_type'))
                         ->label('Pay type')
-                        ->options(Streamer::payoutTypeLabels())
+                        ->options(Streamer::assignablePayoutTypeLabels())
                         ->placeholder(fn (Get $get) => UserPayFields::defaultHint('fulfillment', 'payout_type', $get(UserPayFields::BUSINESS)))
                         ->native(false)
                         ->dehydrated(false)

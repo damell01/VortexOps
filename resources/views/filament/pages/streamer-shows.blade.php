@@ -23,6 +23,10 @@
 <x-filament-panels::page>
     <x-dashboard-shortcuts />
     <div class="vxw" data-vx-page="streamer-shows" x-data="{ tab: @js($defaultTab), sort: 'newest' }">
+        @if (\App\Support\AdminModules::isEnabled('timekeeping'))
+            @livewire('clock-widget')
+        @endif
+
         {{-- What needs doing, in one line, with the one button that does it. --}}
         <section class="vxw-card">
             <div class="vxw-card-body">

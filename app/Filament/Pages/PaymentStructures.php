@@ -115,7 +115,7 @@ class PaymentStructures extends Page
             'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
             'streamer_burden_per_shipment' => 'required|numeric|min:0',
             'streamer_burden_per_hour' => 'required|numeric|min:0',
-            'fulfillment.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::payoutTypeLabels())),
+            'fulfillment.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::assignablePayoutTypeLabels())),
             'fulfillment.payout_cadence' => 'required|in:weekly,monthly',
             'fulfillment.payout_percentage' => 'nullable|numeric|min:0|max:100',
             'fulfillment.package_rate' => 'nullable|numeric|min:0',

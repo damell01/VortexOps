@@ -59,6 +59,7 @@ if(! $user?->isAdmin() && ! $user?->isOwner() && $user?->isFulfillmentAdmin()) $
 ];
 if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
+ ['Roles & Permissions',\App\Filament\Resources\RoleResource::getUrl('index')],
  ...($user?->isOwner() ? [
    ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],

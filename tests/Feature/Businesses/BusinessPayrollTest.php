@@ -307,4 +307,27 @@ class BusinessPayrollTest extends TestCase
         $this->assertTrue(Businesses::canAccess());
         $this->get(Businesses::getUrl())->assertOk()->assertSee('Estill Distribution');
     }
+
+    public function test_admins_on_an_allow_list_are_granted_the_businesses_page(): void
+    {
+        \App\Models\Setting::set('role_visible_nav', json_encode(['admin' => [\App\Filament\Pages\PayrollOverview::class]]));
+        \App\Support\NavVisibility::flushMemo();
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $this->assertTrue(\App\Support\NavVisibility::isHiddenForUser(Businesses::class, $admin));
+
+        (require database_path('migrations/2026_10_13_200000_grant_businesses_page_to_admins.php'))->up();
+        \App\Support\NavVisibility::flushMemo();
+
+        $this->assertFalse(\App\Support\NavVisibility::isHiddenForUser(Businesses::class, $admin));
+        $this->actingAs($admin)->get(Businesses::getUrl())->assertOk();
+    }
+
+    public function test_the_owner_menu_links_to_roles_and_permissions(): void
+    {
+        $this->get(\App\Filament\Pages\DashboardImproved::getUrl())
+            ->assertOk()
+            ->assertSee(\App\Filament\Resources\RoleResource::getUrl('index'), false);
+    }
 }

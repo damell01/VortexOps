@@ -99,7 +99,7 @@
                 <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = Net Revenue × {{number_format($pct,2)}}% @if($streamer['include_tips']??true) + Tips @endif</div>
                 @if((float)($streamer['hourly_rate']??0) > 0)<div class="font-bold text-primary-700 dark:text-primary-300">In-house streamers also get Hours Worked × ${{number_format((float)$streamer['hourly_rate'],2)}}</div>@endif
             </div>
-            <p class="mt-3 text-xs text-gray-500">A weekly Pay Run collects that week's eligible shows. The show calculations roll up into the person's weekly total; a custom override is only used when you intentionally set one.</p>
+            <p class="mt-3 text-xs text-gray-500">A Pay Run collects eligible shows for its chosen dates, including a monthly profit-share run. Each show still uses the supplied calculation; a custom override is only used when you intentionally set one.</p>
         </div>
 
         <details class="mt-5 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
@@ -137,7 +137,7 @@
                         </div>
                     @endif
                     <div class="mt-1 text-xs text-gray-500">
-                        @if(!$member->isFulfillment())@if(($pay['effective']['payout_type']??null)==='sales_split')Sales split · keeps {{number_format(100-(float)($pay['effective']['house_cut_percentage']??0),2)}}%@else{{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@endif @if($member->paidHourlyRate()) + ${{number_format($member->paidHourlyRate(),2)}}/hr @endif · @endif
+                        @if(!$member->isFulfillment())@if(($pay['effective']['payout_type']??null)==='hourly')Hourly wages · ${{number_format((float)($pay['effective']['hourly_rate']??0),2)}}/hr @elseif(($pay['effective']['payout_type']??null)==='sales_split')Sales split · keeps {{number_format(100-(float)($pay['effective']['house_cut_percentage']??0),2)}}%@else{{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@endif @if($member->paidHourlyRate()) + ${{number_format($member->paidHourlyRate(),2)}}/hr @endif · @endif
                         @if(count($pay['overrides']??[])) Individual Override @else Standard {{ $member->isFulfillment() ? 'Fulfillment' : 'Streamer' }} Calculation @endif
                     </div>
                 </button>

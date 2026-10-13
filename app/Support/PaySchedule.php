@@ -64,15 +64,17 @@ class PaySchedule
     /**
      * The pay period containing $date: an existing Pay Run's dates when one
      * covers it, otherwise the regular period trimmed so it does not overlap
-     * a neighbouring run.
+     * a neighbouring run. With $businessId, only runs that pay that
+     * business's people count (its own, and runs for all businesses).
      *
      * @return array{0: Carbon, 1: Carbon}
      */
-    public static function periodFor(CarbonInterface|string $date): array
+    public static function periodFor(CarbonInterface|string $date, ?int $businessId = null): array
     {
         $date = Carbon::parse($date)->startOfDay();
 
         $covering = WeeklyPayoutBatch::query()
+            ->sharingPeopleWith($businessId)
             ->whereDate('week_start', '<=', $date->toDateString())
             ->whereDate('week_end', '>=', $date->toDateString())
             ->orderBy('week_start')
@@ -84,6 +86,7 @@ class PaySchedule
         [$start, $end] = self::standardPeriod($date);
 
         $before = WeeklyPayoutBatch::query()
+            ->sharingPeopleWith($businessId)
             ->whereDate('week_end', '>=', $start->toDateString())
             ->whereDate('week_end', '<', $date->toDateString())
             ->orderByDesc('week_end')
@@ -93,6 +96,7 @@ class PaySchedule
         }
 
         $after = WeeklyPayoutBatch::query()
+            ->sharingPeopleWith($businessId)
             ->whereDate('week_start', '>', $date->toDateString())
             ->whereDate('week_start', '<=', $end->toDateString())
             ->orderBy('week_start')
@@ -109,14 +113,14 @@ class PaySchedule
      *
      * @return list<array{0: Carbon, 1: Carbon}>
      */
-    public static function periodsBetween(CarbonInterface|string $from, CarbonInterface|string $to): array
+    public static function periodsBetween(CarbonInterface|string $from, CarbonInterface|string $to, ?int $businessId = null): array
     {
         $cursor = Carbon::parse($from)->startOfDay();
         $to = Carbon::parse($to)->startOfDay();
         $periods = [];
 
         while ($cursor->lte($to) && count($periods) < 520) {
-            $period = self::periodFor($cursor);
+            $period = self::periodFor($cursor, $businessId);
             $periods[] = $period;
             $cursor = $period[1]->copy()->addDay();
         }

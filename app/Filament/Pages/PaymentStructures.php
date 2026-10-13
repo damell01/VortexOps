@@ -39,13 +39,21 @@ class PaymentStructures extends Page
     public bool $show_archived = false;
     public int $payroll_week_start_day = 1;
 
+    /** The business whose rates are being edited (the Business picker), or null for the shared rates. */
+    public ?int $business_id = null;
+
     public function mount(): void
     {
+        $this->business_id = \App\Support\BusinessContext::currentId();
         $this->streamer = $this->structureState('streamer', [
             'payout_type' => 'profit_share', 'payout_cadence' => 'weekly',
             'payout_percentage' => 8, 'include_tips' => true, 'custom_payout_formula' => null,
-            'hourly_rate' => null,
+            'hourly_rate' => null, 'house_cut_percentage' => null, 'sales_split_basis' => 'net',
         ]);
+        if (($this->streamer['payout_type'] ?? null) !== 'sales_split') {
+            $this->streamer['payout_type'] = 'profit_share';
+        }
+        $this->streamer['sales_split_basis'] ??= 'net';
         $this->fulfillment = $this->structureState('fulfillment', [
             'payout_type' => 'pwe_labels', 'payout_cadence' => 'weekly',
             'payout_percentage' => null, 'package_rate' => null, 'hourly_rate' => null,
@@ -60,7 +68,29 @@ class PaymentStructures extends Page
         $this->payroll_week_start_day = PaySchedule::startDay();
     }
 
-    private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type)); }
+    private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type, $this->business_id)); }
+
+    public function getBusinessProperty(): ?\App\Models\Business
+    {
+        return $this->business_id ? \App\Models\Business::find($this->business_id) : null;
+    }
+
+    /** Whether this business still uses the shared rates (nothing saved for it yet). */
+    public function getUsesSharedRatesProperty(): bool
+    {
+        return $this->business_id !== null && ! PaymentStructure::hasOwnDefaults('streamer', $this->business_id);
+    }
+
+    public function useSharedRates(): void
+    {
+        if (! $this->business_id) {
+            return;
+        }
+        PaymentStructure::clearBusinessDefaults('streamer', $this->business_id);
+        PaymentStructure::clearBusinessDefaults('fulfillment', $this->business_id);
+        $this->mount();
+        Notification::make()->title(($this->business?->name ?? 'This business') . ' now uses the shared rates')->success()->send();
+    }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Payroll'; }
     public static function getNavigationSort(): ?int { return 2; }
@@ -76,7 +106,10 @@ class PaymentStructures extends Page
     public function save(): void
     {
         $this->validate([
-            'streamer.payout_percentage' => 'required|numeric|min:0|max:100',
+            'streamer.payout_type' => 'required|in:profit_share,sales_split',
+            'streamer.house_cut_percentage' => 'nullable|required_if:streamer.payout_type,sales_split|numeric|min:0|max:100',
+            'streamer.sales_split_basis' => 'nullable|in:net,gross',
+            'streamer.payout_percentage' => 'required_unless:streamer.payout_type,sales_split|nullable|numeric|min:0|max:100',
             'streamer.custom_payout_formula' => 'nullable|string|max:1000',
             'streamer.hourly_rate' => 'nullable|numeric|min:0',
             'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
@@ -93,11 +126,14 @@ class PaymentStructures extends Page
             'fulfillment.custom_payout_formula' => 'nullable|string|max:1000',
         ]);
 
-        $this->streamer['payout_type'] = empty(trim((string)($this->streamer['custom_payout_formula'] ?? ''))) ? 'profit_share' : 'custom_formula';
-        $this->streamer['payout_cadence'] = 'weekly';
+        $streamer = $this->streamer;
+        if ($streamer['payout_type'] !== 'sales_split' && trim((string) ($streamer['custom_payout_formula'] ?? '')) !== '') {
+            $streamer['payout_type'] = 'custom_formula';
+        }
+        $streamer['payout_cadence'] = 'weekly';
         $this->fulfillment['payout_cadence'] = 'weekly';
-        PaymentStructure::saveDefaults('streamer', $this->streamer);
-        PaymentStructure::saveDefaults('fulfillment', $this->fulfillment);
+        PaymentStructure::saveDefaults('streamer', $streamer, $this->business_id);
+        PaymentStructure::saveDefaults('fulfillment', $this->fulfillment, $this->business_id);
         Setting::set('payroll_burden_per_shipment', (string)$this->streamer_burden_per_shipment);
         Setting::set('payroll_burden_per_hour', (string)$this->streamer_burden_per_hour);
         Setting::set('payroll_auto_setup_enabled', $this->payroll_auto_setup_enabled ? '1' : '0');
@@ -110,6 +146,7 @@ class PaymentStructures extends Page
     public function getMembersProperty()
     {
         return Streamer::query()
+            ->inBusinessContext()
             ->when(! $this->show_archived, fn ($q) => $q->where(fn ($q) => $q->where('status', '!=', 'inactive')->orWhereNull('status')))
             ->orderBy('member_type')->orderBy('name')->get();
     }
@@ -130,7 +167,7 @@ class PaymentStructures extends Page
         $this->member_override_values = [];
         $fields = $member->isFulfillment()
             ? ['payout_type','payout_percentage','hourly_rate','pwe_rate','label_rate','package_rate','include_tips','custom_payout_formula']
-            : ['payout_percentage','hourly_rate','custom_payout_formula','include_tips'];
+            : ['payout_type','payout_percentage','house_cut_percentage','sales_split_basis','hourly_rate','custom_payout_formula','include_tips'];
         foreach ($fields as $field) {
             $this->member_override_enabled[$field] = ! $resolved['legacy'] && array_key_exists($field, $resolved['overrides']);
             $this->member_override_values[$field] = $resolved['effective'][$field] ?? null;
@@ -146,8 +183,14 @@ class PaymentStructures extends Page
         $overrides = [];
         foreach ($this->member_override_enabled as $field => $enabled) if ($enabled) $overrides[$field] = $this->member_override_values[$field] ?? null;
         if (! $member->isFulfillment()) {
-            $overrides['payout_type'] = !empty(trim((string)($overrides['custom_payout_formula'] ?? ''))) ? 'custom_formula' : 'profit_share';
-            $overrides['payout_cadence'] = 'weekly';
+            // A streamer's pay type is their own only when it was chosen here
+            // (or they have their own formula); otherwise it follows their
+            // business's default, so moving business changes how they're paid.
+            if (trim((string) ($overrides['custom_payout_formula'] ?? '')) !== '') {
+                $overrides['payout_type'] = 'custom_formula';
+            } elseif (isset($overrides['payout_type']) && ! in_array($overrides['payout_type'], ['profit_share', 'sales_split'], true)) {
+                unset($overrides['payout_type']);
+            }
         } else {
             $overrides['payout_cadence'] = 'weekly';
         }

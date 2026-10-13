@@ -216,6 +216,10 @@ class AdminPanelProvider extends PanelProvider
                     : '',
             )
             ->renderHook(
+                PanelsRenderHook::CONTENT_START,
+                fn () => (auth()->user()?->canSwitchChannels() ?? false) ? view('filament.components.business-banner') : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
                 fn (): string => (auth()->user()?->canSwitchChannels() ?? false)
                     ? Blade::render("@livewire('channel-switcher')")

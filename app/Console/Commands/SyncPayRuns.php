@@ -22,7 +22,8 @@ class SyncPayRuns extends Command
         $recalculate = $this->option('force') || Setting::getBool('payroll_auto_recalculate_drafts', true);
 
         try {
-            $result = $automation->syncWeek($this->option('week') ?: now(), $recalculate);
+            // One run per business once people are in businesses.
+            $results = $automation->syncAllForWeek($this->option('week') ?: now(), $recalculate);
         } catch (\Throwable $e) {
             Setting::set('payroll_last_automation_error', $e->getMessage());
             report($e);
@@ -30,15 +31,17 @@ class SyncPayRuns extends Command
             return self::FAILURE;
         }
 
-        $batch = $result['batch'];
-        $this->info(($result['created'] ? 'Created' : 'Updated') . " Pay Run #{$batch->id}: {$batch->week_start->toDateString()} - {$batch->week_end->toDateString()}");
         $this->line('Draft recalculation: ' . ($recalculate ? 'enabled' : 'disabled'));
-        $this->line('Shows scanned: ' . $result['shows_scanned']);
-        $this->line('New payouts attached: ' . $result['payouts_attached']);
-        $this->line('Total: $' . number_format((float) $batch->total_payout, 2));
+        foreach ($results as $result) {
+            $batch = $result['batch'];
+            $this->info(($result['created'] ? 'Created' : 'Updated') . " Pay Run #{$batch->id} ({$batch->businessLabel()}): {$batch->week_start->toDateString()} - {$batch->week_end->toDateString()}");
+            $this->line('Shows scanned: ' . $result['shows_scanned']);
+            $this->line('New payouts attached: ' . $result['payouts_attached']);
+            $this->line('Total: $' . number_format((float) $batch->total_payout, 2));
 
-        foreach ($result['warnings'] as $warning) {
-            $this->warn($warning);
+            foreach ($result['warnings'] as $warning) {
+                $this->warn($warning);
+            }
         }
 
         return self::SUCCESS;

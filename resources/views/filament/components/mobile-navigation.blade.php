@@ -50,7 +50,7 @@
 @endforeach
 <a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\MyNotifications::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-bell"/><span>My notifications</span></a>
 <a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\HelpCenter::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-question-mark-circle"/><span>Help & Guides</span></a>
-@if($user?->canSwitchChannels())<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif
+@if($user?->canSwitchChannels())@if(\App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mobile-channel">@livewire('business-switcher')</div>@endif<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif
 </aside></div></template></div>
 <style>
 .vx-mm-user{display:flex;align-items:center;gap:10px;margin:2px 0 12px;padding:10px 12px;border-radius:14px;background:#f5f3ff}

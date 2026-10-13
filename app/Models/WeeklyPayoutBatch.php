@@ -23,7 +23,7 @@ class WeeklyPayoutBatch extends Model
             // Existing legacy data may already contain an overlap. Do not make
             // unrelated updates (totals/status/notes) impossible; enforce the
             // guard when a Pay Run is created or its date range is changed.
-            if ($batch->exists && ! $batch->isDirty(['week_start', 'week_end'])) {
+            if ($batch->exists && ! $batch->isDirty(['week_start', 'week_end', 'business_id'])) {
                 return;
             }
 
@@ -44,9 +44,10 @@ class WeeklyPayoutBatch extends Model
 
             $overlap = static::query()
                 ->when($batch->exists, fn (Builder $query) => $query->where($batch->getKeyName(), '!=', $batch->getKey()))
+                ->sharingPeopleWith($batch->business_id)
                 ->whereDate('week_start', '<=', $end)
                 ->whereDate('week_end', '>=', $start)
-                ->first(['id', 'week_start', 'week_end', 'status']);
+                ->first(['id', 'business_id', 'week_start', 'week_end', 'status']);
 
             if ($overlap) {
                 throw new \RuntimeException(
@@ -74,6 +75,7 @@ class WeeklyPayoutBatch extends Model
     }
 
     protected $fillable = [
+        'business_id',
         'week_start',
         'week_end',
         'status',
@@ -96,6 +98,37 @@ class WeeklyPayoutBatch extends Model
         return $this->hasMany(Payout::class);
     }
 
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    /**
+     * Runs that could pay the same people as a run for $businessId: that
+     * business's own runs, and runs from before businesses (null), which pay
+     * everybody. A run for no business clashes with every run.
+     */
+    public function scopeSharingPeopleWith(Builder $query, ?int $businessId): Builder
+    {
+        return $businessId === null
+            ? $query
+            : $query->where(fn (Builder $q) => $q->where('business_id', $businessId)->orWhereNull('business_id'));
+    }
+
+    /** Runs for the business payroll is being run for, when one is chosen. */
+    public function scopeInBusinessContext(Builder $query): Builder
+    {
+        return \App\Support\BusinessContext::isScoped()
+            ? $query->where('business_id', \App\Support\BusinessContext::currentId())
+            : $query;
+    }
+
+    /** "Estill Distribution", or "All businesses" for a run from before the split. */
+    public function businessLabel(): string
+    {
+        return $this->business_id ? ($this->loadMissing('business')->business?->name ?? 'All businesses') : 'All businesses';
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -112,10 +145,11 @@ class WeeklyPayoutBatch extends Model
         $this->save();
     }
 
-    public static function overlapping(string $start, string $end, ?int $exceptId = null): ?self
+    public static function overlapping(string $start, string $end, ?int $exceptId = null, ?int $businessId = null): ?self
     {
         return static::query()
             ->when($exceptId, fn (Builder $query) => $query->where((new static())->getKeyName(), '!=', $exceptId))
+            ->sharingPeopleWith($businessId)
             ->whereDate('week_start', '<=', $end)
             ->whereDate('week_end', '>=', $start)
             ->orderBy('week_start')

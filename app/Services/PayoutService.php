@@ -113,6 +113,27 @@ class PayoutService
                 }
                 break;
 
+            case 'sales_split':
+                // Estill Distribution's arrangement: the business keeps a set
+                // share of what the streamer's show earned and the streamer
+                // gets the rest. Like profit share, on a collab the primary
+                // streamer carries the split.
+                $basisKey  = $streamer->sales_split_basis === 'gross' ? 'gross' : 'net';
+                $basis     = ($isPrimary || $streamerCount <= 1) ? ($basisKey === 'gross' ? $grossRevenue : $netRevenue) : 0.0;
+                $houseCut  = min(100.0, max(0.0, (float) ($streamer->house_cut_percentage ?? 0)));
+                $calculatedPayout = round($basis * (100 - $houseCut) / 100, 2);
+                $basisLabel = $basisKey === 'gross' ? 'gross sales' : 'net earnings';
+                $calculationNotes = 'Sales split: $' . number_format($basis, 2) . " {$basisLabel} − {$houseCut}% kept by the business";
+                if ($streamerCount > 1 && ! $isPrimary) {
+                    $calculationNotes .= ' — non-primary on collab show, the split goes to the primary streamer';
+                }
+                if ($streamer->include_tips) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + \${$tipShare} tips";
+                }
+                $share = ['columns' => ['net_revenue_basis' => $basis]];
+                break;
+
             case 'package':
                 $calculatedPayout = (float) $streamer->package_rate;
                 $calculationNotes = "Package rate \${$streamer->package_rate}";
@@ -509,12 +530,13 @@ class PayoutService
         return (float) $stack[0];
     }
 
-    public function createWeeklyBatch(string $weekStart): WeeklyPayoutBatch
+    public function createWeeklyBatch(string $weekStart, ?int $businessId = null): WeeklyPayoutBatch
     {
-        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart);
+        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart, $businessId);
 
-        return DB::transaction(function () use ($start, $end) {
+        return DB::transaction(function () use ($start, $end, $businessId) {
             $batch = WeeklyPayoutBatch::create([
+                'business_id' => $businessId,
                 'week_start' => $start->toDateString(),
                 'week_end'   => $end->toDateString(),
                 'status'     => 'draft',
@@ -524,6 +546,7 @@ class PayoutService
             Payout::whereNull('weekly_payout_batch_id')
                 ->where('status', 'draft')
                 ->whereHas('show', fn ($q) => $q->whereBetween('show_date', [$start, $end]))
+                ->when($businessId !== null, fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', $businessId)))
                 ->update(['weekly_payout_batch_id' => $batch->id]);
 
             $batch->recalculateTotal();
@@ -541,12 +564,13 @@ class PayoutService
      *
      * @param array<int> $streamerIds
      */
-    public function createManualBatch(string $weekStart, array $streamerIds, ?string $notes = null): WeeklyPayoutBatch
+    public function createManualBatch(string $weekStart, array $streamerIds, ?string $notes = null, ?int $businessId = null): WeeklyPayoutBatch
     {
-        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart);
+        [$start, $end] = \App\Support\PaySchedule::periodFor($weekStart, $businessId);
 
-        return DB::transaction(function () use ($start, $end, $streamerIds, $notes) {
+        return DB::transaction(function () use ($start, $end, $streamerIds, $notes, $businessId) {
             $batch = WeeklyPayoutBatch::create([
+                'business_id' => $businessId,
                 'week_start' => $start->toDateString(),
                 'week_end'   => $end->toDateString(),
                 'status'     => 'draft',

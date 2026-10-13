@@ -70,10 +70,11 @@ class StreamerLogEntry extends Model
 
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        if (! \App\Support\ChannelContext::isScoped()) return $query;
-        return $query->whereHas('show', fn (\Illuminate\Database\Eloquent\Builder $q) =>
-            $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
-        );
+        return $query
+            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->whereHas('show', fn (\Illuminate\Database\Eloquent\Builder $s) =>
+                $s->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+            ))
+            ->when(\App\Support\BusinessContext::isScoped(), fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', \App\Support\BusinessContext::currentId())));
     }
 
     public function items(): HasMany { return $this->hasMany(StreamerLogItem::class, 'streamer_log_entry_id'); }

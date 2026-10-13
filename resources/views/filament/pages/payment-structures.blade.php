@@ -4,9 +4,62 @@
     $ship=(float)$streamer_burden_per_shipment;
     $hour=(float)$streamer_burden_per_hour;
     $editingMember=$editing_member_id ? \App\Models\Streamer::find($editing_member_id) : null;
+    $business=$this->business;
+    $isSplit=($streamer['payout_type']??'profit_share')==='sales_split';
+    $cut=(float)($streamer['house_cut_percentage']??0);
+    $basisLabel=($streamer['sales_split_basis']??'net')==='gross'?'Gross Sales':'Net Earnings (after Whatnot fees)';
 @endphp
 <div class="space-y-6">
-    <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div class="vx-card p-4 text-sm" style="border-left:4px solid {{ $business?->color ?? '#9ca3af' }}">
+        @if($business)
+            <strong>Rates for {{ $business->name }}.</strong>
+            @if($this->usesSharedRates)
+                It hasn't saved its own rates yet, so its people are paid on the shared rates shown below. Change anything and save to give {{ $business->label() }} its own.
+            @else
+                Only {{ $business->label() }}'s people are paid on these.
+                <button type="button" wire:click="useSharedRates" wire:confirm="Drop {{ $business->name }}'s own rates and use the shared ones?" class="ml-1 font-bold text-primary-600 underline">Use the shared rates instead</button>
+            @endif
+        @else
+            <strong>Shared rates.</strong> Used by any business that hasn't saved its own. Pick a business in the <strong>Business</strong> picker at the top to set rates for just that business (for example, Estill Distribution's sales split).
+        @endif
+        <span class="text-gray-500">Burden rates, the pay schedule and automation are the same for every business.</span>
+    </div>
+
+    <div class="vx-card p-5">
+        <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">How streamers are paid{{ $business ? ' · '.$business->name : '' }}</p>
+        <div class="mt-3 grid gap-3 md:grid-cols-2">
+            <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ ! $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
+                <input type="radio" wire:model.live="streamer.payout_type" value="profit_share" class="mt-1">
+                <span><span class="block font-bold">Profit share</span><span class="block text-xs text-gray-500">A % of the show's profit after product cost and burden, plus hourly for in-house streamers. How Vortex Collects pays.</span></span>
+            </label>
+            <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
+                <input type="radio" wire:model.live="streamer.payout_type" value="sales_split" class="mt-1">
+                <span><span class="block font-bold">Sales split</span><span class="block text-xs text-gray-500">The business keeps a % of what the streamer's shows earned; the streamer gets the rest. How Estill Distribution pays.</span></span>
+            </label>
+        </div>
+        @if($isSplit)
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+                <label class="rounded-[10px] border border-[var(--vx-border)] p-4">
+                    <span class="text-xs font-semibold text-gray-500">The business keeps</span>
+                    <div class="mt-2 flex items-center gap-2"><input wire:model.live.debounce.300ms="streamer.house_cut_percentage" type="number" step=".01" min="0" max="100" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-lg font-bold dark:border-gray-600 dark:bg-gray-800"><span class="font-bold">%</span></div>
+                    @error('streamer.house_cut_percentage')<span class="mt-1 block text-xs text-danger-600">{{ $message }}</span>@enderror
+                </label>
+                <label class="rounded-[10px] border border-[var(--vx-border)] p-4">
+                    <span class="text-xs font-semibold text-gray-500">Of the streamer's</span>
+                    <select wire:model.live="streamer.sales_split_basis" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-bold dark:border-gray-600 dark:bg-gray-800">
+                        @foreach(\App\Models\Streamer::salesSplitBasisLabels() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                    </select>
+                </label>
+            </div>
+            <div class="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-5 font-mono text-sm dark:border-primary-900 dark:bg-primary-950/20">
+                <div>Business keeps = {{ $basisLabel }} × {{ number_format($cut, 2) }}%</div>
+                <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = {{ $basisLabel }} × {{ number_format(100 - $cut, 2) }}% @if($streamer['include_tips']??true) + Tips @endif</div>
+                <p class="mt-2 font-sans text-xs text-gray-500">e.g. a show that earned $1,000 pays the streamer ${{ number_format(1000 * (100 - $cut) / 100, 2) }}. Anyone paid differently (like an hourly streamer) gets an individual override below.</p>
+            </div>
+        @endif
+    </div>
+
+    <div @if($isSplit) hidden @endif class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Standard payroll calculation</p>
@@ -84,7 +137,7 @@
                         </div>
                     @endif
                     <div class="mt-1 text-xs text-gray-500">
-                        @if(!$member->isFulfillment()){{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@if($member->paidHourlyRate()) + ${{number_format($member->paidHourlyRate(),2)}}/hr @endif · @endif
+                        @if(!$member->isFulfillment())@if(($pay['effective']['payout_type']??null)==='sales_split')Sales split · keeps {{number_format(100-(float)($pay['effective']['house_cut_percentage']??0),2)}}%@else{{number_format((float)($pay['effective']['payout_percentage']??0),2)}}%@endif @if($member->paidHourlyRate()) + ${{number_format($member->paidHourlyRate(),2)}}/hr @endif · @endif
                         @if(count($pay['overrides']??[])) Individual Override @else Standard {{ $member->isFulfillment() ? 'Fulfillment' : 'Streamer' }} Calculation @endif
                     </div>
                 </button>
@@ -106,6 +159,16 @@
 
             @if(!$editingMember->isFulfillment())
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
+                    <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="member_override_enabled.payout_type">Paid a different way from {{ $editingMember->business_id ? (\App\Models\Business::whereKey($editingMember->business_id)->value('name') ?? 'the team') : 'the team' }}</span>
+                        <select wire:model.live="member_override_values.payout_type" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800">
+                            <option value="profit_share">Profit share (+ hourly if in-house) — like Vortex Collects</option>
+                            <option value="sales_split">Sales split — the business keeps a %</option>
+                        </select>
+                        <span class="mt-1 block text-xs text-gray-500">For example, Estill's one hourly streamer: tick this and pick profit share, then set their hourly rate.</span></label>
+                    @if(($member_override_enabled['payout_type'] ?? false) ? (($member_override_values['payout_type'] ?? null) === 'sales_split') : (($editingMember->effectiveCompensation()['effective']['payout_type'] ?? null) === 'sales_split'))
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.house_cut_percentage">Business keeps a different %</span><input wire:model="member_override_values.house_cut_percentage" type="number" step=".01" min="0" max="100" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.sales_split_basis">Split a different figure</span><select wire:model="member_override_values.sales_split_basis" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800">@foreach(\App\Models\Streamer::salesSplitBasisLabels() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></label>
+                    @endif
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.payout_percentage">Use a different Streamer Pay %</span><input wire:model="member_override_values.payout_percentage" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.hourly_rate">Use a different hourly rate</span><input wire:model="member_override_values.hourly_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"><span class="mt-1 block text-xs text-gray-500">{{ $editingMember->isRemote() ? 'This streamer is remote, so no hourly pay is added. Change them to in-house on their user profile to pay hourly.' : 'Paid for each show\'s hours on top of their share.' }}</span></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Use a different calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 font-mono text-sm dark:bg-gray-800" placeholder="Only for this streamer"></textarea></label>

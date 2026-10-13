@@ -42,7 +42,8 @@ class ViewWeeklyPayoutBatch extends ViewRecord
     {
         $start = $this->record->week_start?->format('M j');
         $end = $this->record->week_end?->format('M j, Y');
-        return $start && $end ? "Pay Run · {$start}–{$end}" : 'Pay Run';
+        $business = $this->record->business_id ? $this->record->businessLabel() : null;
+        return ($start && $end ? "Pay Run · {$start}–{$end}" : 'Pay Run') . ($business ? " · {$business}" : '');
     }
 
     public function getSubheading(): ?string
@@ -175,10 +176,27 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         return [
             $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
+                Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
+                    ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())
+                    ->requiresConfirmation()->modalHeading('Split this Pay Run by business')
+                    ->modalDescription('Each business gets its own Pay Run for these dates, holding only its own people, so one can be finalized and paid without the other. Pay for anyone not in a business yet is taken out until they are assigned.')
+                    ->action(function () {
+                        try {
+                            $result = app(PayRunAutomationService::class)->splitByBusiness($this->record, \App\Support\BusinessContext::currentId());
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not split this Pay Run')->body($e->getMessage())->danger()->send();
+                            return;
+                        }
+                        $runs = collect($result['runs'])->map(fn ($run) => '#' . $run->id . ' ' . $run->businessLabel())->implode(', ');
+                        Notification::make()->title('Pay Run split by business')
+                            ->body('Runs: ' . $runs . ($result['unassigned'] !== [] ? '. Not in a business yet (taken out): ' . implode(', ', $result['unassigned']) : ''))
+                            ->success()->persistent()->send();
+                        $this->record->refresh();
+                    }),
                 Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
                     ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates every show in this week. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
                     ->action(function () {
-                        $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start); $this->record->refresh();
+                        $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start, true, $this->record->business_id); $this->record->refresh();
                         $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];
                         if (($result['payouts_detached'] ?? 0) > 0) $parts[] = $result['payouts_detached'] . ' blocked payout(s) removed';
                         $parts[] = count($result['warnings']) . ' warning(s)'; $parts[] = 'total $' . number_format((float)$this->record->total_payout, 2);

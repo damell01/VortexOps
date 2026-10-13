@@ -18,6 +18,7 @@ abstract class TestCase extends BaseTestCase
         // test methods in the same PHP process, so a leftover memo from a
         // previous test would otherwise leak into this one's session state.
         ChannelContext::flushMemo();
+        \App\Support\BusinessContext::flushMemo();
 
         // Same hazard, and a nastier one: role visibility is memoised too, and
         // RefreshDatabase rolls back the settings row without touching the

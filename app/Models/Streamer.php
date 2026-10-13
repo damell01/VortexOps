@@ -24,8 +24,8 @@ class Streamer extends Model
     }
 
     protected $fillable = [
-        'user_id', 'whatnot_channel_id', 'name', 'legal_name', 'email', 'phone',
-        'payout_type', 'payout_cadence', 'payout_percentage', 'package_rate', 'hourly_rate',
+        'user_id', 'whatnot_channel_id', 'business_id', 'name', 'legal_name', 'email', 'phone',
+        'payout_type', 'payout_cadence', 'payout_percentage', 'house_cut_percentage', 'sales_split_basis', 'package_rate', 'hourly_rate',
         'custom_payout_formula', 'pwe_rate', 'label_rate', 'burden_rate_type', 'burden_rate_value',
         'include_tips', 'adp_employee_id', 'owner_fee_type', 'owner_fee_value',
         'owner_fee_deduct_from_payout', 'total_earnings_due', 'total_earnings_paid',
@@ -33,7 +33,7 @@ class Streamer extends Model
     ];
 
     protected $casts = [
-        'include_tips' => 'boolean', 'payout_percentage' => 'decimal:2', 'package_rate' => 'decimal:2',
+        'include_tips' => 'boolean', 'payout_percentage' => 'decimal:2', 'house_cut_percentage' => 'decimal:2', 'package_rate' => 'decimal:2',
         'hourly_rate' => 'decimal:2', 'pwe_rate' => 'decimal:4', 'label_rate' => 'decimal:4',
         'burden_rate_value' => 'decimal:4', 'owner_fee_value' => 'decimal:2',
         'owner_fee_deduct_from_payout' => 'boolean', 'total_earnings_due' => 'decimal:2',
@@ -45,9 +45,21 @@ class Streamer extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(User::class); }
     public function channel(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id'); }
 
+    public function business(): \Illuminate\Database\Eloquent\Relations\BelongsTo { return $this->belongsTo(Business::class); }
+
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return \App\Support\ChannelContext::isScoped() ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()) : $query;
+        return $query
+            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))
+            ->inBusinessContext();
+    }
+
+    /** Limit to the business payroll is being run for (App\Support\BusinessContext), if any. */
+    public function scopeInBusinessContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return \App\Support\BusinessContext::isScoped()
+            ? $query->where($query->qualifyColumn('business_id'), \App\Support\BusinessContext::currentId())
+            : $query;
     }
 
     public function inventoryLocations(): HasMany
@@ -156,10 +168,12 @@ class Streamer extends Model
     public static function payoutTypeLabels(): array
     {
         return ['profit_share' => 'Profit Share', 'package' => 'Package', 'hourly' => 'Hourly', 'flat_rate' => 'Flat Rate',
-            'pwe_labels' => 'PWE + Labels', 'hybrid' => 'Hybrid (Hourly + Tips + Profit Share)', 'custom_formula' => 'Custom Formula'];
+            'pwe_labels' => 'PWE + Labels', 'hybrid' => 'Hybrid (Hourly + Tips + Profit Share)', 'custom_formula' => 'Custom Formula',
+            'sales_split' => 'Sales Split (house keeps a %)'];
     }
 
     public static function payoutCadenceLabels(): array { return ['weekly' => 'Weekly', 'monthly' => 'Monthly']; }
+    public static function salesSplitBasisLabels(): array { return ['net' => 'Net earnings (after Whatnot fees)', 'gross' => 'Gross sales']; }
     public static function ownerFeeTypeLabels(): array { return ['percentage' => 'Percentage (%)', 'flat' => 'Flat Amount ($)']; }
     public static function statusLabels(): array { return ['active' => 'Active', 'inactive' => 'Inactive', 'on_leave' => 'On Leave']; }
 }

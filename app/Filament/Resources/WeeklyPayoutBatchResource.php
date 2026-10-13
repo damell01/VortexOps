@@ -123,7 +123,7 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('finalizedBy');
+        return parent::getEloquentQuery()->with(['finalizedBy', 'business'])->inBusinessContext();
     }
 
     public static function form(Schema $schema): Schema
@@ -142,6 +142,7 @@ class WeeklyPayoutBatchResource extends Resource
                             \Carbon\Carbon::parse($value)->toDateString(),
                             \Carbon\Carbon::parse($get('week_end'))->toDateString(),
                             $record?->id,
+                            $record?->business_id,
                         );
                         if ($overlap) {
                             $fail('These dates overlap Pay Run #'.$overlap->id.' ('.$overlap->week_start->format('M j').' – '.$overlap->week_end->format('M j, Y').').');
@@ -175,6 +176,13 @@ class WeeklyPayoutBatchResource extends Resource
                 TextColumn::make('week_end')
                     ->label('Week End')
                     ->date('M j, Y'),
+
+                TextColumn::make('business.name')
+                    ->label('Business')
+                    ->badge()
+                    ->default('All businesses')
+                    ->color(fn (WeeklyPayoutBatch $record) => $record->business_id ? 'primary' : 'gray')
+                    ->visible(fn () => \App\Support\BusinessContext::available()->isNotEmpty() && ! \App\Support\BusinessContext::isScoped()),
 
                 TextColumn::make('payouts_count')
                     ->counts('payouts')
@@ -227,6 +235,10 @@ class WeeklyPayoutBatchResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->options(WeeklyPayoutBatch::statusLabels()),
+                SelectFilter::make('business_id')
+                    ->label('Business')
+                    ->relationship('business', 'name')
+                    ->visible(fn () => ! \App\Support\BusinessContext::isScoped()),
             ])
             ->actions([
                 ViewAction::make()->iconButton(),

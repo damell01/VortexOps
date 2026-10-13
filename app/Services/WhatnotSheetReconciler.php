@@ -337,7 +337,9 @@ class WhatnotSheetReconciler
 
         foreach ($plan['items'] as $item) {
             if ($item['action'] === 'extra') {
-                if ($deleteExtras && ($includePaid || empty($item['blocked']))) {
+                // Imported orders mean the show really aired (most likely renamed
+                // on Whatnot since), so it is never deleted from here.
+                if ($deleteExtras && ($item['app_orders'] ?? 0) === 0 && ($includePaid || empty($item['blocked']))) {
                     try {
                         DB::transaction(fn () => $this->deleteShow($item, $includePaid));
                         $totals['deleted']++;
@@ -492,7 +494,7 @@ class WhatnotSheetReconciler
     private function deleteShow(array $item, bool $includePaid = false): void
     {
         $show = Show::lockForUpdate()->find($item['show_id']);
-        if (! $show || (! $includePaid && $this->deleteBlocker($show))) {
+        if (! $show || (! $includePaid && $this->deleteBlocker($show)) || WhatnotShowOrder::where('show_id', $show->id)->exists()) {
             return;
         }
 

@@ -134,7 +134,8 @@
                                     @elseif ($it['action'] === 'create')
                                         {{ $money($it['metrics']['gross_revenue'] ?? 0) }} sales · {{ $it['metrics']['show_duration'] ?? 0 }} min
                                     @elseif ($it['action'] === 'extra')
-                                        @if (! empty($it['blocked']))<span class="wsc-short">Kept: {{ $it['blocked'] }}</span>@elseif ($plan['all_channels'] ?? false)Deleted on apply (if you leave the switch on)@else<span class="wsc-muted">Upload every channel to delete</span>@endif
+                                        @if (($it['app_orders'] ?? 0) > 0)<span class="wsc-short">Kept: has {{ $it['app_orders'] }} imported orders, so it aired — check whether it was renamed on Whatnot</span>
+                                        @elseif (! empty($it['blocked']))<span class="wsc-short">Kept unless you switch on deleting ones with pay: {{ $it['blocked'] }}</span>@elseif ($plan['all_channels'] ?? false)Deleted on apply (if you leave the switch on)@else<span class="wsc-muted">Upload every channel to delete</span>@endif
                                     @elseif ($it['action'] === 'move' && ! $it['changes'])
                                         <span class="wsc-muted">Figures already match</span>
                                     @endif

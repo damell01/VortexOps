@@ -298,4 +298,45 @@ class WhatnotSheetCheckTest extends TestCase
         $this->assertFalse(Show::whereKey($junk->id)->exists());
         $this->assertTrue(Show::whereKey($aired->id)->exists());
     }
+
+    public function test_a_copy_whose_orders_are_all_on_a_listed_show_is_a_duplicate_and_deleted(): void
+    {
+        $real = $this->show($this->cards, 'Monday Pokemon w/Tucker', '2026-10-02');
+        $copy = $this->show($this->cards, 'MONDAY MORNING POKEMON w/Tucker', '2026-10-03', ['gross_revenue' => 900]);
+        foreach (['a', 'b'] as $id) {
+            \App\Models\WhatnotShowOrder::create(['show_id' => $real->id, 'whatnot_order_id' => $id, 'show_date' => '2026-10-02']);
+            \App\Models\WhatnotShowOrder::create(['show_id' => $copy->id, 'whatnot_order_id' => $id, 'show_date' => '2026-10-03']);
+        }
+        $aired = $this->show($this->cards, 'Real but renamed', '2026-10-03', ['gross_revenue' => 500]);
+        \App\Models\WhatnotShowOrder::create(['show_id' => $aired->id, 'whatnot_order_id' => 'own', 'show_date' => '2026-10-03']);
+
+        $plan = $this->plan([
+            $this->cards->id => [$this->csv([$this->row('Monday Pokemon w/Tucker', '10/02/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ]);
+        $item = collect($plan['items'])->firstWhere('show_id', $copy->id);
+        $this->assertSame($real->id, $item['duplicate_of']['show_id']);
+        $this->assertFalse($item['aired']);
+        $this->assertNull(collect($plan['items'])->firstWhere('show_id', $aired->id)['duplicate_of']);
+
+        $result = app(WhatnotSheetReconciler::class)->apply($plan, true, true);
+        $this->assertSame(1, $result['deleted']);
+        $this->assertFalse(Show::whereKey($copy->id)->exists());
+        $this->assertSame(2, \App\Models\WhatnotShowOrder::where('show_id', $real->id)->count(), 'the listed show keeps its orders');
+        $this->assertTrue(Show::whereKey($aired->id)->exists());
+    }
+
+    public function test_a_copy_of_the_same_whatnot_stream_is_a_duplicate(): void
+    {
+        $real = $this->show($this->cards, 'Stream', '2026-10-02', ['whatnot_show_id' => 'aaaaaaaa-1111-2222-3333-444444444444']);
+        $copy = $this->show($this->cards, 'Stream renamed', '2026-10-03', ['gross_revenue' => 50, 'detail_url' => 'https://www.whatnot.com/dashboard/live/aaaaaaaa-1111-2222-3333-444444444444']);
+        $plan = $this->plan([
+            $this->cards->id => [$this->csv([$this->row('Stream', '10/02/2026'), $this->row('Last', '10/05/2026')])],
+            $this->breaks->id => [$this->csv([$this->row('Breaks show', '10/02/2026')])],
+        ]);
+
+        $item = collect($plan['items'])->firstWhere('show_id', $copy->id);
+        $this->assertSame('live_id', $item['duplicate_of']['by']);
+        $this->assertSame('https://www.whatnot.com/live/aaaaaaaa-1111-2222-3333-444444444444', $item['live_url']);
+    }
 }

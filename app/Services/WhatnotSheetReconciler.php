@@ -270,9 +270,13 @@ class WhatnotSheetReconciler
                 $items[] = [
                     'action' => 'extra',
                     'blocked' => $this->deleteBlocker($show),
-                    // Sales or orders mean it really aired; it is kept whatever
-                    // the exports say (renamed since, or a page was missed).
-                    'aired' => (float) $show->gross_revenue > 0 || (int) $show->units_sold > 0 || (int) ($orderRows[$show->id] ?? 0) > 0,
+                    // A second copy of a show that is on Whatnot's list: same
+                    // live id, or every one of its orders also on that show.
+                    'duplicate_of' => $dup = $this->duplicateOf($show, array_keys($claimed)),
+                    // Otherwise sales or orders mean it really aired; it is kept
+                    // whatever the exports say (renamed since, or a page missed).
+                    'aired' => ! $dup && ((float) $show->gross_revenue > 0 || (int) $show->units_sold > 0 || (int) ($orderRows[$show->id] ?? 0) > 0),
+                    'live_url' => $this->liveUrl($show),
                     'how' => 'not_on_whatnot_list',
                     'channel_id' => (int) $channelId,
                     'channel' => $channels[$channelId] ?? '#'.$channelId,
@@ -343,6 +347,59 @@ class WhatnotSheetReconciler
         ];
     }
 
+    /**
+     * The show on Whatnot's list that this one is a copy of: it has the same
+     * live id, or every one of its imported orders is also on that show.
+     *
+     * @param  list<int>  $listedIds  shows that matched an export row
+     * @return array{show_id:int,title:string,date:?string,shared:int,orders:int}|null
+     */
+    private function duplicateOf(Show $show, array $listedIds): ?array
+    {
+        if ($listedIds === []) {
+            return null;
+        }
+
+        $liveId = $this->liveIdOf($show);
+        if ($liveId) {
+            $twin = Show::whereIn('id', $listedIds)->where('id', '!=', $show->id)
+                ->where(fn ($q) => $q->where('whatnot_show_id', $liveId)->orWhere('detail_url', 'like', '%'.$liveId.'%'))
+                ->first(['id', 'title', 'show_date']);
+            if ($twin) {
+                return ['show_id' => $twin->id, 'title' => $twin->title, 'date' => $twin->show_date?->toDateString(), 'shared' => 0, 'orders' => 0, 'by' => 'live_id'];
+            }
+        }
+
+        $orderIds = WhatnotShowOrder::where('show_id', $show->id)->whereNotNull('whatnot_order_id')->pluck('whatnot_order_id')->unique();
+        if ($orderIds->isEmpty()) {
+            return null;
+        }
+        $best = WhatnotShowOrder::whereIn('whatnot_order_id', $orderIds)->whereIn('show_id', $listedIds)->where('show_id', '!=', $show->id)
+            ->selectRaw('show_id, COUNT(DISTINCT whatnot_order_id) as n')->groupBy('show_id')->orderByDesc('n')->first();
+        if (! $best || (int) $best->n < $orderIds->count()) {
+            return null;
+        }
+        $twin = Show::find($best->show_id, ['id', 'title', 'show_date']);
+
+        return ['show_id' => $twin->id, 'title' => $twin->title, 'date' => $twin->show_date?->toDateString(), 'shared' => (int) $best->n, 'orders' => $orderIds->count(), 'by' => 'orders'];
+    }
+
+    private function liveIdOf(Show $show): ?string
+    {
+        $raw = Show::whereKey($show->id)->value('detail_url');
+        $id = Show::whereKey($show->id)->value('whatnot_show_id')
+            ?: (preg_match('/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i', (string) $raw, $m) ? $m[1] : null);
+
+        return $id ? strtolower($id) : null;
+    }
+
+    private function liveUrl(Show $show): ?string
+    {
+        $id = $this->liveIdOf($show);
+
+        return $id ? 'https://www.whatnot.com/live/'.$id : null;
+    }
+
     /** Why a show the exports do not list must not be deleted automatically, or null. */
     private function deleteBlocker(Show $show): ?string
     {
@@ -371,7 +428,8 @@ class WhatnotSheetReconciler
             if ($item['action'] === 'extra') {
                 // Imported orders mean the show really aired (most likely renamed
                 // on Whatnot since), so it is never deleted from here.
-                if ($deleteExtras && empty($item['aired']) && ($item['app_orders'] ?? 0) === 0 && ($includePaid || empty($item['blocked']))) {
+                $removable = ! empty($item['duplicate_of']) || (empty($item['aired']) && ($item['app_orders'] ?? 0) === 0);
+                if ($deleteExtras && $removable && ($includePaid || empty($item['blocked']))) {
                     try {
                         DB::transaction(fn () => $this->deleteShow($item, $includePaid));
                         $totals['deleted']++;
@@ -526,8 +584,13 @@ class WhatnotSheetReconciler
     private function deleteShow(array $item, bool $includePaid = false): void
     {
         $show = Show::lockForUpdate()->find($item['show_id']);
-        if (! $show || (! $includePaid && $this->deleteBlocker($show)) || WhatnotShowOrder::where('show_id', $show->id)->exists()
-            || (float) $show->gross_revenue > 0 || (int) $show->units_sold > 0) {
+        if (! $show || (! $includePaid && $this->deleteBlocker($show))) {
+            return;
+        }
+        // Re-check on the record as it is now: a duplicate must still be one,
+        // and anything else must still show no sign of having aired.
+        $duplicate = ! empty($item['duplicate_of']) && $this->duplicateOf($show, [$item['duplicate_of']['show_id']]) !== null;
+        if (! $duplicate && (WhatnotShowOrder::where('show_id', $show->id)->exists() || (float) $show->gross_revenue > 0 || (int) $show->units_sold > 0)) {
             return;
         }
 

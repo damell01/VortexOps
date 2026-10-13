@@ -99,6 +99,15 @@ class WhatnotSheetCheck extends Page
                     $this->check();
                 }),
 
+            Action::make('recheck')
+                ->label('Re-check')->color('gray')->icon('heroicon-o-arrow-path')
+                ->visible(fn () => $this->files !== [])
+                ->action(function (): void {
+                    abort_unless(static::canAccess(), 403);
+                    $this->result = null;
+                    $this->check();
+                }),
+
             Action::make('clear')
                 ->label('Start over')->color('gray')->icon('heroicon-o-x-mark')
                 ->visible(fn () => $this->files !== [])
@@ -191,12 +200,12 @@ class WhatnotSheetCheck extends Page
 
     public function deletableCount(): int
     {
-        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']) && empty($it['aired']) && ($it['app_orders'] ?? 0) === 0)->count();
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => empty($it['blocked']) && (! empty($it['duplicate_of']) || (empty($it['aired']) && ($it['app_orders'] ?? 0) === 0)))->count();
     }
 
     public function blockedCount(): int
     {
-        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']) && empty($it['aired']) && ($it['app_orders'] ?? 0) === 0)->count();
+        return collect($this->plan()['items'] ?? [])->where('action', 'extra')->filter(fn ($it) => ! empty($it['blocked']) && (! empty($it['duplicate_of']) || (empty($it['aired']) && ($it['app_orders'] ?? 0) === 0)))->count();
     }
 
     public function plan(): ?array

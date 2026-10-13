@@ -25,8 +25,8 @@ class CreateWeeklyPayoutBatch extends CreateRecord
 
     public function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make('Pay Period')->columns(2)->schema([
+        return $schema->columns(1)->components([
+            Section::make('1. Set up the run')->description('Choose the business and what to pay. This creates a draft for review.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Select::make('business_id')
                     ->label('Business')
                     ->options(fn () => \App\Support\BusinessContext::available()->pluck('name', 'id')->all())
@@ -41,7 +41,24 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->label('Pay run type')
                     ->options(fn () => \App\Models\PayRunType::where('active', true)->orderBy('name')->pluck('name', 'id'))
                     ->placeholder('One-off custom run')
-                    ->helperText('Choose a reusable type or set up a one-off run. Manage types under Rates & Adjustments.')
+                    ->default(fn () => self::presetType()?->id)
+                    ->createOptionForm([
+                        \Filament\Forms\Components\TextInput::make('name')->label('Type name')->required()->maxLength(100),
+                        \Filament\Forms\Components\Select::make('kind')->label('What it pays')
+                            ->options(['' => 'Wages + profit share'] + \App\Support\PayRunSchedules::KINDS)
+                            ->default('')->selectablePlaceholder(false),
+                    ])
+                    ->createOptionUsing(function (array $data): int {
+                        abort_unless(\App\Filament\Pages\PaymentStructures::canAccess(), 403);
+                        return \App\Models\PayRunType::create([
+                            'name' => trim($data['name']), 'kind' => filled($data['kind'] ?? null) ? $data['kind'] : null,
+                            'active' => true, 'schedule_enabled' => false, 'auto_create' => false, 'frequency' => 'weekly',
+                        ])->id;
+                    })
+                    ->createOptionAction(fn (\Filament\Actions\Action $action) => $action
+                        ->visible(fn () => \App\Filament\Pages\PaymentStructures::canAccess())
+                        ->modalHeading('New reusable pay run type')->modalSubmitActionLabel('Save type'))
+                    ->helperText('Choose a saved type, use a one-off custom run, or add a reusable type with the + button.')
                     ->live()
                     ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set) {
                         $type = filled($state) ? \App\Models\PayRunType::where('active', true)->find($state) : null;
@@ -51,18 +68,20 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                 \Filament\Forms\Components\Select::make('kind')
                     ->label('What this run pays')
                     ->options(['' => 'Wages + profit share'] + \App\Support\PayRunSchedules::KINDS)
-                    ->default('')
+                    ->default(fn () => self::presetType()?->kind ?? '')
                     ->selectablePlaceholder(false)
                     ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => filled($get('pay_run_type_id')))
                     ->dehydrated()
                     ->helperText('Wages and profit share are always separate lines.'),
+            ]),
+            Section::make('2. Choose the dates')->description('Use any start and end dates, or your saved type’s optional schedule.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Radio::make('dates_mode')
                     ->label('Dates')
                     ->options(function (\Filament\Schemas\Components\Utilities\Get $get) {
                         $type = \App\Models\PayRunType::find($get('pay_run_type_id'));
                         return $type?->schedule_enabled ? ['custom' => 'Custom dates', 'schedule' => 'Use type schedule'] : ['custom' => 'Custom dates'];
                     })
-                    ->default('custom')->inline()->live(),
+                    ->default('custom')->inline()->live()->columnSpanFull(),
                 DatePicker::make('week_start')
                     ->label(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('dates_mode') === 'schedule' ? 'Any day in the scheduled period' : 'Start date')
                     ->required()->default(fn () => now()->toDateString()),
@@ -73,6 +92,8 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->default(fn () => now()->toDateString())
                     ->afterOrEqual('week_start'),
 
+            ]),
+            Section::make('3. Add a note')->columnSpanFull()->schema([
                 Textarea::make('notes')
                     ->label('Notes (optional)')
                     ->rows(2)
@@ -81,6 +102,17 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             ]),
 
         ]);
+    }
+
+    private static function presetType(): ?\App\Models\PayRunType
+    {
+        $id = request()->integer('pay_run_type_id');
+        return $id ? \App\Models\PayRunType::where('active', true)->find($id) : null;
+    }
+
+    protected function getCreateFormAction(): \Filament\Actions\Action
+    {
+        return parent::getCreateFormAction()->label('Create draft pay run');
     }
 
     protected function handleRecordCreation(array $data): Model

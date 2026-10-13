@@ -182,6 +182,10 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,
+                fn () => ! auth()->check() ? '' : view('filament.components.clock-banner'),
+            )
+            ->renderHook(
+                PanelsRenderHook::CONTENT_START,
                 fn () => (auth()->user()?->canSwitchChannels() ?? false) ? view('filament.components.business-banner') : '',
             )
             ->renderHook(

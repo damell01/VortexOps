@@ -218,4 +218,35 @@ class PayRunSchedulesTest extends TestCase
     {
         return array_map(fn ($d) => $d->toDateString(), PayRunSchedules::standardPeriod($kind, $date, $cfg));
     }
+    public function test_new_run_form_can_save_and_select_a_new_reusable_type(): void
+    {
+        Livewire::test(CreateWeeklyPayoutBatch::class)
+            ->callFormComponentAction('pay_run_type_id', 'createOption', data: ['name' => 'Friday commissions', 'kind' => 'share'])
+            ->assertHasNoFormErrors()
+            ->fillForm(['week_start' => '2026-10-01', 'week_end' => '2026-10-08'])
+            ->call('create')->assertHasNoFormErrors();
+        $type = PayRunType::where('name', 'Friday commissions')->sole();
+        $run = WeeklyPayoutBatch::sole();
+        $this->assertSame($type->id, $run->pay_run_type_id);
+        $this->assertSame('share', $run->kind);
+        $this->assertFalse($type->auto_create);
+        $this->assertFalse($type->schedule_enabled);
+    }
+
+    public function test_deleting_a_custom_type_preserves_existing_run_history(): void
+    {
+        $type = PayRunType::create(['name' => 'Custom monthly share', 'kind' => 'share']);
+        $run = WeeklyPayoutBatch::create(['pay_run_type_id' => $type->id, 'pay_run_type_name' => $type->name,
+            'kind' => 'share', 'week_start' => '2026-10-01', 'week_end' => '2026-10-31', 'status' => 'draft']);
+        $page = Livewire::test(\App\Filament\Pages\PaymentStructures::class);
+        $index = collect($page->get('run_types'))->search(fn ($row) => $row['id'] === $type->id);
+        $page->call('deleteRunType', $index);
+        $this->assertDatabaseMissing('pay_run_types', ['id' => $type->id]);
+        $run->refresh();
+        $this->assertNull($run->pay_run_type_id);
+        $this->assertSame('Custom monthly share', $run->kindLabel());
+        $this->assertSame('share', $run->kind);
+        $this->assertSame('2026-10-31', $run->week_end->toDateString());
+    }
+
 }

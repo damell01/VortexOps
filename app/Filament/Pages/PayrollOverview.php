@@ -48,6 +48,10 @@ class PayrollOverview extends Page
     #[Url(as: 'page', except: 1)]
     public int $queuePage = 1;
 
+    #[Url(as: 'period')]
+    public ?string $period_date = null;
+    public string $queue_search = '';
+
     public array $mockProducts = [];
     public float $mockGrossRevenue = 5000.00;
     public float $mockHours = 4.00;
@@ -57,6 +61,7 @@ class PayrollOverview extends Page
 
     public function mount(): void
     {
+        $this->normalizePeriodDate();
         if ($this->mockProducts === []) {
             $this->mockProducts = $this->catalogProductsForSimulation(2);
         }
@@ -125,26 +130,64 @@ class PayrollOverview extends Page
         return [];
     }
 
+    private function normalizePeriodDate(): void
+    {
+        try { $this->period_date = \Carbon\Carbon::parse($this->period_date ?: now())->toDateString(); }
+        catch (\Throwable) { $this->period_date = now()->toDateString(); }
+    }
+
+    public function updatedPeriodDate(): void { $this->normalizePeriodDate(); $this->queuePage = 1; $this->clearReadMemo(); }
+    public function updatedQueueSearch(): void { $this->queuePage = 1; }
+
+    public function periodBounds(): array
+    {
+        $run = $this->currentPayRun();
+        return $run ? [$run->week_start->copy(), $run->week_end->copy()]
+            : \App\Support\PaySchedule::periodFor($this->period_date ?: now());
+    }
+
+    public function changePeriod(int $direction): void
+    {
+        [$start, $end] = $this->periodBounds();
+        $this->period_date = $direction < 0 ? $start->subDay()->toDateString() : $end->addDay()->toDateString();
+        $this->queuePage = 1;
+        $this->clearReadMemo();
+    }
+
+    public function payoutTrend(): array
+    {
+        $last = \Carbon\Carbon::parse($this->period_date ?: now())->startOfWeek();
+        $first = $last->copy()->subWeeks(7);
+        $totals = WeeklyPayoutBatch::query()->inBusinessContext()->where('status', 'paid')
+            ->whereBetween('week_start', [$first->toDateString(), $last->copy()->endOfWeek()->toDateString()])
+            ->get(['week_start', 'total_payout'])->groupBy(fn ($run) => $run->week_start->copy()->startOfWeek()->toDateString())
+            ->map(fn ($runs) => (float) $runs->sum('total_payout'));
+        $points = [];
+        for ($i = 0; $i < 8; $i++) {
+            $week = $first->copy()->addWeeks($i);
+            $points[] = ['label' => $week->format('M j'), 'total' => $totals[$week->toDateString()] ?? 0];
+        }
+        return $points;
+    }
+
     public function currentPayRun(): ?WeeklyPayoutBatch
     {
         if ($this->payRunResolved) return $this->payRunMemo;
         $this->payRunResolved = true;
-        [$periodStart, $periodEnd] = \App\Support\PaySchedule::periodFor(now());
-        $weekStart = $periodStart->toDateString();
-        $weekEnd = $periodEnd->toDateString();
+        $date = \Carbon\Carbon::parse($this->period_date ?: now())->toDateString();
 
         return $this->payRunMemo = WeeklyPayoutBatch::query()
             ->inBusinessContext()
             ->withCount('payouts')
-            ->whereDate('week_start', '<=', $weekEnd)
-            ->whereDate('week_end', '>=', $weekStart)
+            ->whereDate('week_start', '<=', $date)
+            ->whereDate('week_end', '>=', $date)
             ->latest('week_start')
             ->first();
     }
 
     public function mockPayRun(): array
     {
-        [$start, $end] = \App\Support\PaySchedule::periodFor(now());
+        [$start, $end] = \App\Support\PaySchedule::periodFor($this->period_date ?: now());
 
         $payouts = Payout::query()
             ->when(\App\Support\BusinessContext::isScoped(), fn ($q) => $q->whereHas('streamer', fn ($s) => $s->where('business_id', \App\Support\BusinessContext::currentId())))
@@ -325,6 +368,10 @@ class PayrollOverview extends Page
     public function currentWeekShows(): Collection
     {
         $shows = $this->allCurrentWeekShows();
+        if (trim($this->queue_search) !== '') {
+            $query = mb_strtolower(trim($this->queue_search));
+            $shows = $shows->filter(fn ($show) => str_contains(mb_strtolower(($show->title ?? '') . ' ' . $show->streamers->pluck('name')->join(' ')), $query));
+        }
         $filter = $this->workflow;
         if ($filter === '' || $filter === 'all') return $shows;
 
@@ -473,7 +520,7 @@ class PayrollOverview extends Page
     {
         if ($this->weekShowsMemo !== null) return $this->weekShowsMemo;
         $run = $this->currentPayRun();
-        [$periodStart, $periodEnd] = \App\Support\PaySchedule::periodFor(now());
+        [$periodStart, $periodEnd] = \App\Support\PaySchedule::periodFor($this->period_date ?: now());
         $start = $run?->week_start ?? $periodStart;
         $end = $run?->week_end ?? $periodEnd;
         $workflow = app(ShowWorkflowService::class);
@@ -484,7 +531,7 @@ class PayrollOverview extends Page
             ->where('is_operational', true)
             ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
             ->whereNotIn('status', ['cancelled'])
-            ->with(['streamers:id,name,streamer_type,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity,updated_at','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity_approved,line_total,updated_at'])
+            ->with(['channel:id,name','streamers:id,name,streamer_type,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity,updated_at','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity_approved,line_total,updated_at'])
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()

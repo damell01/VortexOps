@@ -43,7 +43,8 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $start = $this->record->week_start?->format('M j');
         $end = $this->record->week_end?->format('M j, Y');
         $business = $this->record->business_id ? $this->record->businessLabel() : null;
-        return ($start && $end ? "Pay Run · {$start}–{$end}" : 'Pay Run') . ($business ? " · {$business}" : '');
+        $kind = $this->record->kind ? ' · ' . $this->record->kindLabel() : '';
+        return ($start && $end ? "Pay Run · {$start}–{$end}" : 'Pay Run') . ($business ? " · {$business}" : '') . $kind;
     }
 
     public function getSubheading(): ?string

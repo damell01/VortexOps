@@ -96,14 +96,14 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
     {
-        return 'Pay Run — ' . $record->week_start?->format('M j, Y');
+        return 'Pay Run — ' . $record->week_start?->format('M j, Y') . ($record->kind ? ' (' . $record->kindLabel() . ')' : '');
     }
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
         return array_filter([
             'subtitle' => $record->week_end
-                ? 'Week ending ' . $record->week_end->format('M j, Y')
+                ? 'Ending ' . $record->week_end->format('M j, Y')
                 : null,
             'status' => WeeklyPayoutBatchResource::statusLabelFor($record),
             'tone'   => match ($record->status) {
@@ -169,13 +169,19 @@ class WeeklyPayoutBatchResource extends Resource
             ->emptyStateIcon('heroicon-o-queue-list')
             ->columns([
                 TextColumn::make('week_start')
-                    ->label('Week Of')
+                    ->label('Starts')
                     ->date('M j, Y')
                     ->sortable(),
 
                 TextColumn::make('week_end')
-                    ->label('Week End')
+                    ->label('Ends')
                     ->date('M j, Y'),
+
+                TextColumn::make('kind')
+                    ->label('Pays')
+                    ->badge()
+                    ->state(fn (WeeklyPayoutBatch $record) => $record->kindLabel())
+                    ->color(fn (WeeklyPayoutBatch $record) => match ($record->kind) { 'share' => 'success', 'wages' => 'info', default => 'gray' }),
 
                 TextColumn::make('business.name')
                     ->label('Business')

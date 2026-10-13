@@ -23,7 +23,7 @@ class SyncPayRuns extends Command
 
         try {
             // One run per business once people are in businesses.
-            $results = $automation->syncAllForWeek($this->option('week') ?: now(), $recalculate);
+            $results = $automation->syncAllForWeek($this->option('week') ?: now(), $recalculate, scheduled: true);
         } catch (\Throwable $e) {
             Setting::set('payroll_last_automation_error', $e->getMessage());
             report($e);

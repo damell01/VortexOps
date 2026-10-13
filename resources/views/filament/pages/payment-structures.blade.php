@@ -214,6 +214,36 @@
         @endif
     </section>
 
+    @php $runPreview = $this->runSchedulePreview; @endphp
+    <section class="vx-card p-5" aria-labelledby="run-schedules-heading">
+        <h2 id="run-schedules-heading" class="text-lg font-bold">Pay run schedules</h2>
+        <p class="mt-1 text-sm text-gray-500">Pay profit share on its own schedule — monthly, say — while hourly pay and other wages stay weekly. Off, every run pays everything on the pay week above. Either way an admin can create a run of any type for any dates from Pay Runs → New.</p>
+        <label class="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="run_schedules.separate"> Pay profit share and wages on separate runs</label>
+        @if($run_schedules['separate'] ?? false)
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+                @foreach(\App\Support\PayRunSchedules::KINDS as $kind => $kindLabel)
+                    <div class="rounded-[10px] border border-[var(--vx-border)] p-4 text-sm" wire:key="run-schedule-{{ $kind }}">
+                        <div class="font-bold">{{ $kindLabel }}</div>
+                        <div class="text-xs text-gray-500">{{ $kind === 'share' ? 'Profit share and sales split, for both businesses.' : 'Hourly pay (show hours and time not on a show), per-package, flat and other pay.' }}</div>
+                        <label class="mt-3 block"><span class="text-xs font-semibold text-gray-500">How often</span>
+                            <select wire:model.live="run_schedules.{{ $kind }}.frequency" class="mt-1 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+                                @foreach(\App\Support\PayRunSchedules::FREQUENCIES as $value => $text)<option value="{{ $value }}">{{ $text }}</option>@endforeach
+                            </select>
+                        </label>
+                        @if(in_array($run_schedules[$kind]['frequency'] ?? 'weekly', ['weekly', 'biweekly', 'monthly'], true))
+                            <label class="mt-3 block"><span class="text-xs font-semibold text-gray-500">{{ ($run_schedules[$kind]['frequency'] ?? '') === 'monthly' ? 'Starts on this day of the month (optional, 1st by default)' : 'A date a period starts on (optional)' }}</span>
+                                <input type="date" wire:model.live="run_schedules.{{ $kind }}.anchor" class="mt-1 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+                            </label>
+                        @endif
+                        <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_schedules.{{ $kind }}.auto"> Create these runs automatically</label>
+                        <div class="mt-3 text-xs text-gray-500">Current period: <b class="text-gray-900 dark:text-white">{{ $runPreview[$kind] ?? '—' }}</b></div>
+                    </div>
+                @endforeach
+            </div>
+            <p class="mt-3 text-xs text-gray-500">Turning this on changes runs from now on: a draft run covering this week becomes the wages run, and its profit share lines move to the profit share run. Finalized runs keep what they paid. Automatic creation also needs "Automatic weekly setup" below.</p>
+        @endif
+    </section>
+
     <details class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
         <summary class="cursor-pointer text-lg font-bold">Pay Run Automation</summary>
         <div class="mt-4 grid gap-3 md:grid-cols-3"><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_setup_enabled">Automatic weekly setup</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_recalculate_drafts">Recalculate drafts</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_include_zero_activity">Include no-activity members</label></div>

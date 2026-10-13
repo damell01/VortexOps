@@ -37,6 +37,11 @@ class NotificationCatalog
                 'description' => 'A new show is ready for streamer assignment and item mapping.',
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
+            'show_lost_money' => [
+                'group' => 'Shows', 'label' => 'Show lost money', 'level' => 'alert',
+                'description' => 'A show whose earnings, COGS and pay are all in came out at a loss.',
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
+            ],
             'show_pending_approval' => [
                 'group' => 'Shows', 'label' => 'Show waiting for approval', 'level' => 'action',
                 'description' => 'A show has been mapped and is waiting for approval.',
@@ -133,6 +138,16 @@ class NotificationCatalog
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
 
+            'daily_pl_summary' => [
+                'group' => 'Summaries', 'label' => 'Daily profit & loss', 'level' => 'digest',
+                'description' => "Each morning: yesterday's sales, COGS, streamer pay and profit, by streamer, with every show listed and losing shows first.",
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
+            'weekly_pl_summary' => [
+                'group' => 'Summaries', 'label' => 'Weekly profit & loss', 'level' => 'digest',
+                'description' => "Monday: last week's sales, COGS, streamer pay and profit, by streamer, with every show listed and losing shows first.",
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
             'weekly_owner_summary' => [
                 'group' => 'Summaries', 'label' => 'Weekly owner summary', 'level' => 'digest',
                 'description' => 'Monday email: last week against the week before, by channel, top streamers, what earned most per hour, and what needs you.',

@@ -23,6 +23,12 @@ class StreamerShows extends Page
         return 'My Shows';
     }
 
+    /** The welcome banner is the page's heading; no second title above it. */
+    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable|null
+    {
+        return null;
+    }
+
     public function getSubheading(): ?string
     {
         // The page's own summary card says what is waiting; a second line of
@@ -206,6 +212,43 @@ class StreamerShows extends Page
     public function setPeriod(string $period): void
     {
         $this->period = in_array($period, ['month', 'last_month', 'year', 'last_year'], true) ? $period : 'month';
+    }
+
+    /** The period just before the chosen one, for "vs last month". @return array{0:\Illuminate\Support\Carbon,1:\Illuminate\Support\Carbon} */
+    public function previousRange(): array
+    {
+        [$from, $to] = $this->periodRange();
+
+        return in_array($this->period, ['year', 'last_year'], true)
+            ? [$from->copy()->subYear(), $to->copy()->subYear()]
+            : [$from->copy()->subMonthNoOverflow()->startOfMonth(), $from->copy()->subMonthNoOverflow()->endOfMonth()];
+    }
+
+    /** Numbers for the chosen period, the one before, and the daily sales series. */
+    public function overview(): array
+    {
+        [$from, $to, $label] = $this->periodRange();
+        [$pFrom, $pTo] = $this->previousRange();
+        $streamer = $this->getStreamer();
+
+        return [
+            'label' => $label,
+            'now' => \App\Support\StreamerNumbers::for($streamer, $from, $to),
+            'before' => \App\Support\StreamerNumbers::for($streamer, $pFrom, $pTo),
+            'series' => \App\Support\StreamerNumbers::series($streamer, $from, $to),
+            'compare' => in_array($this->period, ['year', 'last_year'], true) ? 'last year' : 'last month',
+        ];
+    }
+
+    /** The next few shows, soonest first. */
+    public function nextShows(int $limit = 4): array
+    {
+        return array_slice($this->groups()['upcoming'], 0, $limit);
+    }
+
+    public function firstName(): string
+    {
+        return \Illuminate\Support\Str::of(auth()->user()?->name ?? '')->before(' ')->toString() ?: 'there';
     }
 
     public function numbers(): array

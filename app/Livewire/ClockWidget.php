@@ -25,6 +25,9 @@ class ClockWidget extends Component
     /** Timekeeping shows today / week / month / all-time totals inside the card. */
     public bool $withStats = false;
 
+    /** On a dashboard the show/reason picker folds away until opened. */
+    public bool $compact = false;
+
     private function service(): TimeTrackingService
     {
         return app(TimeTrackingService::class);

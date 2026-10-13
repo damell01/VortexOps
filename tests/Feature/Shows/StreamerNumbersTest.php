@@ -117,7 +117,7 @@ class StreamerNumbersTest extends TestCase
         Payout::create(['show_id' => $show->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 80, 'gross_show_revenue' => 1000, 'status' => 'draft']);
 
         Livewire::test(StreamerShows::class)
-            ->assertSee('Your numbers')->assertSee('Awaiting payment')
+            ->assertSee('Welcome back')->assertSee('Awaiting payment')
             ->assertDontSee('Profit')->assertDontSee('Loss')->assertDontSee('COGS');
     }
 }

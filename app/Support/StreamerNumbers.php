@@ -61,4 +61,35 @@ class StreamerNumbers
             'awaiting' => round((float) $payouts->where('status', '!=', 'paid')->sum('calculated_payout'), 2),
         ];
     }
+
+    /**
+     * Gross sales per day (or per month for a range over two months), for the
+     * dashboard's bar chart. Every day in the range is present, zero or not.
+     *
+     * @return list<array{key:string,label:string,gross:float,shows:int}>
+     */
+    public static function series(Streamer $streamer, Carbon $from, Carbon $to): array
+    {
+        $monthly = $from->diffInDays($to) > 62;
+        $buckets = [];
+        for ($d = $from->copy()->startOfDay(); $d->lte($to); $monthly ? $d->addMonthNoOverflow()->startOfMonth() : $d->addDay()) {
+            $key = $monthly ? $d->format('Y-m') : $d->toDateString();
+            $buckets[$key] ??= ['key' => $key, 'label' => $monthly ? $d->format('M') : $d->format('M j'), 'gross' => 0.0, 'shows' => 0];
+        }
+
+        Show::query()
+            ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
+            ->where('status', '!=', 'cancelled')
+            ->whereBetween('show_date', [$from->toDateString(), $to->toDateString().' 23:59:59'])
+            ->get(['id', 'show_date', 'gross_revenue'])
+            ->each(function (Show $show) use (&$buckets, $monthly) {
+                $key = $monthly ? $show->show_date?->format('Y-m') : $show->show_date?->toDateString();
+                if ($key !== null && isset($buckets[$key])) {
+                    $buckets[$key]['gross'] = round($buckets[$key]['gross'] + (float) $show->gross_revenue, 2);
+                    $buckets[$key]['shows']++;
+                }
+            });
+
+        return array_values($buckets);
+    }
 }

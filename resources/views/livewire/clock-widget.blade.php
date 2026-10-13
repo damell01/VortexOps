@@ -6,6 +6,7 @@
 <section class="vxw-card vx-clock" data-vx="clock-widget" style="min-width:0;max-width:100%"
     x-data="{
         picker: false,
+        more: @js(! $compact || $changing || $selected || $reason !== ''),
         tab: @js($isReviewer && $mineCount === 0 ? 'all' : 'mine'),
         q: '',
         shows: @js($picker),
@@ -90,6 +91,9 @@
                         <x-filament::icon icon="heroicon-m-stop-circle" /> Clock out
                     </button>
                 @else
+                    @if ($compact)
+                        <button type="button" class="vxw-btn" x-show="! more" @click="more = true"><x-filament::icon icon="heroicon-m-video-camera" /> Add a show or reason</button>
+                    @endif
                     <button type="button" wire:click="clockIn" wire:loading.attr="disabled" class="vxw-btn" style="background:#059669;color:#fff;border-color:#059669;min-height:44px;padding-inline:22px">
                         <x-filament::icon icon="heroicon-m-play-circle" /> Clock in
                     </button>
@@ -98,7 +102,7 @@
         </div>
 
         @if (! $entry || $changing)
-            <div class="vx-clock-section">
+            <div class="vx-clock-section" x-show="more" x-cloak>
                 <div class="vx-clock-label">What are you working on? <span style="text-transform:none;font-weight:500;letter-spacing:0">— optional, you can add it later</span></div>
 
                 @if ($selected)

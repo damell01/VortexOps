@@ -59,7 +59,7 @@
 
         <div class="vxr-card">
             @if ($rows->isEmpty())
-                <div class="vxr-empty"><b>No negative shows</b>No show had negative estimated Whatnot earnings in {{ $this->periodLabel() }}.</div>
+                <div class="vxr-empty is-caught"><b>No negative shows</b>No show had negative estimated Whatnot earnings in {{ $this->periodLabel() }}.</div>
             @else
                 <div class="vxr-table-wrap">
                     <table class="vxr-table" style="min-width:820px">

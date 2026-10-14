@@ -12,6 +12,7 @@
     @endphp
     {{-- Welcome: who, when, the three numbers that matter, and the one thing to do next. --}}
     <header class="vx-home-hero">
+        <span class="vx-home-hero-ball" aria-hidden="true"></span>
         <div class="vx-home-welcome">
             <p class="vx-home-hero-date"><x-heroicon-o-calendar/> {{ now()->format('l, M j, Y') }}</p>
             <h1>Welcome back, {{ auth()->user()?->streamer?->name ?? auth()->user()?->name }} <span class="vx-home-wave" aria-hidden="true">👋</span></h1>

@@ -20,21 +20,18 @@
 
         @livewire('clock-widget', ['withStats' => true])
 
-        @if ($seesTeam && \App\Filament\Pages\TimeAttendance::canAccess())
-            @php $dash=$this->dashboardStats(); @endphp
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach([
-                    ['Needs Review', $dash['review'], \App\Filament\Pages\TimeAttendance::getUrl(['tab'=>'review'])],
-                    ['Clocked In Now', $dash['open'], \App\Filament\Pages\TimeAttendance::getUrl(['tab'=>'now'])],
-                    ['Payable Team Hours This Week', $fmt($dash['minutes']), \App\Filament\Pages\TimeAttendance::getUrl(['tab'=>'people'])],
-                    ['Entries This Week', $dash['entries'], '#time-entries']
-                ] as [$title,$value,$url])
-                    <a class="vxw-card p-5" href="{{ $url }}"><span class="vxw-meta">{{ $title }}</span><div class="text-2xl font-bold mt-3">{{ $value }}</div><span class="vxw-link mt-3">View details →</span></a>
-                @endforeach
+        @if ($seesTeam)
+            @php $tiles = $this->adminTiles(); $h = intdiv($tiles['hours']['minutes'], 60).'h '.str_pad((string) ($tiles['hours']['minutes'] % 60), 2, '0', STR_PAD_LEFT).'m'; @endphp
+            {{-- One place for admins: each card opens the list it counts. --}}
+            <div class="vxr-stats" data-vx-timekeeping-tiles>
+                <x-vxr.stat label="Needs review" :value="$tiles['review']['count']" icon="heroicon-o-clipboard-document-check" :tone="$tiles['review']['count'] ? 'warn' : 'ok'" :note="$tiles['review']['count'] ? 'Settle before payroll' : 'Nothing waiting'" :href="$tiles['review']['url']" />
+                <x-vxr.stat label="Clocked in now" :value="$tiles['now']['count']" icon="heroicon-o-play-circle" tone="ok" note="Who is on the clock" :href="$tiles['now']['url']" />
+                <x-vxr.stat label="Team hours this week" :value="$h" icon="heroicon-o-users" tone="info" :note="$tiles['hours']['people'].' '.\Illuminate\Support\Str::plural('person', $tiles['hours']['people'])" :href="$tiles['hours']['url']" />
+                <x-vxr.stat label="Entries this week" :value="$tiles['entries']['count']" icon="heroicon-o-list-bullet" tone="accent" note="Every entry, editable" :href="$tiles['entries']['url']" />
             </div>
         @endif
 
-        <section class="vxw-card" id="time-entries">
+        <section class="vxw-card">
             <div class="vxw-card-head" style="flex-wrap:wrap;gap:12px">
                 <div class="vxw-chips" role="tablist" aria-label="Timekeeping views">
                     <button type="button" role="tab" wire:click="setTab('history')" @class(['vxw-chip', 'is-active' => $tab === 'history'])>{{ $seesTeam ? 'All entries' : 'My history' }} <span class="vxw-chip-count">{{ number_format($entries->total()) }}</span></button>

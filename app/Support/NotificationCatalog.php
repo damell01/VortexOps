@@ -37,10 +37,17 @@ class NotificationCatalog
                 'description' => 'A new show is ready for streamer assignment and item mapping.',
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
+            'whatnot_negative' => [
+                'group' => 'Shows', 'label' => 'Negative Whatnot earnings', 'level' => 'alert',
+                'description' => 'Shows with estimated Whatnot earnings below $0. Uses Whatnot estimates; business costs and payroll are not included.',
+                'roles' => ['owner', 'admins'], 'involved' => false, 'in_app' => true, 'email' => true,
+                'schedule' => ['mode' => 'weekly', 'day' => 5, 'time' => '17:00', 'skip_empty' => true],
+            ],
             'show_lost_money' => [
-                'group' => 'Shows', 'label' => 'Business loss after costs and pay', 'level' => 'alert',
-                'description' => 'A show whose earnings, COGS and pay are all in came out at a loss.',
+                'group' => 'Shows', 'label' => 'Finalized business loss', 'level' => 'alert',
+                'description' => 'Shows that lost money once earnings, COGS and pay runs are complete.',
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
+                'schedule' => ['mode' => 'immediate', 'day' => 1, 'time' => '08:00', 'skip_empty' => true],
             ],
             'show_pending_approval' => [
                 'group' => 'Shows', 'label' => 'Show waiting for approval', 'level' => 'action',
@@ -127,16 +134,6 @@ class NotificationCatalog
             ],
 
             // ── Summaries ────────────────────────────────────────────────
-            'daily_whatnot_losses' => [
-                'group' => 'Summaries', 'label' => 'Daily Whatnot losses', 'level' => 'digest',
-                'description' => 'End-of-day summary of negative Whatnot estimated earnings. Skips empty summaries; excludes business costs and payroll.',
-                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
-            ],
-            'weekly_whatnot_losses' => [
-                'group' => 'Summaries', 'label' => 'Weekly Whatnot losses', 'level' => 'digest',
-                'description' => 'Last seven days through delivery day: shows with negative Whatnot estimated earnings, without business costs or payroll.',
-                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
-            ],
             'weekly_review_reminder' => [
                 'group' => 'Summaries', 'label' => 'Weekly review reminder', 'level' => 'digest',
                 'description' => 'Monday reminder of shows from last week still waiting for review.',
@@ -176,6 +173,12 @@ class NotificationCatalog
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
         ];
+    }
+
+    /** Events that can be sent as they happen or as a daily/weekly summary. */
+    public static function schedulable(string $key): bool
+    {
+        return isset(static::events()[$key]['schedule']);
     }
 
     public static function get(string $key): ?array

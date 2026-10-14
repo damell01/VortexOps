@@ -1,215 +1,244 @@
 <x-filament-panels::page>
-@include('filament.pages.partials.reporting-workspace-styles')
 @php
     $owner = $this->isOwner();
     $server = $this->serverAllowsEmail();
     $mailer = $this->mailer();
     $live = $server && $emailEnabled;
-    $levels = \App\Support\NotificationCatalog::LEVELS;
-    $needle = mb_strtolower(trim($search));
+    $catalog = \App\Support\NotificationCatalog::events();
+    $groups = array_keys(\App\Support\NotificationCatalog::grouped());
+    $groupIcons = ['Shows' => 'heroicon-o-video-camera', 'Reports' => 'heroicon-o-document-text', 'Inventory' => 'heroicon-o-cube', 'Fulfillment' => 'heroicon-o-truck', 'Payroll' => 'heroicon-o-banknotes', 'Summaries' => 'heroicon-o-chart-bar', 'System' => 'heroicon-o-cog-6-tooth'];
+    $levelTone = ['action' => 'info', 'alert' => 'bad', 'fyi' => 'accent', 'digest' => 'ok'];
+    $visible = $this->visibleEvents();
+    $count = fn ($g) => count(array_filter($catalog, fn ($e) => $g === 'all' || $e['group'] === $g));
 @endphp
-<style>
-.vx-ns{width:100%;--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);--p-soft:color-mix(in srgb,var(--p) 10%,transparent);max-width:1600px;margin:0 auto;display:grid;gap:16px;color:inherit}
-.dark .vx-ns{--line:#253247;--soft:#111c2f;--muted:#94a3b8}
-.vx-ns .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
-.dark .vx-ns .card{background:#0f172a}
-.vx-ns h2{font-size:1rem;font-weight:800}
-.vx-ns .sub{font-size:.8rem;color:var(--muted)}
-.vx-ns .grid2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
-.vx-ns .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;font-size:.76rem;font-weight:600;color:var(--muted);background:transparent;cursor:pointer;user-select:none}
-.vx-ns .chip input{position:absolute;opacity:0;pointer-events:none}
-.vx-ns .chip:has(input:checked){background:var(--p);border-color:var(--p);color:#fff}
-.vx-ns .chip.involved:has(input:checked){background:#0369a1;border-color:#0369a1}
-.vx-ns .pill{display:inline-flex;padding:2px 8px;border-radius:999px;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
-.vx-ns .pill.action{background:#fee2e2;color:#b91c1c}.vx-ns .pill.alert{background:#fef3c7;color:#b45309}.vx-ns .pill.fyi{background:#e0f2fe;color:#0369a1}.vx-ns .pill.digest{background:#ede9fe;color:#6d28d9}
-.vx-ns .status{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:.74rem;font-weight:700}
-.vx-ns .status.on{background:#dcfce7;color:#15803d}.vx-ns .status.off{background:#f1f5f9;color:#64748b}.vx-ns .status.warn{background:#fef3c7;color:#b45309}
-.vx-ns .event{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr) auto;gap:18px;padding:16px 0;border-top:1px solid var(--line);align-items:start}
-.vx-ns .event:first-of-type{border-top:0}
-.vx-ns .event.off{opacity:.55}
-.vx-ns .lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
-.vx-ns .switch{position:relative;display:inline-flex;align-items:center;gap:8px;font-size:.8rem;font-weight:600;cursor:pointer}
-.vx-ns .switch input{appearance:none;width:36px;height:20px;border-radius:999px;background:#cbd5e1;position:relative;transition:.15s;cursor:pointer;flex:none}
-.vx-ns .switch input:before{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:999px;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
-.vx-ns .switch input:checked{background:var(--p)}.vx-ns .switch input:checked:before{left:18px}
-.vx-ns .switch input:disabled{opacity:.5;cursor:not-allowed}
-.vx-ns .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:10px;font-size:.78rem;font-weight:700;background:transparent}
-.vx-ns .btn:hover{background:var(--soft)}.vx-ns .btn.primary{background:var(--p);border-color:var(--p);color:#fff}
-.vx-ns input[type=text],.vx-ns input[type=email],.vx-ns input[type=number],.vx-ns input[type=search]{width:100%;border:1px solid var(--line);border-radius:10px;font-size:.82rem;background:transparent}
-.vx-ns .people{position:relative}
-.vx-ns .people-list{position:absolute;z-index:30;top:calc(100% + 4px);left:0;width:min(320px,85vw);max-height:280px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(15,23,42,.15);padding:6px}
-.dark .vx-ns .people-list{background:#0f172a}
-.vx-ns .people-list label{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;font-size:.8rem;cursor:pointer}
-.vx-ns .people-list label:hover{background:var(--soft)}
-.vx-ns .save{position:sticky;bottom:12px;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-radius:14px;background:#0f172a;color:#fff;box-shadow:0 10px 30px rgba(15,23,42,.3)}
-.vx-ns .preview{position:fixed;inset:0;z-index:60;display:flex;justify-content:flex-end;background:rgba(15,23,42,.45)}
-.vx-ns .preview-panel{width:min(720px,100vw);height:100%;background:#fff;display:flex;flex-direction:column}
-.dark .vx-ns .preview-panel{background:#0f172a}
-.vx-ns .preview iframe{flex:1;width:100%;border:0;background:#f4f2fb}
-@media(max-width:900px){.vx-ns .grid2{grid-template-columns:1fr}.vx-ns .event{grid-template-columns:1fr;gap:12px}}
-.vx-ns .switch input{width:38px!important;height:22px!important;min-width:38px!important;min-height:22px!important;max-height:22px!important;padding:0!important;margin:0!important;border:0!important;border-radius:999px!important;-webkit-appearance:none!important;appearance:none!important;background-image:none!important}
-.vx-ns .switch input:before{width:18px!important;height:18px!important}
-/* Clear on/off: off is a grey track with an ✕ knob, on is filled with a ✓ knob. */
-.vx-ns .switch input{background:#e2e8f0!important;box-shadow:inset 0 0 0 1px #cbd5e1!important}
-.vx-ns .switch input:before{content:"✕"!important;display:grid;place-items:center;font-size:10px;font-weight:900;line-height:18px;text-align:center;color:#94a3b8}
-.vx-ns .switch input:checked{background:var(--p)!important;box-shadow:none!important}
-.vx-ns .switch input:checked:before{content:"✓"!important;color:var(--p)}
-.dark .vx-ns .switch input{background:#334155!important;box-shadow:inset 0 0 0 1px #475569!important}
-.vx-ns .chip input + *, .vx-ns .chip{}
-.vx-ns .chip:has(input:checked):before{content:"✓";font-weight:900}
-</style>
 
-<div class="vx-ns">
-    {{-- ── Global email controls ───────────────────────────────── --}}
-    <div class="grid2">
-        <section class="card">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h2>Email for the whole app</h2>
-                    <p class="sub mt-1">The owner's master switch. Off means no notification emails go to anyone — in-app notifications carry on.</p>
-                </div>
-                <span class="status {{ $live ? 'on' : ($server ? 'off' : 'warn') }}">{{ $live ? 'Emails are on' : 'Emails are off' }}</span>
-            </div>
-            <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                <label class="switch">
-                    <input type="checkbox" wire:model.live="emailEnabled" @disabled(! $owner)>
-                    Send notification emails
-                </label>
-                <label class="text-xs font-semibold" style="color:var(--muted)">
-                    Most emails one person can get per hour
-                    <input type="number" min="0" max="500" wire:model="hourlyCap" @disabled(! $owner) class="mt-1">
-                    <span class="mt-1 block font-normal">Extra emails that hour are skipped (they still show in-app). 0 = no limit.</span>
-                </label>
-            </div>
-            @unless($owner)<p class="sub mt-3">Only the owner can change these two.</p>@endunless
-            @unless($server)
-                <p class="mt-3 rounded-lg p-3 text-xs" style="background:#fef3c7;color:#92400e">Server email delivery is disabled. Turning on the app switch alone will not enable delivery. Test emails still work.</p>
-            @endunless
-        </section>
-
-        <section class="card">
-            <h2>Test every email</h2>
-            <p class="sub mt-1">Sends a sample of each email to one address — rules and preferences are ignored, and the Email Log marks them as tests.</p>
-            <div class="mt-3 flex gap-2">
-                <input type="email" wire:model="testAddress" placeholder="you@example.com">
-                <button type="button" class="btn primary shrink-0" wire:click="sendAllTests" wire:loading.attr="disabled" wire:target="sendAllTests">Send all</button>
-            </div>
-            @error('testAddress')<p class="mt-1 text-xs text-danger-600">{{ $message }}</p>@enderror
-            <div class="mt-3 flex flex-wrap items-center gap-3 text-xs" style="color:var(--muted)">
-                <span>Mailer: <b>{{ $mailer }}</b>@if(in_array($mailer, ['log', 'array'])) (emails are recorded, not delivered)@endif</span>
-                <a href="{{ \App\Filament\Pages\EmailLog::getUrl() }}" class="font-bold" style="color:var(--p)">Open Email Log →</a>
-            </div>
-        </section>
+<div class="vxr" data-vx-page="notification-settings" style="max-width:1180px">
+    <div class="vxr-head">
+        <div>
+            <h1 class="vxr-title">Notifications</h1>
+            <p class="vxr-subtitle">Manage who receives alerts and how they are delivered.</p>
+        </div>
+        <div class="vxr-actions">
+            <a class="vxr-btn" href="{{ \App\Filament\Pages\EmailLog::getUrl() }}"><x-filament::icon icon="heroicon-o-document-text" /> Delivery Log</a>
+            <button type="button" class="vxr-btn" wire:click="$set('emailPanel', true)"><x-filament::icon icon="heroicon-o-paper-airplane" /> Test Email</button>
+        </div>
     </div>
 
-    <div class="flex flex-wrap gap-2" role="group" aria-label="Notification categories">
-        @foreach(['All', ...\App\Support\NotificationCatalog::GROUPS] as $group)
-            <button type="button" class="btn {{ $category === $group ? 'primary' : '' }}" wire:click="$set('category', '{{ $group }}')">{{ $group }}</button>
+    @if (! $live)
+        <div class="vxr-banner vxr-banner--warn" style="flex-wrap:wrap">
+            <x-filament::icon icon="heroicon-s-exclamation-circle" />
+            <span style="flex:1;min-width:220px"><b style="display:block;font-size:15px">Email delivery is disabled</b>
+                {{ $server ? 'In-app notifications remain active.' : 'The server\'s safety switch (NOTIFICATION_EMAILS_ENABLED) is off, so no notification email can leave. In-app notifications remain active.' }}</span>
+            @if ($owner && $server)
+                <label style="display:flex;align-items:center;gap:10px;font-weight:600;color:var(--vxw-text);font-size:14px">Enable email delivery
+                    <span class="vxr-switch"><input type="checkbox" wire:click="toggleEmail" @checked($emailEnabled)><span></span></span></label>
+            @endif
+            <button type="button" class="vxr-btn vxr-btn--outline" style="margin-left:0" wire:click="$set('emailPanel', true)">Manage Email</button>
+        </div>
+    @else
+        <div class="vxr-banner" style="border-color:var(--vxw-ok-line);background:var(--vxw-ok-soft);color:var(--vxw-ok);flex-wrap:wrap">
+            <x-filament::icon icon="heroicon-s-check-circle" />
+            <span style="flex:1"><b>Email delivery is on.</b> Mailer: {{ $mailer }}@if(in_array($mailer, ['log', 'array'])) — emails are recorded, not delivered @endif.</span>
+            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="$set('emailPanel', true)">Manage Email</button>
+        </div>
+    @endif
+
+    <div class="vxr-tabs" role="tablist">
+        @foreach (array_merge(['all'], $groups) as $g)
+            <button type="button" role="tab" wire:click="$set('group', '{{ $g }}')" @class(['vxr-tab', 'is-active' => $group === $g])>{{ $g === 'all' ? 'All' : $g }} ({{ $count($g) }})</button>
         @endforeach
     </div>
-    <div class="flex flex-wrap items-center gap-4">
-        <input aria-label="Search notifications" type="search" wire:model.live.debounce.250ms="search" placeholder="Search notifications…" style="max-width:520px">
-        <label class="switch"><input type="checkbox" wire:model.live="enabledOnly"> Enabled only</label>
+
+    <div class="vxr-toolbar">
+        <label class="vxr-control vxr-search"><x-filament::icon icon="heroicon-o-magnifying-glass" /><input type="search" wire:model.live.debounce.250ms="search" placeholder="Search notifications…"></label>
+        <label class="vxr-check" style="padding:0 6px"><input type="checkbox" wire:model.live="enabledOnly"> Enabled only</label>
     </div>
-    @php $visible = 0; @endphp
-    @foreach(\App\Support\NotificationCatalog::events() as $key => $event)
-        @continue($category !== 'All' && $category !== $event['group'])
-        @continue($needle !== '' && !str_contains(mb_strtolower($event['label'].' '.$event['description']), $needle))
-        @php $rule = $rules[$key]; @endphp
-        @continue($enabledOnly && !$rule['enabled'])
-        @php $visible++; @endphp
-        <section class="card flex flex-wrap items-center justify-between gap-4" wire:key="ev-{{ $key }}">
-            <div style="flex:1;min-width:220px">
-                <h2>{{ $event['label'] }} <span class="pill {{ $event['level'] }}">{{ $levels[$event['level']] }}</span></h2>
-                <p class="sub mt-2">{{ $event['description'] }}</p>
-                <p class="sub mt-2">{{ $this->reach($key) }} recipients · {{ $rule['in_app'] ? 'In-app' : 'No in-app delivery' }} · {{ $rule['email'] ? 'Email' : 'No email' }}
-                @if($event['locked'] ?? false) · Required in-app @endif</p>
+
+    <div style="display:grid;gap:12px">
+        @forelse ($visible as $key => $event)
+            @php $rule = $rules[$key]; $on = (bool) ($rule['enabled'] ?? true); @endphp
+            <div wire:key="ev-{{ $key }}" class="vxr-card" style="display:flex;gap:16px;align-items:center;padding:18px 20px;flex-wrap:wrap;{{ $configure === $key ? 'border-color:var(--vxw-accent);box-shadow:var(--vxw-ring);' : '' }}{{ $on ? '' : 'opacity:.75;' }}">
+                <span class="vxr-stat-icon vxr-tone-{{ $levelTone[$event['level']] ?? 'accent' }}" style="border-radius:14px"><x-filament::icon :icon="$groupIcons[$event['group']] ?? 'heroicon-o-bell'" /></span>
+                <div style="flex:1;min-width:220px">
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:16px">{{ $event['label'] }}</b>
+                        @if ($event['locked'] ?? false)<span class="vxr-pill">Required in-app</span>@endif
+                        @if ($key === 'show_lost_money')<span class="vxr-pill vxr-pill--warn">After payroll</span>@endif
+                    </div>
+                    <div class="vxr-hint" style="margin-top:3px;font-size:13.5px">{{ $event['description'] }}</div>
+                    <div class="vxr-hint" style="margin-top:4px">{{ $on ? $this->summaryLine($key) : 'Not enabled' }}</div>
+                </div>
+                <span class="vxr-switch" title="{{ $on ? 'On' : 'Off' }}"><input type="checkbox" aria-label="Send {{ $event['label'] }}" wire:click="toggleEnabled('{{ $key }}')" @checked($on)><span></span></span>
+                <button type="button" class="vxr-btn" wire:click="openConfigure('{{ $key }}')">Configure</button>
             </div>
-            <label class="switch"><input aria-label="Enable {{ $event['label'] }}" type="checkbox" wire:model.live="rules.{{ $key }}.enabled"> Enabled</label>
-            <button type="button" class="btn" wire:click="configure('{{ $key }}')">Configure</button>
-        </section>
-    @endforeach
-    @if(!$visible)<section class="card">No notifications match these filters.</section>@endif
-    @if($configureEvent && \App\Support\NotificationCatalog::exists($configureEvent))
-        @php $key = $configureEvent; $event = \App\Support\NotificationCatalog::get($key); $rule = $rules[$key]; @endphp
-        <div class="preview" data-vx-dialog role="dialog" aria-modal="true" aria-labelledby="configure-title" x-data x-trap.noscroll="true" @keydown.escape.window="if (!$wire.previewEvent) $wire.closeConfigure()" @click.self="$wire.closeConfigure()">
-            <section class="preview-panel" style="padding:24px;gap:24px;overflow:auto">
-                <div class="flex items-center justify-between gap-4"><h2 id="configure-title">{{ $event['label'] }}</h2><button type="button" class="btn" wire:click="closeConfigure">Close</button></div>
-                <p class="sub">{{ $event['description'] }}</p>
-                        <div class="min-w-0">
-                            <div class="lbl">Who gets it</div>
-                            <div class="flex flex-wrap gap-1.5">
-                                @if(isset($event['involved_label']))
-                                    <label class="chip involved"><input type="checkbox" wire:model.live="rules.{{ $key }}.involved">{{ $event['involved_label'] }}</label>
-                                @endif
-                                @foreach($this->audiences as $aKey => $aLabel)
-                                    <label class="chip"><input type="checkbox" value="{{ $aKey }}" wire:model.live="rules.{{ $key }}.roles">{{ $aLabel }}</label>
-                                @endforeach
-                            </div>
-                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                                <div class="people" x-data="{ open: false, q: '' }" @click.outside="open = false">
-                                    <button type="button" class="btn w-full justify-between" @click="open = !open">
-                                        <span>Specific people @if(count($rule['users']))<b>({{ count($rule['users']) }})</b>@endif</span>
-                                        <x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4" />
-                                    </button>
-                                    <div class="people-list" x-show="open" x-cloak>
-                                        <input type="search" x-model="q" placeholder="Search people…" class="mb-1">
-                                        @foreach($this->people as $person)
-                                            <label x-show="!q || @js(mb_strtolower($person->name.' '.$person->email)).includes(q.toLowerCase())">
-                                                <input type="checkbox" value="{{ $person->id }}" wire:model.live="rules.{{ $key }}.users">
-                                                <span class="min-w-0"><span class="block truncate font-semibold">{{ $person->name }}</span><span class="block truncate text-xs" style="color:var(--muted)">{{ $person->email }}</span></span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <div>
-                                    <input type="text" wire:model.blur="rules.{{ $key }}.emails" placeholder="Also email (no login needed)">
-                                    @error("rules.{$key}.emails")<p class="mt-1 text-xs text-danger-600">{{ $message }}</p>@enderror
-                                </div>
-                            </div>
-                        </div>
+        @empty
+            <div class="vxr-card"><div class="vxr-empty"><b>No notifications match</b>Try another tab or clear the search.</div></div>
+        @endforelse
+    </div>
+</div>
 
-                        <div class="flex flex-col gap-2.5" style="min-width:170px">
-                            <label class="switch"><input type="checkbox" wire:model.live="rules.{{ $key }}.enabled"> Send this</label>
-                            <label class="switch"><input type="checkbox" wire:model.live="rules.{{ $key }}.in_app"> In-app</label>
-                            <label class="switch" title="{{ $live ? '' : 'Email is off for the whole app' }}"><input type="checkbox" wire:model.live="rules.{{ $key }}.email"> Email @unless($live)<span class="text-[10px]" style="color:var(--muted)">(app email off)</span>@endunless</label>
-                            <div class="flex gap-1.5 pt-1">
-                                <button type="button" class="btn" wire:click="preview('{{ $key }}')">Preview</button>
-                                <button type="button" class="btn" wire:click="sendTest('{{ $key }}')" wire:loading.attr="disabled" wire:target="sendTest('{{ $key }}')">Send test</button>
-                            </div>
-                        </div>
+{{-- ── Configure panel ─────────────────────────────────────────────── --}}
+@if ($configure && isset($catalog[$configure]))
+    @php
+        $key = $configure; $event = $catalog[$key]; $rule = $rules[$key];
+        $schedule = $rule['schedule'] ?? null;
+        $dirty = $this->isDirty($key);
+        $people = $this->people->keyBy('id');
+        $times = []; for ($m = 0; $m < 1440; $m += 30) { $times[sprintf('%02d:%02d', intdiv($m, 60), $m % 60)] = \Illuminate\Support\Carbon::createFromTime(intdiv($m, 60), $m % 60)->format('g:i A'); }
+    @endphp
+    <div class="vxr-drawer-backdrop" wire:click="closeConfigure"></div>
+    <aside class="vxr-drawer" style="--vxr-modal-w:1040px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.closeConfigure()">
+        <div class="vxr-drawer-head">
+            <div><h2 class="vxr-drawer-title">{{ $event['label'] }}</h2><p class="vxr-hint" style="font-size:13.5px">{{ $event['description'] }}</p></div>
+            <button type="button" class="vxr-x" wire:click="closeConfigure" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+        </div>
+        <div class="vxr-drawer-body vxr-drawer-body--cols">
+            <div class="vxr-span" style="display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
+                <p class="vxr-section-label" style="margin:0">Enabled</p>
+                <span class="vxr-switch"><input type="checkbox" wire:model.live="rules.{{ $key }}.enabled"><span></span></span>
+            </div>
 
-                @if(in_array($key, ['daily_whatnot_losses', 'weekly_whatnot_losses'], true))
-                    <div class="card"><h2>Summary schedule</h2><p class="sub">{{ \App\Support\BusinessTime::zone() }} · Empty summaries are skipped.</p>
-                        <label class="block mt-3">Delivery time <input type="time" wire:model="lossSchedules.{{ $key }}.time"></label>
-                        @error("lossSchedules.{$key}.time")<p>{{ $message }}</p>@enderror
-                        @if($key === 'weekly_whatnot_losses')<label class="block mt-3">Day <select wire:model="lossSchedules.{{ $key }}.day">@foreach([0=>'Sunday',1=>'Monday',2=>'Tuesday',3=>'Wednesday',4=>'Thursday',5=>'Friday',6=>'Saturday'] as $day=>$name)<option value="{{ $day }}">{{ $name }}</option>@endforeach</select></label>@endif
+            <div style="padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
+                <p class="vxr-section-label">Recipients</p>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;border:1px solid var(--vxw-border);border-radius:10px;min-height:46px">
+                    @foreach ($rule['roles'] as $aKey)
+                        <span class="vxr-pill" style="padding:5px 8px 5px 12px;font-size:13.5px">{{ $this->audiences[$aKey] ?? $aKey }} <button type="button" wire:click="removeAudience('{{ $key }}', '{{ $aKey }}')" aria-label="Remove {{ $this->audiences[$aKey] ?? $aKey }}" style="background:none;border:0;cursor:pointer;color:inherit;display:inline-flex"><x-filament::icon icon="heroicon-m-x-mark" /></button></span>
+                    @endforeach
+                    @foreach ($rule['users'] as $uid)
+                        @if ($p = $people->get((int) $uid))
+                            <span class="vxr-pill vxr-pill--accent" style="padding:5px 8px 5px 12px;font-size:13.5px">{{ $p->name }} <button type="button" wire:click="removeUser('{{ $key }}', '{{ $uid }}')" aria-label="Remove {{ $p->name }}" style="background:none;border:0;cursor:pointer;color:inherit;display:inline-flex"><x-filament::icon icon="heroicon-m-x-mark" /></button></span>
+                        @endif
+                    @endforeach
+                    <select class="vxr-select" style="border:0;flex:1;min-width:150px;height:32px" x-on:change="$wire.addRecipient('{{ $key }}', $event.target.value); $event.target.value = ''" aria-label="Add recipient">
+                        <option value="">Add role or person…</option>
+                        <optgroup label="Roles">
+                            @foreach (array_diff_key($this->audiences, array_flip($rule['roles'])) as $aKey => $aLabel)
+                                <option value="{{ $aKey }}">{{ $aLabel }}</option>
+                            @endforeach
+                        </optgroup>
+                        <optgroup label="People">
+                            @foreach ($this->people->reject(fn ($p) => in_array((string) $p->id, array_map('strval', $rule['users']), true)) as $p)
+                                <option value="u:{{ $p->id }}">{{ $p->name }}</option>
+                            @endforeach
+                        </optgroup>
+                    </select>
+                </div>
+                <p class="vxr-hint">Choose roles or specific people · reaches {{ $this->reach($key) }} {{ \Illuminate\Support\Str::plural('person', $this->reach($key)) }}.</p>
+                @if (isset($event['involved_label']))
+                    <label class="vxr-check"><input type="checkbox" wire:model.live="rules.{{ $key }}.involved"> Also {{ strtolower($event['involved_label']) }}</label>
+                @endif
+                <label class="vxr-control" style="width:100%;margin-top:6px"><x-filament::icon icon="heroicon-o-at-symbol" /><input type="text" wire:model.blur="rules.{{ $key }}.emails" placeholder="Also email (no login needed)" style="flex:1"></label>
+                @error("rules.{$key}.emails")<p class="vxr-hint" style="color:var(--vxw-bad)">{{ $message }}</p>@enderror
+            </div>
+
+            <div style="padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
+                <p class="vxr-section-label">Delivery</p>
+                <div style="display:flex;gap:28px">
+                    <label class="vxr-check"><input type="checkbox" wire:model.live="rules.{{ $key }}.in_app"> In-app</label>
+                    <label class="vxr-check"><input type="checkbox" wire:model.live="rules.{{ $key }}.email"> Email</label>
+                </div>
+                @if (($rule['email'] ?? false) && ! $live)
+                    <div class="vxr-banner vxr-banner--warn" style="padding:9px 12px;font-size:13.5px;margin-top:6px"><x-filament::icon icon="heroicon-s-exclamation-triangle" /> Email will send once delivery is enabled.</div>
+                @endif
+            </div>
+
+            @if ($schedule)
+                <div style="padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
+                    <p class="vxr-section-label">Schedule</p>
+                    <div class="vxr-seg" style="width:100%">
+                        @foreach (\App\Support\NotificationSchedule::MODES as $m => $mLabel)
+                            <button type="button" style="flex:1;justify-content:center" wire:click="$set('rules.{{ $key }}.schedule.mode', '{{ $m }}')" @class(['is-active' => $schedule['mode'] === $m])>{{ $mLabel }}</button>
+                        @endforeach
+                    </div>
+                    @if ($schedule['mode'] !== 'immediate')
+                        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                            @if ($schedule['mode'] === 'weekly')
+                                <select class="vxr-select" style="flex:1;min-width:120px" wire:model.live="rules.{{ $key }}.schedule.day" aria-label="Day">@foreach (\App\Support\NotificationSchedule::DAYS as $d => $dLabel)<option value="{{ $d }}">{{ $dLabel }}</option>@endforeach</select>
+                            @endif
+                            <select class="vxr-select" style="flex:1;min-width:110px" wire:model.live="rules.{{ $key }}.schedule.time" aria-label="Time">@foreach ($times as $v => $tLabel)<option value="{{ $v }}">{{ $tLabel }}</option>@endforeach</select>
+                            <select class="vxr-select" style="flex:1.3;min-width:150px" wire:model.live="rules.{{ $key }}.schedule.timezone" aria-label="Time zone">
+                                @foreach (['America/Chicago', 'America/New_York', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles', 'UTC'] as $zone)<option value="{{ $zone }}">{{ $zone }}</option>@endforeach
+                            </select>
+                        </div>
+                        <p class="vxr-hint">{{ $schedule['mode'] === 'daily' ? 'Each summary covers the day before.' : 'Each summary covers the last full Monday–Sunday week.' }}</p>
+                    @else
+                        <p class="vxr-hint">One notification per show, as soon as it qualifies.</p>
+                    @endif
+                </div>
+
+                <div style="padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
+                    <p class="vxr-section-label">Include businesses</p>
+                    <select class="vxr-select" style="width:100%" wire:model.live="rules.{{ $key }}.schedule.business" aria-label="Businesses">
+                        <option value="">All businesses</option>
+                        @foreach (\App\Models\Business::ordered() as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach
+                    </select>
+                </div>
+
+                @if ($schedule['mode'] !== 'immediate')
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+                        <div><p class="vxr-section-label" style="margin:0">Skip empty summaries</p><p class="vxr-hint" style="margin-top:2px">Don't send if there is nothing to report.</p></div>
+                        <span class="vxr-switch"><input type="checkbox" wire:model.live="rules.{{ $key }}.schedule.skip_empty"><span></span></span>
                     </div>
                 @endif
-                <button type="button" class="btn primary" wire:click="save" wire:loading.attr="disabled">Save Changes</button>
-            </section>
+            @endif
+
+            <div class="vxr-span" style="display:flex;gap:10px;flex-wrap:wrap">
+                <button type="button" class="vxr-btn vxr-btn--outline" wire:click="preview('{{ $key }}')"><x-filament::icon icon="heroicon-o-eye" /> Preview</button>
+                <button type="button" class="vxr-btn vxr-btn--outline" wire:click="sendTest('{{ $key }}')" wire:loading.attr="disabled"><x-filament::icon icon="heroicon-o-paper-airplane" /> Send Test</button>
+            </div>
+            @error('testAddress')<p class="vxr-hint" style="color:var(--vxw-bad)">{{ $message }} (Test Email at the top.)</p>@enderror
         </div>
-    @endif
+        <div class="vxr-drawer-foot">
+            @if ($dirty)<span class="vxr-hint" style="margin:0 auto 0 0;display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:9px;background:#f59e0b"></span> Changes not saved</span>@endif
+            <button type="button" class="vxr-btn" wire:click="closeConfigure">Cancel</button>
+            <button type="button" class="vxr-btn vxr-btn--primary" wire:click="saveConfigure" wire:loading.attr="disabled">Save Changes</button>
+        </div>
+    </aside>
+@endif
 
-    <div class="save">
-        <span class="text-sm">Changes apply to the next notification sent.</span>
-        <button type="button" class="btn primary" wire:click="save" wire:loading.attr="disabled" wire:target="save">Save notification settings</button>
-    </div>
-
-    {{-- ── Email preview ───────────────────────────────────────── --}}
-    @if($previewEvent)
-        <div class="preview" data-vx-dialog role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" @keydown.escape.window="$wire.closePreview()" @click.self="$wire.closePreview()">
-            <div class="preview-panel">
-                <div class="flex items-center justify-between gap-3 p-4" style="border-bottom:1px solid var(--line)">
-                    <div><div class="lbl">Email preview</div><b>{{ \App\Support\NotificationCatalog::label($previewEvent) }}</b></div>
-                    <div class="flex gap-2">
-                        <button type="button" class="btn" wire:click="sendTest('{{ $previewEvent }}')">Send test</button>
-                        <button type="button" class="btn" wire:click="closePreview">Close</button>
-                    </div>
+{{-- ── Email settings / test panel ─────────────────────────────────── --}}
+@if ($emailPanel)
+    <div class="vxr-drawer-backdrop" wire:click="$set('emailPanel', false)"></div>
+    <aside class="vxr-drawer" style="--vxr-modal-w:760px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.set('emailPanel', false)">
+        <div class="vxr-drawer-head">
+            <div><h2 class="vxr-drawer-title">Email</h2><p class="vxr-hint" style="font-size:13.5px">Mailer: <b>{{ $mailer }}</b>@if(in_array($mailer, ['log', 'array'])) — emails are recorded, not delivered @endif</p></div>
+            <button type="button" class="vxr-x" wire:click="$set('emailPanel', false)" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+        </div>
+        <div class="vxr-drawer-body">
+            <div style="padding-bottom:16px;border-bottom:1px solid var(--vxw-border)">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+                    <div><p class="vxr-section-label" style="margin:0">Send notification emails</p><p class="vxr-hint" style="margin-top:2px">The owner's master switch. Off means no notification emails — in-app carries on.</p></div>
+                    <span class="vxr-switch"><input type="checkbox" wire:model.live="emailEnabled" @disabled(! $owner)><span></span></span>
                 </div>
-                <iframe title="Email preview" sandbox srcdoc="{{ $previewHtml }}"></iframe>
+                <label style="display:block;margin-top:14px"><span class="vxr-section-label" style="display:block">Most emails one person can get per hour</span>
+                    <input type="number" min="0" max="500" wire:model="hourlyCap" @disabled(! $owner) class="vxr-select" style="width:140px;padding-right:12px;background-image:none">
+                    <span class="vxr-hint" style="display:block">Extra emails that hour are skipped (they still show in-app). 0 = no limit.</span></label>
+                @error('hourlyCap')<p class="vxr-hint" style="color:var(--vxw-bad)">{{ $message }}</p>@enderror
+                @unless ($owner)<p class="vxr-hint">Only the owner can change these.</p>@endunless
+                @unless ($server)<div class="vxr-banner vxr-banner--warn" style="margin-top:10px;font-size:13px">The server's safety switch is off (NOTIFICATION_EMAILS_ENABLED=false), so no notification email can leave until it is turned on in the server settings.</div>@endunless
+                @if ($owner)<button type="button" class="vxr-btn vxr-btn--primary" style="margin-top:12px" wire:click="saveEmailSettings">Save email settings</button>@endif
+            </div>
+            <div>
+                <p class="vxr-section-label">Test every email</p>
+                <p class="vxr-hint" style="margin-top:0">Sends a sample of each email to one address — rules and preferences are ignored, and the Delivery Log marks them as tests.</p>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <label class="vxr-control" style="flex:1"><x-filament::icon icon="heroicon-o-envelope" /><input type="email" wire:model="testAddress" placeholder="you@example.com" style="flex:1"></label>
+                    <button type="button" class="vxr-btn vxr-btn--primary" wire:click="sendAllTests" wire:loading.attr="disabled" wire:target="sendAllTests">Send all</button>
+                </div>
+                @error('testAddress')<p class="vxr-hint" style="color:var(--vxw-bad)">{{ $message }}</p>@enderror
             </div>
         </div>
-    @endif
-</div>
+    </aside>
+@endif
+
+{{-- ── Email preview ───────────────────────────────────────────────── --}}
+@if ($previewEvent)
+    <div class="vxr-drawer-backdrop" style="z-index:1005" wire:click="closePreview"></div>
+    <aside class="vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data x-on:keydown.escape.window="$wire.closePreview()">
+        <div class="vxr-drawer-head">
+            <div><p class="vxr-hint" style="margin:0">Email preview</p><h2 class="vxr-drawer-title">{{ \App\Support\NotificationCatalog::label($previewEvent) }}</h2></div>
+            <div style="display:flex;gap:8px"><button type="button" class="vxr-btn vxr-btn--sm" wire:click="sendTest('{{ $previewEvent }}')">Send test</button><button type="button" class="vxr-x" wire:click="closePreview" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button></div>
+        </div>
+        <iframe title="Email preview" sandbox srcdoc="{{ $previewHtml }}" style="flex:1;width:100%;border:0;background:#f4f2fb"></iframe>
+    </aside>
+@endif
 </x-filament-panels::page>

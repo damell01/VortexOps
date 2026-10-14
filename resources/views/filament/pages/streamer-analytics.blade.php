@@ -1,355 +1,445 @@
 <x-filament-panels::page>
-@include('filament.pages.partials.reporting-workspace-styles')
-    <div class="vx-report vx-streamer-report space-y-4">
+@php
+    $rows        = $this->analyticsRows;
+    $all         = collect($rows);
+    $totalShows  = $all->sum('show_count');
+    $totalGross  = $all->sum('gross_revenue');
+    $totalNet    = $all->sum('net_revenue');
+    $totalMargin = $all->sum('margin');
+    $totalPayout = $all->sum('total_payout');
+    $totalBal    = $all->sum('balance');
+    $totalHrs    = $all->sum('total_hours');
+    $avgSph      = $totalHrs > 0 ? round($totalGross / $totalHrs, 2) : 0;
+    $streamers   = $this->streamersList;
+    $statementsUrl = $this->statementsUrl();
+    $initials = function (string $name): string {
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+        $out = count($words) > 1
+            ? mb_substr($words[0], 0, 1) . mb_substr($words[1], 0, 1)
+            : mb_substr($words[0] ?? '?', 0, 2);
+        return mb_strtoupper($out);
+    };
+    $avatarTones = ['accent', 'info', 'ok', 'bad', 'warn'];
+@endphp
 
-    <div class="mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-            <div>
-                <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">People performance</div>
-                <h2 class="text-xl font-bold tracking-tight text-gray-950 dark:text-white">Streamer Performance</h2>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Compare show volume, revenue efficiency, margin and payout activity without leaving the reporting workspace.</p>
-            </div>
+<style>
+    .vxsa-page > * { min-width: 0; }
+    .vxsa-range { gap: 6px; }
+    .vxsa-range input[type=date] { min-width: 0; }
+    .vxsa-range input[type=date] { width: 128px; }
+    .vxsa-range span.sep { color: var(--vxw-faint); }
+    .vxsa-picker { position: relative; min-width: 0; }
+    .vxsa-picker-label { display: block; font-size: 12.5px; color: var(--vxw-muted); margin: 0 0 4px; }
+    .vxsa-picker-btn { width: 240px; max-width: 100%; justify-content: space-between; cursor: pointer; }
+    .vxsa-picker-btn > span { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vxsa-pop { position: absolute; z-index: 40; right: 0; top: calc(100% + 6px); width: 280px; max-width: calc(100vw - 32px); background: var(--vxw-surface); border: 1px solid var(--vxw-border); border-radius: 12px; box-shadow: var(--vxw-shadow-pop); padding: 10px; display: grid; gap: 8px; }
+    .vxsa-pop-list { max-height: 260px; overflow-y: auto; }
+    .vxsa-pop-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12.5px; color: var(--vxw-muted); border-top: 1px solid var(--vxw-border); padding-top: 8px; }
+    .vxsa-cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); }
+    .vxsa-card { display: flex; flex-direction: column; gap: 4px; padding: 16px; border: 1px solid var(--vxw-border); border-radius: 12px; background: var(--vxw-surface); min-width: 0; }
+    .vxsa-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; min-width: 0; }
+    .vxsa-card-top b { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vxsa-avatar { flex: none; width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; font-weight: 750; font-size: 14px; background: var(--vxr-tone-soft, var(--vxw-accent-soft)); color: var(--vxr-tone, var(--vxw-accent)); }
+    .vxsa-card .vxr-dl > div { padding: 8px 0; font-size: 13px; align-items: center; }
+    .vxsa-card .vxr-dl dt { line-height: 1.3; }
+    .vxsa-card .vxr-link { margin-top: 8px; font-size: 14px; }
+    .vxsa-pages { display: flex; flex-wrap: wrap; gap: 6px; }
+    .vxsa-pages .vxr-btn { min-width: 36px; padding: 0 10px; }
+    .vxsa-pages .is-current { background: var(--vxw-accent); border-color: var(--vxw-accent); color: #fff; }
+    .vxsa-grid-head { gap: 10px 14px; }
+    .vxsa-grid-head .vxr-search { max-width: 380px; }
+    @media (max-width: 640px) {
+        /* On phones the shared mobile styles give date inputs their own 48px box,
+           so the range drops its wrapper and shows two side-by-side fields. */
+        .vxsa-range { width: 100%; height: auto; padding: 0; border: 0; background: none; }
+        .vxsa-range > svg { display: none; }
+        .vxsa-range input[type=date] { flex: 1 1 0; width: 0; }
+        .vxsa-page .vxr-bar { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
+        .vxsa-page .vxr-bar-track { grid-column: 1 / -1; grid-row: 2; }
+        .vxsa-sort { width: 100%; margin-left: 0 !important; }
+        .vxsa-sort select { flex: 1; }
+        .vxsa-picker, .vxsa-picker-btn { width: 100%; }
+        .vxr-actions { width: 100%; }
+        .vxsa-grid-head .vxr-search { max-width: none; }
+    }
+</style>
+
+<div class="vxr vxsa-page">
+
+    {{-- Header: title + filters + actions --}}
+    <header class="vxr-head">
+        <div>
+            <h1 class="vxr-title">Streamer Analytics</h1>
+            <p class="vxr-subtitle">{{ $this->subtitle() }}</p>
         </div>
-    </div>
 
-        {{-- Filters --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date From</label>
-                    <input
-                        wire:model.live="dateFrom"
-                        type="date"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date To</label>
-                    <input
-                        wire:model.live="dateTo"
-                        type="date"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streamers (overview)</label>
-                    <details class="rounded-lg border border-gray-300 p-3 dark:border-gray-600">
-                        <summary class="cursor-pointer text-sm">{{ count($selectedStreamers) ? count($selectedStreamers).' selected' : 'Full team' }}</summary>
-                        <div class="mt-3 max-h-48 space-y-2 overflow-y-auto">
-                        @forelse($this->streamersList as $streamer)
-                            <label class="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" wire:model.live="selectedStreamers" value="{{ $streamer->id }}" class="rounded border-gray-300 text-primary-600"><span>{{ $streamer->name }}</span></label>
-                        @empty <p class="text-sm text-gray-500">No streamers available.</p>
+        <div class="vxr-actions" style="align-items:flex-end">
+            <label class="vxr-control vxsa-range" title="Date range">
+                <x-filament::icon icon="heroicon-o-calendar-days" />
+                <input type="date" wire:model.live="dateFrom" aria-label="Date from">
+                <span class="sep">–</span>
+                <input type="date" wire:model.live="dateTo" aria-label="Date to">
+            </label>
+
+            <div class="vxsa-picker" x-data="{ open: false, q: '' }" @click.outside="open = false" @keydown.escape.window="open = false">
+                <span class="vxsa-picker-label">Compare streamers</span>
+                <button type="button" class="vxr-control vxsa-picker-btn" @click="open = ! open" :aria-expanded="open">
+                    <x-filament::icon icon="heroicon-o-users" />
+                    <span>
+                        @if (count($selectedStreamers) === 0)
+                            Full team
+                        @elseif (count($selectedStreamers) === 1)
+                            {{ $streamers->firstWhere('id', (int) $selectedStreamers[0])?->name ?? '1 selected' }}
+                        @else
+                            {{ count($selectedStreamers) }} selected
+                        @endif
+                    </span>
+                    <x-filament::icon icon="heroicon-m-chevron-down" />
+                </button>
+                <div class="vxsa-pop" x-show="open" x-cloak x-transition.opacity>
+                    <label class="vxr-control vxr-search">
+                        <x-filament::icon icon="heroicon-o-magnifying-glass" />
+                        <input type="search" x-model="q" placeholder="Find a streamer…" aria-label="Find a streamer">
+                    </label>
+                    <div class="vxsa-pop-list">
+                        @forelse ($streamers as $s)
+                            <label class="vxr-check" wire:key="pick-{{ $s->id }}" x-show="q === '' || @js(mb_strtolower($s->name)).includes(q.toLowerCase())">
+                                <input type="checkbox" wire:model.live="selectedStreamers" value="{{ $s->id }}">
+                                <span>{{ $s->name }}</span>
+                            </label>
+                        @empty
+                            <p class="vxr-hint">No streamers available.</p>
                         @endforelse
-                        </div>
-                    </details>
+                    </div>
+                    <div class="vxsa-pop-foot">
+                        <span>Pick people to compare, or none for the full team.</span>
+                        @if (count($selectedStreamers))
+                            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="clearSelectedStreamers">Full team</button>
+                        @endif
+                    </div>
                 </div>
             </div>
-            <div class="mt-3 flex justify-end">
-                <a
-                    wire:click.prevent="exportCsv"
-                    href="#"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
-                >
-                    <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
-                    Export CSV
+
+            @if ($statementsUrl)
+                <a href="{{ $statementsUrl }}" class="vxr-btn">
+                    <x-filament::icon icon="heroicon-o-document-text" /> Streamer Statements
                 </a>
-            </div>
-        </div>
+            @endif
 
-        {{-- Tabs --}}
-        <div class="flex gap-1 border-b border-gray-200 dark:border-gray-700">
-            <button
-                wire:click="$set('activeTab', 'overview')"
-                class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors {{ $activeTab === 'overview' ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400 bg-white dark:bg-gray-900' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300' }}">
-                Streamer Overview
-            </button>
-            <button
-                wire:click="$set('activeTab', 'weekly')"
-                class="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors {{ $activeTab === 'weekly' ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400 bg-white dark:bg-gray-900' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300' }}">
-                Weekly Breakdown
+            <button type="button" wire:click="exportCsv" class="vxr-btn vxr-btn--primary">
+                <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export CSV
             </button>
         </div>
+    </header>
 
-        @if($activeTab === 'overview')
+    {{-- Tabs --}}
+    <nav class="vxr-tabs" role="tablist">
+        <button type="button" role="tab" wire:click="$set('activeTab', 'overview')" class="vxr-tab {{ $activeTab === 'overview' ? 'is-active' : '' }}" aria-selected="{{ $activeTab === 'overview' ? 'true' : 'false' }}">Streamer Overview</button>
+        <button type="button" role="tab" wire:click="$set('activeTab', 'weekly')" class="vxr-tab {{ $activeTab === 'weekly' ? 'is-active' : '' }}" aria-selected="{{ $activeTab === 'weekly' ? 'true' : 'false' }}">Weekly Breakdown</button>
+    </nav>
 
-        {{-- Summary Tiles --}}
-        @php
-            $rows        = $this->analyticsRows;
-            $totalShows  = collect($rows)->sum('show_count');
-            $totalGross  = collect($rows)->sum('gross_revenue');
-            $totalNet    = collect($rows)->sum('net_revenue');
-            $totalMargin = collect($rows)->sum('margin');
-            $totalPayout = collect($rows)->sum('total_payout');
-            $totalBal    = collect($rows)->sum('balance');
-            $totalHrs    = collect($rows)->sum('total_hours');
-            $avgSph      = $totalHrs > 0 ? round($totalGross / $totalHrs, 2) : 0;
-        @endphp
+    @if ($activeTab === 'overview')
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Shows</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{{ number_format($totalShows) }}</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Gross</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">${{ number_format($totalGross, 2) }}</p>
-                @if($totalNet > 0)
-                    <p class="text-xs text-gray-400 mt-0.5">Net: ${{ number_format($totalNet, 2) }}</p>
-                @endif
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Avg SPH</p>
-                <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">${{ number_format($avgSph, 2) }}</p>
-                <p class="text-xs text-gray-400 mt-0.5">{{ number_format($totalHrs, 1) }}h logged</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Payouts</p>
-                <p class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">${{ number_format($totalPayout, 2) }}</p>
-                @if($totalBal != 0)
-                    <p class="text-xs {{ $totalBal > 0 ? 'text-amber-500' : 'text-gray-400' }} mt-0.5">
-                        Balance: ${{ number_format(abs($totalBal), 2) }} {{ $totalBal > 0 ? 'owed' : 'overpaid' }}
-                    </p>
-                @endif
-            </div>
+        <div class="vxr-stats">
+            <x-vxr.stat label="Total Shows" :value="number_format($totalShows)" icon="heroicon-o-video-camera"
+                :note="count($rows) . ' ' . \Illuminate\Support\Str::plural('streamer', count($rows)) . ' in view'" />
+            <x-vxr.stat label="Gross Revenue" :value="'$' . number_format($totalGross, 2)" icon="heroicon-o-currency-dollar"
+                :note="$totalNet > 0 ? 'Whatnot est. earnings $' . number_format($totalNet, 2) : null" />
+            <x-vxr.stat label="Revenue per Show Hour" :value="'$' . number_format($avgSph, 2)" icon="heroicon-o-chart-bar"
+                :note="number_format($totalHrs, 1) . ' show hours'" />
+            <x-vxr.stat label="Recorded Payouts" :value="'$' . number_format($totalPayout, 2)" icon="heroicon-o-wallet"
+                :note="$totalBal != 0 ? 'Balance $' . number_format(abs($totalBal), 2) . ($totalBal > 0 ? ' owed' : ' overpaid') : null" />
         </div>
 
-        {{-- Visual comparison cards — uses the analytics rows already loaded above. --}}
+        <div class="vxr-banner vxr-banner--accent">
+            <x-filament::icon icon="heroicon-o-information-circle" />
+            <span>Show hours measure broadcast duration, not hours worked for payroll.</span>
+        </div>
+
+        {{-- Top streamers by gross --}}
         @php
-            $filteredCards = collect($rows)->filter(fn($r)=>$cardSearch === '' || str_contains(mb_strtolower($r['name']), mb_strtolower($cardSearch)));
-            $cardRows = $filteredCards->slice((max(1,$cardPage)-1)*6,6);
-            $maxCardGross = max(1, (float) collect($rows)->max('gross_revenue'));
+            $top = $this->topByGross;
+            $topMax = max(1, (float) collect($top)->max('gross_revenue'));
         @endphp
-        <section class="vx-streamer-cards">
-            <label class="block mb-4">Find a streamer<input class="rounded-lg border p-3 ml-3" type="search" wire:model.live.debounce.250ms="cardSearch" placeholder="Search streamers…"></label>
-            <div class="vx-section-heading">
-                <div><h3>Streamer Performance</h3><p>Quick comparison of revenue, net earnings, efficiency and hours.</p></div>
-                <span>{{ count($rows) }} active in this view</span>
+        <section class="vxr-card">
+            <div class="vxr-card-head">
+                <h2 class="vxr-card-title">Top Streamers by Gross Revenue</h2>
             </div>
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-vx-mobile-page>
-                @foreach($cardRows as $row)
-                    <article class="vx-person-card">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex min-w-0 items-center gap-3">
-                                <div class="vx-avatar">{{ mb_strtoupper(mb_substr($row['name'],0,1)) }}</div>
-                                <div class="min-w-0"><strong class="block truncate">{{ $row['name'] }}</strong><span>{{ number_format($row['show_count']) }} shows</span></div>
+            <div class="vxr-card-body">
+                @if (empty($top))
+                    <div class="vxr-empty"><b>No revenue in this range</b>Pick a wider date range or another streamer.</div>
+                @else
+                    <div class="vxr-bars">
+                        @foreach ($top as $i => $row)
+                            <div class="vxr-bar">
+                                <span class="vxr-bar-name" title="{{ $row['name'] }}">{{ $row['name'] }}</span>
+                                <div class="vxr-bar-track"><div class="vxr-bar-fill" style="width: {{ max(2, $row['gross_revenue'] / $topMax * 100) }}%; opacity: {{ 1 - $i * 0.13 }}"></div></div>
+                                <span class="vxr-bar-val">${{ number_format($row['gross_revenue'], 0) }}</span>
                             </div>
-                            @if($row['trend_gross'] !== null)<span class="vx-trend {{ $row['trend_gross'] >= 0 ? 'is-up' : 'is-down' }}">{{ $row['trend_gross'] >= 0 ? '+' : '' }}{{ $row['trend_gross'] }}%</span>@endif
-                        </div>
-                        <div class="vx-person-money"><div><span>Gross Revenue</span><strong>${{ number_format($row['gross_revenue'],0) }}</strong></div><div><span>Net Earnings</span><strong>${{ number_format($row['net_revenue'],0) }}</strong></div></div>
-                        <div class="vx-mini-track"><i style="width:{{ max(4,($row['gross_revenue']/$maxCardGross)*100) }}%"></i></div>
-                        <div class="vx-person-foot"><div><strong>${{ number_format($row['gmv_per_hour'],0) }}</strong><span>Sales / Hour</span></div><div><strong>{{ number_format($row['total_hours'],1) }}h</strong><span>Total Hours</span></div></div>
-                    </article>
-                @endforeach
+                        @endforeach
+                    </div>
+                @endif
             </div>
         </section>
 
-        <div class="flex justify-between items-center gap-3 mb-4"><span>Page {{ $cardPage }} of {{ max(1,(int)ceil($filteredCards->count()/6)) }}</span><div class="flex gap-3"><button type="button" class="vxw-btn" wire:click="$set('cardPage', {{ max(1,$cardPage-1) }})" @disabled($cardPage<=1)>Previous</button><button type="button" class="vxw-btn" wire:click="$set('cardPage', {{ $cardPage+1 }})" @disabled($cardPage*6 >= $filteredCards->count())>Next</button></div></div>
-        {{-- Streamer Performance Table --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Streamer Performance</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $dateFrom }} — {{ $dateTo }} · Ranked by SPH</p>
+        {{-- Streamer cards --}}
+        @php $cards = $this->cardGrid; @endphp
+        <section class="vxr-card">
+            <div class="vxr-card-head vxsa-grid-head">
+                <h2 class="vxr-card-title">Streamers ({{ count($rows) }})</h2>
+                <label class="vxr-control vxr-search">
+                    <x-filament::icon icon="heroicon-o-magnifying-glass" />
+                    <input type="search" wire:model.live.debounce.300ms="cardSearch" placeholder="Search streamers…" aria-label="Search streamers">
+                </label>
+                <label class="vxr-toolbar vxsa-sort" style="margin-left:auto;gap:8px;font-size:13.5px;color:var(--vxw-muted);flex-wrap:nowrap;white-space:nowrap">
+                    Sort by
+                    <select wire:model.live="cardSort" class="vxr-select" aria-label="Sort streamers by">
+                        @foreach (\App\Filament\Pages\StreamerAnalytics::CARD_SORTS as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
             </div>
-
-            @if(empty($rows))
-                <div class="px-6 py-10 text-center text-sm text-gray-400">No data for the selected period.</div>
-            @else
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">#</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Streamer</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Type</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Shows</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Hours</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Gross</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Net</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-help" title="Revenue minus COGS from sold items with a unit cost recorded.">Margin</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">SPH</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tips</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payout</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach($rows as $i => $row)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors {{ $i === 0 ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : '' }}">
-                                    <td class="px-4 py-3 text-gray-400 dark:text-gray-500 font-mono text-xs">
-                                        @if($i === 0)
-                                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold text-xs">1</span>
-                                        @else
-                                            {{ $i + 1 }}
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
-                                        <a href="{{ route('filament.admin.resources.streamers.edit', $row['streamer_id']) }}"
-                                           class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-                                            {{ $row['name'] }}
-                                        </a>
-                                    </td>
-                                    <td class="px-4 py-3">
-                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                                            {{ $row['payout_type'] ?? '—' }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ $row['show_count'] }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                                        {{ $row['total_hours'] > 0 ? number_format($row['total_hours'], 1) : '—' }}
-                                    </td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                                        ${{ number_format($row['gross_revenue'], 2) }}
+            <div class="vxr-card-body">
+                @if ($cards['total'] === 0)
+                    <div class="vxr-empty">
+                        @if (empty($rows))
+                            <b>No streamers in this view</b>Nobody active matches the current filters.
+                        @else
+                            <b>No streamer matches “{{ $cardSearch }}”</b>Try another name.
+                        @endif
+                    </div>
+                @else
+                    <div class="vxsa-cards">
+                        @foreach ($cards['rows'] as $row)
+                            <article class="vxsa-card" wire:key="card-{{ $row['streamer_id'] }}">
+                                <div class="vxsa-card-top">
+                                    <span class="vxsa-avatar vxr-tone-{{ $avatarTones[$row['streamer_id'] % count($avatarTones)] }}">{{ $initials($row['name']) }}</span>
+                                    <div style="min-width:0">
+                                        <b style="display:block">{{ $row['name'] }}</b>
                                         @if ($row['trend_gross'] !== null)
-                                            <div class="text-xs font-medium {{ $row['trend_gross'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($row['trend_gross'] < 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400') }}">
-                                                {{ $row['trend_gross'] > 0 ? '↑' : ($row['trend_gross'] < 0 ? '↓' : '→') }} {{ abs($row['trend_gross']) }}% <span class="font-normal text-gray-400">vs prior</span>
-                                            </div>
+                                            <span class="vxr-delta {{ $row['trend_gross'] >= 0 ? 'vxr-delta--up' : 'vxr-delta--down' }}" title="Gross revenue vs the same-length period before">
+                                                {{ $row['trend_gross'] >= 0 ? '↑' : '↓' }} {{ abs($row['trend_gross']) }}% vs prior
+                                            </span>
                                         @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
-                                        {{ $row['net_revenue'] > 0 ? '$' . number_format($row['net_revenue'], 2) : '—' }}
-                                    </td>
-                                    <td class="px-4 py-3 text-right font-semibold {{ $row['margin'] >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400' }}">
-                                        ${{ number_format($row['margin'], 2) }}
-                                        @if (! is_null($row['margin_pct']))
-                                            <div class="text-xs font-normal text-gray-400">{{ $row['margin_pct'] }}%</div>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right font-semibold {{ $row['gmv_per_hour'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
-                                        {{ $row['gmv_per_hour'] > 0 ? '$' . number_format($row['gmv_per_hour'], 2) : '—' }}
-                                    </td>
-                                    <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
-                                        {{ $row['tips'] > 0 ? '$' . number_format($row['tips'], 2) : '—' }}
-                                    </td>
-                                    <td class="px-4 py-3 text-right text-blue-600 dark:text-blue-400">${{ number_format($row['total_payout'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right font-medium {{ $row['balance'] > 0 ? 'text-amber-600 dark:text-amber-400' : ($row['balance'] < 0 ? 'text-red-500' : 'text-gray-400') }}">
-                                        @if($row['balance'] != 0)
-                                            {{ $row['balance'] > 0 ? '+' : '' }}${{ number_format(abs($row['balance']), 2) }}
-                                        @else
-                                            <span class="text-gray-300 dark:text-gray-600">—</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 font-semibold">
-                                <td class="px-4 py-3" colspan="3">Totals</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ number_format($totalShows) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ number_format($totalHrs, 1) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format($totalGross, 2) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format($totalNet, 2) }}</td>
-                                <td class="px-4 py-3 text-right {{ $totalMargin >= 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-rose-600 dark:text-rose-400' }}">${{ number_format($totalMargin, 2) }}</td>
-                                <td class="px-4 py-3 text-right text-emerald-700 dark:text-emerald-300">${{ number_format($avgSph, 2) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format(collect($rows)->sum('tips'), 2) }}</td>
-                                <td class="px-4 py-3 text-right text-blue-700 dark:text-blue-300">${{ number_format($totalPayout, 2) }}</td>
-                                <td class="px-4 py-3 text-right {{ $totalBal > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100' }}">
-                                    ${{ number_format(abs($totalBal), 2) }}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-            @endif
-        </div>
-
-        @elseif($activeTab === 'weekly')
-
-        {{-- Weekly breakdown --}}
-        @php $weeklyRows = $this->weeklyRows; @endphp
-
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Weeks</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{{ count($weeklyRows) }}</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Shows</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{{ collect($weeklyRows)->sum('show_count') }}</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total Gross</p>
-                <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">${{ number_format(collect($weeklyRows)->sum('gross'), 2) }}</p>
-            </div>
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Best Week SPH</p>
-                @php $bestWeek = collect($weeklyRows)->sortByDesc('sph')->first(); @endphp
-                <p class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                    {{ $bestWeek ? '$' . number_format($bestWeek['sph'], 2) : '—' }}
-                </p>
-                @if($bestWeek)
-                    <p class="text-xs text-gray-400 mt-0.5">Week of {{ $bestWeek['week'] }}</p>
+                                    </div>
+                                </div>
+                                <dl class="vxr-dl">
+                                    <div><dt>Total Shows</dt><dd>{{ number_format($row['show_count']) }}</dd></div>
+                                    <div><dt>Gross Revenue</dt><dd>${{ number_format($row['gross_revenue'], 2) }}</dd></div>
+                                    <div><dt>Whatnot Estimated Earnings</dt><dd>${{ number_format($row['net_revenue'], 2) }}</dd></div>
+                                    <div><dt>Show Hours</dt><dd>{{ $row['total_hours'] > 0 ? number_format($row['total_hours'], 1) : '—' }}</dd></div>
+                                    <div><dt>Revenue / Show Hour</dt><dd>{{ $row['gmv_per_hour'] > 0 ? '$' . number_format($row['gmv_per_hour'], 2) : '—' }}</dd></div>
+                                </dl>
+                                <a class="vxr-link" href="{{ route('filament.admin.resources.streamers.edit', $row['streamer_id']) }}">
+                                    View Details <x-filament::icon icon="heroicon-m-arrow-right" />
+                                </a>
+                            </article>
+                        @endforeach
+                    </div>
                 @endif
             </div>
-        </div>
+            @if ($cards['total'] > 0)
+                <div class="vxr-card-foot">
+                    <span>Showing {{ $cards['from'] }} – {{ $cards['to'] }} of {{ $cards['total'] }}</span>
+                    @if ($cards['pages'] > 1)
+                        <nav class="vxsa-pages" aria-label="Streamer pages">
+                            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="goToCardPage({{ $cards['page'] - 1 }})" @disabled($cards['page'] <= 1)>
+                                <x-filament::icon icon="heroicon-m-chevron-left" /> Previous
+                            </button>
+                            @for ($p = 1; $p <= $cards['pages']; $p++)
+                                <button type="button" class="vxr-btn vxr-btn--sm {{ $p === $cards['page'] ? 'is-current' : '' }}" wire:click="goToCardPage({{ $p }})" @if($p === $cards['page']) aria-current="page" @endif>{{ $p }}</button>
+                            @endfor
+                            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="goToCardPage({{ $cards['page'] + 1 }})" @disabled($cards['page'] >= $cards['pages'])>
+                                Next <x-filament::icon icon="heroicon-m-chevron-right" />
+                            </button>
+                        </nav>
+                    @endif
+                </div>
+            @endif
+        </section>
 
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Weekly Show Performance</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $dateFrom }} — {{ $dateTo }} · SPH = Gross Revenue ÷ Hours Worked</p>
+        {{-- Full comparison table: every figure the page computes --}}
+        <section class="vxr-card">
+            <div class="vxr-card-head">
+                <div>
+                    <h2 class="vxr-card-title">Full Comparison</h2>
+                    <p class="vxr-card-sub">{{ $dateFrom }} — {{ $dateTo }} · Ranked by revenue per show hour</p>
+                </div>
             </div>
-
-            @if(empty($weeklyRows))
-                <div class="px-6 py-10 text-center text-sm text-gray-400">No shows in the selected date range.</div>
+            @if (empty($rows))
+                <div class="vxr-empty">No data for the selected period.</div>
             @else
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                <div class="vxr-table-wrap">
+                    <table class="vxr-table">
                         <thead>
-                            <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Week Of</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Shows</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Hours</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Gross Revenue</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Whatnot Net</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">SPH</th>
+                            <tr>
+                                <th>#</th>
+                                <th>Streamer</th>
+                                <th>Type</th>
+                                <th class="num">Shows</th>
+                                <th class="num">Hours</th>
+                                <th class="num">Gross</th>
+                                <th class="num">Net</th>
+                                <th class="num" title="Revenue minus COGS from sold items with a unit cost recorded.">Margin</th>
+                                <th class="num">SPH</th>
+                                <th class="num">Tips</th>
+                                <th class="num">Payout</th>
+                                <th class="num">Balance</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach($weeklyRows as $row)
-                                @php
-                                    $isBest = $bestWeek && $row['week'] === $bestWeek['week'];
-                                @endphp
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors {{ $isBest ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : '' }}">
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
-                                        {{ $row['week'] }}
-                                        @if($isBest)
-                                            <span class="ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">best</span>
+                        <tbody>
+                            @foreach ($rows as $i => $row)
+                                <tr @class(['is-selected' => $i === 0])>
+                                    <td class="vxr-val-muted">{{ $i + 1 }}</td>
+                                    <td class="strong">
+                                        <a class="vxr-link" href="{{ route('filament.admin.resources.streamers.edit', $row['streamer_id']) }}">{{ $row['name'] }}</a>
+                                    </td>
+                                    <td><span class="vxr-pill">{{ $row['payout_type'] ?? '—' }}</span></td>
+                                    <td class="num">{{ $row['show_count'] }}</td>
+                                    <td class="num">{{ $row['total_hours'] > 0 ? number_format($row['total_hours'], 1) : '—' }}</td>
+                                    <td class="num">
+                                        ${{ number_format($row['gross_revenue'], 2) }}
+                                        @if ($row['trend_gross'] !== null)
+                                            <span class="sub {{ $row['trend_gross'] > 0 ? 'vxr-delta--up' : ($row['trend_gross'] < 0 ? 'vxr-delta--down' : '') }}">
+                                                {{ $row['trend_gross'] > 0 ? '↑' : ($row['trend_gross'] < 0 ? '↓' : '→') }} {{ abs($row['trend_gross']) }}% vs prior
+                                            </span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ $row['show_count'] }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
-                                        {{ $row['hours'] > 0 ? number_format($row['hours'], 1) : '—' }}
+                                    <td class="num">{{ $row['net_revenue'] > 0 ? '$' . number_format($row['net_revenue'], 2) : '—' }}</td>
+                                    <td class="num strong {{ $row['margin'] < 0 ? 'vxr-val-bad' : '' }}">
+                                        ${{ number_format($row['margin'], 2) }}
+                                        @if (! is_null($row['margin_pct']))
+                                            <span class="sub">{{ $row['margin_pct'] }}%</span>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">${{ number_format($row['gross'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
-                                        {{ $row['net'] > 0 ? '$' . number_format($row['net'], 2) : '—' }}
-                                    </td>
-                                    <td class="px-4 py-3 text-right font-semibold {{ $row['sph'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
-                                        {{ $row['sph'] > 0 ? '$' . number_format($row['sph'], 2) : '—' }}
+                                    <td class="num strong {{ $row['gmv_per_hour'] > 0 ? 'vxr-val-ok' : 'vxr-val-muted' }}">{{ $row['gmv_per_hour'] > 0 ? '$' . number_format($row['gmv_per_hour'], 2) : '—' }}</td>
+                                    <td class="num">{{ $row['tips'] > 0 ? '$' . number_format($row['tips'], 2) : '—' }}</td>
+                                    <td class="num">${{ number_format($row['total_payout'], 2) }}</td>
+                                    <td class="num {{ $row['balance'] > 0 ? 'vxr-val-warn' : ($row['balance'] < 0 ? 'vxr-val-bad' : 'vxr-val-muted') }}">
+                                        @if ($row['balance'] != 0)
+                                            {{ $row['balance'] > 0 ? '+' : '-' }}${{ number_format(abs($row['balance']), 2) }}
+                                        @else
+                                            —
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
-                            <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 font-semibold">
-                                <td class="px-4 py-3 text-gray-900 dark:text-gray-100">Totals</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ collect($weeklyRows)->sum('show_count') }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ number_format(collect($weeklyRows)->sum('hours'), 1) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format(collect($weeklyRows)->sum('gross'), 2) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format(collect($weeklyRows)->sum('net'), 2) }}</td>
-                                <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">
-                                    @php
-                                        $totH = collect($weeklyRows)->sum('hours');
-                                        $totG = collect($weeklyRows)->sum('gross');
-                                    @endphp
-                                    {{ $totH > 0 ? '$' . number_format($totG / $totH, 2) : '—' }}
-                                </td>
+                            <tr class="strong">
+                                <td colspan="3" class="strong">Totals</td>
+                                <td class="num strong">{{ number_format($totalShows) }}</td>
+                                <td class="num strong">{{ number_format($totalHrs, 1) }}</td>
+                                <td class="num strong">${{ number_format($totalGross, 2) }}</td>
+                                <td class="num strong">${{ number_format($totalNet, 2) }}</td>
+                                <td class="num strong {{ $totalMargin < 0 ? 'vxr-val-bad' : '' }}">${{ number_format($totalMargin, 2) }}</td>
+                                <td class="num strong">${{ number_format($avgSph, 2) }}</td>
+                                <td class="num strong">${{ number_format($all->sum('tips'), 2) }}</td>
+                                <td class="num strong">${{ number_format($totalPayout, 2) }}</td>
+                                <td class="num strong {{ $totalBal > 0 ? 'vxr-val-warn' : '' }}">${{ number_format(abs($totalBal), 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             @endif
+        </section>
+
+    @elseif ($activeTab === 'weekly')
+
+        @php
+            $weeklyRows = $this->weeklyRows;
+            $weekly     = collect($weeklyRows);
+            $bestWeek   = $weekly->sortByDesc('sph')->first();
+            $totH       = $weekly->sum('hours');
+            $totG       = $weekly->sum('gross');
+        @endphp
+
+        <div class="vxr-stats">
+            <x-vxr.stat label="Weeks" :value="number_format(count($weeklyRows))" icon="heroicon-o-calendar" />
+            <x-vxr.stat label="Total Shows" :value="number_format($weekly->sum('show_count'))" icon="heroicon-o-video-camera" />
+            <x-vxr.stat label="Gross Revenue" :value="'$' . number_format($totG, 2)" icon="heroicon-o-currency-dollar" />
+            <x-vxr.stat label="Best Week Revenue / Show Hour" :value="$bestWeek ? '$' . number_format($bestWeek['sph'], 2) : '—'" icon="heroicon-o-trophy" tone="ok"
+                :note="$bestWeek ? 'Week of ' . $bestWeek['week'] : null" />
         </div>
 
+        <div class="vxr-banner vxr-banner--accent">
+            <x-filament::icon icon="heroicon-o-information-circle" />
+            <span>Show hours measure broadcast duration, not hours worked for payroll.</span>
+        </div>
+
+        @if (! empty($weeklyRows))
+            <section class="vxr-card">
+                <div class="vxr-card-head">
+                    <div>
+                        <h2 class="vxr-card-title">Gross Revenue by Week</h2>
+                        <p class="vxr-card-sub">Week starting Monday</p>
+                    </div>
+                </div>
+                <div class="vxr-card-body">
+                    <x-vxr.chart type="bar" :money="true" :height="240" :points="$weekly->map(fn ($w) => [
+                        'label' => $w['week'],
+                        'value' => round($w['gross'], 2),
+                        'title' => 'Week of ' . $w['week'] . ': $' . number_format($w['gross'], 2) . ' · ' . $w['show_count'] . ' shows',
+                    ])->all()" />
+                </div>
+            </section>
         @endif
 
-    </div>
-</x-filament-panels::page>
+        <section class="vxr-card">
+            <div class="vxr-card-head">
+                <div>
+                    <h2 class="vxr-card-title">Weekly Show Performance</h2>
+                    <p class="vxr-card-sub">{{ $dateFrom }} — {{ $dateTo }} · SPH = Gross Revenue ÷ Show Hours</p>
+                </div>
+            </div>
+            @if (empty($weeklyRows))
+                <div class="vxr-empty">No shows in the selected date range.</div>
+            @else
+                <div class="vxr-table-wrap">
+                    <table class="vxr-table">
+                        <thead>
+                            <tr>
+                                <th>Week Of</th>
+                                <th class="num">Shows</th>
+                                <th class="num">Hours</th>
+                                <th class="num">Gross Revenue</th>
+                                <th class="num">Whatnot Net</th>
+                                <th class="num">SPH</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($weeklyRows as $row)
+                                @php $isBest = $bestWeek && $row['week'] === $bestWeek['week']; @endphp
+                                <tr @class(['is-selected' => $isBest])>
+                                    <td class="strong">
+                                        {{ $row['week'] }}
+                                        @if ($isBest) <span class="vxr-pill vxr-pill--ok">best</span> @endif
+                                    </td>
+                                    <td class="num">{{ $row['show_count'] }}</td>
+                                    <td class="num">{{ $row['hours'] > 0 ? number_format($row['hours'], 1) : '—' }}</td>
+                                    <td class="num">${{ number_format($row['gross'], 2) }}</td>
+                                    <td class="num">{{ $row['net'] > 0 ? '$' . number_format($row['net'], 2) : '—' }}</td>
+                                    <td class="num strong {{ $row['sph'] > 0 ? 'vxr-val-ok' : 'vxr-val-muted' }}">{{ $row['sph'] > 0 ? '$' . number_format($row['sph'], 2) : '—' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td class="strong">Totals</td>
+                                <td class="num strong">{{ $weekly->sum('show_count') }}</td>
+                                <td class="num strong">{{ number_format($totH, 1) }}</td>
+                                <td class="num strong">${{ number_format($totG, 2) }}</td>
+                                <td class="num strong">${{ number_format($weekly->sum('net'), 2) }}</td>
+                                <td class="num strong">{{ $totH > 0 ? '$' . number_format($totG / $totH, 2) : '—' }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @endif
+        </section>
 
+    @endif
+
+</div>
+</x-filament-panels::page>

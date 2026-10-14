@@ -17,7 +17,9 @@ class Reports extends Page
     use HasModuleAccess;
 
     protected static string $moduleSlug  = 'reporting';
-    protected static ?string $title = 'Reports & Analytics';
+    protected static ?string $title = 'Whatnot Performance';
+
+    protected static ?string $navigationLabel = 'Whatnot Performance';
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-chart-bar'; }
     public static function getNavigationSort(): ?int                     { return 1; }
@@ -37,9 +39,43 @@ class Reports extends Page
         return 'filament.pages.reports';
     }
 
+    public function getHeading(): string
+    {
+        return ''; // the view draws its own header with the period controls
+    }
+
     public function inventoryReportUrl(): ?string
     {
         return InventoryReport::canAccess() ? InventoryReport::getUrl() : null;
+    }
+
+    /** Central report-hub destinations. Keep report discovery here while
+     * operational pages link directly to the relevant prebuilt report. */
+    public function streamerAnalyticsUrl(): ?string
+    {
+        return StreamerAnalytics::canAccess() ? StreamerAnalytics::getUrl() : null;
+    }
+
+    public function streamerStatementUrl(): ?string
+    {
+        return StreamerStatement::canAccess() ? StreamerStatement::getUrl() : null;
+    }
+
+    public function financeLedgerUrl(): ?string
+    {
+        return \App\Filament\Resources\WhatnotLedgerResource::canAccess()
+            ? \App\Filament\Resources\WhatnotLedgerResource::getUrl('index')
+            : null;
+    }
+
+    public function profitLossUrl(): ?string
+    {
+        return ProfitLoss::canAccess() ? ProfitLoss::getUrl() : null;
+    }
+
+    public function productInsightsUrl(): ?string
+    {
+        return ProductInsights::canAccess() ? ProductInsights::getUrl() : null;
     }
 
     // ── Period ────────────────────────────────────────────────────────────────
@@ -48,6 +84,85 @@ class Reports extends Page
     public string $dateFrom  = '';
     public string $dateTo    = '';
     public bool $showAllWeeks = false;
+
+    /** '' follows the channel picked in the top bar; a channel id narrows this page to it. */
+    public string $channel = '';
+
+    /** Metric drawn on the Revenue by Week chart. */
+    public string $weekMetric = 'gross';
+
+    /** How Top Streamers is ranked. */
+    public string $streamerSort = 'gross';
+
+    public const WEEK_METRICS = ['gross' => 'Gross Revenue', 'net' => 'Est. Earnings', 'units' => 'Units Sold', 'shows' => 'Shows'];
+
+    public const STREAMER_SORTS = ['gross' => 'By Gross Revenue', 'net' => 'By Est. Earnings', 'shows' => 'By Shows'];
+
+    /** The channel this page reports on: its own picker first, then the top-bar context. */
+    public function channelId(): ?int
+    {
+        if ($this->channel !== '' && ctype_digit($this->channel)) {
+            return (int) $this->channel;
+        }
+
+        return ChannelContext::currentId();
+    }
+
+    public function channelOptions(): array
+    {
+        return ChannelContext::available()->pluck('name', 'id')->all();
+    }
+
+    public function updatedWeekMetric(string $value): void
+    {
+        if (! array_key_exists($value, self::WEEK_METRICS)) {
+            $this->weekMetric = 'gross';
+        }
+    }
+
+    public function updatedStreamerSort(string $value): void
+    {
+        if (! array_key_exists($value, self::STREAMER_SORTS)) {
+            $this->streamerSort = 'gross';
+        }
+    }
+
+    public function updatedChannel(string $value): void
+    {
+        if ($value !== '' && ! array_key_exists((int) $value, $this->channelOptions())) {
+            $this->channel = '';
+        }
+    }
+
+    /** "vs previous 30 days" — what the stat-card deltas are measured against. */
+    public function trendLabel(): string
+    {
+        return in_array($this->period, ['7', '30', '90'], true)
+            ? "vs previous {$this->period} days"
+            : 'vs previous period';
+    }
+
+    /** Other reports this page links to, skipping any the viewer cannot open. */
+    public function jumpLinks(): array
+    {
+        $links = [
+            [fn () => $this->inventoryReportUrl(), 'Inventory Reports', 'Stock value, movement and aging', 'heroicon-o-cube'],
+            [fn () => $this->streamerAnalyticsUrl(), 'Streamer Analytics', 'Per-streamer performance and trends', 'heroicon-o-user-group'],
+            [fn () => $this->streamerStatementUrl(), 'Streamer Statements', 'Pay statements per streamer', 'heroicon-o-document-text'],
+            [fn () => $this->financeLedgerUrl(), 'Whatnot Ledger', 'Transaction details and reconciliation', 'heroicon-o-currency-dollar'],
+            [fn () => $this->profitLossUrl(), 'Profit & Loss', 'Profit after costs and pay runs', 'heroicon-o-scale'],
+            [fn () => $this->productInsightsUrl(), 'Product Insights', 'Best sellers, margins and inventory performance', 'heroicon-o-chart-bar-square'],
+        ];
+
+        $out = [];
+        foreach ($links as [$url, $label, $text, $icon]) {
+            if ($href = $url()) {
+                $out[] = ['label' => $label, 'text' => $text, 'url' => $href, 'icon' => $icon];
+            }
+        }
+
+        return $out;
+    }
 
     /** What the selected range is compared with: previous | last_year | custom. */
     public string $compareMode = 'previous';
@@ -74,7 +189,8 @@ class Reports extends Page
     {
         abort_unless(array_key_exists($days, $this->getPeriodOptions()), 422);
         $this->period    = $days;
-        $this->dateFrom  = now()->subDays((int) $days)->toDateString();
+        // "This year" means since January 1st, not the last 365 days.
+        $this->dateFrom  = ($days === '365' ? now()->startOfYear() : now()->subDays((int) $days))->toDateString();
         $this->dateTo    = now()->toDateString();
         $this->showAllWeeks = false;
     }
@@ -99,7 +215,7 @@ class Reports extends Page
     private function cacheKey(string $section): string
     {
         $key = $this->period === 'custom' ? "{$this->dateFrom}_{$this->dateTo}" : $this->period;
-        return "reports_{$section}_{$key}_" . auth()->id() . '_ch' . (ChannelContext::currentId() ?? 'all');
+        return "reports_{$section}_{$key}_" . auth()->id() . '_ch' . ($this->channelId() ?? 'all');
     }
 
     private function validDate(string $date): bool
@@ -112,6 +228,9 @@ class Reports extends Page
     {
         if ($this->period === 'custom' && $this->validDate($this->dateFrom)) {
             return Carbon::parse($this->dateFrom)->startOfDay();
+        }
+        if ($this->period === '365') {
+            return now()->startOfYear();
         }
         return now()->subDays($this->period === 'custom' ? 30 : (int) $this->period)->startOfDay();
     }
@@ -135,7 +254,7 @@ class Reports extends Page
             ->with(['whatnotChannel:id,name', 'streamers:id,name'])
             ->whereBetween('show_date', [$start, $end])
             ->whereNotIn('status', ['cancelled'])
-            ->inChannelContext()
+            ->when($this->channelId(), fn ($q, $id) => $q->where('whatnot_channel_id', $id))
             ->orderBy('show_date')
             ->get(['id', 'title', 'show_date', 'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'status', 'whatnot_channel_id']);
 
@@ -165,7 +284,7 @@ class Reports extends Page
 
     public function getRevenueSummaryProperty(): array
     {
-        return Cache::remember($this->cacheKey('summary'), 60, function () {
+        return Cache::remember($this->cacheKey('summary'), 300, function () {
             $start = $this->periodStart();
             $end   = $this->periodEnd();
             $span  = $start->diffInDays($end) ?: 1;
@@ -173,7 +292,7 @@ class Reports extends Page
             $cur = DB::table('shows')
                 ->whereBetween('show_date', [$start, $end])
                 ->whereNotIn('status', ['cancelled'])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('whatnot_channel_id', $this->channelId()))
                 ->selectRaw('
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
@@ -190,11 +309,12 @@ class Reports extends Page
                     $start->copy()->subDay(),
                 ])
                 ->whereNotIn('status', ['cancelled'])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('whatnot_channel_id', $this->channelId()))
                 ->selectRaw('
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
-                    COALESCE(SUM(whatnot_net), 0) as net
+                    COALESCE(SUM(whatnot_net), 0) as net,
+                    COALESCE(SUM(units_sold), 0) as units
                 ')
                 ->first();
 
@@ -202,14 +322,14 @@ class Reports extends Page
                 ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
                 ->whereBetween('shows.show_date', [$start, $end])
                 ->whereNotIn('shows.status', ['cancelled'])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
                 ->sum('whatnot_show_orders.total_cost');
 
             $prevCogs = (float) DB::table('whatnot_show_orders')
                 ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
                 ->whereBetween('shows.show_date', [$start->copy()->subDays($span), $start->copy()->subDay()])
                 ->whereNotIn('shows.status', ['cancelled'])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
                 ->sum('whatnot_show_orders.total_cost');
 
             $trend = fn ($cur, $prev) => $prev > 0 ? round((($cur - $prev) / $prev) * 100, 1) : null;
@@ -230,6 +350,7 @@ class Reports extends Page
                 'margin_pct'   => $gross > 0 ? round($margin / $gross * 100, 1) : null,
                 'trend_gross'  => $trend($cur->gross ?? 0, $prev->gross ?? 0),
                 'trend_net'    => $trend($cur->net ?? 0, $prev->net ?? 0),
+                'trend_units'  => $trend($cur->units ?? 0, $prev->units ?? 0),
                 'trend_shows'  => $trend($cur->shows ?? 0, $prev->shows ?? 0),
                 'trend_margin' => $trend($margin, $prevMargin),
             ];
@@ -281,7 +402,7 @@ class Reports extends Page
 
         return Cache::remember($key, 300, function () use ($bFrom, $bTo) {
             $figures = app(\App\Services\PeriodFigures::class);
-            $channel = ChannelContext::currentId();
+            $channel = $this->channelId();
             $a = $figures->totals($this->periodStart(), $this->periodEnd(), $channel);
             $b = $figures->totals($bFrom, $bTo, $channel);
 
@@ -316,19 +437,19 @@ class Reports extends Page
     public function getChannelProfitProperty(): array
     {
         return Cache::remember($this->cacheKey('channel_profit'), 300, fn () => app(\App\Services\PeriodFigures::class)
-            ->byChannel($this->periodStart(), $this->periodEnd(), ChannelContext::currentId()));
+            ->byChannel($this->periodStart(), $this->periodEnd(), $this->channelId()));
     }
 
     // ── Revenue by channel ────────────────────────────────────────────────────
 
     public function getRevenueByChannelProperty(): array
     {
-        return Cache::remember($this->cacheKey('channel'), 60, function () {
+        return Cache::remember($this->cacheKey('channel'), 300, function () {
             return DB::table('shows')
                 ->leftJoin('whatnot_channels', 'shows.whatnot_channel_id', '=', 'whatnot_channels.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('shows.status', ['cancelled'])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
                 ->selectRaw('
                     COALESCE(whatnot_channels.name, "Unknown") as channel,
                     COUNT(*) as shows,
@@ -348,7 +469,7 @@ class Reports extends Page
 
     public function getRevenueByWeekProperty(): array
     {
-        return Cache::remember($this->cacheKey('week'), 60, function () {
+        return Cache::remember($this->cacheKey('week'), 300, function () {
             $isSqlite = DB::connection()->getDriverName() === 'sqlite';
 
             $weekExpr = $isSqlite
@@ -358,7 +479,7 @@ class Reports extends Page
             return DB::table('shows')
                 ->whereBetween('show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('status', ['cancelled'])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('whatnot_channel_id', $this->channelId()))
                 ->selectRaw("
                     {$weekExpr} as week_start,
                     COUNT(*) as shows,
@@ -381,28 +502,22 @@ class Reports extends Page
         });
     }
 
-    // ── Top streamers by payout ───────────────────────────────────────────────
-
+    // ── Streamer performance ─────────────────────────────────────────────────
     public function getTopStreamersByPayoutProperty(): array
     {
-        return Cache::remember($this->cacheKey('streamers'), 60, function () {
-            return DB::table('payouts')
-                ->join('shows', 'payouts.show_id', '=', 'shows.id')
-                ->join('streamers', 'payouts.streamer_id', '=', 'streamers.id')
+        $sort = array_key_exists($this->streamerSort, self::STREAMER_SORTS) ? $this->streamerSort : 'gross';
+
+        return Cache::remember($this->cacheKey('streamers_'.$sort), 300, function () use ($sort) {
+            return DB::table('show_streamer')
+                ->join('shows', 'show_streamer.show_id', '=', 'shows.id')
+                ->join('streamers', 'show_streamer.streamer_id', '=', 'streamers.id')
+                ->where('show_streamer.is_primary', true)
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
-                ->selectRaw('
-                    streamers.name as streamer,
-                    COUNT(DISTINCT payouts.show_id) as shows,
-                    COALESCE(SUM(payouts.calculated_payout), 0) as total,
-                    COALESCE(AVG(payouts.calculated_payout), 0) as avg
-                ')
-                ->groupBy('payouts.streamer_id', 'streamers.name')
-                ->orderByDesc('total')
-                ->limit(10)
-                ->get()
-                ->map(fn ($r) => (array) $r)
-                ->all();
+                ->whereNotIn('shows.status', ['cancelled'])
+                ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
+                ->selectRaw('streamers.name as streamer, COUNT(DISTINCT shows.id) as shows, COALESCE(SUM(shows.gross_revenue),0) as gross, COALESCE(SUM(shows.whatnot_net),0) as net')
+                ->groupBy('show_streamer.streamer_id', 'streamers.name')->orderByDesc($sort)->orderByDesc('gross')->limit(10)->get()
+                ->map(fn ($r) => ['streamer'=>$r->streamer,'shows'=>(int)$r->shows,'gross'=>(float)$r->gross,'net'=>(float)$r->net])->all();
         });
     }
 
@@ -410,11 +525,11 @@ class Reports extends Page
 
     public function getPayoutStatusSummaryProperty(): array
     {
-        return Cache::remember($this->cacheKey('payout_status'), 60, function () {
+        return Cache::remember($this->cacheKey('payout_status'), 300, function () {
             $rows = DB::table('payouts')
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
-                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->when($this->channelId() !== null, fn ($q) => $q->where('shows.whatnot_channel_id', $this->channelId()))
                 ->selectRaw('
                     payouts.status,
                     COUNT(*) as cnt,

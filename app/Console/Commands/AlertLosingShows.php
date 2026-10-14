@@ -26,6 +26,14 @@ class AlertLosingShows extends Command
 
     public function handle(ProfitLossReport $report): int
     {
+        // Set to a daily or weekly summary instead: reports:show-loss-notifications sends it.
+        $schedule = app(\App\Services\NotificationRouter::class)->rule('show_lost_money')['schedule'] ?? null;
+        if ($schedule && $schedule['mode'] !== 'immediate') {
+            $this->info('Finalized losses go out as a summary; no per-show alerts.');
+
+            return self::SUCCESS;
+        }
+
         $to = Carbon::parse(BusinessTime::local()->toDateString());
         $rows = $report->rows($to->copy()->subDays((int) $this->option('days')), $to);
         $alerted = collect(json_decode((string) Setting::get(self::SETTING, '[]'), true) ?: []);

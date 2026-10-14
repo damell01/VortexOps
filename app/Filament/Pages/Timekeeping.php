@@ -66,6 +66,22 @@ class Timekeeping extends Page
             : 'Clock in/out here — you only ever see your own entries.';
     }
 
+    /** The admin dashboard cards: what needs doing, who is on the clock, and this week's hours. */
+    public function adminTiles(): array
+    {
+        $weekStart = \App\Support\BusinessTime::local()->startOfWeek()->setTimezone('UTC');
+        $week = TimeEntry::query()->where('clocked_in_at', '>=', $weekStart)->where('status', '!=', 'rejected')->get(['id', 'user_id', 'clocked_in_at', 'clocked_out_at', 'status', 'approved_minutes']);
+        $minutes = (int) $week->sum(fn (TimeEntry $e) => $e->status === 'approved' && $e->approved_minutes !== null ? (int) $e->approved_minutes : (int) ($e->duration_minutes ?? 0));
+        $canTa = TimeAttendance::canAccess();
+
+        return [
+            'review' => ['count' => $canTa ? TimeAttendance::reviewCount() : 0, 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'review']) : null],
+            'now' => ['count' => TimeEntry::query()->whereNull('clocked_out_at')->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'now']) : null],
+            'hours' => ['minutes' => $minutes, 'people' => $week->pluck('user_id')->unique()->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'people']) : null],
+            'entries' => ['count' => $week->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'all']) : null],
+        ];
+    }
+
     public function getView(): string
     {
         return 'filament.pages.timekeeping';
@@ -227,18 +243,6 @@ class Timekeeping extends Page
             ->sortByDesc('minutes')
             ->values()
             ->toArray();
-    }
-
-    public function dashboardStats(): array
-    {
-        abort_unless($this->canSeeTeamEntries(), 403);
-        $week = TimeEntry::whereBetween('clocked_in_at', [\App\Support\BusinessTime::local()->startOfWeek()->utc(), \App\Support\BusinessTime::local()->endOfWeek()->utc()])->get();
-        return [
-            'review' => TimeAttendance::reviewCount(),
-            'open' => TimeEntry::whereNull('clocked_out_at')->count(),
-            'minutes' => $week->sum(fn ($entry) => $entry->payableMinutes()),
-            'entries' => $week->count(),
-        ];
     }
 
     // ── Actions ──────────────────────────────────────────────────────────────

@@ -50,15 +50,21 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
 ];
-if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=[['Timekeeping Overview',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]];
+// Timekeeping is one page — the clock, and for admins a dashboard that opens
+// Time & Attendance's lists — so it is a plain link, not a menu.
+if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=[
+ ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
+];
+$directGroups = ['Timekeeping'];
+// Links may carry a section heading and an icon: [label, url, section, icon].
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
- ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin')],
- ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin')],
- ...(\App\Filament\Pages\ProfitLoss::canAccess() ? [['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin')]] : []),
- ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],
- ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin')],
- ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
- ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index')],
+ ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],
+ ['Whatnot Performance',\App\Filament\Pages\Reports::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-up'],
+ ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-down'],
+ ['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar'],
+ ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index'),'Financial','heroicon-o-document-text'],
+ ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin'),'Operations','heroicon-o-user-group'],
+ ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Operations','heroicon-o-cube'],
 ];
 // Fulfillment admins don't get the Payroll menu, so Businesses sits under Admin for them.
 if(! $user?->isAdmin() && ! $user?->isOwner() && $user?->isFulfillmentAdmin()) $groups['Admin']=[
@@ -103,18 +109,21 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
-@if($label==='Timekeeping' && count($links)===1)
-<a class="vx-mega-home" href="{{ $links[0][1] }}"><x-filament::icon icon="heroicon-o-clock"/><span>Timekeeping</span></a>
+@if(in_array($label, $directGroups ?? [], true) && count($links) === 1)
+@php $here = request()->routeIs('filament.admin.pages.timekeeping', 'filament.admin.pages.time-attendance'); @endphp
+<a class="vx-mega-trigger @if($here) is-here @endif" href="{{ $links[0][1] }}" @if($here) aria-current="page" @endif><span>{{ $label }}</span></a>
 @continue
 @endif
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
 <button type="button" class="vx-mega-trigger" :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>
-<div class="vx-mega-menu-title">{{ $label }}</div>
-@foreach($links as [$text,$url])
-@if($label==='Reports' && $text==='Whatnot Losses')<div class="vx-mega-menu-title" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px">Financial</div>@endif
-@if($label==='Reports' && $text==='Streamer Analytics')<div class="vx-mega-menu-title" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px">Operations</div>@endif
-<a href="{{ $url }}" @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
+@php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
+@unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless
+@foreach($links as $link)
+@php [$text,$url] = $link; $section = $link[2] ?? null; $icon = $link[3] ?? null; @endphp
+@if($sectioned && $section !== $lastSection)<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
+<a href="{{ $url }}" @click="open=false" @class(['has-icon' => $icon])>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
+@endforeach
 @if($label==='Admin' && $ownerLinks)
 <details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as [$text,$url])<a href="{{ $url }}" @click="open=false">{{ $text }}</a>@endforeach</div></details>
 @endif

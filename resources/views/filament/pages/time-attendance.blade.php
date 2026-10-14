@@ -13,6 +13,7 @@
     ];
 @endphp
 <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="time-attendance">
+    <a href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}" class="vxw-link" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;justify-self:start"><x-filament::icon icon="heroicon-m-arrow-left" style="width:16px;height:16px" /> Back to Timekeeping</a>
     <div class="vxw-chips" role="tablist" aria-label="Time & Attendance views">
         @foreach ($tabs as $key => [$label, $count])
             <button type="button" role="tab" wire:click="setTab('{{ $key }}')" @class(['vxw-chip', 'is-active' => $tab === $key]) aria-selected="{{ $tab === $key ? 'true' : 'false' }}">
@@ -148,10 +149,10 @@
     @endif
 </div>
 
-{{-- Review side panel --}}
+{{-- Review panel: a centred modal --}}
 @if ($panel)
     <div class="fixed inset-0 z-40" style="background:rgb(3 7 18 / .45)" wire:click="closePanel" aria-hidden="true"></div>
-    <aside class="vxw fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-y-auto shadow-2xl" style="max-width:30rem;background:var(--vxw-surface);gap:0;display:flex;align-content:start;justify-content:flex-start" role="dialog" aria-modal="true" aria-label="Review time" wire:key="panel-{{ $reviewing }}">
+    <aside class="vxw flex flex-col overflow-y-auto" style="position:fixed;z-index:50;top:50%;left:50%;transform:translate(-50%,-50%);width:min(760px,calc(100vw - 24px));max-width:none;max-height:min(90vh,920px);border-radius:20px;border:1px solid var(--vxw-border);box-shadow:0 30px 80px -20px rgb(10 10 30 / .45);background:var(--vxw-surface);gap:0;display:flex;align-content:start;justify-content:flex-start" data-vx-dialog role="dialog" aria-modal="true" aria-label="Review time" wire:key="panel-{{ $reviewing }}">
         <div class="flex items-start justify-between gap-3 border-b px-5 py-4" style="border-color:var(--vxw-border)">
             <div>
                 <div class="vxw-eyebrow">{{ $panel['kind'] === 'entry' ? 'Time entry' : 'Show Hours Worked' }}</div>

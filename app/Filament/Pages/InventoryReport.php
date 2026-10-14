@@ -91,14 +91,53 @@ class InventoryReport extends Page
         return static::canAccess();
     }
 
+    /**
+     * The page draws its own header (title, subtitle, scope and export in one
+     * row, like every other report), so Filament's is switched off.
+     */
+    public function getHeading(): string
+    {
+        return '';
+    }
+
     public function getSubheading(): ?string
     {
-        return 'View live inventory value, stock health, categories, locations, and item-level detail without leaving VortexOps.';
+        return null;
+    }
+
+    /** Every tab the report offers, in the order they're shown. */
+    public const TABS = [
+        'items' => 'Current Inventory',
+        'valuation' => 'Valuation',
+        'locations' => 'Locations',
+        'low-stock' => 'Low Stock',
+        'out-stock' => 'Out of Stock',
+        'recent' => 'Recent Activity',
+        'top-value' => 'Top Value',
+        'moving' => 'Top Sold',
+        'aging' => 'Idle',
+    ];
+
+    /** The "Uncategorized Items" figure opens the item list filtered to them. */
+    public function showUncategorized(): void
+    {
+        $this->reportCategory = 'Uncategorized';
+        $this->activeTab = 'items';
+        $this->reportPage = 1;
+        $this->viewerDataCache = null;
+    }
+
+    /** Header-sortable columns map onto the existing sort keys. */
+    public function sortBy(string $sort): void
+    {
+        $this->reportSort = in_array($sort, ['value', 'qty', 'name', 'updated'], true) ? $sort : 'value';
+        $this->viewerDataCache = null;
+        $this->reportPage = 1;
     }
 
     public function setTab(string $tab): void
     {
-        $this->activeTab = in_array($tab, ['items','low-stock','out-stock','recent','top-value','moving','aging'], true) ? $tab : 'items';
+        $this->activeTab = array_key_exists($tab, self::TABS) ? $tab : 'items';
         $this->reportPage = 1;
     }
 
@@ -123,6 +162,9 @@ class InventoryReport extends Page
             'recent' => 'recent',
             'top-value' => 'top-value',
             'moving' => 'moving',
+            'valuation' => 'valuation',
+            'locations' => 'locations',
+            'aging' => 'aging',
             default => 'items',
         };
 
@@ -183,6 +225,7 @@ class InventoryReport extends Page
                 'name' => $this->sanitizeUtf8($product->name),
                 'category' => $this->sanitizeUtf8($product->category ?: 'Uncategorized'),
                 'image_url' => $product->imageUrl(),
+                'has_image' => $product->hasImage(),
                 'quantity' => $quantity,
                 'unit_cost' => $cost,
                 'total_value' => $quantity * $cost,
@@ -212,13 +255,21 @@ class InventoryReport extends Page
                 'value' => (float) $snapshot->total_value,
             ]);
 
-        $locations = InventoryStock::query()->inChannelContext()
+        $stockRows = InventoryStock::query()->inChannelContext()
             ->whereIn('inventory_item_id', $products->pluck('id'))
             ->when($this->reportLocation !== '', fn ($q) => $q->whereHas('location', fn ($l) => $l->where('name', $this->reportLocation)))
             ->with(['item', 'location'])
             ->where('quantity', '>', 0)
             ->get()
-            ->groupBy(fn ($stock) => $stock->location?->name ?: 'Unknown')
+            ->groupBy(fn ($stock) => $stock->location?->name ?: 'Unknown');
+
+        $locationsByItem = $stockRows->map(fn ($rows) => $rows->map(fn ($stock) => [
+            'item_id' => $stock->inventory_item_id,
+            'quantity' => (float) $stock->quantity,
+            'value' => (float) $stock->quantity * (float) ($stock->item?->costBasis() ?? 0),
+        ])->all())->all();
+
+        $locations = $stockRows
             ->map(function ($rows, $name) {
                 return [
                     'name' => $name,
@@ -236,9 +287,11 @@ class InventoryReport extends Page
                 'avg_cost' => $totalQuantity > 0 ? $totalValue / $totalQuantity : 0,
                 'low_stock' => $items->where('is_low_stock', true)->count(),
                 'out_stock' => $items->where('is_out_stock', true)->count(),
+                'uncategorized' => $items->where('category', 'Uncategorized')->count(),
             ],
             'trend' => $trend,
             'locations' => $locations,
+            'locations_by_item' => $locationsByItem,
             'location_options' => InventoryLocation::query()->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))->orderBy('name')->pluck('name'),
             'items' => $items,
             'category_breakdown' => $onHand->groupBy('category')->map(function ($rows, $category) {
@@ -293,9 +346,21 @@ class InventoryReport extends Page
         $value = (float) $onHand->sum('total_value');
         $data['summary'] = ['value' => $value, 'items' => $items->count(), 'in_stock_items' => $onHand->count(),
             'quantity' => $quantity, 'avg_cost' => $quantity > 0 ? $value / $quantity : 0,
-            'low_stock' => $items->where('is_low_stock', true)->count(), 'out_stock' => $items->where('is_out_stock', true)->count()];
+            'low_stock' => $items->where('is_low_stock', true)->count(), 'out_stock' => $items->where('is_out_stock', true)->count(),
+            'uncategorized' => $items->where('category', 'Uncategorized')->count()];
+        // Locations follow the item filters too, so the Locations tab agrees
+        // with the stat cards above it.
+        $ids = $items->pluck('id')->all();
+        $data['locations'] = collect($data['locations_by_item'] ?? [])
+            ->map(fn ($rows, $name) => ['name' => $name,
+                'quantity' => (float) collect($rows)->whereIn('item_id', $ids)->sum('quantity'),
+                'value' => (float) collect($rows)->whereIn('item_id', $ids)->sum('value'),
+                'items' => collect($rows)->whereIn('item_id', $ids)->pluck('item_id')->unique()->count()])
+            ->filter(fn ($row) => $row['quantity'] > 0)
+            ->sortByDesc('value')->values();
         $data['category_breakdown'] = $onHand->groupBy('category')->map(fn ($rows, $name) => [
             'name' => $name, 'quantity' => (float) $rows->sum('quantity'), 'value' => (float) $rows->sum('total_value'),
+            'items' => $rows->count(),
         ])->sortByDesc('value')->values();
         $data['items'] = $items->values();
         return $data;
@@ -359,6 +424,18 @@ class InventoryReport extends Page
             'top-value' => $items->where('quantity', '>', 0)->sortByDesc('total_value')->values(),
             'aging' => $items->where('quantity', '>', 0)->where('idle_days', '>=', 30)->sortByDesc('idle_days')->values(),
             default => $items->values(),
+        };
+    }
+
+    /** Rows for the active tab, before paging — what the table shows and the CSV exports. */
+    public function getTabRows(): \Illuminate\Support\Collection
+    {
+        return match ($this->activeTab) {
+            'recent' => collect($this->getRecentActivityRows()),
+            'moving' => collect($this->getTopMovingRows()),
+            'valuation' => collect($this->getViewerData()['category_breakdown']),
+            'locations' => collect($this->getViewerData()['locations']),
+            default => $this->getReportItems(),
         };
     }
 
@@ -935,8 +1012,9 @@ class InventoryReport extends Page
 
     public function exportCsv(): StreamedResponse
     {
-        if (in_array($this->activeTab, ['recent', 'moving'], true)) {
-            $rows = $this->activeTab === 'recent' ? $this->getRecentActivityRows() : $this->getTopMovingRows();
+        if (in_array($this->activeTab, ['recent', 'moving', 'valuation', 'locations'], true)) {
+            $rows = $this->getTabRows()->map(fn ($row) => collect($row)
+                ->map(fn ($value) => $value instanceof \DateTimeInterface ? $value->format('Y-m-d H:i') : $value)->all())->values()->all();
             return response()->streamDownload(function () use ($rows): void {
                 $out = fopen('php://output', 'w');
                 if ($rows) fputcsv($out, array_keys($rows[0]));

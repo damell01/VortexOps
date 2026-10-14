@@ -5,17 +5,9 @@ namespace App\Filament\Resources;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WhatnotLedgerResource\Pages;
 use App\Models\WhatnotLedgerEntry;
-use App\Support\StatusColor;
 use App\Support\AdminModules;
 use App\Support\NavVisibility;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Table;
-use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 
 class WhatnotLedgerResource extends Resource
@@ -67,112 +59,8 @@ class WhatnotLedgerResource extends Resource
 
     public static function canCreate(): bool { return false; }
 
-    public static function table(Table $table): Table
-    {
-        return $table
-            ->striped()
-            ->persistFiltersInSession()
-            ->deferLoading()
-            ->emptyStateHeading('No Whatnot ledger entries')
-            ->emptyStateDescription('Entries arrive via the nightly ledger import from Whatnot.')
-            ->emptyStateIcon('heroicon-o-document-currency-dollar')
-            ->defaultSort('created_date', 'desc')
-            ->columns([
-                TextColumn::make('created_date')
-                    ->label('Created')
-                    ->dateTime('M j, Y g:i A')
-                    // Copied from Whatnot's page in local time already.
-                    ->timezone(config('app.timezone'))
-                    ->sortable(),
-
-                TextColumn::make('amount')
-                    ->money('USD')
-                    ->sortable()
-                    ->color(fn ($state) => (float) $state < 0 ? 'danger' : 'success')
-                    ->summarize(\Filament\Tables\Columns\Summarizers\Sum::make()->money('USD')->label('Net')),
-
-                TextColumn::make('transaction_type')
-                    ->label('Type')
-                    ->badge()
-                    ->placeholder('—'),
-
-                TextColumn::make('status')
-                    ->badge()
-                    ->color(fn ($state) => StatusColor::for($state)),
-
-                TextColumn::make('whatnot_order_id')
-                    ->label('Order ID')
-                    ->searchable()
-                    ->placeholder('—')
-                    ->url(fn (WhatnotLedgerEntry $r) => $r->order_hash
-                        ? "https://www.whatnot.com/dashboard/orders/{$r->order_hash}" : null, true),
-
-                TextColumn::make('message')
-                    ->wrap()
-                    ->limit(80)
-                    ->searchable()
-                    ->toggleable(),
-
-                TextColumn::make('channel.name')
-                    ->label('Channel')
-                    ->placeholder('—')
-                    ->toggleable(),
-
-                TextColumn::make('completed_date')
-                    ->label('Completed')
-                    ->dateTime('M j, Y g:i A')
-                    // Copied from Whatnot's page in local time already.
-                    ->timezone(config('app.timezone'))
-                    ->toggleable()
-                    ->sortable(),
-            ])
-            ->filters([
-                SelectFilter::make('transaction_type')
-                    ->label('Type')
-                    ->options(fn () => WhatnotLedgerEntry::query()
-                        ->whereNotNull('transaction_type')
-                        ->distinct()
-                        ->pluck('transaction_type', 'transaction_type')
-                        ->toArray()),
-                SelectFilter::make('whatnot_channel_id')
-                    ->label('Channel')
-                    ->relationship('channel', 'name'),
-                SelectFilter::make('status')
-                    ->options(fn () => WhatnotLedgerEntry::query()
-                        ->whereNotNull('status')
-                        ->distinct()
-                        ->pluck('status', 'status')
-                        ->toArray()),
-                Filter::make('created_date')
-                    ->schema([
-                        DatePicker::make('from')->label('From'),
-                        DatePicker::make('until')->label('Until'),
-                    ])
-                    // $query, not $q: Filament injects the table's builder by
-                    // parameter name, so anything else resolves a throwaway
-                    // Builder from the container and the date range filters
-                    // nothing at all.
-                    ->query(fn (Builder $query, array $data) => $query
-                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '>=', $d))
-                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '<=', $d))),
-            ])
-            ->recordActions([
-                \Filament\Actions\Action::make('details')->label('Details')->icon('heroicon-o-eye')->slideOver()
-                    ->modalHeading('Transaction Details')->modalSubmitAction(false)->modalCancelActionLabel('Close')
-                    ->schema([
-                        \Filament\Forms\Components\TextInput::make('amount')->default(fn ($record) => $record->amount)->disabled(),
-                        \Filament\Forms\Components\TextInput::make('type')->default(fn ($record) => $record->transaction_type)->disabled(),
-                        \Filament\Forms\Components\TextInput::make('status')->default(fn ($record) => $record->status)->disabled(),
-                        \Filament\Forms\Components\TextInput::make('order_id')->label('Order ID')->default(fn ($record) => $record->whatnot_order_id)->disabled(),
-                        \Filament\Forms\Components\Textarea::make('details')->default(fn ($record) => $record->message)->disabled(),
-                    ]),
-            ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make()->visible(fn () => auth()->user()?->isOwner()),
-                ]),
-            ]);
-    }
+    // The list page draws its own table (filters, totals, details panel and
+    // CSV export) — see Pages\ListWhatnotLedgerEntries.
 
     public static function getEloquentQuery(): Builder
     {

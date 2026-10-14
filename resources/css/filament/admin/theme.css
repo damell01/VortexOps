@@ -147,3 +147,11 @@
 .fi-fo-field-wrp-label{font-weight:600}.fi-modal-footer{border-top:1px solid var(--vx-border,#e2e8f0);padding-top:16px}.fi-modal-window{border-radius:18px!important}
 @media(max-width:767px){.fi-header-actions-ctn{width:100%}.fi-header-actions-ctn>.fi-btn{flex:1 1 auto}.fi-modal-footer .fi-btn{min-height:44px}.fi-section-header{padding-block:14px}}
 @media(prefers-reduced-motion:reduce){.vx-mega-menu,.fi-modal-window{transition:none!important}}
+
+/* Menu links with an icon and section headings (Reports). */
+@media(min-width:1024px){
+  .vx-mega-menu a.has-icon{justify-content:flex-start;gap:12px;font-size:14px}
+  .vx-mega-menu a.has-icon .vx-mega-link-icon{width:20px;height:20px;color:#7c3aed}
+  .vx-mega-menu a.has-icon:hover .vx-mega-link-icon{color:#5b21b6}
+  .vx-mega-section{margin-top:6px;padding-top:12px;border-top:1px solid #eef0f4}
+}

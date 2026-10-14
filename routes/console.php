@@ -124,6 +124,7 @@ Schedule::command('ai:ops weekly')->weeklyOn(1, '07:00')->name('ai-ops-weekly-ma
 Schedule::command('reports:scraper-health-digest')->weeklyOn(1, '07:55')->name('scraper-health-digest')->withoutOverlapping();
 Schedule::command('reports:pl-summary day')->dailyAt('07:41')->timezone('America/Chicago')->name('daily-pl-summary')->withoutOverlapping();
 Schedule::command('reports:pl-summary week')->weeklyOn(1, '07:46')->timezone('America/Chicago')->name('weekly-pl-summary')->withoutOverlapping();
+Schedule::command('reports:show-loss-notifications')->everyFiveMinutes()->name('show-loss-notifications')->withoutOverlapping(10);
 Schedule::command('reports:losing-shows')->hourlyAt(23)->name('losing-show-alerts')->withoutOverlapping(10);
 Schedule::command('reports:weekly-owner-summary')->weeklyOn(1, '07:50')->name('weekly-owner-summary')->withoutOverlapping();
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
@@ -133,4 +134,3 @@ Schedule::command('inventory:snapshot-value')->dailyAt('23:50')->name('inventory
 
 Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('automatic-streamer-assignment')->withoutOverlapping(10)->appendOutputTo(storage_path('logs/streamer-auto-assignment.log'));
 
-Schedule::command('reports:whatnot-loss-summary --scheduled')->everyMinute()->name('whatnot-loss-summaries')->withoutOverlapping();

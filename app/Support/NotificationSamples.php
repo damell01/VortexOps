@@ -37,7 +37,6 @@ class NotificationSamples
         $alert = fn (string $t, string $b, string $tone = 'info', array $links = []) => new VortexAlert($event, $t, $b, $tone, $links ?: ['Open VortexOps' => $showUrl]);
 
         return match ($event) {
-            'daily_whatnot_losses', 'weekly_whatnot_losses' => $alert('Whatnot Loss Summary — sample', 'Sample show · Vortex Breaks · -$100.00. Whatnot estimates only; excludes business expenses and payroll.', 'warning'),
             'show_ready' => new ShowReadyNotification($show),
             'show_pending_approval' => new ShowPendingApprovalNotification($show),
             'show_reconciled' => new ShowReconciledNotification($show),
@@ -63,11 +62,21 @@ class NotificationSamples
             'low_stock' => $alert('Low Stock: Sample Booster Box', '3 units remaining (reorder at 10)', 'warning'),
             'damaged' => $alert('Items Marked Damaged', '2x Sample Booster Box moved to damaged from A Main Warehouse', 'danger'),
             'ai_manifest' => $alert('AI manifest ready for review', 'Pallet PO-1042: 48 manifest lines added · 41 existing items preselected · 7 need review.', 'success'),
-            'show_lost_money' => $alert('A show lost money: '.$title, "Tue Oct 13 · Jordan · Vortex Breaks\nEarnings $911.00 − COGS $933.00 − pay $308.00 = −$330.00", 'danger'),
+            'whatnot_negative' => new \App\Notifications\ShowLossSummaryNotification('whatnot_negative', self::lastWeekDigest('whatnot_negative')),
+            'show_lost_money' => (app(\App\Services\NotificationRouter::class)->rule('show_lost_money')['schedule']['mode'] ?? 'immediate') !== 'immediate'
+                ? new \App\Notifications\ShowLossSummaryNotification('show_lost_money', self::lastWeekDigest('show_lost_money'))
+                : $alert('A show lost money: '.$title, "Tue Oct 13 · Jordan · Vortex Breaks\nEarnings $911.00 − COGS $933.00 − pay $308.00 = −$330.00", 'danger'),
             'daily_pl_summary', 'weekly_pl_summary' => new \App\Notifications\ProfitLossSummaryNotification($event, app(\App\Services\ProfitLossSummary::class)->build($event === 'daily_pl_summary' ? 'day' : 'week', now()->subDay())),
             'missed_clock_out' => $alert('Still clocked in?', 'Sam has been clocked in since Mon Oct 13, 9:02 AM. Clock out and correct the time — an admin will review it.', 'warning'),
             'fulfillment_assigned' => $alert('Fulfillment show assigned', "You are assigned to fulfillment for {$title}. Open the Fulfillment Center to work its shipment and packing queue."),
             default => $alert(NotificationCatalog::label($event), 'This is a sample of this notification.'),
         };
+    }
+
+    private static function lastWeekDigest(string $event): array
+    {
+        $from = \Illuminate\Support\Carbon::parse(\App\Support\BusinessTime::local()->toDateString())->startOfWeek()->subWeek();
+
+        return app(\App\Services\ShowLossDigest::class)->build($event, $from, $from->copy()->addDays(6));
     }
 }

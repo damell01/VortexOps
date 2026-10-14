@@ -1,6 +1,7 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 @import '../../components.css';
 @import '../../workflow.css';
+@import '../../reports.css';
 
 @source '../../../../app/Filament/**/*.php';
 @source '../../../views/**/*.blade.php';

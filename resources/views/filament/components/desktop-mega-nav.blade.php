@@ -106,7 +106,7 @@ $ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? 
 if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
 @endphp
 <a href="{{ $homeUrl }}" class="vx-app-back" aria-label="Back to previous screen" title="Back"
-   onclick="const entries=window.navigation?.entries?.();const current=window.navigation?.currentEntry;const previous=entries&amp;&amp;current?entries.find(entry=>entry.index===current.index-1):null;const source=previous?.url||document.referrer;try{if(source&amp;&amp;new URL(source).origin===location.origin&amp;&amp;history.length&gt;1){event.preventDefault();history.back();}}catch(e){}">
+   onclick="event.preventDefault();window.vortexGoBack(this.href)">
     <x-filament::icon icon="heroicon-o-arrow-left" />
     <span>Back</span>
 </a>
@@ -226,3 +226,44 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     .fi-topbar .vx-mega-channel { min-width: 115px !important; max-width: 140px !important; flex-basis: 130px !important; }
 }
 </style>
+
+
+<script>
+(() => {
+    const key = 'vortex:visited-pages';
+    const read = () => {
+        try { const value = JSON.parse(sessionStorage.getItem(key) || '[]'); return Array.isArray(value) ? value.filter(url => { try { const parsed = new URL(url); return parsed.origin === location.origin && parsed.pathname.startsWith('/admin'); } catch { return false; } }) : []; }
+        catch { return []; }
+    };
+    const save = pages => { try { sessionStorage.setItem(key, JSON.stringify(pages.slice(-100))); } catch {} };
+    const track = () => {
+        const pages = read();
+        if (!pages.length && document.referrer) {
+            try { const ref = new URL(document.referrer); if (ref.origin === location.origin && ref.pathname.startsWith('/admin') && ref.href !== location.href) pages.push(ref.href); } catch {}
+        }
+        if (pages[pages.length - 1] !== location.href) pages.push(location.href);
+        save(pages);
+    };
+    window.vortexGoBack = fallback => {
+        const pages = read();
+        while (pages.length && pages[pages.length - 1] === location.href) pages.pop();
+        const previous = pages[pages.length - 1];
+        save(pages);
+        if (previous) { location.assign(previous); return; }
+        if (history.length > 1) { history.back(); return; }
+        location.assign(fallback);
+    };
+    if (!window.vortexHistoryTrackingInstalled) {
+        window.vortexHistoryTrackingInstalled = true;
+        document.addEventListener('livewire:navigated', track);
+        window.addEventListener('pageshow', track);
+        window.addEventListener('popstate', () => {
+            const pages = read();
+            const index = pages.lastIndexOf(location.href);
+            if (index >= 0) save(pages.slice(0, index + 1));
+            else track();
+        });
+    }
+    track();
+})();
+</script>

@@ -10,7 +10,8 @@ class RequirePasswordChange
     public function handle(Request $request, Closure $next)
     {
         if ($request->user()?->must_change_password
-            && ! $request->routeIs('account.password.*', 'filament.admin.auth.logout')) {
+            && ! \App\Support\Impersonation::active()
+            && ! $request->routeIs('account.password.*', 'filament.admin.auth.logout', 'impersonation.stop')) {
             return redirect()->route('account.password.edit');
         }
 

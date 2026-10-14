@@ -216,6 +216,10 @@ class AdminPanelProvider extends PanelProvider
                     : '',
             )
             ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => \App\Support\Impersonation::active() && auth()->check() ? view('filament.components.impersonation-banner') : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::CONTENT_START,
                 fn () => ! auth()->check() ? '' : view('filament.components.clock-banner'),
             )

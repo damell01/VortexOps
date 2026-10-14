@@ -62,13 +62,17 @@ function flipChanged() {
 }
 
 // ── Foil confetti, for moments worth it ──────────────────────────────────
-export function celebrate() {
+// Who pops out of the ball: Meowth for pay day, Pikachu for everything else.
+const MON = { pay: 'meowth', default: 'pikachu' };
+export function celebrate(event) {
     if (calm.matches) return;
+    const detail = Array.isArray(event?.detail) ? event.detail[0] : event?.detail;
+    const mon = MON[detail?.kind] || MON.default;
     const catchBox = document.createElement('div');
     catchBox.className = 'vx-catch';
-    catchBox.innerHTML = '<div class="vx-catch-ball"></div><span class="vx-catch-star">★</span>';
+    catchBox.innerHTML = `<div class="vx-catch-ball"></div><span class="vx-catch-star">★</span><img class="vx-catch-mon" src="/img/pokemon/${mon}.gif" alt="">`;
     document.body.appendChild(catchBox);
-    setTimeout(() => catchBox.remove(), 2200);
+    setTimeout(() => catchBox.remove(), 2900);
     setTimeout(confetti, 1350);
 }
 

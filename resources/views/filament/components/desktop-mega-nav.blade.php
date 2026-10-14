@@ -137,49 +137,62 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @include('filament.components.mobile-navigation')
 
 
+
 <style>
 @media (min-width: 1024px) {
-    .fi-topbar,
-    .fi-topbar > nav,
-    .fi-topbar nav:not(.vx-desktop-mega-nav) {
-        box-sizing: border-box;
+    .fi-topbar-ctn { min-width: 0 !important; max-width: 100% !important; }
+    .fi-topbar:has(.vx-desktop-mega-nav) {
+        box-sizing: border-box !important;
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-    }
-    .fi-topbar nav:not(.vx-desktop-mega-nav) {
-        padding-inline: 20px !important;
-        flex-wrap: wrap !important;
         height: auto !important;
+        min-height: 68px !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 12px !important;
+        padding: 10px 24px !important;
+        overflow: visible !important;
     }
     .fi-topbar nav.vx-desktop-mega-nav {
-        box-sizing: border-box;
+        box-sizing: border-box !important;
+        flex: 1 1 0% !important;
         width: auto !important;
         min-width: 0 !important;
         max-width: 100% !important;
-        flex: 1 1 0% !important;
+        height: auto !important;
+        min-height: 44px !important;
         padding: 0 !important;
-        margin-inline: 0 !important;
+        margin: 0 !important;
         flex-wrap: wrap !important;
     }
-    .fi-topbar nav:not(.vx-desktop-mega-nav) > :not(.vx-desktop-mega-nav) {
-        min-width: 0;
-        flex-shrink: 0;
-    }
-    .fi-topbar :is(.fi-user-menu, [class*="user-menu"]) {
-        flex-shrink: 0 !important;
-        margin-inline-end: 0 !important;
-    }
-    .fi-topbar .fi-global-search {
+    .fi-topbar .fi-topbar-start { flex: 0 0 auto !important; margin: 0 !important; }
+    .fi-topbar .fi-topbar-end {
+        box-sizing: border-box !important;
+        flex: 0 1 auto !important;
         min-width: 0 !important;
-        width: clamp(160px, 16vw, 260px) !important;
-        max-width: 260px !important;
-        flex-shrink: 1 !important;
+        max-width: 100% !important;
+        margin-inline-start: auto !important;
+        padding-inline-end: 4px !important;
+        gap: 12px !important;
     }
+    .fi-topbar .fi-topbar-end > :not(.fi-global-search) { flex-shrink: 0 !important; }
+    .fi-topbar .fi-global-search {
+        flex: 0 1 240px !important;
+        width: clamp(140px, 16vw, 240px) !important;
+        min-width: 0 !important;
+        max-width: 240px !important;
+        margin: 0 !important;
+    }
+    .fi-topbar .fi-global-search :is(.fi-input-wrp, .fi-global-search-field, input) {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .fi-topbar .fi-user-menu { flex: 0 0 auto !important; margin: 0 !important; }
 }
 @media (min-width: 1024px) and (max-width: 1599px) {
-    .fi-topbar nav.vx-desktop-mega-nav {
-        flex-basis: 100% !important;
-    }
+    .fi-topbar nav.vx-desktop-mega-nav { flex-basis: 100% !important; }
 }
 </style>

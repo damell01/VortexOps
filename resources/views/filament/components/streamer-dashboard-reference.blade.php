@@ -2,7 +2,7 @@
 @php
     $groups = $myRecentShows->groupBy(fn ($show) => $show->show_date?->isToday() ? 'today' : ($show->show_date?->isYesterday() ? 'yesterday' : 'earlier'));
     $initialDay = $groups->has('today') ? 'today' : ($groups->has('yesterday') ? 'yesterday' : 'earlier');
-    $next = $myUpcomingShows->first();
+    $next = $myUpcomingShows->first(fn ($show) => !$myRecentShows->contains('id', $show->id));
 @endphp
 <div class="vx-stream-home" x-data="{day: @js($initialDay)}">
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />

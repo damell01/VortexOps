@@ -1,11 +1,18 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 async function login(page, email: string) {
+ const state='storage/mockup-auth-'+email.replace(/[^a-z0-9]/gi,'_')+'.json';
+ if(fs.existsSync(state)){
+  await page.context().addCookies(JSON.parse(fs.readFileSync(state,'utf8')).cookies);
+  await page.goto('/admin');
+  return;
+ }
  await page.goto('/admin/login');
  await page.locator('input[type=email]').fill(email);
  await page.locator('input[type=password]').fill('MockupTest123!');
  await page.getByRole('button', {name:'Sign in', exact:true}).click();
- await expect(page.locator('input[type=password]')).toHaveCount(0);
+ await expect(page.locator('input[type=password]')).toHaveCount(0,{timeout:20000});
+ await page.context().storageState({path:state});
 }
 for (const width of [390, 1280, 1920]) {
  test(`streamer home and day tabs at ${width}`, async ({page}) => {

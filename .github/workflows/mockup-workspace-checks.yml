@@ -36,6 +36,7 @@ jobs:
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: /tmp/vortex-mockup.sqlite
+          APP_DEBUG: false
       - name: Browser layout checks
         run: |
           php artisan serve --host=127.0.0.1 --port=8000 > /tmp/mockup-server.log 2>&1 &
@@ -43,6 +44,7 @@ jobs:
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: /tmp/vortex-mockup.sqlite
+          APP_DEBUG: false
       - uses: actions/upload-artifact@v4
         if: always()
         with:

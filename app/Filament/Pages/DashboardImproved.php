@@ -26,15 +26,6 @@ use Filament\Pages\Dashboard;
 
 class DashboardImproved extends Dashboard
 {
-    public function mount(): void
-    {
-        $user = auth()->user();
-
-        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
-            $this->redirect(StreamerShows::getUrl(), navigate: true);
-        }
-    }
-
     public function getView(): string
     {
         return 'filament.pages.dashboard-improved';

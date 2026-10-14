@@ -138,9 +138,11 @@
             </section>
         @endif
 
+        @if($pageMode !== 'streamer')
         <div class="min-w-0">
             <x-filament-widgets::widgets :widgets="$this->getWidgets()" :columns="$this->getColumns()" />
         </div>
+        @endif
     </div>
     @endif
 </x-filament-panels::page>

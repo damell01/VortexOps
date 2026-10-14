@@ -12,10 +12,10 @@ final class GuidedHelp
         $user = auth()->user();
         $docs = [];
         if ($user && ($user->isAdmin() || $user->isStreamer() || $user->streamer)) {
-            $docs['streamer'] = ['title' => 'Streamer show reporting', 'file' => 'streamer-guide.pdf', 'description' => 'Find your show, log items, check hours, submit, and request a correction.'];
+            $docs['streamer'] = ['title' => 'Streamer guide', 'file' => 'streamer-guide.pdf', 'description' => 'Your home page, clocking in and out, logging items, hours and notes, submitting, and requesting a correction.'];
         }
         if ($user?->isAdmin()) {
-            $docs['admin'] = ['title' => 'Admin, users & payroll', 'file' => 'admin-guide.pdf', 'description' => 'Set up users and aliases, review shows, split people between businesses, and work through weekly payroll.'];
+            $docs['admin'] = ['title' => 'Admin, users & payroll', 'file' => 'admin-guide.pdf', 'description' => 'Users and aliases, shows, businesses, timekeeping, pay run types and pay runs, team rates, Profit & Loss, and logging in as a user.'];
         }
         // canAccess() alone admits any signed-in user while the module is on,
         // so the PDF also needs a role that is actually meant for inventory.

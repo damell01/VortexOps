@@ -44,7 +44,7 @@ class GuidedHelpTest extends TestCase
         $this->get('/admin/guides/admin')->assertForbidden();
         $this->get('/admin/guides/../../.env')->assertNotFound();
         $response = $this->get('/admin/guides/streamer')->assertOk();
-        $this->assertSame(706484, $response->baseResponse->getFile()->getSize());
+        $this->assertSame(filesize(resource_path('guides/streamer-guide.pdf')), $response->baseResponse->getFile()->getSize());
     }
 
     public function test_inventory_pdf_and_reader_follow_inventory_access(): void

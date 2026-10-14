@@ -61,6 +61,26 @@ class ShowsManual
                 'blurb' => 'One report moves through Items, Details and Review before fulfillment can begin.',
                 'steps' => [
                     [
+                        'title' => 'Start from the streamer home page',
+                        'where' => 'My Shows (a streamer\'s home page)',
+                        'screen' => \App\Filament\Pages\StreamerShows::class,
+                        'body' => [
+                            'Streamers land on My Shows. The two things they do most sit at the top: Log your next show and the time clock.',
+                            'Below are their numbers for the month, a chart of the month, upcoming shows and every show they were on. Past shows open with Open show, so they can see the details and add items later.',
+                        ],
+                        'shot' => 'streamer-home.png',
+                        'fields' => [
+                            ['Log your next show', 'Opens the next report that needs items.'],
+                            ['Time clock', 'Add a show or reason, then Clock in; clock out when done.'],
+                            ['Shows waiting / Upcoming / Submitted / Approved', 'How many of their shows are at each stage.'],
+                            ['Month panel', 'Shows, hours worked and gross sales for the month, with a chart.'],
+                            ['Upcoming shows', 'Scheduled shows they are on.'],
+                            ['Quick actions', 'Log a show, find inventory, clock in, or view the calendar.'],
+                            ['Open show', 'On a past show\'s card: opens its details and report.'],
+                        ],
+                        'note' => 'Streamers see only their own shows. Admins can choose between My shows and All shows in the picker.',
+                    ],
+                    [
                         'title' => 'Complete the streamer report',
                         'where' => 'Show Workspace → Streamer Report',
                         'screen' => \App\Filament\Resources\StreamerLogResource::class,

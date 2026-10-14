@@ -222,7 +222,7 @@
         <div class="vx-ps-modal" wire:key="rates-modal" x-data x-on:keydown.escape.window="$wire.cancelRatesEditor()">
             <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit team rates">
                 <div class="vx-ps-modal-head">
-                    <div><div class="text-xs font-bold uppercase text-primary-600">Team rates</div><div class="text-lg font-bold">Edit how {{ $business ? $business->name."'s" : 'the team' }} is paid</div></div>
+                    <div><div class="text-xs font-bold uppercase text-primary-600">Team rates</div><div class="text-lg font-bold">Edit how {{ $business ? $business->name."'s team" : 'the team' }} is paid</div></div>
                     <button type="button" wire:click="cancelRatesEditor" class="text-sm text-gray-500">Close</button>
                 </div>
                 <div class="space-y-4">

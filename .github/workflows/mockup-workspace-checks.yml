@@ -30,3 +30,21 @@ jobs:
           APP_ENV: testing
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare browser fixtures
+        run: touch /tmp/vortex-mockup.sqlite && php artisan migrate:fresh --force && php tests/Browser/mockup-fixtures.php
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-mockup.sqlite
+      - name: Browser layout checks
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/mockup-server.log 2>&1 &
+          npx playwright test --config=playwright.mockup.config.ts || { cat /tmp/mockup-server.log; tail -n 100 storage/logs/laravel.log; exit 1; }
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-mockup.sqlite
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mockup-workspace-screenshots
+          path: tests/Browser/output

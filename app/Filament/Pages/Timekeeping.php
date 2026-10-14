@@ -229,6 +229,18 @@ class Timekeeping extends Page
             ->toArray();
     }
 
+    public function dashboardStats(): array
+    {
+        abort_unless($this->canSeeTeamEntries(), 403);
+        $week = TimeEntry::whereBetween('clocked_in_at', [\App\Support\BusinessTime::local()->startOfWeek()->utc(), \App\Support\BusinessTime::local()->endOfWeek()->utc()])->get();
+        return [
+            'review' => TimeAttendance::reviewCount(),
+            'open' => TimeEntry::whereNull('clocked_out_at')->count(),
+            'minutes' => $week->sum(fn ($entry) => $entry->payableMinutes()),
+            'entries' => $week->count(),
+        ];
+    }
+
     // ── Actions ──────────────────────────────────────────────────────────────
 
     public function clockIn(): void

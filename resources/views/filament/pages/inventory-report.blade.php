@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.reporting-workspace-styles')
 @php
  $data=$this->getViewerData(); $summary=$data['summary']; $items=collect($data['items']); $trend=collect($data['trend']); $locations=collect($data['locations']); $categories=collect($data['category_breakdown']);
  $allRows = match ($activeTab) {
@@ -89,6 +90,10 @@
    @forelse($visible as $item)<tr><td><div class="flex items-center gap-3"><img src="{{ $item['image_url'] }}" alt="" loading="lazy" class="vx-thumb"/><div><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record'=>$item['id']]) }}" class="font-bold text-primary-600">{{ $item['name'] }}</a>@if($activeTab==='aging')<div class="text-xs text-amber-600">{{ $item['idle_days'] }} days without movement</div>@endif</div></div></td><td>{{ $item['sku'] }}</td><td>{{ $item['category'] }}</td><td>{{ $item['locations'] }}</td><td class="text-right"><span class="vx-pill">{{ number_format($item['quantity']) }}</span></td><td class="text-right">${{ number_format($item['unit_cost'],2) }}</td><td class="text-right font-bold">${{ number_format($item['total_value'],2) }}</td><td>{{ $item['updated_at']?->format('M d, Y') }}</td></tr>@empty<tr><td colspan="8" class="py-10 text-center text-gray-500">No inventory matches this view.</td></tr>@endforelse
   </tbody></table></div>
   @elseif($activeTab==='recent')
+  @php $movement=$this->getMovementSummary()['current']; @endphp
+  <section class="p-4"><h3 class="text-lg font-bold mb-3">Movement Summary</h3><div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    @foreach(['received'=>'Received','removed'=>'Units removed','adjustments'=>'Adjustments','transfers'=>'Internal transfers','net'=>'Net movement'] as $key=>$label)<div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700"><span class="text-sm text-gray-500">{{ $label }}</span><div class="text-xl font-bold mt-2">{{ number_format($movement[$key],0) }}</div></div>@endforeach
+  </div><p class="text-sm text-gray-500 mt-3">Transfers move stock between locations; they do not reduce total stock.</p></section>
   <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Activity</th><th>Location</th><th>Change</th><th>Updated / By</th></tr></thead><tbody>
    @forelse($recentRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['location'] }}</td><td class="font-bold">{{ $row['change'] }}</td><td>{{ $row['updated_at']?->format('M d, Y g:i A') }}<div class="text-xs text-gray-500">{{ $row['actor'] }}</div></td></tr>@empty<tr><td colspan="6" class="py-10 text-center text-gray-500">No recent inventory activity.</td></tr>@endforelse
   </tbody></table></div>

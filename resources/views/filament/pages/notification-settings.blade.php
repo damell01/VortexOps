@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.reporting-workspace-styles')
 @php
     $owner = $this->isOwner();
     $server = $this->serverAllowsEmail();
@@ -8,7 +9,7 @@
     $needle = mb_strtolower(trim($search));
 @endphp
 <style>
-.vx-ns{width:100%;--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);--p-soft:color-mix(in srgb,var(--p) 10%,transparent);max-width:1180px;margin:0 auto;display:grid;gap:16px;color:inherit}
+.vx-ns{width:100%;--line:#e5e7eb;--soft:#f8fafc;--muted:#64748b;--p:var(--primary-600,#7c3aed);--p-soft:color-mix(in srgb,var(--p) 10%,transparent);max-width:1600px;margin:0 auto;display:grid;gap:16px;color:inherit}
 .dark .vx-ns{--line:#253247;--soft:#111c2f;--muted:#94a3b8}
 .vx-ns .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
 .dark .vx-ns .card{background:#0f172a}
@@ -82,7 +83,7 @@
             </div>
             @unless($owner)<p class="sub mt-3">Only the owner can change these two.</p>@endunless
             @unless($server)
-                <p class="mt-3 rounded-lg p-3 text-xs" style="background:#fef3c7;color:#92400e">The server's safety switch is off (<code>NOTIFICATION_EMAILS_ENABLED=false</code>), so no notification email goes out whatever is set here. Test emails still work.</p>
+                <p class="mt-3 rounded-lg p-3 text-xs" style="background:#fef3c7;color:#92400e">Server email delivery is disabled. Turning on the app switch alone will not enable delivery. Test emails still work.</p>
             @endunless
         </section>
 
@@ -101,36 +102,40 @@
         </section>
     </div>
 
-    {{-- ── Per-event rules ─────────────────────────────────────── --}}
-    <section class="card">
-        <div class="flex flex-wrap items-end justify-between gap-3">
-            <div>
-                <h2>What gets sent, and to whom</h2>
-                <p class="sub mt-1">Tick who gets each notification. People can still turn off what reaches them in their profile — except in-app items marked “Required”.</p>
+    <div class="flex flex-wrap gap-2" role="group" aria-label="Notification categories">
+        @foreach(['All', ...\App\Support\NotificationCatalog::GROUPS] as $group)
+            <button type="button" class="btn {{ $category === $group ? 'primary' : '' }}" wire:click="$set('category', '{{ $group }}')">{{ $group }}</button>
+        @endforeach
+    </div>
+    <div class="flex flex-wrap items-center gap-4">
+        <input aria-label="Search notifications" type="search" wire:model.live.debounce.250ms="search" placeholder="Search notifications…" style="max-width:520px">
+        <label class="switch"><input type="checkbox" wire:model.live="enabledOnly"> Enabled only</label>
+    </div>
+    @php $visible = 0; @endphp
+    @foreach(\App\Support\NotificationCatalog::events() as $key => $event)
+        @continue($category !== 'All' && $category !== $event['group'])
+        @continue($needle !== '' && !str_contains(mb_strtolower($event['label'].' '.$event['description']), $needle))
+        @php $rule = $rules[$key]; @endphp
+        @continue($enabledOnly && !$rule['enabled'])
+        @php $visible++; @endphp
+        <section class="card flex flex-wrap items-center justify-between gap-4" wire:key="ev-{{ $key }}">
+            <div style="flex:1;min-width:220px">
+                <h2>{{ $event['label'] }} <span class="pill {{ $event['level'] }}">{{ $levels[$event['level']] }}</span></h2>
+                <p class="sub mt-2">{{ $event['description'] }}</p>
+                <p class="sub mt-2">{{ $this->reach($key) }} recipients · {{ $rule['in_app'] ? 'In-app' : 'No in-app delivery' }} · {{ $rule['email'] ? 'Email' : 'No email' }}
+                @if($event['locked'] ?? false) · Required in-app @endif</p>
             </div>
-            <div style="width:min(280px,100%)"><input type="search" wire:model.live.debounce.250ms="search" placeholder="Find a notification…"></div>
-        </div>
-
-        @foreach(\App\Support\NotificationCatalog::grouped() as $group => $events)
-            @php $events = $needle === '' ? $events : array_filter($events, fn ($e) => str_contains(mb_strtolower($e['label'].' '.$e['description']), $needle)); @endphp
-            @continue(empty($events))
-            <div class="mt-5">
-                <div class="lbl" style="font-size:.74rem;color:var(--p)">{{ $group }}</div>
-                @foreach($events as $key => $event)
-                    @php $rule = $rules[$key]; $reach = $this->reach($key); @endphp
-                    <div wire:key="ev-{{ $key }}" @class(['event', 'off' => ! ($rule['enabled'] ?? true)])>
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <b class="text-sm">{{ $event['label'] }}</b>
-                                <span class="pill {{ $event['level'] }}">{{ $levels[$event['level']] }}</span>
-                                @if($event['locked'] ?? false)<span class="pill" style="background:#f1f5f9;color:#475569">Required in-app</span>@endif
-                            </div>
-                            <p class="sub mt-1">{{ $event['description'] }}</p>
-                            <p class="mt-2 text-xs font-semibold" style="color:var(--muted)">
-                                Reaches {{ $reach }} {{ Str::plural('person', $reach) }}@if($rule['involved'] && isset($event['involved_label'])) + {{ strtolower($event['involved_label']) }}@endif
-                            </p>
-                        </div>
-
+            <label class="switch"><input aria-label="Enable {{ $event['label'] }}" type="checkbox" wire:model.live="rules.{{ $key }}.enabled"> Enabled</label>
+            <button type="button" class="btn" wire:click="configure('{{ $key }}')">Configure</button>
+        </section>
+    @endforeach
+    @if(!$visible)<section class="card">No notifications match these filters.</section>@endif
+    @if($configureEvent && \App\Support\NotificationCatalog::exists($configureEvent))
+        @php $key = $configureEvent; $event = \App\Support\NotificationCatalog::get($key); $rule = $rules[$key]; @endphp
+        <div class="preview" data-vx-dialog role="dialog" aria-modal="true" aria-labelledby="configure-title" x-data x-trap.noscroll="true" @keydown.escape.window="if (!$wire.previewEvent) $wire.closeConfigure()" @click.self="$wire.closeConfigure()">
+            <section class="preview-panel" style="padding:24px;gap:24px;overflow:auto">
+                <div class="flex items-center justify-between gap-4"><h2 id="configure-title">{{ $event['label'] }}</h2><button type="button" class="btn" wire:click="closeConfigure">Close</button></div>
+                <p class="sub">{{ $event['description'] }}</p>
                         <div class="min-w-0">
                             <div class="lbl">Who gets it</div>
                             <div class="flex flex-wrap gap-1.5">
@@ -173,11 +178,18 @@
                                 <button type="button" class="btn" wire:click="sendTest('{{ $key }}')" wire:loading.attr="disabled" wire:target="sendTest('{{ $key }}')">Send test</button>
                             </div>
                         </div>
+
+                @if(in_array($key, ['daily_whatnot_losses', 'weekly_whatnot_losses'], true))
+                    <div class="card"><h2>Summary schedule</h2><p class="sub">{{ \App\Support\BusinessTime::zone() }} · Empty summaries are skipped.</p>
+                        <label class="block mt-3">Delivery time <input type="time" wire:model="lossSchedules.{{ $key }}.time"></label>
+                        @error("lossSchedules.{$key}.time")<p>{{ $message }}</p>@enderror
+                        @if($key === 'weekly_whatnot_losses')<label class="block mt-3">Day <select wire:model="lossSchedules.{{ $key }}.day">@foreach([0=>'Sunday',1=>'Monday',2=>'Tuesday',3=>'Wednesday',4=>'Thursday',5=>'Friday',6=>'Saturday'] as $day=>$name)<option value="{{ $day }}">{{ $name }}</option>@endforeach</select></label>@endif
                     </div>
-                @endforeach
-            </div>
-        @endforeach
-    </section>
+                @endif
+                <button type="button" class="btn primary" wire:click="save" wire:loading.attr="disabled">Save Changes</button>
+            </section>
+        </div>
+    @endif
 
     <div class="save">
         <span class="text-sm">Changes apply to the next notification sent.</span>
@@ -186,7 +198,7 @@
 
     {{-- ── Email preview ───────────────────────────────────────── --}}
     @if($previewEvent)
-        <div class="preview" wire:key="preview-{{ $previewEvent }}" @keydown.escape.window="$wire.closePreview()" @click.self="$wire.closePreview()">
+        <div class="preview" data-vx-dialog role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" @keydown.escape.window="$wire.closePreview()" @click.self="$wire.closePreview()">
             <div class="preview-panel">
                 <div class="flex items-center justify-between gap-3 p-4" style="border-bottom:1px solid var(--line)">
                     <div><div class="lbl">Email preview</div><b>{{ \App\Support\NotificationCatalog::label($previewEvent) }}</b></div>

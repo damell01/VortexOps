@@ -1,5 +1,16 @@
 <x-filament-panels::page>
-    <div class="vx-report vx-streamer-report space-y-6">
+@include('filament.pages.partials.reporting-workspace-styles')
+    <div class="vx-report vx-streamer-report space-y-4">
+
+    <div class="mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">People performance</div>
+                <h2 class="text-xl font-bold tracking-tight text-gray-950 dark:text-white">Streamer Performance</h2>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Compare show volume, revenue efficiency, margin and payout activity without leaving the reporting workspace.</p>
+            </div>
+        </div>
+    </div>
 
         {{-- Filters --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
@@ -100,6 +111,37 @@
             </div>
         </div>
 
+        {{-- Visual comparison cards — uses the analytics rows already loaded above. --}}
+        @php
+            $filteredCards = collect($rows)->filter(fn($r)=>$cardSearch === '' || str_contains(mb_strtolower($r['name']), mb_strtolower($cardSearch)));
+            $cardRows = $filteredCards->slice((max(1,$cardPage)-1)*6,6);
+            $maxCardGross = max(1, (float) collect($rows)->max('gross_revenue'));
+        @endphp
+        <section class="vx-streamer-cards">
+            <label class="block mb-4">Find a streamer<input class="rounded-lg border p-3 ml-3" type="search" wire:model.live.debounce.250ms="cardSearch" placeholder="Search streamers…"></label>
+            <div class="vx-section-heading">
+                <div><h3>Streamer Performance</h3><p>Quick comparison of revenue, net earnings, efficiency and hours.</p></div>
+                <span>{{ count($rows) }} active in this view</span>
+            </div>
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-vx-mobile-page>
+                @foreach($cardRows as $row)
+                    <article class="vx-person-card">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="vx-avatar">{{ mb_strtoupper(mb_substr($row['name'],0,1)) }}</div>
+                                <div class="min-w-0"><strong class="block truncate">{{ $row['name'] }}</strong><span>{{ number_format($row['show_count']) }} shows</span></div>
+                            </div>
+                            @if($row['trend_gross'] !== null)<span class="vx-trend {{ $row['trend_gross'] >= 0 ? 'is-up' : 'is-down' }}">{{ $row['trend_gross'] >= 0 ? '+' : '' }}{{ $row['trend_gross'] }}%</span>@endif
+                        </div>
+                        <div class="vx-person-money"><div><span>Gross Revenue</span><strong>${{ number_format($row['gross_revenue'],0) }}</strong></div><div><span>Net Earnings</span><strong>${{ number_format($row['net_revenue'],0) }}</strong></div></div>
+                        <div class="vx-mini-track"><i style="width:{{ max(4,($row['gross_revenue']/$maxCardGross)*100) }}%"></i></div>
+                        <div class="vx-person-foot"><div><strong>${{ number_format($row['gmv_per_hour'],0) }}</strong><span>Sales / Hour</span></div><div><strong>{{ number_format($row['total_hours'],1) }}h</strong><span>Total Hours</span></div></div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+
+        <div class="flex justify-between items-center gap-3 mb-4"><span>Page {{ $cardPage }} of {{ max(1,(int)ceil($filteredCards->count()/6)) }}</span><div class="flex gap-3"><button type="button" class="vxw-btn" wire:click="$set('cardPage', {{ max(1,$cardPage-1) }})" @disabled($cardPage<=1)>Previous</button><button type="button" class="vxw-btn" wire:click="$set('cardPage', {{ $cardPage+1 }})" @disabled($cardPage*6 >= $filteredCards->count())>Next</button></div></div>
         {{-- Streamer Performance Table --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

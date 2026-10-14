@@ -122,14 +122,14 @@
                     $sharePrimary = $participants->count() <= 1 || ($hasPrimary
                         ? (bool) ($participant->pivot->is_primary ?? false)
                         : $participants->first()?->id === $shareStreamer->id);
-                    $sharePending = $this->show->gross_revenue === null || $reportEntry?->product_cost === null
-                        || $lines->contains(fn ($line) => $line->unit_cost === null)
+                    $sharePending = $this->show->gross_revenue === null
+                        || $lines->contains(fn ($line) => $line->inventory_item_id === null && $line->unit_cost === null)
                         || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
                         || (\App\Support\ProfitShareFormula::ratePerShipment() !== null && $this->shipments === '');
                     if (!$sharePending) {
                         $shareEstimate = $sharePrimary ? \App\Support\ProfitShareFormula::forShow(
                             grossRevenue: (float) $this->show->gross_revenue,
-                            productCost: (float) $reportEntry->product_cost,
+                            productCost: (float) $summary['productCost'],
                             hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
                             shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),
                             percentage: (float) ($shareStreamer->payout_percentage ?? 0),
@@ -318,7 +318,7 @@
                                 <div class="vxw-card-body grid gap-4 sm:grid-cols-2">
                                     <div class="vxw-field">
                                         <label class="vxw-label" for="eos-hours">Hours worked</label>
-                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.blur="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
+                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.live.debounce.500ms="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
                                         <div class="vxw-hint">
                                             @if ($clock['minutes'] > 0)
                                                 Clocked for this show: <b>{{ \App\Models\TimeEntry::formatMinutes($clock['minutes']) }}</b> ({{ number_format($clock['minutes'] / 60, 2) }} hrs)
@@ -336,7 +336,7 @@
                                     </div>
                                     <label class="vxw-field">
                                         <span class="vxw-label">Shipments</span>
-                                        <input type="number" min="0" step="1" inputmode="numeric" wire:model.blur="shipments" class="vxw-input vxw-num" />
+                                        <input type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="shipments" class="vxw-input vxw-num" />
                                         <span class="vxw-hint">Counted from this show's shipments: {{ number_format($whatnot['shipments'] ?? 0) }}</span>
                                     </label>
                                 </div>

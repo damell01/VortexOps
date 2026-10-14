@@ -164,6 +164,17 @@ class WhatnotLedgerResource extends Resource
                         ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '>=', $d))
                         ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '<=', $d))),
             ])
+            ->recordActions([
+                \Filament\Actions\Action::make('details')->label('Details')->icon('heroicon-o-eye')->slideOver()
+                    ->modalHeading('Transaction Details')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->schema([
+                        \Filament\Forms\Components\TextInput::make('amount')->default(fn ($record) => $record->amount)->disabled(),
+                        \Filament\Forms\Components\TextInput::make('type')->default(fn ($record) => $record->transaction_type)->disabled(),
+                        \Filament\Forms\Components\TextInput::make('status')->default(fn ($record) => $record->status)->disabled(),
+                        \Filament\Forms\Components\TextInput::make('order_id')->label('Order ID')->default(fn ($record) => $record->whatnot_order_id)->disabled(),
+                        \Filament\Forms\Components\Textarea::make('details')->default(fn ($record) => $record->message)->disabled(),
+                    ]),
+            ])
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()->visible(fn () => auth()->user()?->isOwner()),

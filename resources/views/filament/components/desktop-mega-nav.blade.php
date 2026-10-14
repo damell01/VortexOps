@@ -50,14 +50,11 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
 ];
-// Timekeeping has its own menu: clocking in, and settling hours before payroll.
-if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=array_values(array_filter([
- ['Clock in & my time',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
- \App\Filament\Pages\TimeAttendance::canAccess() ? ['Time & Attendance',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin')] : null,
- \App\Filament\Pages\TimeAttendance::canAccess() ? ['Team hours',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin', parameters: ['tab' => 'people'])] : null,
-]));
+if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=[['Timekeeping Overview',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]];
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
- ...(\App\Filament\Pages\ProfitLoss::canAccess() ? [['Profit & Loss',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin')]] : []),
+ ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin')],
+ ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin')],
+ ...(\App\Filament\Pages\ProfitLoss::canAccess() ? [['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin')]] : []),
  ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],
  ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin')],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
@@ -106,11 +103,18 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
+@if($label==='Timekeeping' && count($links)===1)
+<a class="vx-mega-home" href="{{ $links[0][1] }}"><x-filament::icon icon="heroicon-o-clock"/><span>Timekeeping</span></a>
+@continue
+@endif
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
 <button type="button" class="vx-mega-trigger" :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>
 <div class="vx-mega-menu-title">{{ $label }}</div>
-@foreach($links as [$text,$url])<a href="{{ $url }}" @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
+@foreach($links as [$text,$url])
+@if($label==='Reports' && $text==='Whatnot Losses')<div class="vx-mega-menu-title" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px">Financial</div>@endif
+@if($label==='Reports' && $text==='Streamer Analytics')<div class="vx-mega-menu-title" style="border-top:1px solid #e5e7eb;margin-top:8px;padding-top:12px">Operations</div>@endif
+<a href="{{ $url }}" @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
 @if($label==='Admin' && $ownerLinks)
 <details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as [$text,$url])<a href="{{ $url }}" @click="open=false">{{ $text }}</a>@endforeach</div></details>
 @endif

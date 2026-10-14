@@ -21,15 +21,20 @@
         @livewire('clock-widget', ['withStats' => true])
 
         @if ($seesTeam && \App\Filament\Pages\TimeAttendance::canAccess())
-            @php $review = \App\Filament\Pages\TimeAttendance::reviewCount(); @endphp
-            <a href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}" class="vxw-alert {{ $review ? 'vxw-alert--warn' : 'vxw-alert--info' }}" style="align-items:center;text-decoration:none">
-                <x-filament::icon icon="heroicon-m-clipboard-document-check" />
-                <span class="flex-1"><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ($review === 1 ? ' needs' : ' need') . ' review before payroll' : 'nothing waiting for review' }}</span>
-                <x-filament::icon icon="heroicon-m-arrow-right" />
-            </a>
+            @php $dash=$this->dashboardStats(); @endphp
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach([
+                    ['Needs Review', $dash['review'], \App\Filament\Pages\TimeAttendance::getUrl(['tab'=>'review'])],
+                    ['Clocked In Now', $dash['open'], \App\Filament\Pages\TimeAttendance::getUrl(['tab'=>'now'])],
+                    ['Payable Team Hours This Week', $fmt($dash['minutes']), \App\Filament\Pages\TimeAttendance::getUrl(['tab'=>'people'])],
+                    ['Entries This Week', $dash['entries'], '#time-entries']
+                ] as [$title,$value,$url])
+                    <a class="vxw-card p-5" href="{{ $url }}"><span class="vxw-meta">{{ $title }}</span><div class="text-2xl font-bold mt-3">{{ $value }}</div><span class="vxw-link mt-3">View details →</span></a>
+                @endforeach
+            </div>
         @endif
 
-        <section class="vxw-card">
+        <section class="vxw-card" id="time-entries">
             <div class="vxw-card-head" style="flex-wrap:wrap;gap:12px">
                 <div class="vxw-chips" role="tablist" aria-label="Timekeeping views">
                     <button type="button" role="tab" wire:click="setTab('history')" @class(['vxw-chip', 'is-active' => $tab === 'history'])>{{ $seesTeam ? 'All entries' : 'My history' }} <span class="vxw-chip-count">{{ number_format($entries->total()) }}</span></button>

@@ -18,6 +18,9 @@ class EditUser extends EditRecord
     {
         $data['streamer_type'] = $this->record->streamer?->streamer_type ?? 'in_house';
         $data['streamer_aliases'] = $this->record->streamer?->aliases()->orderBy('alias')->pluck('alias')->all() ?? [];
+        $locations = \App\Support\InventoryVisibility::overrideForStreamer($this->record->streamer?->id);
+        $data['inventory_location_override_enabled'] = $locations !== null;
+        $data['inventory_location_override_ids'] = $locations ?? [];
         return $data + \App\Support\UserPayFields::prefill($this->record->streamer);
     }
 
@@ -56,6 +59,9 @@ class EditUser extends EditRecord
         // The Pay section: blank boxes follow the team default.
         if ($profile) {
             \App\Support\UserPayFields::apply($profile, $this->data);
+            if ($this->record->isStreamer()) {
+                \App\Support\InventoryVisibility::saveOverride($profile->id, $this->data);
+            }
         }
     }
 

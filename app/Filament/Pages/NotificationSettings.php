@@ -37,11 +37,20 @@ class NotificationSettings extends Page
     public ?string $previewEvent = null;
     public string $previewHtml = '';
 
+    /** The notification open in the Configure panel. */
+    #[\Livewire\Attributes\Url]
+    public ?string $configure = null;
+
+    /** all, or one catalog group */
+    public string $group = 'all';
+    public bool $enabledOnly = false;
+    public bool $emailPanel = false;
+
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Settings'; }
     public static function getNavigationSort(): ?int { return 2; }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-bell-alert'; }
     public function getView(): string { return 'filament.pages.notification-settings'; }
-    public function getSubheading(): ?string { return 'Choose what deserves a notification, who gets it, and whether it goes by email.'; }
+    public function getHeading(): string { return ''; }
 
     public static function canAccess(): bool
     {
@@ -65,6 +74,134 @@ class NotificationSettings extends Page
         $this->emailEnabled = filter_var(Setting::get('notify_email_enabled', false), FILTER_VALIDATE_BOOLEAN);
         $this->hourlyCap = NotificationRouter::hourlyCap();
         $this->testAddress = (string) (auth()->user()?->email ?? '');
+        if ($this->configure !== null && ! NotificationCatalog::exists($this->configure)) {
+            $this->configure = null;
+        }
+    }
+
+    // ── List and Configure panel ───────────────────────────────────────
+
+    /** @return array<string, array> events for the current tab, search and enabled filter */
+    public function visibleEvents(): array
+    {
+        $needle = mb_strtolower(trim($this->search));
+
+        return array_filter(NotificationCatalog::events(), fn ($e, $key) => ($this->group === 'all' || $e['group'] === $this->group)
+            && (! $this->enabledOnly || ($this->rules[$key]['enabled'] ?? true))
+            && ($needle === '' || str_contains(mb_strtolower($e['label'].' '.$e['description']), $needle)), ARRAY_FILTER_USE_BOTH);
+    }
+
+    /** "Owners + Admins · Email + In-app · Weekly · Friday 5:00 PM" */
+    public function summaryLine(string $key): string
+    {
+        $rule = $this->ruleFromForm($key);
+        $who = array_map(fn ($a) => $this->audiences[$a] ?? $a, $rule['roles']);
+        if ($rule['users']) {
+            $who[] = count($rule['users']).' '.str('person')->plural(count($rule['users']));
+        }
+        if ($rule['involved']) {
+            $who[] = NotificationCatalog::get($key)['involved_label'] ?? 'People involved';
+        }
+        $how = implode(' + ', array_filter([$rule['email'] ? 'Email' : null, $rule['in_app'] ? 'In-app' : null])) ?: 'No delivery';
+        $when = $rule['schedule'] ? \App\Support\NotificationSchedule::describe($rule['schedule']) : 'Immediately';
+
+        return implode(' · ', [implode(' + ', $who) ?: 'Nobody', $how, $when]);
+    }
+
+    /** The switch on a list card saves straight away. */
+    public function toggleEnabled(string $key): void
+    {
+        abort_unless(static::canAccess() && NotificationCatalog::exists($key), 403);
+        $saved = app(NotificationRouter::class)->rule($key);
+        $saved['enabled'] = ! $saved['enabled'];
+        app(NotificationRouter::class)->saveRules([$key => $saved]);
+        $this->rules[$key]['enabled'] = $saved['enabled'];
+        Notification::make()->title(NotificationCatalog::label($key).($saved['enabled'] ? ' turned on' : ' turned off'))->success()->send();
+    }
+
+    public function openConfigure(string $key): void
+    {
+        abort_unless(NotificationCatalog::exists($key), 404);
+        $this->resetErrorBag();
+        $this->configure = $key;
+    }
+
+    /** Close without saving: the panel goes back to what is saved. */
+    public function closeConfigure(): void
+    {
+        if ($this->configure !== null) {
+            $rule = app(NotificationRouter::class)->rule($this->configure);
+            $rule['users'] = array_map('strval', $rule['users']);
+            $rule['emails'] = implode(', ', $rule['emails']);
+            $this->rules[$this->configure] = $rule;
+        }
+        $this->configure = null;
+    }
+
+    public function isDirty(string $key): bool
+    {
+        $saved = app(NotificationRouter::class)->rule($key);
+        $now = $this->ruleFromForm($key);
+        foreach (['users', 'roles'] as $list) {
+            sort($saved[$list]);
+            sort($now[$list]);
+        }
+
+        return json_encode($saved) !== json_encode($now);
+    }
+
+    public function saveConfigure(): void
+    {
+        abort_unless(static::canAccess() && $this->configure !== null, 403);
+        $key = $this->configure;
+        $rule = $this->ruleFromForm($key);
+        if (count($rule['emails']) !== count($this->splitEmails($this->rules[$key]['emails'] ?? ''))) {
+            $this->addError("rules.{$key}.emails", 'One of these is not an email address.');
+
+            return;
+        }
+        app(NotificationRouter::class)->saveRules([$key => $rule]);
+        $this->configure = null;
+        Notification::make()->title(NotificationCatalog::label($key).' saved')->success()->send();
+    }
+
+    public function removeAudience(string $key, string $audience): void
+    {
+        $this->rules[$key]['roles'] = array_values(array_diff($this->rules[$key]['roles'] ?? [], [$audience]));
+    }
+
+    public function removeUser(string $key, string $id): void
+    {
+        $this->rules[$key]['users'] = array_values(array_diff(array_map('strval', $this->rules[$key]['users'] ?? []), [$id]));
+    }
+
+    public function addRecipient(string $key, string $value): void
+    {
+        if (str_starts_with($value, 'u:')) {
+            $users = array_map('strval', $this->rules[$key]['users'] ?? []);
+            $this->rules[$key]['users'] = array_values(array_unique([...$users, substr($value, 2)]));
+        } elseif ($value !== '' && array_key_exists($value, $this->audiences)) {
+            $this->rules[$key]['roles'] = array_values(array_unique([...($this->rules[$key]['roles'] ?? []), $value]));
+        }
+    }
+
+    /** The owner's master email switch, from the banner. */
+    public function toggleEmail(): void
+    {
+        abort_unless($this->isOwner(), 403);
+        $this->emailEnabled = ! $this->emailEnabled;
+        Setting::set('notify_email_enabled', $this->emailEnabled ? '1' : '0');
+        Notification::make()->title($this->emailEnabled ? 'Email delivery turned on' : 'Email delivery turned off')->success()->send();
+    }
+
+    public function saveEmailSettings(): void
+    {
+        abort_unless($this->isOwner(), 403);
+        $this->validate(['hourlyCap' => 'integer|min:0|max:500']);
+        Setting::set('notify_email_enabled', $this->emailEnabled ? '1' : '0');
+        Setting::set('notify_email_hourly_cap', (string) $this->hourlyCap);
+        $this->emailPanel = false;
+        Notification::make()->title('Email settings saved')->success()->send();
     }
 
     public function isOwner(): bool
@@ -152,6 +289,9 @@ class NotificationSettings extends Page
             'emails' => array_values(array_filter($this->splitEmails($r['emails'] ?? ''), fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))),
             'in_app' => (bool) ($r['in_app'] ?? true),
             'email' => (bool) ($r['email'] ?? false),
+            'schedule' => NotificationCatalog::schedulable($key)
+                ? \App\Support\NotificationSchedule::normalize((array) ($r['schedule'] ?? []), NotificationCatalog::get($key)['schedule'])
+                : null,
         ];
     }
 

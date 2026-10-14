@@ -1,0 +1,10 @@
+<svg viewBox="0 0 260 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="v" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8B5CF6"/><stop offset="1" stop-color="#6D28D9"/></linearGradient></defs>
+<g transform="translate(2 3) scale(.46)">
+<path d="M23 15h54c8 0 11 6 7 13L54 82c-3 6-7 6-10 0L16 28c-4-7-1-13 7-13Z" stroke="url(#v)" stroke-width="7" stroke-linejoin="round"/>
+<path d="M30 25h40c7 0 9 5 6 11L54 76c-3 5-6 5-9 0L24 36c-3-6-1-11 6-11Z" stroke="url(#v)" stroke-width="6" stroke-linejoin="round"/>
+</g>
+<text x="54" y="25" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="-.7" fill="#17172A">VORTEX</text>
+<text x="142" y="25" font-family="Inter,Arial,sans-serif" font-size="22" font-weight="800" letter-spacing="-.7" fill="#7C3AED">OPS</text>
+<text x="55" y="41" font-family="Inter,Arial,sans-serif" font-size="9" font-weight="600" letter-spacing="2.6" fill="#8A90A6">OPERATIONS PLATFORM</text>
+</svg>

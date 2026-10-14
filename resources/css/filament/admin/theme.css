@@ -153,6 +153,15 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .fi-simple-header-heading{font-size:25px}
 }
 
+/* The sign-in page doesn't load app.js's stylesheets, so the box-shadow:none
+   above left its fields with no outline at all; give them one here. */
+.fi-simple-main .fi-input-wrp{border:1px solid #dbe2f0;background:#f8faff}
+.fi-simple-main .fi-input-wrp:focus-within{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.fi-simple-main .fi-input-wrp.fi-invalid{border-color:#e11d48}
+/* The built-in logo's white wordmark is for the dark sidebar; swap in the
+   dark-text copy on the light sign-in card (an uploaded logo is untouched). */
+.fi-simple-layout img.fi-logo[src$="vb-logo-sidebar.svg"]{content:url("/images/vb-logo-light.svg")}
+
 
 /* Database notifications use Filament's native slide-over sizing and behavior.
    Do not override .fi-modal-window here: the previous centered 1100px modal

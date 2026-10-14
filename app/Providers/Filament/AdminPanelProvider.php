@@ -181,6 +181,10 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
+                fn () => view('filament.components.login-pokemon'),
+            )
+            ->renderHook(
                 // A finished report lands on the next page with a little foil confetti (resources/js/delight.js).
                 PanelsRenderHook::BODY_END,
                 fn () => session()->pull('vx_celebrate') ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate hidden></div>') : '',

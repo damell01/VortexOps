@@ -1,438 +1,408 @@
 <x-filament-panels::page>
-    @php
-        $trendClass = fn ($v) => match(true) {
-            $v === null  => 'text-gray-400',
-            $v > 0       => 'text-emerald-600 dark:text-emerald-400',
-            $v < 0       => 'text-red-500 dark:text-red-400',
-            default      => 'text-gray-400',
-        };
-        $trendIcon = fn ($v) => match(true) {
-            $v === null  => '',
-            $v > 0       => '↑',
-            $v < 0       => '↓',
-            default      => '→',
-        };
-        $pipelineColors = [
-            'draft'    => ['dot' => 'bg-gray-400',    'text' => 'text-gray-600 dark:text-gray-300'],
-            'approved' => ['dot' => 'bg-sky-500',     'text' => 'text-sky-600 dark:text-sky-400'],
-            'paid'     => ['dot' => 'bg-emerald-500', 'text' => 'text-emerald-600 dark:text-emerald-400'],
-        ];
-    @endphp
+@php
+    $rev = $this->revenueSummary;
+    $money = fn ($v, $d = 2) => ($v < 0 ? '-' : '').'$'.number_format(abs((float) $v), $d);
+    $vsLabel = $this->trendLabel();
+    $allWeeks = $this->revenueByWeek;
+    $weekDisplay = $showAllWeeks ? $allWeeks : array_slice($allWeeks, -8);
+    $hasMoreWeeks = count($allWeeks) > 8;
+    $metric = array_key_exists($weekMetric, $this::WEEK_METRICS) ? $weekMetric : 'gross';
+    $metricIsMoney = in_array($metric, ['gross', 'net'], true);
+    $streamers = $this->topStreamersByPayout;
+    $sortKey = array_key_exists($streamerSort, $this::STREAMER_SORTS) ? $streamerSort : 'gross';
+    $maxStreamer = max(1, (float) collect($streamers)->max($sortKey));
+    $channels = $this->revenueByChannel;
+    $channelOptions = $this->channelOptions();
+@endphp
 
-    <div class="vx-report vx-business-report space-y-4">
-        <div wire:loading.delay.shortest wire:target="setPeriod,applyCustomRange" class="fixed inset-0 z-[100] bg-gray-950/15 backdrop-blur-[1px]">
-            <div class="absolute left-1/2 top-24 -translate-x-1/2 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
-                <div class="flex items-center gap-3 text-sm font-semibold text-gray-900 dark:text-white">
-                    <span class="h-4 w-4 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600"></span>
-                    Updating report…
+<style>
+    .vxrep { grid-template-columns: minmax(0, 1fr); }
+    /* The phone select picker (mobile-controls.js) sits inside our control; let the control be the box. */
+    @media (max-width: 767px) {
+        .vxrep .vxr-control { height: auto; min-height: 48px; }
+        .vxrep .vxr-control .vx-picker-trigger { border: 0; background: transparent; min-height: 44px; padding: 0; font-size: 15px; flex: 1 1 auto; min-width: 0; }
+    }
+    .vxrep-head-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end; }
+    .vxrep-head-tools > * { min-width: 0; max-width: 100%; }
+    .vxrep-range input[type=date] { width: 128px; }
+    .vxrep-range .vxr-btn { height: 30px; padding: 0 10px; font-size: 13px; }
+    .vxrep-delta { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+    .vxrep-strip-label { font-size: 13px; color: var(--vxw-muted); display: block; }
+    .vxrep-strip-value { font-size: 19px; font-weight: 750; font-variant-numeric: tabular-nums; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .vxrep-strip .vxr-stat-icon { width: 42px; height: 42px; border-radius: 12px; }
+    .vxrep-strip .vxr-stat-icon svg { width: 22px; height: 22px; }
+    .vxrep-strip .vxr-foot-note { align-self: center; }
+    .vxrep-chans { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+    .vxrep-chan { display: flex; gap: 14px; padding: 16px; border: 1px solid var(--vxw-border); border-radius: 12px; background: var(--vxw-surface); min-width: 0; }
+    .vxrep-chan b { display: block; font-size: 15.5px; font-weight: 700; margin-bottom: 6px; overflow-wrap: anywhere; }
+    .vxrep-chan .vxr-dl > div { padding: 4px 0; border: 0; font-size: 13.5px; }
+    .vxrep-chan .vxr-stat-icon { width: 46px; height: 46px; }
+    .vxrep-tile-row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    .vxrep-tile-row .vxr-linkrow b { font-size: 14.5px; }
+    .vxrep-tile-row .vxr-linkrow span { font-size: 12.5px; display: block; line-height: 1.35; }
+    .vxrep-wide-table th, .vxrep-wide-table td { white-space: nowrap; }
+    .vxrep-pipe { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .vxrep-pipe > div { padding: 14px 16px; border: 1px solid var(--vxw-border); border-radius: 12px; }
+    .vxrep-pipe b { display: block; font-size: 22px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .vxrep-bar-sub { display: block; font-size: 12px; color: var(--vxw-muted); white-space: normal; }
+    .vxrep .vxr-bar { grid-template-columns: minmax(120px, 230px) minmax(0, 1fr) auto; }
+    @media (max-width: 640px) {
+        .vxrep .vxr-head > * { flex: 1 1 100%; min-width: 0; }
+        .vxrep-head-tools { justify-content: flex-start; }
+        .vxrep-range input[type=date] { width: auto; flex: 1 1 110px; }
+        .vxrep-head-tools .vxr-seg { width: 100%; overflow-x: auto; }
+        .vxrep-range { flex-wrap: wrap; height: auto; padding: 6px 10px; }
+        .vxrep-chan-select, .vxrep-chan-select select { width: 100%; }
+        .vxr-bar { grid-template-columns: minmax(0, 1fr) auto; }
+        .vxr-bar .vxr-bar-track { grid-column: 1 / -1; grid-row: 2; }
+    }
+</style>
+
+<div class="vxr vxrep">
+    <div wire:loading.delay wire:target="setPeriod,applyCustomRange,channel" class="vxr-banner vxr-banner--accent" style="position:fixed;top:84px;left:50%;transform:translateX(-50%);z-index:50;box-shadow:var(--vxw-shadow-pop)">
+        Updating report…
+    </div>
+
+    <div class="vxr-head">
+        <div>
+            <h1 class="vxr-title">Whatnot Performance</h1>
+            <p class="vxr-subtitle">Show revenue, channel performance and streamer activity.</p>
+        </div>
+        <div class="vxrep-head-tools" id="show-performance">
+            <div class="vxr-seg" role="group" aria-label="Period">
+                @foreach ($this->getPeriodOptions() as $days => $label)
+                    <button type="button" wire:click="setPeriod('{{ $days }}')" class="{{ $period === (string) $days ? 'is-active' : '' }}"
+                        aria-pressed="{{ $period === (string) $days ? 'true' : 'false' }}">{{ $label }}</button>
+                @endforeach
+            </div>
+            <div class="vxr-control vxrep-range {{ $period === 'custom' ? 'vxr-tone-accent' : '' }}" @if($period === 'custom') style="border-color:var(--vxw-accent-line)" @endif>
+                <x-filament::icon icon="heroicon-o-calendar-days" />
+                <input type="date" aria-label="Report start date" wire:model="dateFrom">
+                <span class="vxr-val-muted">–</span>
+                <input type="date" aria-label="Report end date" wire:model="dateTo">
+                <button type="button" class="vxr-btn vxr-btn--outline" wire:click="applyCustomRange">Apply</button>
+            </div>
+            <label class="vxr-control vxrep-chan-select">
+                <x-filament::icon icon="heroicon-o-signal" />
+                <select wire:model.live="channel" aria-label="Channel">
+                    <option value="">{{ \App\Support\ChannelContext::isScoped() ? \App\Support\ChannelContext::current()?->name.' (top bar)' : 'All channels' }}</option>
+                    @foreach ($channelOptions as $id => $name)
+                        @continue(\App\Support\ChannelContext::currentId() === (int) $id)
+                        <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <button type="button" class="vxr-btn vxr-btn--primary" wire:click="exportCsv">
+                <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export CSV
+            </button>
+        </div>
+    </div>
+
+    @error('dateFrom')<div role="alert" class="vxr-banner vxr-banner--bad">{{ $message }}</div>@enderror
+    @error('dateTo')<div role="alert" class="vxr-banner vxr-banner--bad">{{ $message }}</div>@enderror
+
+    <p class="vxr-foot-note" style="margin-top:-8px">
+        <x-filament::icon icon="heroicon-o-calendar" />
+        {{ \Illuminate\Support\Carbon::parse($dateFrom)->format('M j, Y') }} – {{ \Illuminate\Support\Carbon::parse($dateTo)->format('M j, Y') }}
+        @if ($this->channelId()) · {{ $channelOptions[$this->channelId()] ?? \App\Support\ChannelContext::current()?->name }} @endif
+        · cancelled shows excluded
+    </p>
+
+    {{-- Headline figures with the change against the period before. --}}
+    <div class="vxr-stats">
+        @foreach ([
+            ['Shows', number_format($rev['shows']), $rev['trend_shows'], 'heroicon-o-video-camera', 'accent'],
+            ['Units Sold', number_format($rev['units']), $rev['trend_units'] ?? null, 'heroicon-o-cube', 'info'],
+            ['Gross Revenue', $money($rev['gross']), $rev['trend_gross'], 'heroicon-o-currency-dollar', 'ok'],
+            ['Whatnot Est. Earnings', $money($rev['net']), $rev['trend_net'], 'heroicon-o-banknotes', 'accent'],
+        ] as [$label, $value, $trend, $icon, $tone])
+            <x-vxr.stat :label="$label" :value="$value" :icon="$icon" :tone="$tone">
+                <span class="vxrep-delta">
+                    @if ($trend === null)
+                        <span class="vxr-val-muted">No earlier figure to compare</span>
+                    @else
+                        <span class="vxr-delta {{ $trend > 0 ? 'vxr-delta--up' : ($trend < 0 ? 'vxr-delta--down' : '') }}">{{ $trend > 0 ? '▲' : ($trend < 0 ? '▼' : '■') }} {{ number_format(abs($trend), 1) }}%</span>
+                        <span>{{ $vsLabel }}</span>
+                    @endif
+                </span>
+            </x-vxr.stat>
+        @endforeach
+    </div>
+
+    {{-- Costs: only what has been recorded, never a guessed zero. --}}
+    <div class="vxr-strip vxrep-strip">
+        <div>
+            <span class="vxr-stat-icon vxr-tone-warn"><x-filament::icon icon="heroicon-o-document-text" /></span>
+            <span style="min-width:0">
+                <span class="vxrep-strip-label">Recorded COGS</span>
+                <span class="vxrep-strip-value">{{ $rev['cogs'] > 0 ? $money($rev['cogs']) : 'Not recorded' }}</span>
+            </span>
+        </div>
+        <div title="Revenue minus cost of goods sold (COGS) from sold items with a unit cost recorded. Not full business profit — payouts, shipping, and fees are not included.">
+            <span class="vxr-stat-icon vxr-tone-accent"><x-filament::icon icon="heroicon-o-calculator" /></span>
+            <span style="min-width:0">
+                <span class="vxrep-strip-label">Gross minus recorded COGS</span>
+                <span class="vxrep-strip-value">
+                    @if ($rev['cogs'] > 0)
+                        {{ $money($rev['margin']) }}
+                        @if ($rev['margin_pct'] !== null)<span class="vxr-val-muted" style="font-size:13px;font-weight:600">{{ number_format($rev['margin_pct'], 1) }}%</span>@endif
+                        <span class="vxr-pill vxr-pill--warn">Provisional</span>
+                    @else
+                        Provisional <span class="vxr-val-muted" style="font-size:12.5px;font-weight:500">no costs recorded yet</span>
+                    @endif
+                </span>
+            </span>
+        </div>
+        <div>
+            <span class="vxr-stat-icon vxr-tone-bad"><x-filament::icon icon="heroicon-o-gift" /></span>
+            <span style="min-width:0">
+                <span class="vxrep-strip-label">Tips</span>
+                <span class="vxrep-strip-value">{{ $money($rev['tips']) }}</span>
+            </span>
+        </div>
+        <div>
+            <p class="vxr-foot-note" style="margin:0">
+                <x-filament::icon icon="heroicon-o-information-circle" />
+                Missing costs are not treated as verified zero costs.
+            </p>
+        </div>
+    </div>
+
+    <div class="vxr-grid vxr-grid--2">
+        <section class="vxr-card">
+            <div class="vxr-card-head">
+                <h3 class="vxr-card-title"><x-filament::icon icon="heroicon-o-chart-bar" /> Revenue by Week</h3>
+                <div class="vxr-actions">
+                    @if ($hasMoreWeeks)
+                        <button type="button" class="vxr-btn vxr-btn--sm" wire:click="toggleAllWeeks">
+                            {{ $showAllWeeks ? 'Show recent' : 'Show all '.count($allWeeks).' weeks' }}
+                        </button>
+                    @endif
+                    <select class="vxr-select" style="height:34px" wire:model.live="weekMetric" aria-label="Chart metric">
+                        @foreach ($this::WEEK_METRICS as $key => $label)
+                            <option value="{{ $key }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
                 </div>
             </div>
-        </div>
-
-        {{-- Compact report header + report launcher --}}
-        <section class="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h2 class="text-lg font-bold tracking-tight text-gray-950 dark:text-white">Business Performance</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Revenue, show volume, channels and payouts.</p>
-                </div>
-                <div class="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-gray-800">
-                    <span class="font-medium text-gray-400">Range</span>
-                    <span class="font-semibold tabular-nums text-gray-800 dark:text-gray-100">{{ $dateFrom }} → {{ $dateTo }}</span>
-                </div>
+            <div class="vxr-card-body">
+                @if ($weekDisplay === [])
+                    <div class="vxr-empty"><b>No shows in this period</b>Pick a longer period or another channel.</div>
+                @else
+                    @php
+                        $points = array_map(fn ($w) => [
+                            'label' => $w['week']."\n".\Illuminate\Support\Carbon::parse($w['week_start'])->format('Y'),
+                            'value' => $w[$metric],
+                            'title' => 'Week of '.$w['week'].': '.$w['shows'].' '.Str::plural('show', $w['shows']).', '.$money($w['gross'], 0).' gross, '.$money($w['net'], 0).' est. earnings, '.number_format($w['units']).' units',
+                        ], $weekDisplay);
+                    @endphp
+                    <x-vxr.chart :points="$points" :type="count($points) > 1 ? 'area' : 'bar'" :money="$metricIsMoney" :height="250" aria-label="{{ $this::WEEK_METRICS[$metric] }} by week" />
+                    <p class="vxr-hint">Weeks start on Monday. Hover a point for that week's shows, revenue and units.</p>
+                @endif
             </div>
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            @php
-                $reportCards = array_filter([
-                    ['Show Performance', 'Revenue & trends', '#show-performance', 'heroicon-o-presentation-chart-line'],
-                    $this->inventoryReportUrl() ? ['Inventory', 'Stock & value', $this->inventoryReportUrl(), 'heroicon-o-cube'] : null,
-                    $this->streamerAnalyticsUrl() ? ['Streamer Analytics', 'Hours & payouts', $this->streamerAnalyticsUrl(), 'heroicon-o-users'] : null,
-                    $this->streamerStatementUrl() ? ['Streamer Statements', 'Pay statements', $this->streamerStatementUrl(), 'heroicon-o-document-text'] : null,
-                    $this->financeLedgerUrl() ? ['Whatnot Ledger', 'Transactions & net', $this->financeLedgerUrl(), 'heroicon-o-banknotes'] : null,
-                    $this->productInsightsUrl() ? ['Product Insights', 'Product performance', $this->productInsightsUrl(), 'heroicon-o-chart-bar-square'] : null,
-                ]);
-            @endphp
-            <div class="mb-2 flex items-center justify-between gap-3 px-1">
-                <div class="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Reports</div>
-                <div class="text-[11px] text-gray-400">Jump to a report</div>
+        <section class="vxr-card">
+            <div class="vxr-card-head">
+                <h3 class="vxr-card-title"><x-filament::icon icon="heroicon-o-user-group" /> Top Streamers</h3>
+                <select class="vxr-select" style="height:34px" wire:model.live="streamerSort" aria-label="Rank streamers">
+                    @foreach ($this::STREAMER_SORTS as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                </select>
             </div>
-            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                @foreach($reportCards as [$label,$description,$url,$icon])
-                    <a href="{{ $url }}" class="group flex min-w-0 items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 transition hover:border-primary-300 hover:bg-primary-50/40 dark:border-gray-700 dark:hover:border-primary-700 dark:hover:bg-primary-500/5">
-                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gray-50 text-primary-600 group-hover:bg-white dark:bg-gray-800 dark:text-primary-300">
-                            <x-dynamic-component :component="$icon" class="h-4 w-4"/>
+            <div class="vxr-card-body">
+                @if ($streamers === [])
+                    <div class="vxr-empty"><b>No assigned streamer revenue in this period</b>Only a show's primary streamer is counted.</div>
+                @else
+                    <div class="vxr-bars">
+                        @foreach (array_slice($streamers, 0, 8) as $row)
+                            @php $v = (float) $row[$sortKey]; @endphp
+                            <div class="vxr-bar">
+                                <span class="vxr-bar-name" title="{{ $row['streamer'] }}">
+                                    {{ $row['streamer'] }}
+                                    <span class="vxrep-bar-sub">{{ $row['shows'] }} {{ Str::plural('show', $row['shows']) }} · {{ $money($row['gross'], 0) }} gross · {{ $money($row['net'], 0) }} est.</span>
+                                </span>
+                                <span class="vxr-bar-track"><span class="vxr-bar-fill" style="display:block;width:{{ max(0, round($v / $maxStreamer * 100, 1)) }}%"></span></span>
+                                <span class="vxr-bar-val">{{ $sortKey === 'shows' ? number_format($v).' '.Str::plural('show', (int) $v) : $money($v, 0) }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                    <p class="vxr-hint" style="margin-top:14px">Primary streamer per show; cancelled shows excluded.</p>
+                @endif
+            </div>
+        </section>
+    </div>
+
+    <section class="vxr-card">
+        <div class="vxr-card-head">
+            <h3 class="vxr-card-title"><x-filament::icon icon="heroicon-o-square-3-stack-3d" /> Channel Performance</h3>
+        </div>
+        <div class="vxr-card-body">
+            @if ($channels === [])
+                <div class="vxr-empty"><b>No shows in this period</b></div>
+            @else
+                <div class="vxrep-chans">
+                    @foreach ($channels as $row)
+                        <div class="vxrep-chan">
+                            <span class="vxr-stat-icon vxr-tone-accent"><x-filament::icon icon="heroicon-o-signal" /></span>
+                            <div style="flex:1;min-width:0">
+                                <b>{{ $row['channel'] }}</b>
+                                <dl class="vxr-dl">
+                                    <div><dt>Shows</dt><dd>{{ number_format($row['shows']) }}</dd></div>
+                                    <div><dt>Units</dt><dd>{{ number_format($row['units']) }}</dd></div>
+                                    <div><dt>Gross Revenue</dt><dd>{{ $money($row['gross']) }}</dd></div>
+                                    <div><dt>Est. Earnings</dt><dd>{{ $money($row['net']) }}</dd></div>
+                                </dl>
+                            </div>
                         </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="truncate text-xs font-bold text-gray-900 dark:text-white">{{ $label }}</div>
-                            <div class="truncate text-[11px] text-gray-500 dark:text-gray-400">{{ $description }}</div>
-                        </div>
-                        <x-heroicon-o-chevron-right class="h-4 w-4 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-primary-500"/>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </section>
+
+    {{-- Compare two periods --}}
+    @php
+        $cmp = $this->comparison;
+        $fmt = fn ($v, $isMoney) => $v === null ? '—' : ($isMoney ? $money($v) : number_format($v, is_float($v) && floor($v) != $v ? 1 : 0));
+    @endphp
+    <section class="vxr-card" aria-labelledby="compare-heading">
+        <div class="vxr-card-head">
+            <div>
+                <h3 id="compare-heading" class="vxr-card-title"><x-filament::icon icon="heroicon-o-arrows-right-left" /> Compare two periods</h3>
+                <p class="vxr-card-sub">The period selected above against another. Profit is net plus tips, less cost of goods (approved report items) and streamer pay — the same rule as each show page.</p>
+            </div>
+            <div class="vxr-toolbar">
+                <label class="vxr-control">
+                    <span class="vxr-val-muted" style="font-size:13px">Compare with</span>
+                    <select wire:model.live="compareMode" aria-label="Compare with">
+                        @foreach ($this->compareOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                    </select>
+                </label>
+                @if ($compareMode === 'custom')
+                    <label class="vxr-control"><input type="date" wire:model.live.debounce.500ms="compareFrom" aria-label="Compare from"></label>
+                    <span class="vxr-val-muted">to</span>
+                    <label class="vxr-control"><input type="date" wire:model.live.debounce.500ms="compareTo" aria-label="Compare to"></label>
+                @endif
+            </div>
+        </div>
+        <div class="vxr-table-wrap">
+            <table class="vxr-table vxrep-wide-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th class="num">{{ $cmp['a_label'] }}</th>
+                        <th class="num">{{ $cmp['b_label'] }}</th>
+                        <th class="num">Change</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($cmp['rows'] as $row)
+                        <tr>
+                            <td class="strong">{{ $row['label'] }}</td>
+                            <td class="num">{{ $fmt($row['a'], $row['money']) }}{{ $row['label'] === 'Profit margin %' && $row['a'] !== null ? '%' : '' }}</td>
+                            <td class="num">{{ $fmt($row['b'], $row['money']) }}{{ $row['label'] === 'Profit margin %' && $row['b'] !== null ? '%' : '' }}</td>
+                            <td class="num {{ $row['better'] === true ? 'vxr-val-ok' : ($row['better'] === false ? 'vxr-val-bad' : '') }}">
+                                @if ($row['change'] === null) —
+                                @else
+                                    {{ $row['change'] > 0 ? '+' : '' }}{{ $row['label'] === 'Profit margin %' ? number_format($row['change'], 1).' pts' : $fmt($row['change'], $row['money']) }}
+                                    @if ($row['change_pct'] !== null)<span class="vxr-val-muted">({{ $row['change_pct'] > 0 ? '+' : '' }}{{ number_format($row['change_pct'], 1) }}%)</span>@endif
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {{-- Channel profit --}}
+    @php $cp = $this->channelProfit; $cpTotal = collect($cp); @endphp
+    <section class="vxr-card" aria-labelledby="channel-profit-heading">
+        <div class="vxr-card-head">
+            <div>
+                <h3 id="channel-profit-heading" class="vxr-card-title"><x-filament::icon icon="heroicon-o-currency-dollar" /> Channel profit</h3>
+                <p class="vxr-card-sub">What each channel actually made in the period above. Giveaway spend is Whatnot's figure, shown for reference — the cost of giveaway items is already in cost of goods, so it is not subtracted again.</p>
+            </div>
+        </div>
+        @if ($cp === [])
+            <div class="vxr-empty">No shows in this period.</div>
+        @else
+            <div class="vxr-table-wrap">
+                <table class="vxr-table vxrep-wide-table">
+                    <thead>
+                        <tr>
+                            <th>Channel</th><th class="num">Shows</th><th class="num">Gross</th>
+                            <th class="num">Whatnot fees</th><th class="num">Cost of goods</th><th class="num">Pay</th>
+                            <th class="num">Tips</th><th class="num">Profit</th><th class="num">Margin</th>
+                            <th class="num">Per show</th><th class="num">Giveaway spend</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($cp as $row)
+                            <tr>
+                                <td class="strong">{{ $row['channel'] }}</td>
+                                <td class="num">{{ number_format($row['shows']) }}</td>
+                                <td class="num">{{ $money($row['gross']) }}</td>
+                                <td class="num">{{ $money($row['fees']) }}</td>
+                                <td class="num">{{ $money($row['cogs']) }}</td>
+                                <td class="num">{{ $money($row['pay']) }}</td>
+                                <td class="num">{{ $money($row['tips']) }}</td>
+                                <td class="num strong {{ $row['profit'] < 0 ? 'vxr-val-bad' : '' }}">{{ $money($row['profit']) }}</td>
+                                <td class="num">{{ $row['margin_pct'] === null ? '—' : number_format($row['margin_pct'], 1).'%' }}</td>
+                                <td class="num">{{ $row['profit_per_show'] === null ? '—' : $money($row['profit_per_show']) }}</td>
+                                <td class="num">{{ $money($row['giveaways']) }}</td>
+                            </tr>
+                        @endforeach
+                        @if (count($cp) > 1)
+                            <tr>
+                                <td class="strong">All channels</td>
+                                <td class="num strong">{{ number_format($cpTotal->sum('shows')) }}</td>
+                                @foreach (['gross', 'fees', 'cogs', 'pay', 'tips', 'profit'] as $col)<td class="num strong">{{ $money($cpTotal->sum($col)) }}</td>@endforeach
+                                <td></td><td></td>
+                                <td class="num strong">{{ $money($cpTotal->sum('giveaways')) }}</td>
+                            </tr>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
+
+    {{-- Payout pipeline --}}
+    @php $ps = $this->payoutStatusSummary; @endphp
+    <section class="vxr-card">
+        <div class="vxr-card-head">
+            <h3 class="vxr-card-title"><x-filament::icon icon="heroicon-o-banknotes" /> Payout Pipeline</h3>
+        </div>
+        <div class="vxr-card-body">
+            <div class="vxrep-pipe">
+                @foreach (['draft' => ['Draft', ''], 'approved' => ['Approved', 'info'], 'paid' => ['Paid', 'ok']] as $key => [$label, $tone])
+                    <div>
+                        <span class="vxr-pill {{ $tone ? 'vxr-pill--'.$tone : '' }}">{{ $label }}</span>
+                        <b style="margin-top:8px">{{ number_format($ps[$key]['count']) }}</b>
+                        <span class="vxr-val-muted" style="font-size:13px">{{ $money($ps[$key]['total']) }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
+
+    @php $jump = $this->jumpLinks(); @endphp
+    @if ($jump !== [])
+        <section>
+            <h3 class="vxr-card-title" style="margin-bottom:12px"><x-filament::icon icon="heroicon-o-bolt" /> Jump to Report</h3>
+            <div class="vxrep-tile-row">
+                @foreach ($jump as $link)
+                    <a href="{{ $link['url'] }}" class="vxr-linkrow">
+                        <span class="vxr-linkrow-icon"><x-filament::icon :icon="$link['icon']" /></span>
+                        <span style="min-width:0;color:inherit"><b>{{ $link['label'] }}</b><span>{{ $link['text'] }}</span></span>
+                        <x-filament::icon icon="heroicon-m-chevron-right" />
                     </a>
                 @endforeach
             </div>
         </section>
-
-        {{-- Period selector + date range + export --}}
-        <div id="show-performance" class="sticky top-[64px] z-20 scroll-mt-6 flex flex-wrap items-center gap-2 gap-y-2 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-gray-700 dark:bg-gray-900/95">
-            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Period:</span>
-            @foreach ($this->getPeriodOptions() as $days => $label)
-                <button
-                    wire:click="setPeriod('{{ $days }}')"
-                    class="rounded-lg px-3 py-1.5 text-xs font-medium transition
-                        {{ $period === (string) $days
-                            ? 'bg-primary-600 text-white shadow-sm'
-                            : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700' }}"
-                >
-                    {{ $label }}
-                </button>
-            @endforeach
-
-            <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
-
-            {{-- Custom date range --}}
-            <div class="vx-custom-dates flex flex-wrap items-center gap-1.5">
-                <input
-                    type="date"
-                    aria-label="Report start date"
-                    wire:model="dateFrom"
-                    class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:ring-primary-500 focus:border-primary-500"
-                />
-                <span class="text-xs text-gray-400">to</span>
-                <input
-                    type="date"
-                    aria-label="Report end date"
-                    wire:model="dateTo"
-                    class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:ring-primary-500 focus:border-primary-500"
-                />
-                <button
-                    wire:click="applyCustomRange"
-                    class="rounded-lg px-3 py-1.5 text-xs font-medium transition {{ $period === 'custom' ? 'bg-primary-600 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700' }}"
-                >
-                    Apply
-                </button>
-                @error('dateFrom')<p role="alert" class="w-full text-xs text-red-600">{{ $message }}</p>@enderror
-                @error('dateTo')<p role="alert" class="w-full text-xs text-red-600">{{ $message }}</p>@enderror
-            </div>
-
-            <span class="flex-1"></span>
-
-
-            {{-- CSV export --}}
-            <a
-                wire:click.prevent="exportCsv"
-                href="#"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
-            >
-                <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
-                Export CSV
-            </a>
-        </div>
-
-
-        {{-- Revenue KPI tiles --}}
-        @php $rev = $this->revenueSummary; @endphp
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            @foreach ([
-                ['label'=>'Shows','value'=>number_format($rev['shows']),'trend'=>$rev['trend_shows'],'icon'=>'heroicon-o-video-camera','accent'=>'border-violet-500'],
-                ['label'=>'Units Sold','value'=>number_format($rev['units']),'trend'=>null,'icon'=>'heroicon-o-shopping-bag','accent'=>'border-sky-500'],
-                ['label'=>'Gross Revenue','value'=>'$'.number_format($rev['gross'],2),'trend'=>$rev['trend_gross'],'icon'=>'heroicon-o-banknotes','accent'=>'border-emerald-500'],
-                ['label'=>'Whatnot Net','value'=>'$'.number_format($rev['net'],2),'trend'=>$rev['trend_net'],'icon'=>'heroicon-o-banknotes','accent'=>'border-sky-500'],
-                ['label'=>'COGS','value'=>'$'.number_format($rev['cogs'],2),'trend'=>null,'icon'=>'heroicon-o-cube','accent'=>'border-amber-500'],
-                ['label'=>'Margin','value'=>'$'.number_format($rev['margin'],2),'trend'=>$rev['trend_margin'],'icon'=>'heroicon-o-chart-bar','accent'=>'border-violet-500','sub'=>'Revenue less recorded product costs'],
-                ['label'=>'Tips','value'=>'$'.number_format($rev['tips'],2),'trend'=>null,'icon'=>'heroicon-o-gift','accent'=>'border-rose-500'],
-            ] as $tile)
-                <div class="min-w-0 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
-                    <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-                        <x-dynamic-component :component="$tile['icon']" class="h-3.5 w-3.5 shrink-0" />
-                        <span class="truncate" @if(($tile['label'] ?? null) === 'Margin') title="Revenue minus cost of goods sold (COGS) from sold items with a unit cost recorded. Not full business profit — payouts, shipping, and fees aren't subtracted." @endif>{{ $tile['label'] }}</span>
-                    </div>
-                    <div class="mt-1.5 break-words text-lg font-bold tabular-nums text-gray-900 dark:text-white sm:text-xl" title="{{ $tile['value'] }}">{{ $tile['value'] }}</div>
-                    @if ($tile['trend'] !== null)
-                        <div class="mt-1 text-xs font-medium {{ $trendClass($tile['trend']) }}">
-                            {{ $trendIcon($tile['trend']) }} {{ abs($tile['trend']) }}%
-                            <span class="font-normal text-gray-400">vs prior period</span>
-                        </div>
-                    @elseif (! empty($tile['sub']))
-                        <div class="mt-1 text-xs font-medium text-gray-400">{{ $tile['sub'] }}</div>
-                    @else
-                        <div class="mt-1 text-xs text-transparent select-none">—</div>
-                    @endif
-                    @if ($tile['trend'] !== null && ! empty($tile['sub']))
-                        <div class="text-[11px] text-gray-400">{{ $tile['sub'] }}</div>
-                    @endif
-                </div>
-            @endforeach
-        </div>
-
-        {{-- ── Visual charts ──────────────────────────────────────────────────── --}}
-        @php
-            $weeks       = $this->revenueByWeek;
-            $maxGross    = collect($weeks)->max('gross') ?: 1;
-            $maxNet      = collect($weeks)->max('net')   ?: 1;
-            $chartMax    = max($maxGross, 1);
-
-            $streamers   = $this->topStreamersByPayout;
-            $maxPayout   = collect($streamers)->max('gross') ?: 1;
-
-            $accentColors = [
-                'bg-violet-500', 'bg-sky-500', 'bg-emerald-500',
-                'bg-amber-500',  'bg-rose-500', 'bg-cyan-500',
-                'bg-fuchsia-500','bg-lime-500', 'bg-orange-500', 'bg-teal-500',
-            ];
-        @endphp
-
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-5">
-
-            {{-- Top streamers horizontal bars (2 cols) --}}
-            <div class="lg:col-span-5 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Streamer Performance</h3>
-                </div>
-                <div class="p-5 space-y-3">
-                    @forelse (array_slice($streamers, 0, 8) as $i => $row)
-                        @php $barPct = $maxPayout > 0 ? round(((float) $row['gross'] / $maxPayout) * 100, 1) : 0; @endphp
-                        <div>
-                            <div class="mb-1 flex items-center justify-between gap-2">
-                                <span class="truncate text-xs font-medium text-gray-700 dark:text-gray-300">
-                                    {{ $row['streamer'] }}
-                                </span>
-                                <span class="shrink-0 text-xs font-semibold text-violet-600 dark:text-violet-400">
-                                    ${{ number_format($row['gross'], 0) }}
-                                </span>
-                            </div>
-                            <div class="h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800">
-                                <div class="h-1.5 rounded-full {{ $accentColors[$i % count($accentColors)] }} transition-all duration-500"
-                                     style="width: {{ $barPct }}%"></div>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="flex h-32 items-center justify-center text-sm text-gray-400">No assigned streamer revenue in this period</div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-
-        {{-- Revenue by channel --}}
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Channel Performance</h3>
-            </div>
-            <div class="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-4">
-                @forelse ($this->revenueByChannel as $row)
-                    <div class="rounded-xl border border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700 dark:bg-gray-800/40">
-                        <span class="font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</span>
-                        <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
-                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($row['shows']) }} shows</span>
-                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($row['units']) }} units</span>
-                            <span class="font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 2) }}</span>
-                            <span class="text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 2) }}</span>
-                        </div>
-                    </div>
-                @empty
-                    <div class="px-5 py-8 text-center text-gray-400">No shows in this period</div>
-                @endforelse
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-            {{-- Revenue by week --}}
-            @php
-                $allWeeks    = $this->revenueByWeek;
-                $weekDisplay = $showAllWeeks ? $allWeeks : array_slice($allWeeks, -8);
-                $hasMore     = count($allWeeks) > 8;
-            @endphp
-            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Revenue by Week</h3>
-                    @if ($hasMore)
-                        <button
-                            wire:click="toggleAllWeeks"
-                            class="text-xs text-primary-600 hover:underline dark:text-primary-400"
-                        >
-                            {{ $showAllWeeks ? 'Show recent' : 'Show all '.count($allWeeks).' weeks' }}
-                        </button>
-                    @endif
-                </div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($weekDisplay as $row)
-                        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
-                            <span class="font-medium text-gray-900 dark:text-white">{{ $row['week'] }}</span>
-                            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
-                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ $row['shows'] }} shows</span>
-                                <span class="font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 0) }}</span>
-                                <span class="text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 0) }}</span>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="px-4 py-8 text-center text-gray-400">No data</div>
-                    @endforelse
-                </div>
-            </div>
-
-            {{-- Top streamers --}}
-            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Streamer Performance Details</h3>
-                </div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                    @forelse ($this->topStreamersByPayout as $i => $row)
-                        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
-                            <span class="font-medium text-gray-900 dark:text-white">
-                                <span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $i + 1 }}</span>
-                                {{ $row['streamer'] }}
-                            </span>
-                            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
-                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ $row['shows'] }} shows</span>
-                                <span class="font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['gross'], 2) }}</span>
-                                <span class="text-gray-600 dark:text-gray-300">${{ number_format($row['net'], 2) }} avg</span>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="px-4 py-8 text-center text-gray-400">No payouts in this period</div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-
-        {{-- Payout pipeline --}}
-        {{-- ── Compare two periods ─────────────────────────────────────── --}}
-        @php
-            $cmp = $this->comparison;
-            $fmt = fn ($v, $money) => $v === null ? '—' : ($money ? '$'.number_format($v, 2) : number_format($v, is_float($v) && floor($v) != $v ? 1 : 0));
-        @endphp
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="compare-heading">
-            <div class="flex flex-wrap items-end justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                <div>
-                    <h3 id="compare-heading" class="text-sm font-semibold text-gray-800 dark:text-gray-200">Compare two periods</h3>
-                    <p class="mt-0.5 text-xs text-gray-500">The period selected above against another. Profit is net plus tips, less cost of goods (approved report items) and streamer pay — the same rule as each show page.</p>
-                </div>
-                <div class="flex flex-wrap items-end gap-2 text-sm">
-                    <label class="flex flex-col gap-1">
-                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Compare with</span>
-                        <select wire:model.live="compareMode" class="min-h-10 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
-                            @foreach ($this->compareOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-                        </select>
-                    </label>
-                    @if ($compareMode === 'custom')
-                        <input type="date" wire:model.live.debounce.500ms="compareFrom" aria-label="Compare from" class="min-h-10 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
-                        <span class="pb-2 text-gray-500">to</span>
-                        <input type="date" wire:model.live.debounce.500ms="compareTo" aria-label="Compare to" class="min-h-10 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
-                    @endif
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="text-[11px] uppercase tracking-wide text-gray-500">
-                        <tr>
-                            <th class="px-4 py-2">Metric</th>
-                            <th class="px-3 py-2 text-right">{{ $cmp['a_label'] }}</th>
-                            <th class="px-3 py-2 text-right">{{ $cmp['b_label'] }}</th>
-                            <th class="px-4 py-2 text-right">Change</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach ($cmp['rows'] as $row)
-                            <tr>
-                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ $row['label'] }}</td>
-                                <td class="px-3 py-2 text-right tabular-nums">{{ $fmt($row['a'], $row['money']) }}{{ $row['label'] === 'Profit margin %' && $row['a'] !== null ? '%' : '' }}</td>
-                                <td class="px-3 py-2 text-right tabular-nums text-gray-500">{{ $fmt($row['b'], $row['money']) }}{{ $row['label'] === 'Profit margin %' && $row['b'] !== null ? '%' : '' }}</td>
-                                <td class="px-4 py-2 text-right tabular-nums font-semibold {{ $row['better'] === null ? 'text-gray-500' : ($row['better'] ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400') }}">
-                                    @if ($row['change'] === null) —
-                                    @else
-                                        {{ $row['change'] > 0 ? '+' : '' }}{{ $row['label'] === 'Profit margin %' ? number_format($row['change'], 1).' pts' : $fmt($row['change'], $row['money']) }}
-                                        @if ($row['change_pct'] !== null)<span class="ml-1 text-xs font-normal">({{ $row['change_pct'] > 0 ? '+' : '' }}{{ number_format($row['change_pct'], 1) }}%)</span>@endif
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        {{-- ── Channel profit ─────────────────────────────────────────────── --}}
-        @php
-            $cp = $this->channelProfit;
-            $cpTotal = collect($cp);
-        @endphp
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="channel-profit-heading">
-            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                <h3 id="channel-profit-heading" class="text-sm font-semibold text-gray-800 dark:text-gray-200">Channel profit</h3>
-                <p class="mt-0.5 text-xs text-gray-500">What each channel actually made in the period above. Giveaway spend is Whatnot's figure, shown for reference — the cost of giveaway items is already in cost of goods, so it is not subtracted again.</p>
-            </div>
-            @if ($cp === [])
-                <p class="px-4 py-8 text-center text-sm text-gray-500">No shows in this period.</p>
-            @else
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="text-[11px] uppercase tracking-wide text-gray-500">
-                            <tr>
-                                <th class="px-4 py-2">Channel</th><th class="px-3 py-2 text-right">Shows</th><th class="px-3 py-2 text-right">Gross</th>
-                                <th class="px-3 py-2 text-right">Whatnot fees</th><th class="px-3 py-2 text-right">Cost of goods</th><th class="px-3 py-2 text-right">Pay</th>
-                                <th class="px-3 py-2 text-right">Tips</th><th class="px-3 py-2 text-right">Profit</th><th class="px-3 py-2 text-right">Margin</th>
-                                <th class="px-3 py-2 text-right">Per show</th><th class="px-4 py-2 text-right">Giveaway spend</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($cp as $row)
-                                <tr>
-                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums">{{ number_format($row['shows']) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums">${{ number_format($row['gross'], 2) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['fees'], 2) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['cogs'], 2) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['pay'], 2) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['tips'], 2) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums font-semibold {{ $row['profit'] < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400' }}">${{ number_format($row['profit'], 2) }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums">{{ $row['margin_pct'] === null ? '—' : number_format($row['margin_pct'], 1).'%' }}</td>
-                                    <td class="px-3 py-2 text-right tabular-nums">{{ $row['profit_per_show'] === null ? '—' : '$'.number_format($row['profit_per_show'], 2) }}</td>
-                                    <td class="px-4 py-2 text-right tabular-nums text-gray-500">${{ number_format($row['giveaways'], 2) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        @if (count($cp) > 1)
-                            <tfoot class="border-t border-gray-200 font-semibold dark:border-gray-700">
-                                <tr>
-                                    <td class="px-4 py-2">All channels</td>
-                                    <td class="px-3 py-2 text-right tabular-nums">{{ number_format($cpTotal->sum('shows')) }}</td>
-                                    @foreach (['gross', 'fees', 'cogs', 'pay', 'tips', 'profit'] as $col)<td class="px-3 py-2 text-right tabular-nums">${{ number_format($cpTotal->sum($col), 2) }}</td>@endforeach
-                                    <td class="px-3 py-2"></td><td class="px-3 py-2"></td>
-                                    <td class="px-4 py-2 text-right tabular-nums">${{ number_format($cpTotal->sum('giveaways'), 2) }}</td>
-                                </tr>
-                            </tfoot>
-                        @endif
-                    </table>
-                </div>
-            @endif
-        </section>
-
-        @php $ps = $this->payoutStatusSummary; @endphp
-        <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Payout Pipeline</h3>
-            </div>
-            <div class="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700">
-                @foreach ([
-                    ['key' => 'draft',    'label' => 'Draft'],
-                    ['key' => 'approved', 'label' => 'Approved'],
-                    ['key' => 'paid',     'label' => 'Paid'],
-                ] as $col)
-                    <div class="px-4 py-5 text-center sm:px-6">
-                        <div class="flex items-center justify-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            <span class="h-1.5 w-1.5 rounded-full {{ $pipelineColors[$col['key']]['dot'] }}"></span>
-                            {{ $col['label'] }}
-                        </div>
-                        <div class="mt-1.5 text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($ps[$col['key']]['count']) }}</div>
-                        <div class="mt-0.5 text-sm font-medium {{ $pipelineColors[$col['key']]['text'] }}">
-                            ${{ number_format($ps[$col['key']]['total'], 2) }}
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-
-    </div>
+    @endif
+</div>
 </x-filament-panels::page>

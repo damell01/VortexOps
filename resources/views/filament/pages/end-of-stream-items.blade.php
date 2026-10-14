@@ -150,14 +150,9 @@
                             <dl class="vxw-dl mt-4">
                                 <div><dt>Earnings</dt><dd>${{ number_format($shareWorking['gross_revenue'], 2) }}</dd></div>
                                 <div><dt>Item costs</dt><dd>− ${{ number_format($shareWorking['product_cost'], 2) }}</dd></div>
-                                <div><dt>Burden</dt><dd>− ${{ number_format($shareWorking['burden'], 2) }}</dd></div>
                                 <div class="is-total"><dt>Profit used for share</dt><dd>${{ number_format($shareWorking['net_revenue'], 2) }}</dd></div>
                                 <div><dt>× your profit share percentage</dt><dd></dd></div>
                             </dl>
-                            <p class="vxw-meta mt-2">
-                                Burden: {{ number_format($shareWorking['shipments'], 0) }} shipments × ${{ number_format($shareWorking['rate_per_shipment'] ?? 0, 2) }}
-                                + {{ number_format($shareWorking['hours'], 2) }} hours × ${{ number_format($shareWorking['rate_per_hour'] ?? 0, 2) }}.
-                            </p>
                         @endif
                         @if (!$sharePrimary)
                             <p class="vxw-meta">This show's profit share goes to the primary streamer. Collaboration splits are handled separately.</p>

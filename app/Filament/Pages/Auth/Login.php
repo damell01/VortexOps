@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages\Auth;
 
-use App\Filament\Pages\StreamerShows;
+use App\Filament\Pages\DashboardImproved;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Forms\Components\Checkbox;
 use Filament\Schemas\Components\Component;
@@ -31,7 +31,7 @@ class Login extends BaseLogin
         if ($user?->must_change_password) return route('account.password.edit');
 
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
-            return StreamerShows::getUrl();
+            return DashboardImproved::getUrl();
         }
 
         return parent::getRedirectUrl();

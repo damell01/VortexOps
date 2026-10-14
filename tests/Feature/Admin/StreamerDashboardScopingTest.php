@@ -23,6 +23,7 @@ class StreamerDashboardScopingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-06-04 12:00:00'));
         AdminModules::flushMemo();
         config(['app.owner_email' => 'dbellcreations@gmail.com']);
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
@@ -56,9 +57,21 @@ class StreamerDashboardScopingTest extends TestCase
         Livewire::actingAs($user);
 
         Livewire::test(RecentShowsWidget::class)
-            ->loadTable()
             ->assertSee('Mine Show')
             ->assertSee('Shared Show')
+            ->assertDontSee('Theirs Show');
+    }
+
+    public function test_streamer_home_renders_recent_assigned_shows_without_redirecting(): void
+    {
+        [$user] = $this->scenario();
+        $this->enableAdminModules();
+        Livewire::actingAs($user);
+        Livewire::test(\App\Filament\Pages\DashboardImproved::class)
+            ->assertOk()->assertNoRedirect()
+            ->assertSee('Log Items for a Recent Show')
+            ->assertSee('Recent Item Entries')
+            ->assertSee('Mine Show')->assertSee('Shared Show')
             ->assertDontSee('Theirs Show');
     }
 
@@ -71,7 +84,6 @@ class StreamerDashboardScopingTest extends TestCase
         Livewire::actingAs($orphan);
 
         Livewire::test(RecentShowsWidget::class)
-            ->loadTable()
             ->assertDontSee('Mine Show')
             ->assertDontSee('Shared Show')
             ->assertDontSee('Theirs Show');
@@ -86,7 +98,6 @@ class StreamerDashboardScopingTest extends TestCase
         Livewire::actingAs($admin);
 
         Livewire::test(RecentShowsWidget::class)
-            ->loadTable()
             ->assertSee('Mine Show')
             ->assertSee('Theirs Show')
             ->assertSee('Shared Show');

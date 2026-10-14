@@ -4,9 +4,9 @@ $user=auth()->user(); $groups=[];
 // calendar is one click away, and inventory/admin tooling stays out of the way.
 // Inventory routes stay reachable (reports create items through them); only the
 // links are dropped, unless Roles & Permissions explicitly grants the page.
-$streamerOnly=(bool) $user?->isStreamer();
-$homeUrl=$streamerOnly ? \App\Filament\Pages\StreamerShows::getUrl(panel:'admin') : \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin');
-$homeLabel=$streamerOnly ? 'My Shows' : 'Dashboard';
+$streamerOnly=(bool) ($user?->isStreamer() && !$user?->isAdmin() && !$user?->isOwner());
+$homeUrl=\App\Filament\Pages\DashboardImproved::getUrl(panel:'admin');
+$homeLabel=$streamerOnly ? 'My Dashboard' : 'Dashboard';
 $channel=\App\Support\ChannelContext::current();
 try { $globalLogo=\App\Models\Setting::get('logo_path'); } catch (\Throwable) { $globalLogo=null; }
 $navLogo=null;

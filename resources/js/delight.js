@@ -49,7 +49,7 @@ function countUp(el) {
 function countAll() { document.querySelectorAll(COUNT).forEach(countUp); }
 
 // ── Status pills flip when their text changes ────────────────────────────
-const PILLS = '.vxr-pill, .vx-home-badge, .vxw-pill';
+const PILLS = '.vxr-pill, .vx-home-badge, .vxw-pill, .fi-badge';
 function rememberPills() { document.querySelectorAll(PILLS).forEach((el) => { el.dataset.vxWas = el.textContent.trim(); }); }
 function flipChanged() {
     document.querySelectorAll(PILLS).forEach((el) => {
@@ -82,14 +82,40 @@ export function celebrate() {
 }
 window.addEventListener('vx-celebrate', celebrate);
 
+// ── Shiny: done statuses sparkle once, the first time they appear ───────
+const DONE = /^(paid|approved|finalized|complete|completed|submitted|ready for pay)$/i;
+function sparkleDone(scope = document) {
+    if (calm.matches) return;
+    scope.querySelectorAll(PILLS).forEach((el) => {
+        if (el.dataset.vxShone || !DONE.test(el.textContent.trim())) return;
+        el.dataset.vxShone = '1';
+        el.classList.add('vx-shiny');
+        setTimeout(() => el.classList.remove('vx-shiny'), 1200);
+    });
+}
+
+// ── Energy ripple where a primary button is pressed ──────────────────────
+document.addEventListener('pointerdown', (e) => {
+    if (calm.matches) return;
+    const btn = e.target.closest?.('.vxr-btn--primary, .vx-home-button.primary, .fi-btn.fi-color-primary');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect(), size = Math.max(r.width, r.height);
+    const dot = document.createElement('span');
+    dot.className = 'vx-ripple';
+    dot.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
+    btn.appendChild(dot);
+    setTimeout(() => dot.remove(), 600);
+}, { passive: true });
+
 function boot() {
     countAll();
     rememberPills();
+    sparkleDone();
     // A celebration flashed by the server for the page we just landed on.
     if (document.querySelector('[data-vx-celebrate]')) setTimeout(celebrate, 250);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);
 document.addEventListener('livewire:init', () => {
-    window.Livewire?.hook?.('commit', ({ succeed }) => succeed(() => queueMicrotask(() => { flipChanged(); countAll(); })));
+    window.Livewire?.hook?.('commit', ({ succeed }) => succeed(() => queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); })));
 });

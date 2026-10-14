@@ -48,3 +48,44 @@
   #vx-nav-bar.vx-run, .vx-flip, .vx-clock-dot.is-in::after, .vx-confetti { animation: none !important; display: none; }
   .vx-tilt { transform: none !important; }
 }
+
+/* ── Collector moves (round 2) ───────────────────────────────────────── */
+
+/* Cards are dealt onto the table: a small drop with a slight turn, instead
+   of a plain fade. Replaces the plain rise used by the report cards. */
+@keyframes vx-deal { from { opacity: 0; transform: translateY(14px) rotate(-1.5deg) scale(.98); } }
+.vxr-stats > *, .vxr-tiles > *, .vxr-links > *, .vx-home-show, .vx-home-sidebar > * { animation-name: vx-deal !important; }
+
+/* Shiny: the first time a "done" status appears it sparkles once. */
+.vx-shiny { position: relative; overflow: visible !important; }
+.vx-shiny::after { content: '✦'; position: absolute; top: -7px; right: -6px; font-size: 11px; color: #f5d0fe; text-shadow: 0 0 6px #c084fc; pointer-events: none; animation: vx-sparkle 1.1s ease-out forwards; }
+@keyframes vx-sparkle { 0% { opacity: 0; transform: scale(.2) rotate(0); } 35% { opacity: 1; transform: scale(1.25) rotate(90deg); } 100% { opacity: 0; transform: scale(.6) rotate(180deg); } }
+
+/* Primary buttons: a tiny sparkle on hover, and an energy ripple on press (delight.js). */
+.vxr-btn--primary, .vx-home-button.primary, .fi-btn.fi-color-primary { position: relative; overflow: hidden; }
+.vxr-btn--primary::before, .vx-home-button.primary::before { content: '✦'; position: absolute; top: 4px; right: 8px; font-size: 9px; color: #fff; opacity: 0; pointer-events: none; }
+.vxr-btn--primary:hover::before, .vx-home-button.primary:hover::before { animation: vx-sparkle .9s ease-out; }
+.vx-ripple { position: absolute; border-radius: 999px; pointer-events: none; transform: scale(0); opacity: .55;
+  background: radial-gradient(circle, rgb(255 255 255 / .9), rgb(196 181 253 / .5) 45%, transparent 70%); animation: vx-ripple .55s ease-out forwards; }
+@keyframes vx-ripple { to { transform: scale(2.6); opacity: 0; } }
+
+/* A little hop — like a creature you just picked — on avatars and stat icons. */
+@keyframes vx-hop { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-5px) scale(1.04); } 60% { transform: translateY(0) scale(.98, 1.02); } }
+a.vxr-stat:hover .vxr-stat-icon, .vxr-tile:hover .vxr-stat-icon, .vxsa-avatar:hover, .vx-home-hero-cta:hover .vx-home-hero-cta-icon { animation: vx-hop .45s ease-out; transform: none; }
+
+/* The empty-state card back floats gently, as if waiting to be drawn. */
+.vxr-empty::before, .vx-home-empty::before { animation: vx-float 3.6s ease-in-out infinite; }
+@keyframes vx-float { 0%, 100% { transform: rotate(-6deg) translateY(0); } 50% { transform: rotate(-3deg) translateY(-4px); } }
+
+/* Success pop-ups get one sparkle by their icon. */
+.fi-no-notification.fi-status-success .fi-no-notification-icon { position: relative; animation: vx-hop .5s ease-out .1s; }
+.fi-no-notification.fi-status-success { position: relative; }
+.fi-no-notification.fi-status-success::after { content: '✦'; position: absolute; top: 8px; left: 30px; font-size: 11px; color: #a78bfa; pointer-events: none; animation: vx-sparkle 1s ease-out .15s backwards; }
+
+/* Spinners charge up in Vortex colours. */
+.fi-loading-indicator { color: #7c3aed; filter: drop-shadow(0 0 3px rgb(124 58 237 / .45)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-shiny::after, .vx-ripple, .vxr-btn--primary::before, .vx-home-button.primary::before, .fi-no-notification.fi-status-success::after { display: none !important; }
+  .vxr-empty::before, .vx-home-empty::before, .fi-no-notification-icon { animation: none !important; }
+}

@@ -80,6 +80,7 @@ class NotificationRouter
             'emails' => [],
             'in_app' => (bool) $event['in_app'],
             'email' => (bool) $event['email'],
+            'schedule' => isset($event['schedule']) ? \App\Support\NotificationSchedule::normalize(null, $event['schedule']) : null,
         ];
 
         if (! isset($this->rules[$type])) {
@@ -106,6 +107,7 @@ class NotificationRouter
             'emails' => array_values(array_filter((array) ($saved['emails'] ?? []), fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))),
             'in_app' => (bool) ($saved['in_app'] ?? $default['in_app']),
             'email' => (bool) ($saved['email'] ?? $default['email']),
+            'schedule' => isset($event['schedule']) ? \App\Support\NotificationSchedule::normalize($saved['schedule'] ?? null, $event['schedule']) : null,
         ];
     }
 

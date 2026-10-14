@@ -56,12 +56,15 @@ if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Tim
  \App\Filament\Pages\TimeAttendance::canAccess() ? ['Time & Attendance',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin')] : null,
  \App\Filament\Pages\TimeAttendance::canAccess() ? ['Team hours',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin', parameters: ['tab' => 'people'])] : null,
 ]));
+// Links may carry a section heading and an icon: [label, url, section, icon].
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
- ...(\App\Filament\Pages\ProfitLoss::canAccess() ? [['Profit & Loss',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin')]] : []),
- ['Reports & Analytics',\App\Filament\Pages\Reports::getUrl(panel:'admin')],
- ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin')],
- ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin')],
- ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index')],
+ ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],
+ ['Whatnot Performance',\App\Filament\Pages\Reports::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-up'],
+ ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-down'],
+ ['Profit & Loss',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar'],
+ ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index'),'Financial','heroicon-o-document-text'],
+ ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin'),'Operations','heroicon-o-user-group'],
+ ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Operations','heroicon-o-cube'],
 ];
 // Fulfillment admins don't get the Payroll menu, so Businesses sits under Admin for them.
 if(! $user?->isAdmin() && ! $user?->isOwner() && $user?->isFulfillmentAdmin()) $groups['Admin']=[
@@ -109,8 +112,13 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
 <button type="button" class="vx-mega-trigger" :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>
-<div class="vx-mega-menu-title">{{ $label }}</div>
-@foreach($links as [$text,$url])<a href="{{ $url }}" @click="open=false"><span>{{ $text }}</span><x-filament::icon icon="heroicon-m-chevron-right"/></a>@endforeach
+@php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
+@unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless
+@foreach($links as $link)
+@php [$text,$url] = $link; $section = $link[2] ?? null; $icon = $link[3] ?? null; @endphp
+@if($sectioned && $section !== $lastSection)<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
+<a href="{{ $url }}" @click="open=false" @class(['has-icon' => $icon])>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
+@endforeach
 @if($label==='Admin' && $ownerLinks)
 <details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as [$text,$url])<a href="{{ $url }}" @click="open=false">{{ $text }}</a>@endforeach</div></details>
 @endif

@@ -197,3 +197,6 @@ a.vxr-stat:hover { border-color: var(--vxw-accent-line); }
 
 .vxr-foot-note { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--vxw-muted); }
 .vxr-foot-note svg { width: 17px; height: 17px; flex: none; }
+
+/* Filament icons carry their own colour; let toned containers win. */
+.vxr-linkrow-icon .fi-icon, .vxr-stat-icon .fi-icon, .vxr-banner .fi-icon { color: inherit; }

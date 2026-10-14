@@ -78,6 +78,8 @@ class ProfitLossReport
             }
 
             $earnings = round($pl['net'] + $pl['tips'], 2);
+            $payFinal = $show->payouts->isNotEmpty() && ! $show->payouts->contains(fn ($p) => $p->status !== 'paid' && ! in_array($p->batch?->status, ['finalized', 'submitted_to_adp', 'paid'], true));
+            $payPaid = $show->payouts->isNotEmpty() && $show->payouts->every(fn ($p) => $p->status === 'paid' || $p->batch?->status === 'paid');
 
             return [
                 'id' => $show->id,
@@ -93,6 +95,15 @@ class ProfitLossReport
                 'business' => $primary?->business_id ? ($businesses[$primary->business_id] ?? 'Business') : 'No business',
                 'sales' => $pl['gross'],
                 'earnings' => $earnings,
+                // Whatnot's own figure (completed earnings once settled, else
+                // the estimate) before tips — negative means fees and giveaways
+                // ate the sales before any cost of ours.
+                'whatnot_net' => $pl['net'],
+                'tips' => $pl['tips'],
+                'cogs_recorded' => (bool) $show->latestDeductionRequest,
+                'pay_final' => $payFinal,
+                'pay_paid' => $payPaid,
+                'synced_at' => $show->last_analytics_synced_at ?? $show->last_synced_at,
                 'cogs' => $pl['cogs'],
                 'payouts' => $pl['payouts'],
                 'profit' => $pl['margin'],
@@ -122,6 +133,13 @@ class ProfitLossReport
             'profit' => round($profit, 2),
             'margin_pct' => $earnings > 0 ? round($profit / $earnings * 100, 1) : 0.0,
             'losing' => $rows->where('profit', '<', 0)->count(),
+            'whatnot_negative' => $rows->where('whatnot_net', '<', 0)->count(),
+            'whatnot_negative_sum' => round((float) $rows->where('whatnot_net', '<', 0)->sum('whatnot_net'), 2),
+            'finalized' => $rows->filter(fn ($r) => $r['incomplete'] === [])->count(),
+            'finalized_profit' => round((float) $rows->filter(fn ($r) => $r['incomplete'] === [])->sum('profit'), 2),
+            'finalized_losing' => $rows->filter(fn ($r) => $r['incomplete'] === [] && $r['profit'] < 0)->count(),
+            'missing_cogs' => $rows->filter(fn ($r) => ! $r['cogs_recorded'])->count(),
+            'pay_pending' => $rows->filter(fn ($r) => ! $r['pay_final'])->count(),
             'incomplete' => $rows->filter(fn ($r) => $r['incomplete'] !== [])->count(),
             'units' => (int) $rows->sum('units'),
             'hours' => round($hours, 2),

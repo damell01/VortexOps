@@ -274,6 +274,10 @@ body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
   .vx-mega-menu a{display:flex;align-items:center;justify-content:space-between;min-height:42px;padding:0 10px;border-radius:9px;color:#17172a;font-size:13px;font-weight:600;text-decoration:none}
   .vx-mega-menu a:hover{background:#f4f0ff;color:#5b21b6}
   .vx-mega-menu a svg{width:14px;height:14px;color:#98a2b3}
+  .vx-mega-menu a.has-icon{justify-content:flex-start;gap:12px;font-size:14px}
+  .vx-mega-menu a.has-icon .vx-mega-link-icon{width:20px;height:20px;color:#7c3aed}
+  .vx-mega-menu a.has-icon:hover .vx-mega-link-icon{color:#5b21b6}
+  .vx-mega-section{margin-top:6px;padding-top:12px;border-top:1px solid #eef0f4}
   .fi-topbar .fi-global-search-field{border-radius:999px}
   .fi-page-content{padding-top:28px}
 }

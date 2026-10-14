@@ -181,6 +181,10 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => \App\Support\Impersonation::active() && auth()->check() ? view('filament.components.impersonation-banner') : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::CONTENT_START,
                 fn () => ! auth()->check() ? '' : view('filament.components.clock-banner'),
             )

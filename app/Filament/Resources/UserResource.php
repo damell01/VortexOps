@@ -8,6 +8,8 @@ use App\Models\Streamer;
 use App\Support\UserPayFields;
 use Filament\Schemas\Components\Utilities\Get;
 use Spatie\Permission\Models\Role;
+use App\Support\Impersonation;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -359,12 +361,34 @@ class UserResource extends Resource
             ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(8))
             ->defaultSort('name')
             ->actions([
+                static::impersonateAction(),
                 ViewAction::make()->iconButton()->tooltip('View user'),
                 EditAction::make()->iconButton()->tooltip('Edit user'),
                 DeleteAction::make()->iconButton()->tooltip('Delete user')
                     ->visible(fn (User $record) => static::canDelete($record)),
             ])
             ->bulkActions([]);
+    }
+
+    /** Sign in as this user to see what they see; a banner brings you back. */
+    public static function impersonateAction(): Action
+    {
+        return Action::make('impersonate')
+            ->label('Log in as')
+            ->icon('heroicon-o-arrow-right-end-on-rectangle')
+            ->iconButton()
+            ->tooltip(fn (User $record) => 'Log in as '.$record->name)
+            ->color('gray')
+            ->visible(fn (User $record) => Impersonation::canImpersonate(auth()->user(), $record))
+            ->requiresConfirmation()
+            ->modalHeading(fn (User $record) => 'Log in as '.$record->name.'?')
+            ->modalDescription('You will see the app exactly as they do. A banner at the top of every page brings you back to your own account.')
+            ->modalSubmitActionLabel('Log in as user')
+            ->action(function (User $record) {
+                Impersonation::start(auth()->user(), $record);
+
+                return redirect()->to('/admin');
+            });
     }
 
     public static function getPages(): array

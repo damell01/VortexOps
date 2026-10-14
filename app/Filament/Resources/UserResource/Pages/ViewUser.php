@@ -17,6 +17,7 @@ class ViewUser extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            UserResource::impersonateAction()->button(),
             EditAction::make(),
 
             Action::make('reset_password')

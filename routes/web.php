@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 Route::middleware('auth')->group(function () {
     Route::get('/account/change-password', [\App\Http\Controllers\RequiredPasswordChangeController::class, 'show'])->name('account.password.edit');
     Route::post('/account/change-password', [\App\Http\Controllers\RequiredPasswordChangeController::class, 'update'])->middleware('throttle:6,1')->name('account.password.update');
+    Route::post('/impersonation/stop', [\App\Http\Controllers\ImpersonationController::class, 'stop'])->name('impersonation.stop');
 });
 
 Route::get('/', function () {

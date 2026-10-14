@@ -5,11 +5,35 @@
     $next = $myUpcomingShows->first(fn ($show) => !$myRecentShows->contains('id', $show->id));
 @endphp
 <div class="vx-stream-home" x-data="{day: @js($initialDay)}">
+    @php
+        $toLog = collect(['today', 'yesterday', 'earlier'])->flatMap(fn ($d) => $groups->get($d, collect()))
+            ->first(fn ($show) => ! ($show->streamerLogEntry?->submitted_at && $show->streamerLogEntry?->status !== 'changes_requested'));
+        $todayCount = $groups->get('today', collect())->count();
+    @endphp
+    {{-- Welcome: who, when, the three numbers that matter, and the one thing to do next. --}}
+    <header class="vx-home-hero">
+        <div class="vx-home-welcome">
+            <p class="vx-home-hero-date"><x-heroicon-o-calendar/> {{ now()->format('l, M j, Y') }}</p>
+            <h1>Welcome back, {{ auth()->user()?->streamer?->name ?? auth()->user()?->name }} <span class="vx-home-wave" aria-hidden="true">👋</span></h1>
+            <p>Choose your show and log the items you sold.</p>
+            <div class="vx-home-hero-stats">
+                <span><b>{{ $todayCount }}</b> {{ \Illuminate\Support\Str::plural('show', $todayCount) }} today</span>
+                <span><b>{{ $reportsDue ?? 0 }}</b> to log</span>
+                <span><b>{{ $monthShowCount ?? 0 }}</b> this month</span>
+            </div>
+        </div>
+        @if ($toLog)
+            <a class="vx-home-hero-cta" href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $toLog->id]) }}">
+                <span class="vx-home-hero-cta-icon"><x-heroicon-o-plus/></span>
+                <span><b>Log your next show</b><small>{{ \Illuminate\Support\Str::limit($toLog->title, 42) }}</small></span>
+                <x-heroicon-m-chevron-right class="vx-home-hero-cta-arrow"/>
+            </a>
+        @endif
+    </header>
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
-    <header class="vx-home-welcome"><p>{{ now()->format('D, M j, Y') }}</p><h1>Welcome back, {{ auth()->user()?->streamer?->name ?? auth()->user()?->name }}</h1><p>Choose your show and log the items you sold.</p></header>
+    <h2 class="vx-home-section-title">Log Items for a Recent Show</h2>
     <div class="vx-home-columns">
         <main class="vx-home-main">
-            <h2>Log Items for a Recent Show</h2>
             <div class="vx-home-tabs" role="tablist" aria-label="Recent show day">
                 @foreach(['today'=>'Today','yesterday'=>'Yesterday','earlier'=>'Earlier Shows'] as $key=>$label)
                     <button type="button" role="tab" @click="day='{{ $key }}'" :aria-selected="day==='{{ $key }}'" :class="{'is-active':day==='{{ $key }}'}">{{ $label }} <span>{{ $groups->get($key, collect())->count() }}</span></button>

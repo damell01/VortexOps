@@ -481,7 +481,7 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 
 {{-- ── Show drawer / bottom sheet ────────────────────────────────── --}}
 <div class="vx-backdrop" x-show="show" x-cloak x-transition.opacity @click="close()"></div>
-<aside class="vx-drawer" x-show="show" x-cloak role="dialog" aria-modal="true" x-trap.inert.noscroll="show !== null" :aria-label="show && show.title" :class="full && 'full'" :style="show && ('--c:' + show.color)"
+<aside data-vx-dialog class="vx-drawer" x-show="show" x-cloak role="dialog" aria-modal="true" x-trap.inert.noscroll="show !== null" :aria-label="show && show.title" :class="full && 'full'" :style="show && ('--c:' + show.color)"
        x-transition:enter-start="vx-drawer-off" x-transition:leave-end="vx-drawer-off">
     <template x-if="show">
         <div class="flex min-h-0 flex-1 flex-col">

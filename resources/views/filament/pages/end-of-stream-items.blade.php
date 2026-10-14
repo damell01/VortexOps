@@ -112,6 +112,7 @@
                 $shareEligible = !$reportBlocked && $shareStreamer
                     && in_array($shareStreamer->payout_type, ['profit_share', 'hybrid'], true)
                     && $this->show->streamers->contains('id', $shareStreamer->id);
+                $shareRevenue = $this->show->completed_earnings ?? $this->show->whatnot_net;
                 $shareEstimate = null;
                 $sharePending = false;
                 $sharePrimary = true;
@@ -122,13 +123,13 @@
                     $sharePrimary = $participants->count() <= 1 || ($hasPrimary
                         ? (bool) ($participant->pivot->is_primary ?? false)
                         : $participants->first()?->id === $shareStreamer->id);
-                    $sharePending = $this->show->gross_revenue === null
+                    $sharePending = $shareRevenue === null
                         || $lines->contains(fn ($line) => $line->inventory_item_id === null && $line->unit_cost === null)
                         || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
                         || (\App\Support\ProfitShareFormula::ratePerShipment() !== null && $this->shipments === '');
                     if (!$sharePending) {
                         $shareEstimate = $sharePrimary ? \App\Support\ProfitShareFormula::forShow(
-                            grossRevenue: (float) $this->show->gross_revenue,
+                            grossRevenue: (float) $shareRevenue,
                             productCost: (float) $summary['productCost'],
                             hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
                             shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),

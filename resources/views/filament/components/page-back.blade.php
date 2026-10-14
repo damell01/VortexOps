@@ -7,10 +7,11 @@
     </a>
 </div>
 <style>
-.vx-page-back-row{margin-block:0 -12px}
+.vx-page-back-row{box-sizing:border-box;width:100%;margin-block:0 -12px;padding-inline:32px}
 .vx-page-back{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:4px 0;color:var(--vx-muted,#64748b);font-size:13px;font-weight:600;text-decoration:none}
 .vx-page-back svg{width:18px;height:18px;flex:none}
 .vx-page-back:hover{color:#7c3aed}
 .vx-page-back:focus-visible{outline:3px solid #a78bfa;outline-offset:3px;border-radius:4px}
-@media(max-width:639px){.vx-page-back-row{margin-bottom:-8px}}
+@media(max-width:1023px){.vx-page-back-row{padding-inline:24px}}
+@media(max-width:639px){.vx-page-back-row{padding-inline:16px;margin-bottom:-8px}}
 </style>

@@ -2,16 +2,6 @@
 @include('filament.pages.partials.reporting-workspace-styles')
     <div class="vx-report vx-streamer-report space-y-4">
 
-    <div class="mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-            <div>
-                <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">People performance</div>
-                <h2 class="text-xl font-bold tracking-tight text-gray-950 dark:text-white">Streamer Performance</h2>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500 dark:text-gray-400">Compare show volume, revenue efficiency, margin and payout activity without leaving the reporting workspace.</p>
-            </div>
-        </div>
-    </div>
-
         {{-- Filters --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -117,6 +107,11 @@
             $cardRows = $filteredCards->slice((max(1,$cardPage)-1)*6,6);
             $maxCardGross = max(1, (float) collect($rows)->max('gross_revenue'));
         @endphp
+        <section class="vx-top-streamers"><h3>Top Streamers by Gross Revenue</h3>
+            @foreach(collect($rows)->sortByDesc('gross_revenue')->take(4) as $leader)
+                <div class="vx-top-streamer-row"><span>{{ $leader['name'] }}</span><div class="vx-top-streamer-track"><i style="width:{{ max(0,min(100,$leader['gross_revenue']/$maxCardGross*100)) }}%"></i></div><b>${{ number_format($leader['gross_revenue']) }}</b></div>
+            @endforeach
+        </section>
         <section class="vx-streamer-cards">
             <label class="block mb-4">Find a streamer<input class="rounded-lg border p-3 ml-3" type="search" wire:model.live.debounce.250ms="cardSearch" placeholder="Search streamers…"></label>
             <div class="vx-section-heading">

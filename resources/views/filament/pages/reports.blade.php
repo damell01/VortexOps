@@ -22,22 +22,8 @@
 
     <div class="vx-report vx-business-report space-y-6">
 
-        @if ($this->inventoryReportUrl())
-            <div class="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="min-w-0">
-                    <div class="text-sm font-semibold text-gray-900 dark:text-white">Inventory Reports</div>
-                    <div class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Value, stock health, velocity, aging, coverage and location analysis.</div>
-                </div>
-                <a href="{{ $this->inventoryReportUrl() }}"
-                   class="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary-500">
-                    <x-heroicon-o-cube class="h-4 w-4" />
-                    Inventory Report
-                </a>
-            </div>
-        @endif
-
         {{-- Period selector + date range + export --}}
-        <div class="flex flex-wrap items-center gap-2 gap-y-2">
+        <div id="show-performance" class="flex flex-wrap items-center gap-2 gap-y-2">
             <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Period:</span>
             @foreach ($this->getPeriodOptions() as $days => $label)
                 <button
@@ -453,6 +439,37 @@
                 @endforeach
             </div>
         </div>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            @php
+                $reportCards = array_filter([
+                    ['Show Performance', 'Revenue & trends', '#show-performance', 'heroicon-o-presentation-chart-line'],
+                    $this->inventoryReportUrl() ? ['Inventory', 'Stock & value', $this->inventoryReportUrl(), 'heroicon-o-cube'] : null,
+                    $this->streamerAnalyticsUrl() ? ['Streamer Analytics', 'Hours & payouts', $this->streamerAnalyticsUrl(), 'heroicon-o-users'] : null,
+                    $this->streamerStatementUrl() ? ['Streamer Statements', 'Pay statements', $this->streamerStatementUrl(), 'heroicon-o-document-text'] : null,
+                    $this->financeLedgerUrl() ? ['Whatnot Ledger', 'Transactions & net', $this->financeLedgerUrl(), 'heroicon-o-banknotes'] : null,
+                    $this->productInsightsUrl() ? ['Product Insights', 'Product performance', $this->productInsightsUrl(), 'heroicon-o-chart-bar-square'] : null,
+                ]);
+            @endphp
+            <div class="mb-2 flex items-center justify-between gap-3 px-1">
+                <div class="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Reports</div>
+                <div class="text-[11px] text-gray-400">Jump to a report</div>
+            </div>
+            <div class="vx-report-launchers grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                @foreach($reportCards as [$label,$description,$url,$icon])
+                    <a href="{{ $url }}" class="group flex min-w-0 items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5 transition hover:border-primary-300 hover:bg-primary-50/40 dark:border-gray-700 dark:hover:border-primary-700 dark:hover:bg-primary-500/5">
+                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gray-50 text-primary-600 group-hover:bg-white dark:bg-gray-800 dark:text-primary-300">
+                            <x-dynamic-component :component="$icon" class="h-4 w-4"/>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-xs font-bold text-gray-900 dark:text-white">{{ $label }}</div>
+                            <div class="truncate text-[11px] text-gray-500 dark:text-gray-400">{{ $description }}</div>
+                        </div>
+                        <x-heroicon-o-chevron-right class="h-4 w-4 shrink-0 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-primary-500"/>
+                    </a>
+                @endforeach
+            </div>
+        </section>
 
     </div>
 </x-filament-panels::page>

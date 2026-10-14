@@ -26,22 +26,21 @@ use Filament\Pages\Dashboard;
 
 class DashboardImproved extends Dashboard
 {
-    public function mount(): void
-    {
-        $user = auth()->user();
-
-        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
-            $this->redirect(StreamerShows::getUrl(), navigate: true);
-        }
-    }
-
     public function getView(): string
     {
         return 'filament.pages.dashboard-improved';
     }
 
+    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable|null
+    {
+        $user = auth()->user();
+        return $user?->isStreamer() && !$user->isAdmin() && !$user->isOwner() ? null : parent::getHeading();
+    }
+
     public function getSubheading(): ?string
     {
+        $user = auth()->user();
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
         return "{$name} operations center";
@@ -109,11 +108,6 @@ class DashboardImproved extends Dashboard
                 ->orderBy('start_time')
                 ->first();
 
-            $reportsDue = StreamerLogEntry::query()
-                ->where('streamer_id', $streamerId)
-                ->where('status', 'pending')
-                ->count();
-
             $unreportedEndedShows = (clone $assignedShows)
                 ->whereDate('show_date', '<=', today())
                 ->whereNotIn('status', ['closed', 'cancelled'])
@@ -124,8 +118,14 @@ class DashboardImproved extends Dashboard
             $data += [
                 'roleMode' => 'streamer',
                 'nextShow' => $nextShow,
-                'reportsDue' => $reportsDue + $unreportedEndedShows,
+                'reportsDue' => $unreportedEndedShows,
                 'pendingPayouts' => Payout::where('streamer_id', $streamerId)->where('status', 'approved')->count(),
+                'changesRequested' => StreamerLogEntry::where('streamer_id', $streamerId)->where('status', 'changes_requested')->count(),
+                'monthShowCount' => (clone $assignedShows)->whereBetween('show_date', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+                'monthGross' => (clone $assignedShows)->whereBetween('show_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('gross_revenue'),
+                'recordedPaid' => Payout::where('streamer_id', $streamerId)->where('status', 'paid')->sum('calculated_payout'),
+                'approvedUnpaid' => Payout::where('streamer_id', $streamerId)->where('status', 'approved')->sum('calculated_payout'),
+                'recentItemEntries' => StreamerLogItem::with(['inventoryItem', 'logEntry.show'])->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->whereHas('show', fn ($show) => $show->inChannelContext()))->latest()->limit(5)->get(),
                 'inventoryCount' => InventoryItem::whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $locationIds)->where('quantity', '>', 0))->where('is_active', true)->count(),
                 'inventoryUnits' => (float) \App\Models\InventoryStock::whereIn('inventory_location_id', $locationIds)->sum('quantity'),
                 'giveawayUnits30' => (int) StreamerLogItem::where('disposition', 'giveaway')

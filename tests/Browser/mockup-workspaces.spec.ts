@@ -4,7 +4,7 @@ async function login(page, email: string) {
  await page.goto('/admin/login');
  await page.locator('input[type=email]').fill(email);
  await page.locator('input[type=password]').fill('MockupTest123!');
- await page.locator('button[type=submit]').click();
+ await page.getByRole('button', {name:'Sign in', exact:true}).click();
  await expect(page.locator('input[type=password]')).toHaveCount(0);
 }
 for (const width of [390, 1280, 1920]) {

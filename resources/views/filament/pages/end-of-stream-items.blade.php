@@ -446,6 +446,196 @@
                                     <div><dt>Promo</dt><dd>{{ $summary['promo'] }}</dd></div>
                                     <div><dt>Other</dt><dd>{{ $summary['other'] }}</dd></div>
                                     <div class="is-total"><dt>Total units</dt><dd>{{ $summary['units'] }}</dd></div>
+                                    @if ($shareEligible)
+                                        <div class="is-total" aria-live="polite" aria-atomic="true">
+                                            <dt>Estimated profit share</dt>
+                                            <dd>{{ $sharePending ? 'Pending report data' : '
+                                </dl>
+                            </div>
+                            <div class="vxw-card-foot" style="justify-content:flex-start">
+                                @if($summary['items'] === 0)
+                                    <span class="vxw-meta">Add show items to begin.</span>
+                                @elseif($summary['unmatched'] > 0)
+                                    <span class="vxw-meta vxw-tone-warn">{{ $summary['unmatched'] }} unlisted {{ \Illuminate\Support\Str::plural('item', $summary['unmatched']) }} will need admin matching.</span>
+                                @else
+                                    <span class="vxw-meta vxw-tone-ok">Everything is ready.</span>
+                                @endif
+                            </div>
+                        </section>
+                    </aside>
+                </div>
+
+                {{-- Phone: primary action always within thumb reach --}}
+                <div class="vxw-actionbar" data-vx-mobile-actions>
+                    @if($this->step === 1)
+                        <button type="button" class="vxw-btn" wire:click="toggleBrowse">Add items</button>
+                        <button type="button" class="vxw-btn vxw-btn--primary" wire:click="goToStep(2)">Continue</button>
+                    @elseif($this->step === 2)
+                        <button type="button" class="vxw-btn" wire:click="goToStep(1)">Back</button>
+                        <button type="button" class="vxw-btn vxw-btn--primary" wire:click="goToStep(3)">Review</button>
+                    @else
+                        <button type="button" class="vxw-btn" wire:click="goToStep(2)">Back</button>
+                        @if($reportSubmitted)
+                            <button type="button" class="vxw-btn vxw-btn--primary" disabled>Submitted</button>
+                        @else
+                            <button type="button" class="vxw-btn vxw-btn--primary" wire:click="submit" wire:confirm="Submit this show report?" wire:loading.attr="disabled" wire:target="submit">Submit report</button>
+                        @endif
+                    @endif
+                </div>
+            @endif
+        </div>
+
+        @if($this->showInventoryPicker && ! $reportBlocked)
+            @php
+                $total = $this->inventoryTotal;
+                $staged = $this->stagedSummary;
+                $alreadyInReport = $lines->groupBy('inventory_item_id')->map(fn ($rows) => $rows->sum('quantity'));
+            @endphp
+            <div class="vxw-sheet-wrap" role="dialog" aria-modal="true" aria-labelledby="eos-picker-title"
+                x-data x-init="$nextTick(() => $el.querySelector('input[type=search]')?.focus())" @keydown.escape.window="$wire.toggleBrowse()">
+                <div class="vxw-sheet-backdrop" wire:click="toggleBrowse"></div>
+                <section class="vxw-sheet">
+                    <div class="vxw-sheet-grab" aria-hidden="true"></div>
+                    <div class="vxw-sheet-head">
+                        <div>
+                            <h3 id="eos-picker-title" class="vxw-h2">Add items</h3>
+                            <p class="vxw-hint">Search or scan, then set how many were used.</p>
+                        </div>
+                        <button type="button" class="vxw-iconbtn" wire:click="toggleBrowse" aria-label="Close"><x-filament::icon icon="heroicon-m-x-mark" /></button>
+                    </div>
+                    <div class="vxw-sheet-tools">
+                        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_200px_auto] sm:items-center">
+                            {{-- Barcode and UPC are searched too, so a scanner
+                                 aimed at this box works without the camera. --}}
+                            <div class="vxw-search">
+                                <x-filament::icon icon="heroicon-m-magnifying-glass" />
+                                <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search name, SKU or barcode…" class="vxw-input" aria-label="Search inventory" />
+                            </div>
+                            <button type="button" class="vxw-btn"
+                                x-on:click="window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Scan an item', helper: 'Adds it to this report' } }))">
+                                <x-filament::icon icon="heroicon-m-camera" /> Scan
+                            </button>
+                            <select wire:model.live="pickerCategory" class="vxw-select" aria-label="Category">
+                                <option value="">All categories</option>
+                                @foreach($this->pickerCategories as $category)<option value="{{ $category }}">{{ $category }}</option>@endforeach
+                            </select>
+                            <label class="vxw-check items-center rounded-[var(--vxw-radius-sm)] border border-[var(--vxw-border-strong)] bg-[var(--vxw-surface)] px-3" style="min-height:40px">
+                                <input type="checkbox" wire:model.live="pickerStagedOnly" />
+                                <span class="whitespace-nowrap text-[13px] font-medium">Selected only</span>
+                            </label>
+                        </div>
+                        {{--
+                            Say how many matched, not just how many are drawn.
+                            A silent cut reads as "we do not stock that" when it
+                            means "narrow your search", and the two look
+                            identical on screen.
+                        --}}
+                        <p class="vxw-meta" aria-live="polite">
+                            <span wire:loading wire:target="search,pickerCategory,pickerStagedOnly" class="vxw-spin mr-1 inline-block align-[-2px]" aria-hidden="true"></span>
+                            @if($total === 0)
+                                Nothing matches.
+                            @elseif($total > $this->inventory->count())
+                                Showing {{ number_format($this->inventory->count()) }} of {{ number_format($total) }} — keep typing to narrow it down.
+                            @else
+                                {{ number_format($total) }} {{ \Illuminate\Support\Str::plural('item', $total) }}.
+                            @endif
+                        </p>
+                    </div>
+
+                    <div class="vxw-sheet-body">
+                        <div class="vxw-tiles" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">
+                            @forelse($this->inventory as $item)
+                                @php $stagedQty = (int) ($this->stagedQuantities[$item->id] ?? 0); @endphp
+                                <article wire:key="pick-item-{{ $item->id }}" @class(['vxw-tile', 'is-selected' => $stagedQty > 0]) style="cursor:default;padding:12px">
+                                    <div>
+                                        <div class="vxw-tile-title" style="font-size:13.5px">{{ $item->name }}</div>
+                                        <div class="vxw-meta mt-0.5">
+                                            SKU {{ $item->sku ?? '—' }}
+                                            @if(($alreadyInReport[$item->id] ?? 0) > 0)
+                                                · <span class="vxw-tone-ok font-medium">{{ $alreadyInReport[$item->id] }} on report</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="vxw-tile-foot">
+                                        <div>
+                                            <div class="vxw-fig-label">On hand</div>
+                                            <div class="vxw-fig-value">{{ number_format((float)($item->stock_sum_quantity ?? 0)) }}</div>
+                                        </div>
+                                        @if($stagedQty === 0)
+                                            <button type="button" class="vxw-btn vxw-btn--sm" wire:click="stageItem({{ $item->id }})">
+                                                <x-filament::icon icon="heroicon-m-plus" /> Add
+                                            </button>
+                                        @else
+                                            <div class="vxw-qty">
+                                                <button type="button" wire:click="stageItem({{ $item->id }}, -1)" aria-label="One fewer {{ $item->name }}">−</button>
+                                                <input type="number" min="0" inputmode="numeric" value="{{ $stagedQty }}" wire:change="setStagedQuantity({{ $item->id }}, $event.target.value)" aria-label="Quantity of {{ $item->name }}" />
+                                                <button type="button" wire:click="stageItem({{ $item->id }}, 1)" aria-label="One more {{ $item->name }}">+</button>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </article>
+                            @empty
+                                <div class="vxw-empty col-span-full">
+                                    <x-filament::icon icon="heroicon-o-magnifying-glass" />
+                                    <div class="vxw-empty-text">{{ $this->pickerStagedOnly ? 'Nothing selected yet.' : 'No inventory matched this search.' }}</div>
+                                </div>
+                            @endforelse
+                        </div>
+
+                        @if($total > $this->inventory->count())
+                            <div class="mt-3 text-center">
+                                <button type="button" class="vxw-btn" wire:click="showMoreInventory" wire:loading.attr="disabled" wire:target="showMoreInventory">Show 60 more</button>
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Running total, always visible while scrolling a long catalog. --}}
+                    <div class="vxw-sheet-foot">
+                        <div class="vxw-meta">
+                            @if($staged['items'] === 0)
+                                Nothing selected yet.
+                            @else
+                                <strong class="text-[var(--vxw-text)]">{{ $staged['items'] }}</strong> {{ \Illuminate\Support\Str::plural('item', $staged['items']) }} ·
+                                <strong class="text-[var(--vxw-text)]">{{ number_format($staged['units']) }}</strong> {{ \Illuminate\Support\Str::plural('unit', $staged['units']) }}
+                                @if($staged['cost'] > 0) · <strong class="text-[var(--vxw-text)]">${{ number_format($staged['cost'], 2) }}</strong> at cost @endif
+                            @endif
+                        </div>
+                        <div class="flex items-center gap-2 max-sm:w-full">
+                            @if($staged['items'] > 0)
+                                <button type="button" class="vxw-btn vxw-btn--ghost" wire:click="clearStaged">Clear</button>
+                            @endif
+                            <button type="button" class="vxw-btn vxw-btn--primary max-sm:flex-1" wire:click="addStagedItems" wire:loading.attr="disabled" wire:target="addStagedItems" @disabled($staged['items'] === 0)>
+                                <span wire:loading wire:target="addStagedItems" class="vxw-spin" aria-hidden="true"></span>
+                                @if($staged['items'] === 0)
+                                    Add to report
+                                @else
+                                    Add {{ number_format($staged['units']) }} {{ \Illuminate\Support\Str::plural('unit', $staged['units']) }} to report
+                                @endif
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        @endif
+
+        <script>
+            (() => {
+                if (window.__vxEosUnloadGuardInstalled) return;
+                window.__vxEosUnloadGuardInstalled = true;
+
+                window.addEventListener('beforeunload', (event) => {
+                    const marker = document.querySelector('.vx-eos-unsaved');
+                    if (!marker || getComputedStyle(marker).display === 'none') return;
+                    event.preventDefault();
+                    event.returnValue = '';
+                });
+            })();
+        </script>
+    @endif
+</x-filament-panels::page>
+ . number_format($shareEstimate, 2) }}</dd>
+                                        </div>
+                                    @endif
                                 </dl>
                             </div>
                             <div class="vxw-card-foot" style="justify-content:flex-start">

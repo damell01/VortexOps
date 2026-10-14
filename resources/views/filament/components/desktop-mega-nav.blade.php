@@ -146,12 +146,12 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        height: auto !important;
+        height: 68px !important;
         min-height: 68px !important;
         display: flex !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 12px !important;
-        padding: 10px 24px !important;
+        padding: 0 20px !important;
         overflow: visible !important;
     }
     .fi-topbar nav.vx-desktop-mega-nav {
@@ -164,7 +164,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
         min-height: 44px !important;
         padding: 0 !important;
         margin: 0 !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
     }
     .fi-topbar .fi-topbar-start { flex: 0 0 auto !important; margin: 0 !important; }
     .fi-topbar .fi-topbar-end {
@@ -192,7 +192,25 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     }
     .fi-topbar .fi-user-menu { flex: 0 0 auto !important; margin: 0 !important; }
 }
-@media (min-width: 1024px) and (max-width: 1599px) {
-    .fi-topbar nav.vx-desktop-mega-nav { flex-basis: 100% !important; }
+@media (min-width: 1024px) and (max-width: 1399px) {
+    .fi-topbar nav.vx-desktop-mega-nav :is(.vx-mega-home, .vx-mega-trigger) {
+        padding-inline: 6px !important;
+        font-size: 12px !important;
+    }
+    .fi-topbar .fi-global-search {
+        flex: 0 1 44px !important;
+        width: 44px !important;
+        max-width: 44px !important;
+    }
+    .fi-topbar .fi-global-search input::placeholder { color: transparent !important; }
+    .fi-topbar .fi-global-search:focus-within {
+        position: absolute !important;
+        right: 160px;
+        width: min(320px, 40vw) !important;
+        max-width: 320px !important;
+        z-index: 60;
+    }
+    .fi-topbar .fi-global-search:focus-within input::placeholder { color: #64748b !important; }
+    .fi-topbar .vx-mega-channel { min-width: 115px !important; max-width: 140px !important; flex-basis: 130px !important; }
 }
 </style>

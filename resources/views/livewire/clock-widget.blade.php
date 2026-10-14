@@ -66,7 +66,7 @@
                     <div class="vxw-eyebrow">Time clock</div>
                     @if ($entry)
                         <div class="vx-clock-big" x-data="{ s: {{ (int) $entry->clocked_in_at->diffInSeconds(now()) }} }" x-init="setInterval(() => s++, 1000)">
-                            <span x-text="Math.floor(s/3600) + ':' + String(Math.floor(s%3600/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0')">{{ \App\Models\TimeEntry::formatMinutes((int) $entry->clocked_in_at->diffInMinutes(now())) }}</span>
+                            <span x-text="Math.floor(s/3600) + ':' + String(Math.floor(s%3600/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0')">{{ \App\Models\TimeEntry::formatMinutes((int) $entry->clocked_in_at->diffInMinutes(now())) }}</span><img class="vx-sprite vx-clock-eevee" src="/img/pokemon/eevee.gif" alt="" aria-hidden="true">
                         </div>
                         <div class="vxw-meta">Clocked in at {{ $entry->clocked_in_at->copy()->setTimezone($tz)->format('g:i A') }} · {{ $entry->show_id ? ($entry->show?->title ?? 'Show #'.$entry->show_id) : ($entry->reason ? \App\Models\TimeEntry::REASONS[$entry->reason].($entry->notes ? ' — '.$entry->notes : '') : 'No show or reason yet') }}</div>
                     @else

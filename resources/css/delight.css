@@ -145,3 +145,19 @@ svg.fi-loading-indicator > * { opacity: 0; }
   animation: vx-mon-pop .5s cubic-bezier(.3,1.5,.6,1) 1.45s forwards, vx-catch-out .3s ease-in 2.5s forwards; }
 @keyframes vx-mon-pop { from { opacity: 0; transform: translateY(10px) scale(.3); } to { opacity: 1; transform: translateY(-78px) scale(1); } }
 .vx-catch-ball { animation: vx-catch-drop .35s cubic-bezier(.3,1.4,.6,1) both, vx-wobble .9s ease-in-out .4s 1 both, vx-catch-out .3s ease-in 2.5s forwards !important; }
+
+/* Mew floats beside the Reports Overview title. */
+.vx-mew { display: inline-block; width: 52px; height: auto; margin-left: 10px; vertical-align: middle; animation: vx-mew 4.5s ease-in-out infinite; }
+@keyframes vx-mew { 0%, 100% { transform: translate(0, 0); } 30% { transform: translate(4px, -7px); } 65% { transform: translate(-3px, -3px); } }
+
+/* Charizard perches on the performance card and on a profitable finalized period. */
+.vx-home-card:has(> .vx-zard) { position: relative; }
+.vx-zard { position: absolute; top: -34px; right: 14px; width: 64px; height: auto; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .25)); }
+.vxr-stat.vx-zard-perch { position: relative; overflow: visible; }
+.vxr-stat.vx-zard-perch::after { content: ''; position: absolute; top: -30px; right: 8px; width: 56px; height: 57px; pointer-events: none;
+  background: url('/img/pokemon/charizard.gif') center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .25)); }
+
+/* Eevee keeps you company while you're on the clock. */
+.vx-clock-eevee { display: inline-block; width: 30px; height: auto; margin-left: 8px; vertical-align: -4px; }
+
+@media (prefers-reduced-motion: reduce) { .vx-mew { animation: none; } }

@@ -55,7 +55,7 @@
             <x-vxr.stat label="Businesses Affected" :value="$t['businesses']" icon="heroicon-o-building-office-2" tone="info" />
         </div>
 
-        <div class="vxr-banner"><x-filament::icon icon="heroicon-s-information-circle" /> Whatnot estimates may change as analytics refresh. Business costs and payroll are not included — see Profit &amp; Loss for those.</div>
+        <div class="vxr-banner"><x-filament::icon icon="heroicon-s-information-circle" /> Whatnot estimates may change as analytics refresh. Business costs and payroll are not included — see Business Profitability for those.</div>
 
         <div class="vxr-card">
             @if ($rows->isEmpty())
@@ -70,7 +70,7 @@
                         <tbody>
                             @foreach ($rows as $r)
                                 <tr wire:key="wl-{{ $r['id'] }}">
-                                    <td><a class="strong" style="color:inherit;text-decoration:none" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $r['id']]) }}">{{ $r['title'] }}</a><span class="sub">{{ $r['channel'] }}</span></td>
+                                    <td><a class="strong" style="color:inherit;text-decoration:none" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $r['id']]) }}">{{ $r['title'] }}</a><span class="sub"><x-vx.channel :name="$r['channel']" /></span></td>
                                     <td>{{ $r['business'] }}</td>
                                     <td>{{ $r['streamer'] }}</td>
                                     <td style="white-space:nowrap">{{ $r['date']?->format('M j, Y') }}</td>

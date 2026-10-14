@@ -145,7 +145,7 @@
                         @php $final = $r['incomplete'] === []; @endphp
                         <tr wire:key="pl-{{ $r['id'] }}" wire:click="select({{ $r['id'] }})" @class(['is-click', 'is-selected' => $selected === $r['id']])>
                             <td><span class="strong">{{ \Illuminate\Support\Str::limit($r['title'], 48) }}</span><span class="sub">{{ $r['date']?->format('M j, Y') }}@if($r['start']) {{ $r['start']->format('g:i A') }}@endif</span></td>
-                            <td>{{ $r['channel'] }}</td>
+                            <td><x-vx.channel :name="$r['channel']" /></td>
                             <td>{{ $r['streamer'] }}@if($r['cohosts'])<span class="sub">+ {{ implode(', ', $r['cohosts']) }}</span>@endif</td>
                             <td class="num">{{ $money($r['sales'], 2) }}</td>
                             <td class="num {{ $r['whatnot_net'] < 0 ? 'vxr-val-bad' : '' }}">{{ $money($r['earnings'], 2) }}</td>

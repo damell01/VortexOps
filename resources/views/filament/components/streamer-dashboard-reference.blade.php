@@ -25,6 +25,7 @@
         </div>
         @if ($toLog)
             <a class="vx-home-hero-cta" href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $toLog->id]) }}">
+                <img class="vx-sprite vx-home-hero-pika" src="/img/pokemon/pikachu.gif" alt="" aria-hidden="true">
                 <span class="vx-home-hero-cta-icon"><x-heroicon-o-plus/></span>
                 <span><b>Log your next show</b><small>{{ \Illuminate\Support\Str::limit($toLog->title, 42) }}</small></span>
                 <x-heroicon-m-chevron-right class="vx-home-hero-cta-arrow"/>

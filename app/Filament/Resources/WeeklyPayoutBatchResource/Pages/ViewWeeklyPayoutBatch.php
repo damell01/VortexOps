@@ -169,7 +169,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             ->visible(fn () => $this->record->status === 'submitted_to_adp')->requiresConfirmation()->action(function () {
                 app(PayoutService::class)->markBatchPaid($this->record);
                 Notification::make()->title('Pay run marked as paid — team balances updated.')->success()->send();
-                $this->dispatch('vx-celebrate');
+                $this->dispatch('vx-celebrate', kind: 'pay');
                 $this->refreshFormData(['status']); $this->record->refresh();
             });
 

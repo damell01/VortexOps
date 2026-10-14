@@ -124,3 +124,24 @@ svg.fi-loading-indicator > * { opacity: 0; }
   #vx-nav-bar::after, .vx-catch, .vx-home-hero-ball { animation: none !important; }
   .vx-catch { display: none; }
 }
+
+/* ── Pokémon sprites (public/img/pokemon, animated, pixel-crisp) ─────── */
+.vx-sprite { image-rendering: pixelated; image-rendering: crisp-edges; pointer-events: none; }
+
+/* Empty lists: a puzzled Psyduck; "all caught up": a napping Snorlax. */
+.vxr-empty::before, .vx-home-empty::before { width: 59px; height: 69px; border-radius: 0; box-shadow: none !important; transform: none;
+  background: url('/img/pokemon/psyduck.gif') center bottom / contain no-repeat; image-rendering: pixelated; animation: none; }
+.vxr-empty.is-caught::before, .vx-home-empty.is-caught::before { width: 96px; height: 96px; border-radius: 0;
+  background: url('/img/pokemon/snorlax.gif') center bottom / contain no-repeat; image-rendering: pixelated; animation: none; }
+
+/* Pikachu sits on the streamer's "Log your next show" button. */
+.vx-home-hero-cta { position: relative; overflow: visible; }
+.vx-home-hero-pika { position: absolute; right: 26px; top: -50px; width: 62px; height: auto; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .35)); transition: transform .25s; }
+.vx-home-hero-cta:hover .vx-home-hero-pika { transform: translateY(-4px); }
+@media (max-width: 600px) { .vx-home-hero-pika { width: 50px; top: -40px; right: 18px; } }
+
+/* The catch: once the ball clicks shut, its Pokémon pops out above it. */
+.vx-catch-mon { position: absolute; width: 84px; height: auto; opacity: 0; image-rendering: pixelated; filter: drop-shadow(0 6px 10px rgb(20 10 40 / .35));
+  animation: vx-mon-pop .5s cubic-bezier(.3,1.5,.6,1) 1.45s forwards, vx-catch-out .3s ease-in 2.5s forwards; }
+@keyframes vx-mon-pop { from { opacity: 0; transform: translateY(10px) scale(.3); } to { opacity: 1; transform: translateY(-78px) scale(1); } }
+.vx-catch-ball { animation: vx-catch-drop .35s cubic-bezier(.3,1.4,.6,1) both, vx-wobble .9s ease-in-out .4s 1 both, vx-catch-out .3s ease-in 2.5s forwards !important; }

@@ -64,6 +64,15 @@ function flipChanged() {
 // ── Foil confetti, for moments worth it ──────────────────────────────────
 export function celebrate() {
     if (calm.matches) return;
+    const catchBox = document.createElement('div');
+    catchBox.className = 'vx-catch';
+    catchBox.innerHTML = '<div class="vx-catch-ball"></div><span class="vx-catch-star">★</span>';
+    document.body.appendChild(catchBox);
+    setTimeout(() => catchBox.remove(), 2200);
+    setTimeout(confetti, 1350);
+}
+
+function confetti() {
     const box = document.createElement('div');
     box.className = 'vx-confetti';
     const colours = ['#7c3aed', '#a78bfa', '#4f46e5', '#c026d3', '#e9d5ff', '#38bdf8'];

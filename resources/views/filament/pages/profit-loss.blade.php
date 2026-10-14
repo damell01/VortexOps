@@ -158,7 +158,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9"><div class="vxr-empty"><b>No shows here</b>Nothing matches this tab and these filters.</div></td></tr>
+                        <tr><td colspan="9"><div @class(['vxr-empty', 'is-caught' => in_array($tab, ['losses', 'whatnot', 'incomplete'], true)])><b>{{ in_array($tab, ['losses', 'whatnot', 'incomplete'], true) ? 'All caught up' : 'No shows here' }}</b>Nothing matches this tab and these filters.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

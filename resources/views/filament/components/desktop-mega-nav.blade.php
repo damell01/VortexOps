@@ -50,12 +50,12 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],
 ];
-// Timekeeping has its own menu: clocking in, and settling hours before payroll.
-if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=array_values(array_filter([
- ['Clock in & my time',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
- \App\Filament\Pages\TimeAttendance::canAccess() ? ['Time & Attendance',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin')] : null,
- \App\Filament\Pages\TimeAttendance::canAccess() ? ['Team hours',\App\Filament\Pages\TimeAttendance::getUrl(panel:'admin', parameters: ['tab' => 'people'])] : null,
-]));
+// Timekeeping is one page — the clock, and for admins a dashboard that opens
+// Time & Attendance's lists — so it is a plain link, not a menu.
+if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=[
+ ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
+];
+$directGroups = ['Timekeeping'];
 // Links may carry a section heading and an icon: [label, url, section, icon].
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
  ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],
@@ -109,6 +109,11 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
+@if(in_array($label, $directGroups ?? [], true) && count($links) === 1)
+@php $here = request()->routeIs('filament.admin.pages.timekeeping', 'filament.admin.pages.time-attendance'); @endphp
+<a class="vx-mega-trigger @if($here) is-here @endif" href="{{ $links[0][1] }}" @if($here) aria-current="page" @endif><span>{{ $label }}</span></a>
+@continue
+@endif
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
 <button type="button" class="vx-mega-trigger" :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>

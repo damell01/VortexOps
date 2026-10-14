@@ -20,13 +20,15 @@
 
         @livewire('clock-widget', ['withStats' => true])
 
-        @if ($seesTeam && \App\Filament\Pages\TimeAttendance::canAccess())
-            @php $review = \App\Filament\Pages\TimeAttendance::reviewCount(); @endphp
-            <a href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}" class="vxw-alert {{ $review ? 'vxw-alert--warn' : 'vxw-alert--info' }}" style="align-items:center;text-decoration:none">
-                <x-filament::icon icon="heroicon-m-clipboard-document-check" />
-                <span class="flex-1"><b>Time &amp; Attendance</b> — {{ $review ? $review . ' ' . \Illuminate\Support\Str::plural('item', $review) . ($review === 1 ? ' needs' : ' need') . ' review before payroll' : 'nothing waiting for review' }}</span>
-                <x-filament::icon icon="heroicon-m-arrow-right" />
-            </a>
+        @if ($seesTeam)
+            @php $tiles = $this->adminTiles(); $h = intdiv($tiles['hours']['minutes'], 60).'h '.str_pad((string) ($tiles['hours']['minutes'] % 60), 2, '0', STR_PAD_LEFT).'m'; @endphp
+            {{-- One place for admins: each card opens the list it counts. --}}
+            <div class="vxr-stats" data-vx-timekeeping-tiles>
+                <x-vxr.stat label="Needs review" :value="$tiles['review']['count']" icon="heroicon-o-clipboard-document-check" :tone="$tiles['review']['count'] ? 'warn' : 'ok'" :note="$tiles['review']['count'] ? 'Settle before payroll' : 'Nothing waiting'" :href="$tiles['review']['url']" />
+                <x-vxr.stat label="Clocked in now" :value="$tiles['now']['count']" icon="heroicon-o-play-circle" tone="ok" note="Who is on the clock" :href="$tiles['now']['url']" />
+                <x-vxr.stat label="Team hours this week" :value="$h" icon="heroicon-o-users" tone="info" :note="$tiles['hours']['people'].' '.\Illuminate\Support\Str::plural('person', $tiles['hours']['people'])" :href="$tiles['hours']['url']" />
+                <x-vxr.stat label="Entries this week" :value="$tiles['entries']['count']" icon="heroicon-o-list-bullet" tone="accent" note="Every entry, editable" :href="$tiles['entries']['url']" />
+            </div>
         @endif
 
         <section class="vxw-card">

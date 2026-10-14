@@ -12,6 +12,7 @@
     ];
 @endphp
 <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="time-attendance">
+    <a href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}" class="vxw-link" style="display:inline-flex;align-items:center;gap:6px;font-size:14px;justify-self:start"><x-filament::icon icon="heroicon-m-arrow-left" style="width:16px;height:16px" /> Back to Timekeeping</a>
     <div class="vxw-chips" role="tablist" aria-label="Time & Attendance views">
         @foreach ($tabs as $key => [$label, $count])
             <button type="button" role="tab" wire:click="setTab('{{ $key }}')" @class(['vxw-chip', 'is-active' => $tab === $key]) aria-selected="{{ $tab === $key ? 'true' : 'false' }}">

@@ -105,18 +105,7 @@ $ownerLabels = ['Import Status','Show Data Audit','Show Ingestion Logs','Email L
 $ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? [], fn ($link) => in_array($link[0], $ownerLabels, true))) : [];
 if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
 @endphp
-<a href="{{ $homeUrl }}" class="vx-app-back" aria-label="Back to previous screen" title="Back"
-   onclick="event.preventDefault();window.vortexGoBack(this.href)">
-    <x-filament::icon icon="heroicon-o-arrow-left" />
-    <span>Back</span>
-</a>
-<style>
-.fi-topbar .vx-app-back{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;flex:0 0 auto!important;min-width:44px;min-height:44px;padding:8px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;text-decoration:none}
-.fi-topbar .vx-app-back svg{width:20px;height:20px;flex:none}
-.fi-topbar .vx-app-back:hover{background:rgb(255 255 255 / .1)}
-.fi-topbar .vx-app-back:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
-@media(max-width:1199px){.fi-topbar .vx-app-back span{display:none}}
-</style>
+
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>

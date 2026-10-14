@@ -1,4 +1,6 @@
 @extends('errors.layout')
 @section('code', '500')
-@section('title', 'Server Error')
-@section('message', 'Something went wrong on our end. Check the logs or try again in a moment.')
+@section('mon', 'gengar')
+@section('encounter', 'Gengar is haunting the server!')
+@section('title', 'Something Went Wrong')
+@section('message', "Something broke on our end. Try again in a moment — if it keeps happening, let an admin know what you were doing.")

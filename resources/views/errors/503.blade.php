@@ -1,4 +1,6 @@
 @extends('errors.layout')
 @section('code', '503')
+@section('mon', 'snorlax')
+@section('encounter', 'Snorlax is blocking the path…')
 @section('title', 'Down for Maintenance')
-@section('message', 'VortexOps is being updated. Check back in a few minutes.')
+@section('message', "VortexOps is being updated. Check back in a few minutes.")

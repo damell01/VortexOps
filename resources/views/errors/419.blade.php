@@ -1,0 +1,6 @@
+@extends('errors.layout')
+@section('code', '419')
+@section('mon', 'eevee')
+@section('encounter', 'Your session ran out of PP!')
+@section('title', 'Page Expired')
+@section('message', 'You were away for a while, so the page timed out. Go back, refresh and try again — nothing you saved is lost.')

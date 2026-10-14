@@ -1,4 +1,6 @@
 @extends('errors.layout')
 @section('code', '404')
+@section('mon', 'psyduck')
+@section('encounter', 'A wild 404 appeared! Psyduck is confused.')
 @section('title', 'Page Not Found')
-@section('message', "The page you're looking for doesn't exist or has been moved.")
+@section('message', "Psyduck looked everywhere and can't find this page. It may have moved, or the link is out of date.")

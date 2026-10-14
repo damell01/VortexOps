@@ -88,6 +88,34 @@ class PaymentStructures extends Page
 
     public array $run_types = [];
 
+    /** Team rates are edited in a pop-up, the way an individual override is. */
+    public bool $editing_rates = false;
+
+    public function openRatesEditor(): void
+    {
+        $this->resetErrorBag();
+        $this->editing_rates = true;
+    }
+
+    /** Close without saving: put back the rates as they were saved. */
+    public function cancelRatesEditor(): void
+    {
+        $saved = new static();
+        $saved->mount();
+        $this->streamer = $saved->streamer;
+        $this->fulfillment = $saved->fulfillment;
+        $this->streamer_burden_per_shipment = $saved->streamer_burden_per_shipment;
+        $this->streamer_burden_per_hour = $saved->streamer_burden_per_hour;
+        $this->resetErrorBag();
+        $this->editing_rates = false;
+    }
+
+    public function saveRates(): void
+    {
+        $this->save();
+        $this->editing_rates = false;
+    }
+
     public function addRunType(): void
     {
         abort_unless(static::canAccess(), 403);

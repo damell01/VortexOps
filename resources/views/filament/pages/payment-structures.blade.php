@@ -28,6 +28,12 @@
         .vx-roster-person{display:flex;align-items:center;gap:10px}.vx-roster-avatar{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex-shrink:0;border-radius:50%;background:rgb(124 58 237 / .12);color:#6d28d9;font-weight:700}.vx-roster-badge{display:inline-block;padding:4px 9px;border-radius:999px;background:rgb(124 58 237 / .08);color:#7c3aed;font-size:11px;font-weight:650}.vx-roster-edit{padding:7px 12px;border:1px solid var(--vx-border,#ddd);border-radius:9px;font-weight:650;color:#6d28d9}.vx-roster-mobile{display:none}.vx-roster-card{padding:16px;border:1px solid var(--vx-border,#ddd);border-radius:14px;margin-top:12px}.vx-roster-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;font-size:12px;color:var(--vxw-muted,#64748b)}.vx-roster-footer button{padding:7px 12px;border:1px solid var(--vx-border,#ddd);border-radius:8px}.vx-roster-footer button:disabled{opacity:.35}
         @media(max-width:900px){.vx-rates-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-roster-table{display:none}.vx-roster-mobile{display:block}.vx-roster-filters{grid-template-columns:1fr}.vx-rates-stat{padding:14px;gap:10px}.vx-rates-stat strong{font-size:20px}.vx-rates-stat-icon{width:38px;height:38px}}
         @media(min-width:768px){.vx-rates select.vx-native-picker{display:block!important}.vx-rates .vx-picker-trigger{display:none!important}}@media(max-width:767px){.vx-rates select.vx-native-picker{display:none!important}.vx-rates .vx-picker-trigger{display:flex!important}}.vx-rates .vx-type-title button{color:#dc2626!important;background:transparent!important}
+        .vx-ps-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px 16px;background:rgb(3 7 18 / .5);overflow-y:auto}
+        .vx-ps-modal-panel{width:100%;max-width:920px;border-radius:18px;padding:24px;background:var(--vxw-surface,#fff);color:var(--vxw-text,#111827);box-shadow:0 24px 60px rgb(0 0 0 / .3)}
+        .vx-ps-modal-panel .vx-card{padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important}
+        .vx-ps-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+        .vx-ps-modal-foot{position:sticky;bottom:-24px;display:flex;justify-content:flex-end;gap:10px;margin:20px -24px -24px;padding:14px 24px;border-top:1px solid var(--vx-border,#e5e7eb);background:var(--vxw-surface,#fff);border-radius:0 0 18px 18px}
+        @media(max-width:640px){.vx-ps-modal{padding:0}.vx-ps-modal-panel{border-radius:0;min-height:100%;padding:16px}}
         @media(max-width:640px){.vx-rates-stat{flex-direction:column;align-items:flex-start;min-width:0}.vx-rates-stat strong{font-size:20px}.vx-rates-stat p{font-size:11px}}
     </style>
     @php $summary = $this->payrollSummary; @endphp
@@ -88,7 +94,8 @@
         <div class="vx-roster-footer"><span>{{ $count ? (($page-1)*10+1).'–'.min($page*10,$count) : '0' }} of {{ $count }} people</span><div class="flex items-center gap-2"><button type="button" wire:click="setMemberPage({{ $page-1 }})" @disabled($page===1)>Previous</button><span>{{ $page }} / {{ $lastPage }}</span><button type="button" wire:click="setMemberPage({{ $page+1 }})" @disabled($page===$lastPage)>Next</button></div></div>
 
         @if($editingMember)
-        <div class="mt-5 rounded-xl border-2 border-primary-300 p-5 dark:border-primary-800">
+        <div class="vx-ps-modal" wire:key="override-modal-{{ $editingMember->id }}" x-data x-on:keydown.escape.window="$wire.closeMemberEditor()">
+        <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit {{ $editingMember->name }}'s pay">
             <div class="flex items-center justify-between"><div><div class="text-xs font-bold uppercase text-primary-600">Custom override</div><div class="text-lg font-bold">{{$editingMember->name}}</div><div class="text-xs text-gray-500">Regular payouts · {{$editingMember->isFulfillment()?'Fulfillment':'Streamer'}}</div></div><button wire:click="closeMemberEditor" class="text-sm text-gray-500">Close</button></div>
 
             @if(!$editingMember->isFulfillment())
@@ -126,6 +133,7 @@
                     <button type="button" x-data x-on:click="if (await window.vxConfirm(@js('Remove '.$editingMember->name.' from payroll? A profile with no shows or pay is deleted; one with history is archived and can be restored.'))) $wire.removeMember({{$editingMember->id}})" class="mr-auto rounded-lg border border-danger-300 px-4 py-2 text-sm font-bold text-danger-700 dark:border-danger-800 dark:text-danger-300">Remove from payroll</button>
                 @endif
                 <button wire:click="resetMemberOverrides({{$editingMember->id}})" class="rounded-lg border px-4 py-2 text-sm font-bold">Reset to Role Default</button><button wire:click="saveMemberOverrides" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white">Save Override</button></div>
+        </div>
         </div>
         @endif
     </div>
@@ -176,8 +184,50 @@
         <button type="button" wire:click="addRunType" class="mt-4 rounded-lg border border-[var(--vx-border)] px-4 py-2 text-sm font-semibold">Add pay run type</button>
     </section>
 
+    {{-- Team rates: a summary here, edited in a pop-up like an individual override. --}}
+    <div class="vx-card p-5" id="rates-defaults">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Team rates{{ $business ? ' · '.$business->name : '' }}</p>
+                <h2 class="mt-1 text-xl font-bold">{{ $isSplit ? 'Sales split' : 'Regular payouts — Streamer Pay Formula' }}</h2>
+                <p class="mt-1 max-w-3xl text-sm text-gray-500">The default for everyone{{ $business ? ' in '.$business->name : '' }} without an individual override.</p>
+            </div>
+            <button type="button" wire:click="openRatesEditor" class="rounded-[10px] bg-primary-600 px-5 py-2.5 text-sm font-bold text-white">Edit team rates</button>
+        </div>
+        <div class="mt-5 grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr))">
+            @if($isSplit)
+                <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Business keeps</div><div class="mt-1 text-2xl font-bold">{{ number_format($cut, 2) }}%</div></div>
+                <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Of the streamer's</div><div class="mt-1 text-lg font-bold">{{ $basisLabel }}</div></div>
+            @else
+                <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Streamer Pay %</div><div class="mt-1 text-2xl font-bold">{{ number_format($pct, 2) }}%</div></div>
+                <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Burden per shipment</div><div class="mt-1 text-2xl font-bold">${{ number_format($ship, 2) }}</div></div>
+                <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Burden per hour</div><div class="mt-1 text-2xl font-bold">${{ number_format($hour, 2) }}</div></div>
+            @endif
+            <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">In-house hourly</div><div class="mt-1 text-2xl font-bold">{{ (float)($streamer['hourly_rate'] ?? 0) > 0 ? '$'.number_format((float)$streamer['hourly_rate'], 2).'/hr' : 'None' }}</div></div>
+            <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Tips</div><div class="mt-1 text-lg font-bold">{{ ($streamer['include_tips'] ?? true) ? 'Included' : 'Not included' }}</div></div>
+        </div>
+        <div class="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-4 font-mono text-sm dark:border-primary-900 dark:bg-primary-950/20">
+            @if($isSplit)
+                <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = {{ $basisLabel }} × {{ number_format(100 - $cut, 2) }}% @if($streamer['include_tips']??true) + Tips @endif</div>
+            @else
+                <div>Burden = (Shipments × ${{ number_format($ship, 2) }}) + (Hours Worked × ${{ number_format($hour, 2) }})</div>
+                <div>Net Revenue = Gross Revenue − Product Cost − Burden</div>
+                <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = Net Revenue × {{ number_format($pct, 2) }}% @if($streamer['include_tips']??true) + Tips @endif</div>
+            @endif
+            @if(filled($streamer['custom_payout_formula'] ?? null))<div class="mt-1 text-xs">Team custom formula in use: {{ $streamer['custom_payout_formula'] }}</div>@endif
+        </div>
+    </div>
+
+    @if($editing_rates)
+        <div class="vx-ps-modal" wire:key="rates-modal" x-data x-on:keydown.escape.window="$wire.cancelRatesEditor()">
+            <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit team rates">
+                <div class="vx-ps-modal-head">
+                    <div><div class="text-xs font-bold uppercase text-primary-600">Team rates</div><div class="text-lg font-bold">Edit how {{ $business ? $business->name."'s" : 'the team' }} is paid</div></div>
+                    <button type="button" wire:click="cancelRatesEditor" class="text-sm text-gray-500">Close</button>
+                </div>
+                <div class="space-y-4">
     <div class="vx-card p-5">
-        <p id="rates-defaults" class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Regular payouts{{ $business ? ' · '.$business->name : '' }}</p>
+        <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Regular payouts{{ $business ? ' · '.$business->name : '' }}</p>
         <div class="mt-3 grid gap-3 md:grid-cols-2">
             <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ ! $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
                 <input type="radio" wire:model.live="streamer.payout_type" value="profit_share" class="mt-1">
@@ -259,6 +309,15 @@
             <textarea wire:model="streamer.custom_payout_formula" rows="3" class="mt-3 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Optional team-wide custom formula"></textarea>
         </details>
     </div>
+
+                </div>
+                <div class="vx-ps-modal-foot">
+                    <button type="button" wire:click="cancelRatesEditor" class="rounded-lg border px-4 py-2 text-sm font-bold">Cancel</button>
+                    <button type="button" wire:click="saveRates" wire:loading.attr="disabled" wire:target="saveRates" class="rounded-lg bg-primary-600 px-5 py-2 text-sm font-bold text-white">Save team rates</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @php $schedule = $this->schedulePreview; @endphp
     <section class="vx-card p-5" aria-labelledby="pay-schedule-heading">

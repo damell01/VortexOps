@@ -240,6 +240,13 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 .vx-in-right{animation:vxInR .22s ease}.vx-in-left{animation:vxInL .22s ease}
 @keyframes vxInR{from{opacity:.3;transform:translateX(28px)}}@keyframes vxInL{from{opacity:.3;transform:translateX(-28px)}}
 @media(prefers-reduced-motion:reduce){.vx-in-right,.vx-in-left,.vx-pill.live:before{animation:none}.vx-drawer{transition:none}}
+
+/* Show details are a centered dialog at every screen size. */
+.vx-backdrop{display:block;position:fixed;inset:0;z-index:109;background:rgba(15,23,42,.5);backdrop-filter:blur(3px)}
+.vx-drawer,.vx-drawer.full{z-index:110;top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:auto;max-height:calc(100dvh - 48px);border:1px solid var(--vx-line);border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,.3)}
+.vx-drawer>div{max-height:calc(100dvh - 48px)}
+.vx-drawer.vx-drawer-off{transform:translate(-50%,-48%);opacity:0}.vx-handle{display:none!important}.vx-drawer-hero{display:block;height:110px}.vx-drawer-x{width:42px;height:42px}.vx-drawer-scroll{min-height:0}.vx-drawer .vx-stats{grid-template-columns:repeat(4,minmax(0,1fr))}.vx-drawer .vx-stats>div:nth-child(4){display:block}
+@media(max-width:640px){.vx-drawer,.vx-drawer.full{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);border-radius:16px}.vx-drawer>div{max-height:calc(100dvh - 24px)}.vx-drawer .vx-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
 @if(auth()->user()->isStreamer() && ! $isAdmin && auth()->user()->streamer)
@@ -474,7 +481,7 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 
 {{-- ── Show drawer / bottom sheet ────────────────────────────────── --}}
 <div class="vx-backdrop" x-show="show" x-cloak x-transition.opacity @click="close()"></div>
-<aside class="vx-drawer" x-show="show" x-cloak role="dialog" aria-modal="false" :aria-label="show && show.title" :class="full && 'full'" :style="show && ('--c:' + show.color)"
+<aside data-vx-dialog class="vx-drawer" x-show="show" x-cloak role="dialog" aria-modal="true" x-trap.inert.noscroll="show !== null" :aria-label="show && show.title" :class="full && 'full'" :style="show && ('--c:' + show.color)"
        x-transition:enter-start="vx-drawer-off" x-transition:leave-end="vx-drawer-off">
     <template x-if="show">
         <div class="flex min-h-0 flex-1 flex-col">

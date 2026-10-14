@@ -137,7 +137,7 @@ class PalletReceivingHistory extends Page implements HasTable
             ->emptyStateHeading('No receiving history matches')
             ->emptyStateDescription('Clear filters or start receiving a delivery. Staged pallets stay on Receive Inventory.')
             ->actions([
-                Action::make('details')->label('Details')->icon('heroicon-o-information-circle')->color('gray')->slideOver()->modalWidth('md')
+                Action::make('details')->label('Details')->icon('heroicon-o-information-circle')->color('gray')->modalWidth('5xl')
                     ->modalHeading(fn (Pallet $record) => $record->displayName())
                     ->modalContent(fn (Pallet $record) => view('filament.tables.receiving-details', ['record'=>$record->loadMissing(['attachments','createdBy'])]))
                     ->modalSubmitAction(false)->modalCancelActionLabel('Close'),

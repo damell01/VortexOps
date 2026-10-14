@@ -1,0 +1,32 @@
+name: Mockup workspace checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'resources/views/filament/**'
+      - 'app/Filament/Pages/DashboardImproved.php'
+      - 'app/Filament/Resources/WhatnotLedgerResource.php'
+      - '.github/workflows/mockup-workspace-checks.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pdo_sqlite,zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Compile views and verify streamer access
+        run: php artisan test tests/Feature/Ui/BladeViewsCompileTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/StreamerAnalyticsTest.php tests/Feature/Reports/StreamerAnalyticsScopeTest.php tests/Feature/Timekeeping/TimekeepingTest.php
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'

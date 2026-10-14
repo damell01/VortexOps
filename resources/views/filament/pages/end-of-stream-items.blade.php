@@ -449,7 +449,9 @@
                                     @if ($shareEligible)
                                         <div class="is-total" aria-live="polite" aria-atomic="true">
                                             <dt>Estimated profit share</dt>
-                                            <dd>{{ $sharePending ? 'Pending report data' : '
+                                            <dd>{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</dd>
+                                        </div>
+                                    @endif
                                 </dl>
                             </div>
                             <div class="vxw-card-foot" style="justify-content:flex-start">

@@ -468,6 +468,11 @@ class AdminPanelProvider extends PanelProvider
                 </div>
                 HTML,
             )
+            // A Pokémon greeter under the heading; a different one each day.
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
+                fn () => view('filament.components.login-pokemon'),
+            )
             // ── Login page: footer credit inside the card, below the form ────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,

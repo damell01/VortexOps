@@ -57,7 +57,7 @@ class InventoryManualPdfTest extends TestCase
         $referenced = [];
 
         // The folder is shared by every module's handbook.
-        $manuals = [InventoryManual::class, \App\Support\PayrollManual::class, \App\Support\ShowsManual::class, \App\Support\FulfillmentManual::class];
+        $manuals = [InventoryManual::class, \App\Support\PayrollManual::class, \App\Support\ShowsManual::class, \App\Support\FulfillmentManual::class, \App\Support\ReportsManual::class];
         foreach ($manuals as $manual) {
             foreach ($manual::sections() as $section) {
                 foreach ($section['steps'] as $step) {

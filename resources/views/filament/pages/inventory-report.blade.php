@@ -1,107 +1,440 @@
 <x-filament-panels::page>
 @php
- $data=$this->getViewerData(); $summary=$data['summary']; $items=collect($data['items']); $trend=collect($data['trend']); $locations=collect($data['locations']); $categories=collect($data['category_breakdown']);
- $allRows = match ($activeTab) {
-  'recent' => collect($this->getRecentActivityRows()),
-  'moving' => collect($this->getTopMovingRows()),
-  default => $this->getReportItems(),
- };
- $pageSize = 25; $pageCount = max(1,(int)ceil($allRows->count()/$pageSize)); $page = min(max(1,$reportPage),$pageCount);
- $visible = $allRows->slice(($page-1)*$pageSize,$pageSize)->values();
- $recentRows = $visible; $movingRows = $visible;
- $idle = $items->where('quantity','>',0);
- $maxTrend=max(1,(float)$trend->max('value')); $maxLocation=max(1,(float)$locations->max('quantity')); $totalQty=max(1,(float)$categories->sum('quantity'));
+    $data = $this->getViewerData();
+    $summary = $data['summary'];
+    $items = collect($data['items']);
+    $trend = collect($data['trend']);
+    $locations = collect($data['locations']);
+    $categories = collect($data['category_breakdown']);
+    $allRows = $this->getTabRows();
+    $pageSize = 25;
+    $total = $allRows->count();
+    $pageCount = max(1, (int) ceil($total / $pageSize));
+    $page = min(max(1, $reportPage), $pageCount);
+    $visible = $allRows->slice(($page - 1) * $pageSize, $pageSize)->values();
+    $from = $total ? ($page - 1) * $pageSize + 1 : 0;
+    $to = min($total, $page * $pageSize);
+    $idle = $items->where('quantity', '>', 0);
+    $periodLabel = $this->periodStart()->format('M j').' – '.$this->periodEnd()->format('M j, Y');
+    $itemUrl = fn ($id, $page = 'view') => \App\Filament\Resources\InventoryItemResource::getUrl($page, ['record' => $id]);
+    $money = fn ($v) => '$'.number_format((float) $v, 2);
+    $itemTabs = ! in_array($activeTab, ['recent', 'moving', 'valuation', 'locations'], true);
+    $rowNoun = match ($activeTab) { 'recent' => 'movements', 'valuation' => 'categories', 'locations' => 'locations', default => 'items' };
+    $tabCounts = ['low-stock' => $summary['low_stock'], 'out-stock' => $summary['out_stock']];
+    $sortHead = function (string $key, string $label, bool $num = false) use ($reportSort) {
+        $on = $reportSort === $key;
+        return '<button type="button" wire:click="sortBy(\''.$key.'\')" class="'.($on ? 'invr-sorted' : '').'">'.e($label).' <span aria-hidden="true">'.($on ? '↓' : '↕').'</span></button>';
+    };
 @endphp
-@include('filament.pages.partials.inventory-report-styles')
-<div class="vx-report space-y-4">
- <div class="vx-report-head">
-  <div><h2 class="text-2xl font-bold tracking-tight">Inventory Report</h2><p class="mt-1 text-sm text-gray-500">Stock health, movement and money tied up in inventory.</p></div>
-  <div class="vx-report-actions">
-   <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-bold shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-left class="h-4 w-4"/> All Inventory</a>
-   <div x-data="{open:false}" class="vx-export">
-    <button @click="open=!open" class="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-primary-700"><x-heroicon-o-arrow-down-tray class="h-4 w-4"/> Export <x-heroicon-o-chevron-down class="h-4 w-4"/></button>
-    <div x-cloak x-show="open" @click.outside="open=false" class="vx-export-menu">
-     @if(!in_array($activeTab,['recent','moving']))<button wire:click="exportPdf"><x-heroicon-o-document-text class="mr-2 h-4 w-4"/> Export to PDF</button>@endif<button wire:click="exportCsv"><x-heroicon-o-table-cells class="mr-2 h-4 w-4"/> Export to CSV</button><button onclick="window.print()"><x-heroicon-o-printer class="mr-2 h-4 w-4"/> Print Report</button>
+
+<style>
+    .invr-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .invr-filters .vxr-control { flex: 0 1 260px; }
+    .invr-filters .vxr-control select { flex: 1; width: 100%; }
+    .invr-filters .invr-period { flex: 0 1 300px; }
+    /* On phones every select becomes a picker button; inside a control the control is the box. */
+    .invr-filters .vxr-control .vx-picker-trigger, .invr-tools .vxr-control .vx-picker-trigger { flex: 1; min-width: 0; min-height: 0; height: 36px; padding: 0; border: 0; background: transparent; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 767px) { .invr-filters .vxr-control:has(.vx-picker-trigger), .invr-tools .vxr-control:has(.vx-picker-trigger) { flex: 1 1 100%; } }
+    .invr-filters .vxr-control select, .invr-tools .vxr-control select { border: 0 !important; background-color: transparent !important; box-shadow: none !important; min-height: 0 !important; height: 36px !important; padding: 0 26px 0 0 !important; font-size: 14px !important; width: 100%; }
+    .invr-filters .invr-period select { min-width: 120px; }
+    .invr-period-label { font-size: 14px; color: var(--vxw-muted); padding: 0 4px 0 2px; white-space: nowrap; }
+    .invr-filters .vxr-foot-note { margin-left: auto; }
+    .invr-more { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--vxw-border); width: 100%; }
+    .invr-more label { display: grid; gap: 6px; font-size: 13px; color: var(--vxw-muted); font-weight: 600; }
+    .invr-range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .invr-range input, .invr-dates input { height: 40px; border: 1px solid var(--vxw-border); border-radius: 10px; background: var(--vxw-surface); color: var(--vxw-text); font-size: 14px; padding: 0 10px; min-width: 0; width: 100%; }
+    .invr-dates { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--vxw-muted); }
+    .invr-dates input { width: auto; }
+    .invr-err { color: var(--vxw-bad); font-size: 12.5px; }
+    .invr-strip button { background: none; border: 0; cursor: pointer; text-align: left; color: inherit; justify-content: center; }
+    .invr-strip button:hover { background: var(--vxw-surface-2); }
+    .invr-strip .vxr-stat-icon { width: 44px; height: 44px; }
+    .invr-strip .vxr-stat-icon svg { width: 23px; height: 23px; }
+    .invr-strip b { display: block; font-size: 22px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .invr-strip small { font-size: 13.5px; color: var(--vxw-muted); }
+    .invr-buckets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+    .invr-bucket { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 4px 14px; min-width: 0; }
+    .invr-bucket:first-child { padding-left: 0; }
+    .invr-bucket + .invr-bucket { border-left: 1px solid var(--vxw-border); }
+    .invr-bucket .vxr-stat-icon { width: 44px; height: 44px; }
+    .invr-bucket .vxr-stat-icon svg { width: 22px; height: 22px; }
+    .invr-bucket small { display: block; font-size: 13px; color: var(--vxw-muted); white-space: nowrap; }
+    .invr-main { display: grid; gap: 18px; }
+    @media (min-width: 1024px) { .invr-main { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: stretch; } }
+    .invr-bucket b { display: block; font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    @media (max-width: 640px) { .invr-buckets { grid-template-columns: 1fr; } .invr-bucket { flex-direction: row; align-items: center; padding: 0; } .invr-bucket + .invr-bucket { border-left: 0; border-top: 1px solid var(--vxw-border); padding-top: 12px; margin-top: 12px; } }
+    .invr-tabbar { padding: 0 12px; }
+    .invr-card .vxr-table { min-width: 820px; }
+    .invr-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; padding: 14px 20px; }
+    .invr-tools .vxr-search { max-width: 480px; }
+    .invr-item { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+    .invr-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--vxw-sunken); }
+    .invr-thumb--none { display: grid; place-items: center; color: var(--vxw-faint); }
+    .invr-thumb--none svg { width: 20px; height: 20px; }
+    .invr-item a { color: inherit; font-weight: 650; text-decoration: none; }
+    .invr-item a:hover { color: var(--vxw-accent-ink); text-decoration: underline; text-underline-offset: 3px; }
+    .vxr-table th button.invr-sorted { color: var(--vxw-accent-ink); }
+    .invr-menu-btn { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: none; border: 0; color: var(--vxw-muted); cursor: pointer; }
+    .invr-menu-btn:hover { background: var(--vxw-sunken); }
+    .invr-menu-btn svg { width: 20px; height: 20px; }
+    .invr-menu { position: fixed; z-index: 1000; min-width: 190px; padding: 6px; background: var(--vxw-surface); border: 1px solid var(--vxw-border); border-radius: 12px; box-shadow: var(--vxw-shadow-pop); }
+    .invr-menu a, .invr-menu button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 14px; color: var(--vxw-text); text-decoration: none; background: none; border: 0; cursor: pointer; text-align: left; }
+    .invr-menu a:hover, .invr-menu button:hover { background: var(--vxw-surface-2); }
+    .invr-menu svg { width: 17px; height: 17px; color: var(--vxw-muted); }
+    .invr-export { position: relative; }
+    .invr-export .invr-menu { position: absolute; right: 0; top: calc(100% + 6px); min-width: 220px; }
+    .invr-share { display: flex; align-items: center; gap: 10px; min-width: 140px; }
+    .invr-share .vxr-bar-track { flex: 1; height: 8px; }
+    .invr-share span { font-size: 12.5px; color: var(--vxw-muted); width: 44px; text-align: right; font-variant-numeric: tabular-nums; }
+    .invr-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 1px solid var(--vxw-border); }
+    .invr-flow > div { padding: 14px 20px; }
+    .invr-flow > div + div { border-left: 1px solid var(--vxw-border); }
+    .invr-flow small { display: block; font-size: 13px; color: var(--vxw-muted); }
+    .invr-flow b { display: block; font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
+    .invr-flow i { font-style: normal; font-size: 12px; color: var(--vxw-faint); }
+    @media (max-width: 700px) { .invr-flow > div + div { border-left: 0; border-top: 1px solid var(--vxw-border); } .invr-filters .vxr-control { flex: 1 1 100%; } .invr-filters .vxr-foot-note { margin-left: 0; } }
+    @media print { .invr-export, .invr-tools, .vxr-pager, .invr-menu-btn { display: none !important; } }
+</style>
+
+<div class="vxr">
+    {{-- Header --}}
+    <div class="vxr-head">
+        <div>
+            <h1 class="vxr-title">Inventory Report &amp; Analytics</h1>
+            <p class="vxr-subtitle">Stock health, movement and money tied up in inventory.</p>
+        </div>
+        <div class="vxr-actions">
+            <select wire:model.live="reportStock" class="vxr-select" aria-label="Inventory scope">
+                <option value="">All Inventory</option>
+                <option value="in">In stock only</option>
+                <option value="low">Low stock</option>
+                <option value="out">Out of stock</option>
+            </select>
+            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="vxr-btn">
+                <x-filament::icon icon="heroicon-o-squares-2x2" /> Item list
+            </a>
+            <div x-data="{ open: false }" class="invr-export">
+                <button type="button" @click="open = !open" class="vxr-btn vxr-btn--primary">
+                    <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export
+                </button>
+                <div x-cloak x-show="open" @click.outside="open = false" class="invr-menu">
+                    @if($itemTabs)
+                        <button type="button" wire:click="exportPdf" @click="open = false"><x-filament::icon icon="heroicon-o-document-text" /> Export to PDF</button>
+                    @endif
+                    <button type="button" wire:click="exportCsv" @click="open = false"><x-filament::icon icon="heroicon-o-table-cells" /> Export this tab to CSV</button>
+                    <button type="button" onclick="window.print()" @click="open = false"><x-filament::icon icon="heroicon-o-printer" /> Print report</button>
+                </div>
+            </div>
+        </div>
     </div>
-   </div>
-  </div>
- </div>
 
- <div class="vx-r-card flex flex-wrap items-center justify-between gap-3 p-4">
-  <div><label for="report-period" class="text-xs font-bold">Activity period</label><select id="report-period" wire:model.live="reportDays" class="ml-2 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800"><option value="7">Last 7 days</option><option value="30">Last {{ $this->periodDays() }} days</option><option value="90">Last 90 days</option><option value="custom">Custom dates</option></select></div>
-  @if($reportDays==='custom')<div class="flex flex-wrap items-center gap-2"><label class="text-xs">From <input type="date" wire:model.live="reportStart" class="rounded-lg border-gray-200 text-sm dark:bg-gray-800"/></label><label class="text-xs">To <input type="date" wire:model.live="reportEnd" class="rounded-lg border-gray-200 text-sm dark:bg-gray-800"/></label>@error('reportStart')<span class="text-xs text-red-600">{{ $message }}</span>@enderror @error('reportEnd')<span class="text-xs text-red-600">{{ $message }}</span>@enderror</div>@endif
-  <p class="text-xs text-gray-500">Activity shown for the selected period · Stock values are current · Channel: {{ \App\Support\ChannelContext::current()?->name ?? 'All channels' }}</p>
- </div>
- <div class="vx-r-card sticky top-[64px] z-20 p-2.5 bg-white/95 backdrop-blur dark:bg-gray-900/95">
-  <div class="mb-2 flex items-center justify-between px-1"><div><div class="text-xs font-extrabold uppercase tracking-wide text-gray-500">Inventory views</div><div class="mt-1 text-[11px] text-gray-400">Choose the inventory view you need. Filters apply across the report.</div></div><button wire:click="toggleReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">Filters</button></div>
-  <div class="vx-quick-reports">
-   <button wire:click="applyQuickReport('current')" class="vx-quick {{ $reportStock==='in' && $activeTab==='items'?'active':'' }}"><span class="vx-quick-icon vx-icon-purple"><x-heroicon-o-cube/></span><span><div class="vx-quick-title">Current Inventory</div><div class="vx-quick-sub">All stock on hand</div></span></button>
-   <button wire:click="applyQuickReport('valuation')" class="vx-quick"><span class="vx-quick-icon vx-icon-blue"><x-heroicon-o-currency-dollar/></span><span><div class="vx-quick-title">Inventory Valuation</div><div class="vx-quick-sub">Total value & cost</div></span></button>
-   <button wire:click="resetReportFilters" class="vx-quick"><span class="vx-quick-icon" style="background:#dbeafe;color:#2563eb"><x-heroicon-o-map-pin/></span><span><div class="vx-quick-title">Stock by Location</div><div class="vx-quick-sub">Warehouse breakdown</div></span></button>
-   <button wire:click="applyQuickReport('low-stock')" class="vx-quick {{ $activeTab==='low-stock'?'active':'' }}"><span class="vx-quick-icon vx-icon-orange"><x-heroicon-o-exclamation-triangle/></span><span><div class="vx-quick-title">Low Stock Items</div><div class="vx-quick-sub">At risk of stockout</div></span></button>
-   <button wire:click="applyQuickReport('out-stock')" class="vx-quick {{ $activeTab==='out-stock'?'active':'' }}"><span class="vx-quick-icon" style="background:#fee2e2;color:#dc2626"><x-heroicon-o-archive-box-x-mark/></span><span><div class="vx-quick-title">Out of Stock Items</div><div class="vx-quick-sub">No inventory remaining</div></span></button>
-   <button wire:click="applyQuickReport('recent')" class="vx-quick {{ $activeTab==='recent'?'active':'' }}"><span class="vx-quick-icon vx-icon-green"><x-heroicon-o-arrows-right-left/></span><span><div class="vx-quick-title">Recent Activity</div><div class="vx-quick-sub">Adds & removals</div></span></button>
-   <button wire:click="applyQuickReport('top-value')" class="vx-quick {{ $activeTab==='top-value'?'active':'' }}"><span class="vx-quick-icon" style="background:#fef3c7;color:#d97706"><x-heroicon-o-trophy/></span><span><div class="vx-quick-title">Top Value Items</div><div class="vx-quick-sub">Highest total value</div></span></button>
-  </div>
- </div>
+    {{-- Filters --}}
+    <div class="vxr-toolbar--card">
+        <div class="invr-filters">
+            <label class="vxr-control invr-period" for="report-period">
+                <span class="invr-period-label">Activity period</span>
+                <x-filament::icon icon="heroicon-o-calendar-days" />
+                <select id="report-period" wire:model.live="reportDays">
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="custom">Custom dates</option>
+                </select>
+            </label>
+            <label class="vxr-control">
+                <x-filament::icon icon="heroicon-o-map-pin" />
+                <select wire:model.live="reportLocation" aria-label="Location">
+                    <option value="">All locations</option>
+                    @foreach($data['location_options'] as $locationName)<option>{{ $locationName }}</option>@endforeach
+                </select>
+            </label>
+            <label class="vxr-control">
+                <x-filament::icon icon="heroicon-o-tag" />
+                <select wire:model.live="reportCategory" aria-label="Category">
+                    <option value="">All categories</option>
+                    @foreach($data['categories'] as $category)<option>{{ $category }}</option>@endforeach
+                    @if(($data['summary']['uncategorized'] ?? 0) > 0 || $reportCategory === 'Uncategorized')<option value="Uncategorized">Uncategorized</option>@endif
+                </select>
+            </label>
+            <button type="button" wire:click="toggleReportFilters" class="vxr-btn">
+                <x-filament::icon icon="heroicon-o-adjustments-horizontal" /> {{ $showReportFilters ? 'Hide filters' : 'More filters' }}
+            </button>
+            <span class="vxr-foot-note"><x-filament::icon icon="heroicon-o-information-circle" /> Stock values reflect current inventory; activity uses selected period.</span>
 
- <div class="vx-dashboard-layout">
-  <aside class="vx-r-card vx-builder-panel {{ $showReportFilters ? '' : 'hidden' }}">
-   <div class="flex items-start justify-between gap-2"><div><div class="text-sm font-extrabold">Filter inventory</div><div class="mt-1 text-[11px] leading-4 text-gray-500">Narrow this prebuilt report by item, category, location, stock status, cost or value.</div></div><x-heroicon-o-chevron-up class="h-4 w-4 text-gray-400"/></div>
-   <div class="vx-builder-fields mt-3">
-    <div class="vx-builder-field"><label class="vx-builder-label">Search</label><input wire:model.live.debounce.350ms="reportSearch" class="vx-builder-input" placeholder="Item, SKU, keyword..."/></div>
-    <div class="vx-builder-field"><label class="vx-builder-label">Category</label><select wire:model.live="reportCategory" class="vx-builder-input"><option value="">All Categories</option>@foreach($data['categories'] as $category)<option>{{ $category }}</option>@endforeach</select></div>
-    <div class="vx-builder-field"><label class="vx-builder-label">Location</label><select wire:model.live="reportLocation" class="vx-builder-input"><option value="">All Locations</option>@foreach($data['location_options'] as $locationName)<option>{{ $locationName }}</option>@endforeach</select></div>
-    <div class="vx-builder-field"><label class="vx-builder-label">Stock Status</label><select wire:model.live="reportStock" class="vx-builder-input"><option value="">All Stock</option><option value="in">In Stock</option><option value="low">Low Stock</option><option value="out">Out of Stock</option></select></div>
-    <div class="vx-builder-field"><label class="vx-builder-label">Price Range (Avg. Cost)</label><div class="vx-range"><input wire:model.live.debounce.350ms="reportPriceMin" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Min"/><input wire:model.live.debounce.350ms="reportPriceMax" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Max"/></div></div>
-    <div class="vx-builder-field"><label class="vx-builder-label">Value Range (Total Value)</label><div class="vx-range"><input wire:model.live.debounce.350ms="reportValueMin" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Min"/><input wire:model.live.debounce.350ms="reportValueMax" type="number" min="0" step=".01" class="vx-builder-input" placeholder="$ Max"/></div></div>
-   </div>
-   <div class="mt-4 grid grid-cols-2 gap-2"><button wire:click="toggleReportFilters" class="rounded-lg bg-primary-600 px-3 py-2 text-xs font-bold text-white">Done</button><button wire:click="resetReportFilters" class="rounded-lg border border-gray-200 px-3 py-2 text-xs font-bold dark:border-gray-700">Reset</button></div>
-  </aside>
-  <main class="vx-dashboard-main">
+            @if($reportDays === 'custom')
+                <div class="invr-dates" style="width:100%">
+                    <label>From <input type="date" wire:model.live="reportStart" /></label>
+                    <label>To <input type="date" wire:model.live="reportEnd" /></label>
+                    @error('reportStart')<span class="invr-err">{{ $message }}</span>@enderror
+                    @error('reportEnd')<span class="invr-err">{{ $message }}</span>@enderror
+                </div>
+            @endif
 
- <div class="vx-kpis">
-  <button type="button" wire:click="setTab('top-value')" class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-purple"><x-heroicon-o-cube/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Total Inventory Value</div><div class="vx-kpi-value">${{ number_format($summary['value'],2) }}</div><div class="vx-kpi-sub">Current on-hand valuation</div></div></button>
-  <button type="button" wire:click="setTab('items')" class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-blue"><x-heroicon-o-squares-2x2/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Total Items</div><div class="vx-kpi-value">{{ number_format($summary['items']) }}</div><div class="vx-kpi-sub">{{ number_format($summary['in_stock_items']) }} SKUs currently in stock</div></div></button>
-  <button type="button" wire:click="setTab('items')" class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-green"><x-heroicon-o-archive-box/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Total Quantity</div><div class="vx-kpi-value">{{ number_format($summary['quantity']) }}</div><div class="vx-kpi-sub">Units currently in stock</div></div></button>
-  <button type="button" wire:click="setTab('low-stock')" class="vx-r-card vx-kpi"><div class="vx-icon-kpi vx-icon-orange"><x-heroicon-o-tag/></div><div class="vx-kpi-copy"><div class="text-xs font-bold text-gray-500">Avg. Cost per Unit</div><div class="vx-kpi-value">${{ number_format($summary['avg_cost'],2) }}</div><div class="vx-kpi-sub">{{ number_format($summary['low_stock']) }} low stock · {{ number_format($summary['out_stock']) }} out of stock</div></div></button>
- </div>
+            @if($showReportFilters)
+                <div class="invr-more">
+                    <label>Average cost per unit
+                        <span class="invr-range">
+                            <input wire:model.live.debounce.350ms="reportPriceMin" type="number" min="0" step=".01" placeholder="$ Min" />
+                            <input wire:model.live.debounce.350ms="reportPriceMax" type="number" min="0" step=".01" placeholder="$ Max" />
+                        </span>
+                    </label>
+                    <label>Total value
+                        <span class="invr-range">
+                            <input wire:model.live.debounce.350ms="reportValueMin" type="number" min="0" step=".01" placeholder="$ Min" />
+                            <input wire:model.live.debounce.350ms="reportValueMax" type="number" min="0" step=".01" placeholder="$ Max" />
+                        </span>
+                    </label>
+                    <label>Channel
+                        <span style="font-weight:500;color:var(--vxw-text);line-height:40px">{{ \App\Support\ChannelContext::current()?->name ?? 'All channels' }}</span>
+                    </label>
+                    <div style="display:flex;align-items:flex-end;gap:8px">
+                        <button type="button" wire:click="resetReportFilters" class="vxr-btn">Reset all filters</button>
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
 
- <div class="vx-r-card p-4"><div class="flex flex-wrap justify-between gap-2"><h3 class="text-sm font-bold">Inventory inactivity</h3><button wire:click="setTab('aging')" class="text-xs font-bold text-primary-600">View idle inventory →</button></div><p class="mt-1 text-xs text-gray-500">Current stock grouped by days since last recorded movement, or creation if none. This measures inactivity, not lot age.</p><div class="vx-aging mt-4">
- @foreach([[30,59,'30–59 days'],[60,89,'60–89 days'],[90,null,'90+ days']] as [$min,$max,$label])
- @php $bucket=$idle->filter(fn($row)=>$row['idle_days'] >= $min && ($max===null || $row['idle_days'] <= $max)); @endphp
- <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-xs font-semibold">{{ $label }}</div><div class="mt-1 text-lg font-extrabold">${{ number_format($bucket->sum('total_value'),2) }}</div><div class="text-xs text-gray-500">{{ $bucket->count() }} items · {{ number_format($bucket->sum('quantity'),2) }} units</div></div>
- @endforeach
- </div></div>
- <div class="flex flex-wrap items-end justify-between gap-3 px-1 pt-1"><div><div class="text-[10px] font-extrabold uppercase tracking-wider text-primary-600">Inventory health</div><div class="mt-1 text-sm font-extrabold">Inventory Overview</div><div class="text-xs text-gray-500">At-a-glance inventory health, value and distribution.</div></div><div class="flex gap-2"><button wire:click="setTab('low-stock')" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-300">Low stock {{ number_format($summary['low_stock']) }}</button><button wire:click="setTab('out-stock')" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-300">Out of stock {{ number_format($summary['out_stock']) }}</button></div></div>
- <div @if($locations->count() < 2) class="vx-report-grid vx-two-columns" @else class="vx-report-grid" @endif>
-  <div class="vx-r-card p-4"><div class="flex items-center justify-between"><h3 class="text-sm font-bold">Global Inventory Value Trend</h3><span class="text-xs text-gray-500">{{ $this->periodStart()->format('M d') }} – {{ $this->periodEnd()->format('M d') }} · All inventory</span></div>@if($trend->isNotEmpty())@php $axisMax=max(1,ceil($maxTrend/100000)*100000); $midIndex=(int) floor(($trend->count()-1)/2); @endphp<div class="vx-chart-wrap"><div class="vx-y-axis"><span>${{ number_format($axisMax/1000,0) }}K</span><span>${{ number_format(($axisMax*.66)/1000,0) }}K</span><span>${{ number_format(($axisMax*.33)/1000,0) }}K</span><span>$0</span></div><div class="vx-chart-area"><div class="vx-chart">@foreach($trend as $point)<button type="button" class="vx-bar" aria-label="{{ $point['date'] }} inventory value ${{ number_format($point['value'],2) }}" style="height:{{ max(7,($point['value']/$axisMax)*100) }}%"><span class="vx-tooltip">{{ $point['date'] }} · ${{ number_format($point['value'],2) }}</span></button>@endforeach</div><div class="vx-x-axis"><span>{{ $trend->first()['date'] }}</span>@if($trend->count()>2)<span>{{ $trend[$midIndex]['date'] }}</span>@endif<span>{{ $trend->last()['date'] }}</span></div></div></div>@else<div class="py-16 text-center text-sm text-gray-400">Global snapshots will appear as data accumulates. Item and channel filters do not apply to this chart.</div>@endif</div>
-  <div class="vx-r-card p-4"><h3 class="text-sm font-bold">Inventory by Category</h3><div class="mt-4 space-y-3">@forelse($categories->take(6) as $cat)<div><div class="flex justify-between text-xs"><span class="font-semibold">{{ $cat['name'] }}</span><span>${{ number_format($cat['value'],2) }} · {{ number_format($cat['quantity']) }} units</span></div><div class="vx-track mt-1"><div class="vx-fill" style="width:{{ $summary['value'] > 0 ? ($cat['value']/$summary['value'])*100 : 0 }}%"></div></div></div>@empty<div class="text-sm text-gray-400">No category data.</div>@endforelse</div></div>
-  @if($locations->count() > 1)<div class="vx-r-card p-4"><h3 class="text-sm font-bold">Inventory by Location</h3>@forelse($locations->take(7) as $loc)<div class="vx-loc-row"><span class="truncate text-xs font-semibold">{{ $loc['name'] }}</span><div class="vx-track"><div class="vx-fill" style="width:{{ ($loc['quantity']/$maxLocation)*100 }}%"></div></div><span class="text-right text-xs">{{ number_format($loc['quantity']) }}<br><span class="text-gray-500">${{ number_format($loc['value'],2) }}</span></span></div>@empty<div class="mt-5 text-sm text-gray-400">No location data.</div>@endforelse</div>@endif
- </div>
+    {{-- Headline figures --}}
+    <div class="vxr-stats">
+        <x-vxr.stat label="Inventory Value" :value="$money($summary['value'])" icon="heroicon-o-cube" tone="accent" note="Current on-hand valuation" wire:click="setTab('top-value')" style="cursor:pointer" />
+        <x-vxr.stat label="Total Items" :value="number_format($summary['items'])" icon="heroicon-o-archive-box" tone="ok" :note="number_format($summary['in_stock_items']).' in stock'" wire:click="setTab('items')" style="cursor:pointer" />
+        <x-vxr.stat label="Units On Hand" :value="number_format($summary['quantity'])" icon="heroicon-o-squares-plus" tone="info" note="Units currently in stock" />
+        <x-vxr.stat label="Avg Cost per Unit" :value="$money($summary['avg_cost'])" icon="heroicon-o-banknotes" tone="warn" note="Value ÷ units on hand" />
+    </div>
 
- <div class="vx-report-sheet">
-  <div class="vx-sheet-toolbar"><div class="vx-tabs border-0">
-   @foreach(['items'=>'Inventory Items','low-stock'=>'Low Stock','out-stock'=>'Out of Stock','recent'=>'Recent Activity','top-value'=>'Top Value Items','moving'=>'Top Sold Items','aging'=>'Idle Inventory'] as $key=>$label)<button wire:click="setTab('{{ $key }}')" class="vx-tab {{ $activeTab===$key?'active':'' }}">{{ $label }}</button>@endforeach
-   </div><div class="vx-sheet-actions flex items-center gap-2"><div class="relative hidden lg:block"><x-heroicon-o-magnifying-glass class="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400"/><input wire:model.live.debounce.350ms="reportSearch" placeholder="Search within report..." class="w-48 rounded-lg border-gray-200 py-2 pl-8 text-xs dark:border-gray-700 dark:bg-gray-800"/></div><select wire:model.live="reportSort" class="rounded-lg border-gray-200 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800"><option value="value">Sort: Highest Value</option><option value="qty">Quantity: High-Low</option><option value="name">Name A-Z</option><option value="updated">Recently Updated</option></select></div></div>
-  @if(!in_array($activeTab,['overview','recent','moving']))
-  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Category</th><th>Location</th><th class="text-right">Quantity</th><th class="text-right">Avg. Cost</th><th class="text-right">Total Value</th><th>Last Updated</th></tr></thead><tbody>
-   @forelse($visible as $item)<tr><td><div class="flex items-center gap-3"><img src="{{ $item['image_url'] }}" alt="" loading="lazy" class="vx-thumb"/><div><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record'=>$item['id']]) }}" class="font-bold text-primary-600">{{ $item['name'] }}</a>@if($activeTab==='aging')<div class="text-xs text-amber-600">{{ $item['idle_days'] }} days without movement</div>@endif</div></div></td><td>{{ $item['sku'] }}</td><td>{{ $item['category'] }}</td><td>{{ $item['locations'] }}</td><td class="text-right"><span class="vx-pill">{{ number_format($item['quantity']) }}</span></td><td class="text-right">${{ number_format($item['unit_cost'],2) }}</td><td class="text-right font-bold">${{ number_format($item['total_value'],2) }}</td><td>{{ $item['updated_at']?->format('M d, Y') }}</td></tr>@empty<tr><td colspan="8" class="py-10 text-center text-gray-500">No inventory matches this view.</td></tr>@endforelse
-  </tbody></table></div>
-  @elseif($activeTab==='recent')
-  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th>Activity</th><th>Location</th><th>Change</th><th>Updated / By</th></tr></thead><tbody>
-   @forelse($recentRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td>{{ $row['type'] }}</td><td>{{ $row['location'] }}</td><td class="font-bold">{{ $row['change'] }}</td><td>{{ $row['updated_at']?->format('M d, Y g:i A') }}<div class="text-xs text-gray-500">{{ $row['actor'] }}</div></td></tr>@empty<tr><td colspan="6" class="py-10 text-center text-gray-500">No recent inventory activity.</td></tr>@endforelse
-  </tbody></table></div>
-  @elseif($activeTab==='moving')
-  <div class="vx-report-table"><table class="vx-table"><thead><tr><th>Item</th><th>SKU</th><th class="text-right">Units Sold</th><th>Period</th></tr></thead><tbody>
-   @forelse($movingRows as $row)<tr><td class="font-bold">{{ $row['name'] }}</td><td>{{ $row['sku'] }}</td><td class="text-right font-bold">{{ number_format($row['moved_units']) }}</td><td>{{ $this->periodStart()->format('M d') }} – {{ $this->periodEnd()->format('M d') }}</td></tr>@empty<tr><td colspan="4" class="py-10 text-center text-gray-500">No movement data in the selected period.</td></tr>@endforelse
-  </tbody></table></div>
-  @else
-  <div class="px-4 py-8 text-center text-sm text-gray-500">Select a report view above.</div>
-  @endif
- <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 p-4 dark:border-gray-700"><span class="text-xs text-gray-500">{{ number_format($allRows->count()) }} matching rows · Page {{ $page }} of {{ $pageCount }}</span><div class="flex gap-2"><button wire:click="changeReportPage({{ $page-1 }})" @disabled($page<=1) class="rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40">Previous</button><button wire:click="changeReportPage({{ $page+1 }})" @disabled($page>=$pageCount) class="rounded-lg border px-3 py-2 text-xs font-bold disabled:opacity-40">Next</button></div></div>
- </div>
- </main>
- </div>
+    <div class="vxr-strip invr-strip">
+        <button type="button" wire:click="setTab('low-stock')">
+            <span class="vxr-stat-icon vxr-tone-warn"><x-filament::icon icon="heroicon-o-exclamation-triangle" /></span>
+            <span><small>Low Stock</small><b>{{ number_format($summary['low_stock']) }}</b></span>
+        </button>
+        <button type="button" wire:click="setTab('out-stock')">
+            <span class="vxr-stat-icon vxr-tone-bad"><x-filament::icon icon="heroicon-o-x-circle" /></span>
+            <span><small>Out of Stock</small><b>{{ number_format($summary['out_stock']) }}</b></span>
+        </button>
+        <button type="button" wire:click="showUncategorized">
+            <span class="vxr-stat-icon vxr-tone-info"><x-filament::icon icon="heroicon-o-tag" /></span>
+            <span><small>Uncategorized Items</small><b>{{ number_format($summary['uncategorized'] ?? 0) }}</b></span>
+        </button>
+    </div>
+
+    {{-- Trend + idle --}}
+    <div class="invr-main">
+        <div class="vxr-card">
+            <div class="vxr-card-head">
+                <div>
+                    <h3 class="vxr-card-title">Inventory Value Trend</h3>
+                    <p class="vxr-card-sub">Nightly snapshot of total inventory value · {{ $periodLabel }} · all inventory (filters don't apply)</p>
+                </div>
+            </div>
+            <div class="vxr-card-body">
+                @if($trend->isNotEmpty())
+                    <x-vxr.chart type="bar" :money="true" :height="230"
+                        :points="$trend->map(fn ($p) => ['label' => $p['date'], 'value' => $p['value'], 'title' => $p['date'].' · $'.number_format($p['value'], 2)])->all()" />
+                @else
+                    <div class="vxr-empty"><b>No snapshots in this period yet</b>A snapshot of total value is saved every night; the trend fills in as they accumulate.</div>
+                @endif
+            </div>
+        </div>
+
+        <div class="vxr-card">
+            <div class="vxr-card-head">
+                <h3 class="vxr-card-title">Idle Inventory
+                    <span title="Current stock grouped by days since its last recorded movement (or since it was created, if it never moved). This measures inactivity, not lot age." style="display:inline-flex"><x-filament::icon icon="heroicon-o-information-circle" style="width:18px;height:18px;color:var(--vxw-faint)" /></span>
+                </h3>
+            </div>
+            <div class="vxr-card-body" style="display:grid;gap:16px">
+                <div class="invr-buckets">
+                    @foreach([[30, 59, '30 – 59 days', 'info'], [60, 89, '60 – 89 days', 'warn'], [90, null, '90+ days', 'bad']] as [$min, $max, $label, $tone])
+                        @php $bucket = $idle->filter(fn ($row) => $row['idle_days'] >= $min && ($max === null || $row['idle_days'] <= $max)); @endphp
+                        <div class="invr-bucket">
+                            <span class="vxr-stat-icon vxr-tone-{{ $tone }}"><x-filament::icon icon="heroicon-o-clock" /></span>
+                            <span style="min-width:0"><small>{{ $label }}</small><b>{{ $money($bucket->sum('total_value')) }}</b><small>{{ $bucket->count() }} {{ \Illuminate\Support\Str::plural('item', $bucket->count()) }}</small><small>{{ number_format($bucket->sum('quantity')) }} units</small></span>
+                        </div>
+                    @endforeach
+                </div>
+                <button type="button" wire:click="setTab('aging')" class="vxr-btn vxr-btn--outline vxr-btn--block">View Idle Inventory</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Tabbed table --}}
+    <div class="vxr-card invr-card">
+        <div class="vxr-tabs invr-tabbar" role="tablist">
+            @foreach(\App\Filament\Pages\InventoryReport::TABS as $key => $label)
+                <button type="button" role="tab" wire:click="setTab('{{ $key }}')" class="vxr-tab {{ $activeTab === $key ? 'is-active' : '' }}" aria-selected="{{ $activeTab === $key ? 'true' : 'false' }}">
+                    {{ $label }}@if(($tabCounts[$key] ?? 0) > 0)<span class="vxr-count">{{ number_format($tabCounts[$key]) }}</span>@endif
+                </button>
+            @endforeach
+        </div>
+
+        <div class="invr-tools">
+            <label class="vxr-control vxr-search">
+                <x-filament::icon icon="heroicon-o-magnifying-glass" />
+                <input wire:model.live.debounce.350ms="reportSearch" placeholder="Search inventory..." aria-label="Search inventory" />
+            </label>
+            @if($itemTabs)
+                <label class="vxr-control">
+                    <x-filament::icon icon="heroicon-o-arrows-up-down" />
+                    <select wire:model.live="reportSort" aria-label="Sort">
+                        <option value="value">Highest value</option>
+                        <option value="qty">Most units</option>
+                        <option value="name">Name A–Z</option>
+                        <option value="updated">Recently updated</option>
+                    </select>
+                </label>
+            @endif
+        </div>
+
+        @if($activeTab === 'recent')
+            @php $flow = $this->getMovementSummary(); @endphp
+            <div class="invr-flow">
+                @foreach(['received' => 'Received', 'removed' => 'Removed', 'adjustments' => 'Adjustments', 'transfers' => 'Internal transfers', 'net' => 'Net change'] as $k => $label)
+                    <div><small>{{ $label }}</small><b>{{ ($k === 'adjustments' || $k === 'net') && $flow['current'][$k] > 0 ? '+' : '' }}{{ number_format($flow['current'][$k], 2) }}</b><i>units · previous period {{ number_format($flow['previous'][$k], 2) }}</i></div>
+                @endforeach
+            </div>
+        @endif
+
+        <div class="vxr-table-wrap">
+            @if($itemTabs)
+                <table class="vxr-table">
+                    <thead><tr>
+                        <th>{!! $sortHead('name', 'Item') !!}</th>
+                        <th>SKU</th>
+                        <th>Location</th>
+                        <th class="num">{!! $sortHead('qty', 'Quantity') !!}</th>
+                        <th class="num">Avg Cost</th>
+                        <th class="num">{!! $sortHead('value', 'Total Value') !!}</th>
+                        <th>{!! $sortHead('updated', 'Last Updated') !!}</th>
+                        <th aria-label="Actions"></th>
+                    </tr></thead>
+                    <tbody>
+                    @forelse($visible as $item)
+                        <tr wire:key="inv-row-{{ $item['id'] }}">
+                            <td>
+                                <div class="invr-item">
+                                    @if($item['has_image'] ?? false)
+                                        <img src="{{ $item['image_url'] }}" alt="" loading="lazy" class="invr-thumb" />
+                                    @else
+                                        <span class="invr-thumb invr-thumb--none"><x-filament::icon icon="heroicon-o-cube" /></span>
+                                    @endif
+                                    <div style="min-width:0">
+                                        <a href="{{ $itemUrl($item['id']) }}">{{ $item['name'] }}</a>
+                                        <span class="sub">{{ $item['category'] }}@if($activeTab === 'aging') · <span class="vxr-val-warn">{{ $item['idle_days'] }} days without movement</span>@endif</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ $item['sku'] }}</td>
+                            <td>{{ $item['locations'] }}</td>
+                            <td class="num">
+                                @if($item['is_out_stock'])<span class="vxr-pill vxr-pill--bad">0</span>
+                                @elseif($item['is_low_stock'])<span class="vxr-pill vxr-pill--warn">{{ number_format($item['quantity']) }}</span>
+                                @else{{ number_format($item['quantity']) }}@endif
+                                @if($activeTab === 'low-stock' && $item['reorder_level'] > 0)<span class="sub">reorder at {{ number_format($item['reorder_level']) }}</span>@endif
+                            </td>
+                            <td class="num">{{ $money($item['unit_cost']) }}</td>
+                            <td class="num strong">{{ $money($item['total_value']) }}</td>
+                            <td style="white-space:nowrap">{{ $item['updated_at']?->format('M j, Y g:i A') ?? '—' }}</td>
+                            <td class="num">
+                                <div x-data="{ open: false, top: 0, left: 0 }" @keydown.escape.window="open = false" @scroll.window="open = false">
+                                    <button type="button" class="invr-menu-btn" aria-label="Actions for {{ $item['name'] }}"
+                                        @click="const r = $el.getBoundingClientRect(); top = r.bottom + 4; left = Math.max(8, r.right - 190); open = !open">
+                                        <x-filament::icon icon="heroicon-m-ellipsis-horizontal" />
+                                    </button>
+                                    <div x-cloak x-show="open" @click.outside="open = false" class="invr-menu" :style="`top:${top}px;left:${left}px`">
+                                        <a href="{{ $itemUrl($item['id']) }}"><x-filament::icon icon="heroicon-o-eye" /> View item</a>
+                                        <a href="{{ $itemUrl($item['id'], 'edit') }}"><x-filament::icon icon="heroicon-o-pencil-square" /> Edit item</a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="8"><div class="vxr-empty"><b>No inventory matches this view</b>Try another tab, or clear the search and filters.</div></td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            @elseif($activeTab === 'valuation')
+                <table class="vxr-table">
+                    <thead><tr><th>Category</th><th class="num">Items in stock</th><th class="num">Units</th><th class="num">Total Value</th><th>Share of value</th></tr></thead>
+                    <tbody>
+                    @forelse($visible as $row)
+                        @php $share = $summary['value'] > 0 ? $row['value'] / $summary['value'] * 100 : 0; @endphp
+                        <tr>
+                            <td class="strong"><button type="button" wire:click="$set('reportCategory', @js($row['name']))" class="vxr-link" style="background:none;border:0;padding:0;cursor:pointer">{{ $row['name'] }}</button></td>
+                            <td class="num">{{ number_format($row['items'] ?? 0) }}</td>
+                            <td class="num">{{ number_format($row['quantity']) }}</td>
+                            <td class="num strong">{{ $money($row['value']) }}</td>
+                            <td><div class="invr-share"><div class="vxr-bar-track"><div class="vxr-bar-fill" style="width:{{ $share }}%"></div></div><span>{{ number_format($share, 1) }}%</span></div></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5"><div class="vxr-empty"><b>Nothing in stock to value</b>Categories appear here once items have stock on hand.</div></td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            @elseif($activeTab === 'locations')
+                <table class="vxr-table">
+                    <thead><tr><th>Location</th><th class="num">Items</th><th class="num">Units</th><th class="num">Total Value</th><th>Share of value</th></tr></thead>
+                    <tbody>
+                    @php $locTotal = max(0.0001, (float) $locations->sum('value')); @endphp
+                    @forelse($visible as $row)
+                        @php $share = $row['value'] / $locTotal * 100; @endphp
+                        <tr>
+                            <td class="strong"><button type="button" wire:click="$set('reportLocation', @js($row['name']))" class="vxr-link" style="background:none;border:0;padding:0;cursor:pointer">{{ $row['name'] }}</button></td>
+                            <td class="num">{{ number_format($row['items'] ?? 0) }}</td>
+                            <td class="num">{{ number_format($row['quantity']) }}</td>
+                            <td class="num strong">{{ $money($row['value']) }}</td>
+                            <td><div class="invr-share"><div class="vxr-bar-track"><div class="vxr-bar-fill" style="width:{{ $share }}%"></div></div><span>{{ number_format($share, 1) }}%</span></div></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5"><div class="vxr-empty"><b>No stock at any location</b>Locations appear here once they hold stock.</div></td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            @elseif($activeTab === 'recent')
+                <table class="vxr-table">
+                    <thead><tr><th>Item</th><th>SKU</th><th>Activity</th><th>Location</th><th class="num">Change</th><th>When / By</th></tr></thead>
+                    <tbody>
+                    @forelse($visible as $row)
+                        <tr>
+                            <td class="strong">{{ $row['name'] }}</td>
+                            <td>{{ $row['sku'] }}</td>
+                            <td><span class="vxr-pill">{{ $row['type'] }}</span></td>
+                            <td>{{ $row['location'] }}</td>
+                            <td class="num strong">{{ $row['change'] }}</td>
+                            <td style="white-space:nowrap">{{ $row['updated_at']?->format('M j, Y g:i A') }}<span class="sub">{{ $row['actor'] }}</span></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6"><div class="vxr-empty"><b>No inventory activity in this period</b>Pick a longer activity period to see more.</div></td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            @elseif($activeTab === 'moving')
+                <table class="vxr-table">
+                    <thead><tr><th>Item</th><th>SKU</th><th class="num">Units Sold</th><th>Period</th></tr></thead>
+                    <tbody>
+                    @forelse($visible as $row)
+                        <tr>
+                            <td class="strong"><a href="{{ $itemUrl($row['id']) }}" class="vxr-link">{{ $row['name'] }}</a></td>
+                            <td>{{ $row['sku'] }}</td>
+                            <td class="num strong">{{ number_format($row['moved_units']) }}</td>
+                            <td>{{ $periodLabel }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4"><div class="vxr-empty"><b>No sales recorded in this period</b>Sales deductions and show sales are counted here.</div></td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            @endif
+        </div>
+
+        <div class="vxr-card-foot">
+            <span>Showing {{ number_format($from) }}–{{ number_format($to) }} of {{ number_format($total) }} {{ $rowNoun }}</span>
+            <div class="vxr-pager">
+                <button type="button" wire:click="changeReportPage({{ $page - 1 }})" @disabled($page <= 1) aria-label="Previous page"><x-filament::icon icon="heroicon-m-chevron-left" /></button>
+                <span>Page {{ $page }} of {{ $pageCount }}</span>
+                <button type="button" wire:click="changeReportPage({{ $page + 1 }})" @disabled($page >= $pageCount) aria-label="Next page"><x-filament::icon icon="heroicon-m-chevron-right" /></button>
+            </div>
+        </div>
+    </div>
 </div>
 </x-filament-panels::page>

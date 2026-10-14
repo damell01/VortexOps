@@ -325,14 +325,24 @@
                     @endforeach
                 </div>
 
-                <x-guide.panel tone="violet" title="One rule underneath all of this">
-                    <p>
-                        A quantity never changes by being typed over. It changes by receiving, transferring,
-                        adjusting or reconciling — and each of those records what happened and who did it.
-                        That record is the difference between a discrepancy you can trace and one you can
-                        only argue about.
-                    </p>
-                </x-guide.panel>
+                @if ($this->module === 'inventory')
+                    <x-guide.panel tone="violet" title="One rule underneath all of this">
+                        <p>
+                            A quantity never changes by being typed over. It changes by receiving, transferring,
+                            adjusting or reconciling — and each of those records what happened and who did it.
+                            That record is the difference between a discrepancy you can trace and one you can
+                            only argue about.
+                        </p>
+                    </x-guide.panel>
+                @elseif ($this->module === 'reports')
+                    <x-guide.panel tone="violet" title="Two numbers, two questions">
+                        <p>
+                            Whatnot earnings answer "what did Whatnot pay us?" and are known as soon as a show syncs.
+                            Business profit answers "what did we keep?" — it also takes off product cost and pay, so it
+                            is only final once those are in. When the two disagree, that is almost always why.
+                        </p>
+                    </x-guide.panel>
+                @endif
             @endif
 
             {{-- ── Read-through navigation ─────────────────────────────────- --}}

@@ -197,7 +197,7 @@ class HandbookPageTest extends TestCase
         // The tab is shown so people know it is coming; selecting it would
         // otherwise leave them on an empty page wondering what broke.
         $this->page()
-            ->call('selectModule', 'payouts')
+            ->call('selectModule', 'no-such-module')
             ->assertSet('module', 'inventory');
     }
 

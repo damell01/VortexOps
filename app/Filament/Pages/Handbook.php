@@ -8,6 +8,7 @@ use App\Support\FulfillmentManual;
 use App\Support\HandbookVisibility;
 use App\Support\InventoryManual;
 use App\Support\PayrollManual;
+use App\Support\ReportsManual;
 use App\Support\ShowsManual;
 use Filament\Pages\Page;
 
@@ -50,6 +51,7 @@ class Handbook extends Page
             'shows' => ['label'=>'Shows & Streams','icon'=>'heroicon-o-video-camera','source'=>ShowsManual::class,'ready'=>true],
             'fulfillment' => ['label'=>'Fulfillment','icon'=>'heroicon-o-truck','source'=>FulfillmentManual::class,'ready'=>true],
             'payouts' => ['label'=>'Payroll & Pay Runs','icon'=>'heroicon-o-banknotes','source'=>PayrollManual::class,'ready'=>true],
+            'reports' => ['label'=>'Reports & Analytics','icon'=>'heroicon-o-chart-bar','source'=>ReportsManual::class,'ready'=>true],
         ];
     }
 

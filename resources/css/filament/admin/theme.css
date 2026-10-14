@@ -917,3 +917,27 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 @media(max-width:1100px){.vx-fp-work{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-fp-intro{align-items:flex-start;flex-direction:column}.vx-fp-team{grid-template-columns:repeat(3,1fr)}.vx-fp-team>div:first-child{grid-column:1/-1}}
 @media(max-width:640px){.vx-fp-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vx-fp-kpi{padding:14px}.vx-fp-kpi strong{font-size:26px}.vx-fp-work{grid-template-columns:1fr}.vx-fp-panel{padding:14px}.vx-fp-toolbar{align-items:stretch;flex-direction:column}.vx-fp-toolbar input{width:100%}.vx-fp-intro h2{font-size:22px}.vx-fp-drawer{padding:20px}.vx-fp-drawer-footer{bottom:-20px}}
 @media(prefers-reduced-motion:reduce){.vx-fp-kpi{transition:none}}
+
+/* Ledger reference: visible filters, white rows and compact status pills. */
+.fi-main:has(.vx-finance-table){max-width:1680px!important}
+.vx-finance-table{border:1px solid var(--vx-border);border-radius:14px;box-shadow:0 4px 20px #17213d05}
+.vx-finance-table .fi-ta-header{padding:20px 24px}
+.vx-finance-table .fi-ta-filter-form{padding:18px;background:var(--vx-surface);border-radius:12px}
+.vx-finance-table .fi-ta-cell{padding-top:16px;padding-bottom:16px}
+.vx-finance-table .fi-ta-row:hover{background:rgb(124 58 237 / .045)}
+.vx-finance-table .fi-badge{border-radius:8px}
+
+/* Give the navigation and search distinct rows when the header is crowded. */
+@media(min-width:1024px){
+ .fi-topbar nav:has(.vx-desktop-mega-nav){display:flex!important;flex-wrap:wrap!important;gap:12px!important;height:auto!important;min-height:76px;padding-block:10px!important}
+ .fi-topbar:has(.vx-desktop-mega-nav){height:auto!important}
+ .vx-desktop-mega-nav{min-width:0!important;flex:1 1 auto!important;max-width:100%;height:auto!important;flex-wrap:wrap!important}
+ .vx-mega-channel{flex:0 0 auto;max-width:220px}
+ .fi-topbar .fi-global-search{flex:0 1 260px!important;min-width:160px;max-width:260px;position:relative!important;margin-left:12px!important}
+ .fi-topbar .fi-global-search-field{width:100%!important;max-width:100%}
+ .fi-topbar .fi-global-search-field .fi-input-wrp{width:100%!important}
+}
+@media(min-width:1024px) and (max-width:1599px){
+ .vx-desktop-mega-nav{flex:1 1 100%!important;justify-content:flex-start}
+ .fi-topbar .fi-global-search{margin-left:auto!important;flex-basis:320px!important;max-width:420px}
+}

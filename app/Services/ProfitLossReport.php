@@ -111,6 +111,7 @@ class ProfitLossReport
                 'hours' => $entry?->hours_streamed !== null ? (float) $entry->hours_streamed : null,
                 'units' => (int) $show->units_sold,
                 'incomplete' => $missing,
+                'pay_completed' => $show->payouts->isNotEmpty() && $show->payouts->every(fn($p) => $p->status === 'paid' || $p->batch?->status === 'paid'),
                 'weekday' => $show->show_date?->format('l'),
                 'slot' => $this->slot($show),
             ];

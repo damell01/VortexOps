@@ -4,9 +4,9 @@ $user=auth()->user(); $groups=[];
 // calendar is one click away, and inventory/admin tooling stays out of the way.
 // Inventory routes stay reachable (reports create items through them); only the
 // links are dropped, unless Roles & Permissions explicitly grants the page.
-$streamerOnly=(bool) $user?->isStreamer();
-$homeUrl=$streamerOnly ? \App\Filament\Pages\StreamerShows::getUrl(panel:'admin') : \App\Filament\Pages\DashboardImproved::getUrl(panel:'admin');
-$homeLabel=$streamerOnly ? 'My Shows' : 'Dashboard';
+$streamerOnly=(bool) ($user?->isStreamer() && !$user?->isAdmin() && !$user?->isOwner());
+$homeUrl=\App\Filament\Pages\DashboardImproved::getUrl(panel:'admin');
+$homeLabel=$streamerOnly ? 'My Dashboard' : 'Dashboard';
 $channel=\App\Support\ChannelContext::current();
 try { $globalLogo=\App\Models\Setting::get('logo_path'); } catch (\Throwable) { $globalLogo=null; }
 $navLogo=null;
@@ -61,7 +61,7 @@ if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Repo
  ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],
  ['Whatnot Performance',\App\Filament\Pages\Reports::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-up'],
  ['Whatnot Losses',\App\Filament\Pages\WhatnotLosses::getUrl(panel:'admin'),'Financial','heroicon-o-arrow-trending-down'],
- ['Profit & Loss',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar'],
+ ['Business Profitability',\App\Filament\Pages\ProfitLoss::getUrl(panel:'admin'),'Financial','heroicon-o-currency-dollar'],
  ['Ledger',\App\Filament\Resources\WhatnotLedgerResource::getUrl('index'),'Financial','heroicon-o-document-text'],
  ['Streamer Analytics',\App\Filament\Pages\StreamerAnalytics::getUrl(panel:'admin'),'Operations','heroicon-o-user-group'],
  ['Inventory Reports',\App\Filament\Pages\InventoryReport::getUrl(panel:'admin'),'Operations','heroicon-o-cube'],

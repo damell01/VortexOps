@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<a href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}" class="vxw-btn">← Back to Timekeeping</a>
 @php
     $tz = $this->tz();
     $fmt = fn ($m) => $m === null ? '—' : \App\Models\TimeEntry::formatMinutes((int) $m);

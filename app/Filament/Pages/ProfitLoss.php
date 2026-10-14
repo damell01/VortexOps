@@ -27,7 +27,7 @@ class ProfitLoss extends Page
     use SendsShowLossSummary;
 
     protected static string $moduleSlug = 'reporting';
-    protected static ?string $title = 'Profit & Loss';
+    protected static ?string $title = 'Business Profitability';
     protected static ?string $slug = 'profit-loss';
 
     #[Url]
@@ -220,7 +220,9 @@ class ProfitLoss extends Page
     {
         $rows = $this->rows();
         $rows = match ($this->showFilter) {
-            'losing' => $rows->where('profit', '<', 0),
+            'losing' => $rows->filter(fn($r) => $r['incomplete'] === [] && ($r['pay_completed'] ?? false) && $r['profit'] < 0),
+            'paid' => $rows->filter(fn($r)=>$r['incomplete'] === [] && ($r['pay_completed'] ?? false)),
+            'pending' => $rows->filter(fn($r)=>$r['incomplete'] !== [] || !($r['pay_completed'] ?? false)),
             'incomplete' => $rows->filter(fn ($r) => $r['incomplete'] !== []),
             'complete', 'finalized' => $rows->filter(fn ($r) => $r['incomplete'] === []),
             'losses' => $rows->filter(fn ($r) => $r['incomplete'] === [] && $r['profit'] < 0),

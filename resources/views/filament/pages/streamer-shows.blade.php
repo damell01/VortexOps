@@ -78,6 +78,20 @@
     </style>
 
     <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="streamer-shows" x-data="{ tab: @js($defaultTab), sort: 'newest', view: 'grid' }">
+        {{-- The two things a streamer comes here to do: clock in, and log a show (above). --}}
+        @if (\App\Support\AdminModules::isEnabled('timekeeping'))
+            @livewire('clock-widget', ['compact' => true])
+        @endif
+
+        <section class="vxw-card">
+            <div class="vxw-card-head"><div><h2 class="vxw-h2">Log Items for a Recent Show</h2><p class="vxw-sub">Today and yesterday · Choose the show where you sold the items.</p></div></div>
+            <div class="vxw-card-body grid gap-3 md:grid-cols-2">
+                @forelse($this->recentLoggingShows() as $recent)
+                    <article class="vxw-card p-5"><p class="vxw-meta">{{ $recent['date'] }} · {{ $recent['channel'] }}</p><h3 class="vxw-h2 mt-2">{{ $recent['title'] }}</h3><p class="vxw-sub mt-2">{{ $recent['state'] }}</p>
+                    @if($recent['url'])<a href="{{ $recent['url'] }}" class="vxw-btn vxw-btn--primary mt-4">Log Sold Items →</a>@else<a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record'=>$recent['id']]) }}" class="vxw-btn mt-4">View Submitted Report →</a>@endif</article>
+                @empty<p class="vxw-sub">No assigned shows from today or yesterday. Find an earlier show in your list below.</p>@endforelse
+            </div>
+        </section>
         {{-- Welcome --}}
         <section class="vx-sd-hero">
             <div class="relative flex flex-wrap items-center justify-between" style="gap:18px;z-index:1">
@@ -97,11 +111,6 @@
                 @endif
             </div>
         </section>
-
-        {{-- The two things a streamer comes here to do: clock in, and log a show (above). --}}
-        @if (\App\Support\AdminModules::isEnabled('timekeeping'))
-            @livewire('clock-widget', ['compact' => true])
-        @endif
 
         {{-- At a glance; each tile opens its list below. --}}
         <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(150px,44%),1fr))">

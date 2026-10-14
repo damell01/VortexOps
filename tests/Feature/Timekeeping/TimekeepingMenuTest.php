@@ -24,7 +24,7 @@ class TimekeepingMenuTest extends TestCase
         // Timekeeping is one page (its dashboard opens Time & Attendance), so a plain link.
         $this->assertStringContainsString('href="'.\App\Filament\Pages\Timekeeping::getUrl().'"', $html);
         $this->assertStringNotContainsString('Clock in &amp; my time', $html);
-        foreach (['Reports Overview', 'Whatnot Performance', 'Whatnot Losses', 'Profit &amp; Loss', 'Streamer Analytics', 'Financial', 'Operations'] as $text) {
+        foreach (['Reports Overview', 'Whatnot Performance', 'Whatnot Losses', 'Business Profitability', 'Streamer Analytics', 'Financial', 'Operations'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
     }

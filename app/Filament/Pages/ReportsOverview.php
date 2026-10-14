@@ -143,7 +143,7 @@ class ReportsOverview extends Page
     {
         $tiles = [
             [Reports::class, 'Whatnot Performance', 'Sales, fees and estimated earnings', 'heroicon-o-chart-bar', 'accent'],
-            [ProfitLoss::class, 'Profit & Loss', 'Profit after costs and completed pay runs', 'heroicon-o-currency-dollar', 'ok'],
+            [ProfitLoss::class, 'Business Profitability', 'Profit after costs and completed pay runs', 'heroicon-o-currency-dollar', 'ok'],
             [StreamerAnalytics::class, 'Streamer Analytics', 'Performance by streamer', 'heroicon-o-user-group', 'info'],
             [InventoryReport::class, 'Inventory Reports', 'Stock value, movement and aging', 'heroicon-o-cube', 'warn'],
             [\App\Filament\Resources\WhatnotLedgerResource::class, 'Ledger', 'Detailed financial entries', 'heroicon-o-document-text', 'accent'],

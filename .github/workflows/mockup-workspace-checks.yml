@@ -1,0 +1,52 @@
+name: Mockup workspace checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'resources/views/filament/**'
+      - 'app/Filament/Pages/DashboardImproved.php'
+      - 'app/Filament/Resources/WhatnotLedgerResource.php'
+      - '.github/workflows/mockup-workspace-checks.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pdo_sqlite,zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Compile views and verify streamer access
+        run: php artisan test tests/Feature/Ui/BladeViewsCompileTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/StreamerAnalyticsTest.php tests/Feature/Reports/StreamerAnalyticsScopeTest.php tests/Feature/Timekeeping/TimekeepingTest.php
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare browser fixtures
+        run: touch /tmp/vortex-mockup.sqlite && php artisan migrate:fresh --force && php tests/Browser/mockup-fixtures.php
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-mockup.sqlite
+          APP_DEBUG: false
+      - name: Browser layout checks
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/mockup-server.log 2>&1 &
+          npx playwright test --config=playwright.mockup.config.ts || { cat /tmp/mockup-server.log; tail -n 100 storage/logs/laravel.log; exit 1; }
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-mockup.sqlite
+          APP_DEBUG: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mockup-workspace-screenshots
+          path: tests/Browser/output

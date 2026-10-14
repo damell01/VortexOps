@@ -24,8 +24,8 @@
 <div class="vxr" data-vx-page="profit-loss">
     <div class="vxr-head">
         <div>
-            <h1 class="vxr-title">Profit &amp; Loss</h1>
-            <p class="vxr-subtitle">Whatnot earnings plus tips, minus COGS and recorded worker payouts.</p>
+            <h1 class="vxr-title">Business Profitability</h1>
+            <p class="vxr-subtitle">Profit &amp; loss: Whatnot earnings plus tips, minus COGS and recorded worker payouts.</p>
         </div>
         <div class="vxr-actions">
             <button type="button" class="vxr-btn" wire:click="exportCsv"><x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export</button>

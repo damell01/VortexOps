@@ -154,6 +154,12 @@ class NotificationSettings extends Page
     {
         abort_unless(static::canAccess() && $this->configure !== null, 403);
         $key = $this->configure;
+        if (NotificationCatalog::schedulable($key)) {
+            $this->validate([
+                "rules.{$key}.schedule.time" => ['required', 'date_format:H:i'],
+                "rules.{$key}.schedule.day" => ['required', 'integer', 'between:1,7'],
+            ], [], ["rules.{$key}.schedule.time" => 'time', "rules.{$key}.schedule.day" => 'day']);
+        }
         $rule = $this->ruleFromForm($key);
         if (count($rule['emails']) !== count($this->splitEmails($this->rules[$key]['emails'] ?? ''))) {
             $this->addError("rules.{$key}.emails", 'One of these is not an email address.');

@@ -12,7 +12,7 @@ class InventoryHistory
     {
         return Action::make('itemHistory')
             ->label('Item history')->icon('heroicon-o-clock')
-            ->slideOver()->modalHeading('Item history')
+            ->modalWidth('5xl')->modalHeading('Item history')
             ->modalSubmitAction(false)->modalCancelActionLabel('Close')
             ->modalContent(function (array $arguments, $record = null) {
                 abort_unless(InventoryItemResource::canAccess(), 403);

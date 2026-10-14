@@ -72,7 +72,7 @@ class WhatnotLedgerResource extends Resource
         return $table
             ->striped()
             ->extraAttributes(['class' => 'vx-finance-table'])
-            ->heading('Channel Ledger')
+            ->heading('Whatnot Ledger')
             ->description('Review imported Whatnot credits, debits, order references and completion status. Filters apply to the ledger below.')
             ->persistFiltersInSession()
             ->paginationPageOptions(\App\Support\MobileTablePagination::options([10, 25, 50]))
@@ -134,18 +134,20 @@ class WhatnotLedgerResource extends Resource
                     ->toggleable()
                     ->sortable(),
             ])
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
+            ->filtersFormColumns(4)
             ->filters([
-                SelectFilter::make('transaction_type')
+                SelectFilter::make('transaction_type')->native(false)
                     ->label('Type')
                     ->options(fn () => WhatnotLedgerEntry::query()
                         ->whereNotNull('transaction_type')
                         ->distinct()
                         ->pluck('transaction_type', 'transaction_type')
                         ->toArray()),
-                SelectFilter::make('whatnot_channel_id')
+                SelectFilter::make('whatnot_channel_id')->native(false)
                     ->label('Channel')
                     ->relationship('channel', 'name'),
-                SelectFilter::make('status')
+                SelectFilter::make('status')->native(false)
                     ->options(fn () => WhatnotLedgerEntry::query()
                         ->whereNotNull('status')
                         ->distinct()
@@ -153,8 +155,8 @@ class WhatnotLedgerResource extends Resource
                         ->toArray()),
                 Filter::make('created_date')
                     ->schema([
-                        DatePicker::make('from')->label('From'),
-                        DatePicker::make('until')->label('Until'),
+                        DatePicker::make('from')->label('From')->native(false),
+                        DatePicker::make('until')->label('Until')->native(false),
                     ])
                     // $query, not $q: Filament injects the table's builder by
                     // parameter name, so anything else resolves a throwaway
@@ -165,7 +167,7 @@ class WhatnotLedgerResource extends Resource
                         ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '<=', $d))),
             ])
             ->recordActions([
-                \Filament\Actions\Action::make('details')->label('Details')->icon('heroicon-o-eye')->slideOver()
+                \Filament\Actions\Action::make('details')->label('Details')->icon('heroicon-o-eye')->modalWidth('5xl')
                     ->modalHeading('Transaction Details')->modalSubmitAction(false)->modalCancelActionLabel('Close')
                     ->schema([
                         \Filament\Forms\Components\TextInput::make('amount')->default(fn ($record) => $record->amount)->disabled(),

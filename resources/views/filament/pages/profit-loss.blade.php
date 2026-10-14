@@ -17,9 +17,9 @@
     $kpis = [
         ['Shows', number_format($t['shows']), $delta($t['shows'], $prev['shows']), false],
         ['Sales', $money($t['sales']), $delta($t['sales'], $prev['sales']), false],
-        ['Earnings', $money($t['earnings']), $delta($t['earnings'], $prev['earnings']), false],
-        ['COGS', $money($t['cogs']), $delta($t['cogs'], $prev['cogs']), true],
-        ['Streamer pay', $money($t['payouts']), $delta($t['payouts'], $prev['payouts']), true],
+        ['Whatnot Earnings', $money($t['earnings']), $delta($t['earnings'], $prev['earnings']), false],
+        ['Recorded COGS', $money($t['cogs']), $delta($t['cogs'], $prev['cogs']), true],
+        ['Worker Payouts', $money($t['payouts']), $delta($t['payouts'], $prev['payouts']), true],
         ['Profit after paid runs', $paidRows->isEmpty() ? '—' : $money($paidTotals['profit']), null, false],
     ];
     $breakdownLabels = ['streamer' => 'Streamer', 'channel' => 'Channel', 'business' => 'Business', 'weekday' => 'Weekday', 'slot' => 'Time slot'];
@@ -74,7 +74,8 @@
         </div>
     </section>
 
-    {{-- Trend --}}
+    <div class="vx-profit-main">
+        <div>    {{-- Trend --}}
     @if ($period !== 'day')
         <section class="vxw-card">
             <div class="vxw-card-head"><div><h3 class="vxw-h2">Profit after pay, {{ $period === 'year' ? 'by month' : 'by day' }}</h3><p class="vxw-sub">Green made money, red lost it. Hover a bar for sales and show count.</p></div></div>
@@ -97,6 +98,13 @@
     @endif
 
     {{-- How streamers are doing --}}
+</div>
+        <aside class="vxw-card vx-profit-checklist"><h3 class="vxw-h2">Finalization Checklist</h3><p class="vxw-sub">Review these steps before treating business profit as final.</p>
+        @foreach([['Inventory costs logged','Review and approve inventory costs for each show.', \App\Filament\Pages\ProfitLoss::getUrl(['period'=>$period,'anchor'=>$anchor,'showFilter'=>'incomplete'])],['Hours worked approved','Review worker time, including preparation and cleanup.', \App\Filament\Pages\Timekeeping::getUrl()],['Pay runs paid','Record completed payouts to workers.', \App\Filament\Pages\PayrollOverview::getUrl()]] as [$title,$description,$url])
+        <a href="{{ $url }}" class="vx-profit-check"><span class="vx-profit-check-ring"></span><div><b>{{ $title }}</b><p>{{ $description }}</p></div></a>
+        @endforeach
+        <p class="vxw-sub">Final profit uses the existing show cost and payout calculations. Other business expenses must also be considered separately.</p></aside>
+    </div>
     @php $streamers = $this->streamerTrend(); @endphp
     <section class="vxw-card">
         <div class="vxw-card-head"><div><h3 class="vxw-h2">How streamers are doing</h3><p class="vxw-sub">Shows they hosted as primary in this period, compared with the period before.</p></div></div>

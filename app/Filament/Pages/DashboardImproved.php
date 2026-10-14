@@ -127,6 +127,12 @@ class DashboardImproved extends Dashboard
                 'nextShow' => $nextShow,
                 'reportsDue' => $reportsDue + $unreportedEndedShows,
                 'pendingPayouts' => Payout::where('streamer_id', $streamerId)->where('status', 'approved')->count(),
+                'changesRequested' => StreamerLogEntry::where('streamer_id', $streamerId)->where('status', 'changes_requested')->count(),
+                'monthShowCount' => (clone $assignedShows)->whereBetween('show_date', [now()->startOfMonth(), now()->endOfMonth()])->count(),
+                'monthGross' => (clone $assignedShows)->whereBetween('show_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('gross_revenue'),
+                'recordedPaid' => Payout::where('streamer_id', $streamerId)->where('status', 'paid')->sum('calculated_payout'),
+                'approvedUnpaid' => Payout::where('streamer_id', $streamerId)->where('status', 'approved')->sum('calculated_payout'),
+                'recentItemEntries' => StreamerLogItem::with(['inventoryItem', 'logEntry.show'])->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->whereHas('show', fn ($show) => $show->inChannelContext()))->latest()->limit(5)->get(),
                 'inventoryCount' => InventoryItem::whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $locationIds)->where('quantity', '>', 0))->where('is_active', true)->count(),
                 'inventoryUnits' => (float) \App\Models\InventoryStock::whereIn('inventory_location_id', $locationIds)->sum('quantity'),
                 'giveawayUnits30' => (int) StreamerLogItem::where('disposition', 'giveaway')

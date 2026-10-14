@@ -60,23 +60,38 @@ class StreamerAnalytics extends Page
         return 'filament.pages.streamer-analytics';
     }
 
-    protected function getHeaderActions(): array
+    /**
+     * The page draws its own header (title, subtitle, filters and actions in
+     * one row, like every other report), so Filament's is switched off.
+     */
+    public function getHeading(): string
     {
-        return [
-            \Filament\Actions\Action::make('statements')
-                ->label('Streamer Statements')
-                ->icon('heroicon-o-document-text')
-                ->color('gray')
-                ->visible(fn () => StreamerStatement::canAccess())
-                ->url(fn () => StreamerStatement::getUrl($this->selectedStreamers && count($this->selectedStreamers) === 1 ? ['streamer' => $this->selectedStreamers[0]] : [])),
-        ];
+        return '';
     }
 
     public function getSubheading(): ?string
     {
+        return null;
+    }
+
+    public function subtitle(): string
+    {
         return $this->restrictedToOwnFigures()
-            ? 'Your revenue, margin, hours and payout, over a date range you pick.'
-            : 'Compare streamers side by side — revenue, margin, hours, and payout, over a date range you pick.';
+            ? 'Your show volume, earnings, efficiency and payout activity, over a date range you pick.'
+            : 'Compare show volume, earnings, efficiency and payout activity.';
+    }
+
+    public function statementsUrl(): ?string
+    {
+        if (! StreamerStatement::canAccess()) {
+            return null;
+        }
+
+        return StreamerStatement::getUrl(
+            $this->selectedStreamers && count($this->selectedStreamers) === 1
+                ? ['streamer' => $this->selectedStreamers[0]]
+                : [],
+        );
     }
 
     /**
@@ -126,6 +141,24 @@ class StreamerAnalytics extends Page
     /** @var array<int> */
     public array $selectedStreamers = [];
 
+    /** Streamer card grid: search, sort and page. */
+    public string $cardSearch = '';
+    public string $cardSort = 'gross';
+    public int $cardPage = 1;
+
+    public const CARDS_PER_PAGE = 12;
+
+    /** @var array<string, string> sort key => label */
+    public const CARD_SORTS = [
+        'gross'  => 'Gross revenue',
+        'net'    => 'Whatnot est. earnings',
+        'shows'  => 'Total shows',
+        'hours'  => 'Show hours',
+        'sph'    => 'Revenue / show hour',
+        'payout' => 'Recorded payouts',
+        'name'   => 'Name',
+    ];
+
     public function mount(): void
     {
         $this->dateFrom = now()->startOfYear()->toDateString();
@@ -137,6 +170,95 @@ class StreamerAnalytics extends Page
     }
 
     public function refreshData(): void {}
+
+    public function updatedCardSearch(): void
+    {
+        $this->cardPage = 1;
+    }
+
+    public function updatedCardSort(): void
+    {
+        $this->cardPage = 1;
+    }
+
+    public function updatedSelectedStreamers(): void
+    {
+        $this->cardPage = 1;
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->cardPage = 1;
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->cardPage = 1;
+    }
+
+    public function clearSelectedStreamers(): void
+    {
+        $this->selectedStreamers = [];
+        $this->cardPage = 1;
+    }
+
+    public function goToCardPage(int $page): void
+    {
+        $this->cardPage = max(1, $page);
+    }
+
+    /**
+     * The streamer cards after search and sort, cut to the current page.
+     *
+     * @return array{rows: array<array<string,mixed>>, total: int, page: int, pages: int, from: int, to: int}
+     */
+    public function getCardGridProperty(): array
+    {
+        $rows = collect($this->analyticsRows);
+
+        $needle = mb_strtolower(trim($this->cardSearch));
+        if ($needle !== '') {
+            $rows = $rows->filter(fn ($r) => str_contains(mb_strtolower((string) $r['name']), $needle));
+        }
+
+        $field = [
+            'gross'  => 'gross_revenue',
+            'net'    => 'net_revenue',
+            'shows'  => 'show_count',
+            'hours'  => 'total_hours',
+            'sph'    => 'gmv_per_hour',
+            'payout' => 'total_payout',
+        ][$this->cardSort] ?? null;
+
+        $rows = $field
+            ? $rows->sortBy([[$field, 'desc'], ['name', 'asc']])
+            : $rows->sortBy(fn ($r) => mb_strtolower((string) $r['name']));
+
+        $total = $rows->count();
+        $pages = max(1, (int) ceil($total / self::CARDS_PER_PAGE));
+        $page  = min(max(1, $this->cardPage), $pages);
+        $slice = $rows->values()->slice(($page - 1) * self::CARDS_PER_PAGE, self::CARDS_PER_PAGE)->values()->all();
+
+        return [
+            'rows'  => $slice,
+            'total' => $total,
+            'page'  => $page,
+            'pages' => $pages,
+            'from'  => $total ? ($page - 1) * self::CARDS_PER_PAGE + 1 : 0,
+            'to'    => ($page - 1) * self::CARDS_PER_PAGE + count($slice),
+        ];
+    }
+
+    /** Up to five streamers with the most gross revenue in the range. */
+    public function getTopByGrossProperty(): array
+    {
+        return collect($this->analyticsRows)
+            ->filter(fn ($r) => $r['gross_revenue'] > 0)
+            ->sortByDesc('gross_revenue')
+            ->take(5)
+            ->values()
+            ->all();
+    }
 
     public function exportCsv(): StreamedResponse
     {

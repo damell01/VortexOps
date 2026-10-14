@@ -106,6 +106,50 @@
                 </div>
             </section>
 
+            @php
+                // Reuse payroll's show formula; previewing never creates a payout.
+                $shareStreamer = $isAdminViewer ? $reportEntry?->streamer : auth()->user()?->streamer;
+                $shareEligible = !$reportBlocked && $shareStreamer
+                    && in_array($shareStreamer->payout_type, ['profit_share', 'hybrid'], true)
+                    && $this->show->streamers->contains('id', $shareStreamer->id);
+                $shareEstimate = null;
+                $sharePending = false;
+                $sharePrimary = true;
+                if ($shareEligible) {
+                    $participants = $this->show->streamers;
+                    $hasPrimary = $participants->contains(fn ($s) => (bool) ($s->pivot->is_primary ?? false));
+                    $participant = $participants->firstWhere('id', $shareStreamer->id);
+                    $sharePrimary = $participants->count() <= 1 || ($hasPrimary
+                        ? (bool) ($participant->pivot->is_primary ?? false)
+                        : $participants->first()?->id === $shareStreamer->id);
+                    $sharePending = $this->show->gross_revenue === null || $reportEntry?->product_cost === null
+                        || $lines->contains(fn ($line) => $line->unit_cost === null)
+                        || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
+                        || (\App\Support\ProfitShareFormula::ratePerShipment() !== null && $this->shipments === '');
+                    if (!$sharePending) {
+                        $shareEstimate = $sharePrimary ? \App\Support\ProfitShareFormula::forShow(
+                            grossRevenue: (float) $this->show->gross_revenue,
+                            productCost: (float) $reportEntry->product_cost,
+                            hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
+                            shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),
+                            percentage: (float) ($shareStreamer->payout_percentage ?? 0),
+                        )['earnings'] : 0.0;
+                    }
+                }
+            @endphp
+            @if ($shareEligible)
+                <section class="vxw-card" aria-live="polite" aria-atomic="true">
+                    <div class="vxw-card-body">
+                        <div class="vxw-eyebrow">Estimated profit share</div>
+                        <div class="vxw-h1">{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</div>
+                        <p class="vxw-sub">{{ $sharePending ? 'Complete item costs, hours, and shipments to see your estimate.' : 'Updates as you fill out this report. Subject to admin review.' }}</p>
+                        @if (!$sharePrimary)
+                            <p class="vxw-meta">This show's profit share goes to the primary streamer. Collaboration splits are handled separately.</p>
+                        @endif
+                    </div>
+                </section>
+            @endif
+
             @if ($reportBlocked)
                 <div class="vxw-alert vxw-alert--warn" role="alert">
                     <x-filament::icon icon="heroicon-o-exclamation-triangle" />

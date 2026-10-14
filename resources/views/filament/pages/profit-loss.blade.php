@@ -3,120 +3,192 @@
     [$from, $to, $label] = $this->range();
     $t = $this->totals();
     $prev = $this->previousTotals();
-    $trend = $this->trend();
     $opts = $this->options();
-    $money = fn ($v, $dp = 0) => ($v < 0 ? '−$' : '$') . number_format(abs((float) $v), $dp);
+    $money = fn ($v, $dp = 0) => ($v < 0 ? '-$' : '$') . number_format(abs((float) $v), $dp);
     $delta = function ($now, $before) {
         if ($before == 0) return null;
         return round(($now - $before) / abs($before) * 100);
     };
-    $maxBar = max(1, $trend->max(fn ($b) => abs($b['profit'])));
-    $kpis = [
-        ['Shows', number_format($t['shows']), $delta($t['shows'], $prev['shows']), false],
-        ['Sales', $money($t['sales']), $delta($t['sales'], $prev['sales']), false],
-        ['Earnings', $money($t['earnings']), $delta($t['earnings'], $prev['earnings']), false],
-        ['COGS', $money($t['cogs']), $delta($t['cogs'], $prev['cogs']), true],
-        ['Streamer pay', $money($t['payouts']), $delta($t['payouts'], $prev['payouts']), true],
-        ['Profit after pay', $money($t['profit']), $delta($t['profit'], $prev['profit']), false],
-    ];
+    $deltaNote = function ($now, $before, $costLike = false) use ($delta) {
+        $d = $delta($now, $before);
+        if ($d === null) return null;
+        $good = $costLike ? $d <= 0 : $d >= 0;
+        return new \Illuminate\Support\HtmlString('<span class="vxr-delta '.($good ? 'vxr-delta--up' : 'vxr-delta--down').'">'.($d >= 0 ? '▲' : '▼').' '.abs($d).'% vs previous</span>');
+    };
     $breakdownLabels = ['streamer' => 'Streamer', 'channel' => 'Channel', 'business' => 'Business', 'weekday' => 'Weekday', 'slot' => 'Time slot'];
+    $counts = ['all' => $t['shows'], 'finalized' => $t['finalized'], 'incomplete' => $t['incomplete'], 'losses' => $t['finalized_losing'], 'whatnot' => $t['whatnot_negative']];
+    $tab = $showFilter === 'complete' ? 'finalized' : $showFilter;
+    $detail = $this->detail();
 @endphp
-<div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="profit-loss">
-    {{-- Period and filters --}}
-    <section class="vxw-card">
-        <div class="vxw-card-body flex flex-wrap items-center gap-3">
-            <div class="vxw-chips" role="tablist" aria-label="View">
-                @foreach (['day' => 'Daily', 'week' => 'Weekly', 'month' => 'Monthly', 'year' => 'Yearly'] as $key => $text)
-                    <button type="button" role="tab" wire:click="setView('{{ $key }}')" @class(['vxw-chip', 'is-active' => $period === $key])>{{ $text }}</button>
-                @endforeach
-            </div>
-            <div class="flex items-center gap-1">
-                <button type="button" wire:click="shift(-1)" class="vxw-btn vxw-btn--sm" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" /></button>
-                <div class="vxw-h2 px-2 text-center" style="min-width:11rem">{{ $label }}</div>
-                <button type="button" wire:click="shift(1)" class="vxw-btn vxw-btn--sm" aria-label="Next"><x-filament::icon icon="heroicon-m-chevron-right" /></button>
-                <button type="button" wire:click="today" class="vxw-btn vxw-btn--ghost vxw-btn--sm">Today</button>
-            </div>
-            <div class="ml-auto flex flex-wrap gap-2">
-                <select wire:model.live="channel" class="vxw-select" style="width:auto" aria-label="Channel"><option value="">All channels</option>@foreach ($opts['channels'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
-                <select wire:model.live="business" class="vxw-select" style="width:auto" aria-label="Business"><option value="">All businesses</option>@foreach ($opts['businesses'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
-                <select wire:model.live="streamer" class="vxw-select" style="width:auto" aria-label="Streamer"><option value="">All streamers</option>@foreach ($opts['streamers'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
-            </div>
-        </div>
-    </section>
 
-    {{-- Headline numbers --}}
-    <section class="vxw-card">
-        <div class="vxw-stats" style="grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:0">
-            @foreach ($kpis as [$name, $value, $d, $costLike])
-                <div class="vxw-stat">
-                    <div class="vxw-stat-label">{{ $name }}</div>
-                    <div class="vxw-stat-value" @if($name === 'Profit after pay') style="color:{{ $t['profit'] < 0 ? '#dc2626' : '#059669' }}" @endif>{{ $value }}</div>
-                    @if ($d !== null)
-                        @php $good = $costLike ? $d <= 0 : $d >= 0; @endphp
-                        <div class="text-xs" style="color:{{ $good ? '#059669' : '#dc2626' }}">{{ $d >= 0 ? '▲' : '▼' }} {{ abs($d) }}% vs previous</div>
-                    @else
-                        <div class="vxw-meta text-xs">—</div>
-                    @endif
-                </div>
+<div class="vxr" data-vx-page="profit-loss">
+    <div class="vxr-head">
+        <div>
+            <h1 class="vxr-title">Profit &amp; Loss</h1>
+            <p class="vxr-subtitle">Whatnot earnings plus tips, minus COGS and recorded worker payouts.</p>
+        </div>
+        <div class="vxr-actions">
+            <button type="button" class="vxr-btn" wire:click="exportCsv"><x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export</button>
+            <button type="button" class="vxr-btn vxr-btn--primary" wire:click="openSend"><x-filament::icon icon="heroicon-o-envelope" /> Send Summary</button>
+        </div>
+    </div>
+
+    <div class="vxr-toolbar">
+        <div class="vxr-seg" role="tablist" aria-label="View">
+            @foreach (['day' => 'Daily', 'week' => 'Weekly', 'month' => 'Monthly', 'year' => 'Yearly'] as $key => $text)
+                <button type="button" role="tab" wire:click="setView('{{ $key }}')" @class(['is-active' => $period === $key])>{{ $text }}</button>
             @endforeach
         </div>
-        <div class="flex flex-wrap px-5 pb-4 text-sm" style="color:var(--vxw-muted);column-gap:24px;row-gap:4px">
-            <span>Margin <b style="color:var(--vxw-text)">{{ number_format($t['margin_pct'], 1) }}%</b> of earnings</span>
-            <span>Profit per show <b style="color:var(--vxw-text)">{{ $money($t['profit_per_show']) }}</b></span>
-            @if ($t['profit_per_hour'] !== null)<span>Profit per hour worked <b style="color:var(--vxw-text)">{{ $money($t['profit_per_hour']) }}</b></span>@endif
-            <span>Units <b style="color:var(--vxw-text)">{{ number_format($t['units']) }}</b></span>
-            <button type="button" wire:click="$set('showFilter', 'losing')" class="vxw-link">Losing shows <b>{{ $t['losing'] }}</b></button>
-            <button type="button" wire:click="$set('showFilter', 'incomplete')" class="vxw-link">Incomplete <b>{{ $t['incomplete'] }}</b></button>
+        <div class="vxr-pager">
+            <button type="button" wire:click="shift(-1)" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" /></button>
+            <span><x-filament::icon icon="heroicon-o-calendar" style="width:18px;height:18px;color:var(--vxw-muted)" /> {{ $label }}</span>
+            <button type="button" wire:click="shift(1)" aria-label="Next"><x-filament::icon icon="heroicon-m-chevron-right" /></button>
         </div>
-    </section>
+        <button type="button" wire:click="today" class="vxr-btn vxr-btn--sm" style="height:40px">Today</button>
+        <select wire:model.live="channel" class="vxr-select" aria-label="Channel"><option value="">All channels</option>@foreach ($opts['channels'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+        <select wire:model.live="business" class="vxr-select" aria-label="Business"><option value="">All businesses</option>@foreach ($opts['businesses'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+        <select wire:model.live="streamer" class="vxr-select" aria-label="Streamer"><option value="">All streamers</option>@foreach ($opts['streamers'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+    </div>
 
-    {{-- Trend --}}
-    @if ($period !== 'day')
-        <section class="vxw-card">
-            <div class="vxw-card-head"><div><h3 class="vxw-h2">Profit after pay, {{ $period === 'year' ? 'by month' : 'by day' }}</h3><p class="vxw-sub">Green made money, red lost it. Hover a bar for sales and show count.</p></div></div>
-            <div class="vxw-card-body">
-                <div class="flex items-stretch gap-1" style="height:180px" role="img" aria-label="Profit trend">
-                    @foreach ($trend as $b)
-                        @php $h = round(abs($b['profit']) / $maxBar * 50, 1); @endphp
-                        <div class="flex min-w-0 flex-1 flex-col" title="{{ $b['label'] }}: profit {{ $money($b['profit']) }} · sales {{ $money($b['sales']) }} · {{ $b['shows'] }} {{ \Illuminate\Support\Str::plural('show', $b['shows']) }}">
-                            <div class="flex flex-1 flex-col justify-end"><div style="height:{{ $b['profit'] > 0 ? $h : 0 }}%;background:#10b981;border-radius:3px 3px 0 0"></div></div>
-                            <div style="height:1px;background:var(--vxw-border-strong)"></div>
-                            <div class="flex flex-1 flex-col justify-start"><div style="height:{{ $b['profit'] < 0 ? $h : 0 }}%;background:#ef4444;border-radius:0 0 3px 3px"></div></div>
+    @if ($t['incomplete'] > 0)
+        <div class="vxr-banner vxr-banner--warn">
+            <x-filament::icon icon="heroicon-o-exclamation-triangle" />
+            <span>
+                <b>{{ $t['incomplete'] }} {{ $t['incomplete'] === 1 ? 'show has' : 'shows have' }} incomplete costs or payouts.</b>
+                {{ $t['finalized'] === 0 ? 'Final business profit is not available yet.' : 'Finalized profit covers the other '.$t['finalized'].' '.\Illuminate\Support\Str::plural('show', $t['finalized']).' only.' }}
+            </span>
+            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="setTab('incomplete')">See them</button>
+        </div>
+    @endif
+
+    <div class="vxr-stats" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr))">
+        <x-vxr.stat compact label="Shows" :value="number_format($t['shows'])" icon="heroicon-o-calendar-days">{{ $deltaNote($t['shows'], $prev['shows']) }}</x-vxr.stat>
+        <x-vxr.stat compact label="Sales" :value="$money($t['sales'])" icon="heroicon-o-shopping-cart">{{ $deltaNote($t['sales'], $prev['sales']) }}</x-vxr.stat>
+        <x-vxr.stat compact label="Whatnot Earnings" :value="$money($t['earnings'])" icon="heroicon-o-banknotes" title="Whatnot's earnings after its fees, plus tips">{{ $deltaNote($t['earnings'], $prev['earnings']) }}</x-vxr.stat>
+        <x-vxr.stat compact label="Recorded COGS" :value="$t['shows'] && $t['missing_cogs'] === $t['shows'] ? 'Missing' : $money($t['cogs'])" icon="heroicon-o-cube" :tone="$t['missing_cogs'] ? 'warn' : 'accent'" :value-class="$t['shows'] && $t['missing_cogs'] === $t['shows'] ? 'vxr-val-warn' : ''" :note="$t['missing_cogs'] ? $t['missing_cogs'].' '.\Illuminate\Support\Str::plural('show', $t['missing_cogs']).' missing' : null" />
+        <x-vxr.stat compact label="Worker Payouts" :value="$t['shows'] && $t['pay_pending'] === $t['shows'] && $t['payouts'] == 0 ? 'Pending' : $money($t['payouts'])" icon="heroicon-o-users" :tone="$t['pay_pending'] ? 'warn' : 'accent'" :value-class="$t['shows'] && $t['pay_pending'] === $t['shows'] && $t['payouts'] == 0 ? 'vxr-val-warn' : ''" :note="$t['pay_pending'] ? $t['pay_pending'].' not final' : null" />
+        <x-vxr.stat compact label="Finalized Profit" :value="$t['finalized'] ? $money($t['finalized_profit']) : '—'" icon="heroicon-o-chart-bar" tone="ok" :value-class="$t['finalized'] ? ($t['finalized_profit'] < 0 ? 'vxr-val-bad' : 'vxr-val-ok') : 'vxr-val-muted'" :note="$t['finalized'].' finalized · '.$money($t['profit']).' incl. incomplete'" />
+    </div>
+
+    <div class="vxr-tabs" role="tablist">
+        @foreach (\App\Filament\Pages\ProfitLoss::TABS as $key => $text)
+            <button type="button" role="tab" wire:click="setTab('{{ $key }}')" @class(['vxr-tab', 'is-active' => $tab === $key])>{{ $text }}@if(in_array($key, ['incomplete', 'losses', 'whatnot'], true) && $counts[$key])<span class="vxr-count">{{ $counts[$key] }}</span>@endif</button>
+        @endforeach
+    </div>
+
+    <div class="vxr-grid vxr-grid--main">
+        @if ($period !== 'day')
+            <section class="vxr-card">
+                <div class="vxr-card-head">
+                    <div><h2 class="vxr-card-title" style="font-size:18px">Whatnot estimated earnings by {{ $period === 'year' ? 'month' : 'day' }}</h2></div>
+                    <div class="vxr-legend"><span><i style="background:var(--vxw-accent)"></i>Earnings (actual)</span><span><i style="background:var(--vxw-sunken);border:1px solid var(--vxw-border)"></i>Future {{ $period === 'year' ? 'month' : 'day' }} (no data yet)</span></div>
+                </div>
+                <div class="vxr-card-body">
+                    <x-vxr.chart :points="$this->earningsChart()" type="bar" :height="230" />
+                    <p class="vxr-hint">Does not include business expenses (COGS, worker payouts, or other costs).</p>
+                </div>
+            </section>
+        @else
+            <section class="vxr-card">
+                <div class="vxr-card-head"><h2 class="vxr-card-title" style="font-size:18px">{{ $label }}</h2></div>
+                <div class="vxr-card-body"><dl class="vxr-dl">
+                    <div><dt>Whatnot earnings + tips</dt><dd>{{ $money($t['earnings'], 2) }}</dd></div>
+                    <div><dt>COGS</dt><dd>{{ $money(-$t['cogs'], 2) }}</dd></div>
+                    <div><dt>Worker payouts</dt><dd>{{ $money(-$t['payouts'], 2) }}</dd></div>
+                    <div class="is-total"><dt>Profit after pay</dt><dd class="{{ $t['profit'] < 0 ? 'vxr-val-bad' : 'vxr-val-ok' }}">{{ $money($t['profit'], 2) }}</dd></div>
+                </dl></div>
+            </section>
+        @endif
+
+        <section class="vxr-card">
+            <div class="vxr-card-head" style="align-items:flex-start">
+                <div style="display:flex;gap:12px"><x-filament::icon icon="heroicon-o-clipboard-document-check" style="width:28px;height:28px;color:var(--vxw-muted);flex:none" />
+                    <div><h2 class="vxr-card-title" style="font-size:18px">Finalization Checklist</h2><p class="vxr-card-sub">All items must be complete to finalize profit for this period.</p></div></div>
+            </div>
+            <div class="vxr-card-body" style="display:grid;gap:16px">
+                @foreach ($this->checklist() as [$name, $text, $done, $go])
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        @if ($done)
+                            <x-filament::icon icon="heroicon-s-check-circle" style="width:26px;height:26px;color:var(--vxw-ok);flex:none" />
+                        @else
+                            <span style="width:24px;height:24px;margin:1px;border-radius:999px;border:2.5px solid #f59e0b;flex:none"></span>
+                        @endif
+                        <div style="min-width:0">
+                            <div style="font-weight:650;font-size:15px">{{ $name }}</div>
+                            <div class="vxr-hint" style="margin-top:2px">
+                                @if ($go === 'incomplete')<button type="button" class="vxr-link" style="background:none;border:0;padding:0;font-weight:500;cursor:pointer" wire:click="setTab('incomplete')">{{ $text }}</button>
+                                @elseif ($go === 'time' && \App\Filament\Pages\TimeAttendance::canAccess())<a class="vxr-link" style="font-weight:500" href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}">{{ $text }}</a>
+                                @elseif ($go === 'payroll' && \App\Filament\Pages\PayrollOverview::canAccess())<a class="vxr-link" style="font-weight:500" href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}">{{ $text }}</a>
+                                @else {{ $text }} @endif
+                            </div>
                         </div>
-                    @endforeach
-                </div>
-                <div class="mt-1 flex gap-1 text-[10px]" style="color:var(--vxw-muted)">
-                    @foreach ($trend as $i => $b)<div class="min-w-0 flex-1 truncate text-center">{{ ($trend->count() <= 14 || $i % 3 === 0) ? $b['label'] : '' }}</div>@endforeach
-                </div>
+                    </div>
+                @endforeach
             </div>
         </section>
-    @endif
+    </div>
+
+    {{-- Every show --}}
+    @php $shows = $this->showRows(); @endphp
+    <section class="vxr-card">
+        <div class="vxr-card-head">
+            <div><h2 class="vxr-card-title" style="font-size:17px">{{ \App\Filament\Pages\ProfitLoss::TABS[$tab] ?? 'Shows' }}</h2><p class="vxr-card-sub">{{ $shows->count() }} of {{ $t['shows'] }} {{ \Illuminate\Support\Str::plural('show', $t['shows']) }} · Click a show for its breakdown.</p></div>
+            <select wire:model.live="sort" class="vxr-select" aria-label="Sort"><option value="date">Newest</option><option value="profit">Biggest loss first</option><option value="profit_desc">Most profit first</option><option value="sales">Most sales first</option></select>
+        </div>
+        <div class="vxr-table-wrap">
+            <table class="vxr-table" style="min-width:980px">
+                <thead><tr>
+                    <th>Show</th><th>Channel</th><th>Streamer</th><th class="num">Sales</th><th class="num">Earnings</th><th class="num">COGS</th><th class="num">Worker Payouts</th><th class="num">Profit / Loss</th><th>Financial Status</th>
+                </tr></thead>
+                <tbody>
+                    @forelse ($shows->take($shown) as $r)
+                        @php $final = $r['incomplete'] === []; @endphp
+                        <tr wire:key="pl-{{ $r['id'] }}" wire:click="select({{ $r['id'] }})" @class(['is-click', 'is-selected' => $selected === $r['id']])>
+                            <td><span class="strong">{{ \Illuminate\Support\Str::limit($r['title'], 48) }}</span><span class="sub">{{ $r['date']?->format('M j, Y') }}@if($r['start']) {{ $r['start']->format('g:i A') }}@endif</span></td>
+                            <td>{{ $r['channel'] }}</td>
+                            <td>{{ $r['streamer'] }}@if($r['cohosts'])<span class="sub">+ {{ implode(', ', $r['cohosts']) }}</span>@endif</td>
+                            <td class="num">{{ $money($r['sales'], 2) }}</td>
+                            <td class="num {{ $r['whatnot_net'] < 0 ? 'vxr-val-bad' : '' }}">{{ $money($r['earnings'], 2) }}</td>
+                            <td class="num">@if($r['cogs_recorded']){{ $money($r['cogs'], 2) }}@else<span class="vxr-val-warn">Missing</span>@endif</td>
+                            <td class="num">@if($r['pay_final'] || $r['payouts'] != 0){{ $money($r['payouts'], 2) }}@if(! $r['pay_final'])<span class="sub vxr-val-warn">not final</span>@endif @else<span class="vxr-val-warn">Pending</span>@endif</td>
+                            <td class="num strong {{ $r['profit'] < 0 ? 'vxr-val-bad' : 'vxr-val-ok' }}">{{ $money($r['profit'], 2) }}@unless($final)<span class="sub">may change</span>@endunless</td>
+                            <td>
+                                @if ($final)<span class="vxr-pill vxr-pill--ok">Finalized</span>
+                                @else<span class="vxr-pill vxr-pill--warn" title="{{ implode(' · ', $r['incomplete']) }}"><x-filament::icon icon="heroicon-o-exclamation-triangle" /> Incomplete</span>@endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="9"><div class="vxr-empty"><b>No shows here</b>Nothing matches this tab and these filters.</div></td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if ($shows->count() > $shown)<div class="vxr-card-foot"><span>Showing {{ $shown }} of {{ $shows->count() }}</span><button type="button" wire:click="showMore" class="vxr-btn vxr-btn--sm">Show more</button></div>@endif
+    </section>
 
     {{-- How streamers are doing --}}
     @php $streamers = $this->streamerTrend(); @endphp
-    <section class="vxw-card">
-        <div class="vxw-card-head"><div><h3 class="vxw-h2">How streamers are doing</h3><p class="vxw-sub">Shows they hosted as primary in this period, compared with the period before.</p></div></div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm" style="min-width:820px">
-                <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)">
-                    <th class="px-4 py-2">Streamer</th><th class="px-4 py-2 text-right">Shows</th><th class="px-4 py-2 text-right">Sales</th><th class="px-4 py-2 text-right">Pay</th><th class="px-4 py-2 text-right">Profit</th><th class="px-4 py-2 text-right">Per show</th><th class="px-4 py-2 text-right">Per hour</th><th class="px-4 py-2 text-right">Losing</th><th class="px-4 py-2 text-right">vs before</th>
-                </tr></thead>
+    <section class="vxr-card">
+        <div class="vxr-card-head"><div><h2 class="vxr-card-title" style="font-size:17px">How streamers are doing</h2><p class="vxr-card-sub">Shows they hosted as primary in this period, compared with the period before.</p></div></div>
+        <div class="vxr-table-wrap">
+            <table class="vxr-table" style="min-width:820px">
+                <thead><tr><th>Streamer</th><th class="num">Shows</th><th class="num">Sales</th><th class="num">Pay</th><th class="num">Profit</th><th class="num">Per show</th><th class="num">Per hour</th><th class="num">Losing</th><th class="num">vs before</th></tr></thead>
                 <tbody>
                     @forelse ($streamers as $s)
                         @php $chg = $s['prev_profit'] !== null ? $s['profit'] - $s['prev_profit'] : null; @endphp
-                        <tr style="border-top:1px solid var(--vxw-border)">
-                            <td class="px-4 py-2.5 font-medium">{{ $s['label'] }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $s['shows'] }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($s['sales']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($s['payouts']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums font-semibold" style="color:{{ $s['profit'] < 0 ? '#dc2626' : 'inherit' }}">{{ $money($s['profit']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($s['profit_per_show']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $s['profit_per_hour'] !== null ? $money($s['profit_per_hour']) : '—' }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $s['losing'] ?: '—' }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums" style="color:{{ $chg === null ? 'inherit' : ($chg >= 0 ? '#059669' : '#dc2626') }}">{{ $chg === null ? 'new' : ($chg >= 0 ? '+' : '−').'$'.number_format(abs($chg)) }}</td>
+                        <tr>
+                            <td class="strong">{{ $s['label'] }}</td>
+                            <td class="num">{{ $s['shows'] }}</td>
+                            <td class="num">{{ $money($s['sales']) }}</td>
+                            <td class="num">{{ $money($s['payouts']) }}</td>
+                            <td class="num strong {{ $s['profit'] < 0 ? 'vxr-val-bad' : '' }}">{{ $money($s['profit']) }}</td>
+                            <td class="num">{{ $money($s['profit_per_show']) }}</td>
+                            <td class="num">{{ $s['profit_per_hour'] !== null ? $money($s['profit_per_hour']) : '—' }}</td>
+                            <td class="num">{{ $s['losing'] ?: '—' }}</td>
+                            <td class="num {{ $chg === null ? '' : ($chg >= 0 ? 'vxr-val-ok' : 'vxr-val-bad') }}">{{ $chg === null ? 'new' : ($chg >= 0 ? '+' : '-').'$'.number_format(abs($chg)) }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="px-4 py-6 text-center vxw-meta">No shows in this period.</td></tr>
+                        <tr><td colspan="9"><div class="vxr-empty">No shows in this period.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -125,31 +197,29 @@
 
     {{-- Breakdowns --}}
     @php $rowsBy = $this->breakdown(); $maxAbs = max(1, $rowsBy->max(fn ($r) => abs($r['profit']))); @endphp
-    <section class="vxw-card">
-        <div class="vxw-card-head">
-            <div><h3 class="vxw-h2">Breakdown</h3><p class="vxw-sub">What's winning and what's losing.</p></div>
-            <div class="vxw-chips" role="tablist" aria-label="Break down by">
+    <section class="vxr-card">
+        <div class="vxr-card-head">
+            <div><h2 class="vxr-card-title" style="font-size:17px">Breakdown</h2><p class="vxr-card-sub">What's winning and what's losing.</p></div>
+            <div class="vxr-seg" role="tablist" aria-label="Break down by">
                 @foreach ($breakdownLabels as $key => $text)
-                    <button type="button" role="tab" wire:click="$set('breakdownBy', '{{ $key }}')" @class(['vxw-chip', 'is-active' => $breakdownBy === $key])>{{ $text }}</button>
+                    <button type="button" role="tab" wire:click="$set('breakdownBy', '{{ $key }}')" @class(['is-active' => $breakdownBy === $key])>{{ $text }}</button>
                 @endforeach
             </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm" style="min-width:760px">
-                <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)">
-                    <th class="px-4 py-2">{{ $breakdownLabels[$breakdownBy] ?? 'Group' }}</th><th class="px-4 py-2 text-right">Shows</th><th class="px-4 py-2 text-right">Sales</th><th class="px-4 py-2 text-right">Earnings</th><th class="px-4 py-2 text-right">COGS</th><th class="px-4 py-2 text-right">Pay</th><th class="px-4 py-2 text-right">Profit</th><th class="px-4 py-2" style="width:18%"></th>
-                </tr></thead>
+        <div class="vxr-table-wrap">
+            <table class="vxr-table" style="min-width:760px">
+                <thead><tr><th>{{ $breakdownLabels[$breakdownBy] ?? 'Group' }}</th><th class="num">Shows</th><th class="num">Sales</th><th class="num">Earnings</th><th class="num">COGS</th><th class="num">Pay</th><th class="num">Profit</th><th style="width:22%"></th></tr></thead>
                 <tbody>
                     @foreach ($rowsBy as $r)
-                        <tr style="border-top:1px solid var(--vxw-border)">
-                            <td class="px-4 py-2.5 font-medium">{{ $r['label'] }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $r['shows'] }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['sales']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['earnings']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['cogs']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['payouts']) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums font-semibold" style="color:{{ $r['profit'] < 0 ? '#dc2626' : 'inherit' }}">{{ $money($r['profit']) }}</td>
-                            <td class="px-4 py-2.5"><div style="height:8px;border-radius:4px;width:{{ max(2, round(abs($r['profit']) / $maxAbs * 100)) }}%;background:{{ $r['profit'] < 0 ? '#ef4444' : '#10b981' }}"></div></td>
+                        <tr>
+                            <td class="strong">{{ $r['label'] }}</td>
+                            <td class="num">{{ $r['shows'] }}</td>
+                            <td class="num">{{ $money($r['sales']) }}</td>
+                            <td class="num">{{ $money($r['earnings']) }}</td>
+                            <td class="num">{{ $money($r['cogs']) }}</td>
+                            <td class="num">{{ $money($r['payouts']) }}</td>
+                            <td class="num strong {{ $r['profit'] < 0 ? 'vxr-val-bad' : '' }}">{{ $money($r['profit']) }}</td>
+                            <td><div style="height:8px;border-radius:4px;width:{{ max(2, round(abs($r['profit']) / $maxAbs * 100)) }}%;background:{{ $r['profit'] < 0 ? 'var(--vxw-bad)' : 'var(--vxw-ok)' }}"></div></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -157,50 +227,63 @@
         </div>
     </section>
 
-    {{-- Every show --}}
-    @php $shows = $this->showRows(); @endphp
-    <section class="vxw-card">
-        <div class="vxw-card-head">
-            <div><h3 class="vxw-h2">Shows</h3><p class="vxw-sub">{{ $shows->count() }} of {{ $t['shows'] }} · Incomplete shows are counted but their profit may change.</p></div>
-            <div class="flex flex-wrap items-center gap-2">
-                <div class="vxw-chips">
-                    @foreach (['all' => 'All', 'losing' => 'Losing', 'incomplete' => 'Incomplete', 'complete' => 'Complete'] as $key => $text)
-                        <button type="button" wire:click="$set('showFilter', '{{ $key }}')" @class(['vxw-chip', 'is-active' => $showFilter === $key])>{{ $text }}</button>
-                    @endforeach
-                </div>
-                <select wire:model.live="sort" class="vxw-select" style="width:auto" aria-label="Sort"><option value="date">Newest</option><option value="profit">Biggest loss first</option><option value="profit_desc">Most profit first</option><option value="sales">Most sales first</option></select>
-                <button type="button" wire:click="exportCsv" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> CSV</button>
+    <div class="vxr-card" style="display:flex;gap:14px;align-items:center;padding:16px 20px">
+        <x-filament::icon icon="heroicon-o-bell" style="width:28px;height:28px;color:var(--vxw-accent);flex:none" />
+        <div><b style="font-size:15px">Use notifications for daily or weekly loss summaries.</b>
+            <div class="vxr-hint" style="margin-top:2px">Finalized business losses and negative Whatnot earnings can be sent on a schedule — set it up in <a class="vxr-link" href="{{ \App\Filament\Pages\NotificationSettings::getUrl(['configure' => 'show_lost_money']) }}">notification settings</a>.</div></div>
+    </div>
+</div>
+
+{{-- Show detail panel --}}
+@if ($detail)
+    <div class="vxr-drawer-backdrop" wire:click="select({{ $detail['id'] }})"></div>
+    <aside class="vxr-drawer" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.select({{ $detail['id'] }})">
+        <div class="vxr-drawer-head">
+            <div style="min-width:0">
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h2 class="vxr-drawer-title">{{ $detail['title'] }}</h2>
+                    @if ($detail['incomplete'] === [])<span class="vxr-pill vxr-pill--ok">Finalized</span>@else<span class="vxr-pill vxr-pill--warn">Incomplete</span>@endif</div>
+                <div class="vxr-subtitle" style="margin-top:6px">{{ $detail['channel'] }} &nbsp;|&nbsp; {{ $detail['date']?->format('M j, Y') }}@if($detail['hours'] !== null) &nbsp;|&nbsp; {{ intdiv((int) round($detail['hours'] * 60), 60) }}h {{ str_pad((string) ((int) round($detail['hours'] * 60) % 60), 2, '0', STR_PAD_LEFT) }}m @endif</div>
+            </div>
+            <button type="button" class="vxr-x" wire:click="select({{ $detail['id'] }})" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+        </div>
+        <div class="vxr-drawer-body">
+            @if ($detail['incomplete'] !== [])
+                <div class="vxr-banner vxr-banner--warn" style="font-size:13.5px"><x-filament::icon icon="heroicon-o-exclamation-triangle" /><span>Still missing: {{ implode(' · ', $detail['incomplete']) }}</span></div>
+            @endif
+            <div>
+                <p class="vxr-section-label">Pay runs</p>
+                @forelse ($detail['pay_runs'] as $p)
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--vxw-border);border-radius:12px;background:var(--vxw-surface-2);margin-bottom:8px">
+                        <div style="min-width:0"><div style="font-weight:650">{{ $p['who'] }} · {{ $money($p['amount'], 2) }}</div><div class="vxr-hint" style="margin:2px 0 0">{{ $p['run'] }}</div></div>
+                        <span class="vxr-pill {{ $p['status'] === 'Paid' ? 'vxr-pill--ok' : 'vxr-pill--warn' }}">{{ $p['status'] }}</span>
+                    </div>
+                @empty
+                    <p class="vxr-hint" style="margin:0">No pay calculated for this show yet.</p>
+                @endforelse
+            </div>
+            <div>
+                <p class="vxr-section-label">Financial breakdown</p>
+                <dl class="vxr-dl">
+                    <div><dt>Gross sales</dt><dd>{{ $money($detail['sales'], 2) }}</dd></div>
+                    <div><dt>Whatnot earnings</dt><dd class="{{ $detail['whatnot_net'] < 0 ? 'vxr-val-bad' : '' }}">{{ $money($detail['whatnot_net'], 2) }}</dd></div>
+                    @if ($detail['tips'] != 0)<div><dt>Tips</dt><dd>{{ $money($detail['tips'], 2) }}</dd></div>@endif
+                    <div><dt>COGS</dt><dd>@if($detail['cogs_recorded']){{ $money($detail['cogs'], 2) }}@else<span class="vxr-val-warn">Missing</span>@endif</dd></div>
+                    <div><dt>Worker payouts</dt><dd>{{ $money($detail['payouts'], 2) }}</dd></div>
+                    <div class="is-total"><dt>{{ $detail['profit'] < 0 ? 'Business loss' : 'Business profit' }}</dt><dd class="{{ $detail['profit'] < 0 ? 'vxr-val-bad' : 'vxr-val-ok' }}">{{ $money($detail['profit'], 2) }}</dd></div>
+                </dl>
+                <p class="vxr-foot-note" style="margin-top:10px"><x-filament::icon icon="heroicon-o-information-circle" /> Fees included in Whatnot earnings are not deducted twice.</p>
             </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm" style="min-width:1000px">
-                <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)">
-                    <th class="px-4 py-2">Date</th><th class="px-4 py-2">Show</th><th class="px-4 py-2">Streamer</th><th class="px-4 py-2 text-right">Sales</th><th class="px-4 py-2 text-right">Earnings</th><th class="px-4 py-2 text-right">COGS</th><th class="px-4 py-2 text-right">Pay</th><th class="px-4 py-2 text-right">Profit</th><th class="px-4 py-2 text-right">Margin</th>
-                </tr></thead>
-                <tbody>
-                    @forelse ($shows->take($shown) as $r)
-                        <tr wire:key="pl-{{ $r['id'] }}" style="border-top:1px solid var(--vxw-border)">
-                            <td class="px-4 py-2.5 whitespace-nowrap">{{ $r['date']?->format('D M j') }}@if($r['start'])<div class="vxw-meta">{{ $r['start']->format('g:i A') }}</div>@endif</td>
-                            <td class="px-4 py-2.5">
-                                <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $r['id']]) }}" class="font-medium hover:underline">{{ \Illuminate\Support\Str::limit($r['title'], 60) }}</a>
-                                <div class="vxw-meta">{{ $r['channel'] }}</div>
-                                @if ($r['incomplete'])<div class="mt-1"><span class="vxw-pill vxw-pill--warn" title="{{ implode(' · ', $r['incomplete']) }}">Incomplete — may change</span> <span class="vxw-meta text-xs">{{ implode(' · ', $r['incomplete']) }}</span></div>@endif
-                            </td>
-                            <td class="px-4 py-2.5">{{ $r['streamer'] }}@if($r['cohosts'])<div class="vxw-meta">+ {{ implode(', ', $r['cohosts']) }}</div>@endif</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['sales'], 2) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['earnings'], 2) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['cogs'], 2) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ $money($r['payouts'], 2) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums font-semibold" style="color:{{ $r['profit'] < 0 ? '#dc2626' : '#059669' }}">{{ $money($r['profit'], 2) }}</td>
-                            <td class="px-4 py-2.5 text-right tabular-nums">{{ number_format($r['margin_pct'], 1) }}%</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="9" class="px-4 py-8 text-center vxw-meta">No shows match.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div class="vxr-drawer-foot">
+            <a class="vxr-btn vxr-btn--primary vxr-btn--block" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $detail['id']]) }}" style="height:48px">View Show <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" /></a>
         </div>
-        @if ($shows->count() > $shown)<div class="flex items-center justify-between px-4 py-3" style="border-top:1px solid var(--vxw-border)"><span class="vxw-meta">Showing {{ $shown }} of {{ $shows->count() }}</span><button type="button" wire:click="showMore" class="vxw-btn vxw-btn--sm">Show more</button></div>@endif
-    </section>
-</div>
+    </aside>
+@endif
+
+@include('filament.components.vxr-send-summary', [
+    'title' => 'Send Business Loss Summary',
+    'digest' => $this->sendOpen ? $this->lossDigest() : ['label' => '', 'count' => 0, 'total' => 0],
+    'countLabel' => 'finalized shows that lost money',
+    'amountLabel' => 'lost after COGS and pay',
+])
 </x-filament-panels::page>

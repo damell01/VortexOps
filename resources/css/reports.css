@@ -200,3 +200,24 @@ a.vxr-stat:hover { border-color: var(--vxw-accent-line); }
 
 /* Filament icons carry their own colour; let toned containers win. */
 .vxr-linkrow-icon .fi-icon, .vxr-stat-icon .fi-icon, .vxr-banner .fi-icon { color: inherit; }
+
+/* Dropdowns: one styled look everywhere in reports — no native arrow, a soft
+   chevron, a hover border and the focus ring. Native <select> keeps working
+   (keyboard, mobile pickers); only its face changes. */
+.vxr select, .vxr-drawer select {
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%238a8a99'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 18px 18px;
+  padding-right: 36px; cursor: pointer; font-weight: 500;
+}
+.vxr-select { min-width: 150px; transition: border-color var(--vxw-dur), box-shadow var(--vxw-dur); }
+.vxr-select:hover, .vxr-control:hover { border-color: var(--vxw-border-strong); }
+.vxr-select:focus, .vxr-control:focus-within { outline: none; border-color: var(--vxw-accent); box-shadow: var(--vxw-ring); }
+.vxr-control select { background-color: transparent; background-position: right 0 center; padding-right: 24px; }
+.vxr select option { color: var(--vxw-text); background: var(--vxw-surface); }
+.vxr input[type="date"], .vxr-drawer input[type="date"] { color-scheme: light; }
+.dark .vxr input[type="date"], .dark .vxr-drawer input[type="date"] { color-scheme: dark; }
+.vxr input[type="search"], .vxr input[type="text"] { outline: none; }
+.vxr-stat--compact { padding: 16px; gap: 12px; }
+.vxr-stat--compact .vxr-stat-icon { width: 44px; height: 44px; }
+.vxr-stat--compact .vxr-stat-icon svg { width: 22px; height: 22px; }

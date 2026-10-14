@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\SendsShowLossSummary;
 use App\Models\Business;
 use App\Models\Streamer;
 use App\Models\WhatnotChannel;
@@ -23,6 +24,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ProfitLoss extends Page
 {
     use HasModuleAccess;
+    use SendsShowLossSummary;
 
     protected static string $moduleSlug = 'reporting';
     protected static ?string $title = 'Profit & Loss';
@@ -46,8 +48,12 @@ class ProfitLoss extends Page
     #[Url]
     public string $breakdownBy = 'streamer';
 
-    #[Url]
+    /** all | finalized | incomplete | losses (finalized, lost money) | whatnot (negative Whatnot earnings) | losing (any loss) */
+    #[Url(as: 'tab')]
     public string $showFilter = 'all';
+
+    /** The show open in the detail panel. */
+    public ?int $selected = null;
 
     public string $sort = 'date';
 
@@ -75,15 +81,17 @@ class ProfitLoss extends Page
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-presentation-chart-line'; }
     public function getView(): string { return 'filament.pages.profit-loss'; }
 
-    public function getSubheading(): ?string
-    {
-        return 'Earnings (Whatnot net + tips) − COGS − streamer pay, per show. Shows still missing a figure are marked Incomplete and may change.';
-    }
+    public function getHeading(): string { return ''; }
+
+    public const TABS = ['all' => 'All Shows', 'finalized' => 'Finalized', 'incomplete' => 'Incomplete', 'losses' => 'Business Losses', 'whatnot' => 'Whatnot Losses'];
 
     public function mount(): void
     {
         if (! in_array($this->period, ['day', 'week', 'month', 'year'], true)) {
             $this->period = 'week';
+        }
+        if ($this->showFilter === 'complete') {
+            $this->showFilter = 'finalized';
         }
     }
 
@@ -214,7 +222,9 @@ class ProfitLoss extends Page
         $rows = match ($this->showFilter) {
             'losing' => $rows->where('profit', '<', 0),
             'incomplete' => $rows->filter(fn ($r) => $r['incomplete'] !== []),
-            'complete' => $rows->filter(fn ($r) => $r['incomplete'] === []),
+            'complete', 'finalized' => $rows->filter(fn ($r) => $r['incomplete'] === []),
+            'losses' => $rows->filter(fn ($r) => $r['incomplete'] === [] && $r['profit'] < 0),
+            'whatnot' => $rows->where('whatnot_net', '<', 0),
             default => $rows,
         };
 
@@ -226,6 +236,96 @@ class ProfitLoss extends Page
         };
 
         return $sorted->values();
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->showFilter = array_key_exists($tab, self::TABS) ? $tab : 'all';
+        $this->shown = 50;
+    }
+
+    /** Whatnot's estimated earnings by day (by month for a year); days still to come are greyed. */
+    public function earningsChart(): array
+    {
+        [$from, $to] = $this->range();
+        $today = BusinessTime::local()->toDateString();
+        $year = $this->period === 'year';
+        $buckets = [];
+        for ($d = $from->copy(); $d->lte($to); $year ? $d->addMonthNoOverflow()->startOfMonth() : $d->addDay()) {
+            $key = $year ? $d->format('Y-m') : $d->toDateString();
+            $buckets[$key] = [
+                'label' => $year ? $d->format('M') : ($this->period === 'week' ? $d->format('D')."\n".$d->format('M j') : $d->format('j')),
+                'value' => 0.0, 'shows' => 0,
+                'muted' => $year ? $d->copy()->startOfMonth()->toDateString() > $today : $d->toDateString() > $today,
+            ];
+        }
+        foreach ($this->rows() as $r) {
+            $key = $year ? $r['date']?->format('Y-m') : $r['date']?->toDateString();
+            if ($key !== null && isset($buckets[$key])) {
+                $buckets[$key]['value'] += $r['whatnot_net'];
+                $buckets[$key]['shows']++;
+            }
+        }
+
+        return array_values(array_map(fn ($b) => $b + ['title' => str_replace("\n", ' ', $b['label']).($b['muted'] ? ': no data yet' : ': $'.number_format($b['value'], 2).' · '.$b['shows'].' '.str('show')->plural($b['shows']))], $buckets));
+    }
+
+    /** What has to be done before this period's profit is final. */
+    public function checklist(): array
+    {
+        $rows = $this->rows();
+        [$from, $to] = $this->range();
+        $flagged = \App\Models\TimeEntry::needsReview()->whereBetween('clocked_in_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])->count()
+            + app(\App\Services\TimeTrackingService::class)->showHoursIssues(null, $rows->pluck('id')->all())->count();
+        $unpaid = $rows->filter(fn ($r) => ! $r['pay_paid'])->count();
+        $noCogs = $rows->filter(fn ($r) => ! $r['cogs_recorded'])->count();
+        $noEarnings = $rows->filter(fn ($r) => in_array('Earnings not in yet', $r['incomplete'], true))->count();
+
+        return [
+            ['Whatnot earnings in', $noEarnings ? "{$noEarnings} ".str('show')->plural($noEarnings).' still waiting on Whatnot\'s earnings' : 'Every show has its earnings', $noEarnings === 0, null],
+            ['Inventory costs logged', $noCogs ? "Add and approve COGS for {$noCogs} ".str('show')->plural($noCogs) : 'COGS approved for every show', $noCogs === 0, $noCogs ? 'incomplete' : null],
+            ['Hours worked approved', $flagged ? "{$flagged} ".str('item')->plural($flagged).' to review in Time & Attendance' : 'Nothing waiting for review', $flagged === 0, $flagged ? 'time' : null],
+            ['Pay runs paid', $unpaid ? "Record completed payouts for {$unpaid} ".str('show')->plural($unpaid) : 'Every show\'s pay is paid', $unpaid === 0, $unpaid ? 'payroll' : null],
+        ];
+    }
+
+    public function select(int $id): void
+    {
+        $this->selected = $this->selected === $id ? null : $id;
+    }
+
+    /** The open show's numbers and the pay runs that paid it. */
+    public function detail(): ?array
+    {
+        if ($this->selected === null) {
+            return null;
+        }
+        $row = $this->rows()->firstWhere('id', $this->selected);
+        if (! $row) {
+            return null;
+        }
+        $payouts = \App\Models\Payout::query()->where('show_id', $row['id'])
+            ->with(['batch:id,status,week_start,week_end,kind,pay_run_type_name', 'streamer:id,name'])->get();
+
+        return $row + ['pay_runs' => $payouts->map(fn ($p) => [
+            'who' => $p->streamer?->name ?? 'Payout',
+            'amount' => (float) $p->calculated_payout,
+            'run' => $p->batch ? $p->batch->kindLabel().' · '.$p->batch->week_start?->format('M j').' – '.$p->batch->week_end?->format('M j') : 'Not in a pay run yet',
+            'run_id' => $p->batch?->id,
+            'status' => $p->status === 'paid' || $p->batch?->status === 'paid' ? 'Paid' : ($p->batch ? ucfirst(str_replace('_', ' ', $p->batch->status)) : 'Draft'),
+        ])->all()];
+    }
+
+    public function lossEvent(): string
+    {
+        return 'show_lost_money';
+    }
+
+    public function lossDigest(): array
+    {
+        [$from, $to] = $this->range();
+
+        return app(\App\Services\ShowLossDigest::class)->build('show_lost_money', $from, $to, $this->business !== '' ? (int) $this->business : null);
     }
 
     public function setSort(string $sort): void

@@ -114,6 +114,7 @@
                     && $this->show->streamers->contains('id', $shareStreamer->id);
                 $shareRevenue = $this->show->completed_earnings ?? $this->show->whatnot_net;
                 $shareEstimate = null;
+                $shareWorking = null;
                 $sharePending = false;
                 $sharePrimary = true;
                 if ($shareEligible) {
@@ -128,13 +129,14 @@
                         || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
                         || (\App\Support\ProfitShareFormula::ratePerShipment() !== null && $this->shipments === '');
                     if (!$sharePending) {
-                        $shareEstimate = $sharePrimary ? \App\Support\ProfitShareFormula::forShow(
+                        $shareWorking = \App\Support\ProfitShareFormula::forShow(
                             grossRevenue: (float) $shareRevenue,
                             productCost: (float) $summary['productCost'],
                             hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
                             shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),
                             percentage: (float) ($shareStreamer->payout_percentage ?? 0),
-                        )['earnings'] : 0.0;
+                        );
+                        $shareEstimate = $sharePrimary ? $shareWorking['earnings'] : 0.0;
                     }
                 }
             @endphp
@@ -144,6 +146,18 @@
                         <div class="vxw-eyebrow">Estimated profit share</div>
                         <div class="vxw-h1">{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</div>
                         <p class="vxw-sub">{{ $sharePending ? 'Complete item costs, hours, and shipments to see your estimate.' : 'Updates as you fill out this report. Subject to admin review.' }}</p>
+                        @if ($shareWorking)
+                            <dl class="vxw-dl mt-4">
+                                <div><dt>Earnings</dt><dd>${{ number_format($shareWorking['gross_revenue'], 2) }}</dd></div>
+                                <div><dt>Item costs</dt><dd>− ${{ number_format($shareWorking['product_cost'], 2) }}</dd></div>
+                                <div><dt>Burden</dt><dd>− ${{ number_format($shareWorking['burden'], 2) }}</dd></div>
+                                <div class="is-total"><dt>Profit used for share</dt><dd>${{ number_format($shareWorking['net_revenue'], 2) }}</dd></div>
+                            </dl>
+                            <p class="vxw-meta mt-2">
+                                Burden: {{ number_format($shareWorking['shipments'], 0) }} shipments × ${{ number_format($shareWorking['rate_per_shipment'] ?? 0, 2) }}
+                                + {{ number_format($shareWorking['hours'], 2) }} hours × ${{ number_format($shareWorking['rate_per_hour'] ?? 0, 2) }}.
+                            </p>
+                        @endif
                         @if (!$sharePrimary)
                             <p class="vxw-meta">This show's profit share goes to the primary streamer. Collaboration splits are handled separately.</p>
                         @endif

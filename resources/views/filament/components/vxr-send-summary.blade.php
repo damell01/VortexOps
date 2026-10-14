@@ -1,7 +1,7 @@
 {{-- The "Send summary" side panel (App\Filament\Concerns\SendsShowLossSummary). $title, $digest, $amountLabel, $countLabel --}}
 @if ($this->sendOpen)
     <div class="vxr-drawer-backdrop" wire:click="closeSend"></div>
-    <aside class="vxr-drawer" role="dialog" aria-modal="true" aria-labelledby="vxr-send-title" x-data x-on:keydown.escape.window="$wire.closeSend()">
+    <aside class="vxr-drawer" style="--vxr-modal-w:960px" role="dialog" aria-modal="true" aria-labelledby="vxr-send-title" x-data x-on:keydown.escape.window="$wire.closeSend()">
         <div class="vxr-drawer-head">
             <div>
                 <h2 class="vxr-drawer-title" id="vxr-send-title">{{ $title }}</h2>
@@ -9,7 +9,7 @@
             </div>
             <button type="button" class="vxr-x" wire:click="closeSend" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
         </div>
-        <div class="vxr-drawer-body">
+        <div class="vxr-drawer-body vxr-drawer-body--cols">
             <div>
                 <p class="vxr-section-label">Send to</p>
                 <div class="vxr-control" style="width:100%">
@@ -39,7 +39,7 @@
                 @endunless
                 @error('sendChannels')<p class="vxr-hint" style="color:var(--vxw-bad)">{{ $message }}</p>@enderror
             </div>
-            <div style="border-top:1px solid var(--vxw-border);padding-top:16px">
+            <div>
                 <p class="vxr-section-label">Summary <span style="font-weight:400;color:var(--vxw-muted)">({{ $digest['label'] }})</span></p>
                 <div style="display:grid;grid-template-columns:1fr 1fr;background:var(--vxw-surface-2);border-radius:12px;padding:16px">
                     <div style="padding-right:12px;border-right:1px solid var(--vxw-border)">
@@ -53,17 +53,18 @@
                 </div>
             </div>
             @if ($sendPreview !== '')
-                <div>
+                <div class="vxr-span">
                     <div style="display:flex;justify-content:space-between;align-items:center"><p class="vxr-section-label" style="margin:0">Email preview</p><button type="button" class="vxr-link" wire:click="$set('sendPreview', '')" style="background:none;border:0;cursor:pointer">Hide</button></div>
                     <iframe srcdoc="{{ $sendPreview }}" title="Email preview" style="width:100%;height:420px;border:1px solid var(--vxw-border);border-radius:10px;margin-top:8px;background:#fff"></iframe>
                 </div>
             @endif
         </div>
-        <div class="vxr-drawer-foot" style="display:grid;gap:10px">
-            <button type="button" class="vxr-btn vxr-btn--outline vxr-btn--block" wire:click="previewSend" wire:loading.attr="disabled"><x-filament::icon icon="heroicon-o-document-text" /> Preview Summary</button>
-            <button type="button" class="vxr-btn vxr-btn--primary vxr-btn--block" wire:click="sendNow" wire:loading.attr="disabled"><x-filament::icon icon="heroicon-o-paper-airplane" /> Send Summary</button>
-            <p class="vxr-foot-note" style="margin:4px 0 0"><x-filament::icon icon="heroicon-o-information-circle" />
+        <div class="vxr-drawer-foot">
+            <p class="vxr-foot-note" style="margin:0 auto 0 0;flex:1 1 280px"><x-filament::icon icon="heroicon-o-information-circle" />
                 <span>Daily and weekly schedules are managed in <a class="vxr-link" href="{{ \App\Filament\Pages\NotificationSettings::getUrl(['configure' => $this->lossEvent()]) }}">Settings → Notifications</a>@if($this->sendSchedule()) (now: {{ $this->sendSchedule() }})@endif.</span></p>
+            <button type="button" class="vxr-btn vxr-btn--outline" wire:click="previewSend" wire:loading.attr="disabled"><x-filament::icon icon="heroicon-o-document-text" /> Preview Summary</button>
+            <button type="button" class="vxr-btn vxr-btn--primary" wire:click="sendNow" wire:loading.attr="disabled"><x-filament::icon icon="heroicon-o-paper-airplane" /> Send Summary</button>
+
         </div>
     </aside>
 @endif

@@ -237,7 +237,7 @@
 {{-- Show detail panel --}}
 @if ($detail)
     <div class="vxr-drawer-backdrop" wire:click="select({{ $detail['id'] }})"></div>
-    <aside class="vxr-drawer" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.select({{ $detail['id'] }})">
+    <aside class="vxr-drawer" style="--vxr-modal-w:980px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.select({{ $detail['id'] }})">
         <div class="vxr-drawer-head">
             <div style="min-width:0">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h2 class="vxr-drawer-title">{{ $detail['title'] }}</h2>
@@ -246,9 +246,9 @@
             </div>
             <button type="button" class="vxr-x" wire:click="select({{ $detail['id'] }})" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
         </div>
-        <div class="vxr-drawer-body">
+        <div class="vxr-drawer-body vxr-drawer-body--cols">
             @if ($detail['incomplete'] !== [])
-                <div class="vxr-banner vxr-banner--warn" style="font-size:13.5px"><x-filament::icon icon="heroicon-o-exclamation-triangle" /><span>Still missing: {{ implode(' · ', $detail['incomplete']) }}</span></div>
+                <div class="vxr-banner vxr-banner--warn vxr-span" style="font-size:13.5px"><x-filament::icon icon="heroicon-o-exclamation-triangle" /><span>Still missing: {{ implode(' · ', $detail['incomplete']) }}</span></div>
             @endif
             <div>
                 <p class="vxr-section-label">Pay runs</p>
@@ -275,7 +275,7 @@
             </div>
         </div>
         <div class="vxr-drawer-foot">
-            <a class="vxr-btn vxr-btn--primary vxr-btn--block" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $detail['id']]) }}" style="height:48px">View Show <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" /></a>
+            <a class="vxr-btn vxr-btn--primary" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $detail['id']]) }}" style="height:44px;padding:0 22px">View Show <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" /></a>
         </div>
     </aside>
 @endif

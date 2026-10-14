@@ -150,12 +150,20 @@ a.vxr-stat:hover { border-color: var(--vxw-accent-line); }
 .vxr-linkrow > svg:last-child { margin-left: auto; width: 18px; height: 18px; color: var(--vxw-faint); flex: none; }
 
 /* Side drawer (details / send panels). Fixed on the right; full width on phones. */
-.vxr-drawer-backdrop { position: fixed; inset: 0; z-index: 990; background: rgb(10 10 20 / .28); }
-.vxr-drawer { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); display: flex; flex-direction: column; background: var(--vxw-surface); border-left: 1px solid var(--vxw-border); box-shadow: var(--vxw-shadow-pop); }
-.vxr-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 22px 14px; border-bottom: 1px solid var(--vxw-border); }
+/* Every panel is a centred modal that takes most of the screen (never a side
+   drawer); on phones it fills the screen with a small margin. The class name
+   stays .vxr-drawer so pages don't change. --vxr-modal-w narrows one. */
+.vxr-drawer-backdrop { position: fixed; inset: 0; z-index: 990; background: rgb(10 10 20 / .45); backdrop-filter: blur(2px); }
+.vxr-drawer { position: fixed; z-index: 1000; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(var(--vxr-modal-w, 980px), calc(100vw - 48px)); max-height: min(90vh, 980px); display: flex; flex-direction: column; background: var(--vxw-surface); border: 1px solid var(--vxw-border); border-radius: 20px; box-shadow: 0 30px 80px -20px rgb(10 10 30 / .45); overflow: hidden; animation: vxr-modal-in .16s var(--vxw-ease); }
+@keyframes vxr-modal-in { from { opacity: 0; transform: translate(-50%, -48%) scale(.985); } }
+@media (max-width: 640px) { .vxr-drawer { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); border-radius: 16px; } }
+@media (prefers-reduced-motion: reduce) { .vxr-drawer { animation: none; } }
+.vxr-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 26px 16px; border-bottom: 1px solid var(--vxw-border); }
 .vxr-drawer-title { margin: 0; font-size: 21px; font-weight: 750; letter-spacing: -.015em; }
-.vxr-drawer-body { flex: 1; overflow-y: auto; padding: 18px 22px; display: grid; gap: 18px; align-content: start; }
-.vxr-drawer-foot { padding: 14px 22px; border-top: 1px solid var(--vxw-border); display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.vxr-drawer-body { flex: 1; overflow-y: auto; padding: 20px 26px; display: grid; gap: 18px; align-content: start; }
+/* Wide modals lay their sections out in two columns. */
+@media (min-width: 900px) { .vxr-drawer-body--cols { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; } .vxr-drawer-body--cols > .vxr-span { grid-column: 1 / -1; } }
+.vxr-drawer-foot { padding: 14px 26px; border-top: 1px solid var(--vxw-border); display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .vxr-x { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: none; border: 0; color: var(--vxw-muted); cursor: pointer; flex: none; }
 .vxr-x:hover { background: var(--vxw-sunken); }
 .vxr-x svg { width: 20px; height: 20px; }
@@ -221,3 +229,50 @@ a.vxr-stat:hover { border-color: var(--vxw-accent-line); }
 .vxr-stat--compact { padding: 16px; gap: 12px; }
 .vxr-stat--compact .vxr-stat-icon { width: 44px; height: 44px; }
 .vxr-stat--compact .vxr-stat-icon svg { width: 22px; height: 22px; }
+
+/* ── Motion ─────────────────────────────────────────────────────────────
+   Small and quick, so the app feels alive without getting in the way.
+   Everything turns off for people who ask for reduced motion. */
+@keyframes vxr-rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes vxr-grow-y { from { transform: scaleY(0); } }
+@keyframes vxr-grow-x { from { transform: scaleX(0); } }
+@keyframes vxr-draw { from { stroke-dashoffset: 1; } }
+@keyframes vxr-sheen { from { background-position: -160% 0; } to { background-position: 260% 0; } }
+@keyframes vxr-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--vxr-tone, var(--vxw-accent)) 45%, transparent); } 50% { box-shadow: 0 0 0 6px transparent; } }
+
+/* Cards rise in, one after another. */
+.vxr-stats > *, .vxr-tiles > *, .vxr-links > * { animation: vxr-rise .32s var(--vxw-ease) backwards; }
+.vxr-stats > :nth-child(2), .vxr-tiles > :nth-child(2), .vxr-links > :nth-child(2) { animation-delay: .04s; }
+.vxr-stats > :nth-child(3), .vxr-tiles > :nth-child(3), .vxr-links > :nth-child(3) { animation-delay: .08s; }
+.vxr-stats > :nth-child(4), .vxr-tiles > :nth-child(4) { animation-delay: .12s; }
+.vxr-stats > :nth-child(5), .vxr-tiles > :nth-child(5) { animation-delay: .16s; }
+.vxr-stats > :nth-child(n+6), .vxr-tiles > :nth-child(n+6) { animation-delay: .2s; }
+
+/* Clickable cards lift a little, with a holo-foil sheen across them — a nod
+   to the cards being sold. */
+a.vxr-stat, .vxr-tile, .vxr-linkrow { position: relative; overflow: hidden; transition: transform var(--vxw-dur) var(--vxw-ease), box-shadow var(--vxw-dur) var(--vxw-ease), border-color var(--vxw-dur); }
+a.vxr-stat:hover, .vxr-tile:hover, .vxr-linkrow:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgb(76 29 149 / .35); }
+a.vxr-stat::after, .vxr-tile::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .55) 45%, rgb(196 181 253 / .35) 50%, rgb(125 211 252 / .3) 55%, transparent 65%) no-repeat; background-size: 60% 100%; }
+a.vxr-stat:hover::after, .vxr-tile:hover::after { opacity: 1; animation: vxr-sheen .9s ease-out; }
+.dark a.vxr-stat::after, .dark .vxr-tile::after { background-image: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .12) 45%, rgb(167 139 250 / .18) 50%, rgb(56 189 248 / .14) 55%, transparent 65%); }
+.vxr-stat-icon, .vxr-linkrow-icon { transition: transform .25s var(--vxw-ease); }
+a.vxr-stat:hover .vxr-stat-icon, .vxr-tile:hover .vxr-stat-icon, .vxr-linkrow:hover .vxr-linkrow-icon { transform: rotate(-8deg) scale(1.06); }
+
+/* Charts grow in: bars from the baseline, lines draw left to right. */
+.vxr-chart rect { transform-box: fill-box; transform-origin: bottom; animation: vxr-grow-y .5s var(--vxw-ease) backwards; }
+.vxr-chart polyline { stroke-dasharray: 1; stroke-dashoffset: 0; animation: vxr-draw .9s ease-out backwards; }
+.vxr-chart polyline[pathLength] { stroke-dasharray: 1; }
+.vxr-bar-fill { transform-origin: left; animation: vxr-grow-x .6s var(--vxw-ease) backwards; }
+
+/* Things that need you breathe gently; tabs underline slides in. */
+.vxr-count { animation: vxr-pulse 2.4s ease-in-out 3; }
+.vxr-tab.is-active::after { animation: vxr-grow-x .22s var(--vxw-ease); }
+.vxr-table tbody tr { transition: background-color .15s; }
+.vxr-btn { transition: transform .12s, filter .15s, border-color .15s, box-shadow .15s; }
+.vxr-btn:active { transform: translateY(1px) scale(.985); }
+.vxr-btn--primary:hover { box-shadow: 0 8px 20px -10px var(--vxw-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vxr *, .vxr-drawer, .vxr-drawer * { animation: none !important; transition: none !important; }
+}

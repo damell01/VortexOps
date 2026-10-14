@@ -36,7 +36,7 @@
             $area = $line.' '.end($xy)[0].','.$y(max($bottom, 0)).' '.$xy[0][0].','.$y(max($bottom, 0));
         @endphp
         <polygon points="{{ $area }}" fill="var(--vxw-accent)" opacity=".12" />
-        <polyline points="{{ $line }}" fill="none" stroke="var(--vxw-accent)" stroke-width="3" vector-effect="non-scaling-stroke" />
+        <polyline points="{{ $line }}" pathLength="1" fill="none" stroke="var(--vxw-accent)" stroke-width="3" vector-effect="non-scaling-stroke" />
         @foreach ($xy as $i => $p)
             <circle cx="{{ $p[0] }}" cy="{{ $p[1] }}" r="5" fill="var(--vxw-surface)" stroke="var(--vxw-accent)" stroke-width="2.5" vector-effect="non-scaling-stroke"><title>{{ $pts[$i]['title'] ?? ($pts[$i]['label'].': '.$fmt($vals[$i])) }}</title></circle>
         @endforeach

@@ -43,18 +43,14 @@
     .vxled-pages button.is-active { background: var(--vxw-accent); border-color: var(--vxw-accent); color: #fff; }
     .vxled-pages button[disabled] { opacity: .45; cursor: default; }
     .vxled-pages svg { width: 16px; height: 16px; }
-    .vxled-panel { position: sticky; top: 84px; }
+    /* Transaction details open as a centred modal over the page. */
+    .vxled-panel { position: fixed; z-index: 1000; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 24px)); max-height: min(90vh, 900px); overflow-y: auto; border-radius: 20px; box-shadow: 0 30px 80px -20px rgb(10 10 30 / .45); }
     .vxled-panel .vxr-drawer-head { padding: 18px 20px 12px; border-bottom: 0; }
     .vxled-panel-amt { font-size: 30px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
     .vxled-panel .vxr-dl dd { text-align: right; overflow-wrap: anywhere; min-width: 0; }
     .vxled-panel .vxr-dl dd.vxled-left { text-align: left; }
     .vxled-copy { display: inline-flex; align-items: center; gap: 10px; }
-    .vxled-backdrop { display: none; }
-    /* Under 1024px the details panel becomes a drawer over the page. */
-    @media (max-width: 1023px) {
-        .vxled-backdrop { display: block; }
-        .vxled-panel { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); border-radius: 0; overflow-y: auto; box-shadow: var(--vxw-shadow-pop); }
-    }
+
 </style>
 
 <div class="vxr vxled">
@@ -140,7 +136,7 @@
             icon="heroicon-o-clock" tone="warn" note="Status processing or pending" />
     </div>
 
-    <div class="vxr-grid {{ $selected ? 'vxr-grid--main' : '' }}">
+    <div class="vxr-grid">
         <div class="vxr-card">
             <div class="vxr-table-wrap">
                 <table class="vxr-table vxled-table">

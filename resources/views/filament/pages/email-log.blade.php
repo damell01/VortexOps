@@ -20,8 +20,8 @@
 .vx-el .muted{color:var(--muted);font-size:.74rem}
 .vx-el .pill{display:inline-flex;padding:2px 9px;border-radius:999px;font-size:.68rem;font-weight:800;white-space:nowrap}
 .vx-el .pill.sent{background:#dcfce7;color:#15803d}.vx-el .pill.failed{background:#fee2e2;color:#b91c1c}.vx-el .pill.sending{background:#fef3c7;color:#b45309}.vx-el .pill.held{background:#f1f5f9;color:#475569}.vx-el .pill.test{background:#ede9fe;color:#6d28d9}
-.vx-el .panel{position:fixed;inset:0;z-index:60;display:flex;justify-content:flex-end;background:rgba(15,23,42,.45)}
-.vx-el .panel-inner{width:min(720px,100vw);height:100%;background:#fff;display:flex;flex-direction:column}
+.vx-el .panel{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px 12px;background:rgba(15,23,42,.45)}
+.vx-el .panel-inner{width:min(980px,100%);height:min(90vh,980px);background:#fff;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;box-shadow:0 30px 80px -20px rgb(10 10 30 / .45)}
 .dark .vx-el .panel-inner{background:#0f172a}
 .vx-el .panel iframe{flex:1;width:100%;border:0;background:#f4f2fb}
 .vx-el .btn{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:10px;font-size:.78rem;font-weight:700}

@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.reporting-workspace-styles')
     @php
         $trendClass = fn ($v) => match(true) {
             $v === null  => 'text-gray-400',

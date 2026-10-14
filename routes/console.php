@@ -132,3 +132,5 @@ Schedule::command('shows:tag-titles')->dailyAt('03:40')->name('tag-show-titles')
 Schedule::command('inventory:snapshot-value')->dailyAt('23:50')->name('inventory-snapshot-value')->withoutOverlapping();
 
 Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('automatic-streamer-assignment')->withoutOverlapping(10)->appendOutputTo(storage_path('logs/streamer-auto-assignment.log'));
+
+Schedule::command('reports:whatnot-loss-summary --scheduled')->everyMinute()->name('whatnot-loss-summaries')->withoutOverlapping();

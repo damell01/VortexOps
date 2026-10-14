@@ -24,6 +24,7 @@ use Livewire\Attributes\Url;
  */
 class TimeAttendance extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
     use HasModuleAccess;
 
     protected static string $moduleSlug = 'timekeeping';

@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.reporting-workspace-styles')
     <div class="vx-report vx-streamer-report space-y-4">
 
     <div class="mb-5 overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-5 dark:border-violet-500/20 dark:from-violet-950/30 dark:via-gray-900 dark:to-indigo-950/20">
@@ -112,10 +113,12 @@
 
         {{-- Visual comparison cards — uses the analytics rows already loaded above. --}}
         @php
-            $cardRows = collect($rows);
+            $filteredCards = collect($rows)->filter(fn($r)=>$cardSearch === '' || str_contains(mb_strtolower($r['name']), mb_strtolower($cardSearch)));
+            $cardRows = $filteredCards->slice((max(1,$cardPage)-1)*6,6);
             $maxCardGross = max(1, (float) collect($rows)->max('gross_revenue'));
         @endphp
         <section class="vx-streamer-cards">
+            <label class="block mb-4">Find a streamer<input class="rounded-lg border p-3 ml-3" type="search" wire:model.live.debounce.250ms="cardSearch" placeholder="Search streamers…"></label>
             <div class="vx-section-heading">
                 <div><h3>Streamer Performance</h3><p>Quick comparison of revenue, net earnings, efficiency and hours.</p></div>
                 <span>{{ count($rows) }} active in this view</span>
@@ -138,6 +141,7 @@
             </div>
         </section>
 
+        <div class="flex justify-between items-center gap-3 mb-4"><span>Page {{ $cardPage }} of {{ max(1,(int)ceil($filteredCards->count()/6)) }}</span><div class="flex gap-3"><button type="button" class="vxw-btn" wire:click="$set('cardPage', {{ max(1,$cardPage-1) }})" @disabled($cardPage<=1)>Previous</button><button type="button" class="vxw-btn" wire:click="$set('cardPage', {{ $cardPage+1 }})" @disabled($cardPage*6 >= $filteredCards->count())>Next</button></div></div>
         {{-- Streamer Performance Table --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

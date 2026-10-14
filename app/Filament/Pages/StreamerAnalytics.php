@@ -55,6 +55,10 @@ class StreamerAnalytics extends Page
     }
 
 
+    public string $cardSearch = '';
+    public int $cardPage = 1;
+    public function updatedCardSearch(): void { $this->cardPage = 1; }
+
     public function getView(): string
     {
         return 'filament.pages.streamer-analytics';

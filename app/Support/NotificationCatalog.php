@@ -38,7 +38,7 @@ class NotificationCatalog
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
             'show_lost_money' => [
-                'group' => 'Shows', 'label' => 'Show lost money', 'level' => 'alert',
+                'group' => 'Shows', 'label' => 'Business loss after costs and pay', 'level' => 'alert',
                 'description' => 'A show whose earnings, COGS and pay are all in came out at a loss.',
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
             ],
@@ -127,6 +127,16 @@ class NotificationCatalog
             ],
 
             // ── Summaries ────────────────────────────────────────────────
+            'daily_whatnot_losses' => [
+                'group' => 'Summaries', 'label' => 'Daily Whatnot losses', 'level' => 'digest',
+                'description' => 'End-of-day summary of negative Whatnot estimated earnings. Skips empty summaries; excludes business costs and payroll.',
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
+            'weekly_whatnot_losses' => [
+                'group' => 'Summaries', 'label' => 'Weekly Whatnot losses', 'level' => 'digest',
+                'description' => 'Last seven days through delivery day: shows with negative Whatnot estimated earnings, without business costs or payroll.',
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
             'weekly_review_reminder' => [
                 'group' => 'Summaries', 'label' => 'Weekly review reminder', 'level' => 'digest',
                 'description' => 'Monday reminder of shows from last week still waiting for review.',

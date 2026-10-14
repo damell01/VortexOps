@@ -22,7 +22,9 @@ class TimekeepingMenuTest extends TestCase
         $html = view('filament.components.desktop-mega-nav')->render();
 
         $this->assertStringContainsString('Timekeeping', $html);
-        $this->assertStringContainsString('Time &amp; Attendance', $html);
-        $this->assertStringContainsString('Profit &amp; Loss', $html);
+        $this->assertStringContainsString('Timekeeping', $html);
+        $this->assertStringNotContainsString('Clock in &amp; my time', $html);
+        $this->assertStringContainsString('Business Profitability', $html);
+        $this->assertStringContainsString('Reports Overview', $html);
     }
 }

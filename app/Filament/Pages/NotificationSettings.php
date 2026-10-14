@@ -33,6 +33,20 @@ class NotificationSettings extends Page
     public int $hourlyCap = NotificationRouter::DEFAULT_HOURLY_CAP;
     public string $testAddress = '';
     public string $search = '';
+    public string $category = 'All';
+    public bool $enabledOnly = false;
+    public array $lossSchedules = ['daily_whatnot_losses' => ['time' => '18:00', 'day' => 5], 'weekly_whatnot_losses' => ['time' => '17:00', 'day' => 5]];
+    #[\Livewire\Attributes\Url(as: 'configure')]
+    public ?string $configureEvent = null;
+
+    public function configure(string $key): void
+    {
+        abort_unless(static::canAccess() && NotificationCatalog::exists($key), 403);
+        $this->configureEvent = $key;
+    }
+
+    public function closeConfigure(): void { $this->configureEvent = null; }
+
 
     public ?string $previewEvent = null;
     public string $previewHtml = '';
@@ -52,6 +66,7 @@ class NotificationSettings extends Page
 
     public function mount(): void
     {
+        if ($this->configureEvent && ! NotificationCatalog::exists($this->configureEvent)) $this->configureEvent = null;
         $router = app(NotificationRouter::class);
         $existing = User::pluck('id')->all();
         foreach (NotificationCatalog::events() as $key => $event) {
@@ -62,6 +77,8 @@ class NotificationSettings extends Page
             $this->rules[$key] = $rule;
         }
 
+        $savedSchedules = json_decode(Setting::get('whatnot_loss_schedules', '{}'), true) ?: [];
+        $this->lossSchedules = array_replace_recursive($this->lossSchedules, $savedSchedules);
         $this->emailEnabled = filter_var(Setting::get('notify_email_enabled', false), FILTER_VALIDATE_BOOLEAN);
         $this->hourlyCap = NotificationRouter::hourlyCap();
         $this->testAddress = (string) (auth()->user()?->email ?? '');
@@ -118,7 +135,9 @@ class NotificationSettings extends Page
     public function save(): void
     {
         abort_unless(static::canAccess(), 403);
-        $this->validate(['hourlyCap' => 'integer|min:0|max:500']);
+        $this->validate(['hourlyCap' => 'integer|min:0|max:500',
+            'lossSchedules.*.time' => 'required|date_format:H:i',
+            'lossSchedules.*.day' => 'required|integer|min:0|max:6']);
 
         $out = [];
         foreach (array_keys(NotificationCatalog::events()) as $key) $out[$key] = $this->ruleFromForm($key);
@@ -131,6 +150,7 @@ class NotificationSettings extends Page
         }
 
         app(NotificationRouter::class)->saveRules($out);
+        Setting::set('whatnot_loss_schedules', json_encode($this->lossSchedules));
 
         // Global email controls belong to the owner.
         if ($this->isOwner()) {

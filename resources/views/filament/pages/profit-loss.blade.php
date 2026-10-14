@@ -1,7 +1,10 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.reporting-workspace-styles')
 @php
     [$from, $to, $label] = $this->range();
     $t = $this->totals();
+    $paidRows = $this->rows()->filter(fn($r) => $r['incomplete'] === [] && ($r['pay_completed'] ?? false));
+    $paidTotals = app(\App\Services\ProfitLossReport::class)->totals($paidRows);
     $prev = $this->previousTotals();
     $trend = $this->trend();
     $opts = $this->options();
@@ -17,7 +20,7 @@
         ['Earnings', $money($t['earnings']), $delta($t['earnings'], $prev['earnings']), false],
         ['COGS', $money($t['cogs']), $delta($t['cogs'], $prev['cogs']), true],
         ['Streamer pay', $money($t['payouts']), $delta($t['payouts'], $prev['payouts']), true],
-        ['Profit after pay', $money($t['profit']), $delta($t['profit'], $prev['profit']), false],
+        ['Profit after paid runs', $paidRows->isEmpty() ? '—' : $money($paidTotals['profit']), null, false],
     ];
     $breakdownLabels = ['streamer' => 'Streamer', 'channel' => 'Channel', 'business' => 'Business', 'weekday' => 'Weekday', 'slot' => 'Time slot'];
 @endphp
@@ -44,6 +47,7 @@
         </div>
     </section>
 
+    @if($t['incomplete'])<div class="vxw-alert vxw-alert--warn"><span><b>{{ $t['incomplete'] }} shows have incomplete costs or payouts.</b> The headline profit includes complete costs and paid runs only. Detailed calculated profit and margin remain provisional for incomplete or unpaid shows.</span></div>@endif
     {{-- Headline numbers --}}
     <section class="vxw-card">
         <div class="vxw-stats" style="grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));border-top:0">
@@ -65,7 +69,7 @@
             <span>Profit per show <b style="color:var(--vxw-text)">{{ $money($t['profit_per_show']) }}</b></span>
             @if ($t['profit_per_hour'] !== null)<span>Profit per hour worked <b style="color:var(--vxw-text)">{{ $money($t['profit_per_hour']) }}</b></span>@endif
             <span>Units <b style="color:var(--vxw-text)">{{ number_format($t['units']) }}</b></span>
-            <button type="button" wire:click="$set('showFilter', 'losing')" class="vxw-link">Losing shows <b>{{ $t['losing'] }}</b></button>
+            <button type="button" wire:click="$set('showFilter', 'losing')" class="vxw-link">Losing shows <b>{{ $this->rows()->filter(fn($r)=>$r['incomplete']===[] && ($r['pay_completed'] ?? false) && $r['profit']<0)->count() }}</b></button>
             <button type="button" wire:click="$set('showFilter', 'incomplete')" class="vxw-link">Incomplete <b>{{ $t['incomplete'] }}</b></button>
         </div>
     </section>
@@ -164,7 +168,7 @@
             <div><h3 class="vxw-h2">Shows</h3><p class="vxw-sub">{{ $shows->count() }} of {{ $t['shows'] }} · Incomplete shows are counted but their profit may change.</p></div>
             <div class="flex flex-wrap items-center gap-2">
                 <div class="vxw-chips">
-                    @foreach (['all' => 'All', 'losing' => 'Losing', 'incomplete' => 'Incomplete', 'complete' => 'Complete'] as $key => $text)
+                    @foreach (['all' => 'All', 'losing' => 'Losing', 'incomplete' => 'Incomplete', 'pending' => 'Costs / pay pending', 'complete' => 'Complete', 'paid' => 'Paid & complete'] as $key => $text)
                         <button type="button" wire:click="$set('showFilter', '{{ $key }}')" @class(['vxw-chip', 'is-active' => $showFilter === $key])>{{ $text }}</button>
                     @endforeach
                 </div>

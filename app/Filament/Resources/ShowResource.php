@@ -719,6 +719,9 @@ class ShowResource extends Resource
                     ->label('Show Title')
                     ->default('—')
                     ->searchable()
+                    ->formatStateUsing(fn ($state, Show $record) => $record->isLive()
+                        ? new \Illuminate\Support\HtmlString(\Illuminate\Support\Facades\Blade::render('<x-vx.live>Live</x-vx.live>').' '.e($state))
+                        : $state)
                     ->description(fn (Show $record): ?string => $record->financials_revised_after_lock
                         ? '⚠ Financials changed after this show was locked in — review'
                         : null)

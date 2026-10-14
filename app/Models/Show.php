@@ -15,6 +15,9 @@ class Show extends Model
 {
     use LogsActivity, AuditsUpdates;
 
+    /** A start before this hour belongs to the previous show date (a late-night stream). */
+    public const LATE_NIGHT_CUTOFF = 5;
+
     // AuditsUpdates records the real diff for status transitions; LogsActivity's
     // (empty) auto "updated" entry is suppressed. Scoped to status so frequent
     // metric re-imports don't flood the audit log.
@@ -1130,5 +1133,48 @@ class Show extends Model
             'manual'       => 'Manual',
             'auto_whatnot' => 'Auto (Whatnot)',
         ];
+    }
+
+    /**
+     * Start and end as minutes from midnight of show_date; a late-night start
+     * (before LATE_NIGHT_CUTOFF) runs past 1440. End is null when unknown.
+     *
+     * @return array{0: ?int, 1: ?int}
+     */
+    public function scheduleMinutes(): array
+    {
+        if (! $this->start_time) return [null, null];
+        $start = $this->start_time->hour * 60 + $this->start_time->minute;
+        if ($this->start_time->hour < self::LATE_NIGHT_CUTOFF) $start += 1440;
+        if ($this->end_time) {
+            $end = $this->end_time->hour * 60 + $this->end_time->minute + ($start >= 1440 ? 1440 : 0);
+            while ($end <= $start) $end += 1440;
+        } elseif ($this->show_duration > 0) {
+            // show_duration is stored in minutes by the importer and the form.
+            $end = $start + (int) $this->show_duration;
+        } else {
+            $end = null;
+        }
+        return [$start, $end];
+    }
+
+    /** upcoming, live, done or cancelled, as of $now (whose timezone the times are read in). */
+    public function scheduleStateAt(\Carbon\CarbonInterface $now): string
+    {
+        if ($this->status === 'cancelled') return 'cancelled';
+        if (! $this->show_date) return 'upcoming';
+        [$startMin, $endMin] = $this->scheduleMinutes();
+        $day = \Illuminate\Support\Carbon::parse($this->show_date->toDateString(), $now->getTimezone());
+        if ($startMin === null) return $day->isAfter($now->copy()->startOfDay()) || $day->isSameDay($now) ? 'upcoming' : 'done';
+        $start = $day->copy()->addMinutes($startMin);
+        $end = $day->copy()->addMinutes($endMin ?? $startMin + 180);
+        if ($now->lt($start)) return 'upcoming';
+        return $now->lte($end) ? 'live' : 'done';
+    }
+
+    /** Streaming right now, in the signed-in person's timezone (as the Shows calendar reads it). */
+    public function isLive(?\Carbon\CarbonInterface $now = null): bool
+    {
+        return $this->scheduleStateAt($now ?? now(auth()->user()?->timezone ?: config('app.timezone'))) === 'live';
     }
 }

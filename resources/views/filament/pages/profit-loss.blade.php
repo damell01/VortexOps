@@ -22,6 +22,8 @@
 @endphp
 
 <div class="vxr" data-vx-page="profit-loss">
+    {{-- Sunny when the period's finalized shows made money; rain when they lost it. --}}
+    <x-vx.weather :kind="$t['finalized'] ? ($t['finalized_profit'] > 0 ? 'sun' : ($t['finalized_profit'] < 0 ? 'rain' : null)) : null" />
     <div class="vxr-head">
         <div>
             <h1 class="vxr-title">Business Profitability</h1>

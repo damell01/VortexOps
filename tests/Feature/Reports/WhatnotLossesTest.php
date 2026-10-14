@@ -111,4 +111,27 @@ class WhatnotLossesTest extends TestCase
             ->assertSee('Reports Overview')->assertSee('Needs Attention')->assertSee('Negative Whatnot Earnings')
             ->assertSee('2 shows')->assertSee('-$155')->assertSee('Report Library')->assertSee('Whatnot Losses');
     }
+
+    public function test_it_rains_when_losses_are_worse_than_the_week_before_and_is_sunny_with_none(): void
+    {
+        $this->actingAs($this->owner);
+
+        // Last week lost $155; the week before had nothing.
+        Livewire::test(WhatnotLosses::class)->assertSee('vx-weather--rain', false);
+
+        // This week has no losses at all.
+        Livewire::test(WhatnotLosses::class)->set('range', 'this_week')->assertSee('vx-weather--sun', false)->assertDontSee('vx-weather--rain', false);
+    }
+
+    public function test_no_weather_when_losses_improved(): void
+    {
+        $this->actingAs($this->owner);
+        $show = Show::create([
+            'whatnot_channel_id' => WhatnotChannel::first()->id, 'title' => 'Rough Tuesday', 'show_date' => '2026-09-29', 'gross_revenue' => 100,
+            'whatnot_net' => -500, 'tips' => 0, 'status' => 'reconciled', 'is_operational' => true, 'created_by' => $this->owner->id,
+        ]);
+        $show->streamers()->attach(Streamer::first()->id, ['is_primary' => true]);
+
+        Livewire::test(WhatnotLosses::class)->assertDontSee('vx-weather', false);
+    }
 }

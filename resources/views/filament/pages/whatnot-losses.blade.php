@@ -13,6 +13,7 @@
     @endphp
 
     <div class="vxr" data-vx-page="whatnot-losses">
+        <x-vx.weather :kind="$this->weather()" />
         <div class="vxr-head">
             <div>
                 <h1 class="vxr-title">Whatnot Losses</h1>

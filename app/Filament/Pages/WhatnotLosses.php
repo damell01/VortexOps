@@ -167,6 +167,26 @@ class WhatnotLosses extends Page
         ];
     }
 
+    /**
+     * A little weather over the page: rain when losses are worse than the
+     * period of the same length just before, sunshine when there are none.
+     */
+    public function weather(): ?string
+    {
+        $now = $this->totals();
+        if ($now['count'] === 0) {
+            return 'sun';
+        }
+        [$from, $to] = $this->period();
+        $days = (int) round(abs($from->diffInDays($to))) + 1;
+        $before = app(ShowLossDigest::class)->rows('whatnot_negative', $from->copy()->subDays($days), $from->copy()->subDay(), $this->business !== '' ? (int) $this->business : null);
+        if ($this->streamer !== '') {
+            $before = $before->where('streamer_id', (int) $this->streamer);
+        }
+
+        return $now['total'] < round((float) $before->sum('whatnot_net'), 2) ? 'rain' : null;
+    }
+
     public function options(): array
     {
         return [

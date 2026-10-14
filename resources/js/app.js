@@ -1,4 +1,6 @@
 import './action-feedback.js';
+import './delight.js';
+import '../css/delight.css';
 import '../css/page-layout-fixes.css';
 import './confirmation-dialog.js';
 import './guided-help.js';
@@ -118,7 +120,7 @@ function installVortexNavigationLoader() {
     </div>`;
     document.body.appendChild(loader);
     const status=loader.querySelector('.vx-loader-status');let statusTimers=[];
-    const resetStatus=()=>{statusTimers.forEach(clearTimeout);statusTimers=[];if(status)status.textContent='Loading VortexOps…'};
+    const resetStatus=()=>{statusTimers.forEach(clearTimeout);statusTimers=[];if(status)status.textContent='Opening your show…'};
     const runStatus=()=>{resetStatus();[['Ripping Pack…',480],['Revealing Cards…',980],['Found a Hit…',1500],['Grading Hit…',2050],['Almost Ready…',2600]].forEach(([copy,ms])=>statusTimers.push(setTimeout(()=>{if(status)status.textContent=copy},ms)))};
     let timer=null,watchdog=null;
     // The loader is shown from a link click, before anything knows whether the
@@ -128,10 +130,13 @@ function installVortexNavigationLoader() {
     // has finished bubbling, skip download-shaped links, give a click that never
     // unloaded the page only a few seconds, and let a tap or Esc dismiss it.
     const show=(event=null,limit=12000)=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();timer=setTimeout(()=>{if(event?.defaultPrevented)return;runStatus();loader.classList.add('vx-show');watchdog=setTimeout(()=>{loader.classList.remove('vx-show');resetStatus()},limit)},75)};
-    const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();loader.classList.remove('vx-show')};
-    if(!window.__vortexNavLoaderBound){window.__vortexNavLoaderBound=true;document.addEventListener('livewire:navigating',()=>window.__vortexNavLoader?.show());document.addEventListener('livewire:navigated',()=>window.__vortexNavLoader?.hide())}
-    window.__vortexNavLoader={show,hide};window.addEventListener('pageshow',hide,{once:true});
-    document.addEventListener('click',(event)=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download')||link.hasAttribute('wire:click')||link.hasAttribute('x-on:click')||link.hasAttribute('@click'))return;const url=new URL(link.href,location.href);if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;if(/(^|\/)(export|exports|download|print)(\/|$)|\.(pdf|csv|xlsx|zip)$|[?&]download=/i.test(url.pathname+url.search))return;show(event,link.hasAttribute('wire:navigate')?12000:4000)},{capture:true});
+    let bar=document.getElementById('vx-nav-bar');if(!bar){bar=document.createElement('div');bar.id='vx-nav-bar';bar.setAttribute('aria-hidden','true');document.body.appendChild(bar)}
+    // Everything except opening a show report gets this slim Vortex bar instead of the full pack opening.
+    let barTimer=null;const showBar=(limit=8000)=>{clearTimeout(barTimer);bar.classList.remove('vx-done');void bar.offsetWidth;bar.classList.add('vx-run');barTimer=setTimeout(()=>bar.classList.remove('vx-run'),limit)};
+    const hide=()=>{clearTimeout(timer);clearTimeout(watchdog);resetStatus();loader.classList.remove('vx-show');if(bar.classList.contains('vx-run')){bar.classList.add('vx-done');clearTimeout(barTimer);barTimer=setTimeout(()=>bar.classList.remove('vx-run','vx-done'),350)}};
+    if(!window.__vortexNavLoaderBound){window.__vortexNavLoaderBound=true;document.addEventListener('livewire:navigating',()=>{if(window.__vxPackNext)window.__vortexNavLoader?.show();else window.__vortexNavLoader?.bar()});document.addEventListener('livewire:navigated',()=>{window.__vxPackNext=false;window.__vortexNavLoader?.hide()})}
+    window.__vortexNavLoader={show,hide,bar:showBar};window.addEventListener('pageshow',hide,{once:true});
+    document.addEventListener('click',(event)=>{const link=event.target.closest?.('a[href]');if(!link||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||link.target==='_blank'||link.hasAttribute('download')||link.hasAttribute('wire:click')||link.hasAttribute('x-on:click')||link.hasAttribute('@click'))return;const url=new URL(link.href,location.href);if(url.origin!==location.origin||url.href===location.href||(url.hash&&url.pathname===location.pathname&&url.search===location.search))return;if(/(^|\/)(export|exports|download|print)(\/|$)|\.(pdf|csv|xlsx|zip)$|[?&]download=/i.test(url.pathname+url.search))return;const pack=/\/admin\/end-of-stream/.test(url.pathname)||link.hasAttribute('data-vx-pack');window.__vxPackNext=pack;if(link.hasAttribute('wire:navigate'))return;if(pack){if(status)status.textContent='Opening your show…';show(event,4000)}else{setTimeout(()=>{if(!event.defaultPrevented)showBar(4000)},75)}},{capture:true});
     loader.addEventListener('click',hide);document.addEventListener('keydown',(e)=>{if(e.key==='Escape')hide()});document.addEventListener('visibilitychange',hide);
     requestAnimationFrame(hide);
 }

@@ -181,6 +181,11 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
+                // A finished report lands on the next page with a little foil confetti (resources/js/delight.js).
+                PanelsRenderHook::BODY_END,
+                fn () => session()->pull('vx_celebrate') ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate hidden></div>') : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => \App\Support\Impersonation::active() && auth()->check() ? view('filament.components.impersonation-banner') : '',
             )

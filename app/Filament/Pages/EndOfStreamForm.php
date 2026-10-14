@@ -490,6 +490,7 @@ class EndOfStreamForm extends Page implements HasForms
                 ));
             }
             $this->lastSavedAt = now()->toIso8601String(); $this->step = 3; $this->stagedQuantities = [];
+            session()->flash('vx_celebrate', true);
             $this->redirect(\App\Filament\Pages\StreamerShows::getUrl(panel: 'admin'), navigate: true);
         } catch (\Throwable $e) {
             report($e); Notification::make()->title('Could not submit the report')->body($e->getMessage())->danger()->send();

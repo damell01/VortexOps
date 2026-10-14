@@ -240,6 +240,15 @@ class StreamerShows extends Page
         ];
     }
 
+    public function recentLoggingShows(): array
+    {
+        $today = \App\Support\BusinessTime::local();
+        return Show::query()->whereHas('streamers', fn ($q) => $q->where('streamers.id', $this->getStreamer()->id))
+            ->whereBetween('show_date', [$today->copy()->subDay()->toDateString(), $today->toDateString().' 23:59:59'])
+            ->where('status', '!=', 'cancelled')->tap(fn($q)=>\App\Support\ShowReportingGoLive::scope($q))->with(['channel', 'streamerLogEntry'])->withCount('shipments')->orderByDesc('show_date')->limit(6)->get()
+            ->map(fn ($show) => $this->cardFor($show))->all();
+    }
+
     /** The next few shows, soonest first. */
     public function nextShows(int $limit = 4): array
     {

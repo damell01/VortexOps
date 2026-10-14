@@ -131,6 +131,9 @@ class ProfitLossReportTest extends TestCase
         $this->assertSame(['Jordan'], $page->instance()->rows()->pluck('streamer')->all());
 
         $page->set('channel', '')->set('showFilter', 'losing');
+        $this->assertCount(0, $page->instance()->showRows()); // approved is not paid
+        Payout::query()->update(['status' => 'paid']);
+        $page->call('setView', 'week');
         $this->assertCount(1, $page->instance()->showRows());
     }
 

@@ -37,6 +37,7 @@ class NotificationSamples
         $alert = fn (string $t, string $b, string $tone = 'info', array $links = []) => new VortexAlert($event, $t, $b, $tone, $links ?: ['Open VortexOps' => $showUrl]);
 
         return match ($event) {
+            'daily_whatnot_losses', 'weekly_whatnot_losses' => $alert('Whatnot Loss Summary — sample', 'Sample show · Vortex Breaks · -$100.00. Whatnot estimates only; excludes business expenses and payroll.', 'warning'),
             'show_ready' => new ShowReadyNotification($show),
             'show_pending_approval' => new ShowPendingApprovalNotification($show),
             'show_reconciled' => new ShowReconciledNotification($show),

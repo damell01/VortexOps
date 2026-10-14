@@ -212,7 +212,9 @@ class ProfitLoss extends Page
     {
         $rows = $this->rows();
         $rows = match ($this->showFilter) {
-            'losing' => $rows->where('profit', '<', 0),
+            'losing' => $rows->filter(fn($r) => $r['incomplete'] === [] && ($r['pay_completed'] ?? false) && $r['profit'] < 0),
+            'paid' => $rows->filter(fn($r)=>$r['incomplete'] === [] && ($r['pay_completed'] ?? false)),
+            'pending' => $rows->filter(fn($r)=>$r['incomplete'] !== [] || !($r['pay_completed'] ?? false)),
             'incomplete' => $rows->filter(fn ($r) => $r['incomplete'] !== []),
             'complete' => $rows->filter(fn ($r) => $r['incomplete'] === []),
             default => $rows,

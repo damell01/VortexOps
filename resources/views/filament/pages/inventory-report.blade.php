@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+@include('filament.pages.partials.reporting-workspace-styles')
 @php
  $data=$this->getViewerData(); $summary=$data['summary']; $items=collect($data['items']); $trend=collect($data['trend']); $locations=collect($data['locations']); $categories=collect($data['category_breakdown']);
  $allRows = match ($activeTab) {

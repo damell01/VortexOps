@@ -74,24 +74,6 @@
                         <div class="vxw-meta">{{ $totals ? 'Clock in when you start working.' : 'Today: '.($today > 0 ? \App\Models\TimeEntry::formatMinutes($today) : 'no time yet') }}</div>
                     @endif
                 </div>
-                {{-- Your buddy: walks while you are on the clock, naps while you are off it. Click to pick another. --}}
-                <div class="vx-buddy" x-data="{ choosing: false }" @click.outside="choosing = false" @keydown.escape="choosing = false">
-                    <button type="button" @class(['vx-buddy-btn', 'is-walking' => $entry, 'is-napping' => ! $entry]) @click="choosing = ! choosing"
-                            title="{{ \App\Support\Buddy::name($buddy) }} {{ $entry ? 'is on the clock with you' : 'is napping' }} — click to pick your buddy" aria-label="Pick your buddy">
-                        <img src="/img/pokemon/{{ $buddy }}.gif" alt="">
-                        @unless ($entry)<span class="vx-buddy-z" aria-hidden="true"><i>z</i><i>Z</i></span>@endunless
-                    </button>
-                    <div class="vx-buddy-pick" x-show="choosing" x-cloak x-transition.opacity>
-                        <div class="vx-buddy-pick-title">Pick your buddy</div>
-                        <div class="vx-buddy-grid">
-                            @foreach (\App\Support\Buddy::CHOICES as $choice)
-                                <button type="button" @class(['is-on' => $choice === $buddy]) wire:click="chooseBuddy('{{ $choice }}')" @click="choosing = false" title="{{ \App\Support\Buddy::name($choice) }}">
-                                    <img src="/img/pokemon/{{ $choice }}.gif" alt="{{ \App\Support\Buddy::name($choice) }}" loading="lazy">
-                                </button>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
             </div>
             @if ($totals)
                 <div class="vx-clock-stats">

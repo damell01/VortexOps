@@ -10,10 +10,29 @@
     Header set Cache-Control "public, max-age=3600"
 </Files>
 
-# PWA icons: long cache (content-addressable)
-<LocationMatch "^/icons/.*\.(png|svg)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
-</LocationMatch>
+# Long caches for files that never change under the same name. <If> rather
+# than <LocationMatch>: LocationMatch is not allowed in .htaccess and makes
+# Apache answer every request with a 500.
+<IfModule mod_headers.c>
+    # Vite build output and Filament's versioned assets (?v=...): the name or
+    # query changes whenever the content does.
+    <If "%{REQUEST_URI} =~ m#^/(build|js/filament|css/filament|fonts/filament)/#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+    # PWA icons: long cache (content-addressable)
+    <If "%{REQUEST_URI} =~ m#^/icons/.*\.(png|svg)$#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+    # Sprites, logos and handbook screenshots: a week, revalidated after.
+    <If "%{REQUEST_URI} =~ m#^/(img|images|guide)/#">
+        Header set Cache-Control "public, max-age=604800"
+    </If>
+</IfModule>
+
+# Compress text responses (HTML, CSS, JS, JSON, SVG).
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
 
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>

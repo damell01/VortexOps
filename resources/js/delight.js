@@ -74,11 +74,6 @@ export function celebrate(event) {
     document.body.appendChild(catchBox);
     setTimeout(() => catchBox.remove(), 2900);
     setTimeout(confetti, 1350);
-    // Your time-clock buddy joins in once the catch lands.
-    setTimeout(() => document.querySelectorAll('.vx-buddy-btn').forEach((b) => {
-        b.classList.add('is-cheering');
-        setTimeout(() => b.classList.remove('is-cheering'), 2600);
-    }), 1500);
 }
 
 function confetti() {
@@ -287,7 +282,7 @@ new MutationObserver(() => {
     if (badgeQueued) return;
     badgeQueued = true;
     requestAnimationFrame(() => { badgeQueued = false; tabBadge(); shinySwap(); dexify(); });
-}).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+}).observe(document.body || document.documentElement, { childList: true, subtree: true }); // not text edits: timers tick every second
 
 // The top bar's height, for anything that tucks underneath it (Gengar in October).
 function topbarVar() {
@@ -316,6 +311,6 @@ document.addEventListener('livewire:init', () => {
         if (asked) slowStart();
         const finish = () => { done(); if (asked) slowStop(); };
         fail(finish);
-        succeed(() => { finish(); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); }); });
+        succeed(() => { finish(); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); tabBadge(); }); });
     });
 });

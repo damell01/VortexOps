@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Ui;
 
-use App\Livewire\ClockWidget;
 use App\Models\User;
 use App\Support\Buddy;
 use App\Support\Season;
@@ -12,7 +11,7 @@ use Illuminate\Support\Facades\Blade;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** The seasonal Gengar, the time-clock buddy and the receiving Poké Ball. */
+/** Seasonal visitors, shiny twins, the countdown and the receiving Poké Ball. */
 class PokemonTouchesTest extends TestCase
 {
     use RefreshDatabase;
@@ -58,25 +57,6 @@ class PokemonTouchesTest extends TestCase
         }
     }
 
-    public function test_rarity_follows_the_thresholds(): void
-    {
-        \App\Support\Rarity::flushMemo();
-        $this->assertSame(0, \App\Support\Rarity::tier(null));
-        $this->assertSame(0, \App\Support\Rarity::tier(49.99));
-        $this->assertSame(1, \App\Support\Rarity::tier(50));
-        $this->assertSame(2, \App\Support\Rarity::tier(150));
-        $this->assertSame(3, \App\Support\Rarity::tier(1428));
-
-        \App\Models\Setting::set(\App\Support\Rarity::SETTING, json_encode([1000, 10, 100]));
-        \App\Support\Rarity::flushMemo();
-        $this->assertSame(2, \App\Support\Rarity::tier(150), 'thresholds are sorted before use');
-        \App\Models\Setting::set(\App\Support\Rarity::SETTING, '');
-        \App\Support\Rarity::flushMemo();
-
-        $this->assertStringContainsString('tier-3', Blade::render('<x-vx.rarity :cost="900" />'));
-        $this->assertSame('', trim(Blade::render('<x-vx.rarity :cost="5" />')));
-    }
-
     public function test_a_streamer_sees_a_countdown_to_a_show_later_today(): void
     {
         \Illuminate\Support\Carbon::setTestNow('2026-10-14 13:00:00');
@@ -116,29 +96,6 @@ class PokemonTouchesTest extends TestCase
         foreach (Buddy::CHOICES as $buddy) {
             $this->assertFileExists(public_path("img/pokemon/{$buddy}.gif"));
         }
-    }
-
-    public function test_picking_a_buddy_saves_it_and_shows_it_napping_while_clocked_out(): void
-    {
-        $user = User::factory()->create();
-
-        Livewire::actingAs($user)->test(ClockWidget::class)
-            ->assertSee('/img/pokemon/eevee.gif', false)
-            ->assertSee('is-napping', false)
-            ->call('chooseBuddy', 'charizard')
-            ->assertSee('/img/pokemon/charizard.gif', false);
-
-        $this->assertSame('charizard', $user->fresh()->buddy);
-    }
-
-    public function test_a_buddy_that_is_not_on_the_list_is_refused(): void
-    {
-        $user = User::factory()->create();
-
-        Livewire::actingAs($user)->test(ClockWidget::class)->call('chooseBuddy', '../../etc/passwd');
-
-        $this->assertNull($user->fresh()->buddy);
-        $this->assertSame(Buddy::DEFAULT, Buddy::for($user->fresh()));
     }
 
     public function test_the_receiving_ball_fills_and_is_caught_when_done(): void

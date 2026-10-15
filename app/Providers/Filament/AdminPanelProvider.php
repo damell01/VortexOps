@@ -97,6 +97,8 @@ class AdminPanelProvider extends PanelProvider
 
         return $panel
             ->spa(hasPrefetching: false)
+            // Initials avatars drawn in place rather than fetched from ui-avatars.com on every page.
+            ->defaultAvatarProvider(\App\Filament\AvatarProviders\InitialsAvatarProvider::class)
             ->databaseNotifications()
             // 300s meant a streamer could sit for five minutes after an admin
             // requested changes before the bell showed anything, which read as
@@ -196,7 +198,7 @@ class AdminPanelProvider extends PanelProvider
                 fn () => session()->pull('vx_celebrate') ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate hidden></div>') : '',
             )
             ->renderHook(
-                // Seasonal touches (October: Gengar and a pumpkin), see App\Support\Season.
+                // Seasonal visitors (October: Gengar), see App\Support\Season.
                 PanelsRenderHook::BODY_END,
                 fn () => auth()->check() ? view('filament.components.season') : '',
             )

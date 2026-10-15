@@ -25,8 +25,8 @@
 /* ── Streamer home refresh ─────────────────────────────────────────── */
 .vx-home-hero{position:relative;overflow:hidden;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px 28px;padding:30px 32px;border-radius:22px;color:#fff;
   background:radial-gradient(120% 140% at 85% 0%,#7c3aed 0%,transparent 55%),radial-gradient(90% 120% at 0% 100%,#1d4ed8 0%,transparent 60%),linear-gradient(120deg,#0b0b2b,#1e1052 55%,#2a0f63);box-shadow:0 18px 40px -22px #3b0d99}
-.vx-home-hero::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;background:radial-gradient(circle at 12% 30%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 70% 70%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 40% 12%,#c4b5fd 0 1px,transparent 1.6px),radial-gradient(circle at 88% 40%,#7dd3fc 0 1px,transparent 1.6px),radial-gradient(circle at 58% 88%,#fff 0 1px,transparent 1.5px);animation:vx-home-twinkle 6s ease-in-out infinite alternate}
-.vx-home-hero::after{content:"";position:absolute;inset:-40%;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgb(255 255 255 / .09) 48%,rgb(196 181 253 / .12) 52%,transparent 60%);animation:vx-home-foil 9s linear infinite}
+.vx-home-hero::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;background:radial-gradient(circle at 12% 30%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 70% 70%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 40% 12%,#c4b5fd 0 1px,transparent 1.6px),radial-gradient(circle at 88% 40%,#7dd3fc 0 1px,transparent 1.6px),radial-gradient(circle at 58% 88%,#fff 0 1px,transparent 1.5px);animation:vx-home-twinkle 6s ease-in-out 2 alternate}
+.vx-home-hero::after{content:"";position:absolute;inset:-40%;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgb(255 255 255 / .09) 48%,rgb(196 181 253 / .12) 52%,transparent 60%);animation:vx-home-foil 9s linear 1}
 @keyframes vx-home-twinkle{to{opacity:.2}}
 @keyframes vx-home-foil{from{transform:translateX(-30%)}to{transform:translateX(30%)}}
 .vx-home-hero>*{position:relative;z-index:1}

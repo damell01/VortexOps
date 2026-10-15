@@ -1,7 +1,7 @@
 @php($season = \App\Support\Season::details())
 @if ($season)
     {{-- A seasonal visitor (App\Support\Season) peeks out now and then; a click sends it away for this session. --}}
-    <div class="vx-season" data-season="{{ $season['key'] }}" data-icon="{{ $season['icon'] }}" aria-hidden="true"
+    <div class="vx-season" data-season="{{ $season['key'] }}" aria-hidden="true"
          x-data="{ gone: (() => { try { return sessionStorage.getItem('vx-season-gone') === @js($season['key']) } catch (e) { return false } })() }"
          x-show="! gone">
         <button type="button" @class(['vx-season-peek', 'from-top' => $season['from'] === 'top', 'from-bottom' => $season['from'] === 'bottom']) tabindex="-1"

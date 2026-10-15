@@ -72,6 +72,18 @@ function openPicker(select, trigger) {
     };
     const keyboard = event => {
         if (event.key === 'Escape') { event.stopImmediatePropagation(); event.preventDefault(); close(); }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            const items = [...list.querySelectorAll('button')].filter(el => !el.disabled);
+            if (!items.length) return;
+            event.preventDefault();
+            const at = items.indexOf(document.activeElement);
+            const next = event.key === 'ArrowDown' ? (at < 0 ? 0 : Math.min(items.length - 1, at + 1)) : (at <= 0 ? (at < 0 ? 0 : (search.isConnected ? -1 : 0)) : at - 1);
+            (next < 0 ? search : items[next]).focus();
+        }
+        if (event.key === 'Enter' && document.activeElement === search) {
+            event.preventDefault();
+            list.querySelector('button:not(:disabled)')?.click();
+        }
         if (event.key === 'Tab') {
             const items = [...panel.querySelectorAll('button,input')].filter(el => !el.disabled);
             const first = items[0], last = items.at(-1);
@@ -93,6 +105,7 @@ function openPicker(select, trigger) {
     (long ? search : (list.querySelector('[aria-pressed="true"]') || list.querySelector('button')))?.focus();
 }
 function syncControl(select, trigger) {
+    if (trigger === select) return;
     const text = [...select.selectedOptions].map(o => o.text).join(', ') || 'Choose…';
     if (trigger.textContent !== text) trigger.textContent = text;
     trigger.disabled = select.disabled;
@@ -154,6 +167,27 @@ function draw(state) {
     const text = 'Page ' + (state.page+1) + ' of ' + pages + ' · ' + state.rows.length + ' items';
     if (state.status.textContent !== text) state.status.textContent = text;
 }
+// ── Larger screens: the same pop-up picker instead of the browser's list ──
+// A native <select> opens a list the page cannot style. A click (or Enter /
+// Space / Alt+Down) opens the centered picker instead; choosing writes back to
+// the real <select> and fires input/change, so Livewire and forms keep working.
+function pickable(select) {
+    return select instanceof HTMLSelectElement && !select.disabled && !phone.matches
+        && !select.closest('[wire\\:ignore], .ts-wrapper, .choices, [data-native-select]') && !select.tomselect
+        && select.getAttribute('size') === null;
+}
+document.addEventListener('mousedown', e => {
+    const select = e.target.closest?.('select');
+    if (!select || e.button !== 0 || !pickable(select)) return;
+    e.preventDefault(); select.focus();
+    openPicker(select, select);
+}, true);
+document.addEventListener('keydown', e => {
+    const select = e.target;
+    if (!(select instanceof HTMLSelectElement) || !pickable(select) || select.getAttribute('aria-expanded') === 'true') return;
+    if (e.key === ' ' || e.key === 'Enter' || (e.altKey && e.key === 'ArrowDown') || e.key === 'F4') { e.preventDefault(); openPicker(select, select); }
+}, true);
+
 let scheduled = false;
 function schedule() {
     if (scheduled) return;

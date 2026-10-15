@@ -106,6 +106,16 @@
                 </div>
             </section>
 
+            @if (! $reportBlocked && $this->show && ! \App\Support\ShowReportingGoLive::covers($this->show->show_date))
+                <div class="vxw-alert vxw-alert--info">
+                    <x-filament::icon icon="heroicon-o-clock" />
+                    <div>
+                        <div class="font-semibold">Previous show</div>
+                        <div class="mt-0.5">This show is from before show reports started, so nothing is waiting on it. You can still log items here if you'd like to try it out.</div>
+                    </div>
+                </div>
+            @endif
+
             @if ($reportBlocked)
                 <div class="vxw-alert vxw-alert--warn" role="alert">
                     <x-filament::icon icon="heroicon-o-exclamation-triangle" />

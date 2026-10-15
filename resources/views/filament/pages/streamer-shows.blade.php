@@ -5,6 +5,7 @@
         ->concat(collect($groups['upcoming'])->map(fn ($s) => $s + ['bucket' => 'upcoming']))
         ->concat(collect($groups['waiting'])->map(fn ($s) => $s + ['bucket' => 'waiting']))
         ->concat(collect($groups['done'])->map(fn ($s) => $s + ['bucket' => 'done']))
+        ->concat(collect($groups['history'] ?? [])->map(fn ($s) => $s + ['bucket' => 'history']))
         ->values();
 
     $tones = ['danger' => 'bad', 'warning' => 'warn', 'info' => 'info', 'success' => 'ok', 'gray' => ''];
@@ -16,6 +17,7 @@
         ['upcoming', 'Upcoming', $summary['upcoming']],
         ['waiting', 'Submitted', $summary['submitted']],
         ['done', 'Approved', $summary['approved']],
+        ...(count($groups['history'] ?? []) ? [['history', 'Previous shows', count($groups['history'])]] : []),
         ['all', 'All', $allShows->count()],
     ];
 @endphp
@@ -336,7 +338,7 @@
                                 $entry = $show->streamerLogEntry;
                                 $upcoming = $show->show_date && $show->show_date->isFuture();
                                 $pay = $show->payouts;
-                                $reportState = $show->status === 'cancelled' ? 'Cancelled' : ($upcoming ? 'Scheduled' : (! $entry || ! $entry->submitted_at ? 'Not filed' : (\App\Models\StreamerLogEntry::statusLabels()[$entry->status] ?? ucfirst($entry->status))));
+                                $reportState = $show->status === 'cancelled' ? 'Cancelled' : ($upcoming ? 'Scheduled' : (! $entry || ! $entry->submitted_at ? (\App\Support\ShowReportingGoLive::covers($show->show_date) ? 'Not filed' : 'Previous show') : (\App\Models\StreamerLogEntry::statusLabels()[$entry->status] ?? ucfirst($entry->status))));
                             @endphp
                             <tr wire:key="mine-{{ $show->id }}" style="border-top:1px solid var(--vxw-border)">
                                 <td class="px-4 py-2.5 whitespace-nowrap">{{ $show->show_date?->format('D M j, Y') }}</td>

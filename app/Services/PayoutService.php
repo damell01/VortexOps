@@ -94,6 +94,57 @@ class PayoutService
         return $payouts;
     }
 
+    /**
+     * What a report's streamer is owed for that one show, for display.
+     *
+     * Pay already on a run is read back as it stands (draft, finalized or
+     * paid); otherwise it is worked out with the same calculation the run
+     * uses, without saving anything. Wages split onto their own line are
+     * included, so this is the whole show.
+     *
+     * Expects show.streamers, show.channel and streamer loaded.
+     *
+     * @return array{amount:float, state:string, notes:string}|null  state: estimate|draft|final|paid
+     */
+    public function payForReport(StreamerLogEntry $entry, ?\Illuminate\Support\Collection $payouts = null): ?array
+    {
+        $show = $entry->show;
+        $streamer = $entry->streamer;
+        if (! $show || ! $streamer) {
+            return null;
+        }
+
+        $payouts ??= Payout::where('show_id', $show->id)->where('streamer_id', $streamer->id)->get();
+        if ($payouts->isNotEmpty()) {
+            $state = $payouts->every(fn (Payout $p) => $p->status === 'paid') ? 'paid'
+                : ($payouts->every(fn (Payout $p) => $p->status === 'draft') ? 'draft' : 'final');
+
+            return [
+                'amount' => round((float) $payouts->sum('calculated_payout'), 2),
+                'state' => $state,
+                'notes' => $payouts->pluck('calculation_notes')->filter()->implode(' · '),
+            ];
+        }
+
+        $streamers = $show->streamers;
+        $hasPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
+        $member = $streamers->firstWhere('id', $streamer->id);
+        $isPrimary = $hasPrimary ? (bool) ($member?->pivot->is_primary ?? false) : $streamers->first()?->id === $streamer->id;
+
+        try {
+            $show->setRelation('streamerLogEntry', $entry);
+            $result = $this->computeStreamerPayout($streamer, $show, max(1, $streamers->count()), $isPrimary);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return [
+            'amount' => round((float) $result['calculated_payout'] + (float) ($result['split_hourly']['calculated_payout'] ?? 0), 2),
+            'state' => 'estimate',
+            'notes' => trim($result['calculation_notes'] . (isset($result['split_hourly']) ? ' · ' . $result['split_hourly']['calculation_notes'] : '')),
+        ];
+    }
+
     private function computeStreamerPayout(Streamer $streamer, Show $show, int $streamerCount, bool $isPrimary = false): array
     {
         $netRevenue    = (float) $show->whatnot_net;

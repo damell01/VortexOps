@@ -66,6 +66,18 @@ class ListStreamerLogEntries extends ListRecords
         $this->resetPage($this->getTablePaginationPageName());
     }
 
+    /** Every report waiting on an admin, and the one that has waited longest. */
+    public function reviewQueue(): array
+    {
+        $query = StreamerLogResource::getEloquentQuery()->where('status', 'streamer_reviewed');
+        $next = (clone $query)->orderByRaw('submitted_at is null')->oldest('submitted_at')->oldest('id')->first();
+
+        return [
+            'count' => $this->getStats()['submitted']['count'],
+            'next' => $next ? StreamerLogResource::getUrl('edit', ['record' => $next]) : null,
+        ];
+    }
+
     public function reopenRequests()
     {
         return StreamerLogResource::getEloquentQuery()->whereNotNull('revision_requested_at')->oldest('revision_requested_at')->limit(6)->get();
@@ -83,14 +95,40 @@ class ListStreamerLogEntries extends ListRecords
         \Filament\Notifications\Notification::make()->title('Report reopened for the streamer')->success()->send();
     }
 
+    public function getTitle(): string
+    {
+        return 'Show Report Inbox';
+    }
+
+    public function getHeading(): string
+    {
+        return 'Show report inbox';
+    }
+
     public function getSubheading(): ?string
     {
+        $from = $this->reportStartDate();
+        $scope = $from
+            ? 'Reports for shows from ' . \Illuminate\Support\Carbon::parse($from)->format('M j, Y') . ' onward.'
+            : 'All reporting dates. Set the report start date in Settings → Post-Show Workflow to leave older shows out.';
+
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
-            return 'Your shows to review — open one to map the items you sold, set costs, then mark it reviewed for admin approval.';
+            return 'Your show reports. Open one to log what sold, then submit it for review.';
         }
 
-        return 'Review streamer submissions in one queue. Approve clean reports, request corrections, and hand approved inventory work to fulfillment.';
+        return $scope . ' Counts follow the selected channel.';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            \Filament\Actions\Action::make('refresh')
+                ->label('Refresh')
+                ->icon('heroicon-m-arrow-path')
+                ->color('gray')
+                ->action(fn () => $this->statsMemo = null),
+        ];
     }
 
     /** Quick filter presets. The "To Review" count respects per-streamer scoping. */

@@ -184,14 +184,17 @@ function gotcha(node) {
     toasts.forEach((toast) => {
         if (toast.dataset.vxGotcha || toast.closest('.fi-no-database, .fi-modal')) return;
         toast.dataset.vxGotcha = '1';
-        toast.classList.add('vx-gotcha');
+        // Something deleted is released rather than caught: the ball opens first.
+        const released = /\b(deleted|removed|released)\b/i.test(toast.querySelector('.fi-no-notification-title')?.textContent ?? '');
+        toast.classList.add('vx-gotcha', ...(released ? ['vx-gotcha--release'] : []));
         // The ball wobbles, then turns into a check — the same moment as a submitted report, in miniature.
         const icon = document.createElement('span');
         icon.className = 'vx-gotcha-icon'; icon.setAttribute('aria-hidden', 'true');
-        icon.innerHTML = '<span class="vx-gotcha-ball"></span><span class="vx-gotcha-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" /></svg></span>';
+        icon.innerHTML = (released ? '<span class="vx-gotcha-ball vx-gotcha-half"></span><span class="vx-gotcha-ball vx-gotcha-lid"></span>' : '<span class="vx-gotcha-ball"></span>')
+            + '<span class="vx-gotcha-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" /></svg></span>';
         toast.querySelector('.fi-no-notification-icon')?.before(icon);
         const word = document.createElement('span');
-        word.className = 'vx-gotcha-word'; word.textContent = 'Gotcha!';
+        word.className = 'vx-gotcha-word'; word.textContent = released ? 'Released!' : 'Gotcha!';
         toast.querySelector('.fi-no-notification-text')?.prepend(word);
     });
 }
@@ -261,6 +264,23 @@ function dexify() {
     });
 }
 
+// ── Searching: a Pokédex scan line sweeps the field until the results land ──
+const SEARCH = '.fi-ta-search-field input, .fi-global-search-field input, .vx-inv-input';
+const scanning = new Set();
+document.addEventListener('input', (e) => {
+    const wrap = e.target.matches?.(SEARCH) && e.target.closest('.fi-input-wrp, .vx-inv-search');
+    if (!wrap || calm.matches) return;
+    wrap.classList.add('vx-dex-scan');
+    scanning.add(wrap);
+    clearTimeout(wrap.vxScanStop);
+    wrap.vxScanStop = setTimeout(() => stopScan(wrap), 6000); // never left running
+}, { passive: true });
+function stopScan(wrap) { wrap.classList.remove('vx-dex-scan'); scanning.delete(wrap); }
+function scansDone(component) {
+    // Only the component that owns the field; the search goes out after its debounce.
+    scanning.forEach((wrap) => { if (!wrap.isConnected || component?.el?.contains(wrap)) stopScan(wrap); });
+}
+
 // ── Unread notifications: the Vortex tab icon gets a red dot ──
 let plainIcon = null, ballIcon = null, lastUnread = -1;
 function makeBallIcon(done) {
@@ -326,6 +346,6 @@ document.addEventListener('livewire:init', () => {
         if (asked) slowStart();
         const finish = () => { done(); if (asked) slowStop(); };
         fail(finish);
-        succeed(() => { finish(); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); tabBadge(); }); });
+        succeed(() => { finish(); scansDone(component); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); tabBadge(); }); });
     });
 });

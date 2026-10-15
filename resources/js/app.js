@@ -1,5 +1,6 @@
 import './action-feedback.js';
 import './delight.js';
+import './buddy.js';
 import '../css/delight.css';
 import '../css/page-layout-fixes.css';
 import './confirmation-dialog.js';

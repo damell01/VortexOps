@@ -100,6 +100,27 @@ class ShowsManual
                         'note' => 'If an admin requests changes, return to the same report, correct it, then resubmit.',
                     ],
                     [
+                        'title' => 'Work the Show Report Inbox',
+                        'where' => 'Shows → Show Report Inbox',
+                        'screen' => \App\Filament\Resources\StreamerLogResource::class,
+                        'body' => [
+                            'The inbox lists every report with the show, the streamer, where it stands and what it is worth. It opens on Needs attention: reports waiting for review and streamers asking to reopen.',
+                            'Each row shows the sales, the product cost the streamer entered and their pay for that show. Until the pay run picks it up, the pay is an estimate worked out exactly the way the pay run will work it out; once it is on a run it shows the real figure. Hover over the pay to see how it was worked out.',
+                            'Approve clears a submitted report straight from the row. Review opens it, and the ⋮ menu holds Request Changes, the edit-request answers and the fulfillment check.',
+                        ],
+                        'shot' => 'report-inbox.png',
+                        'fields' => [
+                            ['Status cards', 'Counts for each stage; click one to show only those reports.'],
+                            ['Needs attention / All reports / Approved', 'The three everyday views.'],
+                            ['Sort', 'Newest, recently submitted, waiting longest, or by show date.'],
+                            ['Review next', 'Opens the report that has waited longest for review.'],
+                            ['Filters and search', 'Narrow by streamer, channel or show date, or search a show or streamer by name.'],
+                            ['Financial summary', 'Sales, product cost and the streamer\'s pay: Est. pay before a pay run, then Pay (draft), On pay run or Paid.'],
+                            ['Approve / Review / ⋮', 'Approve from the row, open the report, or the less common actions.'],
+                        ],
+                        'note' => 'Shows before the date in Settings → Post-Show Workflow → Streamer reports start from are previous shows: streamers still see them on their Shows page and can log one if they want, but they never count as waiting on anyone and stay out of this inbox.',
+                    ],
+                    [
                         'title' => 'Review as an admin',
                         'where' => 'Streamer Report → Admin Review Workspace',
                         'screen' => \App\Filament\Resources\StreamerLogResource::class,

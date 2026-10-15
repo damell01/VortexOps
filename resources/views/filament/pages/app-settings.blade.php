@@ -821,8 +821,8 @@
                 <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
                     <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Streamer reports start from</h3>
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        Streamers are only asked to log shows on or after this date. Earlier shows were reported the old way:
-                        they stay on the calendar and in every report, but never show up as a task for a streamer. Leave blank to ask about every show.
+                        Streamers are only asked to log shows on or after this date. Earlier shows become <strong>previous shows</strong>:
+                        streamers still see them on their Shows page (and can log one if they want), but they never count as waiting on anyone. Leave blank to ask about every show.
                     </p>
                     <div class="mt-3 flex flex-wrap items-center gap-2">
                         <input type="date" wire:model="show_reports_required_from" aria-label="Streamer reports start from"

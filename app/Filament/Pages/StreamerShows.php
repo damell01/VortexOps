@@ -120,23 +120,20 @@ class StreamerShows extends Page
         $streamer = auth()->user()?->streamer;
 
         if (! $streamer) {
-            return $this->groupsMemo = ['needs_you' => [], 'waiting' => [], 'upcoming' => [], 'done' => []];
+            return $this->groupsMemo = ['needs_you' => [], 'waiting' => [], 'upcoming' => [], 'done' => [], 'history' => []];
         }
 
         $shows = Show::query()
             ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
             ->where('status', '!=', 'cancelled')
-            // Shows before reporting went live were handled the old way; they
-            // stay on the calendar but never appear here asking for a report.
-            ->tap(fn ($q) => \App\Support\ShowReportingGoLive::scope($q))
             ->with(['channel', 'streamerLogEntry'])
             ->withCount('shipments')
             ->orderByDesc('show_date')
             ->orderByDesc('start_time')
-            ->limit(60)
+            ->limit(120)
             ->get();
 
-        $groups = ['needs_you' => [], 'waiting' => [], 'upcoming' => [], 'done' => []];
+        $groups = ['needs_you' => [], 'waiting' => [], 'upcoming' => [], 'done' => [], 'history' => []];
 
         foreach ($shows as $show) {
             $groups[$this->bucketFor($show)][] = $this->cardFor($show);
@@ -151,6 +148,13 @@ class StreamerShows extends Page
     {
         if ($show->show_date && $show->show_date->isFuture()) {
             return 'upcoming';
+        }
+
+        // Shows before reporting went live were handled the old way. They are
+        // listed so the streamer can look back at them (and log one if they
+        // want to), but never count as waiting on them.
+        if (! \App\Support\ShowReportingGoLive::covers($show->show_date)) {
+            return 'history';
         }
 
         $entry = $show->streamerLogEntry;
@@ -174,6 +178,8 @@ class StreamerShows extends Page
         [$state, $tone, $action] = match (true) {
             $show->show_date && $show->show_date->isFuture()
                 => ['Scheduled', 'gray', null],
+            ! \App\Support\ShowReportingGoLive::covers($show->show_date)
+                => [$entry?->isSubmitted() ? (\App\Models\StreamerLogEntry::statusLabels()[$entry->status] ?? 'Filed') : 'Previous show', 'gray', 'View show'],
             $entry && $entry->status === 'changes_requested'
                 => ['Changes requested', 'danger', 'Review changes'],
             ! $entry

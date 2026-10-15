@@ -9,8 +9,6 @@ import './guided-help.js';
 import './app-shell.js';
 import './mobile-controls.js';
 import '../css/mobile-report-pass.css';
-// The VortexOps pack-opening loader lives in its own module.
-import './vortex-loader.js';
 // Some Filament/Livewire pages attach beforeunload guards after interactive
 // actions. In VortexOps those guards were sticking around after the action had
 // already completed, so ordinary navigation could trigger Chrome's misleading

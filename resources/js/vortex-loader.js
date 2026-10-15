@@ -1,13 +1,15 @@
-// The VortexOps pack opening: a pack tears open, a Charizard hit is pulled,
-// then it is graded a 10. Pages usually load faster than the animation, so it
+// The VortexOps pack opening: the pack's top tears off, a Charizard slides
+// out, the pack falls away and a graded case closes round the card. Each
+// piece is its own image (public/img/loader) moved by CSS, so it is one
+// continuous animation rather than cross-faded pictures. Pages usually load faster than the animation, so it
 // plays in full once per browser session when the app is opened, and covers
 // any page change slow enough to notice (over ~0.3s). Tap, Esc or Skip ends it.
 import '../css/vortex-loader.css';
 
 const STAGES = [
     { key: 'pack', text: 'Ripping pack…', at: 0 },
-    { key: 'hit', text: 'Found a hit!', at: 1150 },
-    { key: 'slab', text: 'Almost ready…', at: 2300 },
+    { key: 'hit', text: 'Found a hit!', at: 1300 },
+    { key: 'slab', text: 'Almost ready…', at: 2350 },
 ];
 const FULL = 3400;
 const SLOW = 300;
@@ -32,8 +34,12 @@ function build() {
                 <span>VortexOps</span>
             </div>
             <div class="vxl-art" aria-hidden="true">
-                ${STAGES.map((s) => `<img class="vxl-img" data-key="${s.key}" src="/img/loader/${s.key}.webp" alt="" decoding="async">`).join('')}
-                <i class="vxl-flash"></i>
+                <i class="vxl-floor"></i>
+                <i class="vxl-burst"></i>
+                <div class="vxl-card"><img src="/img/loader/card.webp" alt="" decoding="async"></div>
+                <img class="vxl-pack" src="/img/loader/pack-body.webp" alt="" decoding="async">
+                <img class="vxl-strip" src="/img/loader/pack-strip.webp" alt="" decoding="async">
+                <img class="vxl-slab" src="/img/loader/slab-case.webp" alt="" decoding="async">
             </div>
             <p class="vxl-status">${STAGES[0].text}</p>
             <div class="vxl-bar"><i></i></div>

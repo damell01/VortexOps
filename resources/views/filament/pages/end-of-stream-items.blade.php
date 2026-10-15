@@ -106,6 +106,61 @@
                 </div>
             </section>
 
+            @php
+                // Reuse payroll's show formula; previewing never creates a payout.
+                $shareStreamer = $isAdminViewer ? $reportEntry?->streamer : auth()->user()?->streamer;
+                $shareEligible = !$reportBlocked && $shareStreamer
+                    && in_array($shareStreamer->payout_type, ['profit_share', 'hybrid'], true)
+                    && $this->show->streamers->contains('id', $shareStreamer->id);
+                $shareRevenue = $this->show->completed_earnings ?? $this->show->whatnot_net;
+                $shareEstimate = null;
+                $shareWorking = null;
+                $sharePending = false;
+                $sharePrimary = true;
+                if ($shareEligible) {
+                    $participants = $this->show->streamers;
+                    $hasPrimary = $participants->contains(fn ($s) => (bool) ($s->pivot->is_primary ?? false));
+                    $participant = $participants->firstWhere('id', $shareStreamer->id);
+                    $sharePrimary = $participants->count() <= 1 || ($hasPrimary
+                        ? (bool) ($participant->pivot->is_primary ?? false)
+                        : $participants->first()?->id === $shareStreamer->id);
+                    $sharePending = $shareRevenue === null
+                        || $lines->contains(fn ($line) => $line->inventory_item_id === null && $line->unit_cost === null)
+                        || (\App\Support\ProfitShareFormula::ratePerHour() !== null && $this->hoursStreamed === '')
+                        || (\App\Support\ProfitShareFormula::ratePerShipment() !== null && $this->shipments === '');
+                    if (!$sharePending) {
+                        $shareWorking = \App\Support\ProfitShareFormula::forShow(
+                            grossRevenue: (float) $shareRevenue,
+                            productCost: (float) $summary['productCost'],
+                            hours: round(min(24, max(0, (float) $this->hoursStreamed)), 2),
+                            shipments: (float) ($this->shipments !== '' ? $this->shipments : ($whatnot['shipments'] ?? 0)),
+                            percentage: (float) ($shareStreamer->payout_percentage ?? 0),
+                        );
+                        $shareEstimate = $sharePrimary ? $shareWorking['earnings'] : 0.0;
+                    }
+                }
+            @endphp
+            @if ($shareEligible)
+                <section class="vxw-card" aria-live="polite" aria-atomic="true">
+                    <div class="vxw-card-body">
+                        <div class="vxw-eyebrow">Estimated profit share</div>
+                        <div class="vxw-h1">{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</div>
+                        <p class="vxw-sub">{{ $sharePending ? 'Complete item costs, hours, and shipments to see your estimate.' : 'Updates as you fill out this report. Subject to admin review.' }}</p>
+                        @if ($shareWorking)
+                            <dl class="vxw-dl mt-4">
+                                <div><dt>Earnings</dt><dd>${{ number_format($shareWorking['gross_revenue'], 2) }}</dd></div>
+                                <div><dt>Item costs</dt><dd>− ${{ number_format($shareWorking['product_cost'], 2) }}</dd></div>
+                                <div class="is-total"><dt>Profit used for share</dt><dd>${{ number_format($shareWorking['net_revenue'], 2) }}</dd></div>
+                                <div><dt>× your profit share percentage</dt><dd></dd></div>
+                            </dl>
+                        @endif
+                        @if (!$sharePrimary)
+                            <p class="vxw-meta">This show's profit share goes to the primary streamer. Collaboration splits are handled separately.</p>
+                        @endif
+                    </div>
+                </section>
+            @endif
+
             @if ($reportBlocked)
                 <div class="vxw-alert vxw-alert--warn" role="alert">
                     <x-filament::icon icon="heroicon-o-exclamation-triangle" />
@@ -274,7 +329,7 @@
                                 <div class="vxw-card-body grid gap-4 sm:grid-cols-2">
                                     <div class="vxw-field">
                                         <label class="vxw-label" for="eos-hours">Hours worked</label>
-                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.blur="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
+                                        <input id="eos-hours" type="number" min="0" max="24" step="0.01" inputmode="decimal" wire:model.live.debounce.500ms="hoursStreamed" class="vxw-input vxw-num" placeholder="e.g. 3.5" />
                                         <div class="vxw-hint">
                                             @if ($clock['minutes'] > 0)
                                                 Clocked for this show: <b>{{ \App\Models\TimeEntry::formatMinutes($clock['minutes']) }}</b> ({{ number_format($clock['minutes'] / 60, 2) }} hrs)
@@ -292,7 +347,7 @@
                                     </div>
                                     <label class="vxw-field">
                                         <span class="vxw-label">Shipments</span>
-                                        <input type="number" min="0" step="1" inputmode="numeric" wire:model.blur="shipments" class="vxw-input vxw-num" />
+                                        <input type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="shipments" class="vxw-input vxw-num" />
                                         <span class="vxw-hint">Counted from this show's shipments: {{ number_format($whatnot['shipments'] ?? 0) }}</span>
                                     </label>
                                 </div>
@@ -402,6 +457,13 @@
                                     <div><dt>Promo</dt><dd>{{ $summary['promo'] }}</dd></div>
                                     <div><dt>Other</dt><dd>{{ $summary['other'] }}</dd></div>
                                     <div class="is-total"><dt>Total units</dt><dd>{{ $summary['units'] }}</dd></div>
+                                    @if ($shareEligible)
+                                        <div class="is-total" aria-live="polite" aria-atomic="true">
+                                            <dt>Estimated profit share</dt>
+                                            <dd>{{ $sharePending ? 'Pending report data' : '$' . number_format($shareEstimate, 2) }}</dd>
+                                        </div>
+                                    @endif
+
                                 </dl>
                             </div>
                             <div class="vxw-card-foot" style="justify-content:flex-start">

@@ -50,10 +50,36 @@ class InventoryVisibility
             return null;
         }
 
+        $override = static::overrideForStreamer($user->streamer?->id);
+        if ($override !== null) {
+            return $override;
+        }
+
         return array_values(array_unique([
             ...static::configuredForStreamers(),
             ...static::ownLocationIds($user),
         ]));
+    }
+
+    /** Null inherits global access; an empty list explicitly grants no locations. */
+    public static function overrideForStreamer(?int $streamerId): ?array
+    {
+        if (!$streamerId) return null;
+        $raw = Setting::get('streamer_inventory_locations:' . $streamerId);
+        if ($raw === null || $raw === '') return null;
+        $ids = json_decode((string) $raw, true);
+        if (!is_array($ids)) return [];
+        return array_values(array_unique(array_map('intval', $ids)));
+    }
+
+    public static function saveOverride(int $streamerId, array $data): void
+    {
+        abort_unless(auth()->user()?->isAdmin() || auth()->user()?->isOwner(), 403);
+        $enabled = (bool) ($data['inventory_location_override_enabled'] ?? false);
+        $ids = $data['inventory_location_override_ids'] ?? [];
+        validator(['ids' => $ids], ['ids' => 'array', 'ids.*' => 'integer|exists:inventory_locations,id'])->validate();
+        Setting::set('streamer_inventory_locations:' . $streamerId,
+            $enabled ? json_encode(array_values(array_unique(array_map('intval', $ids)))) : '');
     }
 
     /** Whether this user's view of stock is limited at all. */

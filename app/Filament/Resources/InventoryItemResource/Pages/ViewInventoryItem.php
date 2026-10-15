@@ -25,6 +25,7 @@ class ViewInventoryItem extends Page
 
     public function mount(InventoryItem $record): void
     {
+        abort_unless(InventoryItemResource::getEloquentQuery()->whereKey($record->id)->exists(), 404);
         $this->record = $record;
         $this->loadRelations();
     }

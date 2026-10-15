@@ -105,6 +105,7 @@ $ownerLabels = ['Import Status','Show Data Audit','Show Ingestion Logs','Email L
 $ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? [], fn ($link) => in_array($link[0], $ownerLabels, true))) : [];
 if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
 @endphp
+
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
 @if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}"><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
@@ -135,3 +136,123 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @endif
 </nav>
 @include('filament.components.mobile-navigation')
+
+
+
+<style>
+@media (min-width: 1024px) {
+    .fi-topbar-ctn { min-width: 0 !important; max-width: 100% !important; }
+    .fi-topbar:has(.vx-desktop-mega-nav) {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        height: 68px !important;
+        min-height: 68px !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 12px !important;
+        padding: 0 20px !important;
+        overflow: visible !important;
+    }
+    .fi-topbar nav.vx-desktop-mega-nav {
+        box-sizing: border-box !important;
+        flex: 1 1 0% !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        flex-wrap: nowrap !important;
+    }
+    .fi-topbar .fi-topbar-start { flex: 0 0 auto !important; margin: 0 !important; }
+    .fi-topbar .fi-topbar-end {
+        box-sizing: border-box !important;
+        flex: 0 1 auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin-inline-start: auto !important;
+        padding-inline-end: 4px !important;
+        gap: 12px !important;
+    }
+    .fi-topbar .fi-topbar-end > :not(.fi-global-search) { flex-shrink: 0 !important; }
+    .fi-topbar .fi-global-search {
+        flex: 0 1 240px !important;
+        width: clamp(140px, 16vw, 240px) !important;
+        min-width: 0 !important;
+        max-width: 240px !important;
+        margin: 0 !important;
+    }
+    .fi-topbar .fi-global-search :is(.fi-input-wrp, .fi-global-search-field, input) {
+        box-sizing: border-box !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .fi-topbar .fi-user-menu { flex: 0 0 auto !important; margin: 0 !important; }
+}
+@media (min-width: 1024px) and (max-width: 1399px) {
+    .fi-topbar nav.vx-desktop-mega-nav :is(.vx-mega-home, .vx-mega-trigger) {
+        padding-inline: 6px !important;
+        font-size: 12px !important;
+    }
+    .fi-topbar .fi-global-search {
+        flex: 0 1 44px !important;
+        width: 44px !important;
+        max-width: 44px !important;
+    }
+    .fi-topbar .fi-global-search input::placeholder { color: transparent !important; }
+    .fi-topbar .fi-global-search:focus-within {
+        position: absolute !important;
+        right: 160px;
+        width: min(320px, 40vw) !important;
+        max-width: 320px !important;
+        z-index: 60;
+    }
+    .fi-topbar .fi-global-search:focus-within input::placeholder { color: #64748b !important; }
+    .fi-topbar .vx-mega-channel { min-width: 115px !important; max-width: 140px !important; flex-basis: 130px !important; }
+}
+</style>
+
+
+<script>
+(() => {
+    const key = 'vortex:visited-pages';
+    const read = () => {
+        try { const value = JSON.parse(sessionStorage.getItem(key) || '[]'); return Array.isArray(value) ? value.filter(url => { try { const parsed = new URL(url); return parsed.origin === location.origin && parsed.pathname.startsWith('/admin'); } catch { return false; } }) : []; }
+        catch { return []; }
+    };
+    const save = pages => { try { sessionStorage.setItem(key, JSON.stringify(pages.slice(-100))); } catch {} };
+    const track = () => {
+        const pages = read();
+        if (!pages.length && document.referrer) {
+            try { const ref = new URL(document.referrer); if (ref.origin === location.origin && ref.pathname.startsWith('/admin') && ref.href !== location.href) pages.push(ref.href); } catch {}
+        }
+        if (pages[pages.length - 1] !== location.href) pages.push(location.href);
+        save(pages);
+    };
+    window.vortexGoBack = fallback => {
+        const pages = read();
+        while (pages.length && pages[pages.length - 1] === location.href) pages.pop();
+        const previous = pages[pages.length - 1];
+        save(pages);
+        if (previous) { location.assign(previous); return; }
+        if (history.length > 1) { history.back(); return; }
+        location.assign(fallback);
+    };
+    if (!window.vortexHistoryTrackingInstalled) {
+        window.vortexHistoryTrackingInstalled = true;
+        document.addEventListener('livewire:navigated', track);
+        window.addEventListener('pageshow', track);
+        window.addEventListener('popstate', () => {
+            const pages = read();
+            const index = pages.lastIndexOf(location.href);
+            if (index >= 0) save(pages.slice(0, index + 1));
+            else track();
+        });
+    }
+    track();
+})();
+</script>

@@ -206,6 +206,20 @@ class UserResource extends Resource
                     })
                     ->helperText('Type a handle or show name, then tap Add alias or press Enter/Tab. Each added alias appears as a removable tag and is used to match imported shows automatically.'),
 
+                \Filament\Forms\Components\Toggle::make('inventory_location_override_enabled')
+                    ->label('Override inventory locations for this streamer')
+                    ->live()
+                    ->dehydrated(false)
+                    ->visible(fn (?User $record): bool => (bool) $record?->isStreamer())
+                    ->helperText('Off uses global streamer locations. On replaces that list with the locations chosen below.'),
+                Select::make('inventory_location_override_ids')
+                    ->label('Allowed inventory locations')
+                    ->multiple()->searchable()->preload()->native(false)
+                    ->options(fn () => \App\Support\InventoryVisibility::selectableLocations())
+                    ->dehydrated(false)
+                    ->visible(fn (Get $get, ?User $record): bool => (bool) $record?->isStreamer() && (bool) $get('inventory_location_override_enabled'))
+                    ->helperText('Choose only this person’s location to restrict them to it. An empty selection allows no locations.'),
+
                 Select::make('streamer_type')
                     ->label('Streamer Type')
                     ->options(Streamer::streamerTypeLabels())

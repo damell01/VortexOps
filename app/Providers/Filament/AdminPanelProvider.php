@@ -132,6 +132,12 @@ class AdminPanelProvider extends PanelProvider
             // replacing Filament's navigation builder. This keeps route discovery,
             // permissions, and mobile navigation on Filament's stable native path.
             ->renderHook(
+                PanelsRenderHook::PAGE_START,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.page-back'),
+            )
+            ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''

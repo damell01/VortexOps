@@ -193,6 +193,11 @@ class EndOfStreamForm extends Page implements HasForms
 
     private function reportLocationIds()
     {
+        $user = auth()->user();
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            $override = \App\Support\InventoryVisibility::overrideForStreamer($user->streamer?->id);
+            if ($override !== null) return collect($override);
+        }
         $ids = collect();
         $streamerId = $this->reportStreamerId();
         if ($streamerId) {
@@ -314,7 +319,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function addLineItem(int $inventoryItemId, int $quantity = 1, string $disposition = 'sold'): void
     {
-        $entry = $this->logEntry(); $item = InventoryItem::find($inventoryItemId); if (! $entry || ! $item) return;
+        $entry = $this->logEntry(); $item = $this->inventoryScopeQuery()->find($inventoryItemId); if (! $entry || ! $item) return;
         $disposition = array_key_exists($disposition, StreamerLogItem::DISPOSITIONS) ? $disposition : 'sold';
         $line = $entry->items()->where('inventory_item_id', $item->id)->where('disposition', $disposition)->first();
         if ($line) $line->increment('quantity', max(1, $quantity));

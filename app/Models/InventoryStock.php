@@ -58,6 +58,14 @@ class InventoryStock extends Model
      */
     protected static function booted(): void
     {
+        // A personal override also limits relation loads and stock totals.
+        static::addGlobalScope('streamerLocationOverride', function (\Illuminate\Database\Eloquent\Builder $query) {
+            $user = auth()->user();
+            if (!$user?->isStreamer() || $user->isAdmin() || $user->isOwner()) return;
+            $ids = \App\Support\InventoryVisibility::overrideForStreamer($user->streamer?->id);
+            if ($ids !== null) $query->whereIn($query->qualifyColumn('inventory_location_id'), $ids);
+        });
+
         static::addGlobalScope(
             self::LIVE_PRODUCT_SCOPE,
             fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereHas('item'),

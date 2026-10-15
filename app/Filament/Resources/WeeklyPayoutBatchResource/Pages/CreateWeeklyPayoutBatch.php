@@ -45,7 +45,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->createOptionForm([
                         \Filament\Forms\Components\TextInput::make('name')->label('Type name')->required()->maxLength(100),
                         \Filament\Forms\Components\Select::make('kind')->label('What it pays')
-                            ->options(['' => 'Wages + profit share'] + \App\Support\PayRunSchedules::KINDS)
+                            ->options(['' => 'All pay at once (wages + profit share)'] + \App\Support\PayRunSchedules::KINDS)
                             ->default('')->selectablePlaceholder(false),
                     ])
                     ->createOptionUsing(function (array $data): int {
@@ -67,7 +67,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     }),
                 \Filament\Forms\Components\Select::make('kind')
                     ->label('What this run pays')
-                    ->options(['' => 'Wages + profit share'] + \App\Support\PayRunSchedules::KINDS)
+                    ->options(['' => 'All pay at once (wages + profit share)'] + \App\Support\PayRunSchedules::KINDS)
                     ->default(fn () => self::presetType()?->kind ?? '')
                     ->selectablePlaceholder(false)
                     ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => filled($get('pay_run_type_id')))

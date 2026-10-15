@@ -55,7 +55,7 @@ class PayRunSchedules
 
     public static function label(?string $kind): string
     {
-        return $kind === null ? 'All pay' : (self::KINDS[$kind] ?? $kind);
+        return $kind === null ? 'All pay at once' : (self::KINDS[$kind] ?? $kind);
     }
 
     /** Which run type pays this line. */

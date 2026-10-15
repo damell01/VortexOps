@@ -185,9 +185,11 @@ function gotcha(node) {
         if (toast.dataset.vxGotcha || toast.closest('.fi-no-database, .fi-modal')) return;
         toast.dataset.vxGotcha = '1';
         toast.classList.add('vx-gotcha');
-        const ball = document.createElement('img');
-        ball.src = '/img/pokeball.svg'; ball.alt = ''; ball.className = 'vx-gotcha-ball';
-        toast.querySelector('.fi-no-notification-icon')?.before(ball);
+        // The ball wobbles, then turns into a check — the same moment as a submitted report, in miniature.
+        const icon = document.createElement('span');
+        icon.className = 'vx-gotcha-icon'; icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = '<span class="vx-gotcha-ball"></span><span class="vx-gotcha-check"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7" /></svg></span>';
+        toast.querySelector('.fi-no-notification-icon')?.before(icon);
         const word = document.createElement('span');
         word.className = 'vx-gotcha-word'; word.textContent = 'Gotcha!';
         toast.querySelector('.fi-no-notification-text')?.prepend(word);

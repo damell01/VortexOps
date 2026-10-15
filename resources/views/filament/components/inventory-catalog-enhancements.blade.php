@@ -4,41 +4,11 @@
    not the viewport. This stays sane with the Filament sidebar open or closed. */
 .vx-catalog-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
-    gap: 12px !important;
+    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)) !important;
+    gap: 10px !important;
 }
 
-/* Keep cards substantial enough for image, stock info and controls, but stop
-   them becoming giant 4-column tiles on a desktop monitor. */
-.vx-product-card .vx-product-image {
-    aspect-ratio: 4 / 3 !important;
-}
-
-.vx-product-card .vx-product-body {
-    padding: 12px !important;
-    gap: 7px !important;
-}
-
-.vx-product-card .vx-product-title {
-    font-size: .9rem !important;
-    line-height: 1.18rem !important;
-}
-
-.vx-product-card .vx-card-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 7px !important;
-    padding: 10px !important;
-}
-
-.vx-product-card .vx-card-action {
-    min-height: 40px !important;
-    padding: 7px 8px !important;
-    font-size: .7rem !important;
-}
-
-.vx-product-card .vx-card-action.scan {
-    grid-column: 1 / -1 !important;
-}
+/* Card density (image, body, actions) lives with the page: list-inventory-items.blade.php. */
 
 /* The old manual button remains in the DOM as the Livewire trigger, but users
    no longer need to click it. The observer below activates it automatically. */
@@ -75,24 +45,6 @@
         gap: 9px !important;
     }
 
-    .vx-product-card .vx-product-body {
-        padding: 10px !important;
-    }
-
-    .vx-product-card .vx-product-title {
-        font-size: .82rem !important;
-        line-height: 1.08rem !important;
-    }
-
-    .vx-product-card .vx-card-actions {
-        gap: 6px !important;
-        padding: 8px !important;
-    }
-
-    .vx-product-card .vx-card-action {
-        min-height: 42px !important;
-        font-size: .69rem !important;
-    }
 }
 </style>
 

@@ -9,14 +9,44 @@
 .vx-product-card{position:relative}.vx-select-check{position:absolute;top:8px;left:8px;z-index:2;display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:rgb(255 255 255/.92);box-shadow:0 1px 3px rgb(0 0 0/.15);cursor:pointer}.dark .vx-select-check{background:rgb(17 24 39/.9)}.vx-select-check input{width:18px;height:18px;border-radius:5px;accent-color:var(--primary-600);cursor:pointer}.vx-product-card.is-selected{border-color:var(--primary-500);box-shadow:0 0 0 2px var(--primary-500)}
 .vx-bulk-bar{position:sticky;bottom:12px;z-index:20;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid var(--vxw-border);border-radius:14px;background:var(--vxw-surface);box-shadow:var(--vxw-shadow-pop)}@media(max-width:1023px){.vx-bulk-bar{bottom:calc(68px + env(safe-area-inset-bottom,0px))}}
 .vx-select-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+/* Compact pass: one heading, a row of shortcuts, short stat tiles and small cards, so more fit and the page scrolls less. */
+.fi-page-content:has(.vx-inventory-list){row-gap:1rem}
+.vx-inv-shortcuts{display:flex;flex-wrap:wrap;gap:8px}
+.vx-inv-shortcuts>a{display:inline-flex!important;align-items:center;gap:.4rem;padding:.45rem .8rem!important;border-radius:.65rem!important;font-size:.8rem!important;line-height:1.1rem}
+.vx-inv-shortcuts>a svg{width:1rem;height:1rem;margin:0!important;flex:none}
+.vx-inventory-list.space-y-3>*+*,.vx-inventory-list.sm\:space-y-5>*+*{margin-top:.75rem!important}
+.vx-health{min-height:0;padding:9px 14px;border-radius:12px}.vx-health strong{font-size:1.3rem;line-height:1.6rem}.vx-health-meta{margin-top:0}
+.vx-inventory-list>section.rounded-2xl{padding:.6rem .75rem!important}
+.vx-inv-input{min-height:38px;padding:.45rem .75rem}
+.vx-product-card{border-radius:.85rem}
+.vx-product-image{aspect-ratio:16/9}
+.vx-product-image img{padding:.4rem}
+.vx-product-card .vx-product-body{padding:.6rem .7rem;gap:.35rem}
+.vx-product-card .vx-product-title{font-size:.84rem;line-height:1.1rem}
+.vx-product-tags{justify-content:flex-start;gap:.3rem;flex-wrap:nowrap;min-width:0}.vx-product-tags .vx-product-meta{margin-left:auto}
+.vx-product-tags .vx-stock{padding:.15rem .45rem;font-size:.64rem;white-space:nowrap}
+.vx-product-where{margin-top:-.1rem}
+.vx-card-figs{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1.15fr);border:1px solid #eef2f7;border-radius:.6rem;background:#f8fafc;overflow:hidden;margin-top:auto}
+.vx-card-fig{min-width:0;padding:.28rem .4rem}.vx-card-fig+.vx-card-fig{border-left:1px solid #e5e7eb}
+.vx-card-fig .vx-metric-value{font-size:.72rem;letter-spacing:-.01em;margin-top:0;overflow:hidden;text-overflow:ellipsis}
+.vx-card-fig.is-qty{background:#ecfdf5}.vx-card-fig.is-qty .vx-metric-value{color:#047857}.vx-card-fig.is-qty.low{background:#fff7ed}.vx-card-fig.is-qty.low .vx-metric-value{color:#c2410c}.vx-card-fig.is-qty.out .vx-metric-value{color:#64748b}
+.dark .vx-card-figs{background:#182235;border-color:#334155}.dark .vx-card-fig+.vx-card-fig{border-color:#334155}.dark .vx-card-fig.is-qty{background:#052e2b}.dark .vx-card-fig.is-qty .vx-metric-value{color:#6ee7b7}.dark .vx-card-fig.is-qty.low{background:#3b1d08}.dark .vx-card-fig.is-qty.low .vx-metric-value{color:#fdba74}
+/* Actions: one row of icon buttons; the name shows on hover and is read out. */
+.vx-product-card .vx-card-actions{display:flex!important;flex-wrap:nowrap;gap:4px;padding:.45rem .55rem .55rem!important}
+.vx-product-card .vx-card-action{flex:1 1 0;min-width:0;min-height:30px!important;padding:0!important;grid-column:auto!important;border-radius:.5rem}
+.vx-product-card .vx-card-action svg{width:15px;height:15px}
+.vx-product-card .vx-card-action span{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.vx-select-check{width:30px;height:30px;top:6px;left:6px;border-radius:8px}.vx-select-check input{width:16px;height:16px}
+@media(max-width:639px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-product-card .vx-product-image{aspect-ratio:16/9;height:auto}.vx-product-card .vx-product-title{display:-webkit-box;-webkit-line-clamp:2;font-size:.84rem;line-height:1.1rem;overflow:hidden}.vx-product-card .vx-product-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx-product-tags{flex-wrap:nowrap}.vx-product-tags .vx-product-meta{display:none}.vx-product-card .vx-card-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))}.vx-product-card .vx-card-action{min-height:34px!important}.vx-card-figs{grid-template-columns:1fr 1fr}.vx-card-fig:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e5e7eb}}
+@media(max-width:359px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
  <div class="vx-inventory-mobile-intro sm:hidden"><h2 class="text-2xl font-bold text-gray-950 dark:text-white">All Inventory</h2><p class="mt-1 text-sm text-gray-500">Find products, check stock and manage inventory.</p></div>
  <section class="vx-inventory-desktop-tools">
-  <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-   <div><h2 class="text-3xl font-bold tracking-tight text-gray-950 dark:text-white">All Inventory</h2><p class="mt-1 text-sm text-gray-500">Browse your inventory, check stock, and take quick actions.</p></div>
-   <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+  {{-- The page header already names the page; this row is just the shortcuts. --}}
+  <div>
+   <div class="vx-inv-shortcuts">
     <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
     <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
     <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
@@ -86,14 +116,12 @@
       <div class="vx-product-body">
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
-       <div class="vx-product-row"><span class="vx-type">{{ $item->is_container ? 'Case / Container' : 'Item' }}</span>@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
-       <div class="vx-product-row mt-auto"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-product-meta">{{ $locations ?: 'No stocked location' }}</span></div>
-       <div class="vx-card-metrics">
-        <div class="vx-qty-metric {{ $stockState }}"><div class="vx-metric-label">Qty</div><div class="text-sm font-black">{{ number_format($onHand) }}</div></div>
-        <div class="vx-cost-metrics">
-         <div class="vx-cost-metric"><div class="vx-metric-label">Avg. Cost</div><div class="vx-metric-value">${{ number_format((float)$item->costBasis(),2) }}</div></div>
-         <div class="vx-cost-metric"><div class="vx-metric-label">Total Value</div><div class="vx-metric-value">${{ number_format($onHand*(float)$item->costBasis(),2) }}</div></div>
-        </div>
+       <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
+       <div class="vx-product-meta vx-product-where" title="{{ $locations ?: 'No stocked location' }}"><x-heroicon-m-map-pin class="inline h-3 w-3 align-[-2px]" /> {{ $locations ?: 'No stocked location' }}</div>
+       <div class="vx-card-figs">
+        <div class="vx-card-fig is-qty {{ $stockState }}"><div class="vx-metric-label">Qty</div><div class="vx-metric-value">{{ number_format($onHand) }}</div></div>
+        <div class="vx-card-fig"><div class="vx-metric-label">Avg. cost</div><div class="vx-metric-value" title="Average cost ${{ number_format((float)$item->costBasis(),2) }}">${{ number_format((float)$item->costBasis(),2) }}</div></div>
+        <div class="vx-card-fig"><div class="vx-metric-label">Value</div><div class="vx-metric-value" title="Total value ${{ number_format($onHand*(float)$item->costBasis(),2) }}">${{ number_format($onHand*(float)$item->costBasis(),2) }}</div></div>
        </div>
       </div>
       <div class="vx-card-actions">

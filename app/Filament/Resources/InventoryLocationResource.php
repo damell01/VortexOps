@@ -86,7 +86,7 @@ class InventoryLocationResource extends Resource
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['streamer', 'channel', 'business']);
+        $query = parent::getEloquentQuery()->with(['streamer', 'channel', 'businesses']);
         $user  = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -95,7 +95,8 @@ class InventoryLocationResource extends Resource
             $businessId = $user->streamer?->business_id;
             $query->where(function (Builder $q) use ($streamerId, $businessId): void {
                 $q->where(fn (Builder $shared) => $shared->whereNull('streamer_id')
-                    ->where(fn (Builder $b) => $b->whereNull('business_id')->when($businessId, fn ($w) => $w->orWhere('business_id', $businessId))))
+                    ->where(fn (Builder $b) => $b->whereDoesntHave('businesses')
+                        ->when($businessId, fn ($w) => $w->orWhereHas('businesses', fn ($x) => $x->whereKey($businessId)))))
                   ->orWhere('streamer_id', $streamerId);
             });
         }
@@ -231,24 +232,25 @@ class InventoryLocationResource extends Resource
                         ->hiddenLabel()
                         ->options([
                             'everyone' => 'Everyone',
-                            'business' => 'One business',
+                            'business' => 'Certain businesses',
                             'streamer' => 'One streamer',
                         ])
                         ->descriptions([
                             'everyone' => 'Shared by every business that has no storage of its own.',
-                            'business' => 'Only that business\'s streamers, e.g. Estill\'s own allocation.',
+                            'business' => 'Only their streamers. Pick one (Estill\'s own allocation) or several to share it.',
                             'streamer' => 'Only this person.',
                         ])
                         ->inline()
                         ->default('everyone')
                         ->live()
                         ->afterStateHydrated(fn ($component, ?InventoryLocation $record) => $record ? $component->state($record->audience()) : null),
-                    Select::make('business_id')
-                        ->label('Business')
+                    \Filament\Forms\Components\CheckboxList::make('business_ids')
+                        ->label('Shared by')
                         ->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all())
-                        ->native(false)
+                        ->columns(['default' => 1, 'md' => 3])
                         ->required(fn ($get) => $get('audience') === 'business')
-                        ->visible(fn ($get) => $get('audience') === 'business'),
+                        ->visible(fn ($get) => $get('audience') === 'business')
+                        ->afterStateHydrated(fn ($component, ?InventoryLocation $record) => $record ? $component->state(array_map('strval', $record->sharedBusinessIds())) : null),
                     Select::make('streamer_id')
                         ->label('Streamer')
                         ->options(fn () => static::streamerOptions())
@@ -295,18 +297,17 @@ class InventoryLocationResource extends Resource
     public static function applyAudience(array $data): array
     {
         $audience = $data['audience'] ?? 'everyone';
-        unset($data['audience']);
+        $businessIds = $audience === 'business' ? array_values(array_map('intval', (array) ($data['business_ids'] ?? []))) : [];
+        unset($data['audience'], $data['business_ids']);
 
         if ($audience === 'streamer' && ! empty($data['streamer_id'])) {
             $data['business_id'] = \App\Models\Streamer::whereKey($data['streamer_id'])->value('business_id');
-        } elseif ($audience === 'business') {
-            $data['streamer_id'] = null;
         } else {
             $data['streamer_id'] = null;
             $data['business_id'] = null;
         }
 
-        return $data;
+        return ['data' => $data, 'business_ids' => $businessIds];
     }
 
     public static function table(Table $table): Table
@@ -386,9 +387,13 @@ class InventoryLocationResource extends Resource
                     ->options(InventoryLocation::typeLabels()),
                 SelectFilter::make('status')
                     ->options(InventoryLocation::statusLabels()),
-                SelectFilter::make('business_id')
+                SelectFilter::make('business')
                     ->label('Business')
-                    ->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all()),
+                    ->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all())
+                    // Shared with it, or a streamer's own location in it.
+                    ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null)
+                        ? $query->where(fn (Builder $q) => $q->whereHas('businesses', fn ($b) => $b->whereKey($data['value']))->orWhere('business_id', $data['value']))
+                        : $query),
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->relationship('streamer', 'name'),

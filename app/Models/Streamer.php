@@ -71,7 +71,7 @@ class Streamer extends Model
         // the receiving warehouse, as every streamer always has.
         if (InventoryLocation::businessHasPool($businessId)) {
             return $relation->orWhere(function ($query) use ($businessId) {
-                $query->where('inventory_locations.business_id', $businessId)
+                $query->whereHas('businesses', fn ($b) => $b->whereKey($businessId))
                     ->whereNull('inventory_locations.streamer_id')
                     ->where('inventory_locations.status', 'active')
                     ->whereIn('inventory_locations.type', InventoryLocation::POOL_TYPES);
@@ -81,7 +81,7 @@ class Streamer extends Model
         $defaultWarehouseId = InventoryLocation::defaultReceivingId();
 
         return $relation->orWhere(function ($query) use ($defaultWarehouseId) {
-            $query->whereNull('inventory_locations.business_id')
+            $query->whereDoesntHave('businesses')
                 ->where(function ($shared) use ($defaultWarehouseId) {
                     $shared->where(fn ($w) => $w->where('inventory_locations.type', 'main_storage')->where('inventory_locations.status', 'active'));
                     if ($defaultWarehouseId) {

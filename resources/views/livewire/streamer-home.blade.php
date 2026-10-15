@@ -29,7 +29,7 @@
         <span class="vsh-hero-ball" aria-hidden="true"></span>
         <div class="vsh-hero-copy">
             <p class="vsh-hero-date">{{ \App\Support\BusinessTime::local()->format('l, F j, Y') }}</p>
-            <h1>Welcome back, {{ $first }}! <span class="vsh-wave" aria-hidden="true">👋</span></h1>
+            <h1>Welcome back, <span class="whitespace-nowrap">{{ $first }}! <span class="vsh-wave" aria-hidden="true">👋</span></span></h1>
             <p>Log your shows, track your hours, and stay on top of your reports.</p>
         </div>
         <div class="vsh-next">
@@ -68,6 +68,16 @@
     </header>
 
     {{-- Their numbers for a period. --}}
+    <div class="vsh-numbers-head">
+        <h2>Your numbers</h2>
+        <label class="vsh-period">
+            <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
+            <span class="sr-only">Period</span>
+            <select wire:model.live="period">
+                @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+            </select>
+        </label>
+    </div>
     <div class="vsh-stats">
         @foreach ([
             ['heroicon-o-calendar-days', 'violet', 'Shows ' . $n['label'], number_format($n['shows']), null],
@@ -83,13 +93,6 @@
                 </div>
             </div>
         @endforeach
-        <label class="vsh-period">
-            <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
-            <span class="sr-only">Period</span>
-            <select wire:model.live="period">
-                @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-            </select>
-        </label>
     </div>
 
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
@@ -250,12 +253,17 @@
     .vsh-hero-mon { position:absolute; right:1.5rem; bottom:-.3rem; height:8.25rem; width:auto; image-rendering:pixelated; filter: drop-shadow(0 10px 16px rgb(0 0 0 / .35)); animation: vsh-bob 3.2s ease-in-out 2; }
     @keyframes vsh-bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
 
+    .vsh-numbers-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:-.25rem; }
+    .vsh-numbers-head h2 { font-size:1.05rem; font-weight:700; }
+    .vsh-numbers-head .vsh-period { min-height:2.4rem; }
     .vsh-stats { display:grid; gap:.9rem; grid-template-columns: repeat(2, minmax(0,1fr)); }
-    @media (min-width: 1100px) { .vsh-stats { grid-template-columns: repeat(4, minmax(0,1fr)) auto; } }
-    .vsh-stat { display:flex; align-items:center; gap:1rem; padding:1.1rem 1.2rem; border:1px solid var(--vsh-line); border-radius:1rem; background: var(--vsh-card); min-width:0; }
+    @media (min-width: 1000px) { .vsh-stats { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+    .vsh-stat { display:flex; align-items:center; gap:.9rem; padding:1rem 1.1rem; border:1px solid var(--vsh-line); border-radius:1rem; background: var(--vsh-card); min-width:0; }
     .vsh-stat-icon { display:grid; place-items:center; flex:none; width:3rem; height:3rem; border-radius:.85rem; color: var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); }
     .vsh-stat-label { font-size:.85rem; color: var(--vsh-muted); }
-    .vsh-stat-value { display:flex; align-items:center; gap:.4rem; font-size:1.5rem; font-weight:800; font-variant-numeric: tabular-nums; }
+    .vsh-stat > div { flex:1; }
+    .vsh-stat-value { display:flex; flex-wrap:wrap; align-items:center; gap:.15rem .4rem; font-size:clamp(1.1rem, 1.55vw, 1.5rem); line-height:1.2; font-weight:800; font-variant-numeric: tabular-nums; overflow-wrap:anywhere; }
+    .vsh-tip { flex:none; display:inline-flex; }
     .vsh-tip { color: var(--vsh-muted); cursor: help; }
     .vsh-period { display:inline-flex; align-items:center; gap:.5rem; align-self:start; min-height:2.75rem; padding:0 .25rem 0 .85rem; border:1px solid var(--vsh-line); border-radius:.8rem; background: var(--vsh-card); }
     .vsh-period select { border:0 !important; background-color:transparent !important; outline:0; font-size:.875rem; font-weight:500; padding:.5rem 2rem .5rem .25rem; box-shadow:none; }
@@ -342,7 +350,8 @@
         .vsh-stat-value { font-size:1.15rem; }
         .vsh-tools { width:100%; display:grid; grid-template-columns:1fr; }
         .vsh-search { min-width:0; }
-        .vsh-period { width:100%; grid-column: 1 / -1; padding:0; border:0; background:transparent; min-height:0; }
+        .vsh-tools .vsh-period { width:100%; grid-column: 1 / -1; }
+        .vsh-period { padding:0; border:0; background:transparent; min-height:0; }
         .vsh-period > svg { display:none; }
         .vsh-period select { flex:1; }
     }

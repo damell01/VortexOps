@@ -251,7 +251,7 @@ class PayrollManual
                     'shot' => 'pay-run-types.png',
                     'fields' => [
                         ['Type name', 'What you call it, e.g. Weekly wages or Monthly profit share.'],
-                        ['What it pays', 'Hourly & wages, Profit share, or Wages + profit share.'],
+                        ['What it pays', 'Hourly & wages (hours, shipments, sales splits), Profit share (shares only, usually monthly), Tips, or All pay at once.'],
                         ['Available for new runs', 'Shows the type when creating a run.'],
                         ['Use a schedule to suggest dates', 'Fills in each run\'s dates from a frequency and start date.'],
                         ['Automatically create draft runs', 'Makes draft runs on the schedule. Leave off to create runs yourself.'],

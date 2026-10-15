@@ -37,7 +37,7 @@ class HelpContent
                         'You can also set pay from a user\'s profile, in its Pay section.',
                     ]],
                     ['heading' => '4. Pay run types', 'items' => [
-                        'In "Pay run types", add the runs you pay: weekly wages + profit share, and a monthly Tips run if a business pays tips monthly.',
+                        'In "Pay run types", add the runs you pay: weekly All pay at once (or separate wage and profit-share runs, like VCX), and a monthly Tips run if a business pays tips monthly.',
                         'Turn on a schedule to have dates suggested, and auto-create if you want runs made for you.',
                     ]],
                     ['heading' => '5. Each week', 'items' => [
@@ -55,17 +55,17 @@ class HelpContent
                 'intro' => 'Estill has two kinds of streamer, pays tips monthly, keeps its own stock, and moves its share to a separate account.',
                 'sections' => [
                     ['heading' => 'Independent streamers', 'items' => [
-                        'Estill\'s team default is a sales split: the business keeps a %, the streamer gets the rest, paid weekly with wages.',
+                        'Estill\'s team default is a sales split: the business keeps a %, the streamer gets the rest, paid weekly.',
                         'Change a person\'s % in their pay; change one show\'s % under that show → Financials → "Business keeps (this show only)".',
                     ]],
                     ['heading' => 'Hourly streamers', 'items' => [
-                        'Pay type "Hourly + shipments + profit share": hours × rate and envelopes and packages at their rates, paid weekly; plus a share of (net − product cost − burden − hourly − shipment pay), paid on the profit-share run like VCX.',
+                        'Pay type "Hourly + shipments + profit share": hours × rate and envelopes and packages at their rates, plus a share of (net − product cost − burden − hourly − shipment pay). All paid weekly.',
                         'Give each their own stock: Inventory → Locations → "Give a streamer their own location".',
                     ]],
                     ['heading' => 'Stock, tips and the transfer', 'items' => [
                         'Inventory → Locations → "Set up business storage" for Estill, then move Estill\'s stock in. Its streamers then sell from it, not the shared Main Storage.',
-                        'Pay run types: weekly "Hourly & wages" (sales splits, hours, shipments), monthly "Profit share", monthly "Tips". Businesses → Estill → "Pay tips monthly".',
-                        'Each weekly wages run\'s Business account transfer = product cost + (Whatnot net − all pay for those shows except tips).',
+                        'Pay run types: a weekly "All pay at once" run (sales splits, hours, shipments and shares) and a monthly "Tips" run. Businesses → Estill → "Pay tips monthly".',
+                        'Each weekly pay run\'s Business account transfer = product cost + (Whatnot net − all pay for those shows except tips).',
                     ]],
                 ],
                 'related' => ['guide.payroll', 'guide.inventory'],

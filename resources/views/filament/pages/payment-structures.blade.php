@@ -107,7 +107,7 @@
                             <option value="hourly">Hourly wages — hours worked × hourly rate</option>
                             <option value="shift_share">Hourly + shipments + profit share</option>
                         </select>
-                        <span class="mt-1 block text-xs text-gray-500">For Estill’s hourly streamers, choose Hourly + shipments + profit share: hours × rate, envelopes and packages at their own rates, and a share of (net sales − product cost − burden − hourly − shipment pay).</span></label>
+                        <span class="mt-1 block text-xs text-gray-500">For Estill’s hourly streamers, choose Hourly + shipments + profit share: hours × rate, envelopes and packages at their own rates, and a share of (net sales − product cost − burden − hourly − shipment pay). Hours and shipments and the share are separate lines: a weekly "All pay at once" run pays both; a business that pays shares monthly uses separate wage and profit-share runs.</span></label>
                     @if(($member_override_enabled['payout_type'] ?? false) ? (($member_override_values['payout_type'] ?? null) === 'shift_share') : (($editingMember->effectiveCompensation()['effective']['payout_type'] ?? null) === 'shift_share'))
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.pwe_rate">Pay per envelope (PWE)</span><input wire:model="member_override_values.pwe_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.label_rate">Pay per package</span><input wire:model="member_override_values.label_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
@@ -159,7 +159,7 @@
                         @endif
                         <button type="button" class="text-xs font-semibold text-danger-600" wire:loading.attr="disabled" wire:target="deleteRunType" x-data x-on:click="if (await window.vxConfirm(@js('Delete this pay run type? Existing pay runs are preserved.'))) $wire.deleteRunType({{ $index }})">Delete</button>
                     </div>
-                    <p class="mb-3 text-xs text-gray-500">{{ match ($type['kind'] ?? '') { 'wages' => 'Hourly & wages', 'share' => 'Profit share', 'tips' => 'Tips', default => 'Wages + profit share' } }} · {{ $type['schedule_enabled'] ? (\App\Support\PayRunSchedules::FREQUENCIES[$type['frequency']] ?? 'Scheduled dates') : 'Manual dates' }}</p>
+                    <p class="mb-3 text-xs text-gray-500">{{ match ($type['kind'] ?? '') { 'wages' => 'Hourly & wages', 'share' => 'Profit share', 'tips' => 'Tips', default => 'All pay at once' } }} · {{ $type['schedule_enabled'] ? (\App\Support\PayRunSchedules::FREQUENCIES[$type['frequency']] ?? 'Scheduled dates') : 'Manual dates' }}</p>
                     <details @if(!($type['id'] ?? null)) open @endif><summary class="cursor-pointer text-xs font-semibold text-primary-600">Edit type settings</summary><div class="mt-3">
                     <label class="block"><span class="text-xs font-semibold">Type name</span>
                         <input wire:model="run_types.{{ $index }}.name" maxlength="100" placeholder="e.g. Monthly profit share" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
@@ -167,7 +167,7 @@
                     @error("run_types.$index.name")<p class="text-danger-600">{{ $message }}</p>@enderror
                     <label class="mt-3 block"><span class="text-xs font-semibold">What it pays</span>
                         <select wire:model="run_types.{{ $index }}.kind" class="mt-1 w-full rounded-lg border-[var(--vx-border)] dark:bg-gray-800">
-                            <option value="wages">Hourly & wages</option><option value="share">Profit share</option><option value="tips">Tips (monthly tips lines)</option><option value="">Wages + profit share</option>
+                            <option value="">All pay at once (wages + profit share)</option><option value="wages">Hourly & wages only (hours, shipments, sales splits)</option><option value="share">Profit share only</option><option value="tips">Tips (monthly tips lines)</option>
                         </select>
                     </label>
                     <label class="mt-3 flex items-center gap-2"><input type="checkbox" wire:model="run_types.{{ $index }}.active"> Available for new runs</label>

@@ -247,9 +247,10 @@ class PayoutService
                 // the product and any burden are paid for:
                 //   (net sales − product cost − burden − hourly − shipment pay) × share %
                 //
-                // Paid like VCX: the hours and shipments are wages, on a line
-                // of their own for the weekly run; this line is the profit
-                // share, paid by the profit-share run.
+                // Hours and shipments are wages, on a line of their own; this
+                // line is the profit share. An all-pay run pays both (Estill,
+                // weekly); separate wage and profit-share runs can pay them on
+                // different schedules, as VCX does.
                 $shift = $this->shiftShareWorking($show, $streamer, $logEntry, $hours, $isPrimary || $streamerCount <= 1);
                 $calculatedPayout = $shift['columns']['share'];
                 $calculationNotes = $shift['note'] . $hoursMissingNote;
@@ -259,7 +260,7 @@ class PayoutService
                     'pwe_count' => $shift['pwe'] ?: null,
                     'label_count' => $shift['packages'] ?: null,
                     'calculation_notes' => 'Hourly and shipments for this show: $' . number_format($shift['columns']['hourly_pay'], 2) . ' hourly + $'
-                        . number_format($shift['columns']['shipment_pay'], 2) . ' shipments (wage line; the profit share is paid on its own line)',
+                        . number_format($shift['columns']['shipment_pay'], 2) . ' shipments. The profit share is its own line.',
                 ] : null;
                 $pweCount = $shift['pwe'];
                 $labelCount = $shift['packages'];

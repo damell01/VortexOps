@@ -75,7 +75,7 @@ class HelpTopics
                     'Hourly: Hours Worked × their hourly rate.',
                     'Shipments: envelopes (PWE) × the envelope rate + packages × the package rate.',
                     'Share: (Whatnot net − product cost − burden − hourly − shipment pay) × their share %.',
-                    'Hourly and shipments are paid weekly, on a wage line. The share is its own line, paid by the profit-share run — the same split as VCX.',
+                    'Hours and shipments go on one line, the share on another. A weekly "All pay at once" run pays both; separate wage and profit-share runs can pay them at different times, like VCX.',
                 ],
                 'tips' => [
                     'Example: 4 hrs × $20 = $80; 10 envelopes × $1 + 5 packages × $2 = $20; ($1,000 − $300 − $50 − $80 − $20) × 10% = $55. Pay $155.',
@@ -91,15 +91,15 @@ class HelpTopics
                     'Set the % the business keeps for the team, or per person under their pay.',
                     'For a special show, set "Business keeps (this show only)" on the show\'s Financials tab. It overrides the usual % for that show.',
                 ],
-                'tips' => ['Example: $1,000 net with the business keeping 20% pays the streamer $800.', 'It is their earnings, not a profit share, so the weekly "Hourly & wages" run pays it.'],
+                'tips' => ['Example: $1,000 net with the business keeping 20% pays the streamer $800.', 'It is their earnings, not a profit share, so a wages run pays it as well as an all-pay run.'],
             ],
             'pay.run_types' => [
                 'title' => 'Pay run types',
                 'intro' => 'A run type decides which pay lines a run pays and how often it comes round.',
                 'steps' => [
-                    'Wages + profit share: everything except tips a business pays monthly.',
-                    'Hourly & wages: hourly, shipments, sales splits and other non-share pay.',
-                    'Profit share: profit shares only (including the share of an hourly + shipments + profit share streamer).',
+                    'All pay at once: wages and profit share together, everything except tips a business pays monthly.',
+                    'Hourly & wages only: hours, shipments, sales splits and other non-share pay.',
+                    'Profit share only: profit shares, for a business that pays them on their own schedule (like VCX, monthly).',
                     'Tips: only the tips a business pays monthly. Monthly by default.',
                 ],
                 'tips' => ['A Tips run never clashes with the weekly runs, so their dates can overlap.'],
@@ -118,7 +118,7 @@ class HelpTopics
                 'intro' => 'What to move to the business\'s separate bank account for the shows on this run.',
                 'steps' => [
                     'Product cost: what the stock sold on those shows cost.',
-                    'Business revenue: Whatnot net earnings − all pay for those shows except tips (including profit share paid later on a profit-share run).',
+                    'Business revenue: Whatnot net earnings − all pay for those shows except tips.',
                     'Transfer = product cost + business revenue.',
                 ],
                 'tips' => ['It shows on the run that pays the shows\' wages. Profit-share and Tips runs have none, so no show is counted twice.'],

@@ -183,7 +183,7 @@ class Streamer extends Model
         return ['profit_share' => 'Profit Share', 'package' => 'Package', 'hourly' => 'Hourly', 'flat_rate' => 'Flat Rate',
             'pwe_labels' => 'PWE + Labels', 'hybrid' => 'Hybrid (Hourly + Tips + Profit Share)', 'custom_formula' => 'Custom Formula',
             'sales_split' => 'Sales Split (house keeps a %)', 'shift_share' => 'Hourly + Shipments + Profit Share',
-            'clocked_time' => 'Time not on a show', 'show_hours' => 'Hourly (show)', 'show_tips' => 'Tips (paid monthly)'];
+            'clocked_time' => 'Time not on a show', 'show_hours' => 'Show wages (hourly / shipments)', 'show_tips' => 'Tips (paid monthly)'];
     }
 
     /** Pay types a person can be set to; 'clocked_time' is a pay-run line, not a way to be paid. */

@@ -190,10 +190,12 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
-                // What the little "?" help buttons open (resources/js/help.js).
-                PanelsRenderHook::BODY_END,
-                fn () => auth()->check()
-                    ? new \Illuminate\Support\HtmlString('<script type="application/json" id="vx-help-topics">' . json_encode(\App\Support\HelpTopics::all(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . '</script>')
+                // "How this page works", beside every page's title that has help
+                // written for it (App\Support\HelpContent). The words load on the
+                // first click, from route('help.topics').
+                PanelsRenderHook::PAGE_HEADER_HEADING_AFTER,
+                fn (array $scopes = []) => ($topic = \App\Support\HelpTopics::forPage($scopes))
+                    ? new \Illuminate\Support\HtmlString('<span class="vx-page-help" data-vx-help-url="' . e(route('help.topics')) . '">' . view('components.vx-help', ['topic' => $topic, 'page' => true])->render() . '</span>')
                     : '',
             )
             ->renderHook(

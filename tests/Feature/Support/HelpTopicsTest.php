@@ -2,12 +2,17 @@
 
 namespace Tests\Feature\Support;
 
+use App\Models\User;
+use App\Support\HelpContent;
 use App\Support\HelpTopics;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /** Every "?" in the app opens a topic that exists, and every topic says something. */
 class HelpTopicsTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_every_help_button_points_at_a_written_topic(): void
     {
         $files = array_merge(
@@ -39,7 +44,7 @@ class HelpTopicsTest extends TestCase
         foreach (HelpTopics::all() as $key => $topic) {
             $this->assertNotSame('', trim($topic['title'] ?? ''), $key);
             $this->assertNotSame('', trim($topic['intro'] ?? ''), $key);
-            $this->assertTrue(! empty($topic['steps']) || ! empty($topic['tips']), $key);
+            $this->assertTrue(! empty($topic['steps']) || ! empty($topic['tips']) || ! empty($topic['sections']), $key);
         }
     }
 
@@ -47,5 +52,42 @@ class HelpTopicsTest extends TestCase
     {
         $this->assertStringContainsString('data-vx-help="locations.audience"', HelpTopics::button('locations.audience')->toHtml());
         $this->assertSame('', trim(HelpTopics::button('nope')->toHtml()));
+    }
+
+    public function test_every_page_and_related_guide_points_at_written_help(): void
+    {
+        foreach (HelpContent::pageMap() as $class => $entry) {
+            $this->assertTrue(class_exists($class), "{$class} does not exist");
+            foreach ((array) $entry as $topic) {
+                $this->assertNotNull(HelpTopics::get($topic), "{$class} points at missing help '{$topic}'");
+            }
+        }
+        foreach (HelpTopics::all() as $key => $topic) {
+            foreach ($topic['related'] ?? [] as $related) {
+                $this->assertNotNull(HelpTopics::get($related), "{$key} links to missing help '{$related}'");
+            }
+            foreach ($topic['sections'] ?? [] as $section) {
+                $this->assertNotEmpty($section['items'] ?? [], "{$key}: an empty section");
+            }
+        }
+    }
+
+    public function test_a_page_finds_its_help_by_page_then_resource_and_by_role(): void
+    {
+        $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
+
+        $this->assertSame('page.inbox', HelpTopics::forPage([\App\Filament\Resources\StreamerLogResource\Pages\ListStreamerLogEntries::class, \App\Filament\Resources\StreamerLogResource::class]));
+        $this->assertSame('page.locations', HelpTopics::forPage([\App\Filament\Resources\InventoryLocationResource\Pages\EditInventoryLocation::class, \App\Filament\Resources\InventoryLocationResource::class]));
+        $this->assertSame('page.admin-dashboard', HelpTopics::forPage([\App\Filament\Pages\DashboardImproved::class]));
+        $this->assertNull(HelpTopics::forPage([\App\Filament\Pages\LogViewer::class]));
+    }
+
+    public function test_the_words_load_for_a_signed_in_user_only(): void
+    {
+        $this->get(route('help.topics'))->assertRedirect();
+
+        $topics = $this->actingAs(User::factory()->create())->getJson(route('help.topics'))->assertOk()->json();
+
+        $this->assertSame('Setting up payroll', $topics['guide.payroll']['title']);
     }
 }

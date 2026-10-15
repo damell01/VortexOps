@@ -28,7 +28,7 @@
     <header class="vsh-hero">
         <span class="vsh-hero-ball" aria-hidden="true"></span>
         <div class="vsh-hero-copy">
-            <p class="vsh-hero-date">{{ \App\Support\BusinessTime::local()->format('l, F j, Y') }}</p>
+            <p class="vsh-hero-date">{{ \App\Support\BusinessTime::local()->format('l, F j, Y') }}<x-vx-help topic="page.my-dashboard" :page="true" /></p>
             <h1>Welcome back, <span class="whitespace-nowrap">{{ $first }}! <span class="vsh-wave" aria-hidden="true">👋</span></span></h1>
             <p>Log your shows and keep your reports up to date.</p>
         </div>
@@ -276,6 +276,8 @@
         background: radial-gradient(circle at 50% 50%, transparent 0 1.2rem, #fff 1.2rem 1.6rem, transparent 1.6rem), linear-gradient(transparent 46%, #fff 46% 54%, transparent 54%); border:.4rem solid #fff; }
     .vsh-hero-copy { position:relative; flex:1 1 20rem; min-width:0; padding-left:1.5rem; }
     .vsh-hero-date { font-size:.85rem; opacity:.85; font-weight:500; }
+    .vsh-hero .vx-help-btn--page { margin-left:.6rem; background: rgb(255 255 255 / .16); color:#fff; vertical-align:0; }
+    .vsh-hero .vx-help-btn--page:hover { background: rgb(255 255 255 / .26); }
     .vsh-hero h1 { margin:.2rem 0 .35rem; font-size:clamp(1.6rem, 3vw, 2.4rem); font-weight:800; line-height:1.1; letter-spacing:-.02em; }
     .vsh-hero-copy > p:last-child { opacity:.85; }
     .vsh-wave { display:inline-block; transform-origin: 70% 80%; animation: vsh-wave 1.6s ease-in-out 1 .4s; }

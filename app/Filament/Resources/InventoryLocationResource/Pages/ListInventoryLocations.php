@@ -19,11 +19,6 @@ class ListInventoryLocations extends ListRecords
 
     protected static string $resource = InventoryLocationResource::class;
 
-    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
-    {
-        return new \Illuminate\Support\HtmlString('Inventory Locations' . \App\Support\HelpTopics::button('locations.overview')->toHtml());
-    }
-
     public function getSubheading(): ?string
     {
         return 'Where stock lives, and who sells from it. Streamers use their own locations plus their business\'s storage, which can be shared by several businesses; a business with no storage of its own uses the general Main Storage.';

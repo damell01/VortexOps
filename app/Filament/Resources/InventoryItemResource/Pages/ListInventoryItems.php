@@ -67,11 +67,6 @@ class ListInventoryItems extends ListRecords
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
-
-    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
-    {
-        return new \Illuminate\Support\HtmlString('All Inventory' . \App\Support\HelpTopics::button('inventory.catalog')->toHtml());
-    }
     public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or receive inventory without opening each item.'; }
     public function getBreadcrumbs(): array { return []; }
 

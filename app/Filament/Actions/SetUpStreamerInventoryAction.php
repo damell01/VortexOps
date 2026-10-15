@@ -20,6 +20,88 @@ use Filament\Notifications\Notification;
  */
 class SetUpStreamerInventoryAction
 {
+    /**
+     * "Give each of them" — the optional source and items for setting up many
+     * people at once. Each person gets every line.
+     *
+     * @return list<\Filament\Schemas\Components\Component|\Filament\Forms\Components\Field>
+     */
+    public static function stockEachFields(): array
+    {
+        $setup = fn () => app(StreamerInventorySetup::class);
+
+        return [
+            \Filament\Forms\Components\Toggle::make('stock_each')->label('Give each of them some stock now')->live(),
+            Select::make('from_location_id')->label('Take stock from')
+                ->options(fn () => $setup()->sources()->pluck('name', 'id')->all())
+                ->default(fn () => $setup()->defaultSource(null)?->id)
+                ->native(false)->live()
+                ->visible(fn ($get) => (bool) $get('stock_each'))
+                ->required(fn ($get) => (bool) $get('stock_each'))
+                ->afterStateUpdated(fn ($set) => $set('lines', [])),
+            Repeater::make('lines')->label('Each person gets')
+                ->schema([
+                    Select::make('inventory_item_id')->label('Item')
+                        ->options(fn ($get) => $setup()->itemOptions((int) $get('../../from_location_id')))
+                        ->searchable()->native(false)->required()->columnSpan(['sm' => 2]),
+                    TextInput::make('quantity')->label('Each')->numeric()->minValue(0.01)->default(1)->required(),
+                ])
+                ->columns(['default' => 1, 'sm' => 3])
+                ->default([])
+                ->addActionLabel('Add an item')
+                ->visible(fn ($get) => (bool) $get('stock_each') && filled($get('from_location_id'))),
+        ];
+    }
+
+    /** Run a many-people setup from a form's data and say how it went. */
+    public static function runMany(iterable $streamers, array $data): void
+    {
+        $setup = app(StreamerInventorySetup::class);
+        $from = ! empty($data['stock_each']) && ! empty($data['from_location_id']) ? InventoryLocation::find($data['from_location_id']) : null;
+        $summary = $setup->setUpMany($streamers, $from, $from ? array_values($data['lines'] ?? []) : []);
+
+        Notification::make()->title('Inventory set up')->body(StreamerInventorySetup::describe($summary))
+            ->{$summary['problems'] ? 'warning' : 'success'}()->send();
+    }
+
+    /** Set up everyone in a business (or every streamer), from the Team list. */
+    public static function forBusiness(string $name = 'setUpInventoryForBusiness'): Action
+    {
+        $setup = fn () => app(StreamerInventorySetup::class);
+
+        return Action::make($name)
+            ->label('Set up inventory for a business')
+            ->icon('heroicon-o-building-storefront')
+            ->color('gray')
+            ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+            ->modalHeading('Set up inventory for a whole business')
+            ->modalDescription('Every active streamer in it gets their own location ("Name\'s Inventory"). Anyone who already has one keeps it.')
+            ->modalWidth('2xl')
+            ->modalSubmitActionLabel('Set them up')
+            // A business's own "Set up inventory" link opens this with it chosen.
+            ->fillForm(fn (array $arguments) => [
+                'business_id' => (string) ($arguments['business'] ?? (\App\Support\BusinessContext::currentId() ?: 'all')),
+                'stock_each' => false,
+                'from_location_id' => $setup()->defaultSource(null)?->id,
+                'lines' => [],
+            ])
+            ->schema([
+                Select::make('business_id')->label('Business')
+                    ->options(fn () => ['all' => 'All streamers'] + \App\Models\Business::ordered()->pluck('name', 'id')->all())
+                    ->native(false)->required()->live()
+                    ->helperText(function ($get) use ($setup) {
+                        $people = $setup()->streamersFor($get('business_id') === 'all' ? null : (int) $get('business_id'));
+                        $have = $people->filter(fn ($s) => $setup()->ownLocation($s))->count();
+
+                        return $people->count() . ' active ' . \Illuminate\Support\Str::plural('streamer', $people->count()) . ($have ? " · {$have} already set up" : '');
+                    }),
+                ...static::stockEachFields(),
+            ])
+            ->action(function (array $data) use ($setup): void {
+                static::runMany($setup()->streamersFor($data['business_id'] === 'all' ? null : (int) $data['business_id']), $data);
+            });
+    }
+
     public static function make(string $name = 'setUpInventory'): Action
     {
         $setup = fn () => app(StreamerInventorySetup::class);

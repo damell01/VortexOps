@@ -341,18 +341,12 @@ class StreamerResource extends Resource
                         ->label('Set up inventory')
                         ->icon('heroicon-o-archive-box-arrow-down')
                         ->visible(fn () => auth()->user()?->isAdmin() ?? false)
-                        ->requiresConfirmation()
                         ->modalHeading('Set up inventory for the selected streamers')
-                        ->modalDescription('Each gets their own location ("Name\'s Inventory"). Anyone who already has one is left as they are.')
+                        ->modalDescription('Each gets their own location ("Name\'s Inventory"). Anyone who already has one keeps it.')
+                        ->modalWidth('2xl')
                         ->modalSubmitActionLabel('Set up')
-                        ->action(function (Collection $records): void {
-                            $setup = app(\App\Services\StreamerInventorySetup::class);
-                            $made = $records->reject(fn (Streamer $s) => $s->isFulfillment())
-                                ->filter(fn (Streamer $s) => $setup->ensure($s)[1])->count();
-                            $skipped = $records->count() - $made;
-                            Notification::make()->title($made . ' ' . \Illuminate\Support\Str::plural('location', $made) . ' set up')
-                                ->body($skipped ? "{$skipped} already had one (or aren't streamers)." : null)->success()->send();
-                        })
+                        ->schema(\App\Filament\Actions\SetUpStreamerInventoryAction::stockEachFields())
+                        ->action(fn (Collection $records, array $data) => \App\Filament\Actions\SetUpStreamerInventoryAction::runMany($records, $data))
                         ->deselectRecordsAfterCompletion(),
                     ExportBulkAction::make(),
                     DeleteBulkAction::make()

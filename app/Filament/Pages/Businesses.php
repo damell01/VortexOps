@@ -39,6 +39,11 @@ class Businesses extends Page
     public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner() || $u?->isFulfillmentAdmin()) ?? false; }
     public function getView(): string { return 'filament.pages.businesses'; }
 
+    protected function getHeaderActions(): array
+    {
+        return [\App\Filament\Actions\SetUpStreamerInventoryAction::forBusiness()];
+    }
+
     public function getSubheading(): ?string
     {
         return 'Each person works for one business. Drag people between columns, or tick several and move them together. The Business picker on payroll pages then shows just that business\'s people and Pay Runs.';

@@ -37,6 +37,62 @@ class PokemonTouchesTest extends TestCase
         }
     }
 
+    public function test_the_holidays_land_on_the_right_days(): void
+    {
+        $this->assertSame('valentines', Season::current(CarbonImmutable::create(2027, 2, 14)));
+        $this->assertSame('st-patricks', Season::current(CarbonImmutable::create(2027, 3, 17)));
+        $this->assertSame('july-4', Season::current(CarbonImmutable::create(2027, 7, 4)));
+        $this->assertNull(Season::current(CarbonImmutable::create(2027, 7, 5)));
+
+        // Thanksgiving 2026 is Thursday Nov 26: the week runs Mon 23 to Sun 29.
+        $this->assertNull(Season::current(CarbonImmutable::create(2026, 11, 22)));
+        $this->assertSame('thanksgiving', Season::current(CarbonImmutable::create(2026, 11, 23)));
+        $this->assertSame('thanksgiving', Season::current(CarbonImmutable::create(2026, 11, 29)));
+        $this->assertNull(Season::current(CarbonImmutable::create(2026, 11, 30)));
+    }
+
+    public function test_every_sprite_has_a_shiny_twin(): void
+    {
+        foreach (glob(public_path('img/pokemon/*.gif')) as $sprite) {
+            $this->assertFileExists(public_path('img/pokemon/shiny/'.basename($sprite)), basename($sprite).' has no shiny');
+        }
+    }
+
+    public function test_rarity_follows_the_thresholds(): void
+    {
+        \App\Support\Rarity::flushMemo();
+        $this->assertSame(0, \App\Support\Rarity::tier(null));
+        $this->assertSame(0, \App\Support\Rarity::tier(49.99));
+        $this->assertSame(1, \App\Support\Rarity::tier(50));
+        $this->assertSame(2, \App\Support\Rarity::tier(150));
+        $this->assertSame(3, \App\Support\Rarity::tier(1428));
+
+        \App\Models\Setting::set(\App\Support\Rarity::SETTING, json_encode([1000, 10, 100]));
+        \App\Support\Rarity::flushMemo();
+        $this->assertSame(2, \App\Support\Rarity::tier(150), 'thresholds are sorted before use');
+        \App\Models\Setting::set(\App\Support\Rarity::SETTING, '');
+        \App\Support\Rarity::flushMemo();
+
+        $this->assertStringContainsString('tier-3', Blade::render('<x-vx.rarity :cost="900" />'));
+        $this->assertSame('', trim(Blade::render('<x-vx.rarity :cost="5" />')));
+    }
+
+    public function test_a_streamer_sees_a_countdown_to_a_show_later_today(): void
+    {
+        \Illuminate\Support\Carbon::setTestNow('2026-10-14 13:00:00');
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        $user = User::factory()->create(['timezone' => 'UTC']);
+        $user->assignRole('streamer');
+        $streamer = \App\Models\Streamer::create(['name' => 'Tyler', 'status' => 'active', 'user_id' => $user->id]);
+        $show = \App\Models\Show::create(['title' => 'Friday Break', 'show_date' => '2026-10-14', 'start_time' => '2026-10-14 15:15:00', 'status' => 'pending_review', 'created_by' => $user->id]);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertSame('2026-10-14 15:15', $show->fresh()->startsAt('UTC')->format('Y-m-d H:i'));
+        $this->actingAs($user)->get('/admin')->assertOk()->assertSee('Your show starts in')->assertSee('vx-countdown', false);
+
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
     public function test_a_season_can_be_previewed_and_a_bad_preview_is_ignored(): void
     {
         config(['app.season' => 'winter']);

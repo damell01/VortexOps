@@ -69,7 +69,20 @@
         </main>
         <aside class="vx-home-sidebar">
             <section class="vx-home-card"><h2><x-heroicon-o-exclamation-triangle/> Needs Your Attention</h2><a class="vx-home-attention" href="{{ \App\Filament\Pages\StreamerShows::getUrl() }}"><div><b>{{ $reportsDue ?? 0 }} reports to review</b><p>Open your shows and finish outstanding reports.</p></div><span>Review →</span></a><a class="vx-home-attention" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('index') }}"><div><b>{{ $changesRequested ?? 0 }} reports need changes</b><p>Review feedback and update your report.</p></div><span>Review →</span></a></section>
-            <section class="vx-home-card"><h2><x-heroicon-o-calendar-days/> Next Scheduled Show</h2>@if($next)<p>{{ $next->show_date?->format('D, M j, Y') }} @if($next->start_time) · {{ $next->start_time->format('g:i A') }} @endif</p><h3 class="mt-3">{{ $next->title }}</h3>@if($next->isLive())<x-vx.live />@endif<p>@if($next->channel)<x-vx.channel :name="$next->channel->name" />@endif</p>@else<p>No upcoming shows assigned.</p>@endif<a class="vx-home-footer" href="{{ \App\Filament\Pages\StreamerShows::getUrl() }}">View My Shows →</a></section>
+            <section class="vx-home-card"><h2><x-heroicon-o-calendar-days/> Next Scheduled Show</h2>@if($next)<p>{{ $next->show_date?->format('D, M j, Y') }} @if($next->start_time) · {{ $next->start_time->format('g:i A') }} @endif</p><h3 class="mt-3">{{ $next->title }}</h3>@if($next->isLive())<x-vx.live />@endif
+                @php
+                    $nextStart = $next->startsAt(auth()->user()?->timezone ?: config('app.timezone'));
+                @endphp
+                @if($nextStart && ! $next->isLive() && $nextStart->isFuture() && now()->diffInHours($nextStart, true) < 24)
+                    {{-- Counts down to the show; inside 15 minutes it says you are on soon. --}}
+                    <div class="vx-countdown" x-data="{ at: {{ $nextStart->getTimestampMs() }}, now: Date.now(),
+                            get left() { return Math.max(0, this.at - this.now) },
+                            get text() { const m = Math.ceil(this.left / 60000), h = Math.floor(m / 60); return h ? h + 'h ' + (m % 60) + 'm' : m + 'm' } }"
+                         x-init="setInterval(() => now = Date.now(), 20000)" x-show="left > 0">
+                        <span x-show="left > 15 * 60000">Your show starts in <b x-text="text"></b></span>
+                        <span x-show="left <= 15 * 60000" x-cloak class="vx-countdown-soon"><img src="/img/pokemon/{{ \App\Support\Buddy::for(auth()->user()) }}.gif" alt="" aria-hidden="true"> You're on soon! <b x-text="text"></b></span>
+                    </div>
+                @endif<p>@if($next->channel)<x-vx.channel :name="$next->channel->name" />@endif</p>@else<p>No upcoming shows assigned.</p>@endif<a class="vx-home-footer" href="{{ \App\Filament\Pages\StreamerShows::getUrl() }}">View My Shows →</a></section>
             <details class="vx-home-card" open><img class="vx-sprite vx-zard" src="/img/pokemon/charizard.gif" alt="" aria-hidden="true"><summary>My Performance This Month</summary><div class="vx-home-performance">@foreach(['Shows'=>$monthShowCount ?? 0,'Gross Sales'=>'$'.number_format($monthGross ?? 0,2),'Recorded Paid'=>'$'.number_format($recordedPaid ?? 0,2),'Approved Unpaid'=>'$'.number_format($approvedUnpaid ?? 0,2)] as $label=>$value)<div><p>{{ $label }}</p><strong>{{ $value }}</strong></div>@endforeach</div><p class="vx-home-help">Sales reflect this month’s shows. Payout totals reflect your recorded payout statuses.</p></details>
         </aside>
     </div>

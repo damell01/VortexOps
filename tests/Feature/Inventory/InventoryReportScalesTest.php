@@ -79,6 +79,10 @@ class InventoryReportScalesTest extends TestCase
     public function test_the_cost_does_not_grow_with_the_catalogue(): void
     {
         $this->stockedItems(10);
+        // Warm up once: one-off lookups (the signed-in user's roles, read by
+        // the per-streamer stock scope) would otherwise land on the first
+        // measurement only and look like a difference in scale.
+        $this->queriesToBuildSnapshot();
         $small = $this->queriesToBuildSnapshot();
 
         $this->stockedItems(40);

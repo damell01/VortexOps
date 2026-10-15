@@ -24,7 +24,17 @@ class Season
         'halloween' => ['mon' => 'gengar', 'from' => 'top', 'icon' => 'pumpkin', 'effect' => null, 'title' => 'Boo!'],
         'winter' => ['mon' => 'delibird', 'from' => 'bottom', 'icon' => 'snowflake', 'effect' => 'snow', 'title' => 'Delibird brought presents!'],
         'new-year' => ['mon' => 'pikachu', 'from' => 'bottom', 'icon' => 'star', 'effect' => 'fireworks', 'title' => 'Happy New Year!'],
+        'valentines' => ['mon' => 'luvdisc', 'from' => 'bottom', 'icon' => 'heart', 'effect' => 'hearts', 'title' => 'Happy Valentine\'s Day!'],
         'pokemon-day' => ['mon' => 'clefairy', 'from' => 'bottom', 'icon' => 'star', 'effect' => null, 'title' => 'Happy Pokémon Day!'],
+        'st-patricks' => ['mon' => 'bulbasaur', 'from' => 'bottom', 'icon' => 'clover', 'effect' => 'clovers', 'title' => 'Happy St. Patrick\'s Day!'],
+        'july-4' => ['mon' => 'charizard', 'from' => 'bottom', 'icon' => 'star', 'effect' => 'fireworks', 'title' => 'Happy Fourth of July!'],
+        'thanksgiving' => ['mon' => 'snorlax', 'from' => 'bottom', 'icon' => 'pie', 'effect' => null, 'title' => 'Snorlax saved you a slice.'],
+    ];
+
+    /** Firework colours by season; anything else uses the New Year mix. */
+    public const FIREWORK_COLOURS = [
+        'july-4' => ['#ef4444', '#f8fafc', '#3b82f6', '#ef4444', '#93c5fd', '#f8fafc', '#dc2626', '#2563eb'],
+        'default' => ['#f59e0b', '#a78bfa', '#f472b6', '#22d3ee', '#ef4444', '#4ade80', '#facc15', '#c084fc'],
     ];
 
     public static function current(?CarbonInterface $now = null): ?string
@@ -38,11 +48,27 @@ class Season
 
         return match (true) {
             $now->month === 1 && $now->day === 1 => 'new-year',
+            $now->month === 2 && $now->day === 14 => 'valentines',
             $now->month === 2 && $now->day === 27 => 'pokemon-day', // the anniversary of Red & Green
+            $now->month === 3 && $now->day === 17 => 'st-patricks',
+            $now->month === 7 && $now->day === 4 => 'july-4',
+            static::isThanksgivingWeek($now) => 'thanksgiving',
             $now->month === 10 => 'halloween',
             $now->month === 12 => 'winter',
             default => null,
         };
+    }
+
+    /** Monday to Sunday of the week holding the fourth Thursday of November. */
+    public static function isThanksgivingWeek(CarbonInterface $now): bool
+    {
+        if ($now->month !== 11) {
+            return false;
+        }
+        $thursday = \Carbon\CarbonImmutable::create($now->year, 11, 1)->nthOfMonth(4, \Carbon\CarbonInterface::THURSDAY);
+
+        return $now->toDateString() >= $thursday->startOfWeek(\Carbon\CarbonInterface::MONDAY)->toDateString()
+            && $now->toDateString() <= $thursday->endOfWeek(\Carbon\CarbonInterface::SUNDAY)->toDateString();
     }
 
     /** @return array{key:string, mon:string, from:string, icon:string, effect:?string, title:string}|null */

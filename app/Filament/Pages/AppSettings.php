@@ -79,6 +79,11 @@ class AppSettings extends Page
 
     public ?string $default_receiving_location_id = null;
 
+    /** Item rarity thresholds (unit cost for ★, ★★, ★★★); see App\Support\Rarity. */
+    public string $rarity_one = '';
+    public string $rarity_two = '';
+    public string $rarity_three = '';
+
     /**
      * Locations a streamer may see stock in, beyond their own.
      *
@@ -173,6 +178,7 @@ class AppSettings extends Page
         $this->demo_mode = (bool) Setting::get('demo_mode', false);
 
         $this->default_receiving_location_id = Setting::get('default_receiving_location_id') ?: null;
+        [$this->rarity_one, $this->rarity_two, $this->rarity_three] = array_map(fn ($v) => (string) $v, \App\Support\Rarity::thresholds());
         $this->streamer_visible_location_ids = \App\Support\InventoryVisibility::configuredForStreamers();
 
         $this->show_inventory_posting_policy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
@@ -287,6 +293,9 @@ class AppSettings extends Page
             // from validation, and from the validated payload, when the mode
             // is not custom.
             'default_receiving_location_id'    => 'nullable|integer|exists:inventory_locations,id',
+            'rarity_one'                       => 'required|numeric|min:0',
+            'rarity_two'                       => 'required|numeric|min:0',
+            'rarity_three'                     => 'required|numeric|min:0',
             'streamer_visible_location_ids'    => 'array',
             'streamer_visible_location_ids.*'  => 'integer|exists:inventory_locations,id',
             'show_inventory_posting_policy'    => 'required|in:on_submit,clean_only,on_approval',
@@ -328,6 +337,10 @@ class AppSettings extends Page
 
 
         Setting::set('default_receiving_location_id', $this->default_receiving_location_id ?: '');
+        $rarity = [(float) $this->rarity_one, (float) $this->rarity_two, (float) $this->rarity_three];
+        sort($rarity);
+        Setting::set(\App\Support\Rarity::SETTING, json_encode($rarity));
+        \App\Support\Rarity::flushMemo();
         // Encoded even when empty. An empty array is a decision — "their own
         // shelf and nothing else" — and storing '' instead would read back as
         // "nobody has chosen yet" and silently reopen the main store.

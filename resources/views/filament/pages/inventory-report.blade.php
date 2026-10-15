@@ -319,7 +319,7 @@
                                         <span class="invr-thumb invr-thumb--none"><x-filament::icon icon="heroicon-o-cube" /></span>
                                     @endif
                                     <div style="min-width:0">
-                                        <a href="{{ $itemUrl($item['id']) }}">{{ $item['name'] }}</a>
+                                        <a href="{{ $itemUrl($item['id']) }}">{{ $item['name'] }}</a> <x-vx.rarity :cost="$item['unit_cost'] ?? null" />
                                         <span class="sub">{{ $item['category'] }}@if($activeTab === 'aging') · <span class="vxr-val-warn">{{ $item['idle_days'] }} days without movement</span>@endif</span>
                                     </div>
                                 </div>

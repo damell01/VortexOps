@@ -897,6 +897,8 @@ class InventoryItemResource extends Resource
                     ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : null)
                     ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
                     ->iconColor('primary')
+                    // ★ / ★★ / ★★★ by unit cost (App\Support\Rarity), next to the name.
+                    ->formatStateUsing(fn ($state, $record) => new \Illuminate\Support\HtmlString(e($state).' '.\Illuminate\Support\Facades\Blade::render('<x-vx.rarity :cost="$cost" />', ['cost' => $record->average_cost ?: $record->unit_cost])))
                     ->description(fn ($record) => filled($record->description)
                         ? \Illuminate\Support\Str::limit($record->description, 70)
                         : null),

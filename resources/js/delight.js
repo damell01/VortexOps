@@ -74,6 +74,11 @@ export function celebrate(event) {
     document.body.appendChild(catchBox);
     setTimeout(() => catchBox.remove(), 2900);
     setTimeout(confetti, 1350);
+    // Your time-clock buddy joins in once the catch lands.
+    setTimeout(() => document.querySelectorAll('.vx-buddy-btn').forEach((b) => {
+        b.classList.add('is-cheering');
+        setTimeout(() => b.classList.remove('is-cheering'), 2600);
+    }), 1500);
 }
 
 function confetti() {

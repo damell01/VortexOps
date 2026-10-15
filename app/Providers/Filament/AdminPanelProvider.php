@@ -135,7 +135,8 @@ class AdminPanelProvider extends PanelProvider
             // permissions, and mobile navigation on Filament's stable native path.
             ->renderHook(
                 PanelsRenderHook::PAGE_START,
-                fn () => ! $isAuthenticatedAdminView()
+                // Not on the dashboard: it is home, so Back has nowhere to go.
+                fn () => ! $isAuthenticatedAdminView() || request()->routeIs('filament.admin.pages.dashboard*')
                     ? ''
                     : view('filament.components.page-back'),
             )

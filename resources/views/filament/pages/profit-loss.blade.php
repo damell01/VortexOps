@@ -63,6 +63,8 @@
         </div>
     @endif
 
+    <x-vx.tip id="pl-breakdown">Click any show in the list for its full breakdown: what is still missing, and which pay runs it is in.</x-vx.tip>
+
     <div class="vxr-stats" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr))">
         <x-vxr.stat compact label="Shows" :value="number_format($t['shows'])" icon="heroicon-o-calendar-days">{{ $deltaNote($t['shows'], $prev['shows']) }}</x-vxr.stat>
         <x-vxr.stat compact label="Sales" :value="$money($t['sales'])" icon="heroicon-o-shopping-cart">{{ $deltaNote($t['sales'], $prev['sales']) }}</x-vxr.stat>

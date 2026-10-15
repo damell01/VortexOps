@@ -78,6 +78,7 @@
         x-on:receiving-item-matched.window="document.getElementById('receiving-line-' + $event.detail.lineId)?.scrollIntoView({ block: 'center', behavior: 'smooth' })"
     >
         <div class="mb-3"><x-touch-mode-toggle /></div>
+        <x-vx.tip id="rcv-scan" class="mb-3">Scan any box on the pallet — it finds the matching manifest line for you, so there is no need to pick the line first.</x-vx.tip>
         {{-- Compact job header: identity + progress without making the user scroll through a dashboard first. --}}
         <section class="mb-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

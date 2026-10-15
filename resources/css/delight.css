@@ -219,14 +219,33 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 
 /* ── Round 4: season, buddy, receiving ball, slow quip, theme pair ─────── */
 
-/* October: Gengar peeks out from under the top bar every so often. */
-.vx-gengar-peek { position: fixed; z-index: 29; top: calc(var(--vx-topbar-h, 68px) - 46px); right: clamp(90px, 14vw, 260px); padding: 0; border: 0; background: none; cursor: pointer; animation: vx-peek 14s ease-in-out 3s infinite; }
-.vx-gengar-peek img { display: block; height: 56px; width: auto; image-rendering: pixelated; transform: scaleY(-1); filter: drop-shadow(0 4px 6px rgb(40 0 70 / .3)); }
-@keyframes vx-peek { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(38px); } }
-body:has(.vx-season[data-season="halloween"]) .vx-mega-home::after {
-  content: ''; display: inline-block; width: 15px; height: 15px; margin-left: 6px; vertical-align: -2px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 4.5c0-1.6.7-2.6 2-3' stroke='%2316a34a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='6.2' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='13.8' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='10' cy='12' rx='4.4' ry='6.3' fill='%23f97316'/%3E%3Cpath d='M7 10.5l1.4-1.4 1.4 1.4zM10.2 10.5l1.4-1.4 1.4 1.4zM7.4 13.5c1.6 1.4 3.6 1.4 5.2 0' stroke='%23431407' stroke-width='1' fill='%23431407'/%3E%3C/svg%3E") center / contain no-repeat;
-}
+/* Seasons (App\\Support\\Season): a visitor peeks out now and then, a mark sits by Dashboard. */
+.vx-season-peek { position: fixed; z-index: 29; padding: 0; border: 0; background: none; cursor: pointer; }
+.vx-season-peek img { display: block; height: 56px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(40 0 70 / .3)); }
+/* Hanging upside down from under the top bar (Gengar). */
+.vx-season-peek.from-top { top: calc(var(--vx-topbar-h, 68px) - 46px); right: clamp(90px, 14vw, 260px); animation: vx-peek-down 14s ease-in-out 3s infinite; }
+.vx-season-peek.from-top img { transform: scaleY(-1); }
+@keyframes vx-peek-down { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(38px); } }
+/* Rising from the bottom-right corner (everyone else). */
+.vx-season-peek.from-bottom { bottom: -46px; right: clamp(24px, 6vw, 90px); z-index: 45; animation: vx-peek-up 14s ease-in-out 3s infinite; }
+@keyframes vx-peek-up { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(-40px); } }
+
+body:has(.vx-season) .vx-mega-home::after { content: ''; display: inline-block; width: 15px; height: 15px; margin-left: 6px; vertical-align: -2px; background: center / contain no-repeat; }
+body:has(.vx-season[data-icon="pumpkin"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 4.5c0-1.6.7-2.6 2-3' stroke='%2316a34a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='6.2' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='13.8' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='10' cy='12' rx='4.4' ry='6.3' fill='%23f97316'/%3E%3Cpath d='M7 10.5l1.4-1.4 1.4 1.4zM10.2 10.5l1.4-1.4 1.4 1.4zM7.4 13.5c1.6 1.4 3.6 1.4 5.2 0' stroke='%23431407' stroke-width='1' fill='%23431407'/%3E%3C/svg%3E"); }
+body:has(.vx-season[data-icon="snowflake"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' stroke='%23bae6fd' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M10 2v16M3 6l14 8M3 14l14-8M8 3.5l2 2 2-2M8 16.5l2-2 2 2'/%3E%3C/svg%3E"); }
+body:has(.vx-season[data-icon="star"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 1.5l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.4l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z' fill='%23facc15'/%3E%3C/svg%3E"); }
+
+/* December: a light snowfall over the top of the page. */
+.vx-snow { position: fixed; z-index: 28; left: 0; right: 0; top: var(--vx-topbar-h, 68px); height: 260px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent); }
+.vx-snow i { position: absolute; top: -10px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%; background: #c7d2fe; opacity: .75; animation: vx-snow var(--t) linear var(--d) infinite; }
+.dark .vx-snow i { background: #e0e7ff; opacity: .5; }
+@keyframes vx-snow { to { transform: translate(var(--w), 270px); } }
+
+/* New Year's Day: three small bursts, one after another. */
+.vx-fireworks { position: fixed; z-index: 28; left: 0; right: 0; top: var(--vx-topbar-h, 68px); height: 200px; pointer-events: none; }
+.vx-fireworks span { position: absolute; left: var(--x); top: 70px; width: 0; height: 0; }
+.vx-fireworks i { position: absolute; left: -1px; top: -4px; width: 2px; height: 8px; border-radius: 2px; background: linear-gradient(var(--c), transparent); opacity: 0; transform: rotate(var(--r)) translateY(0); animation: vx-burst 7.8s ease-out var(--d) infinite; }
+@keyframes vx-burst { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)) translateY(0) scaleY(.4); } 2% { opacity: 1; } 12% { opacity: .95; transform: translateY(2px) rotate(var(--r)) translateY(calc(-40px * var(--k))) scaleY(1); } 24%, 100% { opacity: 0; transform: translateY(14px) rotate(var(--r)) translateY(calc(-48px * var(--k))) scaleY(.5); } }
 
 /* Your buddy on the time clock: walks while you are clocked in, naps while you are not. */
 .vx-buddy { position: relative; flex: none; margin-left: 4px; }
@@ -248,6 +267,33 @@ body:has(.vx-season[data-season="halloween"]) .vx-mega-home::after {
 .vx-buddy-grid button:hover { border-color: rgb(124 58 237 / .4); }
 .vx-buddy-grid button.is-on { border-color: #7c3aed; background: rgb(124 58 237 / .08); }
 .vx-buddy-grid img { max-height: 36px; max-width: 40px; image-rendering: pixelated; }
+
+/* Shows calendar: a tiny Poké Ball per show; one streaming now glows. */
+.vx-cell-balls { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.vx-cell-balls i { width: 9px; height: 9px; background: url('/img/pokeball.svg') center / contain no-repeat; opacity: .85; }
+.vx-cell-balls i.is-live { opacity: 1; border-radius: 50%; animation: vx-ball-glow 1.6s ease-in-out infinite; }
+.vx-cell-balls b { font-size: 9px; font-weight: 700; color: var(--vx-faint, #8a8a98); margin-left: 1px; }
+@keyframes vx-ball-glow { 50% { box-shadow: 0 0 0 3px rgb(239 68 68 / .25), 0 0 8px 2px rgb(250 204 21 / .55); } }
+.vx-mcell i { width: 8px !important; height: 8px !important; border-radius: 0 !important; background: url('/img/pokeball.svg') center / contain no-repeat !important; }
+
+/* Pokédex tips: Rotom with one helpful line, dismissible. */
+.vx-tip { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.vx-tip-mon { flex: none; height: 38px; width: auto; image-rendering: pixelated; animation: vx-tip-hover 3.2s ease-in-out infinite; }
+.vx-tip-bubble { position: relative; flex: 1; min-width: 0; padding: 8px 14px; border-radius: 12px; background: #f3edff; color: #3b1d78; font-size: 13.5px; line-height: 1.45; }
+.vx-tip-bubble::before { content: ''; position: absolute; left: -5px; top: 50%; width: 10px; height: 10px; background: inherit; transform: translateY(-50%) rotate(45deg); border-radius: 2px; }
+.vx-tip-bubble > b:first-child { margin-right: 6px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #7c3aed; }
+.dark .vx-tip-bubble { background: #2e1065; color: #ede9fe; }
+.dark .vx-tip-bubble > b:first-child { color: #c4b5fd; }
+.vx-tip-x { flex: none; width: 28px; height: 28px; border-radius: 8px; border: 0; background: none; color: #8b7fb0; font-size: 18px; line-height: 1; cursor: pointer; }
+.vx-tip-x:hover { background: rgb(124 58 237 / .08); color: #5b21b6; }
+@keyframes vx-tip-hover { 50% { transform: translateY(-3px); } }
+
+/* A finished report: the buddy hops three times with a heart. */
+.vx-buddy-btn.is-cheering img { animation: vx-buddy-cheer .8s ease-out 3 !important; filter: none !important; }
+.vx-buddy-btn.is-cheering .vx-buddy-z { display: none; }
+.vx-buddy-btn.is-cheering::after { content: '♥'; position: absolute; left: 50%; top: -6px; font-size: 15px; color: #ec4899; animation: vx-buddy-heart 2.4s ease-out forwards; }
+@keyframes vx-buddy-cheer { 0%, 100% { transform: translateX(-50%) translateY(0); } 35% { transform: translateX(-50%) translateY(-14px) scale(1.06); } 60% { transform: translateX(-50%) translateY(0) scale(1.05, .95); } }
+@keyframes vx-buddy-heart { 0% { opacity: 0; transform: translate(-50%, 6px) scale(.5); } 20% { opacity: 1; transform: translate(-50%, -4px) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -26px) scale(.9); } }
 
 /* Receiving: a Poké Ball that fills as cases arrive, and clicks shut when it is all in. */
 .vx-pb { display: inline-flex; align-items: center; gap: 6px; }
@@ -271,7 +317,12 @@ body:has(.vx-season[data-season="halloween"]) .vx-mega-home::after {
 .fi-theme-switcher-btn[aria-label="Enable dark theme"] { background-image: url('/img/pokemon/umbreon.gif'); }
 
 @media (prefers-reduced-motion: reduce) {
-  .vx-gengar-peek { animation: none; transform: translateY(30px); }
+  .vx-season-peek { animation: none !important; }
+  .vx-season-peek.from-top { transform: translateY(30px); }
+  .vx-season-peek.from-bottom { transform: translateY(-34px); }
+  .vx-snow, .vx-fireworks { display: none; }
+  .vx-tip-mon { animation: none; }
+  .vx-cell-balls i.is-live { animation: none; box-shadow: 0 0 0 2px rgb(239 68 68 / .35); }
   .vx-buddy-btn img, .vx-buddy-z i, .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }
   .vx-buddy-z i { opacity: .7; }
 }

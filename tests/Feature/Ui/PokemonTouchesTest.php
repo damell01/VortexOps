@@ -25,6 +25,36 @@ class PokemonTouchesTest extends TestCase
         $this->assertNull(Season::current(CarbonImmutable::create(2026, 9, 30)));
     }
 
+    public function test_single_days_win_over_months_and_every_season_has_its_sprite(): void
+    {
+        $this->assertSame('winter', Season::current(CarbonImmutable::create(2026, 12, 14)));
+        $this->assertSame('new-year', Season::current(CarbonImmutable::create(2027, 1, 1, 9)));
+        $this->assertNull(Season::current(CarbonImmutable::create(2027, 1, 2)));
+        $this->assertSame('pokemon-day', Season::current(CarbonImmutable::create(2027, 2, 27)));
+
+        foreach (Season::SEASONS as $season) {
+            $this->assertFileExists(public_path("img/pokemon/{$season['mon']}.gif"));
+        }
+    }
+
+    public function test_a_season_can_be_previewed_and_a_bad_preview_is_ignored(): void
+    {
+        config(['app.season' => 'winter']);
+        $this->assertSame('winter', Season::current(CarbonImmutable::create(2026, 6, 1)));
+
+        config(['app.season' => 'not-a-season']);
+        $this->assertNull(Season::current(CarbonImmutable::create(2026, 6, 1)));
+    }
+
+    public function test_a_tip_renders_with_its_own_dismiss_key(): void
+    {
+        $html = Blade::render('<x-vx.tip id="pl-breakdown">Click any show.</x-vx.tip>');
+
+        $this->assertStringContainsString('vx-tip-pl-breakdown', $html);
+        $this->assertStringContainsString('Click any show.', $html);
+        $this->assertStringContainsString('/img/pokemon/rotom.gif', $html);
+    }
+
     public function test_every_buddy_has_a_sprite(): void
     {
         foreach (Buddy::CHOICES as $buddy) {

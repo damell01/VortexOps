@@ -24,6 +24,8 @@
         </div>
     </div>
 
+    <x-vx.tip id="notify-preview">Open <b>Configure</b> and use Preview or Send Test to see exactly what people will get before you save.</x-vx.tip>
+
     @if (! $live)
         <div class="vxr-banner vxr-banner--warn" style="flex-wrap:wrap">
             <x-filament::icon icon="heroicon-s-exclamation-circle" />

@@ -298,6 +298,10 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
                         <div class="vx-cell-h">
                             <button type="button" class="vx-num" wire:click.stop="openDay('{{ $iso }}')" @click.stop aria-label="Open {{ $cell['date']->format('l, F j') }}">{{ $cell['date']->day === 1 || $loop->parent->first && $loop->first ? $cell['date']->format('M j') : $cell['date']->day }}</button>
                             @if($isToday)<span class="vx-today-tag">Today</span>@elseif($count > 3)<span class="vx-cell-count">{{ $count }} shows</span>@endif
+                            @if($count)
+                                {{-- A Poké Ball per show (up to five, live ones first); a show streaming now glows. --}}
+                                <span class="vx-cell-balls" aria-hidden="true">@foreach($cell['shows']->sortByDesc(fn ($p) => $p['state'] === 'live')->take(5) as $p)<i @class(['is-live' => $p['state'] === 'live'])></i>@endforeach @if($count > 5)<b>+{{ $count - 5 }}</b>@endif</span>
+                            @endif
                         </div>
                         @if($count)
                             {{-- Every show for the day; the list scrolls inside the box. --}}

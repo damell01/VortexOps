@@ -20,6 +20,8 @@
 
         @livewire('clock-widget', ['withStats' => true])
 
+        <x-vx.tip id="tk-missed">Forgot to clock in? Use <b>Add missed time</b> below — it gets a quick review before payroll.</x-vx.tip>
+
         @if ($seesTeam)
             @php $tiles = $this->adminTiles(); $h = intdiv($tiles['hours']['minutes'], 60).'h '.str_pad((string) ($tiles['hours']['minutes'] % 60), 2, '0', STR_PAD_LEFT).'m'; @endphp
             {{-- One place for admins: each card opens the list it counts. --}}

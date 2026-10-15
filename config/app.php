@@ -74,6 +74,9 @@ return [
     */
     'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'America/Chicago'),
 
+    // Preview a seasonal touch early (halloween, winter, new-year, pokemon-day); see App\Support\Season.
+    'season' => env('APP_SEASON'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

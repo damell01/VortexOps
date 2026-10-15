@@ -236,9 +236,21 @@ class ShowAndStreamerActionsWorkTest extends TestCase
     {
         $this->show->update(['status' => 'mapping']);
 
+        // A streamer can only add items they can see stock of (the picker's
+        // own rule), so the item needs some in Main Storage.
+        $location = InventoryLocation::create([
+            'name' => 'Main Storage', 'type' => 'main_storage', 'status' => 'active',
+        ]);
+
         $item = InventoryItem::create([
             'name' => 'Removable Box', 'sku' => 'EOS-2',
             'unit_cost' => 20, 'average_cost' => 20, 'is_active' => true,
+        ]);
+
+        InventoryStock::create([
+            'inventory_item_id'     => $item->id,
+            'inventory_location_id' => $location->id,
+            'quantity'              => 5,
         ]);
 
         $this->actingAs($this->streamerUser());

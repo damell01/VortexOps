@@ -166,30 +166,29 @@
     .vxi-grid .fi-ta-content-grid { padding: .25rem 1rem 1rem; gap: 1rem; }
     .vxi-grid .fi-ta-record { position:relative; border:1px solid var(--vxi-line); border-radius:1rem; background: var(--vxi-card); box-shadow: 0 1px 2px rgb(0 0 0 / .04); transition: box-shadow .15s, transform .15s; }
     .vxi-grid .fi-ta-record:hover { box-shadow: 0 10px 24px -14px rgb(76 29 149 / .45); transform: translateY(-1px); }
-    .vxi-grid .fi-ta-record { padding:0 !important; display:block; }
-    .vxi-grid .fi-ta-record .fi-ta-record-content-ctn { padding:0; display:block; }
-    .vxi-grid .fi-ta-record .fi-ta-record-content { display:block; padding:0; }
-    /* The row's actions sit in the card itself: ⋮ top right, buttons bottom right. */
-    .vxi-grid .fi-ta-record .fi-ta-actions { display:contents; }
-    .vxi-grid .fi-ta-record .fi-ta-actions > .fi-dropdown { position:absolute; top:.8rem; right:.6rem; }
-    .vxi-grid .fi-ta-record .fi-ta-actions > .vxi-primary { position:absolute; right:1rem; bottom:.85rem; }
-    .vxi-grid .fi-ta-record .fi-ta-actions > .vxi-approve { position:absolute; right:7.5rem; bottom:.85rem; }
-    .vxi-grid .fi-ta-record .fi-ta-record-checkbox { position:absolute; left:1.1rem; bottom:1.15rem; z-index:1; }
-    .vxi-grid .fi-ta-record .fi-growable, .vxi-grid .fi-ta-record .fi-ta-stack, .vxi-grid .fi-ta-record .fi-ta-col { width:100%; }
+    .vxi-grid .fi-ta-record { padding:0 !important; display:flex; flex-direction:column; }
+    .vxi-grid .fi-ta-record .fi-ta-record-content-ctn { padding:0; display:flex; flex-direction:column; flex:1; }
+    .vxi-grid .fi-ta-record .fi-ta-record-content-ctn > div:first-child { flex:1; }
+    .vxi-grid .fi-ta-record .fi-ta-record-content { display:block; padding:0; height:100%; }
+    .vxi-grid .fi-ta-record .fi-growable, .vxi-grid .fi-ta-record .fi-ta-stack, .vxi-grid .fi-ta-record .fi-ta-col { width:100%; height:100%; }
     .vxi-grid .fi-ta-record .fi-ta-col > * { width:100%; }
+    /* Every action is a button along the bottom of the card; the main one sits last, on the right. */
+    .vxi-grid .fi-ta-record .fi-ta-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.45rem; padding:.85rem 1.1rem 1rem; border-top:1px solid var(--vxi-line); }
+    .vxi-grid .fi-ta-record .fi-ta-actions .fi-btn { min-height:2.2rem; padding:0 .85rem; border-radius:.6rem; border:1px solid color-mix(in srgb, currentColor 40%, transparent); background: var(--vxi-card); box-shadow:none; }
+    .vxi-grid .fi-ta-record .fi-ta-actions .fi-btn:hover { background: color-mix(in srgb, currentColor 7%, var(--vxi-card)); }
+    .vxi-grid .fi-ta-record .fi-ta-record-checkbox { position:absolute; left:1.1rem; bottom:1.5rem; z-index:1; }
     /* Bulk selection stays out of the way until Select is pressed. */
     .vxi-panel:not(.is-selecting) .vxi-grid .fi-ta-record-checkbox,
     .vxi-panel:not(.is-selecting) .vxi-grid .fi-ta-header-toolbar,
     .vxi-panel:not(.is-selecting) .vxi-grid .fi-ta-header-ctn,
     .vxi-panel:not(.is-selecting) .vxi-grid .fi-ta-selection-indicator,
     .vxi-panel:not(.is-selecting) .vxi-grid .fi-ta-content-header { display:none; }
-    .vxi-panel.is-selecting .vxi-grid .vxi-card-foot { left:2.6rem; }
-    .vxi-grid .fi-ta-record .vxi-primary, .vxi-grid .fi-ta-record .vxi-approve { min-height:2.25rem; padding:0 1rem; border-radius:.65rem; }
+    .vxi-panel.is-selecting .vxi-grid .fi-ta-actions { padding-left:2.8rem; }
     .vxi-grid .fi-ta-record .vxi-primary { border:1px solid color-mix(in srgb, var(--primary-500, #8b5cf6) 55%, transparent); background: var(--vxi-card); }
     .vxi-grid .fi-ta-record .vxi-primary:hover { background: color-mix(in srgb, var(--primary-500, #8b5cf6) 8%, var(--vxi-card)); }
 
-    .vxi-card { display:flex; flex-direction:column; gap:.6rem; padding:1.1rem 1.1rem 4rem; min-width:0; }
-    .vxi-card-top { display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding-right:2rem; }
+    .vxi-card { display:flex; flex-direction:column; gap:.6rem; padding:1.1rem 1.1rem .9rem; min-width:0; height:100%; }
+    .vxi-card-top { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
     .vxi-chan { display:inline-flex; align-items:center; gap:.4rem; padding:.15rem .55rem; border:1px solid var(--vxi-line); border-radius:.45rem; font-size:.75rem; font-weight:500; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .vxi-chan-dot { width:.55rem; height:.55rem; border-radius:.15rem; background: linear-gradient(135deg, #4c1d95, #a855f7); flex:none; }
     .vxi-chan--none { color: rgb(156 163 175); }
@@ -214,7 +213,7 @@
     .vxi-pay.is-negative dd { color: rgb(225 29 72); }
     .dark .vxi-pay.is-negative dd { color: rgb(251 113 133); }
     .vxi-pay[title] { cursor: help; }
-    .vxi-card-foot { position:absolute; left:1.1rem; bottom:1.45rem; right:16rem; font-size:.75rem; color: rgb(107 114 128); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .vxi-card-foot { font-size:.75rem; color: rgb(107 114 128); }
     .vxi-primary { border-radius:.65rem !important; }
 
     .vxi-howto { border:1px solid var(--vxi-line); border-radius:1rem; background: var(--vxi-card); }
@@ -230,8 +229,6 @@
         .vxi-policy > span.flex-1 { flex-basis: 100%; order: 3; }
         .vxi-policy-sep { display:none; }
         .vxi-policy-link { order: 4; }
-        .vxi-card { padding-bottom: 3.75rem; }
-        .vxi-card-foot { position: static; white-space: normal; }
         .vxi-figs > div { padding: 0 .4rem; }
         .vxi-figs dd { font-size: .85rem; overflow: visible; text-overflow: clip; white-space: nowrap; }
         .vxi-tabs { gap: 1.1rem; }

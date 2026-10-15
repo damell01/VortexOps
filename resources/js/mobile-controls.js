@@ -82,12 +82,15 @@ function openPicker(select, trigger) {
     done.onclick = () => select.multiple ? commit() : close();
     search.oninput = render;
     overlay.onclick = event => { if (event.target === overlay) close(); };
-    panel.append(header, search, list); overlay.append(panel);
+    // Short lists don't need a search box (or the keyboard it brings up).
+    const long = select.options.length > 8;
+    panel.append(...(long ? [header, search, list] : [header, list])); overlay.append(panel);
     (select.closest('.fi-modal-window, .vx-mobile-menu-sheet') || document.body).append(overlay);
     document.body.style.overflow = 'hidden';
     trigger.setAttribute('aria-expanded', 'true');
     document.addEventListener('keydown', keyboard, true);
-    dismiss = close; render(); search.focus();
+    dismiss = close; render();
+    (long ? search : (list.querySelector('[aria-pressed="true"]') || list.querySelector('button')))?.focus();
 }
 function syncControl(select, trigger) {
     const text = [...select.selectedOptions].map(o => o.text).join(', ') || 'Choose…';

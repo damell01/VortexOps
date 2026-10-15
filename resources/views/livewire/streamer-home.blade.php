@@ -24,75 +24,68 @@
     };
 @endphp
 <div class="vsh" data-vx-page="streamer-home">
-    {{-- Welcome and the next show, with a Pokémon keeping them company. --}}
+    {{-- Welcome and the next show, with a Pokémon peeking in. --}}
     <header class="vsh-hero">
         <span class="vsh-hero-ball" aria-hidden="true"></span>
         <div class="vsh-hero-copy">
             <p class="vsh-hero-date">{{ \App\Support\BusinessTime::local()->format('l, F j, Y') }}</p>
             <h1>Welcome back, <span class="whitespace-nowrap">{{ $first }}! <span class="vsh-wave" aria-hidden="true">👋</span></span></h1>
-            <p>Log your shows, track your hours, and stay on top of your reports.</p>
+            <p>Log your shows and keep your reports up to date.</p>
         </div>
         <div class="vsh-next">
-            @if ($next && $nextStart)
-                <div class="min-w-0"
-                     x-data="{ at: {{ $nextStart->getTimestampMs() }}, now: Date.now(),
+            <span class="vsh-next-icon" aria-hidden="true"><x-heroicon-o-calendar-days class="h-6 w-6" /></span>
+            @if ($next)
+                <div class="min-w-0 flex-1"
+                     @if ($nextStart) x-data="{ at: {{ $nextStart->getTimestampMs() }}, now: Date.now(),
                         get left() { return Math.max(0, this.at - this.now) },
-                        pad(v) { return String(v).padStart(2, '0') },
-                        get d() { return this.pad(Math.floor(this.left / 86400000)) },
-                        get h() { return this.pad(Math.floor(this.left / 3600000) % 24) },
-                        get m() { return this.pad(Math.floor(this.left / 60000) % 60) } }"
-                     x-init="setInterval(() => now = Date.now(), 20000)">
-                    <p class="vsh-eyebrow" x-text="left <= 15 * 60000 ? (left > 0 ? 'You\'re on soon!' : 'Starting now') : 'Next show'">Next show</p>
+                        get text() { const m = Math.floor(this.left / 60000), d = Math.floor(m / 1440), h = Math.floor(m / 60) % 24; return (d ? d + 'd ' : '') + (d || h ? h + 'h ' : '') + (m % 60) + 'm' } }"
+                     x-init="setInterval(() => now = Date.now(), 20000)" @endif>
+                    <p class="vsh-eyebrow" @if ($nextStart) x-text="left <= 15 * 60000 ? (left > 0 ? 'You\'re on soon!' : 'Starting now') : 'Next show'" @endif>Next show</p>
                     <h2 title="{{ $next->title }}">{{ $next->title }}</h2>
-                    <p class="vsh-count" aria-label="Time until the show">
-                        <span x-text="d + 'd'">--d</span><i>:</i><span x-text="h + 'h'">--h</span><i>:</i><span x-text="m + 'm'">--m</span>
+                    <p class="vsh-when">
+                        {{ ($nextStart ?? $next->show_date)?->format('D, M j') }} ·
+                        @if ($nextStart)
+                            {{ $nextStart->format('g:i A T') }} <span class="vsh-count" x-show="left > 0">· in <b x-text="text"></b></span>
+                        @else
+                            Time TBD
+                        @endif
                     </p>
-                    <p class="vsh-when">{{ $nextStart->format('l, M j') }} · {{ $nextStart->format('g:i A T') }}@if ($next->channel) · {{ $next->channel->name }}@endif</p>
-                </div>
-            @elseif ($next)
-                <div class="min-w-0">
-                    <p class="vsh-eyebrow">Next show</p>
-                    <h2 title="{{ $next->title }}">{{ $next->title }}</h2>
-                    <p class="vsh-when">{{ $next->show_date?->format('l, M j') }} · start time not set yet @if ($next->channel) · {{ $next->channel->name }} @endif</p>
                 </div>
             @else
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                     <p class="vsh-eyebrow">Next show</p>
                     <h2>No upcoming shows yet</h2>
                     <p class="vsh-when">New shows appear here as soon as you're scheduled.</p>
                 </div>
             @endif
-            <a href="#vsh-reports-title" wire:click="setTab('upcoming')" class="vsh-next-link">{{ $next ? 'Upcoming shows' : 'All my shows' }} <x-heroicon-m-arrow-right class="h-4 w-4" /></a>
+            <a href="#vsh-reports-title" wire:click="setTab('upcoming')" class="vsh-next-link">{{ $next ? 'View show' : 'My shows' }} <x-heroicon-m-arrow-right class="h-4 w-4" /></a>
         </div>
         <img class="vsh-hero-mon" src="/img/pokemon/pikachu.gif" alt="" aria-hidden="true">
     </header>
 
-    {{-- Their numbers for a period. --}}
-    <div class="vsh-numbers-head">
-        <h2>Your numbers</h2>
-        <label class="vsh-period">
+    {{-- Their numbers for a period, with the period picker alongside. --}}
+    <div class="vsh-stats">
+        @foreach ([
+            ['heroicon-o-calendar-days', 'violet', 'Shows ' . $n['label'], number_format($n['shows']), 'Shows you were on, dated in this period.'],
+            ['heroicon-o-currency-dollar', 'green', 'Gross sales ' . $n['label'], $money($n['gross']), 'Whatnot sales for your shows dated in this period.'],
+            ['heroicon-o-document-check', 'blue', 'Recorded paid', $money($n['paid']), 'Pay already paid out for shows in this period.'],
+            ['heroicon-o-clock', 'amber', 'Approved unpaid', $money($n['unpaid']), 'Pay approved on a pay run for shows in this period, not paid yet.'],
+        ] as [$icon, $tone, $label, $value, $tip])
+            <div class="vsh-stat">
+                <span class="vsh-stat-icon vsh-{{ $tone }}"><x-filament::icon :icon="$icon" class="h-5 w-5" /></span>
+                <div class="min-w-0">
+                    <p class="vsh-stat-label">{{ $label }} <span class="vsh-tip" title="{{ $tip }}" tabindex="0" aria-label="{{ $tip }}"><x-heroicon-o-information-circle class="h-4 w-4" /></span></p>
+                    <p class="vsh-stat-value">{{ $value }}</p>
+                </div>
+            </div>
+        @endforeach
+        <label class="vsh-period vsh-period--stats">
             <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
             <span class="sr-only">Period</span>
             <select wire:model.live="period">
                 @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
             </select>
         </label>
-    </div>
-    <div class="vsh-stats">
-        @foreach ([
-            ['heroicon-o-calendar-days', 'violet', 'Shows ' . $n['label'], number_format($n['shows']), null],
-            ['heroicon-o-currency-dollar', 'green', 'Gross sales ' . $n['label'], $money($n['gross']), 'Whatnot sales for your shows dated in this period.'],
-            ['heroicon-o-document-check', 'blue', 'Recorded paid', $money($n['paid']), 'Pay already paid out for shows in this period.'],
-            ['heroicon-o-clock', 'amber', 'Approved unpaid', $money($n['unpaid']), 'Pay approved on a pay run for shows in this period, not paid yet.'],
-        ] as [$icon, $tone, $label, $value, $tip])
-            <div class="vsh-stat">
-                <span class="vsh-stat-icon vsh-{{ $tone }}"><x-filament::icon :icon="$icon" class="h-6 w-6" /></span>
-                <div class="min-w-0">
-                    <p class="vsh-stat-label">{{ $label }}</p>
-                    <p class="vsh-stat-value">{{ $value }}@if ($tip)<span class="vsh-tip" title="{{ $tip }}" tabindex="0" aria-label="{{ $tip }}"><x-heroicon-o-information-circle class="h-5 w-5" /></span>@endif</p>
-                </div>
-            </div>
-        @endforeach
     </div>
 
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
@@ -166,10 +159,7 @@
                             <div><dt>Your pay</dt><dd class="vsh-paid">{{ $money($pay->sum('calculated_payout')) }}</dd><p class="vsh-meta">{{ $pay->every(fn ($p) => $p->status === 'paid') ? 'Paid' : 'Awaiting payment' }}</p></div>
                         @endif
                     </dl>
-                    <dl class="vsh-figs">
-                        <div><dt>Items logged</dt><dd>{{ number_format($items) }}</dd>@if ($saved)<p class="vsh-meta">Saved {{ $saved->diffForHumans() }}</p>@endif</div>
-                        <div><dt>Giveaways</dt><dd>{{ number_format($gives) }}</dd></div>
-                    </dl>
+                    <p class="vsh-counts"><span>Items logged <b>{{ number_format($items) }}</b></span><span aria-hidden="true">·</span><span>Giveaways <b>{{ number_format($gives) }}</b></span>@if ($saved)<span class="vsh-saved">Saved {{ $saved->diffForHumans() }}</span>@endif</p>
                     @endunless
                     @if ($action)
                         <a href="{{ $url }}" @class(['vsh-btn', 'is-solid' => $solid])>
@@ -367,5 +357,75 @@
         .vsh-period select { flex:1; }
     }
     @media (prefers-reduced-motion: reduce) { .vsh-wave, .vsh-hero-mon { animation:none; } .vsh-card, .vsh-card:hover { transition:none; transform:none; } }
+
+    /* ── Compact pass: the first row of show cards should be on screen without scrolling. ── */
+    .vsh { gap:.85rem; }
+    .vsh-hero { padding:1rem 6.5rem 1rem 1.75rem; gap:.85rem 1.5rem; border-radius:1.1rem; }
+    .vsh-hero-ball { width:6.5rem; height:6.5rem; left:-2rem; border-width:.3rem; }
+    .vsh-hero-copy { flex:1 1 18rem; padding-left:1.1rem; }
+    .vsh-hero-date { font-size:.78rem; }
+    .vsh-hero h1 { margin:.05rem 0 .15rem; font-size:clamp(1.3rem, 2.1vw, 1.8rem); }
+    .vsh-hero-copy > p:last-child { font-size:.88rem; }
+    .vsh-next { flex:1 1 24rem; max-width:34rem; gap:.85rem; padding:.65rem .9rem; border-radius:.9rem; }
+    .vsh-next-icon { display:grid; place-items:center; flex:none; width:2.5rem; height:2.5rem; border-radius:.7rem; background: rgb(255 255 255 / .12); }
+    .vsh-next h2 { margin-top:.05rem; font-size:1rem; }
+    .vsh-when { font-size:.78rem; }
+    .vsh-count { display:inline; margin:0; font-size:inherit; font-weight:500; }
+    .vsh-count b { font-weight:800; font-variant-numeric: tabular-nums; }
+    .vsh-next-link { padding-left:1rem; font-size:.85rem; }
+    .vsh-hero-mon { height:3.75rem; right:1.4rem; bottom:.5rem; animation:none; filter: drop-shadow(0 4px 8px rgb(0 0 0 / .35)); }
+
+    .vsh-stats { gap:.75rem; }
+    @media (min-width: 1000px) { .vsh-stats { grid-template-columns: repeat(4, minmax(0,1fr)) auto; } }
+    .vsh-stats > .vsh-period--stats { grid-column: 1 / -1; justify-self:end; }
+    @media (min-width: 1000px) { .vsh-stats > .vsh-period--stats { grid-column:auto; align-self:center; } }
+    .vsh-stat { gap:.75rem; padding:.7rem .9rem; border-radius:.9rem; }
+    .vsh-stat-icon { width:2.4rem; height:2.4rem; border-radius:.7rem; }
+    .vsh-stat-label { display:flex; align-items:center; gap:.3rem; font-size:.78rem; }
+    .vsh-stat-value { font-size:clamp(1.05rem, 1.4vw, 1.35rem); }
+    .vsh-period { min-height:2.5rem; }
+
+    .vsh .vx-clock .vxw-card-body { padding:.6rem 1rem; }
+    .vsh .vx-clock .vx-clock-big { font-size:17px; }
+    .vsh .vx-clock .vx-clock-dot { width:2.4rem; height:2.4rem; }
+    .vsh .vx-clock .vxw-eyebrow { display:none; }
+
+    .vsh-reports { gap:.75rem; }
+    .vsh-reports-head h2 { font-size:1.15rem; }
+    .vsh-tabs button { padding:.45rem .8rem; border-radius:.6rem; }
+    .vsh-tabs button.is-active { color:#6d28d9; background:#f1ecff; box-shadow: inset 0 -2px 0 #7c3aed; }
+    .dark .vsh-tabs button.is-active { color:#ddd6fe; background: rgb(124 58 237 / .2); box-shadow: inset 0 -2px 0 #a78bfa; }
+    .vsh-tabs button.is-active .vsh-tab-count { background:#7c3aed; color:#fff; }
+    .vsh-search, .vsh-tools .vsh-period { min-height:2.5rem; }
+
+    .vsh-grid { gap:.85rem; }
+    .vsh-card { gap:.6rem; padding:.85rem 1rem .9rem; }
+    .vsh-card-top { gap:.75rem; padding-bottom:.6rem; }
+    .vsh-card-icon { width:2.5rem; height:2.5rem; border-radius:.7rem; }
+    .vsh-card h3 { font-size:.98rem; }
+    .vsh-figs--money { padding:0; margin:0; background:none; }
+    .vsh-figs--money dt { font-size:.75rem; }
+    .vsh-figs--money dd { font-size:1.05rem; }
+    .vsh-counts { display:flex; flex-wrap:wrap; align-items:center; gap:.2rem .5rem; font-size:.8rem; color: var(--vsh-muted); }
+    .vsh-counts b { color: rgb(17 24 39); font-weight:700; }
+    .dark .vsh-counts b { color:#f3f4f6; }
+    .vsh-saved { margin-left:auto; font-size:.75rem; }
+    .vsh-btn { min-height:2.5rem; border-radius:.65rem; font-size:.92rem; }
+    .vsh-later { padding:.55rem; font-size:.8rem; }
+    /* The dashboard has no page title of its own; drop the empty header's space. */
+    /* The dashboard has no page title, so its header padding is just empty space. */
+    .fi-page-header-main-ctn:has(.vsh) { padding-top:14px; }
+    .fi-page-content:has(.vsh) { padding-top:0; }
+    @media (max-width: 760px) {
+        .vsh-hero { padding:1rem 4.25rem 1rem 1rem; }
+        .vsh-hero-mon { height:2.75rem; top:.8rem; bottom:auto; right:.8rem; }
+        .vsh-next { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:.4rem .75rem; margin-right:-3.25rem; }
+        .vsh-next > div { min-width:0; }
+        .vsh-next-link { grid-column:2; justify-self:start; margin:0; padding:0; border-left:0; }
+        .vsh-stat { padding:.65rem .75rem; }
+        .vsh-stat-icon { display:none; }
+        .vsh-stat-value { font-size:1.05rem; white-space:nowrap; overflow-wrap:normal; }
+        .vsh-stats > .vsh-period--stats { justify-self:stretch; }
+    }
 </style>
 </div>

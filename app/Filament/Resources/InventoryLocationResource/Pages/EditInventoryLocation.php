@@ -10,6 +10,11 @@ class EditInventoryLocation extends EditRecord
 {
     protected static string $resource = InventoryLocationResource::class;
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return InventoryLocationResource::applyAudience($data);
+    }
+
     protected function getHeaderActions(): array
     {
         return [DeleteAction::make()];

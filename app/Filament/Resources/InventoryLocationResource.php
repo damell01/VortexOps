@@ -86,13 +86,16 @@ class InventoryLocationResource extends Resource
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['streamer', 'channel']);
+        $query = parent::getEloquentQuery()->with(['streamer', 'channel', 'business']);
         $user  = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            // Their own, plus shared ones for everyone or for their business.
             $streamerId = $user->streamer?->id;
-            $query->where(function (Builder $q) use ($streamerId): void {
-                $q->whereNull('streamer_id')
+            $businessId = $user->streamer?->business_id;
+            $query->where(function (Builder $q) use ($streamerId, $businessId): void {
+                $q->where(fn (Builder $shared) => $shared->whereNull('streamer_id')
+                    ->where(fn (Builder $b) => $b->whereNull('business_id')->when($businessId, fn ($w) => $w->orWhere('business_id', $businessId))))
                   ->orWhere('streamer_id', $streamerId);
             });
         }
@@ -191,25 +194,71 @@ class InventoryLocationResource extends Resource
         return 'Locations';
     }
 
+    /** What each type is for, in the words the setup form uses. */
+    public static function typeDescriptions(): array
+    {
+        return [
+            'main_storage' => 'Where stock is kept and received into. Streamers sell from it.',
+            'streamer_inventory' => 'Stock a streamer holds and sells from themselves.',
+            'fulfillment' => 'Packing and shipping area.',
+            'returned' => 'Returns waiting to be checked. Not sold from.',
+            'damaged' => 'Damaged stock. Not sold from.',
+            'other' => 'Anything else.',
+        ];
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Location Details')->columnSpanFull()->schema([
-                Grid::make(2)->schema([
-                    TextInput::make('name')
-                        ->required()
-                        ->maxLength(255),
-                    Select::make('type')
-                        ->options(InventoryLocation::typeLabels())
-                        ->required()
-                        ->live(),
+            Section::make('What is it?')->columnSpanFull()->schema([
+                TextInput::make('name')
+                    ->label('Name')
+                    ->placeholder('e.g. Estill Storage, Jay\'s Shelf')
+                    ->required()
+                    ->maxLength(255),
+                \Filament\Forms\Components\Radio::make('type')
+                    ->label('What it\'s for')
+                    ->options(InventoryLocation::typeLabels())
+                    ->descriptions(static::typeDescriptions())
+                    ->columns(['default' => 1, 'md' => 3])
+                    ->default('main_storage')
+                    ->required(),
+            ]),
+            Section::make('Who uses it?')
+                ->description('Streamers sell from their own locations plus the storage they share. A business with storage of its own uses only that, not the shared Main Storage.')
+                ->columnSpanFull()->schema([
+                    \Filament\Forms\Components\Radio::make('audience')
+                        ->hiddenLabel()
+                        ->options([
+                            'everyone' => 'Everyone',
+                            'business' => 'One business',
+                            'streamer' => 'One streamer',
+                        ])
+                        ->descriptions([
+                            'everyone' => 'Shared by every business that has no storage of its own.',
+                            'business' => 'Only that business\'s streamers, e.g. Estill\'s own allocation.',
+                            'streamer' => 'Only this person.',
+                        ])
+                        ->inline()
+                        ->default('everyone')
+                        ->live()
+                        ->afterStateHydrated(fn ($component, ?InventoryLocation $record) => $record ? $component->state($record->audience()) : null),
+                    Select::make('business_id')
+                        ->label('Business')
+                        ->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all())
+                        ->native(false)
+                        ->required(fn ($get) => $get('audience') === 'business')
+                        ->visible(fn ($get) => $get('audience') === 'business'),
                     Select::make('streamer_id')
-                        ->label('Assigned Streamer')
-                        ->relationship('streamer', 'name')
+                        ->label('Streamer')
+                        ->options(fn () => static::streamerOptions())
                         ->searchable()
-                        ->preload()
-                        ->nullable()
-                        ->visible(fn ($get) => $get('type') === 'streamer_inventory'),
+                        ->native(false)
+                        ->required(fn ($get) => $get('audience') === 'streamer')
+                        ->visible(fn ($get) => $get('audience') === 'streamer'),
+                ]),
+            Section::make('More options')->collapsed()->columnSpanFull()->schema([
+                Grid::make(2)->schema([
                     Select::make('status')
                         ->options(InventoryLocation::statusLabels())
                         ->required()
@@ -228,6 +277,38 @@ class InventoryLocationResource extends Resource
         ]);
     }
 
+    /** "Jay · Estill" for the streamer picker, so two people's business is clear. */
+    public static function streamerOptions(): array
+    {
+        $businesses = \App\Models\Business::pluck('short_name', 'id')->map(fn ($s, $id) => $s ?: \App\Models\Business::whereKey($id)->value('name'));
+
+        return \App\Models\Streamer::query()->streamers()->where('status', 'active')->orderBy('name')
+            ->get(['id', 'name', 'business_id'])
+            ->mapWithKeys(fn ($s) => [$s->id => $s->name . ($s->business_id && isset($businesses[$s->business_id]) ? ' · ' . $businesses[$s->business_id] : '')])
+            ->all();
+    }
+
+    /**
+     * Turn the form's "Who uses it?" into the columns: a streamer's location
+     * also records their business, so it lists under that business.
+     */
+    public static function applyAudience(array $data): array
+    {
+        $audience = $data['audience'] ?? 'everyone';
+        unset($data['audience']);
+
+        if ($audience === 'streamer' && ! empty($data['streamer_id'])) {
+            $data['business_id'] = \App\Models\Streamer::whereKey($data['streamer_id'])->value('business_id');
+        } elseif ($audience === 'business') {
+            $data['streamer_id'] = null;
+        } else {
+            $data['streamer_id'] = null;
+            $data['business_id'] = null;
+        }
+
+        return $data;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -242,7 +323,7 @@ class InventoryLocationResource extends Resource
                     ->weight('semibold')
                     // Whose location it is belongs with the name, not in a
                     // column that is empty for every non-streamer location.
-                    ->description(fn (InventoryLocation $record) => $record->streamer?->name)
+                    ->description(fn (InventoryLocation $record) => $record->notes ? \Illuminate\Support\Str::limit($record->notes, 60) : null)
                     ->extraCellAttributes(['class' => 'vx-col-title'])
                     ->extraHeaderAttributes(['class' => 'vx-col-title']),
                 TextColumn::make('type')
@@ -254,6 +335,20 @@ class InventoryLocationResource extends Resource
                         'returned' => 'warning',
                         'damaged' => 'danger',
                         'fulfillment' => 'primary',
+                        default => 'gray',
+                    }),
+                TextColumn::make('used_by')
+                    ->label('Used by')
+                    ->state(fn (InventoryLocation $record) => $record->audienceLabel())
+                    ->badge()
+                    ->icon(fn (InventoryLocation $record) => match ($record->audience()) {
+                        'streamer' => 'heroicon-m-user',
+                        'business' => 'heroicon-m-building-storefront',
+                        default => 'heroicon-m-user-group',
+                    })
+                    ->color(fn (InventoryLocation $record) => match ($record->audience()) {
+                        'streamer' => 'success',
+                        'business' => 'primary',
                         default => 'gray',
                     }),
                 TextColumn::make('stock_count')
@@ -291,6 +386,9 @@ class InventoryLocationResource extends Resource
                     ->options(InventoryLocation::typeLabels()),
                 SelectFilter::make('status')
                     ->options(InventoryLocation::statusLabels()),
+                SelectFilter::make('business_id')
+                    ->label('Business')
+                    ->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all()),
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->relationship('streamer', 'name'),

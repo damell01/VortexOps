@@ -9,9 +9,31 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListStreamerLogEntries extends ListRecords
 {
-    use \App\Filament\Concerns\DownloadsTableCsv;
-
     protected static string $resource = StreamerLogResource::class;
+
+    /** The Sort menu above the cards; see StreamerLogResource::applyInboxSort(). */
+    public string $inboxSort = '';
+
+    public function updatedInboxSort(): void
+    {
+        $this->resetPage($this->getTablePaginationPageName());
+    }
+
+    /**
+     * How submitted reports are approved, from Settings → Post-Show Workflow.
+     *
+     * @return array{tone:string, title:string, body:string, url:?string}
+     */
+    public function reviewPolicy(): array
+    {
+        $url = \App\Filament\Pages\AppSettings::canAccess() ? \App\Filament\Pages\AppSettings::getUrl() . '#show-workflow' : null;
+
+        return match ((string) \App\Models\Setting::get('show_report_review_policy', 'required')) {
+            'auto' => ['tone' => 'green', 'title' => 'Auto-approval enabled', 'body' => 'Every report approves itself on submission.', 'url' => $url],
+            'exceptions_only' => ['tone' => 'green', 'title' => 'Auto-approval enabled', 'body' => 'Reports approve on submission unless an issue needs review.', 'url' => $url],
+            default => ['tone' => 'violet', 'title' => 'Admin review required', 'body' => 'Every submitted report waits here until an admin approves it.', 'url' => $url],
+        };
+    }
 
     /** Per-request memo — the tiles run several aggregates over the same set. */
     protected ?array $statsMemo = null;
@@ -31,10 +53,10 @@ class ListStreamerLogEntries extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
         $definitions = [
-            'submissions' => ['Total Submissions', 'Filed reports since reporting began', 'heroicon-o-document-text'],
-            'submitted' => ['Admin Review', 'Submitted and waiting', 'heroicon-o-clock'],
-            'edit_requested' => ['Edit Requests', 'Streamers asking to reopen', 'heroicon-o-lock-open'],
-            'changes_requested' => ['Changes Requested', 'Needs streamer updates', 'heroicon-o-arrow-uturn-left'],
+            'submissions' => ['Total', 'Filed reports since reporting began', 'heroicon-o-document-text'],
+            'submitted' => ['Admin review', 'Submitted and waiting', 'heroicon-o-clock'],
+            'edit_requested' => ['Edit requests', 'Streamers asking to reopen', 'heroicon-o-pencil-square'],
+            'changes_requested' => ['Changes requested', 'Needs streamer updates', 'heroicon-o-arrow-uturn-left'],
             'approved' => ['Approved', 'Ready for the next step', 'heroicon-o-check-circle'],
         ];
         $stats = [];
@@ -54,9 +76,33 @@ class ListStreamerLogEntries extends ListRecords
             'edit_requested' => $query->whereNotNull('revision_requested_at'),
             'changes_requested' => $query->where('status', 'changes_requested'),
             'approved' => $query->where('status', 'admin_approved')->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->where('approval_status','approved')->orWhereNull('approval_status')),
-            'attention' => $query->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->where('status', 'streamer_reviewed')->orWhereNotNull('revision_requested_at')),
+            // Everything still open: waiting on an admin, a streamer asking
+            // to reopen, or sent back and not yet fixed.
+            'attention' => $query->whereNested(fn (\Illuminate\Database\Query\Builder $q) => $q->whereIn('status', ['streamer_reviewed', 'changes_requested'])->orWhereNotNull('revision_requested_at')),
             default => $query,
         };
+    }
+
+    /** Counts beside the three tabs. @return array<string,int> */
+    public function tabCounts(): array
+    {
+        return $this->tabCountsMemo ??= collect(['attention', 'all', 'approved'])
+            ->mapWithKeys(fn ($key) => [$key => $this->filterInbox(StreamerLogResource::getEloquentQuery(), $key)->count()])
+            ->all();
+    }
+
+    protected ?array $tabCountsMemo = null;
+
+    /** Pickers for the filter row. @return array{streamers: array<int,string>, channels: array<int,string>} */
+    public function filterOptions(): array
+    {
+        $user = auth()->user();
+
+        return [
+            'streamers' => ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin())
+                ? \App\Models\Streamer::orderBy('name')->pluck('name', 'id')->all() : [],
+            'channels' => \App\Models\WhatnotChannel::orderBy('name')->pluck('name', 'id')->all(),
+        ];
     }
 
     public function selectInboxStatus(string $key): void
@@ -107,17 +153,15 @@ class ListStreamerLogEntries extends ListRecords
 
     public function getSubheading(): ?string
     {
-        $from = $this->reportStartDate();
-        $scope = $from
-            ? 'Reports for shows from ' . \Illuminate\Support\Carbon::parse($from)->format('M j, Y') . ' onward.'
-            : 'All reporting dates. Set the report start date in Settings → Post-Show Workflow to leave older shows out.';
-
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
             return 'Your show reports. Open one to log what sold, then submit it for review.';
         }
 
-        return $scope . ' Counts follow the selected channel.';
+        $from = $this->reportStartDate();
+
+        return 'Manage submitted reports and resolve exceptions.'
+            . ($from ? ' Shows from ' . \Illuminate\Support\Carbon::parse($from)->format('M j, Y') . ' onward; counts follow the selected channel.' : ' Counts follow the selected channel.');
     }
 
     protected function getHeaderActions(): array
@@ -128,7 +172,44 @@ class ListStreamerLogEntries extends ListRecords
                 ->icon('heroicon-m-arrow-path')
                 ->color('gray')
                 ->action(fn () => $this->statsMemo = null),
+            \Filament\Actions\Action::make('export_csv')
+                ->label('Export CSV')
+                ->icon('heroicon-m-arrow-down-tray')
+                ->color('gray')
+                ->action(fn () => $this->exportCsv()),
         ];
+    }
+
+    /** The cards are drawn from a view, so the export writes the same figures flat. */
+    public function exportCsv(): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $user = auth()->user();
+        $staff = $user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin();
+        $rows = $this->getFilteredSortedTableQuery()->limit(20000)->get();
+
+        return response()->streamDownload(function () use ($rows, $staff, $user) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Show date', 'Show', 'Channel', 'Streamer', 'Status', 'Sales', 'Product cost', 'Pay', 'Pay status', 'Missing', 'Submitted'], ',', '"', '');
+            foreach ($rows as $r) {
+                $mine = $user?->streamer?->id && $user->streamer->id === $r->streamer_id;
+                $pay = ($staff || $mine) ? StreamerLogResource::payFor($r) : null;
+                fputcsv($out, [
+                    $r->show?->show_date?->toDateString(),
+                    $r->show?->title,
+                    $r->show?->channel?->name,
+                    $r->streamer?->name,
+                    \App\Models\StreamerLogEntry::statusLabels()[$r->status] ?? $r->status,
+                    $r->gross_revenue ?? $r->show?->gross_revenue,
+                    $r->product_cost,
+                    $pay['amount'] ?? null,
+                    $pay['state'] ?? null,
+                    $staff ? implode('; ', StreamerLogResource::missingInfo($r)) : null,
+                    $r->submitted_at?->toDateTimeString(),
+                ], ',', '"', '');
+            }
+            fclose($out);
+        }, 'show-reports-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /** Quick filter presets. The "To Review" count respects per-streamer scoping. */

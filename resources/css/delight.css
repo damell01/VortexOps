@@ -282,11 +282,22 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 
 /* Show-day countdown on a streamer's home. */
 @keyframes vx-countdown-hop { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-6px) scale(1.06); } 60% { transform: translateY(0) scale(1.05, .95); } }
-.vx-countdown { margin-top: 10px; padding: 7px 12px; border-radius: 10px; background: #f3edff; color: #4c1d95; font-size: 13px; }
+.vx-countdown { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 12px 8px 8px; border-radius: 12px; background: #f3edff; color: #4c1d95; font-size: 13px; }
+.dark .vx-countdown { background: rgb(76 29 149 / .3); color: #ddd6fe; }
 .vx-countdown b { font-variant-numeric: tabular-nums; }
-.vx-countdown-soon { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.vx-countdown-soon img { height: 30px; width: auto; image-rendering: pixelated; animation: vx-countdown-hop .8s ease-out infinite; }
-.vx-countdown:has(.vx-countdown-soon:not([style*="none"])) { background: linear-gradient(100deg, #fef3c7, #fce7f3); color: #831843; }
+.vx-countdown-copy { display: flex; flex-direction: column; line-height: 1.3; }
+.vx-countdown-copy small { font-size: 11px; opacity: .75; }
+/* Ring: red top half filling clockwise like a Poké Ball being thrown closer, white inside. */
+.vx-countdown-ball { position: relative; flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: conic-gradient(#ef4444 calc(var(--p, 0) * 1%), #e4dcff 0); }
+.dark .vx-countdown-ball { background: conic-gradient(#f87171 calc(var(--p, 0) * 1%), rgb(76 29 149 / .6) 0); }
+.vx-countdown-ball::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #fff; box-shadow: inset 0 -12px 0 -10px #1f1235; }
+.dark .vx-countdown-ball::before { background: #1e1b4b; }
+.vx-countdown-ball img { position: relative; height: 30px; width: auto; image-rendering: pixelated; }
+.vx-countdown.is-soon .vx-countdown-ball img { animation: vx-countdown-hop .8s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .vx-countdown.is-soon .vx-countdown-ball img { animation: none; } }
+.vx-countdown.is-soon { background: linear-gradient(100deg, #fef3c7, #fce7f3); color: #831843; }
+.dark .vx-countdown.is-soon { background: linear-gradient(100deg, rgb(120 53 15 / .45), rgb(131 24 67 / .45)); color: #fde68a; }
 .dark .vx-countdown { background: #2e1065; color: #ede9fe; }
 
 /* Global search results as Pokédex entries. */
@@ -323,7 +334,7 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
   .vx-season-peek.from-top { transform: translateY(30px); }
   .vx-season-peek.from-bottom { transform: translateY(-34px); }
   .vx-fall, .vx-fireworks, .vx-fireworks-finale { display: none !important; }
-  .vx-tip-mon, .vx-countdown-soon img { animation: none !important; }
+  .vx-tip-mon, .vx-countdown-ball img { animation: none !important; }
   .vx-chip, .vx-chip:hover { transform: none !important; }
   .vx-chip-back { display: none; }
   .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }

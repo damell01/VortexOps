@@ -259,31 +259,38 @@ class StreamerLogResource extends Resource
             ->emptyStateDescription('Submitted streamer reports will appear here for review.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')
             ->extraAttributes(['data-sticky-header' => 'true', 'class' => 'vx-card-table'])
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['show.channel', 'show.streamers', 'streamer']))
+            ->modifyQueryUsing(fn (Builder $query, $livewire) => static::applyInboxSort($query, $livewire->inboxSort ?? '')
+                ->with(['show.channel', 'show.streamers', 'streamer'])
+                ->withCount(['items', 'items as uncosted_items_count' => fn (Builder $q) => $q->whereNull('inventory_item_id')->whereNull('unit_cost')]))
+            ->contentGrid(['md' => 2, 'xl' => 3])
             ->columns([
-                \Filament\Tables\Columns\ViewColumn::make('report')
-                    ->label('Show & streamer')
-                    ->view('filament.tables.report-inbox.show')
-                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(fn (Builder $q) => $q
-                        ->whereHas('show', fn (Builder $s) => $s->where('title', 'like', "%{$search}%"))
-                        ->orWhereHas('streamer', fn (Builder $s) => $s->where('name', 'like', "%{$search}%"))))
-                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy(
-                        \App\Models\Show::select('show_date')->whereColumn('shows.id', 'streamer_log_entries.show_id'),
-                        $direction,
-                    ))
-                    ->extraCellAttributes(['class' => 'vxi-cell-show']),
-                \Filament\Tables\Columns\ViewColumn::make('status')
-                    ->label('Status')
-                    ->view('filament.tables.report-inbox.status'),
-                \Filament\Tables\Columns\ViewColumn::make('financials')
-                    ->label('Financial summary')
-                    ->view('filament.tables.report-inbox.money'),
-                \Filament\Tables\Columns\ViewColumn::make('submitted_at')
-                    ->label('Submitted')
-                    ->view('filament.tables.report-inbox.submitted')
-                    ->sortable(),
+                \Filament\Tables\Columns\Layout\Stack::make([
+                    \Filament\Tables\Columns\ViewColumn::make('report')
+                        ->label('Report')
+                        ->view('filament.tables.report-inbox.card')
+                        ->searchable(query: fn (Builder $query, string $search): Builder => $query->where(fn (Builder $q) => $q
+                            ->whereHas('show', fn (Builder $s) => $s->where('title', 'like', "%{$search}%"))
+                            ->orWhereHas('streamer', fn (Builder $s) => $s->where('name', 'like', "%{$search}%")))),
+                ]),
             ])
             ->filters([
+                SelectFilter::make('status')
+                    ->options(StreamerLogEntry::statusLabels()),
+                SelectFilter::make('date_range')
+                    ->label('Date range')
+                    ->options(['7' => 'Last 7 days', '30' => 'Last 30 days', 'this_month' => 'This month', 'last_month' => 'Last month'])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $today = \App\Support\BusinessTime::local();
+                        [$from, $to] = match ($data['value'] ?? null) {
+                            '7' => [$today->copy()->subDays(6), $today],
+                            '30' => [$today->copy()->subDays(29), $today],
+                            'this_month' => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+                            'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
+                            default => [null, null],
+                        };
+
+                        return $from ? $query->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from->toDateString(), $to->toDateString() . ' 23:59:59'])) : $query;
+                    }),
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->options(fn () => Streamer::orderBy('name')->pluck('name', 'id')->all())
@@ -314,6 +321,10 @@ class StreamerLogResource extends Resource
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->extraAttributes(['class' => 'vxi-approve'])
                     ->visible(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed'
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->requiresConfirmation()
@@ -338,14 +349,14 @@ class StreamerLogResource extends Resource
                     ->label(fn (StreamerLogEntry $record) => match (true) {
                         $record->hasPendingRevisionRequest() => 'View request',
                         $record->status === 'streamer_reviewed' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) => 'Review',
-                        static::isLockedForCurrentUser($record) => 'View report',
-                        default => 'Open',
+                        $record->status === 'changes_requested' => 'View changes',
+                        default => 'Open report',
                     })
-                    ->icon('heroicon-m-arrow-right')
-                    ->iconPosition(\Filament\Support\Enums\IconPosition::After)
                     ->button()
+                    ->outlined()
                     ->size('sm')
-                    ->color(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed' || $record->hasPendingRevisionRequest() ? 'primary' : 'gray')
+                    ->color('primary')
+                    ->extraAttributes(['class' => 'vxi-primary'])
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
                 // Approve and Request Changes stay on the row — they're the
                 // whole job of this screen. The rest goes behind the overflow
@@ -541,51 +552,76 @@ class StreamerLogResource extends Resource
             ])
             ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('id', 'desc')
-            ->headerActions([
-                // The row layout is drawn from views, so the generic export
-                // would come out blank; this one writes the same figures flat.
-                Action::make('export_csv')
-                    ->label('Download CSV')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->action(function ($livewire) {
-                        $user = auth()->user();
-                        $staff = $user?->isAdmin() || $user?->isOwner();
-                        $rows = $livewire->getFilteredSortedTableQuery()
-                            ->with(['show.channel', 'show.streamers', 'streamer'])
-                            ->limit(20000)->get();
-
-                        return response()->streamDownload(function () use ($rows, $staff, $user) {
-                            $out = fopen('php://output', 'w');
-                            fwrite($out, "\xEF\xBB\xBF");
-                            fputcsv($out, ['Show date', 'Show', 'Channel', 'Streamer', 'Status', 'Sales', 'Product cost', 'Pay', 'Pay status', 'Submitted'], ',', '"', '');
-                            foreach ($rows as $r) {
-                                $pay = ($staff || ($user?->streamer?->id && $user->streamer->id === $r->streamer_id)) ? static::payFor($r) : null;
-                                fputcsv($out, [
-                                    $r->show?->show_date?->toDateString(),
-                                    $r->show?->title,
-                                    $r->show?->channel?->name,
-                                    $r->streamer?->name,
-                                    StreamerLogEntry::statusLabels()[$r->status] ?? $r->status,
-                                    $r->gross_revenue ?? $r->show?->gross_revenue,
-                                    $r->product_cost,
-                                    $pay['amount'] ?? null,
-                                    $pay['state'] ?? null,
-                                    $r->submitted_at?->toDateTimeString(),
-                                ], ',', '"', '');
-                            }
-                            fclose($out);
-                        }, 'show-reports-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
-                    }),
-            ])
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->filtersFormColumns(['sm' => 2, 'lg' => 4])
             ->deferFilters(false)
             ->searchPlaceholder('Search show or streamer')
-            ->paginated([10, 25, 50])
-            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(10))
+            ->paginated([6, 12, 24])
+            ->defaultPaginationPageOption(6)
             ->deferLoading()
             ->persistFiltersInSession();
+    }
+
+    /** The inbox's Sort menu. Blank leaves the table's own default (newest first). */
+    public static function applyInboxSort(Builder $query, string $sort): Builder
+    {
+        $showDate = \App\Models\Show::select('show_date')->whereColumn('shows.id', 'streamer_log_entries.show_id');
+
+        return match ($sort) {
+            'submitted_desc' => $query->orderByRaw('submitted_at is null')->orderByDesc('submitted_at'),
+            'waiting_longest' => $query->orderByRaw('submitted_at is null')->orderBy('submitted_at'),
+            'show_desc' => $query->orderByDesc($showDate),
+            'show_asc' => $query->orderBy($showDate),
+            default => $query,
+        };
+    }
+
+    /**
+     * What a report is still missing that pay or stock depends on, so an
+     * admin sees it on the inbox card instead of finding out at pay time.
+     * Reads counts the inbox query loads (items_count, uncosted_items_count).
+     *
+     * @return list<string>
+     */
+    public static function missingInfo(StreamerLogEntry $record): array
+    {
+        $show = $record->show;
+        $missing = [];
+
+        if (! $record->streamer_id) {
+            $missing[] = 'No streamer assigned';
+        }
+        if ($show && $show->show_date && ! $show->show_date->isFuture()
+            && (float) ($show->gross_revenue ?? 0) <= 0 && (float) ($show->whatnot_net ?? 0) == 0.0) {
+            $missing[] = 'Whatnot earnings not imported';
+        }
+
+        $pay = $record->streamer_id ? static::payFor($record) : null;
+        if ($pay && str_contains((string) $pay['notes'], 'Hours missing')) {
+            $missing[] = 'Hours worked missing';
+        } elseif (! $pay && $record->hours_streamed === null) {
+            $missing[] = 'Hours worked missing';
+        }
+
+        if ($record->number_of_shipments === null && \App\Support\ProfitShareFormula::ratePerShipment() !== null
+            && in_array($record->streamer?->payout_type, ['profit_share', 'hybrid'], true)) {
+            $missing[] = 'Shipments not entered';
+        }
+
+        $items = $record->items_count ?? null;
+        if ($items === 0 && $record->isSubmitted()) {
+            $missing[] = 'No items logged';
+        }
+        $uncosted = (int) ($record->uncosted_items_count ?? 0);
+        if ($uncosted > 0) {
+            $missing[] = $uncosted === 1 ? '1 item has no cost' : "{$uncosted} items have no cost";
+        }
+
+        if ($record->streamer_id && ! $pay && $record->streamer) {
+            $missing[] = 'Pay could not be worked out — check the streamer\'s pay setup';
+        }
+
+        return $missing;
     }
 
     private static ?\WeakMap $payMemo = null;

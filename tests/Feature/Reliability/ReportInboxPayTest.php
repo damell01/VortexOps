@@ -71,8 +71,36 @@ class ReportInboxPayTest extends TestCase
             ->assertSee('Ready for review')
             ->assertSee('Est. pay')
             ->assertSee('$80.00')
-            ->assertSee('ready for admin review')
-            ->assertSee('Review next');
+            ->assertSee('1 ready')
+            ->assertSee('Review next')
+            ->assertSee('Admin review required');
+    }
+
+    public function test_an_admin_sees_what_a_report_is_missing(): void
+    {
+        $this->owner();
+        $entry = $this->report();
+        $entry->update(['hours_streamed' => null]);
+        $entry->show->update(['gross_revenue' => 0, 'whatnot_net' => 0]);
+        \App\Models\StreamerLogItem::create(['streamer_log_entry_id' => $entry->id, 'item_name' => 'Hand-typed slab', 'quantity' => 1, 'disposition' => 'sold']);
+
+        Livewire::test(ListStreamerLogEntries::class)
+            ->call('loadTable')
+            ->assertSee('Missing:')
+            ->assertSee('Whatnot earnings not imported')
+            ->assertSee('Hours worked missing')
+            ->assertSee('1 item has no cost');
+    }
+
+    public function test_a_complete_report_shows_no_missing_warning(): void
+    {
+        $this->owner();
+        $entry = $this->report();
+        \App\Models\StreamerLogItem::create(['streamer_log_entry_id' => $entry->id, 'item_name' => 'Costed box', 'quantity' => 1, 'disposition' => 'sold', 'unit_cost' => 20]);
+
+        $this->assertSame([], \App\Filament\Resources\StreamerLogResource::missingInfo(
+            $entry->load(['show.streamers', 'show.channel', 'streamer'])->loadCount(['items', 'items as uncosted_items_count' => fn ($q) => $q->whereNull('inventory_item_id')->whereNull('unit_cost')])
+        ));
     }
 
     public function test_the_csv_carries_the_pay_column(): void
@@ -80,7 +108,7 @@ class ReportInboxPayTest extends TestCase
         $this->owner();
         $this->report();
 
-        $response = Livewire::test(ListStreamerLogEntries::class)->call('loadTable')->callTableAction('export_csv');
+        $response = Livewire::test(ListStreamerLogEntries::class)->call('loadTable')->callAction('export_csv');
         $response->assertFileDownloaded('show-reports-' . now()->format('Y-m-d') . '.csv');
     }
 }

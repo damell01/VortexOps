@@ -98,7 +98,8 @@ svg.fi-loading-indicator { background: url('/img/pokeball.svg') center / contain
 svg.fi-loading-indicator > * { opacity: 0; }
 
 /* The page-change bar rolls a little Pokéball along its tip. */
-#vx-nav-bar::after { content: ''; position: absolute; right: -7px; top: -5px; width: 13px; height: 13px; background: url('/img/pokeball.svg') center / contain no-repeat; animation: vx-roll .6s linear infinite; }
+#vx-nav-bar::after { content: ''; position: absolute; right: -7px; top: -5px; width: 13px; height: 13px; background: url('/img/pokeball.svg') center / contain no-repeat; }
+#vx-nav-bar.vx-run::after { animation: vx-roll .6s linear infinite; }
 @keyframes vx-roll { to { transform: rotate(360deg); } }
 
 /* "All caught up" empty states show a Pokéball instead of a card back. */
@@ -118,7 +119,7 @@ svg.fi-loading-indicator > * { opacity: 0; }
 
 /* The streamer banner carries a faint, slowly turning Pokéball in its corner. */
 .vx-home-hero .vx-home-hero-ball { position: absolute; right: -40px; bottom: -60px; width: 220px; height: 220px; opacity: .08; z-index: 0; pointer-events: none;
-  background: url('/img/pokeball.svg') center / contain no-repeat; filter: grayscale(1) brightness(3); animation: vx-roll 40s linear infinite; }
+  background: url('/img/pokeball.svg') center / contain no-repeat; filter: grayscale(1) brightness(3); animation: vx-roll 40s linear 1; }
 
 @media (prefers-reduced-motion: reduce) {
   #vx-nav-bar::after, .vx-catch, .vx-home-hero-ball { animation: none !important; }
@@ -157,10 +158,11 @@ svg.fi-loading-indicator > * { opacity: 0; }
 .vxr-stat.vx-zard-perch::after { content: ''; position: absolute; top: -30px; right: 8px; width: 56px; height: 57px; pointer-events: none;
   background: url('/img/pokemon/charizard.gif') center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .25)); }
 
-/* Eevee keeps you company while you're on the clock. */
-.vx-clock-eevee { display: inline-block; width: 30px; height: auto; margin-left: 8px; vertical-align: -4px; }
-
-@media (prefers-reduced-motion: reduce) { .vx-mew { animation: none; } }
+/* Performance: nothing animates while it cannot be seen. The pack-opening
+   loader sits in every page, hidden, and its two dozen animations otherwise
+   restyle and re-lay-out the page every frame; with them off until it opens,
+   it also starts from the beginning each time it does. */
+#vx-nav-loader:not(.vx-show), #vx-nav-loader:not(.vx-show) *, #vx-nav-loader:not(.vx-show) *::before, #vx-nav-loader:not(.vx-show) *::after { animation: none !important; }
 
 /* ── Round 3: sticky heads, shimmer, live, weather, gotcha ─────────────── */
 
@@ -219,7 +221,7 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 
 /* ── Round 4: season, buddy, receiving ball, slow quip, theme pair ─────── */
 
-/* Seasons (App\\Support\\Season): a visitor peeks out now and then, a mark sits by Dashboard. */
+/* Seasons (App\\Support\\Season): a visitor peeks out now and then. */
 .vx-season-peek { position: fixed; z-index: 29; padding: 0; border: 0; background: none; cursor: pointer; }
 .vx-season-peek img { display: block; height: 56px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(40 0 70 / .3)); }
 /* Hanging upside down from under the top bar (Gengar). */
@@ -230,10 +232,6 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 .vx-season-peek.from-bottom { bottom: -46px; right: clamp(24px, 6vw, 90px); z-index: 45; animation: vx-peek-up 14s ease-in-out 3s infinite; }
 @keyframes vx-peek-up { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(-40px); } }
 
-body:has(.vx-season) .vx-mega-home::after { content: ''; display: inline-block; width: 15px; height: 15px; margin-left: 6px; vertical-align: -2px; background: center / contain no-repeat; }
-body:has(.vx-season[data-icon="pumpkin"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 4.5c0-1.6.7-2.6 2-3' stroke='%2316a34a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='6.2' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='13.8' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='10' cy='12' rx='4.4' ry='6.3' fill='%23f97316'/%3E%3Cpath d='M7 10.5l1.4-1.4 1.4 1.4zM10.2 10.5l1.4-1.4 1.4 1.4zM7.4 13.5c1.6 1.4 3.6 1.4 5.2 0' stroke='%23431407' stroke-width='1' fill='%23431407'/%3E%3C/svg%3E"); }
-body:has(.vx-season[data-icon="snowflake"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' stroke='%23bae6fd' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M10 2v16M3 6l14 8M3 14l14-8M8 3.5l2 2 2-2M8 16.5l2-2 2 2'/%3E%3C/svg%3E"); }
-body:has(.vx-season[data-icon="star"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 1.5l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.4l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z' fill='%23facc15'/%3E%3C/svg%3E"); }
 
 /* Snow, hearts or clovers drifting down over the top of the page. */
 .vx-fall { position: fixed; z-index: 28; left: 0; right: 0; top: var(--vx-topbar-h, 68px); height: 260px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent); }
@@ -243,9 +241,6 @@ body:has(.vx-season[data-icon="star"]) .vx-mega-home::after { background-image: 
 .vx-fall--hearts i { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 17.5S2 12.6 2 7.3A4.2 4.2 0 0 1 10 5a4.2 4.2 0 0 1 8 2.3c0 5.3-8 10.2-8 10.2z' fill='%23f472b6'/%3E%3C/svg%3E") center / contain no-repeat; opacity: .6; }
 .vx-fall--clovers i { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2322c55e'%3E%3Ccircle cx='10' cy='5.6' r='3.6'/%3E%3Ccircle cx='5.6' cy='10' r='3.6'/%3E%3Ccircle cx='14.4' cy='10' r='3.6'/%3E%3Cpath d='M10 10l1.5 8' stroke='%2316a34a' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; opacity: .6; }
 @keyframes vx-fall { to { transform: translate(var(--w), 275px) rotate(160deg); } }
-body:has(.vx-season[data-icon="heart"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 17.5S2 12.6 2 7.3A4.2 4.2 0 0 1 10 5a4.2 4.2 0 0 1 8 2.3c0 5.3-8 10.2-8 10.2z' fill='%23f472b6'/%3E%3C/svg%3E"); }
-body:has(.vx-season[data-icon="clover"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2322c55e'%3E%3Ccircle cx='10' cy='5.6' r='3.6'/%3E%3Ccircle cx='5.6' cy='10' r='3.6'/%3E%3Ccircle cx='14.4' cy='10' r='3.6'/%3E%3Cpath d='M10 10l1.5 8' stroke='%2316a34a' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
-body:has(.vx-season[data-icon="pie"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M2 12h16l-1.6 4.5H3.6z' fill='%23b45309'/%3E%3Cpath d='M2 12c0-4 3.6-7 8-7s8 3 8 7z' fill='%23f59e0b'/%3E%3Cpath d='M6 9.5l2-1.5M10 8.8V7M14 9.5l-2-1.5' stroke='%2378350f' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 
 /* New Year's Day: lots of fireworks — a full-screen show on the first page of the day, then bursts across the top all day. */
 .vx-fireworks, .vx-fireworks-finale { position: fixed; z-index: 28; left: 0; right: 0; pointer-events: none; }
@@ -257,35 +252,6 @@ body:has(.vx-season[data-icon="pie"]) .vx-mega-home::after { background-image: u
 .vx-fireworks-finale i { animation: vx-burst-once 1.9s ease-out var(--d) both; }
 @keyframes vx-burst { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)) translateY(0) scaleY(.4); } 2% { opacity: 1; } 14% { opacity: .95; transform: translateY(2px) rotate(var(--r)) translateY(calc(-40px * var(--k))) scaleY(1); } 28%, 100% { opacity: 0; transform: translateY(14px) rotate(var(--r)) translateY(calc(-48px * var(--k))) scaleY(.5); } }
 @keyframes vx-burst-once { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)) translateY(0) scaleY(.4); } 8% { opacity: 1; } 45% { opacity: .95; transform: translateY(3px) rotate(var(--r)) translateY(calc(-42px * var(--k))) scaleY(1); } 100% { opacity: 0; transform: translateY(18px) rotate(var(--r)) translateY(calc(-50px * var(--k))) scaleY(.4); } }
-
-/* Your buddy on the time clock: walks while you are clocked in, naps while you are not. */
-.vx-buddy { position: relative; flex: none; margin-left: 4px; }
-.vx-buddy-btn { position: relative; display: block; width: 64px; height: 50px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 12px; }
-.vx-buddy-btn:hover { background: rgb(124 58 237 / .06); }
-.vx-buddy-btn img { position: absolute; left: 50%; bottom: 2px; height: 44px; width: auto; max-width: 60px; transform: translateX(-50%); image-rendering: pixelated; }
-.vx-buddy-btn.is-walking img { animation: vx-buddy-walk 5s ease-in-out infinite; }
-.vx-buddy-btn.is-napping img { filter: saturate(.55) brightness(.95); animation: vx-buddy-nap 4.5s ease-in-out infinite; transform-origin: 50% 100%; }
-@keyframes vx-buddy-walk { 0%, 100% { transform: translateX(-80%) scaleX(1); } 45% { transform: translateX(-20%) scaleX(1); } 50% { transform: translateX(-20%) scaleX(-1); } 95% { transform: translateX(-80%) scaleX(-1); } }
-@keyframes vx-buddy-nap { 0%, 100% { transform: translateX(-50%) scale(1, 1); } 50% { transform: translateX(-50%) scale(1.03, .96); } }
-.vx-buddy-z { position: absolute; right: 2px; top: 0; pointer-events: none; }
-.vx-buddy-z i { position: absolute; font-style: normal; font-weight: 700; font-size: 10px; color: #8b5cf6; opacity: 0; animation: vx-login-zz 3.4s ease-out infinite; }
-.vx-buddy-z i + i { font-size: 13px; animation-delay: 1.7s; }
-@keyframes vx-login-zz { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(10px, -20px); } }
-.vx-buddy-pick { position: absolute; z-index: 40; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: 252px; padding: 10px; border-radius: 14px; background: var(--vxw-surface, #fff); border: 1px solid var(--vxw-border, #e5e7eb); box-shadow: 0 18px 40px -12px rgb(20 10 50 / .35); }
-.vx-buddy-pick-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--vxw-muted, #6b7280); margin: 0 2px 6px; }
-.vx-buddy-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-.vx-buddy-grid button { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 10px; border: 1.5px solid transparent; background: var(--vxw-surface-2, #f8f8fb); }
-.vx-buddy-grid button:hover { border-color: rgb(124 58 237 / .4); }
-.vx-buddy-grid button.is-on { border-color: #7c3aed; background: rgb(124 58 237 / .08); }
-.vx-buddy-grid img { max-height: 36px; max-width: 40px; image-rendering: pixelated; }
-
-/* Shows calendar: a tiny Poké Ball per show; one streaming now glows. */
-.vx-cell-balls { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
-.vx-cell-balls i { width: 9px; height: 9px; background: url('/img/pokeball.svg') center / contain no-repeat; opacity: .85; }
-.vx-cell-balls i.is-live { opacity: 1; border-radius: 50%; animation: vx-ball-glow 1.6s ease-in-out infinite; }
-.vx-cell-balls b { font-size: 9px; font-weight: 700; color: var(--vx-faint, #8a8a98); margin-left: 1px; }
-@keyframes vx-ball-glow { 50% { box-shadow: 0 0 0 3px rgb(239 68 68 / .25), 0 0 8px 2px rgb(250 204 21 / .55); } }
-.vx-mcell i { width: 8px !important; height: 8px !important; border-radius: 0 !important; background: url('/img/pokeball.svg') center / contain no-repeat !important; }
 
 /* Pokédex tips: Rotom with one helpful line, dismissible. */
 .vx-tip { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
@@ -310,22 +276,16 @@ body:has(.vx-season[data-icon="pie"]) .vx-mega-home::after { background-image: u
   .vx-chip:hover { transform: rotateX(180deg); transition-delay: .25s; }
 }
 
-/* Item rarity: ★ / ★★ / ★★★ by unit cost; the top tier is holo. */
-.vx-rarity { display: inline-block; margin-left: 4px; font-size: .78em; letter-spacing: .02em; line-height: 1; vertical-align: .08em; white-space: nowrap; }
-.vx-rarity.tier-1 { color: #94a3b8; }
-.vx-rarity.tier-2 { color: #f59e0b; }
-.vx-rarity.tier-3 { background: linear-gradient(100deg, #f472b6, #facc15, #4ade80, #38bdf8, #a78bfa, #f472b6) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vx-holo-text 4s linear infinite; filter: drop-shadow(0 0 2px rgb(167 139 250 / .5)); }
-@keyframes vx-holo-text { to { background-position: -200% 0; } }
-
 /* Shiny visit note. */
 .vx-shiny-note { position: fixed; z-index: 70; left: 22px; bottom: 22px; padding: 8px 14px; border-radius: 999px; background: linear-gradient(100deg, #fde68a, #fbcfe8, #bae6fd); color: #3b0764; font-size: 13px; font-weight: 700; box-shadow: 0 10px 26px -10px rgb(60 20 90 / .45); animation: vx-shiny-note 3.6s ease forwards; }
 @keyframes vx-shiny-note { 0% { opacity: 0; transform: translateY(10px) scale(.9); } 12%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
 
 /* Show-day countdown on a streamer's home. */
+@keyframes vx-countdown-hop { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-6px) scale(1.06); } 60% { transform: translateY(0) scale(1.05, .95); } }
 .vx-countdown { margin-top: 10px; padding: 7px 12px; border-radius: 10px; background: #f3edff; color: #4c1d95; font-size: 13px; }
 .vx-countdown b { font-variant-numeric: tabular-nums; }
 .vx-countdown-soon { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.vx-countdown-soon img { height: 30px; width: auto; image-rendering: pixelated; animation: vx-buddy-cheer .8s ease-out infinite; }
+.vx-countdown-soon img { height: 30px; width: auto; image-rendering: pixelated; animation: vx-countdown-hop .8s ease-out infinite; }
 .vx-countdown:has(.vx-countdown-soon:not([style*="none"])) { background: linear-gradient(100deg, #fef3c7, #fce7f3); color: #831843; }
 .dark .vx-countdown { background: #2e1065; color: #ede9fe; }
 
@@ -336,13 +296,6 @@ body:has(.vx-season[data-icon="pie"]) .vx-mega-home::after { background-image: u
 .fi-global-search-result:nth-child(even) { background: rgb(124 58 237 / .03); }
 .fi-global-search-result:hover, .fi-global-search-result:focus-within { border-left-color: #ef4444; background: rgb(239 68 68 / .05); }
 .vx-dex-no { display: inline-block; min-width: 42px; margin-right: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 700; color: #ef4444; letter-spacing: .02em; }
-
-/* A finished report: the buddy hops three times with a heart. */
-.vx-buddy-btn.is-cheering img { animation: vx-buddy-cheer .8s ease-out 3 !important; filter: none !important; }
-.vx-buddy-btn.is-cheering .vx-buddy-z { display: none; }
-.vx-buddy-btn.is-cheering::after { content: '♥'; position: absolute; left: 50%; top: -6px; font-size: 15px; color: #ec4899; animation: vx-buddy-heart 2.4s ease-out forwards; }
-@keyframes vx-buddy-cheer { 0%, 100% { transform: translateX(-50%) translateY(0); } 35% { transform: translateX(-50%) translateY(-14px) scale(1.06); } 60% { transform: translateX(-50%) translateY(0) scale(1.05, .95); } }
-@keyframes vx-buddy-heart { 0% { opacity: 0; transform: translate(-50%, 6px) scale(.5); } 20% { opacity: 1; transform: translate(-50%, -4px) scale(1.1); } 100% { opacity: 0; transform: translate(-50%, -26px) scale(.9); } }
 
 /* Receiving: a Poké Ball that fills as cases arrive, and clicks shut when it is all in. */
 .vx-pb { display: inline-flex; align-items: center; gap: 6px; }
@@ -370,10 +323,8 @@ body:has(.vx-season[data-icon="pie"]) .vx-mega-home::after { background-image: u
   .vx-season-peek.from-top { transform: translateY(30px); }
   .vx-season-peek.from-bottom { transform: translateY(-34px); }
   .vx-fall, .vx-fireworks, .vx-fireworks-finale { display: none !important; }
-  .vx-tip-mon, .vx-rarity.tier-3, .vx-countdown-soon img { animation: none; }
+  .vx-tip-mon, .vx-countdown-soon img { animation: none !important; }
   .vx-chip, .vx-chip:hover { transform: none !important; }
   .vx-chip-back { display: none; }
-  .vx-cell-balls i.is-live { animation: none; box-shadow: 0 0 0 2px rgb(239 68 68 / .35); }
-  .vx-buddy-btn img, .vx-buddy-z i, .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }
-  .vx-buddy-z i { opacity: .7; }
+  .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }
 }

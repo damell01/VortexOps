@@ -84,7 +84,7 @@
        <div class="vx-product-image"><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
       </a>
       <div class="vx-product-body">
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }} <x-vx.rarity :cost="$item->average_cost ?: $item->unit_cost" /></div></a>
+       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
        <div class="vx-product-row"><span class="vx-type">{{ $item->is_container ? 'Case / Container' : 'Item' }}</span>@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
        <div class="vx-product-row mt-auto"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-product-meta">{{ $locations ?: 'No stocked location' }}</span></div>

@@ -720,7 +720,7 @@ class ShowResource extends Resource
                     ->default('—')
                     ->searchable()
                     ->formatStateUsing(fn ($state, Show $record) => $record->isLive()
-                        ? new \Illuminate\Support\HtmlString(\Illuminate\Support\Facades\Blade::render('<x-vx.live>Live</x-vx.live>').' '.e($state))
+                        ? new \Illuminate\Support\HtmlString('<span class="vx-live"><span class="vx-live-dot" aria-hidden="true"></span>Live</span> '.e($state))
                         : $state)
                     ->description(fn (Show $record): ?string => $record->financials_revised_after_lock
                         ? '⚠ Financials changed after this show was locked in — review'

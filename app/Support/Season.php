@@ -15,20 +15,20 @@ class Season
 {
     /**
      * mon: who peeks out; from: 'top' hangs upside down under the top bar,
-     * 'bottom' rises from the bottom-right corner; icon: the little mark next
-     * to Dashboard; effect: an optional layer over the top of the page.
+     * 'bottom' rises from the bottom-right corner; effect: an optional layer
+     * over the top of the page.
      *
-     * @var array<string, array{mon:string, from:string, icon:string, effect:?string, title:string}>
+     * @var array<string, array{mon:string, from:string, effect:?string, title:string}>
      */
     public const SEASONS = [
-        'halloween' => ['mon' => 'gengar', 'from' => 'top', 'icon' => 'pumpkin', 'effect' => null, 'title' => 'Boo!'],
-        'winter' => ['mon' => 'delibird', 'from' => 'bottom', 'icon' => 'snowflake', 'effect' => 'snow', 'title' => 'Delibird brought presents!'],
-        'new-year' => ['mon' => 'pikachu', 'from' => 'bottom', 'icon' => 'star', 'effect' => 'fireworks', 'title' => 'Happy New Year!'],
-        'valentines' => ['mon' => 'luvdisc', 'from' => 'bottom', 'icon' => 'heart', 'effect' => 'hearts', 'title' => 'Happy Valentine\'s Day!'],
-        'pokemon-day' => ['mon' => 'clefairy', 'from' => 'bottom', 'icon' => 'star', 'effect' => null, 'title' => 'Happy Pokémon Day!'],
-        'st-patricks' => ['mon' => 'bulbasaur', 'from' => 'bottom', 'icon' => 'clover', 'effect' => 'clovers', 'title' => 'Happy St. Patrick\'s Day!'],
-        'july-4' => ['mon' => 'charizard', 'from' => 'bottom', 'icon' => 'star', 'effect' => 'fireworks', 'title' => 'Happy Fourth of July!'],
-        'thanksgiving' => ['mon' => 'snorlax', 'from' => 'bottom', 'icon' => 'pie', 'effect' => null, 'title' => 'Snorlax saved you a slice.'],
+        'halloween' => ['mon' => 'gengar', 'from' => 'top', 'effect' => null, 'title' => 'Boo!'],
+        'winter' => ['mon' => 'delibird', 'from' => 'bottom', 'effect' => 'snow', 'title' => 'Delibird brought presents!'],
+        'new-year' => ['mon' => 'pikachu', 'from' => 'bottom', 'effect' => 'fireworks', 'title' => 'Happy New Year!'],
+        'valentines' => ['mon' => 'luvdisc', 'from' => 'bottom', 'effect' => 'hearts', 'title' => 'Happy Valentine\'s Day!'],
+        'pokemon-day' => ['mon' => 'clefairy', 'from' => 'bottom', 'effect' => null, 'title' => 'Happy Pokémon Day!'],
+        'st-patricks' => ['mon' => 'bulbasaur', 'from' => 'bottom', 'effect' => 'clovers', 'title' => 'Happy St. Patrick\'s Day!'],
+        'july-4' => ['mon' => 'charizard', 'from' => 'bottom', 'effect' => 'fireworks', 'title' => 'Happy Fourth of July!'],
+        'thanksgiving' => ['mon' => 'snorlax', 'from' => 'bottom', 'effect' => null, 'title' => 'Snorlax saved you a slice.'],
     ];
 
     /** Firework colours by season; anything else uses the New Year mix. */
@@ -71,7 +71,7 @@ class Season
             && $now->toDateString() <= $thursday->endOfWeek(\Carbon\CarbonInterface::SUNDAY)->toDateString();
     }
 
-    /** @return array{key:string, mon:string, from:string, icon:string, effect:?string, title:string}|null */
+    /** @return array{key:string, mon:string, from:string, effect:?string, title:string}|null */
     public static function details(?CarbonInterface $now = null): ?array
     {
         $key = static::current($now);

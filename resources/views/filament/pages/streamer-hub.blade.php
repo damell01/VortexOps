@@ -79,7 +79,7 @@
                     </div>
                 </div>
 
-                <a href="{{ route('filament.admin.pages.streamer-shows') }}"
+                <a href="{{ \App\Filament\Pages\DashboardImproved::getUrl() }}"
                     class="block w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-center transition">
                     Manage Shows →
                 </a>
@@ -176,7 +176,7 @@
                         <span class="text-lg">➕</span>
                         <span class="font-semibold text-sm">File an End of Stream Report</span>
                     </a>
-                    <a href="{{ route('filament.admin.pages.streamer-shows') }}?tab=create"
+                    <a href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl() }}"
                         class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg transition text-gray-900 dark:text-white">
                         <span class="text-lg">📹</span>
                         <span class="font-semibold text-sm">Create Manual Show</span>

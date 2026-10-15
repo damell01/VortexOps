@@ -26,15 +26,6 @@ use Filament\Pages\Dashboard;
 
 class DashboardImproved extends Dashboard
 {
-    public function mount(): void
-    {
-        $user = auth()->user();
-
-        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
-            $this->redirect(StreamerShows::getUrl(), navigate: true);
-        }
-    }
-
     public function getView(): string
     {
         return 'filament.pages.dashboard-improved';
@@ -45,6 +36,23 @@ class DashboardImproved extends Dashboard
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
         return "{$name} operations center";
+    }
+
+    /** For a streamer: how many show reports are waiting on them. */
+    public static function getNavigationBadge(): ?string
+    {
+        $user = auth()->user();
+        if (! $user?->streamer || $user->isAdmin() || $user->isOwner()) {
+            return null;
+        }
+        $count = \App\Livewire\StreamerHome::toCompleteCount();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public function getWidgets(): array

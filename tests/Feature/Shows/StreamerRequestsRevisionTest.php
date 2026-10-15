@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Shows;
 
-use App\Filament\Pages\StreamerShows;
+use App\Livewire\StreamerHome;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
@@ -73,7 +73,7 @@ class StreamerRequestsRevisionTest extends TestCase
 
     private function page()
     {
-        return Livewire::actingAs($this->user->fresh())->test(StreamerShows::class);
+        return Livewire::actingAs($this->user->fresh())->test(StreamerHome::class)->call('setTab', 'submitted');
     }
 
     public function test_a_filed_report_past_its_edit_window_can_be_asked_back(): void
@@ -108,6 +108,17 @@ class StreamerRequestsRevisionTest extends TestCase
 
         $this->assertSame('streamer_reviewed', $entry->status);
         $this->assertNotNull($entry->submitted_at);
+    }
+
+    public function test_the_card_offers_it_once_the_edit_window_has_closed(): void
+    {
+        $this->filedReport();
+
+        $this->page()->assertSee('Need to change something?')
+            ->call('askForChanges', $this->show->id)
+            ->assertSee('Ask to change this report')
+            ->call('cancelRevisionRequest')
+            ->assertDontSee('Ask to change this report');
     }
 
     public function test_it_is_not_offered_while_they_can_simply_edit_it(): void
@@ -158,7 +169,7 @@ class StreamerRequestsRevisionTest extends TestCase
     {
         $this->filedReport(['revision_requested_at' => now(), 'revision_reason' => 'Wrong box']);
 
-        $this->page()->assertSee('Changes asked for');
+        $this->page()->assertSee('You asked to reopen this');
     }
 
     public function test_approving_the_report_answers_the_request(): void

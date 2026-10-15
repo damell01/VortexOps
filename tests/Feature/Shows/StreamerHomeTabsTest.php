@@ -2,7 +2,8 @@
 
 namespace Tests\Feature\Shows;
 
-use App\Filament\Pages\StreamerShows;
+use App\Filament\Pages\DashboardImproved;
+use App\Livewire\StreamerHome;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -16,12 +17,10 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * The page a streamer opens to find out what needs them.
- *
- * Sorted by who is blocked rather than by date: a show from three weeks ago
- * with no report is more urgent than last night's.
+ * The streamer's dashboard, sorting their shows by who is blocked: To complete
+ * is anything waiting on them, however old, ahead of everything else.
  */
-class StreamerShowsPageTest extends TestCase
+class StreamerHomeTabsTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -76,33 +75,30 @@ class StreamerShowsPageTest extends TestCase
         ], $attributes));
     }
 
-    private function shows(): array
+    /** The show ids on a tab's cards, in order. */
+    private function tab(string $tab): array
     {
-        return Livewire::test(StreamerShows::class)->instance()->groups();
+        $html = Livewire::test(StreamerHome::class)->call('setTab', $tab)->set('perPage', 24)->html();
+        preg_match_all('/wire:key="vsh-show-(\d+)"/', $html, $m);
+
+        return array_map('intval', $m[1]);
     }
 
     public function test_a_past_show_with_no_report_is_waiting_on_the_streamer(): void
     {
-        // The commonest reason a payout stalls, so it is the loudest thing
-        // on the page.
         $show = $this->show();
 
-        $needsYou = $this->shows()['needs_you'];
-
-        $this->assertCount(1, $needsYou);
-        $this->assertSame($show->id, $needsYou[0]['id']);
-        $this->assertSame('Open show', $needsYou[0]['action']);
+        $this->assertSame([$show->id], $this->tab('to_complete'));
+        Livewire::test(StreamerHome::class)->assertSee('Log sold items');
     }
 
     public function test_a_saved_draft_still_counts_as_waiting_on_the_streamer(): void
     {
         $show = $this->show();
-        $this->entry($show); // no submitted_at
+        $this->entry($show, ['draft_saved_at' => now()]); // no submitted_at
 
-        $needsYou = $this->shows()['needs_you'];
-
-        $this->assertCount(1, $needsYou);
-        $this->assertSame('Open show', $needsYou[0]['action']);
+        $this->assertSame([$show->id], $this->tab('to_complete'));
+        Livewire::test(StreamerHome::class)->assertSee('Continue report')->assertSee('Draft');
     }
 
     public function test_changes_requested_comes_back_to_the_streamer(): void
@@ -110,11 +106,8 @@ class StreamerShowsPageTest extends TestCase
         $show = $this->show();
         $this->entry($show, ['status' => 'changes_requested', 'submitted_at' => now()]);
 
-        $needsYou = $this->shows()['needs_you'];
-
-        $this->assertCount(1, $needsYou);
-        $this->assertSame('Review changes', $needsYou[0]['action']);
-        $this->assertSame('danger', $needsYou[0]['tone']);
+        $this->assertSame([$show->id], $this->tab('changes'));
+        Livewire::test(StreamerHome::class)->call('setTab', 'changes')->assertSee('Fix report');
     }
 
     public function test_a_submitted_report_is_with_the_office(): void
@@ -122,10 +115,8 @@ class StreamerShowsPageTest extends TestCase
         $show = $this->show();
         $this->entry($show, ['status' => 'streamer_reviewed', 'submitted_at' => now()]);
 
-        $groups = $this->shows();
-
-        $this->assertEmpty($groups['needs_you']);
-        $this->assertCount(1, $groups['waiting']);
+        $this->assertSame([], $this->tab('to_complete'));
+        $this->assertSame([$show->id], $this->tab('submitted'));
     }
 
     public function test_an_approved_report_is_done(): void
@@ -133,130 +124,81 @@ class StreamerShowsPageTest extends TestCase
         $show = $this->show();
         $this->entry($show, ['status' => 'admin_approved', 'submitted_at' => now()]);
 
-        $groups = $this->shows();
-
-        $this->assertEmpty($groups['needs_you']);
-        $this->assertCount(1, $groups['done']);
+        $this->assertSame([], $this->tab('to_complete'));
+        Livewire::test(StreamerHome::class)->call('setTab', 'submitted')->assertSee('Approved');
     }
 
     public function test_a_future_show_is_upcoming_and_asks_for_nothing(): void
     {
         // Nothing to report on a show that has not aired, and offering the
         // report would invite filing one against an empty night.
-        $this->show(['show_date' => today()->addWeek()->toDateString(), 'status' => 'draft']);
+        $show = $this->show(['show_date' => today()->addWeek()->toDateString(), 'status' => 'draft']);
 
-        $groups = $this->shows();
-
-        $this->assertEmpty($groups['needs_you']);
-        $this->assertCount(1, $groups['upcoming']);
-        $this->assertNull($groups['upcoming'][0]['action']);
-        $this->assertNull($groups['upcoming'][0]['url']);
+        $this->assertSame([], $this->tab('to_complete'));
+        $this->assertSame([$show->id], $this->tab('upcoming'));
+        Livewire::test(StreamerHome::class)->call('setTab', 'upcoming')
+            ->assertSee('Your report opens once the show airs.')->assertDontSee('Log sold items');
     }
 
     public function test_upcoming_shows_read_forwards(): void
     {
-        // The next one you are running is the one you care about.
-        $soon  = $this->show(['title' => 'Soon', 'show_date' => today()->addDays(2)->toDateString(), 'status' => 'draft']);
         $later = $this->show(['title' => 'Later', 'show_date' => today()->addDays(20)->toDateString(), 'status' => 'draft']);
+        $soon = $this->show(['title' => 'Soon', 'show_date' => today()->addDays(2)->toDateString(), 'status' => 'draft']);
 
-        $upcoming = $this->shows()['upcoming'];
-
-        $this->assertSame('Soon', $upcoming[0]['title']);
-        $this->assertSame('Later', $upcoming[1]['title']);
+        $this->assertSame([$soon->id, $later->id], $this->tab('upcoming'));
     }
 
     public function test_another_streamers_show_never_appears(): void
     {
         $this->show([], mine: false);
 
-        $groups = $this->shows();
-
-        $this->assertEmpty($groups['needs_you']);
-        $this->assertEmpty($groups['waiting']);
-        $this->assertEmpty($groups['done']);
-        $this->assertEmpty($groups['upcoming']);
+        $this->assertSame([], $this->tab('all'));
+        $this->assertSame([], $this->tab('upcoming'));
     }
 
     public function test_cancelled_shows_are_left_out(): void
     {
         $this->show(['status' => 'cancelled']);
 
-        $this->assertEmpty($this->shows()['needs_you']);
-    }
-
-    public function test_each_show_carries_its_shipment_count(): void
-    {
-        $show = $this->show();
-
-        foreach (range(1, 3) as $i) {
-            \App\Models\Shipment::create([
-                'show_id'         => $show->id,
-                'tracking_number' => 'TRK-' . $i,
-                'status'          => 'pending',
-            ]);
-        }
-
-        $this->assertSame(3, $this->shows()['needs_you'][0]['shipments']);
+        $this->assertSame([], $this->tab('all'));
     }
 
     public function test_the_action_links_into_the_report_for_that_show(): void
     {
         $show = $this->show();
 
-        $this->assertStringContainsString('end-of-stream', $this->shows()['needs_you'][0]['url']);
-        $this->assertStringContainsString((string) $show->id, $this->shows()['needs_you'][0]['url']);
+        Livewire::test(StreamerHome::class)->assertSeeHtml('end-of-stream')->assertSeeHtml('showId=' . $show->id);
     }
 
     public function test_the_nav_badge_counts_only_what_needs_the_streamer(): void
     {
-        $needs = $this->show();
-        $done  = $this->show();
+        $this->show();
+        $done = $this->show();
         $this->entry($done, ['status' => 'admin_approved', 'submitted_at' => now()]);
 
-        $this->assertSame('1', StreamerShows::getNavigationBadge());
+        $this->assertSame('1', DashboardImproved::getNavigationBadge());
     }
 
     public function test_shows_before_reporting_went_live_are_not_a_task(): void
     {
-        // Reported the old way, so the new page must not ask for them.
-        $this->show(['show_date' => today()->subDays(10)->toDateString()]);
+        $old = $this->show(['show_date' => today()->subDays(10)->toDateString()]);
         $recent = $this->show(['show_date' => today()->subDay()->toDateString()]);
 
         Setting::set(\App\Support\ShowReportingGoLive::SETTING, today()->subDays(3)->toDateString());
 
-        $needsYou = $this->shows()['needs_you'];
-
-        $this->assertCount(1, $needsYou);
-        $this->assertSame($recent->id, $needsYou[0]['id']);
-        $this->assertSame('1', StreamerShows::getNavigationBadge());
+        $this->assertSame([$recent->id], $this->tab('to_complete'));
+        $this->assertSame('1', DashboardImproved::getNavigationBadge());
+        // Still listed, as a previous show.
+        $this->assertContains($old->id, $this->tab('all'));
     }
 
-    public function test_the_page_renders(): void
-    {
-        $this->show();
-
-        Livewire::test(StreamerShows::class)
-            ->assertSuccessful()
-            ->assertSee('Waiting on you');
-    }
-
-    public function test_someone_who_is_not_a_streamer_does_not_get_the_link(): void
+    public function test_an_admin_gets_no_streamer_badge(): void
     {
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $admin = User::factory()->create(['email' => 'admin@test.com']);
         $admin->assignRole('admin');
         $this->actingAs($admin);
 
-        // The link is a streamer's; opening the page is a permissions
-        // question, and an explicit grant on Roles & Permissions has to keep
-        // winning there — so only the sidebar is checked.
-        $this->assertFalse(StreamerShows::shouldRegisterNavigation());
-    }
-
-    public function test_a_streamer_gets_the_page_in_their_navigation(): void
-    {
-        // It used to return false unconditionally, so the page existed and
-        // nothing ever linked to it.
-        $this->assertTrue(StreamerShows::shouldRegisterNavigation());
+        $this->assertNull(DashboardImproved::getNavigationBadge());
     }
 }

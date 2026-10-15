@@ -144,7 +144,6 @@ class RolesScreenRoundTripTest extends TestCase
             \App\Filament\Resources\FeatureFlagResource::class,
             \App\Filament\Pages\Timekeeping::class,
             \App\Filament\Resources\FulfillmentResource::class,
-            \App\Filament\Pages\StreamerShows::class,
             \App\Filament\Pages\StreamerProfitShare::class,
             \App\Filament\Pages\StreamerHub::class,
         ];

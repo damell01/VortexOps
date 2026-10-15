@@ -785,7 +785,7 @@ class Shows extends Page
             title: 'Show report requested',
             body: "Please submit the end-of-stream report for \"{$s->title}\".",
             tone: 'warning',
-            links: ['Open my shows' => StreamerShows::getUrl()],
+            links: ['Open my dashboard' => DashboardImproved::getUrl()],
         ), $s->streamers->pluck('user'));
         Notification::make()->title('Submission request sent')->success()->send();
         $this->resetData();

@@ -210,7 +210,6 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
 
         foreach ([
             \App\Filament\Pages\StreamerHub::class,
-            \App\Filament\Pages\StreamerShows::class,
             \App\Filament\Pages\QuickAddStock::class,
             \App\Filament\Pages\InventoryReport::class,
             \App\Filament\Pages\HowItWorks::class,

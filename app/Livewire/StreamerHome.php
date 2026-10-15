@@ -41,6 +41,34 @@ class StreamerHome extends Component
 
     public string $revisionReason = '';
 
+    /** Ask which Pokémon they want, until they choose or skip it this session. */
+    public bool $buddyPrompt = false;
+
+    public function mount(): void
+    {
+        $this->buddyPrompt = ! \App\Support\Buddy::chosen(auth()->user()) && ! session('buddy_skipped');
+    }
+
+    public function chooseBuddy(string $buddy): void
+    {
+        if (! array_key_exists($buddy, \App\Support\Buddy::options())) {
+            return;
+        }
+        auth()->user()->forceFill(['buddy' => $buddy])->save();
+        $this->buddyPrompt = false;
+    }
+
+    public function skipBuddy(): void
+    {
+        session(['buddy_skipped' => true]);
+        $this->buddyPrompt = false;
+    }
+
+    public function openBuddyPicker(): void
+    {
+        $this->buddyPrompt = true;
+    }
+
     public function updated(string $name): void
     {
         if (in_array($name, ['tab', 'search', 'range', 'perPage'], true)) {

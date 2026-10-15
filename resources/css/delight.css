@@ -319,3 +319,18 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
   .vx-tip-mon { animation: none !important; }
   .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }
 }
+
+/* Report submitted (resources/js/delight.js reportDone): ball drops, wobbles, turns into a check. */
+.vx-done { position: fixed; z-index: 2147483003; left: 50%; top: 22%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; animation: vx-done-out .35s ease-in 2.2s forwards; }
+.vx-done b { padding: 5px 12px; border-radius: 999px; background: #fff; color: #166534; font-size: 13px; box-shadow: 0 8px 20px -10px rgb(20 10 40 / .45); opacity: 0; animation: vx-done-label .3s ease-out 1.15s forwards; }
+.dark .vx-done b { background: #052e16; color: #bbf7d0; }
+.vx-done-ball, .vx-done-check { grid-area: 1 / 1; width: 64px; height: 64px; }
+.vx-done-ball { background: url('/img/pokeball.svg') center / contain no-repeat; filter: drop-shadow(0 10px 18px rgb(20 10 40 / .35));
+  animation: vx-catch-drop .35s cubic-bezier(.3,1.4,.6,1) both, vx-wobble .7s ease-in-out .35s 1 both, vx-done-shrink .25s ease-in 1.05s forwards; }
+.vx-done-check { position: absolute; top: 0; left: 50%; margin-left: -32px; display: grid; place-items: center; border-radius: 50%; background: #16a34a; box-shadow: 0 10px 22px -8px rgb(22 101 52 / .6); transform: scale(0); animation: vx-done-pop .3s cubic-bezier(.3,1.5,.6,1) 1.1s forwards; }
+.vx-done-check svg { width: 34px; height: 34px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: vx-done-draw .3s ease-out 1.3s forwards; }
+@keyframes vx-done-shrink { to { transform: scale(0); opacity: 0; } }
+@keyframes vx-done-pop { to { transform: scale(1); } }
+@keyframes vx-done-draw { to { stroke-dashoffset: 0; } }
+@keyframes vx-done-label { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes vx-done-out { to { opacity: 0; transform: translate(-50%, -8px); } }

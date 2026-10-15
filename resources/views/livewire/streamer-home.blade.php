@@ -60,7 +60,9 @@
             @endif
             <a href="#vsh-reports-title" wire:click="setTab('upcoming')" class="vsh-next-link">{{ $next ? 'View show' : 'My shows' }} <x-heroicon-m-arrow-right class="h-4 w-4" /></a>
         </div>
-        <img class="vsh-hero-mon" src="/img/pokemon/pikachu.gif" alt="" aria-hidden="true">
+        @if ($buddy = \App\Support\Buddy::visitor(auth()->user()))
+            <button type="button" class="vsh-hero-mon" wire:click="openBuddyPicker" title="Change your dashboard buddy"><img src="/img/pokemon/{{ $buddy }}.gif" alt="Your buddy, {{ \App\Support\Buddy::name($buddy) }}"></button>
+        @endif
     </header>
 
     {{-- Their numbers for a period, with the period picker alongside. --}}
@@ -116,6 +118,9 @@
             </div>
         </div>
 
+        <div class="vsh-loading" wire:loading.flex wire:target="setTab,search,range,perPage,gotoPage,nextPage,previousPage,period" role="status">
+            <span class="vsh-ball" aria-hidden="true"></span> Loading shows…
+        </div>
         <div class="vsh-grid" wire:loading.class="opacity-60" wire:target="setTab,search,range,perPage,gotoPage,nextPage,previousPage">
             @forelse ($reports as $show)
                 @php
@@ -176,10 +181,18 @@
                     @endif
                 </article>
             @empty
-                <div class="vsh-empty">
-                    <img src="/img/pokemon/pikachu.gif" alt="" aria-hidden="true">
-                    <p class="font-semibold">{{ $tab === 'to_complete' ? "You're all caught up!" : ($tab === 'upcoming' ? 'Nothing scheduled yet' : 'No shows here') }}</p>
-                    <p class="vsh-meta">{{ $tab === 'to_complete' ? 'Every show you were on has a report filed.' : ($tab === 'upcoming' ? 'New shows appear here as soon as you are scheduled.' : 'Try another tab or date range.') }}</p>
+                @php
+                    [$emptyMon, $emptyTitle, $emptyText] = match ($tab) {
+                        'to_complete' => ['eevee', "You're all caught up!", 'Every show you were on has a report filed.'],
+                        'upcoming' => ['snorlax', 'Nothing scheduled yet', 'Snorlax is napping until your next show is booked.'],
+                        default => ['psyduck', 'No shows here', 'Try another tab or date range.'],
+                    };
+                @endphp
+                <div @class(['vsh-empty', 'is-sleepy' => $emptyMon === 'snorlax'])>
+                    <img src="/img/pokemon/{{ $emptyMon }}.gif" alt="" aria-hidden="true">
+                    @if ($emptyMon === 'snorlax')<span class="vsh-zzz" aria-hidden="true">z<i>z</i><b>z</b></span>@endif
+                    <p class="font-semibold">{{ $emptyTitle }}</p>
+                    <p class="vsh-meta">{{ $emptyText }}</p>
                 </div>
             @endforelse
         </div>
@@ -207,10 +220,30 @@
         @endif
     </section>
 
+    {{-- Choose a dashboard buddy: asked once, changeable from the banner or Profile. --}}
+    @if ($buddyPrompt)
+        <div class="vsh-modal-backdrop" wire:click="skipBuddy"></div>
+        <div class="vsh-modal vsh-buddy-modal" data-vx-dialog role="dialog" aria-modal="true" aria-labelledby="vsh-buddy-title" x-data x-on:keydown.escape.window="$event.isTrusted && $wire.skipBuddy()">
+            <h2 id="vsh-buddy-title">Choose your dashboard buddy</h2>
+            <p class="vsh-meta">They peek in on your dashboard. You can change this any time under Profile → Dashboard buddy.</p>
+            <div class="vsh-buddy-grid">
+                @foreach (\App\Support\Buddy::CHOICES as $choice)
+                    <button type="button" wire:click="chooseBuddy('{{ $choice }}')" @class(['is-current' => auth()->user()?->buddy === $choice])>
+                        <img src="/img/pokemon/{{ $choice }}.gif" alt="" aria-hidden="true">
+                        <span>{{ \App\Support\Buddy::name($choice) }}</span>
+                    </button>
+                @endforeach
+                <button type="button" wire:click="chooseBuddy('random')" @class(['is-current' => auth()->user()?->buddy === 'random'])><span class="vsh-buddy-icon">🎲</span><span>Random daily</span></button>
+                <button type="button" wire:click="chooseBuddy('none')" @class(['is-current' => auth()->user()?->buddy === 'none'])><span class="vsh-buddy-icon">✕</span><span>None</span></button>
+            </div>
+            <div class="vsh-modal-actions"><button type="button" class="vsh-btn" wire:click="skipBuddy">Skip for now</button></div>
+        </div>
+    @endif
+
     {{-- Asking for a filed report back: a centered pop-up. --}}
     @if ($revisionFor && ($asking = $this->revisionShow()))
         <div class="vsh-modal-backdrop" wire:click="cancelRevisionRequest"></div>
-        <div class="vsh-modal" role="dialog" aria-modal="true" aria-labelledby="vsh-ask-title" x-data x-on:keydown.escape.window="$wire.cancelRevisionRequest()">
+        <div class="vsh-modal" data-vx-dialog role="dialog" aria-modal="true" aria-labelledby="vsh-ask-title" x-data x-on:keydown.escape.window="$event.isTrusted && $wire.cancelRevisionRequest()">
             <h2 id="vsh-ask-title">Ask to change this report</h2>
             <p class="vsh-meta">{{ $asking->title }} · {{ $asking->show_date?->format('M j, Y') }}</p>
             <label class="vsh-field">What needs changing?
@@ -427,5 +460,32 @@
         .vsh-stat-value { font-size:1.05rem; white-space:nowrap; overflow-wrap:normal; }
         .vsh-stats > .vsh-period--stats { justify-self:stretch; }
     }
+
+    /* Pokémon touches */
+    .vsh-hero-mon { padding:0; border:0; background:none; cursor:pointer; }
+    .vsh-hero-mon img { height:100%; width:auto; image-rendering:pixelated; transition: transform .2s; }
+    .vsh-hero-mon:hover img { transform: translateY(-3px) rotate(-4deg); }
+    .vsh-next { overflow:hidden; }
+    .vsh-next::before { content:''; position:absolute; right:-1.6rem; top:50%; width:6.5rem; height:6.5rem; transform:translateY(-50%); border-radius:50%; opacity:.09; pointer-events:none;
+        background: radial-gradient(circle, transparent 0 .75rem, #fff .75rem 1.05rem, transparent 1.05rem), linear-gradient(transparent 46%, #fff 46% 54%, transparent 54%); border:.32rem solid #fff; }
+    .vsh-next > * { position:relative; }
+    .vsh-loading { align-items:center; gap:.5rem; font-size:.85rem; font-weight:600; color: var(--vsh-muted); }
+    .vsh-ball { width:1rem; height:1rem; background:url('/img/pokeball.svg') center/contain no-repeat; animation: vsh-spin .8s linear infinite; }
+    @keyframes vsh-spin { to { transform: rotate(360deg); } }
+    .vsh-empty { position:relative; }
+    .vsh-empty.is-sleepy img { filter: saturate(.9); }
+    .vsh-zzz { position:absolute; top:1.6rem; left:calc(50% + 1.6rem); font-weight:800; color:#8b5cf6; font-size:.8rem; }
+    .vsh-zzz i, .vsh-zzz b { display:inline-block; font-style:normal; animation: vsh-z 2.4s ease-in-out infinite; }
+    .vsh-zzz i { font-size:.95rem; animation-delay:.4s; } .vsh-zzz b { font-size:1.1rem; animation-delay:.8s; }
+    @keyframes vsh-z { 0%,100% { opacity:.2; transform: translateY(0); } 50% { opacity:1; transform: translateY(-4px); } }
+    .vsh-buddy-modal { width:min(40rem, calc(100vw - 2rem)); }
+    .vsh-buddy-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr)); gap:.5rem; }
+    .vsh-buddy-grid button { display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:.6rem .4rem; border:1px solid var(--vsh-line); border-radius:.85rem; font-size:.8rem; font-weight:600; transition: border-color .15s, background-color .15s, transform .15s; }
+    .vsh-buddy-grid button:hover { border-color:#8b5cf6; background: color-mix(in srgb, #7c3aed 6%, var(--vsh-card)); transform: translateY(-2px); }
+    .vsh-buddy-grid button.is-current { border-color:#7c3aed; background:#f1ecff; color:#6d28d9; }
+    .dark .vsh-buddy-grid button.is-current { background: rgb(124 58 237 / .2); color:#ddd6fe; }
+    .vsh-buddy-grid img { height:3rem; image-rendering:pixelated; }
+    .vsh-buddy-icon { display:grid; place-items:center; height:3rem; font-size:1.6rem; color: var(--vsh-muted); }
+    @media (prefers-reduced-motion: reduce) { .vsh-ball, .vsh-zzz i, .vsh-zzz b { animation:none; } }
 </style>
 </div>

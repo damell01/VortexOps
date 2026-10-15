@@ -95,6 +95,18 @@ function confetti() {
 }
 window.addEventListener('vx-celebrate', celebrate);
 
+// ── Report submitted: a Poké Ball that wobbles and becomes a check, once ──
+function reportDone() {
+    if (calm.matches || document.querySelector('.vx-done')) return;
+    const box = document.createElement('div');
+    box.className = 'vx-done';
+    box.setAttribute('role', 'status');
+    box.innerHTML = '<span class="vx-done-ball"></span><span class="vx-done-check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7" /></svg></span><b>Report submitted</b>';
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 2600);
+}
+window.vxReportDone = reportDone;
+
 // ── Shiny: done statuses sparkle once, the first time they appear ───────
 const DONE = /^(paid|approved|finalized|complete|completed|submitted|ready for pay)$/i;
 function sparkleDone(scope = document) {
@@ -296,7 +308,8 @@ function boot() {
     rememberPills();
     sparkleDone();
     // A celebration flashed by the server for the page we just landed on.
-    if (document.querySelector('[data-vx-celebrate]')) setTimeout(celebrate, 250);
+    const flashed = document.querySelector('[data-vx-celebrate]');
+    if (flashed) setTimeout(flashed.dataset.vxCelebrate === 'report' ? reportDone : celebrate, 250);
     queueHeads();
     topbarVar();
     tabBadge();

@@ -58,7 +58,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login(Login::class)
             ->passwordReset()
-            ->profile(isSimple: false)
+            ->profile(\App\Filament\Auth\EditProfile::class, isSimple: false)
             ->userMenuItems([
                 \Filament\Actions\Action::make('help_guides')
                     ->label('Help & Guides')
@@ -220,7 +220,7 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 // A finished report lands on the next page with a little foil confetti (resources/js/delight.js).
                 PanelsRenderHook::BODY_END,
-                fn () => session()->pull('vx_celebrate') ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate hidden></div>') : '',
+                fn () => ($kind = session()->pull('vx_celebrate')) ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate="' . e(is_string($kind) ? $kind : '') . '" hidden></div>') : '',
             )
             ->renderHook(
                 // Seasonal visitors (October: Gengar), see App\Support\Season.

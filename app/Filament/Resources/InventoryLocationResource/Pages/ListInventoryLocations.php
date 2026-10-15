@@ -42,7 +42,7 @@ class ListInventoryLocations extends ListRecords
                 ->schema([
                     Select::make('streamer_id')->label('Streamer')
                         ->options(fn () => InventoryLocationResource::streamerOptions())
-                        ->searchable()->native(false)->required()->live()
+                        ->required()->live()
                         ->afterStateUpdated(fn ($state, $set) => $set('name', $state ? (Streamer::whereKey($state)->value('name') . '\'s Inventory') : null)),
                     TextInput::make('name')->label('Location name')->required()->maxLength(255),
                 ])

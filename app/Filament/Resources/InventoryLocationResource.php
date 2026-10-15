@@ -255,8 +255,6 @@ class InventoryLocationResource extends Resource
                     Select::make('streamer_id')
                         ->label('Streamer')
                         ->options(fn () => static::streamerOptions())
-                        ->searchable()
-                        ->native(false)
                         ->required(fn ($get) => $get('audience') === 'streamer')
                         ->visible(fn ($get) => $get('audience') === 'streamer'),
                 ]),
@@ -269,8 +267,6 @@ class InventoryLocationResource extends Resource
                     Select::make('whatnot_channel_id')
                         ->label('Channel')
                         ->relationship('channel', 'name')
-                        ->searchable()
-                        ->preload()
                         ->helperText('Which channel this location\'s stock is grouped under.'),
                 ]),
                 Textarea::make('notes')

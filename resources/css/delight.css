@@ -352,3 +352,43 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
   background: linear-gradient(90deg, transparent, #ef4444 30%, #8b5cf6 70%, transparent); animation: vx-dex-sweep .9s ease-in-out infinite alternate; }
 @keyframes vx-dex-sweep { from { transform: translateX(-30%); } to { transform: translateX(230%); } }
 @media (prefers-reduced-motion: reduce) { .vx-dex-scan::after { animation: none; width: 100%; opacity: .6; } }
+
+/* Needs Attention, all clear: Eevee by day, a napping Snorlax evenings and weekends. */
+.vx-na-clear { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 22px 12px 20px; text-align: center; }
+.vx-na-clear img { height: 64px; width: auto; margin-bottom: 6px; image-rendering: pixelated; animation: vx-na-hop 2.8s ease-in-out infinite; }
+.vx-na-clear.is-sleepy img { height: 72px; animation: vx-na-breathe 3.2s ease-in-out infinite; transform-origin: center bottom; }
+@keyframes vx-na-hop { 0%, 70%, 100% { transform: translateY(0); } 78% { transform: translateY(-7px); } 86% { transform: translateY(0); } }
+@keyframes vx-na-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.04); } }
+.vx-na-zzz { position: absolute; top: 18px; left: calc(50% + 30px); font-weight: 800; color: #8b5cf6; font-size: 12px; }
+.vx-na-zzz i, .vx-na-zzz b { display: inline-block; font-style: normal; animation: vx-na-z 2.4s ease-in-out infinite; }
+.vx-na-zzz i { font-size: 14px; animation-delay: .4s; } .vx-na-zzz b { font-size: 16px; animation-delay: .8s; }
+@keyframes vx-na-z { 0%, 100% { opacity: .2; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .vx-na-clear img, .vx-na-zzz i, .vx-na-zzz b { animation: none; } }
+
+/* Show report inbox: a Poké Ball that fills, red half first, as reports are cleared. */
+.vx-catchball { display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 4px; border-radius: 999px; background: rgb(139 92 246 / .08); border: 1px solid rgb(139 92 246 / .22); font-size: 12px; font-weight: 700; color: #6d28d9; white-space: nowrap; }
+.dark .vx-catchball { background: rgb(139 92 246 / .16); color: #ddd6fe; border-color: rgb(139 92 246 / .35); }
+.vx-catchball-ball { position: relative; width: 24px; height: 24px; flex: none; }
+.vx-catchball-ball i, .vx-catchball-ball b { position: absolute; inset: 0; background: url('/img/pokeball.svg') center / contain no-repeat; }
+.vx-catchball-ball i { filter: grayscale(1); opacity: .35; }
+.vx-catchball-ball b { clip-path: inset(0 0 calc(100% - var(--vx-fill, 0%)) 0); transition: clip-path .8s cubic-bezier(.3,1.2,.5,1); }
+.vx-catchball.is-full .vx-catchball-ball { animation: vx-wobble .9s ease-in-out 1; }
+.vx-catchball.is-full { color: #047857; background: rgb(16 185 129 / .1); border-color: rgb(16 185 129 / .3); }
+.dark .vx-catchball.is-full { color: #6ee7b7; }
+@media (prefers-reduced-motion: reduce) { .vx-catchball.is-full .vx-catchball-ball { animation: none; } .vx-catchball-ball b { transition: none; } }
+
+/* Pay run marked paid: Pikachu hops up from the bottom corner and cheers. */
+.vx-pika { position: fixed; right: 28px; bottom: 0; z-index: 90; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none;
+  animation: vx-pika-in .45s cubic-bezier(.3,1.5,.6,1) both, vx-pika-out .35s ease-in 2.9s forwards; }
+.vx-pika-mon { width: 86px; height: auto; image-rendering: pixelated; filter: drop-shadow(0 6px 10px rgb(20 10 40 / .3)); animation: vx-pika-hop .5s ease-in-out .5s 3; }
+.vx-pika-say { margin-bottom: 6px; padding: 7px 12px; border-radius: 14px; background: #fde047; color: #422006; font-size: 13px; font-weight: 800; white-space: nowrap;
+  box-shadow: 0 8px 20px -8px rgb(66 32 6 / .5); opacity: 0; animation: vx-pika-say .3s ease-out .55s forwards; position: relative; }
+.vx-pika-say::after { content: ''; position: absolute; right: 36px; bottom: -6px; width: 12px; height: 12px; background: #fde047; transform: rotate(45deg); }
+.vx-pika-bolt { position: absolute; top: 34px; font-style: normal; font-size: 20px; opacity: 0; animation: vx-pika-bolt .7s ease-out .7s 2; }
+.vx-pika-bolt:first-of-type { right: 84px; } .vx-pika-bolt:nth-of-type(2) { right: -12px; animation-delay: .95s; }
+@keyframes vx-pika-in { from { transform: translateY(120%); } to { transform: translateY(0); } }
+@keyframes vx-pika-out { to { transform: translateY(130%); opacity: 0; } }
+@keyframes vx-pika-hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-18px); } }
+@keyframes vx-pika-say { from { opacity: 0; transform: translateY(6px) scale(.8); } to { opacity: 1; transform: none; } }
+@keyframes vx-pika-bolt { 0% { opacity: 0; transform: scale(.4); } 40% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: translateY(-14px) scale(.9); } }
+@media (max-width: 600px) { .vx-pika { right: 12px; } .vx-pika-mon { width: 68px; } }

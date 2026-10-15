@@ -29,6 +29,14 @@
             @if ($queue['count'] > 0 && $queue['next'])
                 <a href="{{ $queue['next'] }}" class="vxi-policy-link">{{ $queue['count'] }} ready · Review next →</a>
             @endif
+            @if ($catch = $this->catchProgress())
+                <span @class(['vx-catchball', 'is-full' => $catch['waiting'] === 0]) style="--vx-fill: {{ $catch['percent'] }}%"
+                      role="img" aria-label="{{ $catch['waiting'] === 0 ? 'All caught: every report is cleared' : $catch['cleared'] . ' of ' . $catch['total'] . ' reports cleared this week' }}"
+                      title="Gotta catch 'em all! Reports cleared in the last 7 days against those still waiting.">
+                    <span class="vx-catchball-ball" aria-hidden="true"><i></i><b></b></span>
+                    <span class="vx-catchball-text">{{ $catch['waiting'] === 0 ? 'All caught!' : $catch['cleared'] . '/' . $catch['total'] . ' caught' }}</span>
+                </span>
+            @endif
             @if ($policy['url'])
                 <a href="{{ $policy['url'] }}" class="vxi-policy-link"><x-filament::icon icon="heroicon-m-cog-6-tooth" class="h-4 w-4" /> Workflow settings</a>
             @endif

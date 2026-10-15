@@ -44,6 +44,9 @@ class PaymentStructures extends Page
     /** The business whose rates are being edited (the Business picker), or null for the shared rates. */
     public ?int $business_id = null;
 
+    /** Rates for anyone paid hourly + shipments + profit share (see PaymentStructure::SHIFT_FIELDS). */
+    public array $shift = [];
+
     protected function getHeaderActions(): array
     {
         return [
@@ -64,9 +67,13 @@ class PaymentStructures extends Page
             'payout_percentage' => 8, 'include_tips' => true, 'custom_payout_formula' => null,
             'hourly_rate' => null, 'house_cut_percentage' => null, 'sales_split_basis' => 'net',
         ]);
-        if (($this->streamer['payout_type'] ?? null) !== 'sales_split') {
+        if (! in_array($this->streamer['payout_type'] ?? null, ['sales_split', 'shift_share'], true)) {
             $this->streamer['payout_type'] = 'profit_share';
         }
+        $this->shift = array_merge(
+            ['hourly_rate' => null, 'pwe_rate' => null, 'label_rate' => null, 'payout_percentage' => null, 'burden_rate_type' => 'flat', 'burden_rate_value' => null],
+            array_filter(PaymentStructure::shiftDefaults($this->business_id), fn ($v) => $v !== null),
+        );
         $this->streamer['sales_split_basis'] ??= 'net';
         $this->fulfillment = $this->structureState('fulfillment', [
             'payout_type' => 'pwe_labels', 'payout_cadence' => 'weekly',
@@ -106,6 +113,7 @@ class PaymentStructures extends Page
         $this->fulfillment = $saved->fulfillment;
         $this->streamer_burden_per_shipment = $saved->streamer_burden_per_shipment;
         $this->streamer_burden_per_hour = $saved->streamer_burden_per_hour;
+        $this->shift = $saved->shift;
         $this->resetErrorBag();
         $this->editing_rates = false;
     }
@@ -163,10 +171,16 @@ class PaymentStructures extends Page
     {
         abort_unless(static::canAccess(), 403);
         $this->validate([
-            'streamer.payout_type' => 'required|in:profit_share,sales_split',
+            'streamer.payout_type' => 'required|in:profit_share,sales_split,shift_share',
+            'shift.hourly_rate' => 'nullable|required_if:streamer.payout_type,shift_share|numeric|min:0',
+            'shift.pwe_rate' => 'nullable|numeric|min:0',
+            'shift.label_rate' => 'nullable|numeric|min:0',
+            'shift.payout_percentage' => 'nullable|required_if:streamer.payout_type,shift_share|numeric|min:0|max:100',
+            'shift.burden_rate_type' => 'nullable|in:flat,percentage',
+            'shift.burden_rate_value' => 'nullable|numeric|min:0',
             'streamer.house_cut_percentage' => 'nullable|required_if:streamer.payout_type,sales_split|numeric|min:0|max:100',
             'streamer.sales_split_basis' => 'nullable|in:net,gross',
-            'streamer.payout_percentage' => 'required_unless:streamer.payout_type,sales_split|nullable|numeric|min:0|max:100',
+            'streamer.payout_percentage' => 'required_if:streamer.payout_type,profit_share|nullable|numeric|min:0|max:100',
             'streamer.custom_payout_formula' => 'nullable|string|max:1000',
             'streamer.hourly_rate' => 'nullable|numeric|min:0',
             'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
@@ -193,12 +207,13 @@ class PaymentStructures extends Page
         ]);
 
         $streamer = $this->streamer;
-        if ($streamer['payout_type'] !== 'sales_split' && trim((string) ($streamer['custom_payout_formula'] ?? '')) !== '') {
+        if ($streamer['payout_type'] === 'profit_share' && trim((string) ($streamer['custom_payout_formula'] ?? '')) !== '') {
             $streamer['payout_type'] = 'custom_formula';
         }
         $streamer['payout_cadence'] = 'weekly';
         $this->fulfillment['payout_cadence'] = 'weekly';
         PaymentStructure::saveDefaults('streamer', $streamer, $this->business_id);
+        PaymentStructure::saveShiftDefaults($this->shift, $this->business_id);
         PaymentStructure::saveDefaults('fulfillment', $this->fulfillment, $this->business_id);
         Setting::set('payroll_burden_per_shipment', (string)$this->streamer_burden_per_shipment);
         Setting::set('payroll_burden_per_hour', (string)$this->streamer_burden_per_hour);

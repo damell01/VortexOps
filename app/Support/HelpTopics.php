@@ -78,6 +78,7 @@ class HelpTopics
                     'Hours and shipments go on one line, the share on another. A weekly "All pay at once" run pays both; separate wage and profit-share runs can pay them at different times, like VCX.',
                 ],
                 'tips' => [
+                    'Set the rates once per business: Edit team rates → "Hourly + shipments + profit share rates". Anyone on this pay type uses them; tick a box on a person only if they\'re paid differently. Or make it the whole team\'s pay type there.',
                     'Example: 4 hrs × $20 = $80; 10 envelopes × $1 + 5 packages × $2 = $20; ($1,000 − $300 − $50 − $80 − $20) × 10% = $55. Pay $155.',
                     'The burden is optional: a flat $ per show, or a % of net.',
                     'The share never goes below $0. A show that loses money still pays the hours and shipments.',

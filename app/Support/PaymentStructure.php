@@ -34,6 +34,14 @@ class PaymentStructure
     ];
 
     /**
+     * Rates for anyone paid hourly + shipments + profit share. They sit apart
+     * from a team's main rates so a business can default to a sales split
+     * (Estill's independents) and still have rates ready for its hourly
+     * streamers, or make this pay type its team default.
+     */
+    public const SHIFT_FIELDS = ['hourly_rate', 'pwe_rate', 'label_rate', 'payout_percentage', 'burden_rate_type', 'burden_rate_value'];
+
+    /**
      * The setting holding a team's defaults. Each business can have its own
      * (Estill streamers are paid differently from Vortex Collects'); a
      * business that has not saved any uses the shared ones.
@@ -42,6 +50,27 @@ class PaymentStructure
     {
         return 'payment_structure_' . ($memberType === 'fulfillment' ? 'fulfillment' : 'streamer')
             . ($businessId ? '_business_' . $businessId : '');
+    }
+
+    /** @return array<string,mixed> A business's hourly + shipments + profit share rates, else the shared ones. */
+    public static function shiftDefaults(?int $businessId = null): array
+    {
+        $own = $businessId ? Setting::get(self::settingKey('streamer', $businessId) . '_shift') : null;
+        $raw = $own !== null && trim((string) $own) !== '' ? $own : Setting::get(self::settingKey('streamer') . '_shift');
+        $decoded = json_decode((string) $raw, true);
+
+        return is_array($decoded) ? array_intersect_key($decoded, array_flip(self::SHIFT_FIELDS)) : [];
+    }
+
+    public static function saveShiftDefaults(array $values, ?int $businessId = null): void
+    {
+        $payload = [];
+        foreach (self::SHIFT_FIELDS as $field) {
+            if (array_key_exists($field, $values)) {
+                $payload[$field] = self::normalize($field, $values[$field]);
+            }
+        }
+        Setting::set(self::settingKey('streamer', $businessId) . '_shift', json_encode($payload));
     }
 
     /** @return array<string,mixed> */
@@ -66,6 +95,9 @@ class PaymentStructure
     public static function clearBusinessDefaults(string $memberType, int $businessId): void
     {
         Setting::set(self::settingKey($memberType, $businessId), '');
+        if ($memberType === 'streamer') {
+            Setting::set(self::settingKey('streamer', $businessId) . '_shift', '');
+        }
     }
 
     /** @return array<string,mixed> */
@@ -178,6 +210,16 @@ class PaymentStructure
         foreach (self::FIELDS as $field) {
             if (! array_key_exists($field, $effective)) {
                 $effective[$field] = $row[$field];
+            }
+        }
+
+        // Paid hourly + shipments + profit share: the team's rates for that
+        // pay type fill whatever this person hasn't set themselves.
+        if (($effective['payout_type'] ?? null) === 'shift_share' && $memberType === 'streamer') {
+            foreach (self::shiftDefaults($member->getRawOriginal('business_id') ?? $member->business_id) as $field => $value) {
+                if ($value !== null && ! array_key_exists($field, $overrides)) {
+                    $effective[$field] = $value;
+                }
             }
         }
 

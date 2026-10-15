@@ -6,6 +6,10 @@
     $editingMember=$editing_member_id ? \App\Models\Streamer::find($editing_member_id) : null;
     $business=$this->business;
     $isSplit=($streamer['payout_type']??'profit_share')==='sales_split';
+    $isShift=($streamer['payout_type']??'profit_share')==='shift_share';
+    $money=fn($v)=>filled($v)?'$'.number_format((float)$v,2):'—';
+    $shiftBurden=fn()=>!filled($shift['burden_rate_value']??null)||(float)$shift['burden_rate_value']==0?'None':(($shift['burden_rate_type']??'flat')==='percentage'?rtrim(rtrim(number_format((float)$shift['burden_rate_value'],2),'0'),'.').'% of net':'$'.number_format((float)$shift['burden_rate_value'],2).' / show');
+    $shiftCards=[['Hourly rate',filled($shift['hourly_rate']??null)?'$'.number_format((float)$shift['hourly_rate'],2).'/hr':'—'],['Per envelope (PWE)',$money($shift['pwe_rate']??null)],['Per package',$money($shift['label_rate']??null)],['Profit share',filled($shift['payout_percentage']??null)?rtrim(rtrim(number_format((float)$shift['payout_percentage'],2),'0'),'.').'%':'—'],['Burden',$shiftBurden()]];
     $cut=(float)($streamer['house_cut_percentage']??0);
     $basisLabel=($streamer['sales_split_basis']??'net')==='gross'?'Gross Sales':'Estimated Net Earnings';
 @endphp
@@ -109,6 +113,15 @@
                         </select>
                         <span class="mt-1 block text-xs text-gray-500">For Estill’s hourly streamers, choose Hourly + shipments + profit share: hours × rate, envelopes and packages at their own rates, and a share of (net sales − product cost − burden − hourly − shipment pay). Hours and shipments and the share are separate lines: a weekly "All pay at once" run pays both; a business that pays shares monthly uses separate wage and profit-share runs.</span></label>
                     @if(($member_override_enabled['payout_type'] ?? false) ? (($member_override_values['payout_type'] ?? null) === 'shift_share') : (($editingMember->effectiveCompensation()['effective']['payout_type'] ?? null) === 'shift_share'))
+                    @php
+                        $teamShift = \App\Support\PaymentStructure::shiftDefaults($editingMember->business_id);
+                        $fmt = fn ($v, $pre = '$', $post = '') => filled($v) ? $pre . rtrim(rtrim(number_format((float) $v, 2), '0'), '.') . $post : 'not set';
+                    @endphp
+                    <p class="rounded-lg bg-primary-50 p-3 text-xs text-primary-800 md:col-span-2 dark:bg-primary-950/30 dark:text-primary-200" data-vx-team-shift>
+                        <strong>Unticked boxes use {{ $editingMember->business_id ? (\App\Models\Business::whereKey($editingMember->business_id)->value('name') ?? 'the team') : 'the team' }}’s rates for this pay type:</strong>
+                        {{ $fmt($teamShift['hourly_rate'] ?? null, '$', '/hr') }} · {{ $fmt($teamShift['pwe_rate'] ?? null) }} per envelope · {{ $fmt($teamShift['label_rate'] ?? null) }} per package · {{ $fmt($teamShift['payout_percentage'] ?? null, '', '%') }} share · burden {{ filled($teamShift['burden_rate_value'] ?? null) && (float) $teamShift['burden_rate_value'] > 0 ? (($teamShift['burden_rate_type'] ?? 'flat') === 'percentage' ? $fmt($teamShift['burden_rate_value'], '', '% of net') : $fmt($teamShift['burden_rate_value']) . ' per show') : 'none' }}.
+                        Change them in Edit team rates. Tick a box only for someone paid differently.
+                    </p>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.pwe_rate">Pay per envelope (PWE)</span><input wire:model="member_override_values.pwe_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.label_rate">Pay per package</span><input wire:model="member_override_values.label_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.burden_rate_value">Burden taken off before the share</span>
@@ -197,13 +210,17 @@
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Team rates{{ $business ? ' · '.$business->name : '' }}</p>
-                <h2 class="mt-1 text-xl font-bold">{{ $isSplit ? 'Sales split' : 'Regular payouts — Streamer Pay Formula' }}</h2>
+                <h2 class="mt-1 text-xl font-bold">{{ $isSplit ? 'Sales split' : ($isShift ? 'Hourly + shipments + profit share' : 'Regular payouts — Streamer Pay Formula') }}</h2>
                 <p class="mt-1 max-w-3xl text-sm text-gray-500">The default for everyone{{ $business ? ' in '.$business->name : '' }} without an individual override.</p>
             </div>
             <button type="button" wire:click="openRatesEditor" class="rounded-[10px] bg-primary-600 px-5 py-2.5 text-sm font-bold text-white">Edit team rates</button>
         </div>
         <div class="mt-5 grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr))">
-            @if($isSplit)
+            @if($isShift)
+                @foreach($shiftCards as [$label, $value])
+                    <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">{{ $label }}</div><div class="mt-1 text-2xl font-bold">{{ $value }}</div></div>
+                @endforeach
+            @elseif($isSplit)
                 <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Business keeps</div><div class="mt-1 text-2xl font-bold">{{ number_format($cut, 2) }}%</div></div>
                 <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Of the streamer's</div><div class="mt-1 text-lg font-bold">{{ $basisLabel }}</div></div>
             @else
@@ -211,11 +228,14 @@
                 <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Burden per shipment</div><div class="mt-1 text-2xl font-bold">${{ number_format($ship, 2) }}</div></div>
                 <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Burden per hour</div><div class="mt-1 text-2xl font-bold">${{ number_format($hour, 2) }}</div></div>
             @endif
-            <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">In-house hourly</div><div class="mt-1 text-2xl font-bold">{{ (float)($streamer['hourly_rate'] ?? 0) > 0 ? '$'.number_format((float)$streamer['hourly_rate'], 2).'/hr' : 'None' }}</div></div>
+            @unless($isShift)<div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">In-house hourly</div><div class="mt-1 text-2xl font-bold">{{ (float)($streamer['hourly_rate'] ?? 0) > 0 ? '$'.number_format((float)$streamer['hourly_rate'], 2).'/hr' : 'None' }}</div></div>@endunless
             <div class="rounded-[12px] border border-[var(--vx-border)] p-4"><div class="text-xs font-semibold text-gray-500">Tips</div><div class="mt-1 text-lg font-bold">{{ ($streamer['include_tips'] ?? true) ? 'Included' : 'Not included' }}</div></div>
         </div>
         <div class="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-4 font-mono text-sm dark:border-primary-900 dark:bg-primary-950/20">
-            @if($isSplit)
+            @if($isShift)
+                <div>Share = (Whatnot net − product cost − burden − hourly − shipments) × {{ $shiftCards[3][1] }}</div>
+                <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = Hours × {{ $shiftCards[0][1] }} + Envelopes × {{ $shiftCards[1][1] }} + Packages × {{ $shiftCards[2][1] }} + Share</div>
+            @elseif($isSplit)
                 <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = {{ $basisLabel }} × {{ number_format(100 - $cut, 2) }}% @if($streamer['include_tips']??true) + Tips @endif</div>
             @else
                 <div>Burden = (Shipments × ${{ number_format($ship, 2) }}) + (Hours Worked × ${{ number_format($hour, 2) }})</div>
@@ -224,6 +244,14 @@
             @endif
             @if(filled($streamer['custom_payout_formula'] ?? null))<div class="mt-1 text-xs">Team custom formula in use: {{ $streamer['custom_payout_formula'] }}</div>@endif
         </div>
+        @unless($isShift)
+            <div class="mt-4 rounded-[12px] border border-dashed border-[var(--vx-border)] p-4" data-vx-shift-rates>
+                <div class="flex flex-wrap items-baseline justify-between gap-2"><p class="text-sm font-bold">Hourly + shipments + profit share rates<x-vx-help topic="pay.shift_share" /></p><p class="text-xs text-gray-500">For anyone{{ $business ? ' in '.$business->name : '' }} set to this pay type on their own.</p></div>
+                <div class="mt-2 flex flex-wrap gap-2 text-sm">
+                    @foreach($shiftCards as [$label, $value])<span class="rounded-full bg-gray-100 px-3 py-1 dark:bg-white/10"><span class="text-gray-500">{{ $label }}</span> <strong>{{ $value }}</strong></span>@endforeach
+                </div>
+            </div>
+        @endunless
     </div>
 
     @if($editing_rates)
@@ -236,14 +264,18 @@
                 <div class="space-y-4">
     <div class="vx-card p-5">
         <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Regular payouts{{ $business ? ' · '.$business->name : '' }}</p>
-        <div class="mt-3 grid gap-3 md:grid-cols-2">
-            <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ ! $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
+        <div class="mt-3 grid gap-3 md:grid-cols-3">
+            <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ ! $isSplit && ! $isShift ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
                 <input type="radio" wire:model.live="streamer.payout_type" value="profit_share" class="mt-1">
                 <span><span class="block font-bold">Regular payouts</span><span class="block text-xs text-gray-500">The existing show-based formula after product cost and burden, with hourly pay where configured. Choose pay run dates separately.</span></span>
             </label>
             <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
                 <input type="radio" wire:model.live="streamer.payout_type" value="sales_split" class="mt-1">
                 <span><span class="block font-bold">Sales split<x-vx-help topic="pay.sales_split" /></span><span class="block text-xs text-gray-500">The business keeps a % of what the streamer's shows earned; the streamer gets the rest. Set this per person or as the business default.</span></span>
+            </label>
+            <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ $isShift ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
+                <input type="radio" wire:model.live="streamer.payout_type" value="shift_share" class="mt-1">
+                <span><span class="block font-bold">Hourly + shipments + profit share<x-vx-help topic="pay.shift_share" /></span><span class="block text-xs text-gray-500">Hours × rate, envelopes and packages at their own rates, plus a share of what's left after product cost, burden, hourly and shipment pay.</span></span>
             </label>
         </div>
         @if($isSplit)
@@ -268,7 +300,38 @@
         @endif
     </div>
 
-    <div class="vx-card p-5" @if($isSplit) hidden @endif>
+    <div class="vx-card p-5" data-vx-shift-editor>
+        <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Hourly + shipments + profit share rates</p>
+        <p class="mt-1 text-sm text-gray-500">{{ $isShift ? 'The team default: everyone'.($business ? ' in '.$business->name : '').' is paid these unless their own settings differ.' : 'Used by anyone'.($business ? ' in '.$business->name : '').' set to this pay type on their own, unless their own settings differ. The team default above stays as it is.' }}</p>
+        <div class="mt-4 grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr))">
+            @foreach([['hourly_rate','Hourly rate','$','/hr'],['pwe_rate','Per envelope (PWE)','$',''],['label_rate','Per package','$',''],['payout_percentage','Profit share','','%']] as [$f,$label,$pre,$post])
+                <label class="rounded-[10px] border border-[var(--vx-border)] p-3">
+                    <span class="text-xs font-semibold text-gray-500">{{ $label }}</span>
+                    <div class="mt-2 flex items-center gap-1">@if($pre)<span class="font-bold">{{ $pre }}</span>@endif<input wire:model.live.debounce.300ms="shift.{{ $f }}" type="number" step=".01" min="0" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-bold dark:border-gray-600 dark:bg-gray-800">@if($post)<span class="text-sm font-bold">{{ $post }}</span>@endif</div>
+                    @error('shift.'.$f)<span class="mt-1 block text-xs text-danger-600">{{ $message }}</span>@enderror
+                </label>
+            @endforeach
+            <label class="rounded-[10px] border border-[var(--vx-border)] p-3">
+                <span class="text-xs font-semibold text-gray-500">Burden (blank for none)</span>
+                <div class="mt-2 flex flex-wrap items-center gap-1">
+                    <select wire:model.live="shift.burden_rate_type" class="w-full min-w-0 rounded-[10px] border-[var(--vx-border)] bg-gray-50 text-sm font-bold dark:border-gray-600 dark:bg-gray-800" aria-label="Burden is"><option value="flat">$ per show</option><option value="percentage">% of net</option></select>
+                    <input wire:model.live.debounce.300ms="shift.burden_rate_value" type="number" step=".01" min="0" aria-label="Burden amount" class="w-full min-w-0 rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-bold dark:border-gray-600 dark:bg-gray-800">
+                </div>
+            </label>
+        </div>
+        @php
+            $ex = ['h' => 4 * (float)($shift['hourly_rate'] ?? 0), 's' => 10 * (float)($shift['pwe_rate'] ?? 0) + 5 * (float)($shift['label_rate'] ?? 0)];
+            $ex['b'] = ($shift['burden_rate_type'] ?? 'flat') === 'percentage' ? 1000 * (float)($shift['burden_rate_value'] ?? 0) / 100 : (float)($shift['burden_rate_value'] ?? 0);
+            $ex['share'] = max(0, (1000 - 300 - $ex['b'] - $ex['h'] - $ex['s']) * (float)($shift['payout_percentage'] ?? 0) / 100);
+        @endphp
+        <div class="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-4 font-mono text-sm dark:border-primary-900 dark:bg-primary-950/20">
+            <div>Share = (Whatnot net − product cost − burden − hourly − shipments) × {{ $shiftCards[3][1] }}</div>
+            <div class="font-bold text-primary-700 dark:text-primary-300">Streamer Pay = hourly + shipments + share</div>
+            <p class="mt-2 font-sans text-xs text-gray-500">e.g. a $1,000 show with $300 product cost, 4 hours, 10 envelopes and 5 packages pays ${{ number_format($ex['h'], 2) }} hourly + ${{ number_format($ex['s'], 2) }} shipments + ${{ number_format($ex['share'], 2) }} share = <strong>${{ number_format($ex['h'] + $ex['s'] + $ex['share'], 2) }}</strong>.</p>
+        </div>
+    </div>
+
+    <div class="vx-card p-5" @if($isSplit || $isShift) hidden @endif>
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
                 <p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Standard payroll calculation</p>

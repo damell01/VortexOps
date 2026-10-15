@@ -154,12 +154,21 @@
                         <span class="vsh-pill vsh-{{ $tone }}">{{ $state }}</span>
                     </div>
                     @unless ($scheduled)
-                    <dl class="vsh-figs">
-                        <div><dt>Items logged</dt><dd>{{ number_format($items) }}</dd>@if ($saved)<p class="vsh-meta">Saved {{ $saved->diffForHumans() }}</p>@endif</div>
-                        <div><dt>Giveaways</dt><dd>{{ number_format($gives) }}</dd></div>
+                    @php
+                        $gross = (float) ($show->gross_revenue ?? 0);
+                        $net = $show->completed_earnings ?? $show->whatnot_net;
+                    @endphp
+                    {{-- What the show made on Whatnot, then what the report holds. --}}
+                    <dl class="vsh-figs vsh-figs--money">
+                        <div><dt>Sales</dt><dd>{{ $gross > 0 ? $money($gross) : '—' }}</dd></div>
+                        <div><dt>Whatnot net</dt><dd>{{ $net !== null && ($gross > 0 || (float) $net != 0) ? $money($net) : '—' }}</dd></div>
                         @if ($pay->isNotEmpty())
                             <div><dt>Your pay</dt><dd class="vsh-paid">{{ $money($pay->sum('calculated_payout')) }}</dd><p class="vsh-meta">{{ $pay->every(fn ($p) => $p->status === 'paid') ? 'Paid' : 'Awaiting payment' }}</p></div>
                         @endif
+                    </dl>
+                    <dl class="vsh-figs">
+                        <div><dt>Items logged</dt><dd>{{ number_format($items) }}</dd>@if ($saved)<p class="vsh-meta">Saved {{ $saved->diffForHumans() }}</p>@endif</div>
+                        <div><dt>Giveaways</dt><dd>{{ number_format($gives) }}</dd></div>
                     </dl>
                     @endunless
                     @if ($action)
@@ -305,6 +314,8 @@
     .vsh-figs > div + div { padding-left:1rem; border-left:1px solid var(--vsh-line); }
     .vsh-figs dt { font-size:.8rem; color: var(--vsh-muted); }
     .vsh-figs dd { font-size:1.25rem; font-weight:800; font-variant-numeric: tabular-nums; }
+    .vsh-figs--money { padding:.6rem .75rem; margin:0 -.1rem; border-radius:.75rem; background: color-mix(in srgb, #7c3aed 5%, var(--vsh-card)); }
+    .vsh-figs--money dd { font-size:1.02rem; overflow-wrap:anywhere; }
     .vsh-btn { display:flex; align-items:center; justify-content:center; gap:.55rem; min-height:2.75rem; margin-top:auto; border:1.5px solid #7c3aed; border-radius:.75rem; font-weight:700; color:#6d28d9; background: var(--vsh-card); transition: background-color .15s, box-shadow .15s; }
     .dark .vsh-btn { color:#c4b5fd; border-color:#8b5cf6; }
     .vsh-btn:hover { background: color-mix(in srgb, #7c3aed 7%, var(--vsh-card)); }

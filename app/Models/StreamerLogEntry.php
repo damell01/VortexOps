@@ -503,6 +503,43 @@ class StreamerLogEntry extends Model
         return $this->postInventoryMovements();
     }
 
+    /**
+     * Throw the report away so the show reads as never started — for reports
+     * opened by mistake or while testing.
+     *
+     * Stock the report took is put back first (and nothing is deleted if any
+     * of it cannot be); pay worked out from it is removed while it is still a
+     * draft, and the reset is refused once that pay is on a submitted or paid
+     * run. The hours-change history stays, unlinked from the report.
+     *
+     * @throws \RuntimeException with a reason an admin can act on
+     */
+    public function resetToNotStarted(): void
+    {
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            $locked = Payout::where('show_id', $this->show_id)
+                ->where(fn ($q) => $q->where('status', '!=', 'draft')
+                    ->orWhereHas('batch', fn ($b) => $b->where('status', '!=', 'draft')))
+                ->exists();
+            if ($locked) {
+                throw new \RuntimeException('Pay for this show is already on a submitted or paid pay run, so the report has to stay.');
+            }
+
+            $this->restoreInventoryOnRejection();
+            if ($this->items()->where('deducted_quantity', '>', 0)->exists()) {
+                throw new \RuntimeException('Some stock this report took could not be put back (its location no longer has a stock row). Nothing was changed.');
+            }
+
+            Payout::where('show_id', $this->show_id)->where('status', 'draft')->delete();
+            if (\Illuminate\Support\Facades\Schema::hasTable('time_entry_changes')) {
+                \Illuminate\Support\Facades\DB::table('time_entry_changes')->where('streamer_log_entry_id', $this->id)->update(['streamer_log_entry_id' => null]);
+            }
+
+            $this->items()->delete();
+            $this->delete();
+        });
+    }
+
     public function restoreInventoryOnRejection(): void
     {
         if (! $this->show || ! $this->streamer) return;

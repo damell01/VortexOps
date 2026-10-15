@@ -224,4 +224,9 @@ class EstillPayrollTest extends TestCase
         $this->assertEqualsWithDelta(25.0, $effective['burden_rate_value'], 0.001);
         $this->assertSame('flat', $effective['burden_rate_type']);
     }
+
+    public function test_the_businesses_board_describes_an_hourly_streamers_pay(): void
+    {
+        $this->assertSame('$20/hr + shipments + 10% share', app(\App\Filament\Pages\Businesses::class)->payLabel($this->hourlyStreamer()));
+    }
 }

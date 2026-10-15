@@ -35,7 +35,7 @@ class SetUpStreamerInventoryAction
             Select::make('from_location_id')->label('Take stock from')
                 ->options(fn () => $setup()->sources()->pluck('name', 'id')->all())
                 ->default(fn () => $setup()->defaultSource(null)?->id)
-                ->native(false)->live()
+                ->live()
                 ->visible(fn ($get) => (bool) $get('stock_each'))
                 ->required(fn ($get) => (bool) $get('stock_each'))
                 ->afterStateUpdated(fn ($set) => $set('lines', [])),
@@ -43,7 +43,7 @@ class SetUpStreamerInventoryAction
                 ->schema([
                     Select::make('inventory_item_id')->label('Item')
                         ->options(fn ($get) => $setup()->itemOptions((int) $get('../../from_location_id')))
-                        ->searchable()->native(false)->required()->columnSpan(['sm' => 2]),
+                        ->required()->columnSpan(['sm' => 2]),
                     TextInput::make('quantity')->label('Each')->numeric()->minValue(0.01)->default(1)->required(),
                 ])
                 ->columns(['default' => 1, 'sm' => 3])
@@ -88,7 +88,7 @@ class SetUpStreamerInventoryAction
             ->schema([
                 Select::make('business_id')->label('Business')
                     ->options(fn () => ['all' => 'All streamers'] + \App\Models\Business::ordered()->pluck('name', 'id')->all())
-                    ->native(false)->required()->live()
+                    ->required()->live()
                     ->helperText(function ($get) use ($setup) {
                         $people = $setup()->streamersFor($get('business_id') === 'all' ? null : (int) $get('business_id'));
                         $have = $people->filter(fn ($s) => $setup()->ownLocation($s))->count();
@@ -126,13 +126,13 @@ class SetUpStreamerInventoryAction
                     ->options(fn () => $setup()->sources()->pluck('name', 'id')->all())
                     // Their business's storage if it has its own, else the receiving warehouse or Main Storage.
                     ->default(fn () => $setup()->defaultSource($record)?->id)
-                    ->native(false)->live()
+                    ->live()
                     ->afterStateUpdated(fn ($set) => $set('lines', [])),
                 Repeater::make('lines')->label('Items')
                     ->schema([
                         Select::make('inventory_item_id')->label('Item')
                             ->options(fn ($get) => $setup()->itemOptions((int) $get('../../from_location_id')))
-                            ->searchable()->native(false)->required()->columnSpan(['sm' => 2]),
+                            ->required()->columnSpan(['sm' => 2]),
                         TextInput::make('quantity')->numeric()->minValue(0.01)->default(1)->required(),
                     ])
                     ->columns(['default' => 1, 'sm' => 3])

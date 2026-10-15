@@ -7,9 +7,16 @@
         <div class="px-4 sm:px-5">
 
         @if (empty($items))
-            <div class="flex items-center gap-3 py-6 justify-center text-sm text-gray-500 dark:text-gray-400">
-                <x-heroicon-o-check-circle class="h-5 w-5 text-emerald-500" />
-                You're all caught up — nothing needs your attention.
+            @php
+                // Eevee cheers through the working day; Snorlax naps evenings and weekends.
+                $now = now(config('app.timezone'));
+                $napping = $now->isWeekend() || $now->hour >= 18 || $now->hour < 6;
+            @endphp
+            <div @class(['vx-na-clear', 'is-sleepy' => $napping]) data-vx-na-clear>
+                <img src="/img/pokemon/{{ $napping ? 'snorlax' : 'eevee' }}.gif" alt="" aria-hidden="true" class="vx-sprite">
+                @if ($napping)<span class="vx-na-zzz" aria-hidden="true">z<i>z</i><b>z</b></span>@endif
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">You're all caught up!</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $napping ? 'Nothing needs you, so Snorlax is taking a nap.' : 'Nothing needs your attention. Eevee approves.' }}</p>
             </div>
         @else
             <div class="divide-y divide-gray-100 dark:divide-white/5">

@@ -95,6 +95,24 @@ function confetti() {
 }
 window.addEventListener('vx-celebrate', celebrate);
 
+// ── Pay run marked paid: Pikachu hops up, cheers, and scampers off ───────
+export function pikaCheer(event) {
+    if (calm.matches) return;
+    const detail = Array.isArray(event?.detail) ? event.detail[0] : event?.detail;
+    document.querySelector('.vx-pika')?.remove();
+    const box = document.createElement('div');
+    box.className = 'vx-pika';
+    box.setAttribute('role', 'status');
+    const say = document.createElement('span');
+    say.className = 'vx-pika-say';
+    say.textContent = detail?.text || 'Pika pika!';
+    box.innerHTML = '<i class="vx-pika-bolt" aria-hidden="true">⚡</i><i class="vx-pika-bolt" aria-hidden="true">⚡</i><img class="vx-pika-mon" src="/img/pokemon/pikachu.gif" alt="">';
+    box.prepend(say);
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 3300);
+}
+window.addEventListener('vx-pika-cheer', pikaCheer);
+
 // ── Report submitted: a Poké Ball that wobbles and becomes a check, once ──
 function reportDone() {
     if (calm.matches || document.querySelector('.vx-done')) return;

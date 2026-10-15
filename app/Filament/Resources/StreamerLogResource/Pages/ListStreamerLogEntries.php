@@ -124,6 +124,23 @@ class ListStreamerLogEntries extends ListRecords
         ];
     }
 
+    /**
+     * The inbox Poké Ball: reports cleared (approved) in the last 7 days
+     * against those plus what still waits on review. Null when there is
+     * nothing either way, so the ball doesn't sit there empty.
+     *
+     * @return array{cleared:int,waiting:int,total:int,percent:int}|null
+     */
+    public function catchProgress(): ?array
+    {
+        $base = fn () => StreamerLogResource::getEloquentQuery();
+        $waiting = $base()->where(fn ($q) => $q->whereIn('status', ['streamer_reviewed', 'changes_requested'])->orWhereNotNull('revision_requested_at'))->count();
+        $cleared = $base()->where('status', 'admin_approved')->whereNull('revision_requested_at')->where('reviewed_at', '>=', now()->subDays(7))->count();
+        $total = $waiting + $cleared;
+
+        return $total === 0 ? null : ['cleared' => $cleared, 'waiting' => $waiting, 'total' => $total, 'percent' => (int) floor($cleared * 100 / $total)];
+    }
+
     public function reopenRequests()
     {
         return StreamerLogResource::getEloquentQuery()->whereNotNull('revision_requested_at')->oldest('revision_requested_at')->limit(6)->get();

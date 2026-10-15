@@ -738,6 +738,34 @@
             </div>
         </div>
 
+        {{-- ── Item rarity ─────────────────────────────────────────────────── --}}
+        <div wire:key="section-item-rarity" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <button type="button" @click="open = !open"
+                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <x-heroicon-o-star class="h-5 w-5 text-amber-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Item Rarity</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Stars shown on items by what one unit costs</p>
+                </div>
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
+            </button>
+            <div x-show="open" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+                <div class="grid max-w-xl gap-3 sm:grid-cols-3">
+                    @foreach (['rarity_one' => '★ from', 'rarity_two' => '★★ from', 'rarity_three' => '★★★ (holo) from'] as $vxField => $vxLabel)
+                        <label class="block">
+                            <span class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $vxLabel }}</span>
+                            <div class="flex items-center rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3">
+                                <span class="text-sm text-gray-400">$</span>
+                                <input type="number" min="0" step="0.01" wire:model.blur="{{ $vxField }}" class="w-full border-0 bg-transparent px-2 py-2 text-sm text-gray-900 dark:text-white focus:ring-0" />
+                            </div>
+                            @error($vxField)<span class="mt-1 block text-xs text-danger-600">{{ $message }}</span>@enderror
+                        </label>
+                    @endforeach
+                </div>
+                <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">Uses an item's average cost per unit (or its unit cost when it has no average yet). Items under the first amount get no stars.</p>
+            </div>
+        </div>
+
         {{-- ── What streamers can see ──────────────────────────────────────── --}}
         <div wire:key="section-streamer-visibility" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 

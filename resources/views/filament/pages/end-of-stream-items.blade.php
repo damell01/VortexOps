@@ -500,7 +500,7 @@
                                 @php $stagedQty = (int) ($this->stagedQuantities[$item->id] ?? 0); @endphp
                                 <article wire:key="pick-item-{{ $item->id }}" @class(['vxw-tile', 'is-selected' => $stagedQty > 0]) style="cursor:default;padding:12px">
                                     <div>
-                                        <div class="vxw-tile-title" style="font-size:13.5px">{{ $item->name }}</div>
+                                        <div class="vxw-tile-title" style="font-size:13.5px">{{ $item->name }} <x-vx.rarity :cost="$item->average_cost ?: $item->unit_cost" /></div>
                                         <div class="vxw-meta mt-0.5">
                                             SKU {{ $item->sku ?? '—' }}
                                             @if(($alreadyInReport[$item->id] ?? 0) > 0)

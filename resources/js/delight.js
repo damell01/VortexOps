@@ -214,6 +214,44 @@ function slowStop() {
 document.addEventListener('livewire:navigate', slowStart);
 document.addEventListener('livewire:navigated', slowStop);
 
+// ── Shiny visits: about one page in 50, every sprite is its shiny colours ──
+// Real shiny sprites live in /img/pokemon/shiny/. ?vxshiny=1 forces one.
+let shinyVisit = false, shinyRolledFor = null;
+function rollShiny() {
+    if (shinyRolledFor === location.href) return; // boot can run twice for one page
+    shinyRolledFor = location.href;
+    shinyVisit = /[?&]vxshiny=1\b/.test(location.search) || Math.random() < 1 / 50;
+    if (shinyVisit) { shinySwap(); announceShiny(); }
+}
+function shinySwap() {
+    if (!shinyVisit) return;
+    document.querySelectorAll('img[src*="/img/pokemon/"]:not([src*="/shiny/"])').forEach((img) => {
+        img.src = img.getAttribute('src').replace('/img/pokemon/', '/img/pokemon/shiny/');
+    });
+}
+function announceShiny() {
+    if (calm.matches || !document.querySelector('img[src*="/img/pokemon/shiny/"]')) return;
+    const note = document.createElement('div');
+    note.className = 'vx-shiny-note'; note.setAttribute('role', 'status');
+    note.textContent = '✨ A shiny appeared!';
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), 3600);
+}
+
+// ── Search results read like Pokédex entries: #043 from the record's id ──
+function dexify() {
+    document.querySelectorAll('.fi-global-search-result:not([data-vx-dex])').forEach((row) => {
+        row.dataset.vxDex = '1';
+        const link = row.querySelector('a.fi-global-search-result-link, a');
+        const id = link?.getAttribute('href')?.match(/\/(\d+)(?:\/[\w-]+)?\/?(?:[?#].*)?$/)?.[1];
+        if (!id) return;
+        const no = document.createElement('span');
+        no.className = 'vx-dex-no';
+        no.textContent = '#' + id.padStart(3, '0');
+        (row.querySelector('.fi-global-search-result-heading') || link).prepend(no);
+    });
+}
+
 // ── Unread notifications: the tab icon becomes a Poké Ball with a red dot ──
 let plainIcon = null, ballIcon = null, lastUnread = -1;
 function makeBallIcon(done) {
@@ -248,7 +286,7 @@ let badgeQueued = false;
 new MutationObserver(() => {
     if (badgeQueued) return;
     badgeQueued = true;
-    requestAnimationFrame(() => { badgeQueued = false; tabBadge(); });
+    requestAnimationFrame(() => { badgeQueued = false; tabBadge(); shinySwap(); dexify(); });
 }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
 
 // The top bar's height, for anything that tucks underneath it (Gengar in October).
@@ -267,6 +305,7 @@ function boot() {
     queueHeads();
     topbarVar();
     tabBadge();
+    rollShiny();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);

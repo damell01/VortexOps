@@ -235,11 +235,17 @@ body:has(.vx-season[data-icon="pumpkin"]) .vx-mega-home::after { background-imag
 body:has(.vx-season[data-icon="snowflake"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' stroke='%23bae6fd' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M10 2v16M3 6l14 8M3 14l14-8M8 3.5l2 2 2-2M8 16.5l2-2 2 2'/%3E%3C/svg%3E"); }
 body:has(.vx-season[data-icon="star"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 1.5l2.5 5.3 5.8.7-4.3 4 1.1 5.7L10 14.4l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z' fill='%23facc15'/%3E%3C/svg%3E"); }
 
-/* December: a light snowfall over the top of the page. */
-.vx-snow { position: fixed; z-index: 28; left: 0; right: 0; top: var(--vx-topbar-h, 68px); height: 260px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent); }
-.vx-snow i { position: absolute; top: -10px; left: var(--x); width: var(--s); height: var(--s); border-radius: 50%; background: #c7d2fe; opacity: .75; animation: vx-snow var(--t) linear var(--d) infinite; }
-.dark .vx-snow i { background: #e0e7ff; opacity: .5; }
-@keyframes vx-snow { to { transform: translate(var(--w), 270px); } }
+/* Snow, hearts or clovers drifting down over the top of the page. */
+.vx-fall { position: fixed; z-index: 28; left: 0; right: 0; top: var(--vx-topbar-h, 68px); height: 260px; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent); }
+.vx-fall i { position: absolute; top: -14px; left: var(--x); width: var(--s); height: var(--s); animation: vx-fall var(--t) linear var(--d) infinite; }
+.vx-fall--snow i { border-radius: 50%; background: #c7d2fe; opacity: .75; }
+.dark .vx-fall--snow i { background: #e0e7ff; opacity: .5; }
+.vx-fall--hearts i { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 17.5S2 12.6 2 7.3A4.2 4.2 0 0 1 10 5a4.2 4.2 0 0 1 8 2.3c0 5.3-8 10.2-8 10.2z' fill='%23f472b6'/%3E%3C/svg%3E") center / contain no-repeat; opacity: .6; }
+.vx-fall--clovers i { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2322c55e'%3E%3Ccircle cx='10' cy='5.6' r='3.6'/%3E%3Ccircle cx='5.6' cy='10' r='3.6'/%3E%3Ccircle cx='14.4' cy='10' r='3.6'/%3E%3Cpath d='M10 10l1.5 8' stroke='%2316a34a' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / contain no-repeat; opacity: .6; }
+@keyframes vx-fall { to { transform: translate(var(--w), 275px) rotate(160deg); } }
+body:has(.vx-season[data-icon="heart"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 17.5S2 12.6 2 7.3A4.2 4.2 0 0 1 10 5a4.2 4.2 0 0 1 8 2.3c0 5.3-8 10.2-8 10.2z' fill='%23f472b6'/%3E%3C/svg%3E"); }
+body:has(.vx-season[data-icon="clover"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2322c55e'%3E%3Ccircle cx='10' cy='5.6' r='3.6'/%3E%3Ccircle cx='5.6' cy='10' r='3.6'/%3E%3Ccircle cx='14.4' cy='10' r='3.6'/%3E%3Cpath d='M10 10l1.5 8' stroke='%2316a34a' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+body:has(.vx-season[data-icon="pie"]) .vx-mega-home::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M2 12h16l-1.6 4.5H3.6z' fill='%23b45309'/%3E%3Cpath d='M2 12c0-4 3.6-7 8-7s8 3 8 7z' fill='%23f59e0b'/%3E%3Cpath d='M6 9.5l2-1.5M10 8.8V7M14 9.5l-2-1.5' stroke='%2378350f' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 
 /* New Year's Day: lots of fireworks — a full-screen show on the first page of the day, then bursts across the top all day. */
 .vx-fireworks, .vx-fireworks-finale { position: fixed; z-index: 28; left: 0; right: 0; pointer-events: none; }
@@ -293,6 +299,44 @@ body:has(.vx-season[data-icon="star"]) .vx-mega-home::after { background-image: 
 .vx-tip-x:hover { background: rgb(124 58 237 / .08); color: #5b21b6; }
 @keyframes vx-tip-hover { 50% { transform: translateY(-3px); } }
 
+/* Shows calendar: hover a show and it flips like a trading card to its numbers. */
+.vx-chip { position: relative; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.3, .7, .3, 1); }
+.vx-chip > :not(.vx-chip-back) { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.vx-chip-back { position: absolute; inset: -1px -1px -1px -3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0 6px; border-radius: 8px; overflow: hidden;
+  background: linear-gradient(115deg, #1e1b4b, #4c1d95 55%, #7c3aed); color: #ddd6fe; font-size: 10.5px; line-height: 1.25; text-align: center; transform: rotateX(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.vx-chip-back .ln { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vx-chip-back b { color: #fff; font-weight: 700; }
+@media (hover: hover) and (pointer: fine) {
+  .vx-chip:hover { transform: rotateX(180deg); transition-delay: .25s; }
+}
+
+/* Item rarity: ★ / ★★ / ★★★ by unit cost; the top tier is holo. */
+.vx-rarity { display: inline-block; margin-left: 4px; font-size: .78em; letter-spacing: .02em; line-height: 1; vertical-align: .08em; white-space: nowrap; }
+.vx-rarity.tier-1 { color: #94a3b8; }
+.vx-rarity.tier-2 { color: #f59e0b; }
+.vx-rarity.tier-3 { background: linear-gradient(100deg, #f472b6, #facc15, #4ade80, #38bdf8, #a78bfa, #f472b6) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: vx-holo-text 4s linear infinite; filter: drop-shadow(0 0 2px rgb(167 139 250 / .5)); }
+@keyframes vx-holo-text { to { background-position: -200% 0; } }
+
+/* Shiny visit note. */
+.vx-shiny-note { position: fixed; z-index: 70; left: 22px; bottom: 22px; padding: 8px 14px; border-radius: 999px; background: linear-gradient(100deg, #fde68a, #fbcfe8, #bae6fd); color: #3b0764; font-size: 13px; font-weight: 700; box-shadow: 0 10px 26px -10px rgb(60 20 90 / .45); animation: vx-shiny-note 3.6s ease forwards; }
+@keyframes vx-shiny-note { 0% { opacity: 0; transform: translateY(10px) scale(.9); } 12%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-6px); } }
+
+/* Show-day countdown on a streamer's home. */
+.vx-countdown { margin-top: 10px; padding: 7px 12px; border-radius: 10px; background: #f3edff; color: #4c1d95; font-size: 13px; }
+.vx-countdown b { font-variant-numeric: tabular-nums; }
+.vx-countdown-soon { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.vx-countdown-soon img { height: 30px; width: auto; image-rendering: pixelated; animation: vx-buddy-cheer .8s ease-out infinite; }
+.vx-countdown:has(.vx-countdown-soon:not([style*="none"])) { background: linear-gradient(100deg, #fef3c7, #fce7f3); color: #831843; }
+.dark .vx-countdown { background: #2e1065; color: #ede9fe; }
+
+/* Global search results as Pokédex entries. */
+.fi-global-search-result-group-header { display: flex; align-items: center; gap: 6px; }
+.fi-global-search-result-group-header::before { content: ''; width: 12px; height: 12px; flex: none; background: url('/img/pokeball.svg') center / contain no-repeat; }
+.fi-global-search-result { border-left: 3px solid transparent; transition: border-color .15s, background .15s; }
+.fi-global-search-result:nth-child(even) { background: rgb(124 58 237 / .03); }
+.fi-global-search-result:hover, .fi-global-search-result:focus-within { border-left-color: #ef4444; background: rgb(239 68 68 / .05); }
+.vx-dex-no { display: inline-block; min-width: 42px; margin-right: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 700; color: #ef4444; letter-spacing: .02em; }
+
 /* A finished report: the buddy hops three times with a heart. */
 .vx-buddy-btn.is-cheering img { animation: vx-buddy-cheer .8s ease-out 3 !important; filter: none !important; }
 .vx-buddy-btn.is-cheering .vx-buddy-z { display: none; }
@@ -325,8 +369,10 @@ body:has(.vx-season[data-icon="star"]) .vx-mega-home::after { background-image: 
   .vx-season-peek { animation: none !important; }
   .vx-season-peek.from-top { transform: translateY(30px); }
   .vx-season-peek.from-bottom { transform: translateY(-34px); }
-  .vx-snow, .vx-fireworks, .vx-fireworks-finale { display: none !important; }
-  .vx-tip-mon { animation: none; }
+  .vx-fall, .vx-fireworks, .vx-fireworks-finale { display: none !important; }
+  .vx-tip-mon, .vx-rarity.tier-3, .vx-countdown-soon img { animation: none; }
+  .vx-chip, .vx-chip:hover { transform: none !important; }
+  .vx-chip-back { display: none; }
   .vx-cell-balls i.is-live { animation: none; box-shadow: 0 0 0 2px rgb(239 68 68 / .35); }
   .vx-buddy-btn img, .vx-buddy-z i, .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }
   .vx-buddy-z i { opacity: .7; }

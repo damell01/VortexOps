@@ -303,6 +303,14 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
                                     <button type="button" class="vx-chip {{ $p['state'] }}" style="--c:{{ $p['color'] }}" @click.stop="open({{ $p['id'] }})" title="{{ $p['title'] }}@if($p['channel']) · {{ $p['channel'] }}@endif">
                                         <span class="tx"><span class="tm block">{{ $p['time'] }}</span><span class="tt block">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-[10px]">{{ $p['analytics'] }}</span>@endif</span>
                                         @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@else<span class="vx-av" title="{{ $p['streamers'] ?? 'Unassigned' }}">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>@endif
+                                        {{-- The back of the card, shown on hover: the numbers, or who and when if it has not aired. --}}
+                                        <span class="vx-chip-back" aria-hidden="true">
+                                            @if($p['state'] === 'upcoming')
+                                                <span class="ln"><b>{{ $p['time'] }}</b></span><span class="ln">{{ $p['streamers'] ?? 'No streamer yet' }}</span>
+                                            @else
+                                                <span class="ln"><b>{{ $p['gross'] }}</b> sales</span><span class="ln"><b>{{ $p['net'] }}</b> earned · <b>{{ $p['units'] }}</b> units</span>
+                                            @endif
+                                        </span>
                                     </button>
                                 @endforeach
                             </div>

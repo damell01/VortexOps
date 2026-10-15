@@ -1172,6 +1172,15 @@ class Show extends Model
         return $now->lte($end) ? 'live' : 'done';
     }
 
+    /** When the show starts, read in $tz (late-night starts land on the next calendar day). */
+    public function startsAt(string $tz): ?\Illuminate\Support\Carbon
+    {
+        [$startMin] = $this->scheduleMinutes();
+        if ($startMin === null || ! $this->show_date) return null;
+
+        return \Illuminate\Support\Carbon::parse($this->show_date->toDateString(), $tz)->addMinutes($startMin);
+    }
+
     /** Streaming right now, in the signed-in person's timezone (as the Shows calendar reads it). */
     public function isLive(?\Carbon\CarbonInterface $now = null): bool
     {

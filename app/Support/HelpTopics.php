@@ -102,7 +102,7 @@ class HelpTopics
                     'Profit share only: profit shares, for a business that pays them on their own schedule (like VCX, monthly).',
                     'Tips: only the tips a business pays monthly. Monthly by default.',
                 ],
-                'tips' => ['A Tips run never clashes with the weekly runs, so their dates can overlap.'],
+                'tips' => ['Ready-made: Estill Weekly (everything) and Estill Monthly Tips; VCX Weekly Wages and VCX Monthly Profit Share. Pick the business when you create the run.', 'A Tips run never clashes with the weekly runs, so their dates can overlap.'],
             ],
             'business.tips_monthly' => [
                 'title' => 'Paying tips monthly',

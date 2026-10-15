@@ -322,6 +322,9 @@ class StreamerResource extends Resource
                 SelectFilter::make('business_id')->label('Business')->relationship('business', 'name'),
             ])
             ->actions([
+                \App\Filament\Actions\SetUpStreamerInventoryAction::make()
+                    ->iconButton()
+                    ->tooltip(fn (Streamer $record) => app(\App\Services\StreamerInventorySetup::class)->ownLocation($record) ? 'Add inventory' : 'Set up inventory'),
                 ViewAction::make()->size('sm')->iconButton(),
                 EditAction::make()->size('sm')->iconButton(),
                 DeleteAction::make()
@@ -333,6 +336,24 @@ class StreamerResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    // Their own location for everyone selected who doesn't have one.
+                    \Filament\Actions\BulkAction::make('setUpInventory')
+                        ->label('Set up inventory')
+                        ->icon('heroicon-o-archive-box-arrow-down')
+                        ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+                        ->requiresConfirmation()
+                        ->modalHeading('Set up inventory for the selected streamers')
+                        ->modalDescription('Each gets their own location ("Name\'s Inventory"). Anyone who already has one is left as they are.')
+                        ->modalSubmitActionLabel('Set up')
+                        ->action(function (Collection $records): void {
+                            $setup = app(\App\Services\StreamerInventorySetup::class);
+                            $made = $records->reject(fn (Streamer $s) => $s->isFulfillment())
+                                ->filter(fn (Streamer $s) => $setup->ensure($s)[1])->count();
+                            $skipped = $records->count() - $made;
+                            Notification::make()->title($made . ' ' . \Illuminate\Support\Str::plural('location', $made) . ' set up')
+                                ->body($skipped ? "{$skipped} already had one (or aren't streamers)." : null)->success()->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     ExportBulkAction::make(),
                     DeleteBulkAction::make()
                         ->action(function (Collection $records): void {

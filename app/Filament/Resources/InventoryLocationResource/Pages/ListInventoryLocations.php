@@ -48,12 +48,10 @@ class ListInventoryLocations extends ListRecords
                 ])
                 ->action(function (array $data): void {
                     $streamer = Streamer::findOrFail($data['streamer_id']);
-                    InventoryLocation::create([
-                        'name' => $data['name'], 'type' => 'streamer_inventory', 'status' => 'active',
-                        'streamer_id' => $streamer->id, 'business_id' => $streamer->business_id,
-                        'whatnot_channel_id' => $streamer->whatnot_channel_id,
-                    ]);
-                    Notification::make()->title("{$data['name']} is ready")->body("{$streamer->name} can sell from it now.")->success()->send();
+                    [$location, $created] = app(\App\Services\StreamerInventorySetup::class)->ensure($streamer, $data['name']);
+                    $created
+                        ? Notification::make()->title("{$location->name} is ready")->body("{$streamer->name} can sell from it now.")->success()->send()
+                        : Notification::make()->title("{$streamer->name} already has {$location->name}")->body('Use Add inventory on their page to stock it.')->warning()->send();
                 }),
 
             // A business's own allocation, so its streamers stop sharing Main Storage.

@@ -61,7 +61,14 @@
             <a href="#vsh-reports-title" wire:click="setTab('upcoming')" class="vsh-next-link">{{ $next ? 'View show' : 'My shows' }} <x-heroicon-m-arrow-right class="h-4 w-4" /></a>
         </div>
         @if ($buddy = \App\Support\Buddy::visitor(auth()->user()))
-            <button type="button" class="vsh-hero-mon" wire:click="openBuddyPicker" title="Change your dashboard buddy"><img src="/img/pokemon/{{ $buddy }}.gif" alt="Your buddy, {{ \App\Support\Buddy::name($buddy) }}"></button>
+            {{-- Its reactions live in resources/js/buddy.js; wire:ignore.self keeps where it is standing across updates. --}}
+            <button type="button" class="vsh-hero-mon" wire:ignore.self data-buddy data-name="{{ $first }}"
+                    @if ($next && $nextStart) data-show-at="{{ $nextStart->getTimestampMs() }}" data-show-id="{{ $next->id }}" @endif
+                    title="Say hi to {{ \App\Support\Buddy::name($buddy) }}"><span class="vsh-mon-body"><img src="/img/pokemon/{{ $buddy }}.gif" alt="Your buddy, {{ \App\Support\Buddy::name($buddy) }}"></span></button>
+            <div class="vsh-bubble" wire:ignore.self role="status" aria-live="polite" hidden>
+                <span class="vsh-bubble-text" wire:ignore></span>
+                <button type="button" class="vsh-bubble-change" wire:click="openBuddyPicker">Change buddy</button>
+            </div>
         @endif
     </header>
 
@@ -462,9 +469,50 @@
     }
 
     /* Pokémon touches */
-    .vsh-hero-mon { padding:0; border:0; background:none; cursor:pointer; }
-    .vsh-hero-mon img { height:100%; width:auto; image-rendering:pixelated; transition: transform .2s; }
-    .vsh-hero-mon:hover img { transform: translateY(-3px) rotate(-4deg); }
+    /* The buddy (resources/js/buddy.js): the button travels and ducks, the body plays one-off moves, the image leans. */
+    .vsh-hero-mon { padding:0; border:0; background:none; cursor:pointer; bottom:-.35rem; z-index:1;
+        transform: translate(var(--bx, 0px), 0); transition: transform .38s cubic-bezier(.3,1.3,.6,1); }
+    .vsh-hero-mon.is-ducked { transform: translate(var(--bx, 0px), calc(100% + .5rem)); transition-timing-function: cubic-bezier(.5,0,.8,.4); }
+    .vsh-hero-mon.is-ducked.is-peeking { transform: translate(var(--bx, 0px), 62%); transition-duration:.6s; }
+    .vsh-hero-mon.is-moving { transition:none; }
+    .vsh-mon-body { display:block; height:100%; transform-origin:50% 100%; }
+    .vsh-hero-mon img { height:100%; width:auto; image-rendering:pixelated; transform-origin:50% 100%;
+        transform: translateX(var(--look-x, 0px)) rotate(var(--look-r, 0deg)) scaleX(var(--face, 1)); transition: transform .3s ease-out; }
+    .vsh-hero-mon.is-facing img { --face:-1; }
+    .vsh-hero-mon.is-watching img { --look-r:-10deg; }
+    .vsh-hero-mon:focus-visible { outline:2px solid #fff; outline-offset:3px; border-radius:.5rem; }
+    .vsh-mon-body.is-perk { animation: vsh-perk .5s ease-out; }
+    .vsh-mon-body.is-hop { animation: vsh-hop .6s cubic-bezier(.3,1.4,.6,1); }
+    .vsh-mon-body.is-wiggle { animation: vsh-wiggle 1s ease-in-out; }
+    .vsh-mon-body.is-stretch { animation: vsh-stretch .9s ease-in-out; }
+    .vsh-mon-body.is-cheer { animation: vsh-cheer 1.5s ease-in-out; }
+    @keyframes vsh-perk { 40% { transform: translateY(-5px) scale(1.06); } }
+    @keyframes vsh-hop { 45% { transform: translateY(-9px); } 70% { transform: translateY(0) scale(1.06,.94); } }
+    @keyframes vsh-wiggle { 20%,60% { transform: rotate(-7deg); } 40%,80% { transform: rotate(7deg); } }
+    @keyframes vsh-stretch { 35% { transform: scale(.94,1.12); } 60% { transform: scale(1.05,.95); } }
+    @keyframes vsh-cheer { 15%,45%,75% { transform: translateY(-8px) rotate(-4deg); } 30%,60%,90% { transform: translateY(0) rotate(4deg); } }
+    /* Morning is sleepy, night is resting: slower and a little dimmer; a show 15 minutes out is a bright buddy. */
+    .vsh-hero-mon[data-mood=sleepy] img, .vsh-hero-mon[data-mood=resting] img { filter: saturate(.85) brightness(.95); }
+    .vsh-hero-mon[data-mood=resting]::after { content:'z'; position:absolute; top:-.35rem; right:-.1rem; font-weight:800; font-size:.8rem; color:#e9d5ff; animation: vsh-z 2.6s ease-in-out infinite; }
+    .vsh-hero-mon.is-excited img { filter: drop-shadow(0 0 6px rgb(253 224 71 / .75)); }
+    .vsh-hero-mon.is-excited::after { content:'!'; position:absolute; top:-.45rem; right:-.15rem; font-weight:900; font-size:.95rem; color:#fde047; animation: vsh-z 1.2s ease-in-out infinite; }
+    .vsh-bubble { position:absolute; z-index:2; display:flex; align-items:center; gap:.6rem; max-width:min(24rem, calc(100% - 1rem)); white-space:nowrap; padding:.45rem .55rem .45rem .8rem; border-radius:.85rem; background:#fff; color:#3b0764; font-size:.82rem; font-weight:600; line-height:1.3;
+        box-shadow: 0 8px 22px rgb(30 10 60 / .3); opacity:0; transform: translateY(6px) scale(.96); transform-origin:85% 100%; transition: opacity .18s, transform .22s cubic-bezier(.3,1.4,.6,1); }
+    .vsh-bubble.is-open { opacity:1; transform:none; }
+    .vsh-bubble.is-right { transform-origin:15% 100%; }
+    .vsh-bubble-text { overflow:hidden; text-overflow:ellipsis; }
+    .vsh-bubble-change { flex:none; padding:.2rem .5rem; border-radius:.5rem; font-size:.72rem; font-weight:700; color:#6d28d9; background:#f1ecff; }
+    .vsh-bubble-change:hover { background:#e4d9ff; }
+    .dark .vsh-bubble { background:#1f1638; color:#f3e8ff; } .dark .vsh-bubble-change { background: rgb(124 58 237 / .3); color:#ddd6fe; }
+    @media (max-width: 760px) {
+        /* On a phone it sits in the top corner, so it ducks up and out instead. */
+        .vsh-hero-mon.is-ducked { transform: translate(var(--bx, 0px), calc(-100% - 1.2rem)); }
+        .vsh-hero-mon.is-ducked.is-peeking { transform: translate(var(--bx, 0px), -62%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .vsh-hero-mon, .vsh-hero-mon img, .vsh-bubble { transition:none; }
+        .vsh-mon-body, .vsh-hero-mon::after { animation:none !important; }
+    }
     .vsh-next { overflow:hidden; }
     .vsh-next::before { content:''; position:absolute; right:-1.6rem; top:50%; width:6.5rem; height:6.5rem; transform:translateY(-50%); border-radius:50%; opacity:.09; pointer-events:none;
         background: radial-gradient(circle, transparent 0 .75rem, #fff .75rem 1.05rem, transparent 1.05rem), linear-gradient(transparent 46%, #fff 46% 54%, transparent 54%); border:.32rem solid #fff; }

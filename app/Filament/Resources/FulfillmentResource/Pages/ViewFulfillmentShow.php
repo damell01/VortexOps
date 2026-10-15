@@ -63,9 +63,10 @@ class ViewFulfillmentShow extends ViewRecord
         $log  = $show->streamerLogEntry;
         $user = auth()->user();
         $canAssign = (bool) ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillmentAdmin());
-        $isPweLabels = $show->relationLoaded('streamers')
-            ? $show->streamers->first()?->payout_type === 'pwe_labels'
-            : $show->primaryStreamer()?->payout_type === 'pwe_labels';
+        // Anyone paid per envelope and per package needs the split.
+        $isPweLabels = in_array($show->relationLoaded('streamers')
+            ? $show->streamers->first()?->payout_type
+            : $show->primaryStreamer()?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
 
         return [
             Action::make('assign_fulfillment')
@@ -94,18 +95,18 @@ class ViewFulfillmentShow extends ViewRecord
                 }),
 
             Action::make('update_counts')
-                ->label('Update PWE / Label Counts')
+                ->label('Envelope / package counts')
                 ->icon('heroicon-o-pencil-square')
                 ->color('gray')
                 ->visible(fn () => $log !== null && $isPweLabels && ! $this->readOnly())
                 ->form([
                     TextInput::make('pwe_count')
-                        ->label('PWE Count')
+                        ->label('Envelopes (PWE)')
                         ->integer()
                         ->minValue(0)
                         ->default(fn () => $log?->pwe_count),
                     TextInput::make('label_count')
-                        ->label('Label-Only Count')
+                        ->label('Packages')
                         ->integer()
                         ->minValue(0)
                         ->default(fn () => $log?->label_count),

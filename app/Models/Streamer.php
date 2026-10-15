@@ -175,6 +175,9 @@ class Streamer extends Model
     public function isFulfillment(): bool { return $this->member_type === 'fulfillment'; }
     public function isStreamer(): bool { return ($this->member_type ?? 'streamer') === 'streamer'; }
 
+    /** Pay types that pay envelopes (PWE) and packages (labels) at their own rates. */
+    public const SHIPMENT_SPLIT_TYPES = ['pwe_labels', 'shift_share'];
+
     public static function payoutTypeLabels(): array
     {
         return ['profit_share' => 'Profit Share', 'package' => 'Package', 'hourly' => 'Hourly', 'flat_rate' => 'Flat Rate',

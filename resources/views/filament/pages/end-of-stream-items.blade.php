@@ -305,6 +305,26 @@
                                         <input type="number" min="0" step="1" inputmode="numeric" wire:model.blur="shipments" class="vxw-input vxw-num" />
                                         <span class="vxw-hint">Counted from this show's shipments: {{ number_format($whatnot['shipments'] ?? 0) }}</span>
                                     </label>
+                                    @if ($this->splitsShipments)
+                                        {{-- Envelopes and packages are paid at different rates. --}}
+                                        <label class="vxw-field">
+                                            <span class="vxw-label">Envelopes (PWE)</span>
+                                            <input id="eos-pwe" type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="pweCount" class="vxw-input vxw-num" placeholder="0" />
+                                            <span class="vxw-hint">Shipments sent in a plain white envelope.</span>
+                                        </label>
+                                        <label class="vxw-field">
+                                            <span class="vxw-label">Packages</span>
+                                            <input id="eos-packages" type="number" min="0" step="1" inputmode="numeric" wire:model.live.debounce.500ms="labelCount" class="vxw-input vxw-num" placeholder="0" />
+                                            <span class="vxw-hint">
+                                                Shipments sent as a labelled package.
+                                                @if ($pweCount === '' && $labelCount === '')
+                                                    <span style="color:var(--vxw-warn, #b45309)">Leave both blank and every shipment is paid as a package.</span>
+                                                @elseif ((int) $pweCount + (int) $labelCount !== (int) $shipments && $shipments !== '')
+                                                    <span style="color:var(--vxw-warn, #b45309)">Envelopes + packages = {{ (int) $pweCount + (int) $labelCount }}, but shipments says {{ (int) $shipments }}.</span>
+                                                @endif
+                                            </span>
+                                        </label>
+                                    @endif
                                 </div>
                             </section>
 

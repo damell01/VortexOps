@@ -84,16 +84,20 @@ class EstillPayrollTest extends TestCase
         StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved',
             'hours_streamed' => 4, 'product_cost' => 300, 'pwe_count' => 10, 'label_count' => 5, 'number_of_shipments' => 15]);
 
-        [$payout] = app(PayoutService::class)->calculateForShow($show->fresh('streamers'));
+        $lines = collect(app(PayoutService::class)->calculateForShow($show->fresh('streamers')))->keyBy('payout_type');
 
-        // Hourly 4 × $20 = $80. Shipments 10 × $1 + 5 × $2 = $20.
-        // Share: ($1,000 − $300 − $50 − $80 − $20) = $550 × 10% = $55.
-        $this->assertSame('shift_share', $payout->payout_type);
-        $this->assertEqualsWithDelta(155.00, (float) $payout->calculated_payout, 0.001);
-        $this->assertEqualsWithDelta(550.00, (float) $payout->net_revenue_basis, 0.001);
-        $this->assertSame(10, $payout->pwe_count);
-        $this->assertSame(5, $payout->label_count);
-        $this->assertStringContainsString('$550.00 × 10% = $55.00', $payout->calculation_notes);
+        // Hourly 4 × $20 = $80. Shipments 10 × $1 + 5 × $2 = $20 — wages, paid weekly.
+        // Share: ($1,000 − $300 − $50 − $80 − $20) = $550 × 10% = $55 — paid on the profit-share run, like VCX.
+        $share = $lines['shift_share'];
+        $wages = $lines['show_hours'];
+        $this->assertEqualsWithDelta(55.00, (float) $share->calculated_payout, 0.001);
+        $this->assertEqualsWithDelta(550.00, (float) $share->net_revenue_basis, 0.001);
+        $this->assertStringContainsString('$550.00 × 10% = $55.00', $share->calculation_notes);
+        $this->assertEqualsWithDelta(100.00, (float) $wages->calculated_payout, 0.001);
+        $this->assertSame(10, $wages->pwe_count);
+        $this->assertSame(5, $wages->label_count);
+        $this->assertSame('share', PayRunSchedules::kindOf($share));
+        $this->assertSame('wages', PayRunSchedules::kindOf($wages));
     }
 
     public function test_a_burden_can_be_a_percentage_of_net_sales(): void
@@ -103,10 +107,10 @@ class EstillPayrollTest extends TestCase
         StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved',
             'hours_streamed' => 4, 'product_cost' => 300, 'pwe_count' => 10, 'label_count' => 5]);
 
-        [$payout] = app(PayoutService::class)->calculateForShow($show->fresh('streamers'));
+        $lines = collect(app(PayoutService::class)->calculateForShow($show->fresh('streamers')))->keyBy('payout_type');
 
-        // Burden 5% of $1,000 = $50, so the same $155.
-        $this->assertEqualsWithDelta(155.00, (float) $payout->calculated_payout, 0.001);
+        // Burden 5% of $1,000 = $50, so the same $55 share.
+        $this->assertEqualsWithDelta(55.00, (float) $lines['shift_share']->calculated_payout, 0.001);
     }
 
     public function test_a_show_that_does_not_cover_its_costs_pays_no_share(): void
@@ -116,10 +120,11 @@ class EstillPayrollTest extends TestCase
         StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved',
             'hours_streamed' => 4, 'product_cost' => 300, 'pwe_count' => 10, 'label_count' => 5]);
 
-        [$payout] = app(PayoutService::class)->calculateForShow($show->fresh('streamers'));
+        $lines = collect(app(PayoutService::class)->calculateForShow($show->fresh('streamers')))->keyBy('payout_type');
 
-        $this->assertEqualsWithDelta(100.00, (float) $payout->calculated_payout, 0.001);
-        $this->assertStringContainsString('no share', $payout->calculation_notes);
+        $this->assertEqualsWithDelta(0.00, (float) $lines['shift_share']->calculated_payout, 0.001);
+        $this->assertStringContainsString('no share', $lines['shift_share']->calculation_notes);
+        $this->assertEqualsWithDelta(100.00, (float) $lines['show_hours']->calculated_payout, 0.001);
     }
 
     public function test_a_special_show_can_keep_a_different_percent_from_an_independent_streamer(): void

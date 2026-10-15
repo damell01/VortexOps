@@ -23,8 +23,12 @@ class PayRunSchedules
         'monthly' => 'Every month',
     ];
 
-    /** Pay line types that are paid on profit share runs. */
-    public const SHARE_TYPES = ['profit_share', 'sales_split', 'custom_formula', 'shift_share'];
+    /**
+     * Pay line types that are paid on profit share runs. A sales split is an
+     * independent streamer's earnings, not a share of profit, so it is paid
+     * with wages.
+     */
+    public const SHARE_TYPES = ['profit_share', 'custom_formula', 'shift_share'];
 
     /**
      * Pay lines only a Tips run pays: tips a business pays monthly. Every

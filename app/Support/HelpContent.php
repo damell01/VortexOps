@@ -55,7 +55,7 @@ class HelpContent
                 'intro' => 'Estill has two kinds of streamer, pays tips monthly, keeps its own stock, and moves its share to a separate account.',
                 'sections' => [
                     ['heading' => 'Independent streamers', 'items' => [
-                        'Estill\'s team default is a sales split: the business keeps a %, the streamer gets the rest.',
+                        'Estill\'s team default is a sales split: the business keeps a %, the streamer gets the rest, paid weekly with wages.',
                         'Change a person\'s % in their pay; change one show\'s % under that show → Financials → "Business keeps (this show only)".',
                     ]],
                     ['heading' => 'Hourly streamers', 'items' => [
@@ -64,8 +64,8 @@ class HelpContent
                     ]],
                     ['heading' => 'Stock, tips and the transfer', 'items' => [
                         'Inventory → Locations → "Set up business storage" for Estill, then move Estill\'s stock in. Its streamers then sell from it, not the shared Main Storage.',
-                        'Businesses → Estill → "Pay tips monthly", plus a monthly Tips pay run type.',
-                        'Each weekly pay run\'s Business account transfer = product cost + (Whatnot net − all pay for those shows except tips).',
+                        'Pay run types: weekly "Hourly & wages" (sales splits, hours, shipments), monthly "Profit share", monthly "Tips". Businesses → Estill → "Pay tips monthly".',
+                        'Each weekly wages run\'s Business account transfer = product cost + (Whatnot net − all pay for those shows except tips).',
                     ]],
                 ],
                 'related' => ['guide.payroll', 'guide.inventory'],

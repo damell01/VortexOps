@@ -158,6 +158,7 @@ class EstillPayrollTest extends TestCase
         $weekly = PayRunSchedules::scopeToKind(Payout::query(), null)->pluck('payout_type')->all();
         $tips = PayRunSchedules::scopeToKind(Payout::query(), 'tips')->pluck('payout_type')->all();
         $this->assertSame(['sales_split'], $weekly);
+        $this->assertSame('wages', PayRunSchedules::kindOf($lines['sales_split']));
         $this->assertSame(['show_tips'], $tips);
     }
 

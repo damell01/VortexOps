@@ -91,15 +91,15 @@ class HelpTopics
                     'Set the % the business keeps for the team, or per person under their pay.',
                     'For a special show, set "Business keeps (this show only)" on the show\'s Financials tab. It overrides the usual % for that show.',
                 ],
-                'tips' => ['Example: $1,000 net with the business keeping 20% pays the streamer $800.'],
+                'tips' => ['Example: $1,000 net with the business keeping 20% pays the streamer $800.', 'It is their earnings, not a profit share, so the weekly "Hourly & wages" run pays it.'],
             ],
             'pay.run_types' => [
                 'title' => 'Pay run types',
                 'intro' => 'A run type decides which pay lines a run pays and how often it comes round.',
                 'steps' => [
                     'Wages + profit share: everything except tips a business pays monthly.',
-                    'Hourly & wages: hourly and other non-share pay.',
-                    'Profit share: share-based pay only.',
+                    'Hourly & wages: hourly, shipments, sales splits and other non-share pay.',
+                    'Profit share: profit shares only (including the share of an hourly + shipments + profit share streamer).',
                     'Tips: only the tips a business pays monthly. Monthly by default.',
                 ],
                 'tips' => ['A Tips run never clashes with the weekly runs, so their dates can overlap.'],

@@ -16,6 +16,7 @@ class InventoryLocation extends Model
         'name',
         'type',
         'streamer_id',
+        'business_id',
         'whatnot_channel_id',
         'status',
         'notes',
@@ -37,6 +38,45 @@ class InventoryLocation extends Model
     public function streamer(): BelongsTo
     {
         return $this->belongsTo(Streamer::class);
+    }
+
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
+
+    /** Types a business's streamers draw from; returns and damaged stock are not sold from. */
+    public const POOL_TYPES = ['main_storage', 'streamer_inventory', 'fulfillment', 'other'];
+
+    /**
+     * Whether a business has storage of its own. If it does, its streamers
+     * draw from that instead of the shared Main Storage.
+     */
+    public static function businessHasPool(?int $businessId): bool
+    {
+        return $businessId > 0 && static::query()
+            ->where('business_id', $businessId)->whereNull('streamer_id')
+            ->where('status', 'active')->whereIn('type', self::POOL_TYPES)
+            ->exists();
+    }
+
+    /** "Everyone", the business's name, or the streamer's: who this location is for. */
+    public function audience(): string
+    {
+        return match (true) {
+            $this->streamer_id !== null => 'streamer',
+            $this->business_id !== null => 'business',
+            default => 'everyone',
+        };
+    }
+
+    public function audienceLabel(): string
+    {
+        return match ($this->audience()) {
+            'streamer' => $this->streamer?->name ?? 'A streamer',
+            'business' => ($this->relationLoaded('business') ? $this->business?->name : Business::whereKey($this->business_id)->value('name')) ?? 'A business',
+            default => 'Everyone',
+        };
     }
 
     /** Channel this location's stock is grouped under for reporting/costing. */

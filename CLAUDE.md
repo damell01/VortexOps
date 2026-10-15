@@ -230,6 +230,8 @@ rewrite the specific lot a line opened, not the item's whole history), and
 reopens them). `total_units_received` is a separate, untouched lifetime-volume
 counter — it no longer feeds cost.
 
+Locations have an audience: everyone (both FKs null), one business (`business_id`), or one streamer (`streamer_id`, plus their `business_id`). `Streamer::inventoryLocations()` is a streamer's own locations plus their business's storage; a business with no active storage of its own (`InventoryLocation::businessHasPool()`) falls back to the shared Main Storage and the receiving warehouse.
+
 Stock received before this shipped (or through a path that still doesn't
 lot-cost it) can leave a gap between on-hand quantity and lot coverage; run
 `php artisan inventory:backfill-lots --apply` to cover it with a synthetic

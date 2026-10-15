@@ -63,19 +63,31 @@ class Streamer extends Model
     public function inventoryLocations(): HasMany
     {
         $relation = $this->hasMany(InventoryLocation::class);
+        $businessId = (int) $this->getRawOriginal('business_id');
+
+        // Their own locations, plus the storage everyone in their business
+        // shares. A business with storage of its own (Estill's allocation)
+        // uses only that; one without draws from the shared Main Storage and
+        // the receiving warehouse, as every streamer always has.
+        if (InventoryLocation::businessHasPool($businessId)) {
+            return $relation->orWhere(function ($query) use ($businessId) {
+                $query->where('inventory_locations.business_id', $businessId)
+                    ->whereNull('inventory_locations.streamer_id')
+                    ->where('inventory_locations.status', 'active')
+                    ->whereIn('inventory_locations.type', InventoryLocation::POOL_TYPES);
+            });
+        }
+
         $defaultWarehouseId = InventoryLocation::defaultReceivingId();
 
-        // Step-by-step rollout: a streamer filing a show report can consume
-        // directly from shared Main Storage / the configured receiving warehouse.
-        // Existing personal streamer locations still remain valid candidates.
         return $relation->orWhere(function ($query) use ($defaultWarehouseId) {
-            $query->where(function ($warehouse) {
-                $warehouse->where('type', 'main_storage')->where('status', 'active');
-            });
-
-            if ($defaultWarehouseId) {
-                $query->orWhere('inventory_locations.id', $defaultWarehouseId);
-            }
+            $query->whereNull('inventory_locations.business_id')
+                ->where(function ($shared) use ($defaultWarehouseId) {
+                    $shared->where(fn ($w) => $w->where('inventory_locations.type', 'main_storage')->where('inventory_locations.status', 'active'));
+                    if ($defaultWarehouseId) {
+                        $shared->orWhere('inventory_locations.id', $defaultWarehouseId);
+                    }
+                });
         });
     }
 

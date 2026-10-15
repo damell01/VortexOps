@@ -1,37 +1,6 @@
 {{-- Targeted inventory / receiving UI fixes that survive Filament SPA navigation. --}}
 <style>
-/* Inventory catalog cards: keep every action readable at every card width. */
-.vx-product-card .vx-card-actions {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-    padding: 12px !important;
-    align-items: stretch !important;
-}
-
-.vx-product-card .vx-card-action {
-    width: 100% !important;
-    min-width: 0 !important;
-    min-height: 42px !important;
-    padding: 8px 10px !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-    white-space: nowrap !important;
-    text-overflow: ellipsis !important;
-    font-size: .72rem !important;
-    line-height: 1.1 !important;
-}
-
-.vx-product-card .vx-card-action span {
-    min-width: 0 !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-
-.vx-product-card .vx-card-action.scan {
-    grid-column: 1 / -1 !important;
-}
-
+/* Inventory catalog card layout lives with the page (list-inventory-items.blade.php). */
 .vx-card-action.add-stock {
     color: #047857 !important;
     background: #ecfdf5 !important;
@@ -115,18 +84,6 @@ body.vx-pallet-view-screen [data-vx-pallet-action="scan"] button {
 }
 
 @media (max-width: 768px) {
-    .vx-product-card .vx-card-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-        padding: 10px !important;
-    }
-
-    .vx-product-card .vx-card-action {
-        min-height: 44px !important;
-        font-size: 12px !important;
-        padding-inline: 10px !important;
-    }
-
     /* Exact phone hierarchy for receiving controls. */
     body.vx-pallet-view-screen .fi-page-header {
         display: flex !important;

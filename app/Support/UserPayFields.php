@@ -151,7 +151,10 @@ class UserPayFields
     /** "Team default: 8%" for a field's placeholder. */
     public static function defaultHint(string $memberType, string $field, mixed $businessId = null): string
     {
-        $value = PaymentStructure::defaults($memberType, filled($businessId) ? (int) $businessId : null)[$field] ?? null;
+        $businessId = filled($businessId) ? (int) $businessId : null;
+        $value = in_array($field, self::SHIFT_SHARE, true) && $memberType !== 'fulfillment'
+            ? (PaymentStructure::shiftDefaults($businessId)[$field] ?? null) // only this pay type uses them
+            : (PaymentStructure::defaults($memberType, $businessId)[$field] ?? null);
         if ($value === null || $value === '') {
             return 'Team default: none';
         }

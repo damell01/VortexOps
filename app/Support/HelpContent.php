@@ -60,6 +60,7 @@ class HelpContent
                     ]],
                     ['heading' => 'Hourly streamers', 'items' => [
                         'Pay type "Hourly + shipments + profit share": hours × rate and envelopes and packages at their rates, plus a share of (net − product cost − burden − hourly − shipment pay). All paid weekly.',
+                        'Set its rates once in Estill\'s team rates (Edit team rates → "Hourly + shipments + profit share rates"), then just choose the pay type on each hourly streamer.',
                         'Give each their own stock: Inventory → Locations → "Give a streamer their own location".',
                     ]],
                     ['heading' => 'Stock, tips and the transfer', 'items' => [

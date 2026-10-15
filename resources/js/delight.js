@@ -183,6 +183,76 @@ function gotcha(node) {
 }
 new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach(gotcha))).observe(document.documentElement, { childList: true, subtree: true });
 
+// ── Slow load: a sleepy Pokémon says so, instead of nothing ──────────────
+const QUIPS = [['snorlax', 'Snorlax is waking up…'], ['psyduck', 'Psyduck is thinking really hard…'], ['gengar', 'Gengar is fetching it from the shadows…'], ['eevee', 'Eevee is on it…']];
+let slowTimer = null;
+function slowStart() {
+    clearTimeout(slowTimer);
+    slowTimer = setTimeout(() => {
+        let el = document.getElementById('vx-slow');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'vx-slow'; el.setAttribute('role', 'status');
+            el.innerHTML = '<img alt=""><span></span>';
+            document.body.appendChild(el);
+        }
+        const [mon, line] = QUIPS[Math.floor(Math.random() * QUIPS.length)];
+        el.querySelector('img').src = `/img/pokemon/${mon}.gif`;
+        el.querySelector('span').textContent = line;
+        el.classList.add('is-on');
+    }, 2000);
+}
+function slowStop() {
+    clearTimeout(slowTimer);
+    document.getElementById('vx-slow')?.classList.remove('is-on');
+}
+document.addEventListener('livewire:navigate', slowStart);
+document.addEventListener('livewire:navigated', slowStop);
+
+// ── Unread notifications: the tab icon becomes a Poké Ball with a red dot ──
+let plainIcon = null, ballIcon = null, lastUnread = -1;
+function makeBallIcon(done) {
+    const img = new Image();
+    img.onload = () => {
+        const c = document.createElement('canvas'); c.width = c.height = 32;
+        const g = c.getContext('2d');
+        g.drawImage(img, 1, 1, 30, 30);
+        g.beginPath(); g.arc(24, 8, 7, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill();
+        g.beginPath(); g.arc(24, 8, 5.5, 0, Math.PI * 2); g.fillStyle = '#ef4444'; g.fill();
+        ballIcon = c.toDataURL('image/png'); done();
+    };
+    img.src = '/img/pokeball.svg';
+}
+function unreadCount() {
+    const badge = document.querySelector('.fi-topbar-database-notifications-btn .fi-badge, .fi-topbar-database-notifications-btn .fi-icon-btn-badge-ctn');
+    return badge ? parseInt(badge.textContent.replace(/\D/g, ''), 10) || 0 : 0;
+}
+function tabBadge() {
+    const n = unreadCount();
+    const icon = document.querySelector('link[rel="icon"]');
+    const base = document.title.replace(/^\(\d+\+?\) /, '');
+    const title = n > 0 ? `(${n > 99 ? '99+' : n}) ${base}` : base;
+    if (document.title !== title) document.title = title; // writing it is itself a mutation
+    if (!icon || n === lastUnread) return;
+    lastUnread = n;
+    plainIcon ??= icon.href;
+    if (n === 0) { icon.href = plainIcon; return; }
+    if (ballIcon) icon.href = ballIcon; else makeBallIcon(() => { if (unreadCount() > 0) icon.href = ballIcon; });
+}
+let badgeQueued = false;
+new MutationObserver(() => {
+    if (badgeQueued) return;
+    badgeQueued = true;
+    requestAnimationFrame(() => { badgeQueued = false; tabBadge(); });
+}).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+
+// The top bar's height, for anything that tucks underneath it (Gengar in October).
+function topbarVar() {
+    const bar = document.querySelector('.fi-topbar');
+    if (bar) document.documentElement.style.setProperty('--vx-topbar-h', `${Math.round(bar.getBoundingClientRect().height)}px`);
+}
+window.addEventListener('resize', topbarVar, { passive: true });
+
 function boot() {
     countAll();
     rememberPills();
@@ -190,13 +260,18 @@ function boot() {
     // A celebration flashed by the server for the page we just landed on.
     if (document.querySelector('[data-vx-celebrate]')) setTimeout(celebrate, 250);
     queueHeads();
+    topbarVar();
+    tabBadge();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);
 document.addEventListener('livewire:init', () => {
     window.Livewire?.hook?.('commit', ({ component, succeed, fail }) => {
+        const asked = Date.now() - lastAsk < 1500;
         const done = waitShimmer(component);
-        fail(done);
-        succeed(() => { done(); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); }); });
+        if (asked) slowStart();
+        const finish = () => { done(); if (asked) slowStop(); };
+        fail(finish);
+        succeed(() => { finish(); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); }); });
     });
 });

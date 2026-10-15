@@ -159,6 +159,16 @@ class ClockWidget extends Component
     {
     }
 
+    /** Pick the Pokémon that keeps you company on the clock. */
+    public function chooseBuddy(string $buddy): void
+    {
+        $user = auth()->user();
+        if (! $user || ! in_array($buddy, \App\Support\Buddy::CHOICES, true)) {
+            return;
+        }
+        $user->forceFill(['buddy' => $buddy])->save();
+    }
+
     public function render()
     {
         if ($this->banner) {
@@ -175,6 +185,7 @@ class ClockWidget extends Component
             'reasons' => TimeEntry::REASONS,
             'today' => $this->todayMinutes(),
             'totals' => $this->withStats ? $this->totals() : null,
+            'buddy' => \App\Support\Buddy::for(auth()->user()),
         ]);
     }
 }

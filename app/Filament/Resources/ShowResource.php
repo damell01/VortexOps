@@ -393,6 +393,15 @@ class ShowResource extends Resource
                     ->numeric()
                     ->prefix('$')
                     ->default(0),
+
+                // A special show can keep a different % from a sales-split
+                // streamer than their usual one.
+                TextInput::make('house_cut_override')
+                    ->label('Business keeps (this show only)')
+                    ->numeric()->minValue(0)->maxValue(100)->step(0.01)
+                    ->suffix('%')
+                    ->placeholder('Streamer\'s usual %')
+                    ->helperText('For streamers paid a sales split. Blank uses each streamer\'s own %.'),
             ]);
     }
 

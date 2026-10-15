@@ -13,6 +13,7 @@ class PayRunSchedules
     public const KINDS = [
         'wages' => 'Hourly & wages',
         'share' => 'Profit share',
+        'tips' => 'Tips',
     ];
 
     public const FREQUENCIES = [
@@ -24,6 +25,23 @@ class PayRunSchedules
 
     /** Pay line types that are paid on profit share runs. */
     public const SHARE_TYPES = ['profit_share', 'sales_split', 'custom_formula'];
+
+    /**
+     * Pay lines only a Tips run pays: tips a business pays monthly. Every
+     * other run, "All pay" included, leaves them for it.
+     */
+    public const TIP_TYPES = ['show_tips'];
+
+    /** Limit a payout query to the lines a run of $kind pays. */
+    public static function scopeToKind(\Illuminate\Database\Eloquent\Builder $query, ?string $kind): \Illuminate\Database\Eloquent\Builder
+    {
+        return match ($kind) {
+            'tips' => $query->whereIn('payout_type', self::TIP_TYPES),
+            'share' => $query->whereIn('payout_type', self::SHARE_TYPES),
+            'wages' => $query->whereNotIn('payout_type', [...self::SHARE_TYPES, ...self::TIP_TYPES]),
+            default => $query->whereNotIn('payout_type', self::TIP_TYPES),
+        };
+    }
 
     /** Explicit backfill/setup still defaults to a combined run. */
     public static function activeKinds(): array
@@ -39,7 +57,11 @@ class PayRunSchedules
     /** Which run type pays this line. */
     public static function kindOfType(?string $payoutType): string
     {
-        return in_array($payoutType, self::SHARE_TYPES, true) ? 'share' : 'wages';
+        return match (true) {
+            in_array($payoutType, self::TIP_TYPES, true) => 'tips',
+            in_array($payoutType, self::SHARE_TYPES, true) => 'share',
+            default => 'wages',
+        };
     }
 
     public static function kindOf(Payout $payout): string
@@ -58,7 +80,7 @@ class PayRunSchedules
         $date = Carbon::parse($date)->startOfDay();
         $cfg = $cfg ?? [];
         $cfg = [
-            'frequency' => array_key_exists($cfg['frequency'] ?? '', self::FREQUENCIES) ? $cfg['frequency'] : 'weekly',
+            'frequency' => array_key_exists($cfg['frequency'] ?? '', self::FREQUENCIES) ? $cfg['frequency'] : ($kind === 'tips' ? 'monthly' : 'weekly'),
             'anchor' => self::validDate($cfg['anchor'] ?? null),
         ];
 

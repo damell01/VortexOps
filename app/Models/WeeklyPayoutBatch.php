@@ -126,9 +126,13 @@ class WeeklyPayoutBatch extends Model
      */
     public function scopeSharingKindWith(Builder $query, ?string $kind): Builder
     {
-        return $kind === null
-            ? $query
-            : $query->where(fn (Builder $q) => $q->where('kind', $kind)->orWhereNull('kind'));
+        // Tips runs pay only tip lines, which no other run pays, so they only
+        // clash with each other.
+        return match ($kind) {
+            'tips' => $query->where('kind', 'tips'),
+            null => $query->where(fn (Builder $q) => $q->whereNull('kind')->orWhere('kind', '!=', 'tips')),
+            default => $query->where(fn (Builder $q) => $q->where('kind', $kind)->orWhereNull('kind')),
+        };
     }
 
     public function kindLabel(): string

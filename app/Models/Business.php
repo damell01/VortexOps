@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Business extends Model
 {
-    protected $fillable = ['name', 'short_name', 'color', 'sort_order'];
+    protected $fillable = ['name', 'short_name', 'color', 'sort_order', 'tips_monthly'];
+
+    protected $casts = ['tips_monthly' => 'boolean'];
 
     public function streamers(): HasMany { return $this->hasMany(Streamer::class); }
     public function payRuns(): HasMany { return $this->hasMany(WeeklyPayoutBatch::class); }

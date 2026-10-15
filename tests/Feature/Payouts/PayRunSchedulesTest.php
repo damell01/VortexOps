@@ -95,7 +95,7 @@ class PayRunSchedulesTest extends TestCase
 
     public function test_only_explicitly_opted_in_types_create_runs(): void
     {
-        $wages = PayRunType::where('kind', 'wages')->sole();
+        $wages = PayRunType::where('name', 'Wages')->sole();
         $wages->update(['schedule_enabled' => true, 'auto_create' => true]);
         $this->show('2026-10-14');
         $service = app(PayRunAutomationService::class);
@@ -176,10 +176,11 @@ class PayRunSchedulesTest extends TestCase
 
     public function test_admin_can_save_a_manual_type_and_disable_its_automation(): void
     {
+        $new = PayRunType::count();
         Livewire::test(\App\Filament\Pages\PaymentStructures::class)
             ->call('addRunType')
-            ->set('run_types.3.name', 'Bonus wages')
-            ->set('run_types.3.auto_create', true)
+            ->set("run_types.$new.name", 'Bonus wages')
+            ->set("run_types.$new.auto_create", true)
             ->call('save')->assertHasNoErrors();
         $type = PayRunType::where('name', 'Bonus wages')->sole();
         $this->assertFalse($type->schedule_enabled);
@@ -189,7 +190,7 @@ class PayRunSchedulesTest extends TestCase
 
     public function test_schedule_suggests_dates_but_custom_dates_still_work(): void
     {
-        $type = PayRunType::where('kind', 'share')->sole();
+        $type = PayRunType::where('name', 'Profit share')->sole();
         $type->update(['schedule_enabled' => true]);
         Livewire::test(CreateWeeklyPayoutBatch::class)
             ->fillForm(['pay_run_type_id' => $type->id, 'dates_mode' => 'schedule', 'week_start' => '2026-09-14'])

@@ -64,7 +64,7 @@ class HelpContent
                     ]],
                     ['heading' => 'Stock, tips and the transfer', 'items' => [
                         'Inventory → Locations → "Set up business storage" for Estill, then move Estill\'s stock in. Its streamers then sell from it, not the shared Main Storage.',
-                        'Pay run types: a weekly "All pay at once" run (sales splits, hours, shipments and shares) and a monthly "Tips" run. Businesses → Estill → "Pay tips monthly".',
+                        'Pay run types are made for you: "Estill Weekly" (sales splits, hours, shipments and shares) and "Estill Monthly Tips". Pick Estill as the business when you create the run. Businesses → Estill → "Pay tips monthly".',
                         'Each weekly pay run\'s Business account transfer = product cost + (Whatnot net − all pay for those shows except tips).',
                     ]],
                 ],

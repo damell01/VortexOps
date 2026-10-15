@@ -120,15 +120,83 @@ document.addEventListener('pointerdown', (e) => {
     setTimeout(() => dot.remove(), 600);
 }, { passive: true });
 
+// ── Table headers stay in view while a long table scrolls past ──────────
+// Tables usually sit in an overflow-x box, where position:sticky does not
+// reach the page scroll, so the header is translated instead. A soft shadow
+// shows only while it is lifted.
+function stickyTop() {
+    const bar = document.querySelector('.fi-topbar');
+    if (!bar) return 0;
+    const pos = getComputedStyle(bar.closest('.fi-topbar-ctn') || bar).position;
+    return pos === 'sticky' || pos === 'fixed' ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+}
+let headsQueued = false;
+function liftHeads() {
+    headsQueued = false;
+    const top = stickyTop();
+    document.querySelectorAll('.fi-main table').forEach((table) => {
+        const head = table.tHead;
+        if (!head || (table.tBodies[0]?.rows.length ?? 0) < 8) return;
+        const r = table.getBoundingClientRect(), h = head.offsetHeight;
+        if (r.top < top && r.bottom - h * 2 > top) {
+            head.style.transform = `translateY(${top - r.top}px)`;
+            head.classList.add('vx-head-lifted');
+        } else if (head.classList.contains('vx-head-lifted')) {
+            head.style.transform = '';
+            head.classList.remove('vx-head-lifted');
+        }
+    });
+}
+function queueHeads() { if (!headsQueued) { headsQueued = true; requestAnimationFrame(liftHeads); } }
+window.addEventListener('scroll', queueHeads, { passive: true });
+window.addEventListener('resize', queueHeads, { passive: true });
+
+// ── While an update is on its way, figures shimmer where they will land ──
+// Only for updates someone just asked for (a click or a picked option, not
+// background polling), only after a short wait so fast ones do not flicker,
+// and never while someone is typing into a field.
+let lastAsk = 0;
+['pointerdown', 'change'].forEach((t) => document.addEventListener(t, () => { lastAsk = Date.now(); }, { passive: true, capture: true }));
+const typing = () => document.activeElement?.matches?.('input:not([type=checkbox]):not([type=radio]), textarea, [contenteditable]');
+function waitShimmer(component) {
+    const el = component?.el;
+    if (!el || calm.matches || typing() || Date.now() - lastAsk > 1500) return () => {};
+    const timer = setTimeout(() => el.classList.add('vx-loading'), 220);
+    return () => { clearTimeout(timer); el.classList.remove('vx-loading'); };
+}
+
+// ── "Gotcha!" on a successful save ───────────────────────────────────────
+function gotcha(node) {
+    if (!(node instanceof Element)) return;
+    const toasts = node.matches('.fi-no-notification.fi-status-success') ? [node] : node.querySelectorAll?.('.fi-no-notification.fi-status-success') ?? [];
+    toasts.forEach((toast) => {
+        if (toast.dataset.vxGotcha || toast.closest('.fi-no-database, .fi-modal')) return;
+        toast.dataset.vxGotcha = '1';
+        toast.classList.add('vx-gotcha');
+        const ball = document.createElement('img');
+        ball.src = '/img/pokeball.svg'; ball.alt = ''; ball.className = 'vx-gotcha-ball';
+        toast.querySelector('.fi-no-notification-icon')?.before(ball);
+        const word = document.createElement('span');
+        word.className = 'vx-gotcha-word'; word.textContent = 'Gotcha!';
+        toast.querySelector('.fi-no-notification-text')?.prepend(word);
+    });
+}
+new MutationObserver((list) => list.forEach((m) => m.addedNodes.forEach(gotcha))).observe(document.documentElement, { childList: true, subtree: true });
+
 function boot() {
     countAll();
     rememberPills();
     sparkleDone();
     // A celebration flashed by the server for the page we just landed on.
     if (document.querySelector('[data-vx-celebrate]')) setTimeout(celebrate, 250);
+    queueHeads();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);
 document.addEventListener('livewire:init', () => {
-    window.Livewire?.hook?.('commit', ({ succeed }) => succeed(() => queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); })));
+    window.Livewire?.hook?.('commit', ({ component, succeed, fail }) => {
+        const done = waitShimmer(component);
+        fail(done);
+        succeed(() => { done(); queueMicrotask(() => { flipChanged(); countAll(); sparkleDone(); queueHeads(); }); });
+    });
 });

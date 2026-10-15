@@ -41,7 +41,7 @@
                 <div class="flex items-center gap-3"><x-heroicon-o-calendar-days class="h-6 w-6 text-indigo-200" /><div><div class="text-xs font-medium text-indigo-100">Today at a glance</div><div class="mt-1 text-sm font-bold">{{ $overview['date'] }}</div></div></div>
                 <div class="mt-3 space-y-1">
                     @foreach($overview['today'] as $row)
-                    <a href="{{ $row['url'] }}" class="flex min-h-8 items-center gap-3 rounded-lg px-1 text-xs hover:bg-white/10"><strong class="w-7 text-right text-base tabular-nums">{{ number_format($row['count']) }}</strong><span class="flex-1 text-indigo-100">{{ $row['label'] }}</span><x-heroicon-o-chevron-right class="h-3 w-3" /></a>
+                    <a href="{{ $row['url'] }}" class="flex min-h-8 items-center gap-3 rounded-lg px-1 text-xs hover:bg-white/10"><strong class="w-7 text-right text-base tabular-nums">{{ number_format($row['count']) }}</strong><span class="flex-1 text-indigo-100">@if($row['live'] ?? false)<span class="vx-live-dot" aria-hidden="true"></span> @endif{{ $row['label'] }}</span><x-heroicon-o-chevron-right class="h-3 w-3" /></a>
                     @endforeach
                 </div>
             </aside>

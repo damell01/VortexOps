@@ -50,7 +50,6 @@ class Shows extends Page
     public const VIEWS = ['month', 'week', 'channels', 'list', 'day'];
 
     /** Shows starting before this hour are treated as the tail of the previous evening. */
-    private const LATE_NIGHT_CUTOFF = 5;
 
     /** Channel colours, assigned by channel id so each channel keeps its colour. */
     private const PALETTE = ['#ef4444', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#84cc16'];
@@ -420,31 +419,12 @@ class Shows extends Page
      */
     private function minutes(Show $s): array
     {
-        if (! $s->start_time) return [null, null];
-        $start = $s->start_time->hour * 60 + $s->start_time->minute;
-        if ($s->start_time->hour < self::LATE_NIGHT_CUTOFF) $start += 1440;
-        if ($s->end_time) {
-            $end = $s->end_time->hour * 60 + $s->end_time->minute + ($start >= 1440 ? 1440 : 0);
-            while ($end <= $start) $end += 1440;
-        } elseif ($s->show_duration > 0) {
-            // show_duration is stored in minutes by the importer and the form.
-            $end = $start + (int) $s->show_duration;
-        } else {
-            $end = null;
-        }
-        return [$start, $end];
+        return $s->scheduleMinutes();
     }
 
     private function scheduleState(Show $s, ?int $startMin, ?int $endMin, Carbon $now): string
     {
-        if ($s->status === 'cancelled') return 'cancelled';
-        if (! $s->show_date) return 'upcoming';
-        $day = Carbon::parse($s->show_date->toDateString(), $now->getTimezone());
-        if ($startMin === null) return $day->isAfter($now->copy()->startOfDay()) || $day->isSameDay($now) ? 'upcoming' : 'done';
-        $start = $day->copy()->addMinutes($startMin);
-        $end = $day->copy()->addMinutes($endMin ?? $startMin + 180);
-        if ($now->lt($start)) return 'upcoming';
-        return $now->lte($end) ? 'live' : 'done';
+        return $s->scheduleStateAt($now);
     }
 
     private function timeRange(Show $s): string

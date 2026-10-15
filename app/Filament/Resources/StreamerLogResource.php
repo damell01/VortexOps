@@ -451,6 +451,32 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
+                // For reports started by mistake or while testing: the show goes
+                // back to having no report at all.
+                Action::make('reset_report')
+                    ->label('Reset')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('danger')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                    ->requiresConfirmation()
+                    ->modalIcon('heroicon-o-arrow-path')
+                    ->modalHeading('Reset this report?')
+                    ->modalDescription(fn (StreamerLogEntry $record) => 'Deletes the report for "' . ($record->show?->title ?? 'this show') . '" and its logged items, puts back any stock it took, and removes draft pay worked out from it. The show goes back to Not started, and the streamer can log it again. This cannot be undone.')
+                    ->modalSubmitActionLabel('Reset report')
+                    ->action(function (StreamerLogEntry $record): void {
+                        try {
+                            $record->resetToNotStarted();
+                        } catch (\RuntimeException $e) {
+                            Notification::make()->title('Report not reset')->body($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Report reset')->body('The show is back to Not started.')->success()->send();
+                    }),
                 Action::make('admin_approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
@@ -522,6 +548,34 @@ class StreamerLogResource extends Resource
                             ->title($approved === 1 ? '1 log entry approved' : "{$approved} log entries approved")
                             ->body($skipped > 0 ? "{$skipped} skipped — not submitted for review." : null)
                             ->success()
+                            ->send();
+                    }),
+                BulkAction::make('bulk_reset')
+                    ->label('Reset selected')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('danger')
+                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                    ->requiresConfirmation()
+                    ->modalHeading('Reset these reports?')
+                    ->modalDescription('Each report and its logged items are deleted, any stock they took is put back, and draft pay worked out from them is removed. The shows go back to Not started. Reports whose pay is already on a submitted or paid run are skipped. This cannot be undone.')
+                    ->modalSubmitActionLabel('Reset reports')
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $reset = 0;
+                        $skipped = [];
+                        foreach ($records as $record) {
+                            try {
+                                $record->resetToNotStarted();
+                                $reset++;
+                            } catch (\RuntimeException $e) {
+                                $skipped[] = ($record->show?->title ?? 'Report #' . $record->id) . ': ' . $e->getMessage();
+                            }
+                        }
+
+                        Notification::make()
+                            ->title($reset === 1 ? '1 report reset' : "{$reset} reports reset")
+                            ->body($skipped ? 'Skipped — ' . implode(' | ', $skipped) : null)
+                            ->{$skipped ? 'warning' : 'success'}()
                             ->send();
                     }),
                 BulkAction::make('bulk_send_back')

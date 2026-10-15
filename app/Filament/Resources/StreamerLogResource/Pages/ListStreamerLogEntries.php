@@ -146,9 +146,9 @@ class ListStreamerLogEntries extends ListRecords
         return 'Show Report Inbox';
     }
 
-    public function getHeading(): string
+    public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
     {
-        return 'Show report inbox';
+        return new \Illuminate\Support\HtmlString(e('Show report inbox') . \App\Support\HelpTopics::button('inbox.overview')->toHtml());
     }
 
     public function getSubheading(): ?string

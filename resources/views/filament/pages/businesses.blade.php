@@ -40,7 +40,7 @@
             <label>Name <input type="text" wire:model="businessForm.name" required maxlength="120"></label>
             <label>Short name <input type="text" wire:model="businessForm.short_name" maxlength="20" placeholder="e.g. VCX"></label>
             <label>Colour <input type="color" wire:model="businessForm.color"></label>
-            <label class="vxb-check"><input type="checkbox" wire:model="businessForm.tips_monthly"> Pay tips monthly <small>Tips come off weekly pay onto their own line, paid by a Tips pay run.</small></label>
+            <label class="vxb-check"><input type="checkbox" wire:model="businessForm.tips_monthly"> Pay tips monthly<x-vx-help topic="business.tips_monthly" /> <small>Tips come off weekly pay onto their own line, paid by a Tips pay run.</small></label>
             @error('businessForm.name')<span class="vxb-err">{{ $message }}</span>@enderror
             @error('businessForm.color')<span class="vxb-err">{{ $message }}</span>@enderror
             <div class="vxb-editor-actions">

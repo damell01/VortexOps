@@ -190,6 +190,13 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
+                // What the little "?" help buttons open (resources/js/help.js).
+                PanelsRenderHook::BODY_END,
+                fn () => auth()->check()
+                    ? new \Illuminate\Support\HtmlString('<script type="application/json" id="vx-help-topics">' . json_encode(\App\Support\HelpTopics::all(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . '</script>')
+                    : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn () => view('filament.components.login-pokemon'),
             )

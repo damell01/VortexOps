@@ -16,10 +16,20 @@
                 @endfor
             </div>
         @elseif ($season['effect'] === 'fireworks')
+            @php($fwColours = ['#f59e0b', '#a78bfa', '#f472b6', '#22d3ee', '#ef4444', '#4ade80', '#facc15', '#c084fc'])
+            {{-- All day: bursts keep popping across the top of every page. --}}
             <div class="vx-fireworks">
-                @foreach ([[18, 0, '#f59e0b'], [52, 2.6, '#a78bfa'], [84, 5.1, '#f472b6']] as [$x, $d, $c])
-                    <span style="--x: {{ $x }}%; --d: {{ $d }}s; --c: {{ $c }}">@for ($r = 0; $r < 16; $r++)<i style="--r: {{ $r * 22.5 + ($r % 3) * 6 }}deg; --k: {{ [1, .62, .84, .7][$r % 4] }}"></i>@endfor</span>
-                @endforeach
+                @for ($n = 0; $n < 16; $n++)
+                    <span style="--x: {{ 3 + ($n * 31) % 94 }}%; --y: {{ 36 + ($n * 47) % 140 }}px; --z: {{ [1.2, 1.7, 1, 1.9, 1.4, 1.1, 1.8, 1.5][$n % 8] }}; --d: {{ round(($n * 0.29) % 4.5, 2) }}s; --c: {{ $fwColours[$n % 8] }}">@for ($r = 0; $r < 20; $r++)<i style="--r: {{ $r * 18 + ($r % 3) * 5 }}deg; --k: {{ [1, .62, .84, .7][$r % 4] }}"></i>@endfor</span>
+                @endfor
+            </div>
+            {{-- First page of the day: a full-screen show, once. --}}
+            <div class="vx-fireworks-finale"
+                 x-data="{ on: (() => { try { const k = 'vx-ny-finale', d = new Date().toDateString(); if (localStorage.getItem(k) === d) return false; localStorage.setItem(k, d); return true } catch (e) { return true } })() }"
+                 x-show="on" x-init="on && setTimeout(() => on = false, 6500)">
+                @for ($n = 0; $n < 18; $n++)
+                    <span style="--x: {{ 5 + ($n * 37) % 90 }}%; --y: {{ 12 + ($n * 23) % 70 }}vh; --z: {{ 1.8 + ($n % 4) * 0.45 }}; --d: {{ round($n * 0.24, 2) }}s; --c: {{ $fwColours[$n % 8] }}">@for ($r = 0; $r < 24; $r++)<i style="--r: {{ $r * 15 + ($r % 3) * 4 }}deg; --k: {{ [1, .62, .84, .7][$r % 4] }}"></i>@endfor</span>
+                @endfor
             </div>
         @endif
     </div>

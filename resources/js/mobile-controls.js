@@ -21,6 +21,9 @@ function openPicker(select, trigger) {
     overlay.className = 'vx-picker-overlay';
     const panel = document.createElement('section');
     panel.className = 'vx-mobile-picker-sheet';
+    // Wider, with columns, as the list grows, so it fits without scrolling.
+    const count = [...select.options].filter(o => !o.hidden).length;
+    panel.classList.add(count > 24 ? 'is-xl' : count > 8 ? 'is-wide' : 'is-narrow');
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-label', labelFor(select));

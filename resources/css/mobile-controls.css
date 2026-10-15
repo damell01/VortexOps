@@ -90,3 +90,13 @@ html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile
 .dark .fi-main select:not([multiple]):not(.fi-select-input),.dark .fi-modal-window select:not([multiple]):not(.fi-select-input){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a78bfa'%3E%3Cpath d='M5.2 7.6a.75.75 0 0 1 1.06.04L10 11.7l3.74-4.06a.75.75 0 1 1 1.1 1.02l-4.3 4.66a.75.75 0 0 1-1.1 0L5.16 8.66a.75.75 0 0 1 .04-1.06z'/%3E%3C/svg%3E")}
 .fi-main select:not(.fi-select-input):focus-visible,.fi-modal-window select:not(.fi-select-input):focus-visible{outline:0;border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.2)}
 .fi-main select option:checked{background:#ede9fe;color:#4c1d95}
+
+/* Long lists spread into columns instead of scrolling. */
+.vx-mobile-picker-sheet.is-wide{max-width:680px}
+.vx-mobile-picker-sheet.is-xl{max-width:min(1040px,calc(100vw - 32px))}
+.vx-mobile-picker-sheet.is-wide,.vx-mobile-picker-sheet.is-xl{max-height:min(90dvh,900px)}
+.vx-mobile-picker-sheet.is-wide .vx-picker-options,.vx-mobile-picker-sheet.is-xl .vx-picker-options{display:grid;align-content:start;gap:4px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.vx-mobile-picker-sheet.is-xl .vx-picker-options{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.vx-mobile-picker-sheet.is-wide .vx-picker-options button,.vx-mobile-picker-sheet.is-xl .vx-picker-options button{min-height:42px;padding:9px 12px;font-size:14px}
+.vx-mobile-picker-sheet.is-wide .vx-picker-options p,.vx-mobile-picker-sheet.is-xl .vx-picker-options p{grid-column:1/-1}
+@media(max-width:767px){.vx-mobile-picker-sheet.is-wide .vx-picker-options,.vx-mobile-picker-sheet.is-xl .vx-picker-options{grid-template-columns:repeat(2,minmax(0,1fr))}}

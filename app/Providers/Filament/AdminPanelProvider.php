@@ -453,6 +453,13 @@ class AdminPanelProvider extends PanelProvider
             )
             // ── Login page: gradient banner + heading inside the card ────────────
             ->renderHook(
+                // What the little "?" help buttons open (resources/js/help.js).
+                PanelsRenderHook::BODY_END,
+                fn () => auth()->check()
+                    ? new \Illuminate\Support\HtmlString('<script type="application/json" id="vx-help-topics">' . json_encode(\App\Support\HelpTopics::all(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . '</script>')
+                    : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
                 <div class="vx-login-hero">

@@ -100,7 +100,7 @@
 
             @if(!$editingMember->isFulfillment())
                 <div class="mt-4 grid gap-4 md:grid-cols-2">
-                    <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="member_override_enabled.payout_type">Paid a different way from {{ $editingMember->business_id ? (\App\Models\Business::whereKey($editingMember->business_id)->value('name') ?? 'the team') : 'the team' }}</span>
+                    <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="member_override_enabled.payout_type">Paid a different way from {{ $editingMember->business_id ? (\App\Models\Business::whereKey($editingMember->business_id)->value('name') ?? 'the team') : 'the team' }}<x-vx-help :topic="(($member_override_values['payout_type'] ?? null) === 'sales_split') ? 'pay.sales_split' : 'pay.shift_share'" /></span>
                         <select wire:model.live="member_override_values.payout_type" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800">
                             <option value="profit_share">Regular payouts — existing show-based formula</option>
                             <option value="sales_split">Sales earnings — business keeps a %</option>
@@ -148,7 +148,7 @@
 
 
     <section class="vx-card p-5" aria-labelledby="run-types-heading">
-        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types</h2>
+        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types<x-vx-help topic="pay.run_types" /></h2>
         <p class="mt-1 text-sm text-gray-500">Create runs whenever you need them from Pay Runs → New, for any start and end dates. Wages and profit share stay separate pay lines, even in a combined run. Scheduling and automatic creation are optional for each type.</p>
         <div class="mt-4 grid gap-4 md:grid-cols-2">
             @foreach($run_types as $index => $type)
@@ -243,7 +243,7 @@
             </label>
             <label class="flex cursor-pointer gap-3 rounded-[10px] border p-4 {{ $isSplit ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-[var(--vx-border)]' }}">
                 <input type="radio" wire:model.live="streamer.payout_type" value="sales_split" class="mt-1">
-                <span><span class="block font-bold">Sales split</span><span class="block text-xs text-gray-500">The business keeps a % of what the streamer's shows earned; the streamer gets the rest. Set this per person or as the business default.</span></span>
+                <span><span class="block font-bold">Sales split<x-vx-help topic="pay.sales_split" /></span><span class="block text-xs text-gray-500">The business keeps a % of what the streamer's shows earned; the streamer gets the rest. Set this per person or as the business default.</span></span>
             </label>
         </div>
         @if($isSplit)

@@ -401,6 +401,7 @@ class ShowResource extends Resource
                     ->numeric()->minValue(0)->maxValue(100)->step(0.01)
                     ->suffix('%')
                     ->placeholder('Streamer\'s usual %')
+                    ->hint(\App\Support\HelpTopics::button('show.house_cut'))
                     ->helperText('For streamers paid a sales split. Blank uses each streamer\'s own %.'),
             ]);
     }

@@ -177,7 +177,7 @@
             @php $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2); @endphp
             <section class="vxw-card" data-vx-transfer>
                 <div class="vxw-card-head">
-                    <h3 class="vxw-h2">Business account transfer</h3>
+                    <h3 class="vxw-h2">Business account transfer<x-vx-help topic="payrun.transfer" /></h3>
                     <span class="vxw-pill vxw-pill--accent">{{ $signed($transfer['transfer']) }}</span>
                 </div>
                 <div class="vxw-card-body">

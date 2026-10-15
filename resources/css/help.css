@@ -1,0 +1,36 @@
+/* The little "?" help buttons and their modal (resources/js/help.js). */
+.vx-help-btn { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-inline-start: 6px; padding: 0; border: 0; border-radius: 50%; background: none; color: #8b5cf6; cursor: pointer; vertical-align: -4px; transition: color .15s, background-color .15s, transform .15s; flex: none; }
+.vx-help-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.vx-help-btn .vx-help-dot { fill: currentColor; stroke: none; }
+.vx-help-btn:hover { color: #6d28d9; background: rgb(139 92 246 / .12); transform: scale(1.08); }
+.vx-help-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+.dark .vx-help-btn { color: #a78bfa; } .dark .vx-help-btn:hover { color: #c4b5fd; }
+
+.vx-help-dialog { position: fixed; inset: 0; margin: auto; height: fit-content; width: min(34rem, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); overflow: auto; padding: 1.4rem 1.5rem 1.2rem; border: 0; border-radius: 1.1rem; background: #fff; color: #111827; box-shadow: 0 24px 60px rgb(30 10 60 / .3); animation: vx-help-in .18s cubic-bezier(.3,1.3,.6,1); }
+.vx-help-dialog::backdrop { background: rgb(15 10 30 / .45); backdrop-filter: blur(2px); animation: vx-help-fade .18s ease-out; }
+.vx-help-dialog.is-closing { animation: vx-help-out .14s ease-in forwards; }
+.dark .vx-help-dialog { background: #161226; color: #f3f4f6; }
+.vx-help-head { display: flex; align-items: center; gap: .65rem; }
+.vx-help-head h2 { flex: 1; margin: 0; font-size: 1.1rem; font-weight: 800; letter-spacing: -.01em; }
+.vx-help-badge { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: .65rem; background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; font-weight: 900; flex: none; }
+.vx-help-x { width: 2rem; height: 2rem; border-radius: .5rem; font-size: 1.4rem; line-height: 1; color: #6b7280; }
+.vx-help-x:hover { background: rgb(139 92 246 / .1); color: #6d28d9; }
+.vx-help-intro { margin: .8rem 0 0; font-size: .92rem; line-height: 1.5; color: #374151; }
+.dark .vx-help-intro { color: #d1d5db; }
+.vx-help-dialog h3 { margin: 1.05rem 0 .4rem; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #7c3aed; }
+.dark .vx-help-dialog h3 { color: #c4b5fd; }
+.vx-help-dialog ol, .vx-help-dialog ul { margin: 0; padding: 0; list-style: none; display: grid; gap: .45rem; font-size: .88rem; line-height: 1.45; }
+.vx-help-dialog ol { counter-reset: vxh; }
+.vx-help-dialog ol li { position: relative; padding-left: 2rem; counter-increment: vxh; }
+.vx-help-dialog ol li::before { content: counter(vxh); position: absolute; left: 0; top: -.05rem; display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #f1ecff; color: #6d28d9; font-size: .72rem; font-weight: 800; }
+.dark .vx-help-dialog ol li::before { background: rgb(124 58 237 / .25); color: #ddd6fe; }
+.vx-help-dialog ul li { position: relative; padding: .5rem .7rem .5rem 2rem; border-radius: .6rem; background: #faf8ff; }
+.vx-help-dialog ul li::before { content: '💡'; position: absolute; left: .6rem; top: .5rem; font-size: .8rem; }
+.dark .vx-help-dialog ul li { background: rgb(124 58 237 / .1); }
+.vx-help-foot { display: flex; justify-content: flex-end; margin-top: 1.2rem; }
+.vx-help-ok { padding: .5rem 1.1rem; border-radius: .65rem; background: #7c3aed; color: #fff; font-weight: 700; font-size: .88rem; }
+.vx-help-ok:hover { background: #6d28d9; }
+@keyframes vx-help-in { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+@keyframes vx-help-out { to { opacity: 0; transform: translateY(6px) scale(.98); } }
+@keyframes vx-help-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .vx-help-dialog, .vx-help-dialog::backdrop, .vx-help-dialog.is-closing { animation: none; } .vx-help-btn:hover { transform: none; } }

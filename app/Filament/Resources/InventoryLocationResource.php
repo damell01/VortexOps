@@ -211,7 +211,7 @@ class InventoryLocationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('What is it?')->columnSpanFull()->schema([
+            Section::make('What is it?')->afterHeader([\App\Support\HelpTopics::button('locations.type')])->columnSpanFull()->schema([
                 TextInput::make('name')
                     ->label('Name')
                     ->placeholder('e.g. Estill Storage, Jay\'s Shelf')
@@ -226,6 +226,7 @@ class InventoryLocationResource extends Resource
                     ->required(),
             ]),
             Section::make('Who uses it?')
+                ->afterHeader([\App\Support\HelpTopics::button('locations.audience')])
                 ->description('Streamers sell from their own locations plus the storage they share. A business with storage of its own uses only that, not the shared Main Storage.')
                 ->columnSpanFull()->schema([
                     \Filament\Forms\Components\Radio::make('audience')

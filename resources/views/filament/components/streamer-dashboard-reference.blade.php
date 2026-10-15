@@ -75,12 +75,20 @@
                 @endphp
                 @if($nextStart && ! $next->isLive() && $nextStart->isFuture() && now()->diffInHours($nextStart, true) < 24)
                     {{-- Counts down to the show; inside 15 minutes it says you are on soon. --}}
+                    @php $buddy = \App\Support\Buddy::for(auth()->user()); @endphp
                     <div class="vx-countdown" x-data="{ at: {{ $nextStart->getTimestampMs() }}, now: Date.now(),
                             get left() { return Math.max(0, this.at - this.now) },
+                            get pct() { return Math.round(100 - Math.min(100, this.left / 864000)) },
+                            get soon() { return this.left <= 15 * 60000 },
                             get text() { const m = Math.ceil(this.left / 60000), h = Math.floor(m / 60); return h ? h + 'h ' + (m % 60) + 'm' : m + 'm' } }"
-                         x-init="setInterval(() => now = Date.now(), 20000)" x-show="left > 0">
-                        <span x-show="left > 15 * 60000">Your show starts in <b x-text="text"></b></span>
-                        <span x-show="left <= 15 * 60000" x-cloak class="vx-countdown-soon"><img src="/img/pokemon/{{ \App\Support\Buddy::for(auth()->user()) }}.gif" alt="" aria-hidden="true"> You're on soon! <b x-text="text"></b></span>
+                         x-init="setInterval(() => now = Date.now(), 20000)" x-show="left > 0" :class="soon && 'is-soon'">
+                        {{-- A Poké Ball ring that fills over the last day, with their buddy inside. --}}
+                        <span class="vx-countdown-ball" :style="'--p:' + pct" aria-hidden="true"><img src="/img/pokemon/{{ $buddy }}.gif" alt=""></span>
+                        <span class="vx-countdown-copy">
+                            <span x-show="!soon">Your show starts in <b x-text="text"></b></span>
+                            <span x-show="soon" x-cloak class="font-semibold">You're on soon! <b x-text="text"></b></span>
+                            <small x-text="soon ? '{{ ucfirst($buddy) }} is ready to go live.' : '{{ ucfirst($buddy) }} is warming up.'"></small>
+                        </span>
                     </div>
                 @endif<p>@if($next->channel)<x-vx.channel :name="$next->channel->name" />@endif</p>@else<p>No upcoming shows assigned.</p>@endif<a class="vx-home-footer" href="{{ \App\Filament\Pages\StreamerShows::getUrl() }}">View My Shows →</a></section>
             <details class="vx-home-card" open><img class="vx-sprite vx-zard" src="/img/pokemon/charizard.gif" alt="" aria-hidden="true"><summary>My Performance This Month</summary><div class="vx-home-performance">@foreach(['Shows'=>$monthShowCount ?? 0,'Gross Sales'=>'$'.number_format($monthGross ?? 0,2),'Recorded Paid'=>'$'.number_format($recordedPaid ?? 0,2),'Approved Unpaid'=>'$'.number_format($approvedUnpaid ?? 0,2)] as $label=>$value)<div><p>{{ $label }}</p><strong>{{ $value }}</strong></div>@endforeach</div><p class="vx-home-help">Sales reflect this month’s shows. Payout totals reflect your recorded payout statuses.</p></details>

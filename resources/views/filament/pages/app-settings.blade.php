@@ -779,7 +779,7 @@
         </div>
 
         {{-- ── Post-Show Workflow ──────────────────────────────────────────── --}}
-        <div wire:key="section-show-workflow" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div wire:key="section-show-workflow" id="show-workflow" x-data="{ open: location.hash === '#show-workflow' }" x-init="if (open) $nextTick(() => $el.scrollIntoView({ block: 'start' }))" class="scroll-mt-24 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">

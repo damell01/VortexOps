@@ -50,7 +50,10 @@ class DownloadTableCsvTest extends TestCase
         }
 
         // Has its own Download CSV in the page header with fuller columns.
-        $missing = array_diff($missing, [\App\Filament\Pages\PalletReceivingHistory::class]);
+        $missing = array_diff($missing, [
+            \App\Filament\Pages\PalletReceivingHistory::class,
+            \App\Filament\Resources\StreamerLogResource\Pages\ListStreamerLogEntries::class,
+        ]);
 
         $this->assertSame([], array_values($missing), 'List pages without Download CSV');
     }

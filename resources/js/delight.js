@@ -247,19 +247,19 @@ function dexify() {
     });
 }
 
-// ── Unread notifications: the tab icon becomes a Poké Ball with a red dot ──
+// ── Unread notifications: the Vortex tab icon gets a red dot ──
 let plainIcon = null, ballIcon = null, lastUnread = -1;
 function makeBallIcon(done) {
     const img = new Image();
     img.onload = () => {
         const c = document.createElement('canvas'); c.width = c.height = 32;
         const g = c.getContext('2d');
-        g.drawImage(img, 1, 1, 30, 30);
+        g.drawImage(img, 0, 0, 32, 32);
         g.beginPath(); g.arc(24, 8, 7, 0, Math.PI * 2); g.fillStyle = '#fff'; g.fill();
         g.beginPath(); g.arc(24, 8, 5.5, 0, Math.PI * 2); g.fillStyle = '#ef4444'; g.fill();
         ballIcon = c.toDataURL('image/png'); done();
     };
-    img.src = '/img/pokeball.svg';
+    img.src = plainIcon || '/icons/icon-32.png';
 }
 function unreadCount() {
     const badge = document.querySelector('.fi-topbar-database-notifications-btn .fi-badge, .fi-topbar-database-notifications-btn .fi-icon-btn-badge-ctn');

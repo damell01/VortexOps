@@ -40,9 +40,16 @@ class InventoryLocation extends Model
         return $this->belongsTo(Streamer::class);
     }
 
+    /** For a streamer's own location: their business, so it lists under it. */
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    /** The businesses a shared location is for; none means everyone. */
+    public function businesses(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Business::class);
     }
 
     /** Types a business's streamers draw from; returns and damaged stock are not sold from. */
@@ -55,7 +62,7 @@ class InventoryLocation extends Model
     public static function businessHasPool(?int $businessId): bool
     {
         return $businessId > 0 && static::query()
-            ->where('business_id', $businessId)->whereNull('streamer_id')
+            ->whereHas('businesses', fn ($b) => $b->whereKey($businessId))->whereNull('streamer_id')
             ->where('status', 'active')->whereIn('type', self::POOL_TYPES)
             ->exists();
     }
@@ -65,7 +72,7 @@ class InventoryLocation extends Model
     {
         return match (true) {
             $this->streamer_id !== null => 'streamer',
-            $this->business_id !== null => 'business',
+            $this->sharedBusinessIds() !== [] => 'business',
             default => 'everyone',
         };
     }
@@ -74,8 +81,28 @@ class InventoryLocation extends Model
     {
         return match ($this->audience()) {
             'streamer' => $this->streamer?->name ?? 'A streamer',
-            'business' => ($this->relationLoaded('business') ? $this->business?->name : Business::whereKey($this->business_id)->value('name')) ?? 'A business',
+            'business' => $this->sharedBusinessNames(),
             default => 'Everyone',
+        };
+    }
+
+    /** @return list<int> */
+    public function sharedBusinessIds(): array
+    {
+        return ($this->relationLoaded('businesses') ? $this->businesses : $this->businesses()->get(['businesses.id']))
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /** "Estill Distribution" or "Estill Distribution & Vortex Collects". */
+    public function sharedBusinessNames(): string
+    {
+        $names = ($this->relationLoaded('businesses') ? $this->businesses : $this->businesses()->get())
+            ->sortBy('sort_order')->map(fn ($b) => $b->short_name ?: $b->name)->values();
+
+        return match ($names->count()) {
+            0 => 'Everyone',
+            1 => ($this->relationLoaded('businesses') ? $this->businesses : $this->businesses()->get())->first()->name,
+            default => $names->join(', ', ' & '),
         };
     }
 

@@ -10,9 +10,19 @@ class EditInventoryLocation extends EditRecord
 {
     protected static string $resource = InventoryLocationResource::class;
 
+    /** @var list<int> businesses the location is shared by */
+    protected array $sharedBy = [];
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        return InventoryLocationResource::applyAudience($data);
+        ['data' => $data, 'business_ids' => $this->sharedBy] = InventoryLocationResource::applyAudience($data);
+
+        return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        $this->record->businesses()->sync($this->sharedBy);
     }
 
     protected function getHeaderActions(): array

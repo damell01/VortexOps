@@ -57,8 +57,8 @@ class LocationAudienceTest extends TestCase
     {
         $jay = $this->streamer('Jay', $this->estill);
         $casey = $this->streamer('Casey', $this->vcx);
-        InventoryLocation::create(['name' => 'Estill Storage', 'type' => 'main_storage', 'status' => 'active', 'business_id' => $this->estill->id]);
-        InventoryLocation::create(['name' => 'Estill Returns', 'type' => 'returned', 'status' => 'active', 'business_id' => $this->estill->id]);
+        InventoryLocation::create(['name' => 'Estill Storage', 'type' => 'main_storage', 'status' => 'active'])->businesses()->sync([$this->estill->id]);
+        InventoryLocation::create(['name' => 'Estill Returns', 'type' => 'returned', 'status' => 'active'])->businesses()->sync([$this->estill->id]);
         InventoryLocation::create(['name' => "Jay's Inventory", 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $jay->id, 'business_id' => $this->estill->id]);
 
         $this->assertSame(['Estill Storage', "Jay's Inventory"], $this->locationsOf($jay));
@@ -74,7 +74,7 @@ class LocationAudienceTest extends TestCase
             ->fillForm(['name' => 'Jay Shelf', 'type' => 'streamer_inventory', 'audience' => 'streamer', 'streamer_id' => $jay->id])
             ->call('create')->assertHasNoFormErrors();
         Livewire::test(CreateInventoryLocation::class)
-            ->fillForm(['name' => 'Estill Back Room', 'type' => 'main_storage', 'audience' => 'business', 'business_id' => $this->estill->id])
+            ->fillForm(['name' => 'Estill Back Room', 'type' => 'main_storage', 'audience' => 'business', 'business_ids' => [(string) $this->estill->id]])
             ->call('create')->assertHasNoFormErrors();
 
         $shelf = InventoryLocation::where('name', 'Jay Shelf')->first();
@@ -82,7 +82,7 @@ class LocationAudienceTest extends TestCase
         $this->assertSame($this->estill->id, $shelf->business_id);
         $room = InventoryLocation::where('name', 'Estill Back Room')->first();
         $this->assertNull($room->streamer_id);
-        $this->assertSame($this->estill->id, $room->business_id);
+        $this->assertSame([$this->estill->id], $room->sharedBusinessIds());
         $this->assertSame('Estill Distribution', $room->audienceLabel());
     }
 
@@ -92,19 +92,51 @@ class LocationAudienceTest extends TestCase
 
         Livewire::test(ListInventoryLocations::class)
             ->callAction('streamerLocation', ['streamer_id' => $jay->id, 'name' => "Jay's Inventory"])
-            ->callAction('businessStorage', ['business_id' => $this->estill->id, 'name' => 'Estill Storage']);
+            ->callAction('businessStorage', ['business_ids' => [(string) $this->estill->id], 'name' => 'Estill Storage']);
 
         $this->assertSame('streamer_inventory', InventoryLocation::where('name', "Jay's Inventory")->value('type'));
-        $this->assertSame($this->estill->id, InventoryLocation::where('name', 'Estill Storage')->value('business_id'));
+        $this->assertSame([$this->estill->id], InventoryLocation::where('name', 'Estill Storage')->first()->sharedBusinessIds());
         $this->assertSame(['Estill Storage', "Jay's Inventory"], $this->locationsOf($jay->fresh()));
     }
 
     public function test_applying_everyone_clears_any_owner(): void
     {
-        $data = InventoryLocationResource::applyAudience(['name' => 'X', 'audience' => 'everyone', 'streamer_id' => 5, 'business_id' => 2]);
+        ['data' => $data, 'business_ids' => $ids] = InventoryLocationResource::applyAudience(['name' => 'X', 'audience' => 'everyone', 'streamer_id' => 5, 'business_id' => 2, 'business_ids' => ['1']]);
 
         $this->assertNull($data['streamer_id']);
         $this->assertNull($data['business_id']);
+        $this->assertSame([], $ids);
         $this->assertArrayNotHasKey('audience', $data);
+    }
+
+    public function test_a_location_can_be_shared_by_several_businesses(): void
+    {
+        $jay = $this->streamer('Jay', $this->estill);
+        $casey = $this->streamer('Casey', $this->vcx);
+        $other = Business::create(['name' => 'Third Co', 'short_name' => 'Third', 'color' => '#000000', 'sort_order' => 9]);
+        $sam = $this->streamer('Sam', $other);
+
+        $shared = InventoryLocation::create(['name' => 'Shared Warehouse', 'type' => 'main_storage', 'status' => 'active']);
+        $shared->businesses()->sync([$this->estill->id, $this->vcx->id]);
+
+        $this->assertSame(['Shared Warehouse'], $this->locationsOf($jay));
+        $this->assertSame(['Shared Warehouse'], $this->locationsOf($casey));
+        // A business it isn't shared with keeps the general Main Storage.
+        $this->assertSame(['Main Storage'], $this->locationsOf($sam));
+        $this->assertSame('business', $shared->audience());
+        $this->assertStringContainsString('&', $shared->fresh()->sharedBusinessNames());
+    }
+
+    public function test_editing_back_to_everyone_unshares_it(): void
+    {
+        $room = InventoryLocation::create(['name' => 'Room', 'type' => 'main_storage', 'status' => 'active']);
+        $room->businesses()->sync([$this->estill->id]);
+
+        Livewire::test(\App\Filament\Resources\InventoryLocationResource\Pages\EditInventoryLocation::class, ['record' => $room->getKey()])
+            ->assertFormSet(['audience' => 'business'])
+            ->fillForm(['audience' => 'everyone'])
+            ->call('save')->assertHasNoFormErrors();
+
+        $this->assertSame([], $room->fresh()->sharedBusinessIds());
     }
 }

@@ -21,7 +21,7 @@ class ListInventoryLocations extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Where stock lives, and who sells from it. Streamers use their own locations plus their business\'s storage; a business with no storage of its own shares the Main Storage.';
+        return 'Where stock lives, and who sells from it. Streamers use their own locations plus their business\'s storage, which can be shared by several businesses; a business with no storage of its own uses the general Main Storage.';
     }
 
     protected function getHeaderActions(): array
@@ -57,29 +57,34 @@ class ListInventoryLocations extends ListRecords
                 }),
 
             // A business's own allocation, so its streamers stop sharing Main Storage.
+            // A business's own allocation, or one shared by several, so their
+            // streamers stop sharing the general Main Storage.
             Action::make('businessStorage')
-                ->label('Set up a business\'s storage')
+                ->label('Set up business storage')
                 ->icon('heroicon-o-building-storefront')
                 ->color('gray')
                 ->visible($admin)
-                ->modalHeading('Set up a business\'s storage')
-                ->modalDescription('Its streamers will sell from this instead of the shared Main Storage. Receive or transfer stock into it to fill it.')
+                ->modalHeading('Set up business storage')
+                ->modalDescription('Their streamers will sell from this instead of the shared Main Storage. Pick one business, or several to share it. Receive or transfer stock into it to fill it.')
                 ->modalWidth('lg')
                 ->modalSubmitActionLabel('Create storage')
                 ->schema([
-                    Select::make('business_id')->label('Business')
+                    \Filament\Forms\Components\CheckboxList::make('business_ids')->label('Shared by')
                         ->options(fn () => Business::ordered()->pluck('name', 'id')->all())
-                        ->native(false)->required()->live()
-                        ->afterStateUpdated(fn ($state, $set) => $set('name', $state ? (Business::whereKey($state)->value('name') . ' Storage') : null)),
+                        ->required()->live()
+                        ->afterStateUpdated(fn ($state, $set) => $set('name', match (count((array) $state)) {
+                            0 => null,
+                            1 => Business::whereKey(reset($state))->value('name') . ' Storage',
+                            default => 'Shared Storage',
+                        })),
                     TextInput::make('name')->label('Location name')->required()->maxLength(255),
                 ])
                 ->action(function (array $data): void {
-                    $business = Business::findOrFail($data['business_id']);
-                    InventoryLocation::create([
-                        'name' => $data['name'], 'type' => 'main_storage', 'status' => 'active',
-                        'business_id' => $business->id,
-                    ]);
-                    Notification::make()->title("{$data['name']} is ready")->body("{$business->name}'s streamers now sell from it instead of the shared Main Storage.")->success()->send();
+                    $ids = array_map('intval', (array) $data['business_ids']);
+                    $location = InventoryLocation::create(['name' => $data['name'], 'type' => 'main_storage', 'status' => 'active']);
+                    $location->businesses()->sync($ids);
+                    $names = $location->sharedBusinessNames();
+                    Notification::make()->title("{$data['name']} is ready")->body("{$names} streamers now sell from it instead of the shared Main Storage.")->success()->send();
                 }),
 
             CreateAction::make()->label('New location'),

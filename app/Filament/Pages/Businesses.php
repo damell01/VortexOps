@@ -91,6 +91,7 @@ class Businesses extends Page
             'profit_share' => $pct($e['payout_percentage'] ?? 0) . ' profit share',
             'sales_split' => 'Keeps ' . $pct(100 - (float) ($e['house_cut_percentage'] ?? 0)) . ' of ' . (($e['sales_split_basis'] ?? 'net') === 'gross' ? 'gross sales' : 'estimated net earnings'),
             'hourly' => $money($e['hourly_rate'] ?? 0) . '/hr',
+            'shift_share' => $money($e['hourly_rate'] ?? 0) . '/hr + shipments + ' . $pct($e['payout_percentage'] ?? 0) . ' share',
             'pwe_labels' => 'PWE + labels',
             'package', 'flat_rate' => $money($e['package_rate'] ?? 0) . ' flat',
             'hybrid' => 'Hybrid',

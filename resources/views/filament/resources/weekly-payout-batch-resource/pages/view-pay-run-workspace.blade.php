@@ -181,7 +181,7 @@
                     <span class="vxw-pill vxw-pill--accent">{{ $signed($transfer['transfer']) }}</span>
                 </div>
                 <div class="vxw-card-body">
-                    <p class="vxw-meta">To the separate bank account, for the {{ $transfer['shows'] }} {{ \Illuminate\Support\Str::plural('show', $transfer['shows']) }} on this run. Pay counts everything for them except tips, including profit share paid on a later run.</p>
+                    <p class="vxw-meta">To the separate bank account, for the {{ $transfer['shows'] }} {{ \Illuminate\Support\Str::plural('show', $transfer['shows']) }} on this run. Pay counts everything for them except tips{{ $run->kind === 'wages' ? ', including profit share paid on a later run' : '' }}.</p>
                     <dl class="vxw-dl mt-2">
                         <div><dt>Product cost</dt><dd>{{ $signed($transfer['product_cost']) }}</dd></div>
                         <div><dt>Whatnot net earnings</dt><dd>{{ $signed($transfer['net']) }}</dd></div>

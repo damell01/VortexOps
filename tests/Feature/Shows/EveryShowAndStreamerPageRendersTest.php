@@ -193,7 +193,6 @@ class EveryShowAndStreamerPageRendersTest extends TestCase
     {
         return [
             'StreamerHub'         => [\App\Filament\Pages\StreamerHub::class],
-            'StreamerShows'       => [\App\Filament\Pages\StreamerShows::class],
             'StreamerProfitShare' => [\App\Filament\Pages\StreamerProfitShare::class],
         ];
     }

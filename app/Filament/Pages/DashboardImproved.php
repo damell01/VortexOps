@@ -46,6 +46,23 @@ class DashboardImproved extends Dashboard
         return "{$name} operations center";
     }
 
+    /** For a streamer: how many show reports are waiting on them. */
+    public static function getNavigationBadge(): ?string
+    {
+        $user = auth()->user();
+        if (! $user?->streamer || $user->isAdmin() || $user->isOwner()) {
+            return null;
+        }
+        $count = \App\Livewire\StreamerHome::toCompleteCount();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public function getWidgets(): array
     {
         if ((bool) Setting::get('demo_mode', false)) return [];

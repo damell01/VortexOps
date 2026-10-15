@@ -3,7 +3,8 @@
 namespace Tests\Feature\Shows;
 
 use App\Filament\Pages\EndOfStreamForm;
-use App\Filament\Pages\StreamerShows;
+use App\Filament\Pages\DashboardImproved;
+use App\Livewire\StreamerHome;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -48,15 +49,11 @@ class PreviousShowsTest extends TestCase
 
     public function test_an_older_show_is_listed_as_previous_and_not_waiting_on_the_streamer(): void
     {
-        $page = new StreamerShows;
-        $groups = $page->groups();
+        $page = Livewire::test(StreamerHome::class);
+        $this->assertSame([$this->current->id], collect($page->instance()->reports()->items())->pluck('id')->all());
+        $this->assertSame('1', DashboardImproved::getNavigationBadge());
 
-        $this->assertSame([$this->current->id], array_column($groups['needs_you'], 'id'));
-        $this->assertSame([$this->old->id], array_column($groups['history'], 'id'));
-        $this->assertSame('View show', $groups['history'][0]['action']);
-        $this->assertSame('1', StreamerShows::getNavigationBadge());
-
-        Livewire::test(StreamerShows::class)->assertOk()->assertSee('Previous shows')->assertSee('Old Way Show');
+        $page->call('setTab', 'all')->assertSee('Old Way Show')->assertSee('Previous show')->assertSee('View show');
     }
 
     public function test_the_streamer_can_still_open_an_older_show_to_log_it(): void

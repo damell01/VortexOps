@@ -14,7 +14,7 @@ if($channel?->logo_path && file_exists(storage_path('app/public/'.$channel->logo
 elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $navLogo=asset('storage/'.$globalLogo);
 if($streamerOnly){
  if(\App\Filament\Pages\Shows::canAccess()) $groups['Shows']=array_values(array_filter([
-  ['My Shows',\App\Filament\Pages\StreamerShows::getUrl(panel:'admin')],
+  ['My Dashboard',\App\Filament\Pages\DashboardImproved::getUrl(panel:'admin')],
   ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
   \App\Filament\Pages\EndOfStreamForm::canAccess() ? ['Log a Show',\App\Filament\Pages\EndOfStreamForm::getUrl(panel:'admin')] : null,
   \App\Filament\Pages\Timekeeping::canAccess() ? ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')] : null,

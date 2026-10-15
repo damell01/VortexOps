@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Shows;
 
-use App\Filament\Pages\StreamerShows;
+use App\Livewire\StreamerHome;
 use App\Models\Payout;
 use App\Models\Setting;
 use App\Models\Show;
@@ -18,7 +18,7 @@ use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-/** My Shows: a streamer's own numbers and every show they were on — never profit or loss. */
+/** The streamer's dashboard: their own numbers and every show they were on — never profit or loss. */
 class StreamerNumbersTest extends TestCase
 {
     use RefreshDatabase;
@@ -61,26 +61,24 @@ class StreamerNumbersTest extends TestCase
         return $show;
     }
 
-    public function test_the_months_numbers_add_up_hours_sales_units_and_pay(): void
+    public function test_the_months_numbers_add_up_sales_and_pay(): void
     {
         $a = $this->show('2026-10-05');
         $b = $this->show('2026-10-12', ['gross_revenue' => 500, 'units_sold' => 10]);
+        $c = $this->show('2026-10-14');
         $this->show('2026-09-28'); // last month
         $this->show('2026-10-06', [], false); // someone else's
-        StreamerLogEntry::create(['show_id' => $a->id, 'streamer_id' => $this->streamer->id, 'hours_streamed' => 3]);
-        StreamerLogEntry::create(['show_id' => $b->id, 'streamer_id' => $this->streamer->id, 'hours_streamed' => 2.5]);
-        TimeEntry::create(['user_id' => $this->user->id, 'reason' => 'cleanup', 'status' => 'ok', 'clocked_in_at' => '2026-10-07 14:00:00', 'clocked_out_at' => '2026-10-07 14:30:00']);
         Payout::create(['show_id' => $a->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 120, 'gross_show_revenue' => 1000, 'status' => 'paid']);
         Payout::create(['show_id' => $b->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 45.5, 'gross_show_revenue' => 500, 'status' => 'draft']);
+        Payout::create(['show_id' => $c->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 30, 'gross_show_revenue' => 1000, 'status' => 'approved']);
 
-        $n = Livewire::test(StreamerShows::class)->instance()->numbers();
+        $n = Livewire::test(StreamerHome::class)->instance()->numbers();
 
-        $this->assertSame(2, $n['shows']);
-        $this->assertSame(6.0, $n['hours']);
-        $this->assertSame(1500.0, $n['gross']);
-        $this->assertSame(50, $n['units']);
+        $this->assertSame(3, $n['shows']);
+        $this->assertSame(2500.0, $n['gross']);
         $this->assertSame(120.0, $n['paid']);
-        $this->assertSame(45.5, $n['awaiting']);
+        // Approved but not paid; a draft is not approved yet.
+        $this->assertSame(30.0, $n['unpaid']);
     }
 
     public function test_the_year_includes_every_month(): void
@@ -88,7 +86,7 @@ class StreamerNumbersTest extends TestCase
         $this->show('2026-03-05');
         $this->show('2026-10-05');
 
-        $page = Livewire::test(StreamerShows::class)->call('setPeriod', 'year');
+        $page = Livewire::test(StreamerHome::class)->set('period', 'year');
 
         $this->assertSame(2, $page->instance()->numbers()['shows']);
     }
@@ -100,15 +98,15 @@ class StreamerNumbersTest extends TestCase
         $this->show('2026-10-12', ['title' => 'Mystery Tuesday']);
         $this->show('2026-10-13', ['title' => 'Not mine'], false);
 
-        $page = Livewire::test(StreamerShows::class);
-        $this->assertSame(3, $page->instance()->allShows()->total());
-        $page->assertSee('Summer Pokemon Night')->assertSee('Upcoming Breaks')->assertDontSee('Not mine');
+        $page = Livewire::test(StreamerHome::class)->call('setTab', 'all');
+        $this->assertSame(['Mystery Tuesday', 'Summer Pokemon Night'], collect($page->instance()->reports()->items())->pluck('title')->all());
+        $page->assertSee('Previous show');
 
         $page->set('search', 'pokemon');
-        $this->assertSame(['Summer Pokemon Night'], $page->instance()->allShows()->pluck('title')->all());
+        $this->assertSame(['Summer Pokemon Night'], collect($page->instance()->reports()->items())->pluck('title')->all());
 
-        $page->set('search', '')->set('when', 'upcoming');
-        $this->assertSame(['Upcoming Breaks'], $page->instance()->allShows()->pluck('title')->all());
+        $page->set('search', '')->call('setTab', 'upcoming');
+        $this->assertSame(['Upcoming Breaks'], collect($page->instance()->reports()->items())->pluck('title')->all());
     }
 
     public function test_streamers_never_see_profit_or_loss(): void
@@ -116,7 +114,7 @@ class StreamerNumbersTest extends TestCase
         $show = $this->show('2026-10-12');
         Payout::create(['show_id' => $show->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 80, 'gross_show_revenue' => 1000, 'status' => 'draft']);
 
-        Livewire::test(StreamerShows::class)
+        Livewire::test(StreamerHome::class)
             ->assertSee('Welcome back')->assertSee('Awaiting payment')
             ->assertDontSee('Profit')->assertDontSee('Loss')->assertDontSee('COGS');
     }

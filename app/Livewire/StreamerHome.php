@@ -20,7 +20,7 @@ class StreamerHome extends Component
 {
     use WithPagination;
 
-    public const TABS = ['to_complete' => 'To complete', 'changes' => 'Needs changes', 'submitted' => 'Submitted', 'all' => 'All shows'];
+    public const TABS = ['to_complete' => 'To complete', 'changes' => 'Needs changes', 'submitted' => 'Submitted', 'upcoming' => 'Upcoming', 'all' => 'All shows'];
 
     public const PERIODS = ['month' => 'This month', 'last_month' => 'Last month', 'year' => 'This year'];
 
@@ -35,6 +35,11 @@ class StreamerHome extends Component
     public string $range = '';
 
     public int $perPage = 6;
+
+    /** The show whose filed report the streamer is asking to reopen. */
+    public ?int $revisionFor = null;
+
+    public string $revisionReason = '';
 
     public function updated(string $name): void
     {
@@ -93,7 +98,7 @@ class StreamerHome extends Component
     public function counts(): array
     {
         return collect(array_keys(self::TABS))
-            ->mapWithKeys(fn ($tab) => [$tab => $this->applyTab($this->aired(), $tab)->count()])
+            ->mapWithKeys(fn ($tab) => [$tab => $tab === 'upcoming' ? $this->upcoming()->count() : $this->applyTab($this->aired(), $tab)->count()])
             ->all();
     }
 
@@ -121,25 +126,89 @@ class StreamerHome extends Component
     {
         [$from, $to] = $this->rangeDates();
 
-        return $this->applyTab($this->aired(), $this->tab)
+        $base = $this->tab === 'upcoming' ? $this->upcoming() : $this->applyTab($this->aired(), $this->tab);
+        $streamerId = $this->streamer()?->id ?? 0;
+
+        return $base
             ->when(trim($this->search) !== '', fn ($q) => $q->where('title', 'like', '%' . trim($this->search) . '%'))
             ->when($from, fn ($q) => $q->whereBetween('show_date', [$from->toDateString(), $to->toDateString() . ' 23:59:59']))
             ->with(['channel', 'streamerLogEntry' => fn ($q) => $q->withCount('items')
-                ->withSum(['items as giveaway_quantity' => fn ($i) => $i->where('disposition', 'giveaway')], 'quantity')])
-            ->orderByDesc('show_date')->orderByDesc('start_time')
+                ->withSum(['items as giveaway_quantity' => fn ($i) => $i->where('disposition', 'giveaway')], 'quantity'),
+                'payouts' => fn ($q) => $q->where('streamer_id', $streamerId)->select('id', 'show_id', 'streamer_id', 'status', 'calculated_payout')])
+            ->when($this->tab === 'upcoming', fn ($q) => $q->reorder()->orderBy('show_date')->orderBy('start_time'), fn ($q) => $q->orderByDesc('show_date')->orderByDesc('start_time'))
             ->paginate(in_array($this->perPage, [6, 12, 24], true) ? $this->perPage : 6);
+    }
+
+    /** Shows that have not started yet. */
+    private function upcoming(): Builder
+    {
+        $now = now()->format('H:i:s');
+
+        // A show today with no start time counts as aired (it is on To complete).
+        return $this->shows()
+            ->where(fn ($q) => $q->whereDate('show_date', '>', today())
+                ->orWhere(fn ($t) => $t->whereDate('show_date', today())->whereNotNull('start_time')->whereTime('start_time', '>', $now)));
     }
 
     /** The next show that has not started yet. */
     public function nextShow(): ?Show
     {
-        $now = now()->format('H:i:s');
+        return $this->upcoming()->with('channel')->orderBy('show_date')->orderBy('start_time')->first();
+    }
 
-        return $this->shows()->with('channel')
-            ->where(fn ($q) => $q->whereDate('show_date', '>', today())
-                ->orWhere(fn ($t) => $t->whereDate('show_date', today())->where(fn ($s) => $s->whereNull('start_time')->orWhereTime('start_time', '>', $now))))
-            ->orderBy('show_date')->orderBy('start_time')
-            ->first();
+    /** Reports waiting on this streamer — the sidebar badge. */
+    public static function toCompleteCount(): int
+    {
+        return (new static)->applyTab((new static)->aired(), 'to_complete')->count();
+    }
+
+    // ── Asking for a filed report back ───────────────────────────────────────
+
+    public function askForChanges(int $showId): void
+    {
+        $this->revisionFor = $showId;
+        $this->revisionReason = '';
+    }
+
+    public function cancelRevisionRequest(): void
+    {
+        $this->revisionFor = null;
+        $this->revisionReason = '';
+    }
+
+    public function revisionShow(): ?Show
+    {
+        return $this->revisionFor ? $this->shows()->with('streamerLogEntry')->find($this->revisionFor) : null;
+    }
+
+    public function submitRevisionRequest(): void
+    {
+        // Through shows(), so a streamer can only ask about a show they were on.
+        $show = $this->revisionShow();
+        $entry = $show?->streamerLogEntry;
+
+        if (! $entry || ! $entry->canRequestRevision()) {
+            $this->cancelRevisionRequest();
+
+            return;
+        }
+
+        $entry->requestRevision($this->revisionReason);
+        \App\Services\Notifier::send('report_reopen_requested', new \App\Notifications\VortexAlert(
+            event: 'report_reopen_requested',
+            title: 'A streamer wants to change a filed report',
+            body: trim(($show->title ?? 'Show #' . $show->id) . ' — ' . ($entry->revision_reason ?: 'no reason given')),
+            tone: 'warning',
+            links: ['Open the report' => \App\Filament\Resources\StreamerLogResource::getUrl('index')],
+        ));
+
+        $this->cancelRevisionRequest();
+
+        \Filament\Notifications\Notification::make()
+            ->title('Asked for changes')
+            ->body('An admin has been told. The report stays as filed until they reopen it.')
+            ->success()
+            ->send();
     }
 
     /** @return array{shows:int, gross:float, paid:float, unpaid:float, label:string} */

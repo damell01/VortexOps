@@ -74,7 +74,6 @@ class EveryGrantedPageOpensTest extends TestCase
         \App\Filament\Resources\FeatureFlagResource::class => 'developer email only',
         \App\Filament\Pages\Timekeeping::class         => 'the timekeeping module is off',
         \App\Filament\Resources\FulfillmentResource::class => 'the fulfillment module is off',
-        \App\Filament\Pages\StreamerShows::class       => 'streamer role only',
         \App\Filament\Pages\StreamerProfitShare::class => 'streamer role only',
         \App\Filament\Pages\StreamerHub::class         => 'streamer role only',
     ];
@@ -141,7 +140,6 @@ class EveryGrantedPageOpensTest extends TestCase
         $stillDenied = array_values(array_diff($this->sweep()['denied'], [
             // Not the owner's to open: these belong to the streamer role, and
             // modules that are switched off are off for everyone.
-            \App\Filament\Pages\StreamerShows::class,
             \App\Filament\Pages\StreamerProfitShare::class,
             \App\Filament\Pages\StreamerHub::class,
             \App\Filament\Pages\Timekeeping::class,

@@ -6,7 +6,6 @@ $tab=function(string $label,string $icon,callable $can,callable $url):?array{try
 $tabs=auth()->user()?->isStreamer()
 ? array_values(array_filter([
 $tab('Dashboard','heroicon-o-home',fn()=>true,fn()=>\App\Filament\Pages\DashboardImproved::getUrl()),
-$tab('My Shows','heroicon-o-squares-2x2',fn()=>\App\Filament\Pages\StreamerShows::canAccess(),fn()=>\App\Filament\Pages\StreamerShows::getUrl()),
 $tab('Calendar','heroicon-o-calendar-days',fn()=>\App\Filament\Pages\Shows::canAccess(),fn()=>\App\Filament\Pages\Shows::getUrl()),
 $tab('Log show','heroicon-o-clipboard-document-check',fn()=>\App\Filament\Pages\EndOfStreamForm::canAccess(),fn()=>\App\Filament\Pages\EndOfStreamForm::getUrl()),
 ]))

@@ -9,7 +9,7 @@ class DashboardShortcuts
         $user = auth()->user();
         if (! $user) return [];
         $links = $user->isStreamer() ? [
-            [\App\Filament\Pages\StreamerShows::class, 'Log a show', 'Open your assigned shows and complete a report.', 'heroicon-o-video-camera'],
+            [\App\Filament\Pages\EndOfStreamForm::class, 'Log a show', 'Open your assigned shows and complete a report.', 'heroicon-o-video-camera'],
             [\App\Filament\Resources\InventoryItemResource::class, 'Find inventory', 'Check stock you can use for your show.', 'heroicon-o-magnifying-glass'],
         ] : [
             [\App\Filament\Resources\PalletResource::class, 'Receive inventory', 'Open a delivery or resume unfinished receiving.', 'heroicon-o-inbox-arrow-down'],

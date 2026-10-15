@@ -1,6 +1,5 @@
 @php
     use App\Filament\Pages\EndOfStreamForm;
-    use App\Filament\Pages\StreamerShows;
     use App\Support\ShowReportingGoLive;
     use Illuminate\Support\Str;
 
@@ -63,7 +62,7 @@
                     <p class="vsh-when">New shows appear here as soon as you're scheduled.</p>
                 </div>
             @endif
-            <a href="{{ StreamerShows::getUrl() }}" class="vsh-next-link">{{ $next ? 'View show' : 'My shows' }} <x-heroicon-m-arrow-right class="h-4 w-4" /></a>
+            <a href="#vsh-reports-title" wire:click="setTab('upcoming')" class="vsh-next-link">{{ $next ? 'Upcoming shows' : 'All my shows' }} <x-heroicon-m-arrow-right class="h-4 w-4" /></a>
         </div>
         <img class="vsh-hero-mon" src="/img/pokemon/pikachu.gif" alt="" aria-hidden="true">
     </header>
@@ -105,7 +104,7 @@
             <nav class="vsh-tabs" aria-label="Report views">
                 @foreach (\App\Livewire\StreamerHome::TABS as $key => $label)
                     <button type="button" wire:click="setTab('{{ $key }}')" aria-current="{{ $tab === $key ? 'page' : 'false' }}" @class(['is-active' => $tab === $key])>
-                        {{ $label }}@if (in_array($key, ['to_complete', 'changes'], true)) <span class="vsh-tab-count">{{ number_format($counts[$key]) }}</span>@endif
+                        {{ $label }}@if (in_array($key, ['to_complete', 'changes', 'upcoming'], true)) <span class="vsh-tab-count">{{ number_format($counts[$key]) }}</span>@endif
                     </button>
                 @endforeach
             </nav>
@@ -129,7 +128,10 @@
                     $gives = (int) ($entry?->giveaway_quantity ?? 0);
                     $filed = $entry?->submitted_at !== null;
                     $url = EndOfStreamForm::getUrl(['showId' => $show->id]);
+                    $scheduled = $tab === 'upcoming';
+                    $pay = $show->payouts;
                     [$state, $tone, $action, $solid] = match (true) {
+                        $scheduled => [$show->show_date?->isToday() ? 'Today' : 'Scheduled', 'violet', null, false],
                         $entry?->status === 'changes_requested' => ['Needs changes', 'rose', 'Fix report', false],
                         $filed && $entry->status === 'admin_approved' => ['Approved', 'green', 'View report', false],
                         $filed => ['Submitted', 'blue', 'View report', false],
@@ -148,20 +150,34 @@
                         </div>
                         <span class="vsh-pill vsh-{{ $tone }}">{{ $state }}</span>
                     </div>
+                    @unless ($scheduled)
                     <dl class="vsh-figs">
                         <div><dt>Items logged</dt><dd>{{ number_format($items) }}</dd>@if ($saved)<p class="vsh-meta">Saved {{ $saved->diffForHumans() }}</p>@endif</div>
                         <div><dt>Giveaways</dt><dd>{{ number_format($gives) }}</dd></div>
+                        @if ($pay->isNotEmpty())
+                            <div><dt>Your pay</dt><dd class="vsh-paid">{{ $money($pay->sum('calculated_payout')) }}</dd><p class="vsh-meta">{{ $pay->every(fn ($p) => $p->status === 'paid') ? 'Paid' : 'Awaiting payment' }}</p></div>
+                        @endif
                     </dl>
-                    <a href="{{ $url }}" @class(['vsh-btn', 'is-solid' => $solid])>
-                        <x-filament::icon :icon="$solid ? 'heroicon-o-list-bullet' : ($filed ? 'heroicon-o-eye' : 'heroicon-o-document-text')" class="h-5 w-5" />
-                        {{ $action }}
-                    </a>
+                    @endunless
+                    @if ($action)
+                        <a href="{{ $url }}" @class(['vsh-btn', 'is-solid' => $solid])>
+                            <x-filament::icon :icon="$solid ? 'heroicon-o-list-bullet' : ($filed ? 'heroicon-o-eye' : 'heroicon-o-document-text')" class="h-5 w-5" />
+                            {{ $action }}
+                        </a>
+                    @else
+                        <p class="vsh-later">{{ $show->start_time ? 'Starts ' . $show->start_time->format('g:i A') . ' · ' : '' }}Your report opens once the show airs.</p>
+                    @endif
+                    @if ($entry?->hasPendingRevisionRequest())
+                        <p class="vsh-asked"><x-heroicon-m-chat-bubble-left-ellipsis class="h-4 w-4 shrink-0" /> You asked to reopen this. An admin will reply.</p>
+                    @elseif ($entry?->canRequestRevision())
+                        <button type="button" class="vsh-ask" wire:click="askForChanges({{ $show->id }})">Need to change something?</button>
+                    @endif
                 </article>
             @empty
                 <div class="vsh-empty">
                     <img src="/img/pokemon/pikachu.gif" alt="" aria-hidden="true">
-                    <p class="font-semibold">{{ $tab === 'to_complete' ? "You're all caught up!" : 'No shows here' }}</p>
-                    <p class="vsh-meta">{{ $tab === 'to_complete' ? 'Every show you were on has a report filed.' : 'Try another tab or date range.' }}</p>
+                    <p class="font-semibold">{{ $tab === 'to_complete' ? "You're all caught up!" : ($tab === 'upcoming' ? 'Nothing scheduled yet' : 'No shows here') }}</p>
+                    <p class="vsh-meta">{{ $tab === 'to_complete' ? 'Every show you were on has a report filed.' : ($tab === 'upcoming' ? 'New shows appear here as soon as you are scheduled.' : 'Try another tab or date range.') }}</p>
                 </div>
             @endforelse
         </div>
@@ -188,6 +204,23 @@
             </div>
         @endif
     </section>
+
+    {{-- Asking for a filed report back: a centered pop-up. --}}
+    @if ($revisionFor && ($asking = $this->revisionShow()))
+        <div class="vsh-modal-backdrop" wire:click="cancelRevisionRequest"></div>
+        <div class="vsh-modal" role="dialog" aria-modal="true" aria-labelledby="vsh-ask-title" x-data x-on:keydown.escape.window="$wire.cancelRevisionRequest()">
+            <h2 id="vsh-ask-title">Ask to change this report</h2>
+            <p class="vsh-meta">{{ $asking->title }} · {{ $asking->show_date?->format('M j, Y') }}</p>
+            <label class="vsh-field">What needs changing?
+                <textarea wire:model="revisionReason" rows="3" placeholder="e.g. I logged the wrong item" x-init="$el.focus()"></textarea>
+            </label>
+            <p class="vsh-meta">The report stays as filed until an admin reopens it for you.</p>
+            <div class="vsh-modal-actions">
+                <button type="button" class="vsh-btn" wire:click="cancelRevisionRequest">Cancel</button>
+                <button type="button" class="vsh-btn is-solid" wire:click="submitRevisionRequest" wire:loading.attr="disabled" wire:target="submitRevisionRequest">Send request</button>
+            </div>
+        </div>
+    @endif
 
 <style>
     .vsh { --vsh-line: rgb(229 231 235); --vsh-card: #fff; --vsh-muted: rgb(107 114 128); display:flex; flex-direction:column; gap:1rem; }
@@ -269,6 +302,22 @@
     .vsh-btn:hover { background: color-mix(in srgb, #7c3aed 7%, var(--vsh-card)); }
     .vsh-btn.is-solid { color:#fff; border-color:transparent; background: linear-gradient(135deg, #6d28d9, #7c3aed); box-shadow: 0 8px 18px -10px rgb(109 40 217 / .9); }
     .vsh-btn.is-solid:hover { background: linear-gradient(135deg, #5b21b6, #6d28d9); }
+    .vsh-figs:has(> div:nth-child(3)) { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .vsh-figs > div:nth-child(3) { padding-left:1rem; border-left:1px solid var(--vsh-line); }
+    .vsh-paid { color:#059669; }
+    .dark .vsh-paid { color:#34d399; }
+    .vsh-later { margin-top:auto; padding:.7rem; border-radius:.75rem; text-align:center; font-size:.85rem; color: var(--vsh-muted); background: color-mix(in srgb, #7c3aed 6%, var(--vsh-card)); }
+    .vsh-ask { align-self:center; margin-top:-.35rem; font-size:.8rem; font-weight:600; color: var(--vsh-muted); }
+    .vsh-ask:hover { color:#7c3aed; text-decoration: underline; }
+    .vsh-asked { display:flex; align-items:center; gap:.4rem; margin-top:-.35rem; font-size:.8rem; color:#2563eb; }
+    .vsh-modal-backdrop { position:fixed; inset:0; z-index:90; background: rgb(15 23 42 / .5); backdrop-filter: blur(3px); }
+    .vsh-modal { position:fixed; z-index:91; top:50%; left:50%; transform:translate(-50%,-50%); width:min(30rem, calc(100vw - 2rem)); display:flex; flex-direction:column; gap:.75rem; padding:1.4rem; border-radius:1.1rem; background: var(--vsh-card); border:1px solid var(--vsh-line); box-shadow: 0 24px 60px -18px rgb(46 16 101 / .45); }
+    .vsh-modal h2 { font-size:1.15rem; font-weight:800; }
+    .vsh-field { display:flex; flex-direction:column; gap:.35rem; font-size:.85rem; font-weight:600; }
+    .vsh-field textarea { border:1px solid var(--vsh-line); border-radius:.75rem; padding:.65rem .8rem; font-weight:400; background: var(--vsh-card); }
+    .vsh-field textarea:focus { outline:none; border-color:#8b5cf6; box-shadow:0 0 0 3px rgb(139 92 246 / .2); }
+    .vsh-modal-actions { display:flex; justify-content:flex-end; gap:.5rem; }
+    .vsh-modal-actions .vsh-btn { margin-top:0; padding:0 1.1rem; }
     .vsh-empty { grid-column: 1 / -1; display:flex; flex-direction:column; align-items:center; gap:.25rem; padding:2.5rem 1rem; border:1px dashed var(--vsh-line); border-radius:1rem; text-align:center; }
     .vsh-empty img { height:4rem; image-rendering:pixelated; margin-bottom:.4rem; }
 

@@ -4,6 +4,23 @@
             <h2 class="text-xl font-bold">Your guides, ready when you need them</h2>
             <p class="mt-2 text-sm text-gray-500">Choose a PDF guide to read here, open it in your browser, or download a copy. The guides below follow your account's access.</p>
         </section>
+        @php
+            $isAdmin = auth()->user()?->isAdmin() || auth()->user()?->isOwner();
+            $setupGuides = collect($isAdmin ? ['guide.payroll', 'guide.estill', 'guide.inventory', 'guide.streamer', 'guide.shows'] : ['guide.shows'])
+                ->mapWithKeys(fn ($key) => [$key => \App\Support\HelpTopics::get($key)])->filter();
+        @endphp
+        <section aria-labelledby="setup-guides-heading">
+            <h2 id="setup-guides-heading" class="mb-1 text-lg font-bold">Setup guides</h2>
+            <p class="mb-3 text-sm text-gray-500">Short, step-by-step. Every page also has "How this page works" beside its title.</p>
+            <div class="grid gap-3 md:grid-cols-3">
+                @foreach($setupGuides as $key => $guide)
+                    <button type="button" data-vx-help="{{ $key }}" class="rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-primary-400 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                        <span class="flex items-center gap-2 font-bold"><x-heroicon-o-light-bulb class="h-5 w-5 shrink-0 text-primary-500"/>{{ $guide['title'] }}</span>
+                        <span class="mt-2 block text-sm text-gray-500">{{ $guide['intro'] }}</span>
+                    </button>
+                @endforeach
+            </div>
+        </section>
         <section aria-labelledby="pdf-guides-heading">
             <h2 id="pdf-guides-heading" class="mb-3 text-lg font-bold">PDF guides</h2>
             <div class="grid gap-4 md:grid-cols-3">

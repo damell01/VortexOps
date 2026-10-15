@@ -95,3 +95,8 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
 });
 
 Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportController::class, 'manifestTemplate'])->name('manifest.template');
+
+// The words behind the "?" help buttons (resources/js/help.js), loaded on first click.
+Route::middleware(['auth', 'web'])->get('/admin/help-topics.json', function () {
+    return response()->json(\App\Support\HelpTopics::all())->header('Cache-Control', 'private, max-age=300');
+})->name('help.topics');

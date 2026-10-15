@@ -34,3 +34,27 @@
 @keyframes vx-help-out { to { opacity: 0; transform: translateY(6px) scale(.98); } }
 @keyframes vx-help-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .vx-help-dialog, .vx-help-dialog::backdrop, .vx-help-dialog.is-closing { animation: none; } .vx-help-btn:hover { transform: none; } }
+
+/* "How this page works", beside the page title. */
+.fi-header > div:has(> .vx-page-help) > .fi-header-heading { display: inline; }
+.vx-page-help { display: inline-block; vertical-align: .35em; margin-inline-start: .6rem; }
+.vx-help-btn--page { display: inline-flex; width: auto; height: auto; gap: .35rem; padding: .22rem .6rem .22rem .4rem; border-radius: 999px; background: #f5f1ff; color: #6d28d9; font-size: .74rem; font-weight: 700; letter-spacing: 0; line-height: 1.2; vertical-align: middle; }
+.vx-help-btn--page svg { width: 16px; height: 16px; }
+.vx-help-btn--page:hover { background: #ebe3ff; transform: none; }
+.dark .vx-help-btn--page { background: rgb(124 58 237 / .2); color: #ddd6fe; }
+.dark .vx-help-btn--page:hover { background: rgb(124 58 237 / .32); }
+@media (max-width: 640px) { .vx-help-btn--page span { display: none; } .vx-help-btn--page { padding: .25rem; } }
+
+.vx-help-back { width: 2rem; height: 2rem; border-radius: .5rem; font-size: 1.5rem; line-height: 1; color: #6d28d9; flex: none; }
+.vx-help-back:hover { background: rgb(139 92 246 / .1); }
+.vx-help-dialog ul.vx-help-plain li { padding: 0 0 0 1.1rem; background: none; }
+.vx-help-dialog ul.vx-help-plain li::before { content: ''; left: .25rem; top: .55rem; width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; }
+.vx-help-related { display: flex; flex-wrap: wrap; gap: .4rem; }
+.vx-help-related button { padding: .35rem .7rem; border-radius: 999px; border: 1px solid #ddd6fe; background: #fff; color: #6d28d9; font-size: .8rem; font-weight: 700; }
+.vx-help-related button:hover { background: #f5f1ff; border-color: #a78bfa; }
+.dark .vx-help-related button { background: transparent; border-color: rgb(167 139 250 / .4); color: #ddd6fe; }
+.vx-help-foot { gap: .5rem; }
+.vx-help-tour { padding: .5rem 1rem; border-radius: .65rem; border: 1px solid #ddd6fe; color: #6d28d9; font-weight: 700; font-size: .88rem; }
+.vx-help-tour:hover { background: #f5f1ff; }
+.dark .vx-help-tour { border-color: rgb(167 139 250 / .4); color: #ddd6fe; }
+.dark .vx-help-tour:hover { background: rgb(124 58 237 / .15); }

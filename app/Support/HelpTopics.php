@@ -15,8 +15,20 @@ use Illuminate\Support\HtmlString;
  */
 class HelpTopics
 {
-    /** @return array<string, array{title:string, intro:string, steps?:list<string>, tips?:list<string>}> */
+    /**
+     * Every topic. A topic has a title and an intro, then any of: steps (a
+     * numbered list), sections (headed lists, for the longer setup guides),
+     * tips, and related (other topics, opened from the same modal).
+     *
+     * @return array<string, array<string, mixed>>
+     */
     public static function all(): array
+    {
+        return HelpContent::guides() + HelpContent::pages() + self::fields();
+    }
+
+    /** Help for one field or panel. @return array<string, array<string, mixed>> */
+    public static function fields(): array
     {
         return [
             'locations.overview' => [
@@ -150,6 +162,30 @@ class HelpTopics
     public static function get(string $topic): ?array
     {
         return self::all()[$topic] ?? null;
+    }
+
+    /**
+     * The help for the page being shown, from the page and resource classes
+     * Filament hands a render hook. The page's own entry wins over its
+     * resource's; an entry can differ for admins and streamers.
+     */
+    public static function forPage(array $scopes): ?string
+    {
+        $map = HelpContent::pageMap();
+        $user = auth()->user();
+        $isAdmin = (bool) ($user?->isAdmin() || $user?->isOwner());
+
+        foreach ($scopes as $class) {
+            $entry = is_string($class) ? ($map[$class] ?? null) : null;
+            if (is_array($entry)) {
+                $entry = $isAdmin ? ($entry['admin'] ?? null) : ($entry['streamer'] ?? $entry['admin'] ?? null);
+            }
+            if ($entry && self::get($entry)) {
+                return $entry;
+            }
+        }
+
+        return null;
     }
 
     /** The "?" button for a topic. */

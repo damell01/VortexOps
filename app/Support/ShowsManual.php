@@ -107,7 +107,7 @@ class ShowsManual
                             'Every report is a card: the channel, where it stands, the show and streamer, and what it is worth. The banner under the counts says how reports get approved (set in Settings → Post-Show Workflow) and links straight to the next one waiting.',
                             'Each card shows the sales, the product cost the streamer entered and their pay for that show. Until the pay run picks it up the pay is an estimate, worked out exactly the way the pay run will; once it is on a run it shows the real figure. Hover over the pay to see how it was worked out.',
                             'A yellow Missing line lists anything pay or stock still depends on: Whatnot earnings not imported, hours worked, shipments, items without a cost, no items logged. Fix those before approving.',
-                            'Approve clears a submitted report straight from its card. The main button opens it, and ⋮ holds Request Changes, the edit-request answers and the fulfillment check. Select turns on checkboxes for approving or sending back several at once.',
+                            'Each card carries the buttons for where that report is: Approve and Request changes once it is submitted, Reopen for edits or Decline request when a streamer asks for it back, Submit for streamer when they finished but never pressed Submit, Fulfillment checked for PWE/label pay. The last button opens the report. Select turns on checkboxes for approving or sending back several at once.',
                         ],
                         'shot' => 'report-inbox.png',
                         'fields' => [
@@ -118,7 +118,8 @@ class ShowsManual
                             ['Search, Streamer, Channel, Date range, Filters', 'Narrow the cards; Filters adds status and an exact show-date range.'],
                             ['Missing', 'What the report still needs before pay can be trusted.'],
                             ['Sales / Product cost / Pay', 'Est. pay before a pay run, then Pay (draft), On pay run or Paid.'],
-                            ['Approve / Review / ⋮', 'Approve from the card, open the report, or the less common actions.'],
+                            ['Card buttons', 'Only the actions that fit the report right now; the right-most opens it.'],
+                            ['Submit for streamer', 'Files a finished report the streamer forgot to submit, exactly as if they had pressed Submit.'],
                         ],
                         'note' => 'Shows before the date in Settings → Post-Show Workflow → Streamer reports start from are previous shows: streamers still see them on their Shows page and can log one if they want, but they never count as waiting on anyone and stay out of this inbox.',
                     ],

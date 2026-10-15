@@ -5,54 +5,6 @@
     @if(($roleMode ?? null) !== 'streamer')<x-dashboard-shortcuts />@endif
     @php
         $pageMode = $roleMode ?? 'user';
-        $myUpcomingShows = collect();
-        $myRecentShows = collect();
-
-        if ($pageMode === 'streamer') {
-            $streamerId = auth()->user()?->streamer?->id;
-
-            if ($streamerId) {
-                $baseShows = \App\Models\Show::query()
-                    ->inChannelContext()
-                    ->with(['channel', 'streamerLogEntry' => fn ($q) => $q->withCount('items')->withSum(['items as giveaway_quantity' => fn ($q) => $q->where('disposition', 'giveaway')], 'quantity')])
-                    ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId))
-                    ->whereNotIn('status', ['cancelled']);
-
-                $nowTime = now()->format('H:i:s');
-
-                $myUpcomingShows = (clone $baseShows)
-                    ->where(function ($q) use ($nowTime) {
-                        $q->whereDate('show_date', '>', today())
-                            ->orWhere(function ($today) use ($nowTime) {
-                                $today->whereDate('show_date', today())
-                                    ->where(function ($time) use ($nowTime) {
-                                        $time->whereNull('start_time')
-                                            ->orWhereTime('start_time', '>', $nowTime);
-                                    });
-                            });
-                    })
-                    ->orderBy('show_date')
-                    ->orderBy('start_time')
-                    ->limit(8)
-                    ->get();
-
-                $myRecentShows = (clone $baseShows)
-                    ->where(function ($q) use ($nowTime) {
-                        $q->whereDate('show_date', '<', today())
-                            ->orWhere(function ($today) use ($nowTime) {
-                                $today->whereDate('show_date', today())
-                                    ->where(function ($time) use ($nowTime) {
-                                        $time->whereNull('start_time')
-                                            ->orWhereTime('start_time', '<=', $nowTime);
-                                    });
-                            });
-                    })
-                    ->orderByDesc('show_date')
-                    ->orderByDesc('start_time')
-                    ->limit(10)
-                    ->get();
-            }
-        }
     @endphp
 
     <div
@@ -63,7 +15,7 @@
         @endif
     >
         @if($pageMode === 'streamer')
-            @include('filament.components.streamer-dashboard-reference')
+            <livewire:streamer-home :key="'streamer-home'" />
         @elseif($pageMode === 'fulfillment')
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">

@@ -1,22 +1,34 @@
 .vx-picker-trigger,.vx-mobile-pages{display:none}
-.vx-picker-overlay{position:fixed;inset:0;z-index:2147483100;display:flex;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.48)}
-.vx-mobile-picker-sheet{width:100%;max-width:560px;max-height:85dvh;background:#fff;color:#182033;border-radius:22px 22px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 40px #0003}
-.vx-mobile-picker-sheet header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.vx-picker-overlay{position:fixed;inset:0;z-index:2147483100;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.5);backdrop-filter:blur(3px);animation:vx-picker-fade .16s ease-out}
+@keyframes vx-picker-fade{from{opacity:0}to{opacity:1}}
+@keyframes vx-picker-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+/* A centered pop-up, not a sheet from the bottom: the same shape as every other dialog in the app. */
+.vx-mobile-picker-sheet{display:flex;flex-direction:column;width:100%;max-width:440px;max-height:min(80dvh,620px);background:#fff;color:#182033;border:1px solid #ece8f8;border-radius:20px;padding:18px 16px 14px;box-shadow:0 24px 60px -18px rgba(46,16,101,.45);animation:vx-picker-pop .18s ease-out}
+.vx-mobile-picker-sheet header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;padding:0 4px}
 .vx-mobile-picker-sheet h2{font-size:17px;font-weight:700;overflow-wrap:anywhere}
-.vx-mobile-picker-sheet header button{min-height:44px;padding:10px 14px;border-radius:10px;background:#ede9fe;color:#6d28d9;font-weight:600}
-.vx-mobile-picker-sheet input{width:100%;min-height:48px;padding:12px 14px;font-size:16px;border:1px solid #d9deea;border-radius:12px;background:#f8fafc;color:inherit}
-.vx-picker-options{max-height:min(48dvh,360px);overflow-y:auto;overscroll-behavior:contain;margin-top:10px}
-.vx-picker-options button{display:flex;justify-content:space-between;gap:12px;width:100%;min-height:48px;padding:12px 14px;border-radius:10px;text-align:left;font-size:15px;white-space:normal}
+.vx-mobile-picker-sheet header button{min-height:40px;padding:8px 14px;border-radius:10px;background:#ede9fe;color:#6d28d9;font-weight:600}
+.vx-mobile-picker-sheet input{width:100%;min-height:46px;padding:11px 14px;font-size:16px;border:1px solid #d9deea;border-radius:12px;background:#f8fafc;color:inherit;outline:0}
+.vx-mobile-picker-sheet input:focus{border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.2)}
+.vx-picker-options{flex:1;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain;margin-top:10px;display:flex;flex-direction:column;gap:2px}
+.vx-picker-options button{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;padding:12px 14px;border-radius:12px;text-align:left;font-size:15px;white-space:normal;transition:background-color .12s}
+.vx-picker-options button:hover,.vx-picker-options button:focus-visible{background:#f5f3ff;outline:0}
 .vx-picker-options button[aria-pressed=true]{background:#ede9fe;color:#6d28d9;font-weight:600}
+.vx-picker-options button > span:last-child{display:grid;place-items:center;flex:none;width:22px;height:22px;border-radius:999px;font-size:13px}
+.vx-picker-options button[aria-pressed=true] > span:last-child{background:#7c3aed;color:#fff}
 .vx-picker-options button:disabled{opacity:.4}
 .vx-picker-options p{padding:16px;color:#64748b}
+.dark .vx-mobile-picker-sheet{background:#141026;color:#e7e5f4;border-color:#2e2650}
+.dark .vx-mobile-picker-sheet input{background:#1c1733;border-color:#352b5c}
+.dark .vx-picker-options button:hover,.dark .vx-picker-options button:focus-visible{background:#221b3d}
+@media(prefers-reduced-motion:reduce){.vx-picker-overlay,.vx-mobile-picker-sheet{animation:none}}
 .dark .vx-mobile-picker-sheet{background:#182033;color:#e7eaf2}
 .dark .vx-mobile-picker-sheet input{background:#101827;border-color:#354158}
 .dark .vx-picker-options button[aria-pressed=true],.dark .vx-mobile-picker-sheet header button{background:#352658;color:#ddd6fe}
 @media(max-width:767px){
 .fi-main .vx-native-picker,.vx-mobile-menu-sheet .vx-native-picker,.fi-modal-window .vx-native-picker{display:none!important}
 .vx-picker-trigger{display:flex!important;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;border:1px solid #d9deea;border-radius:12px;background:#fff;color:#182033;padding:12px 14px;font-size:16px;line-height:1.4;text-align:left;white-space:normal;overflow-wrap:anywhere}
-.vx-picker-trigger:after{content:'⌄';font-size:20px;flex-shrink:0;color:#7c3aed}
+.vx-picker-trigger:after{content:'';flex-shrink:0;width:18px;height:18px;background:#7c3aed;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.2 7.6a.75.75 0 0 1 1.06.04L10 11.7l3.74-4.06a.75.75 0 1 1 1.1 1.02l-4.3 4.66a.75.75 0 0 1-1.1 0L5.16 8.66a.75.75 0 0 1 .04-1.06z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.2 7.6a.75.75 0 0 1 1.06.04L10 11.7l3.74-4.06a.75.75 0 1 1 1.1 1.02l-4.3 4.66a.75.75 0 0 1-1.1 0L5.16 8.66a.75.75 0 0 1 .04-1.06z'/%3E%3C/svg%3E") center/contain no-repeat}
+.vx-picker-trigger:focus-visible{outline:0;border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.2)}
 .vx-picker-trigger:disabled{opacity:.5}
 .fi-main input[type=date],.fi-main input[type=time],.fi-main input[type=datetime-local],.fi-main select,.fi-main input[type=search]{min-height:48px!important;max-width:100%;min-width:0;font-size:16px!important;border-radius:12px!important}
 .fi-main input[type=date],.fi-main input[type=time],.fi-main input[type=datetime-local]{appearance:none;padding:12px 14px;border:1px solid #d9deea;background:#fff;color:#182033}
@@ -70,3 +82,11 @@ html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile
 .vx-mobile-picker-sheet{overflow-y:auto;overscroll-behavior:contain}
 }
 @media(prefers-reduced-motion:reduce){.vx-mobile-menu-sheet,.vx-mobile-picker-sheet{transition:none!important}}
+
+
+/* Every native dropdown in the app: the same violet chevron and focus ring, light and dark.
+   Filament's own select inputs are styled by Filament and left alone. */
+.fi-main select:not([multiple]):not(.fi-select-input),.fi-modal-window select:not([multiple]):not(.fi-select-input){appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%237c3aed'%3E%3Cpath d='M5.2 7.6a.75.75 0 0 1 1.06.04L10 11.7l3.74-4.06a.75.75 0 1 1 1.1 1.02l-4.3 4.66a.75.75 0 0 1-1.1 0L5.16 8.66a.75.75 0 0 1 .04-1.06z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .65rem center;background-size:1.05rem;padding-right:2.25rem;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.dark .fi-main select:not([multiple]):not(.fi-select-input),.dark .fi-modal-window select:not([multiple]):not(.fi-select-input){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a78bfa'%3E%3Cpath d='M5.2 7.6a.75.75 0 0 1 1.06.04L10 11.7l3.74-4.06a.75.75 0 1 1 1.1 1.02l-4.3 4.66a.75.75 0 0 1-1.1 0L5.16 8.66a.75.75 0 0 1 .04-1.06z'/%3E%3C/svg%3E")}
+.fi-main select:not(.fi-select-input):focus-visible,.fi-modal-window select:not(.fi-select-input):focus-visible{outline:0;border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.2)}
+.fi-main select option:checked{background:#ede9fe;color:#4c1d95}

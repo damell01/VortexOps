@@ -69,8 +69,7 @@ class StreamerDashboardScopingTest extends TestCase
         Livewire::actingAs($user);
         Livewire::test(\App\Filament\Pages\DashboardImproved::class)
             ->assertOk()->assertNoRedirect()
-            ->assertSee('Log Items for a Recent Show')
-            ->assertSee('Recent Item Entries')
+            ->assertSee('Your show reports')
             ->assertSee('Mine Show')->assertSee('Shared Show')
             ->assertDontSee('Theirs Show');
     }

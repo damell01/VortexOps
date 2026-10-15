@@ -68,7 +68,7 @@ class PokemonTouchesTest extends TestCase
         $show->streamers()->attach($streamer->id, ['is_primary' => true]);
 
         $this->assertSame('2026-10-14 15:15', $show->fresh()->startsAt('UTC')->format('Y-m-d H:i'));
-        $this->actingAs($user)->get('/admin')->assertOk()->assertSee('Your show starts in')->assertSee('vx-countdown', false);
+        $this->actingAs($user)->get('/admin')->assertOk()->assertSee('Next show')->assertSee('Friday Break')->assertSee('vsh-count', false);
 
         \Illuminate\Support\Carbon::setTestNow();
     }

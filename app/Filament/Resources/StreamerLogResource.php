@@ -317,6 +317,140 @@ class StreamerLogResource extends Resource
                     }),
             ])
             ->actions([
+                // Every action sits on the card as its own button; which ones
+                // show depends on where the report is. The main button is last.
+                // Files a report the streamer never submitted, on their behalf —
+                // through submitReport() so it is stamped, stock posts and the
+                // review policy applies exactly as if they had pressed Submit.
+                Action::make('streamer_review')
+                    ->label('Submit for streamer')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('gray')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->visible(fn (StreamerLogEntry $record) => $record->status === 'pending' && ! $record->isSubmitted()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Submit this report for the streamer?')
+                    ->modalDescription('Files it as if the streamer had pressed Submit: it locks, stock posts and it goes to review (or approves itself, depending on your workflow settings). Use it when the streamer finished but forgot to submit.')
+                    ->modalSubmitActionLabel('Submit report')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $problems = $record->submitReport();
+
+                        Notification::make()
+                            ->title('Report submitted for the streamer')
+                            ->body($problems === [] ? null : 'Inventory exceptions: ' . implode(' | ', $problems))
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('fulfillment_review')
+                    ->label('Fulfillment checked')
+                    ->icon('heroicon-o-truck')
+                    ->color('info')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->visible(fn (StreamerLogEntry $record) => $record->needsFulfillmentReview()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirm fulfillment review')
+                    ->modalDescription('Confirms the PWE and label counts above are correct for this payout-type streamer, after the streamer and admin review are already done.')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->update([
+                            'fulfillment_reviewed_by' => auth()->id(),
+                            'fulfillment_reviewed_at' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Fulfillment review recorded')
+                            ->success()
+                            ->send();
+                    }),
+
+                // Answering a streamer's "can I have this back?" from the list,
+                // rather than opening each report to find the button.
+                Action::make('approve_edit_request')
+                    ->label('Reopen for edits')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('warning')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Approve this edit request')
+                    ->modalDescription(fn (StreamerLogEntry $record) => trim(
+                        ($record->revision_reason ? "They said: “{$record->revision_reason}”\n\n" : '')
+                        . 'The report stays as filed and its stock stays posted — the streamer just gets the edit window back.'
+                    ))
+                    ->modalSubmitActionLabel('Reopen')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->reopenForEditing();
+
+                        Notification::make()
+                            ->title('Report reopened')
+                            ->body('The streamer can edit it again and has been told.')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('decline_edit_request')
+                    ->label('Decline request')
+                    ->icon('heroicon-o-hand-raised')
+                    ->color('gray')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('reason')
+                            ->label('Why not? (the streamer sees this)')
+                            ->rows(3)
+                            ->required(),
+                    ])
+                    ->action(function (StreamerLogEntry $record, array $data): void {
+                        $record->declineRevisionRequest($data['reason']);
+
+                        Notification::make()
+                            ->title('Edit request declined')
+                            ->body('The streamer has been told; the report stays as filed.')
+                            ->success()
+                            ->send();
+                    }),
+
+                // Send an already-reviewed/approved entry back to the streamer so
+                // they can edit it again (admins/owner only).
+                Action::make('send_back')
+                    ->label('Request changes')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->button()
+                    ->outlined()
+                    ->size('sm')
+                    ->visible(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'])
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('notes')
+                            ->label('What needs changing?')
+                            ->rows(3)
+                            ->placeholder('Tell the streamer what to fix before resubmitting.')
+                            ->required(),
+                    ])
+                    ->modalHeading('Request changes from the streamer')
+                    ->modalDescription('Reopens this entry for editing and returns any stock that was deducted when it was submitted.')
+                    ->modalSubmitActionLabel('Request Changes')
+                    ->action(function (StreamerLogEntry $record, array $data): void {
+                        $record->sendBackToStreamer($data['notes']);
+
+                        Notification::make()
+                            ->title('Changes requested')
+                            ->body('The streamer has been notified and any deducted stock was returned.')
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('admin_approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
@@ -344,7 +478,6 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
-                // The row's main button: what you'd do next with this report.
                 Action::make('open')
                     ->label(fn (StreamerLogEntry $record) => match (true) {
                         $record->hasPendingRevisionRequest() => 'View request',
@@ -358,128 +491,6 @@ class StreamerLogResource extends Resource
                     ->color('primary')
                     ->extraAttributes(['class' => 'vxi-primary'])
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
-                // Approve and Request Changes stay on the row — they're the
-                // whole job of this screen. The rest goes behind the overflow
-                // menu so the actions column stops squeezing Show Title.
-                ActionGroup::make([
-                Action::make('streamer_review')
-                    ->label('Streamer Reviewed')
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
-                    ->visible(fn (StreamerLogEntry $record) => $record->status === 'pending')
-                    ->requiresConfirmation()
-                    ->modalHeading('Mark as Reviewed by Streamer')
-                    ->modalDescription('Confirm the streamer has reviewed and signed off on this log entry.')
-                    ->action(function (StreamerLogEntry $record): void {
-                        $record->status = 'streamer_reviewed';
-                        $record->streamer_reviewed_at = now();
-                        $record->save();
-
-                        Notification::make()
-                            ->title('Log marked as reviewed by streamer')
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('fulfillment_review')
-                    ->label('Fulfillment Reviewed')
-                    ->icon('heroicon-o-truck')
-                    ->color('info')
-                    ->visible(fn (StreamerLogEntry $record) => $record->needsFulfillmentReview()
-                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()))
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirm fulfillment review')
-                    ->modalDescription('Confirms the PWE and label counts above are correct for this payout-type streamer, after the streamer and admin review are already done.')
-                    ->action(function (StreamerLogEntry $record): void {
-                        $record->update([
-                            'fulfillment_reviewed_by' => auth()->id(),
-                            'fulfillment_reviewed_at' => now(),
-                        ]);
-
-                        Notification::make()
-                            ->title('Fulfillment review recorded')
-                            ->success()
-                            ->send();
-                    }),
-
-                // Answering a streamer's "can I have this back?" from the list,
-                // rather than opening each report to find the button.
-                Action::make('approve_edit_request')
-                    ->label('Approve Edit Request')
-                    ->icon('heroicon-o-lock-open')
-                    ->color('warning')
-                    ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
-                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
-                    ->requiresConfirmation()
-                    ->modalHeading('Approve this edit request')
-                    ->modalDescription(fn (StreamerLogEntry $record) => trim(
-                        ($record->revision_reason ? "They said: “{$record->revision_reason}”\n\n" : '')
-                        . 'The report stays as filed and its stock stays posted — the streamer just gets the edit window back.'
-                    ))
-                    ->modalSubmitActionLabel('Reopen')
-                    ->action(function (StreamerLogEntry $record): void {
-                        $record->reopenForEditing();
-
-                        Notification::make()
-                            ->title('Report reopened')
-                            ->body('The streamer can edit it again and has been told.')
-                            ->success()
-                            ->send();
-                    }),
-
-                Action::make('decline_edit_request')
-                    ->label('Decline Edit Request')
-                    ->icon('heroicon-o-hand-raised')
-                    ->color('gray')
-                    ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
-                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
-                    ->form([
-                        \Filament\Forms\Components\Textarea::make('reason')
-                            ->label('Why not? (the streamer sees this)')
-                            ->rows(3)
-                            ->required(),
-                    ])
-                    ->action(function (StreamerLogEntry $record, array $data): void {
-                        $record->declineRevisionRequest($data['reason']);
-
-                        Notification::make()
-                            ->title('Edit request declined')
-                            ->body('The streamer has been told; the report stays as filed.')
-                            ->success()
-                            ->send();
-                    }),
-
-                // Send an already-reviewed/approved entry back to the streamer so
-                // they can edit it again (admins/owner only).
-                Action::make('send_back')
-                    ->label('Request Changes')
-                    ->icon('heroicon-o-arrow-uturn-left')
-                    ->color('warning')
-                    ->visible(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'])
-                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
-                    ->form([
-                        \Filament\Forms\Components\Textarea::make('notes')
-                            ->label('What needs changing?')
-                            ->rows(3)
-                            ->placeholder('Tell the streamer what to fix before resubmitting.')
-                            ->required(),
-                    ])
-                    ->modalHeading('Request changes from the streamer')
-                    ->modalDescription('Reopens this entry for editing and returns any stock that was deducted when it was submitted.')
-                    ->modalSubmitActionLabel('Request Changes')
-                    ->action(function (StreamerLogEntry $record, array $data): void {
-                        $record->sendBackToStreamer($data['notes']);
-
-                        Notification::make()
-                            ->title('Changes requested')
-                            ->body('The streamer has been notified and any deducted stock was returned.')
-                            ->success()
-                            ->send();
-                    }),
-
-                ])
-                    ->icon('heroicon-m-ellipsis-vertical')
-                    ->label('More actions')
-                    ->color('gray'),
             ])
             // Approving a week of logs one row at a time is the actual job on
             // this screen. There was a "bottom action bar" offering Approve,

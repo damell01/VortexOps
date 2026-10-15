@@ -75,7 +75,7 @@ class HelpTopics
                     'Hourly: Hours Worked × their hourly rate.',
                     'Shipments: envelopes (PWE) × the envelope rate + packages × the package rate.',
                     'Share: (Whatnot net − product cost − burden − hourly − shipment pay) × their share %.',
-                    'Pay = hourly + shipments + share.',
+                    'Hourly and shipments are paid weekly, on a wage line. The share is its own line, paid by the profit-share run — the same split as VCX.',
                 ],
                 'tips' => [
                     'Example: 4 hrs × $20 = $80; 10 envelopes × $1 + 5 packages × $2 = $20; ($1,000 − $300 − $50 − $80 − $20) × 10% = $55. Pay $155.',
@@ -118,10 +118,10 @@ class HelpTopics
                 'intro' => 'What to move to the business\'s separate bank account for the shows on this run.',
                 'steps' => [
                     'Product cost: what the stock sold on those shows cost.',
-                    'Business revenue: Whatnot net earnings − everything this run pays for them.',
+                    'Business revenue: Whatnot net earnings − all pay for those shows except tips (including profit share paid later on a profit-share run).',
                     'Transfer = product cost + business revenue.',
                 ],
-                'tips' => ['Tips runs have no transfer: tips aren\'t part of Whatnot\'s net.'],
+                'tips' => ['It shows on the run that pays the shows\' wages. Profit-share and Tips runs have none, so no show is counted twice.'],
             ],
             'show.house_cut' => [
                 'title' => 'Business keeps (this show only)',

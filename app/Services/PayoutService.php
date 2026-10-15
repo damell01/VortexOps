@@ -198,6 +198,7 @@ class PayoutService
         $hoursMissingNote = $workedHours === null ? ' · Hours missing' : '';
 
         $share = null;
+        $shiftWages = null;
 
         switch ($streamer->payout_type) {
             case 'profit_share':
@@ -245,9 +246,21 @@ class PayoutService
                 // rates), and a share of what is left of the show once those,
                 // the product and any burden are paid for:
                 //   (net sales − product cost − burden − hourly − shipment pay) × share %
+                //
+                // Paid like VCX: the hours and shipments are wages, on a line
+                // of their own for the weekly run; this line is the profit
+                // share, paid by the profit-share run.
                 $shift = $this->shiftShareWorking($show, $streamer, $logEntry, $hours, $isPrimary || $streamerCount <= 1);
-                $calculatedPayout = $shift['earnings'];
+                $calculatedPayout = $shift['columns']['share'];
                 $calculationNotes = $shift['note'] . $hoursMissingNote;
+                $shiftWages = $shift['columns']['hourly_pay'] + $shift['columns']['shipment_pay'] > 0 ? [
+                    'calculated_payout' => round($shift['columns']['hourly_pay'] + $shift['columns']['shipment_pay'], 2),
+                    'hours_worked' => $hours,
+                    'pwe_count' => $shift['pwe'] ?: null,
+                    'label_count' => $shift['packages'] ?: null,
+                    'calculation_notes' => 'Hourly and shipments for this show: $' . number_format($shift['columns']['hourly_pay'], 2) . ' hourly + $'
+                        . number_format($shift['columns']['shipment_pay'], 2) . ' shipments (wage line; the profit share is paid on its own line)',
+                ] : null;
                 $pweCount = $shift['pwe'];
                 $labelCount = $shift['packages'];
                 if ($streamer->include_tips) {
@@ -399,7 +412,7 @@ class PayoutService
         // Hours are the ones the share was worked out from (the streamer's
         // report, falling back to the show's length).
         $hourlyPay = 0.0;
-        $splitHourly = null;
+        $splitHourly = $shiftWages ?? null;
         $hourlyRate = $streamer->paidHourlyRate();
         if ($hourlyRate !== null) {
             $paidHours = (float) ($share['columns']['hours_worked'] ?? $hours);
@@ -590,7 +603,7 @@ class PayoutService
             . ($logEntry ? '' : '. No show report filed, so product cost counted as $0.00');
 
         return [
-            'earnings' => round($hourly + $shipping + $share, 2),
+            'earnings' => round($hourly + $shipping + $share, 2), // the whole show; paid as a wage line + a share line
             'note' => $note,
             'pwe' => $pwe,
             'packages' => $packages,

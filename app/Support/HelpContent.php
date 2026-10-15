@@ -59,13 +59,13 @@ class HelpContent
                         'Change a person\'s % in their pay; change one show\'s % under that show → Financials → "Business keeps (this show only)".',
                     ]],
                     ['heading' => 'Hourly streamers', 'items' => [
-                        'Pay type "Hourly + shipments + profit share": hours × rate, envelopes and packages at their rates, and a share of (net − product cost − burden − hourly − shipment pay).',
+                        'Pay type "Hourly + shipments + profit share": hours × rate and envelopes and packages at their rates, paid weekly; plus a share of (net − product cost − burden − hourly − shipment pay), paid on the profit-share run like VCX.',
                         'Give each their own stock: Inventory → Locations → "Give a streamer their own location".',
                     ]],
                     ['heading' => 'Stock, tips and the transfer', 'items' => [
                         'Inventory → Locations → "Set up business storage" for Estill, then move Estill\'s stock in. Its streamers then sell from it, not the shared Main Storage.',
                         'Businesses → Estill → "Pay tips monthly", plus a monthly Tips pay run type.',
-                        'Each pay run\'s Business account transfer = product cost + (Whatnot net − what the run pays).',
+                        'Each weekly pay run\'s Business account transfer = product cost + (Whatnot net − all pay for those shows except tips).',
                     ]],
                 ],
                 'related' => ['guide.payroll', 'guide.inventory'],

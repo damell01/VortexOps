@@ -24,7 +24,7 @@ class PayRunSchedules
     ];
 
     /** Pay line types that are paid on profit share runs. */
-    public const SHARE_TYPES = ['profit_share', 'sales_split', 'custom_formula'];
+    public const SHARE_TYPES = ['profit_share', 'sales_split', 'custom_formula', 'shift_share'];
 
     /**
      * Pay lines only a Tips run pays: tips a business pays monthly. Every

@@ -4,7 +4,7 @@
    not the viewport. This stays sane with the Filament sidebar open or closed. */
 .vx-catalog-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
     gap: 10px !important;
 }
 

@@ -48,6 +48,57 @@ class StreamerInventorySetup
     }
 
     /**
+     * Everyone in $streamers gets their own location, and — if lines are
+     * given — the same items each. Fulfillment staff are skipped.
+     *
+     * @param  iterable<Streamer>  $streamers
+     * @param  list<array{inventory_item_id:int|string, quantity:int|float|string}>  $lines  given to each person
+     * @return array{created:int, existing:int, stocked:int, problems:list<string>}
+     */
+    public function setUpMany(iterable $streamers, ?InventoryLocation $from = null, array $lines = []): array
+    {
+        $summary = ['created' => 0, 'existing' => 0, 'stocked' => 0, 'problems' => []];
+        foreach ($streamers as $streamer) {
+            if ($streamer->isFulfillment()) {
+                continue;
+            }
+            [$location, $created] = $this->ensure($streamer);
+            $summary[$created ? 'created' : 'existing']++;
+            if ($from && $lines) {
+                $result = $this->stock($streamer, $location, $from, $lines);
+                $summary['stocked'] += $result['moved'] > 0 ? 1 : 0;
+                foreach ($result['problems'] as $problem) {
+                    $summary['problems'][] = "{$streamer->name} — {$problem}";
+                }
+            }
+        }
+
+        return $summary;
+    }
+
+    /** The streamers a business's setup covers: active streamers in it, or everyone with no business given. */
+    public function streamersFor(?int $businessId): \Illuminate\Database\Eloquent\Collection
+    {
+        return Streamer::query()->streamers()->where('status', 'active')
+            ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
+            ->orderBy('name')->get();
+    }
+
+    /** "3 set up, 2 already had one, 3 stocked." */
+    public static function describe(array $summary): string
+    {
+        $parts = ["{$summary['created']} set up"];
+        if ($summary['existing']) {
+            $parts[] = "{$summary['existing']} already had one";
+        }
+        if ($summary['stocked']) {
+            $parts[] = "{$summary['stocked']} stocked";
+        }
+
+        return implode(', ', $parts) . '.' . ($summary['problems'] ? ' Not moved: ' . implode('; ', array_slice($summary['problems'], 0, 5)) . (count($summary['problems']) > 5 ? '…' : '') : '');
+    }
+
+    /**
      * Where stock can come from: active, sellable locations that aren't a
      * person's own. @return Collection<int, InventoryLocation>
      */

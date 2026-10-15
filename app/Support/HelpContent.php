@@ -240,7 +240,7 @@ class HelpContent
             'page.businesses' => [
                 'title' => 'Businesses',
                 'intro' => 'Each person works for one business, and each business runs its own payroll.',
-                'steps' => ['Drag people between columns, or tick several and move them together.', 'Edit a business to rename it or turn on "Pay tips monthly".'],
+                'steps' => ['Drag people between columns, or tick several and move them together.', '"Set up inventory" on a business gives everyone in it their own inventory location, and can hand each the same stock.', 'Edit a business to rename it or turn on "Pay tips monthly".'],
                 'related' => ['business.tips_monthly', 'guide.estill'],
             ],
             'page.time' => [
@@ -267,7 +267,8 @@ class HelpContent
             'page.streamers' => [
                 'title' => 'Streamers',
                 'intro' => 'Everyone who streams or fulfills, with their business and pay.',
-                'steps' => ['Open a person for their shows, pay and stock.', '"Set up inventory" (the box icon on a row) gives a streamer their own location and moves stock in, in one step. Tick several people to set them all up at once.', 'Set up new people from Users.'],
+                'steps' => ['Open a person for their shows, pay and stock.', '"Set up inventory" (the box icon on a row) gives a streamer their own location and moves stock in, in one step.',
+                    'Tick several people to set them all up at once, or use "Set up inventory for a business" for everyone in a business — optionally giving each the same items.', 'Set up new people from Users.'],
                 'related' => ['guide.streamer'],
             ],
             'page.users' => [

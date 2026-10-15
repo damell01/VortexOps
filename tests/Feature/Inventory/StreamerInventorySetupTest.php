@@ -100,4 +100,67 @@ class StreamerInventorySetupTest extends TestCase
 
         $this->assertSame(1, InventoryLocation::where('streamer_id', $this->jay->id)->count());
     }
+
+    public function test_a_whole_business_is_set_up_and_each_person_given_the_same_stock(): void
+    {
+        $estill = Business::where('short_name', 'Estill')->firstOrFail();
+        $vcx = Business::where('short_name', 'VCX')->firstOrFail();
+        $kim = Streamer::create(['name' => 'Kim', 'status' => 'active', 'member_type' => 'streamer', 'business_id' => $estill->id]);
+        $other = Streamer::create(['name' => 'Other', 'status' => 'active', 'member_type' => 'streamer', 'business_id' => $vcx->id]);
+        $packer = Streamer::create(['name' => 'Packer', 'status' => 'active', 'member_type' => 'fulfillment', 'business_id' => $estill->id]);
+
+        Livewire::test(ListStreamers::class)->callAction('setUpInventoryForBusiness', [
+            'business_id' => (string) $estill->id,
+            'stock_each' => true,
+            'from_location_id' => $this->main->id,
+            'lines' => [['inventory_item_id' => $this->box->id, 'quantity' => 2]],
+        ])->assertHasNoActionErrors();
+
+        $setup = app(StreamerInventorySetup::class);
+        foreach ([$this->jay, $kim] as $person) {
+            $this->assertEqualsWithDelta(2, $this->qty($setup->ownLocation($person)), 0.001, $person->name);
+        }
+        $this->assertNull($setup->ownLocation($other));
+        $this->assertNull($setup->ownLocation($packer));
+        $this->assertEqualsWithDelta(6, $this->qty($this->main), 0.001);
+    }
+
+    public function test_all_streamers_can_be_set_up_at_once(): void
+    {
+        $sam = Streamer::create(['name' => 'Sam', 'status' => 'active', 'member_type' => 'streamer']);
+        $gone = Streamer::create(['name' => 'Gone', 'status' => 'inactive', 'member_type' => 'streamer']);
+
+        Livewire::test(ListStreamers::class)->callAction('setUpInventoryForBusiness', ['business_id' => 'all', 'stock_each' => false]);
+
+        $setup = app(StreamerInventorySetup::class);
+        $this->assertNotNull($setup->ownLocation($this->jay));
+        $this->assertNotNull($setup->ownLocation($sam));
+        $this->assertNull($setup->ownLocation($gone));
+    }
+
+    public function test_selected_people_can_be_stocked_while_being_set_up(): void
+    {
+        $sam = Streamer::create(['name' => 'Sam', 'status' => 'active', 'member_type' => 'streamer']);
+
+        Livewire::test(ListStreamers::class)->callTableBulkAction('setUpInventory', [$this->jay, $sam], [
+            'stock_each' => true, 'from_location_id' => $this->main->id,
+            'lines' => [['inventory_item_id' => $this->box->id, 'quantity' => 3]],
+        ]);
+
+        $setup = app(StreamerInventorySetup::class);
+        $this->assertEqualsWithDelta(3, $this->qty($setup->ownLocation($sam)), 0.001);
+        $this->assertEqualsWithDelta(4, $this->qty($this->main), 0.001);
+    }
+
+    public function test_the_businesses_page_opens_it_with_that_business_chosen(): void
+    {
+        $estill = Business::where('short_name', 'Estill')->firstOrFail();
+
+        Livewire::test(\App\Filament\Pages\Businesses::class)
+            ->mountAction('setUpInventoryForBusiness', ['business' => $estill->id])
+            ->assertActionDataSet(['business_id' => (string) $estill->id])
+            ->callMountedAction();
+
+        $this->assertNotNull(app(StreamerInventorySetup::class)->ownLocation($this->jay));
+    }
 }

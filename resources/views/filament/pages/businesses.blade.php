@@ -88,6 +88,7 @@
                         <button type="button" class="vxb-link" wire:click="selectColumn(@js($members->pluck('id')->all()))">Select all</button>
                     @endif
                     @if($business)
+                        <button type="button" class="vxb-link" wire:click="mountAction('setUpInventoryForBusiness', { business: {{ $business->id }} })" title="Give everyone in {{ $business->name }} their own inventory location">Set up inventory</button>
                         <button type="button" class="vxb-link" wire:click="editBusiness({{ $business->id }})" title="Rename or recolour">Edit</button>
                     @endif
                 </header>

@@ -182,6 +182,18 @@ class EndOfStreamForm extends Page implements HasForms
         if ($this->showManualItemForm) $this->showInventoryPicker = false;
     }
 
+    /**
+     * Whether this report's streamer is paid per envelope and per package
+     * (PWE + Labels, or Hourly + shipments + profit share): then the report
+     * asks how many of the shipments were each.
+     */
+    public function getSplitsShipmentsProperty(): bool
+    {
+        $id = $this->reportStreamerId();
+
+        return $id !== null && in_array(\App\Models\Streamer::find($id)?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
+    }
+
     private function reportStreamerId(): ?int
     {
         $entry = $this->show ? StreamerLogEntry::where('show_id', $this->show->id)->first() : null;

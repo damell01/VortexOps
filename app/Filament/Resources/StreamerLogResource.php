@@ -162,16 +162,16 @@ class StreamerLogResource extends Resource
                         ->integer()
                         ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                     TextInput::make('pwe_count')
-                        ->label('PWE Count')
-                        ->helperText('Packages shipped PWE (PostagePaidEnvelope) — affects your payout')
+                        ->label('Envelopes (PWE)')
+                        ->helperText('Shipments sent in a plain white envelope — paid at the envelope rate')
                         ->integer()
-                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels')
+                        ->visible(fn (?StreamerLogEntry $record) => in_array($record?->streamer?->payout_type, Streamer::SHIPMENT_SPLIT_TYPES, true))
                         ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                     TextInput::make('label_count')
-                        ->label('Label-Only Count')
-                        ->helperText('Packages with label only (no PWE) — used to calculate your shipping pay')
+                        ->label('Packages')
+                        ->helperText('Shipments sent as a labelled package — paid at the package rate')
                         ->integer()
-                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels')
+                        ->visible(fn (?StreamerLogEntry $record) => in_array($record?->streamer?->payout_type, Streamer::SHIPMENT_SPLIT_TYPES, true))
                         ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                 ]),
             ]),

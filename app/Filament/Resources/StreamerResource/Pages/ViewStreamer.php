@@ -40,38 +40,9 @@ class ViewStreamer extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        $allocate = Action::make('allocate_to_pool')
-            ->label('Allocate Inventory')->icon('heroicon-o-arrow-right-circle')->color('primary')
-            ->form([
-                Select::make('inventory_item_id')->label('Item')->options(fn () => InventoryItem::where('is_active', true)->orderBy('name')->pluck('name', 'id')->toArray())->required()->searchable(),
-                Select::make('from_location_id')->label('Source Location')->options(fn () => InventoryLocation::where('status', 'active')->whereIn('type', ['main_storage', 'fulfillment', 'other'])->orderBy('name')->pluck('name', 'id')->toArray())->required()->searchable(),
-                TextInput::make('quantity')->numeric()->minValue(0.01)->required(),
-                TextInput::make('reason')->label('Reason (optional)')->placeholder('Show prep: Break #47')->maxLength(255),
-            ])
-            ->action(function (array $data): void {
-                /** @var Streamer $streamer */
-                $streamer = $this->record;
-                $poolLocation = $streamer->inventoryLocations()->where('type', 'streamer_inventory')->where('status', 'active')->first();
-                if (! $poolLocation) {
-                    Notification::make()->title("No active inventory pool found for {$streamer->name}. Create a Streamer Inventory location first.")->danger()->send();
-                    return;
-                }
-                $item = InventoryItem::findOrFail($data['inventory_item_id']);
-                $fromLoc = InventoryLocation::findOrFail($data['from_location_id']);
-                $qty = (float) $data['quantity'];
-                $sourceStock = InventoryStock::where('inventory_item_id', $item->id)->where('inventory_location_id', $fromLoc->id)->first();
-                if (! $sourceStock || (float) $sourceStock->quantity < $qty) {
-                    Notification::make()->title("Insufficient stock in {$fromLoc->name}. Available: " . number_format((float) ($sourceStock?->quantity ?? 0), 2))->danger()->send();
-                    return;
-                }
-                try {
-                    app(\App\Services\InventoryService::class)->transferStock(item: $item, from: $fromLoc, to: $poolLocation, quantity: $qty, reason: $data['reason'] ?: "Allocated to {$streamer->name} pool");
-                } catch (\RuntimeException $e) {
-                    Notification::make()->title($e->getMessage())->danger()->send();
-                    return;
-                }
-                Notification::make()->title("Allocated {$qty} × {$item->name} → {$streamer->name}'s pool.")->success()->send();
-            });
+        // One button for their own stock: sets up their location if they
+        // don't have one, and moves items in (SetUpStreamerInventoryAction).
+        $allocate = \App\Filament\Actions\SetUpStreamerInventoryAction::make()->color('primary');
 
         return [
             $allocate,

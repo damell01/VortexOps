@@ -76,7 +76,7 @@ class HelpContent
                 'sections' => [
                     ['heading' => '1. Locations', 'items' => [
                         'Inventory → Locations. Start with a Main Storage everyone shares.',
-                        'A business that keeps its own stock gets its own storage ("Set up business storage"); a streamer who holds stock gets their own location.',
+                        'A business that keeps its own stock gets its own storage ("Set up business storage"); a streamer who holds stock gets their own location with "Set up inventory" on their page.',
                         'Add Returned and Damaged locations for stock you won\'t sell.',
                     ]],
                     ['heading' => '2. Vendors and products', 'items' => [
@@ -103,7 +103,7 @@ class HelpContent
                     'Users → Add User. Give them the Streamer role and choose In-House or Remote.',
                     'Add aliases: the Whatnot names and title wording that mean them, so shows match to them automatically.',
                     'Put them in their business, and set any pay that differs from the team under Pay.',
-                    'If they hold their own stock, give them their own inventory location.',
+                    'If they hold their own stock: "Set up inventory" on their page (or the Team list) makes their location and moves stock in, in one step.',
                     'They sign in, pick a dashboard buddy, and log each show from their dashboard.',
                 ],
                 'related' => ['guide.payroll', 'guide.shows'],
@@ -267,7 +267,7 @@ class HelpContent
             'page.streamers' => [
                 'title' => 'Streamers',
                 'intro' => 'Everyone who streams or fulfills, with their business and pay.',
-                'steps' => ['Open a person for their shows, pay and stock.', 'Set up new people from Users.'],
+                'steps' => ['Open a person for their shows, pay and stock.', '"Set up inventory" (the box icon on a row) gives a streamer their own location and moves stock in, in one step. Tick several people to set them all up at once.', 'Set up new people from Users.'],
                 'related' => ['guide.streamer'],
             ],
             'page.users' => [

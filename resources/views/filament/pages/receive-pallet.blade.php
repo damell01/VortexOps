@@ -115,7 +115,7 @@
                 <div class="h-2 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                     <div class="h-full rounded-full {{ $summaryDone ? 'bg-green-500' : 'bg-primary-600' }} transition-all" style="width: {{ $summaryPct }}%"></div>
                 </div>
-                <span class="shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-300">{{ $summaryPct }}%</span>
+                <x-vx.pokeball-progress class="shrink-0 text-xs font-semibold text-gray-500 dark:text-gray-300" :pct="$summaryPct" :done="$summaryDone" />
             </div>
         </section>
 

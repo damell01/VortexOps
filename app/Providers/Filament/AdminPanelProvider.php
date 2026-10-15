@@ -190,6 +190,11 @@ class AdminPanelProvider extends PanelProvider
                 fn () => session()->pull('vx_celebrate') ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate hidden></div>') : '',
             )
             ->renderHook(
+                // Seasonal touches (October: Gengar and a pumpkin), see App\Support\Season.
+                PanelsRenderHook::BODY_END,
+                fn () => auth()->check() ? view('filament.components.season') : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => \App\Support\Impersonation::active() && auth()->check() ? view('filament.components.impersonation-banner') : '',
             )

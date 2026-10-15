@@ -216,3 +216,62 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
   .vx-live-dot::after, .vx-weather--rain i, .vx-weather--sun::after, .vx-gotcha-ball, .vx-gotcha-word { animation: none !important; }
   .vx-weather--rain i { top: var(--y, 30px); opacity: .5; }
 }
+
+/* ── Round 4: season, buddy, receiving ball, slow quip, theme pair ─────── */
+
+/* October: Gengar peeks out from under the top bar every so often. */
+.vx-gengar-peek { position: fixed; z-index: 29; top: calc(var(--vx-topbar-h, 68px) - 46px); right: clamp(90px, 14vw, 260px); padding: 0; border: 0; background: none; cursor: pointer; animation: vx-peek 14s ease-in-out 3s infinite; }
+.vx-gengar-peek img { display: block; height: 56px; width: auto; image-rendering: pixelated; transform: scaleY(-1); filter: drop-shadow(0 4px 6px rgb(40 0 70 / .3)); }
+@keyframes vx-peek { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(38px); } }
+body:has(.vx-season[data-season="halloween"]) .vx-mega-home::after {
+  content: ''; display: inline-block; width: 15px; height: 15px; margin-left: 6px; vertical-align: -2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 4.5c0-1.6.7-2.6 2-3' stroke='%2316a34a' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='6.2' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='13.8' cy='12' rx='4.6' ry='6' fill='%23ea580c'/%3E%3Cellipse cx='10' cy='12' rx='4.4' ry='6.3' fill='%23f97316'/%3E%3Cpath d='M7 10.5l1.4-1.4 1.4 1.4zM10.2 10.5l1.4-1.4 1.4 1.4zM7.4 13.5c1.6 1.4 3.6 1.4 5.2 0' stroke='%23431407' stroke-width='1' fill='%23431407'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Your buddy on the time clock: walks while you are clocked in, naps while you are not. */
+.vx-buddy { position: relative; flex: none; margin-left: 4px; }
+.vx-buddy-btn { position: relative; display: block; width: 64px; height: 50px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 12px; }
+.vx-buddy-btn:hover { background: rgb(124 58 237 / .06); }
+.vx-buddy-btn img { position: absolute; left: 50%; bottom: 2px; height: 44px; width: auto; max-width: 60px; transform: translateX(-50%); image-rendering: pixelated; }
+.vx-buddy-btn.is-walking img { animation: vx-buddy-walk 5s ease-in-out infinite; }
+.vx-buddy-btn.is-napping img { filter: saturate(.55) brightness(.95); animation: vx-buddy-nap 4.5s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes vx-buddy-walk { 0%, 100% { transform: translateX(-80%) scaleX(1); } 45% { transform: translateX(-20%) scaleX(1); } 50% { transform: translateX(-20%) scaleX(-1); } 95% { transform: translateX(-80%) scaleX(-1); } }
+@keyframes vx-buddy-nap { 0%, 100% { transform: translateX(-50%) scale(1, 1); } 50% { transform: translateX(-50%) scale(1.03, .96); } }
+.vx-buddy-z { position: absolute; right: 2px; top: 0; pointer-events: none; }
+.vx-buddy-z i { position: absolute; font-style: normal; font-weight: 700; font-size: 10px; color: #8b5cf6; opacity: 0; animation: vx-login-zz 3.4s ease-out infinite; }
+.vx-buddy-z i + i { font-size: 13px; animation-delay: 1.7s; }
+@keyframes vx-login-zz { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: .9; } 100% { opacity: 0; transform: translate(10px, -20px); } }
+.vx-buddy-pick { position: absolute; z-index: 40; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: 252px; padding: 10px; border-radius: 14px; background: var(--vxw-surface, #fff); border: 1px solid var(--vxw-border, #e5e7eb); box-shadow: 0 18px 40px -12px rgb(20 10 50 / .35); }
+.vx-buddy-pick-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--vxw-muted, #6b7280); margin: 0 2px 6px; }
+.vx-buddy-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.vx-buddy-grid button { display: flex; align-items: center; justify-content: center; height: 44px; border-radius: 10px; border: 1.5px solid transparent; background: var(--vxw-surface-2, #f8f8fb); }
+.vx-buddy-grid button:hover { border-color: rgb(124 58 237 / .4); }
+.vx-buddy-grid button.is-on { border-color: #7c3aed; background: rgb(124 58 237 / .08); }
+.vx-buddy-grid img { max-height: 36px; max-width: 40px; image-rendering: pixelated; }
+
+/* Receiving: a Poké Ball that fills as cases arrive, and clicks shut when it is all in. */
+.vx-pb { display: inline-flex; align-items: center; gap: 6px; }
+.vx-pb svg { flex: none; transition: transform .2s; }
+.vx-pb svg rect { transition: y .5s ease; }
+.vx-pb.is-caught svg { animation: vx-wobble 1s ease-in-out .1s; transform-origin: 50% 85%; }
+.vx-pb.is-caught { position: relative; }
+.vx-pb.is-caught::after { content: '✦'; position: absolute; left: 20px; top: -8px; font-size: 12px; color: #f59e0b; animation: vx-sparkle 1s ease-out 1.1s backwards; }
+
+/* A request taking a while: a sleepy Pokémon says so. */
+#vx-slow { position: fixed; z-index: 70; left: 50%; bottom: 22px; display: flex; align-items: center; gap: 10px; padding: 7px 16px 7px 10px; border-radius: 999px; background: rgb(17 12 40 / .88); color: #ede9fe; font-size: 13px; font-weight: 600; box-shadow: 0 12px 30px -10px rgb(0 0 0 / .45); opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .25s, transform .25s; }
+#vx-slow.is-on { opacity: 1; transform: translate(-50%, 0); }
+#vx-slow img { height: 30px; width: auto; image-rendering: pixelated; }
+
+/* Light and dark: Espeon and Umbreon on the theme switcher. */
+.fi-theme-switcher-btn[aria-label="Enable light theme"] > svg,
+.fi-theme-switcher-btn[aria-label="Enable dark theme"] > svg { visibility: hidden; }
+.fi-theme-switcher-btn[aria-label="Enable light theme"],
+.fi-theme-switcher-btn[aria-label="Enable dark theme"] { background-position: center; background-repeat: no-repeat; background-size: auto 26px; image-rendering: pixelated; }
+.fi-theme-switcher-btn[aria-label="Enable light theme"] { background-image: url('/img/pokemon/espeon.gif'); }
+.fi-theme-switcher-btn[aria-label="Enable dark theme"] { background-image: url('/img/pokemon/umbreon.gif'); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-gengar-peek { animation: none; transform: translateY(30px); }
+  .vx-buddy-btn img, .vx-buddy-z i, .vx-pb.is-caught svg, .vx-pb.is-caught::after { animation: none !important; }
+  .vx-buddy-z i { opacity: .7; }
+}

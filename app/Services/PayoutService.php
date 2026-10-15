@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Log;
 
 class PayoutService
 {
+    /** Pay lines kept apart from a person's main line for a show: type => key on the computed result. */
+    public const SPLIT_LINES = ['show_hours' => 'split_hourly', 'show_tips' => 'split_tips'];
+
     public function calculateForShow(Show $show): array
     {
         $streamers = $show->streamers;
@@ -29,9 +32,10 @@ class PayoutService
         $allExisting = Payout::with('batch')->where('show_id', $show->id)
             ->whereIn('streamer_id', $streamers->pluck('id'))
             ->get();
-        // Wages and profit share always remain separate pay lines.
-        $existingPayouts = $allExisting->where('payout_type', '!=', 'show_hours')->keyBy('streamer_id');
-        $existingHours = $allExisting->where('payout_type', 'show_hours')->keyBy('streamer_id');
+        // Wages and profit share always remain separate pay lines, and so do
+        // tips a business pays monthly. SPLIT_LINES names those extra lines.
+        $existingPayouts = $allExisting->whereNotIn('payout_type', array_keys(self::SPLIT_LINES))->keyBy('streamer_id');
+        $existingSplits = collect(self::SPLIT_LINES)->map(fn ($key, $type) => $allExisting->where('payout_type', $type)->keyBy('streamer_id'));
 
         // Prefer the pivot's actual is_primary flag. Shows that predate that
         // flag (or where detectStreamers() never set one) have no streamer
@@ -39,13 +43,15 @@ class PayoutService
         // streamer as primary so solo-streamer shows and older data keep
         // computing exactly as before.
         $hasExplicitPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
+        $editable = fn (?Payout $p) => $p && $p->status === 'draft' && (! $p->batch || $p->batch->status === 'draft');
 
         foreach ($streamers as $index => $streamer) {
             $existing = $existingPayouts->get($streamer->id);
             // A calculation for a new wage/share run must never rewrite pay
             // already submitted, finalized or paid on another run.
-            $protectedMain = $existing && ($existing->status !== 'draft' || ($existing->batch && $existing->batch->status !== 'draft'));
-            if ($protectedMain && ! $existingHours->has($streamer->id)) {
+            $protectedMain = $existing && ! $editable($existing);
+            $hasSplit = $existingSplits->contains(fn ($lines) => $lines->has($streamer->id));
+            if ($protectedMain && ! $hasSplit) {
                 $payouts[] = $existing;
                 continue;
             }
@@ -55,24 +61,10 @@ class PayoutService
                 : $index === 0;
 
             $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $isPrimary);
-            $hoursLine = $result['split_hourly'] ?? null;
-            unset($result['split_hourly']);
-
-            $hoursPayout = $existingHours->get($streamer->id);
-            if ($hoursLine) {
-                $hoursPayout ??= new Payout(['show_id' => $show->id, 'streamer_id' => $streamer->id]);
-                if (! $hoursPayout->exists || ($hoursPayout->status === 'draft' && (! $hoursPayout->batch || $hoursPayout->batch->status === 'draft'))) {
-                    $hoursPayout->fill($hoursLine + [
-                        'payout_type' => 'show_hours',
-                        'gross_show_revenue' => 0,
-                        'owner_fee_deducted' => 0,
-                        'tips_included' => 0,
-                        'routing_bank_label' => $result['routing_bank_label'] ?? null,
-                        'status' => 'draft',
-                    ])->save();
-                }
-            } elseif ($hoursPayout && $hoursPayout->status === 'draft' && (! $hoursPayout->batch || $hoursPayout->batch->status === 'draft')) {
-                $hoursPayout->delete();
+            $splitLines = [];
+            foreach (self::SPLIT_LINES as $type => $key) {
+                $splitLines[$type] = $result[$key] ?? null;
+                unset($result[$key]);
             }
 
             $payout = $existing
@@ -86,8 +78,25 @@ class PayoutService
                 $payout->save();
             }
             $payouts[] = $payout;
-            if ($hoursLine && $hoursPayout) {
-                $payouts[] = $hoursPayout;
+
+            foreach ($splitLines as $type => $line) {
+                $splitPayout = $existingSplits[$type]->get($streamer->id);
+                if ($line) {
+                    $splitPayout ??= new Payout(['show_id' => $show->id, 'streamer_id' => $streamer->id]);
+                    if (! $splitPayout->exists || $editable($splitPayout)) {
+                        $splitPayout->fill($line + [
+                            'payout_type' => $type,
+                            'gross_show_revenue' => 0,
+                            'owner_fee_deducted' => 0,
+                            'tips_included' => 0,
+                            'routing_bank_label' => $result['routing_bank_label'] ?? null,
+                            'status' => 'draft',
+                        ])->save();
+                    }
+                    $payouts[] = $splitPayout;
+                } elseif ($editable($splitPayout)) {
+                    $splitPayout->delete();
+                }
             }
         }
 
@@ -138,10 +147,12 @@ class PayoutService
             return null;
         }
 
+        $splits = collect(self::SPLIT_LINES)->map(fn ($key) => $result[$key] ?? null)->filter();
+
         return [
-            'amount' => round((float) $result['calculated_payout'] + (float) ($result['split_hourly']['calculated_payout'] ?? 0), 2),
+            'amount' => round((float) $result['calculated_payout'] + (float) $splits->sum('calculated_payout'), 2),
             'state' => 'estimate',
-            'notes' => trim($result['calculation_notes'] . (isset($result['split_hourly']) ? ' · ' . $result['split_hourly']['calculation_notes'] : '')),
+            'notes' => trim(collect([$result['calculation_notes']])->merge($splits->pluck('calculation_notes'))->implode(' · ')),
         ];
     }
 
@@ -211,10 +222,13 @@ class PayoutService
                 // streamer carries the split.
                 $basisKey  = $streamer->sales_split_basis === 'gross' ? 'gross' : 'net';
                 $basis     = ($isPrimary || $streamerCount <= 1) ? ($basisKey === 'gross' ? $grossRevenue : $netRevenue) : 0.0;
-                $houseCut  = min(100.0, max(0.0, (float) ($streamer->house_cut_percentage ?? 0)));
+                // A special show can set its own %, overriding the streamer's.
+                $showCut   = $show->house_cut_override;
+                $houseCut  = min(100.0, max(0.0, (float) ($showCut ?? $streamer->house_cut_percentage ?? 0)));
                 $calculatedPayout = round($basis * (100 - $houseCut) / 100, 2);
                 $basisLabel = $basisKey === 'gross' ? 'gross sales' : 'estimated net earnings';
-                $calculationNotes = 'Sales split: $' . number_format($basis, 2) . " {$basisLabel} − {$houseCut}% kept by the business";
+                $calculationNotes = 'Sales split: $' . number_format($basis, 2) . " {$basisLabel} − {$houseCut}% kept by the business"
+                    . ($showCut !== null ? ' (this show\'s %)' : '');
                 if ($streamerCount > 1 && ! $isPrimary) {
                     $calculationNotes .= ' — non-primary on collab show, the split goes to the primary streamer';
                 }
@@ -223,6 +237,24 @@ class PayoutService
                     $calculationNotes .= " + \${$tipShare} tips";
                 }
                 $share = ['columns' => ['net_revenue_basis' => $basis]];
+                break;
+
+            case 'shift_share':
+                // Estill Distribution's hourly streamers: paid for their hours,
+                // for each shipment (envelopes and packages at their own
+                // rates), and a share of what is left of the show once those,
+                // the product and any burden are paid for:
+                //   (net sales − product cost − burden − hourly − shipment pay) × share %
+                $shift = $this->shiftShareWorking($show, $streamer, $logEntry, $hours, $isPrimary || $streamerCount <= 1);
+                $calculatedPayout = $shift['earnings'];
+                $calculationNotes = $shift['note'] . $hoursMissingNote;
+                $pweCount = $shift['pwe'];
+                $labelCount = $shift['packages'];
+                if ($streamer->include_tips) {
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + \${$tipShare} tips";
+                }
+                $share = ['columns' => $shift['columns']];
                 break;
 
             case 'package':
@@ -327,6 +359,21 @@ class PayoutService
                 break;
         }
 
+        // A business that pays tips monthly takes them off this line onto
+        // their own, which only the monthly Tips run pays.
+        $splitTips = null;
+        $tipsIncluded = $streamer->include_tips ? $tipShare : 0;
+        if ($tipsIncluded > 0 && $this->tipsPaidMonthly($streamer)) {
+            $calculatedPayout = round($calculatedPayout - $tipsIncluded, 2);
+            $calculationNotes .= " − \${$tipsIncluded} tips (paid monthly)";
+            $splitTips = [
+                'calculated_payout' => $tipsIncluded,
+                'tips_included' => $tipsIncluded,
+                'calculation_notes' => "Tips for this show: \${$tipsIncluded} (paid on the monthly tips run)",
+            ];
+            $tipsIncluded = 0;
+        }
+
         // Owner fee — calculated against the gross payout before deduction.
         // A streamer's own fee override always wins; if they don't have one
         // set, fall back to the global default from Settings so the owner
@@ -386,7 +433,7 @@ class PayoutService
             'burden_amount'        => $share['columns']['burden_amount']     ?? null,
             'net_revenue_basis'    => $share['columns']['net_revenue_basis'] ?? null,
             'owner_fee_deducted'   => $ownerFeeDeducted,
-            'tips_included'        => $streamer->include_tips ? $tipShare : 0,
+            'tips_included'        => $tipsIncluded,
             'pwe_count'            => $pweCount > 0 ? $pweCount : null,
             'label_count'          => $labelCount > 0 ? $labelCount : null,
             'burden_rate_applied'  => $burdenRateApplied,
@@ -395,6 +442,7 @@ class PayoutService
             'routing_bank_label'   => $this->resolveRoutingLabel($streamer, $show),
             'status'               => 'draft',
             'split_hourly'         => $splitHourly,
+            'split_tips'           => $splitTips,
         ];
     }
 
@@ -475,6 +523,86 @@ class PayoutService
                 'shipments_count'   => (int) $working['shipments'],
                 'burden_amount'     => $working['burden'],
                 'net_revenue_basis' => $working['net_revenue'],
+            ],
+        ];
+    }
+
+    /** @var array<int, bool> business id => pays tips monthly, for this request */
+    private array $tipsMonthlyMemo = [];
+
+    /** Whether this person's business pays tips on a monthly run of their own. */
+    public function tipsPaidMonthly(Streamer $streamer): bool
+    {
+        $businessId = (int) $streamer->getRawOriginal('business_id');
+        if ($businessId === 0) {
+            return false;
+        }
+
+        return $this->tipsMonthlyMemo[$businessId] ??= (bool) \App\Models\Business::whereKey($businessId)->value('tips_monthly');
+    }
+
+    /**
+     * Hourly + shipments + profit share, worked out in full.
+     *
+     * Shipments are split into envelopes (PWE) and packages (labels), each at
+     * its own rate. Counts come from the show report; with no split entered,
+     * every shipment counts as a package and the note says so.
+     *
+     * The burden is the person's flat $ per show, or a % of net sales.
+     * The share is never negative: a show that does not cover its costs pays
+     * the hours and shipments only, and the note says the share was $0.
+     *
+     * @return array{earnings:float,note:string,pwe:int,packages:int,columns:array<string,float|int|null>}
+     */
+    public function shiftShareWorking(Show $show, Streamer $streamer, ?StreamerLogEntry $logEntry, float $hours, bool $countsTowardShare): array
+    {
+        $rate = (float) ($streamer->hourly_rate ?? 0);
+        $pweRate = (float) ($streamer->pwe_rate ?? 0);
+        $packageRate = (float) ($streamer->label_rate ?? 0);
+        $pct = (float) ($streamer->payout_percentage ?? 0);
+
+        $split = $logEntry && ($logEntry->pwe_count !== null || $logEntry->label_count !== null);
+        $shipments = $logEntry?->number_of_shipments !== null ? (int) $logEntry->number_of_shipments : (int) $show->shipments()->count();
+        $pwe = $split ? (int) ($logEntry->pwe_count ?? 0) : 0;
+        $packages = $split ? (int) ($logEntry->label_count ?? 0) : $shipments;
+
+        $hourly = round($rate * $hours, 2);
+        $shipping = round($pwe * $pweRate + $packages * $packageRate, 2);
+        $netSales = round((float) $show->whatnot_net, 2);
+        $productCost = round((float) ($logEntry?->product_cost ?? 0), 2);
+        $burdenValue = (float) ($streamer->burden_rate_value ?? 0);
+        $burden = $burdenValue > 0
+            ? round($streamer->burden_rate_type === 'percentage' ? $netSales * $burdenValue / 100 : $burdenValue, 2)
+            : 0.0;
+
+        $left = round($netSales - $productCost - $burden - $hourly - $shipping, 2);
+        $share = $countsTowardShare ? max(0.0, round($left * $pct / 100, 2)) : 0.0;
+
+        $money = fn (float $v) => '$' . number_format($v, 2);
+        $note = "Hourly {$money($rate)}/hr × {$hours}hrs = {$money($hourly)}"
+            . " + shipments {$pwe} envelopes × {$money($pweRate)} + {$packages} packages × {$money($packageRate)} = {$money($shipping)}"
+            . ($split ? '' : ' (no envelope/package split entered — all counted as packages)')
+            . ". Share: ({$money($netSales)} net − {$money($productCost)} product"
+            . ($burden > 0 ? " − {$money($burden)} burden" : '')
+            . " − {$money($hourly)} hourly − {$money($shipping)} shipments) = {$money($left)} × {$pct}% = {$money($share)}"
+            . (! $countsTowardShare ? ' (non-primary on a collab show — the share goes to the primary)' : '')
+            . ($countsTowardShare && $left < 0 ? ' (show did not cover its costs, so no share)' : '')
+            . ($logEntry ? '' : '. No show report filed, so product cost counted as $0.00');
+
+        return [
+            'earnings' => round($hourly + $shipping + $share, 2),
+            'note' => $note,
+            'pwe' => $pwe,
+            'packages' => $packages,
+            'columns' => [
+                'product_cost' => $productCost,
+                'hours_worked' => $hours,
+                'shipments_count' => $pwe + $packages,
+                'burden_amount' => $burden,
+                'net_revenue_basis' => $left,
+                'hourly_pay' => $hourly,
+                'shipment_pay' => $shipping,
+                'share' => $share,
             ],
         ];
     }

@@ -194,6 +194,10 @@ fallback, which Cloudflare generally blocks.
 | `package` | flat `package_rate` |
 | `flat_rate` | fixed `flat_rate` |
 | `custom_formula` | expression string, Shunting Yard eval |
+| `sales_split` | `house_cut_percentage` (business keeps it; a show's `house_cut_override` wins for that show) |
+| `shift_share` | Estill hourly: `hourly_rate` × hours + `pwe_rate` × envelopes + `label_rate` × packages + `payout_percentage` × (Whatnot net − product cost − burden − hourly − shipment pay), share floored at 0; burden = `burden_rate_value` flat $/show or % of net |
+
+Tips: a business with `tips_monthly` takes tips off the main line onto a `show_tips` line that only a `tips` pay run pays (`PayRunSchedules::scopeToKind`). `App\Support\BusinessTransfer` gives each run's separate-account transfer: product cost + (Whatnot net − payouts on the run).
 
 Channel routing: streamer's `channel_routing_rules` JSON array `[{channel, bank_label}]` — case-insensitive match against show's channel name → populates `routing_bank_label` on payout.
 

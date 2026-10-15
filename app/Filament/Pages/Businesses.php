@@ -31,7 +31,7 @@ class Businesses extends Page
     public array $selected = [];
 
     public ?int $editingBusinessId = null;
-    public array $businessForm = ['name' => '', 'short_name' => '', 'color' => '#7c3aed'];
+    public array $businessForm = ['name' => '', 'short_name' => '', 'color' => '#7c3aed', 'tips_monthly' => false];
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-building-office-2'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Payroll'; }
@@ -168,14 +168,14 @@ class Businesses extends Page
     public function newBusiness(): void
     {
         $this->editingBusinessId = 0;
-        $this->businessForm = ['name' => '', 'short_name' => '', 'color' => '#2563eb'];
+        $this->businessForm = ['name' => '', 'short_name' => '', 'color' => '#2563eb', 'tips_monthly' => false];
     }
 
     public function editBusiness(int $id): void
     {
         $business = Business::findOrFail($id);
         $this->editingBusinessId = $business->id;
-        $this->businessForm = ['name' => $business->name, 'short_name' => (string) $business->short_name, 'color' => $business->color];
+        $this->businessForm = ['name' => $business->name, 'short_name' => (string) $business->short_name, 'color' => $business->color, 'tips_monthly' => (bool) $business->tips_monthly];
     }
 
     public function cancelBusiness(): void
@@ -189,7 +189,9 @@ class Businesses extends Page
             'businessForm.name' => 'required|string|max:120',
             'businessForm.short_name' => 'nullable|string|max:20',
             'businessForm.color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'businessForm.tips_monthly' => 'boolean',
         ])['businessForm'];
+        $data['tips_monthly'] = (bool) ($data['tips_monthly'] ?? false);
 
         $data['short_name'] = trim((string) ($data['short_name'] ?? '')) ?: null;
 

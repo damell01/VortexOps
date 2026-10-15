@@ -17,6 +17,12 @@ class UserPayFields
 {
     public const STREAMER = ['payout_percentage', 'house_cut_percentage', 'hourly_rate'];
 
+    /** Also on the form when a streamer is paid hourly + shipments + profit share. */
+    public const SHIFT_SHARE = ['pwe_rate', 'label_rate', 'burden_rate_value'];
+
+    /** The ways a streamer can be paid from this form. */
+    public const MODELS = ['profit_share', 'sales_split', 'shift_share'];
+
     /** Form keys for the business and a streamer's pay model (profit share / sales split). */
     public const BUSINESS = 'pay_business_id';
     public const MODEL = 'pay_model';
@@ -24,9 +30,13 @@ class UserPayFields
     public const FULFILLMENT = ['payout_type', 'hourly_rate', 'pwe_rate', 'label_rate', 'package_rate'];
 
     /** @return list<string> */
-    public static function fieldsFor(string $memberType): array
+    public static function fieldsFor(string $memberType, ?string $model = null): array
     {
-        return $memberType === 'fulfillment' ? self::FULFILLMENT : self::STREAMER;
+        if ($memberType === 'fulfillment') {
+            return self::FULFILLMENT;
+        }
+
+        return $model === 'shift_share' ? [...self::STREAMER, ...self::SHIFT_SHARE] : self::STREAMER;
     }
 
     /** Form state key for a pay field. */
@@ -39,7 +49,7 @@ class UserPayFields
     public static function prefill(?Streamer $profile): array
     {
         $state = [];
-        foreach (array_unique([...self::STREAMER, ...self::FULFILLMENT]) as $field) {
+        foreach (array_unique([...self::STREAMER, ...self::SHIFT_SHARE, ...self::FULFILLMENT]) as $field) {
             $state[self::key($field)] = null;
         }
         $state[self::MODEL] = null;
@@ -49,11 +59,11 @@ class UserPayFields
         }
 
         $resolved = PaymentStructure::resolve($profile);
-        foreach (self::fieldsFor($resolved['member_type']) as $field) {
+        foreach (self::fieldsFor($resolved['member_type'], 'shift_share') as $field) {
             $state[self::key($field)] = self::staleLegacyHourly($resolved, $field) ? null : ($resolved['overrides'][$field] ?? null);
         }
         if ($resolved['member_type'] !== 'fulfillment' && ! $resolved['legacy']
-            && in_array($resolved['overrides']['payout_type'] ?? null, ['profit_share', 'sales_split'], true)) {
+            && in_array($resolved['overrides']['payout_type'] ?? null, self::MODELS, true)) {
             $state[self::MODEL] = $resolved['overrides']['payout_type'];
         }
 
@@ -72,7 +82,8 @@ class UserPayFields
         }
 
         $resolved = PaymentStructure::resolve($profile);
-        $fields = self::fieldsFor($resolved['member_type']);
+        $chosen = in_array($data[self::MODEL] ?? null, self::MODELS, true) ? $data[self::MODEL] : null;
+        $fields = self::fieldsFor($resolved['member_type'], $chosen ?? self::defaultModel($profile->business_id));
 
         $submitted = [];
         foreach ($fields as $field) {
@@ -80,7 +91,7 @@ class UserPayFields
             $submitted[$field] = $value === '' ? null : $value;
         }
 
-        $model = $resolved['member_type'] !== 'fulfillment' && in_array($data[self::MODEL] ?? null, ['profit_share', 'sales_split'], true)
+        $model = $resolved['member_type'] !== 'fulfillment' && in_array($data[self::MODEL] ?? null, self::MODELS, true)
             ? $data[self::MODEL]
             : null;
 
@@ -106,6 +117,13 @@ class UserPayFields
             }
         }
 
+        // A burden set here is a flat $ per show.
+        if (isset($overrides['burden_rate_value'])) {
+            $overrides['burden_rate_type'] = ($overrides['burden_rate_type'] ?? null) === 'percentage' ? 'percentage' : 'flat';
+        } elseif (array_key_exists('burden_rate_value', $submitted)) {
+            unset($overrides['burden_rate_type']);
+        }
+
         if ($resolved['member_type'] !== 'fulfillment') {
             // Their own pay type only when chosen (or they have their own
             // formula); otherwise it follows their business's default.
@@ -127,7 +145,7 @@ class UserPayFields
     {
         $type = PaymentStructure::defaults('streamer', filled($businessId) ? (int) $businessId : null)['payout_type'] ?? 'profit_share';
 
-        return $type === 'sales_split' ? 'sales_split' : 'profit_share';
+        return in_array($type, self::MODELS, true) ? $type : 'profit_share';
     }
 
     /** "Team default: 8%" for a field's placeholder. */

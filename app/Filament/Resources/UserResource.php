@@ -261,8 +261,11 @@ class UserResource extends Resource
 
                     Select::make(UserPayFields::MODEL)
                         ->label('How they\'re paid')
-                        ->options(['profit_share' => 'Profit share (+ hourly if in-house)', 'sales_split' => 'Sales split (the business keeps a %)'])
-                        ->placeholder(fn (Get $get) => 'Business default: '.(UserPayFields::defaultModel($get(UserPayFields::BUSINESS)) === 'sales_split' ? 'Sales split' : 'Profit share'))
+                        ->options(['profit_share' => 'Profit share (+ hourly if in-house)', 'sales_split' => 'Sales split (the business keeps a %)', 'shift_share' => 'Hourly + shipments + profit share'])
+                        ->placeholder(fn (Get $get) => 'Business default: '.match (UserPayFields::defaultModel($get(UserPayFields::BUSINESS))) { 'sales_split' => 'Sales split', 'shift_share' => 'Hourly + shipments + profit share', default => 'Profit share' })
+                        ->helperText(fn (Get $get): ?string => static::payModel($get) === 'shift_share'
+                            ? 'Hours × hourly rate + envelopes and packages at their rates + share % of (net sales − product cost − burden − hourly − shipment pay).'
+                            : null)
                         ->native(false)
                         ->live()
                         ->dehydrated(false)
@@ -273,7 +276,7 @@ class UserResource extends Resource
                         ->numeric()->minValue(0)->maxValue(100)->step(0.01)->suffix('%')
                         ->placeholder(fn (Get $get) => UserPayFields::defaultHint('streamer', 'payout_percentage', $get(UserPayFields::BUSINESS)))
                         ->dehydrated(false)
-                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'streamer' && static::payModel($get) === 'profit_share'),
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'streamer' && in_array(static::payModel($get), ['profit_share', 'shift_share'], true)),
 
                     TextInput::make(UserPayFields::key('house_cut_percentage'))
                         ->label('Business keeps')
@@ -303,18 +306,26 @@ class UserResource extends Resource
                         ->dehydrated(false),
 
                     TextInput::make(UserPayFields::key('pwe_rate'))
-                        ->label('PWE rate')
+                        ->label(fn (Get $get) => static::payMemberType($get) === 'fulfillment' ? 'PWE rate' : 'Pay per envelope (PWE)')
                         ->numeric()->minValue(0)->step(0.01)->prefix('$')
-                        ->placeholder(fn (Get $get) => UserPayFields::defaultHint('fulfillment', 'pwe_rate', $get(UserPayFields::BUSINESS)))
+                        ->placeholder(fn (Get $get) => UserPayFields::defaultHint(static::payMemberType($get) ?? 'streamer', 'pwe_rate', $get(UserPayFields::BUSINESS)))
                         ->dehydrated(false)
-                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'fulfillment'),
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'fulfillment' || static::payModel($get) === 'shift_share'),
 
                     TextInput::make(UserPayFields::key('label_rate'))
-                        ->label('Label rate')
+                        ->label(fn (Get $get) => static::payMemberType($get) === 'fulfillment' ? 'Label rate' : 'Pay per package')
                         ->numeric()->minValue(0)->step(0.01)->prefix('$')
-                        ->placeholder(fn (Get $get) => UserPayFields::defaultHint('fulfillment', 'label_rate', $get(UserPayFields::BUSINESS)))
+                        ->placeholder(fn (Get $get) => UserPayFields::defaultHint(static::payMemberType($get) ?? 'streamer', 'label_rate', $get(UserPayFields::BUSINESS)))
                         ->dehydrated(false)
-                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'fulfillment'),
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'fulfillment' || static::payModel($get) === 'shift_share'),
+
+                    TextInput::make(UserPayFields::key('burden_rate_value'))
+                        ->label('Burden per show')
+                        ->numeric()->minValue(0)->step(0.01)->prefix('$')
+                        ->placeholder('None')
+                        ->helperText('Taken off the show before the profit share. Leave blank for none.')
+                        ->dehydrated(false)
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'streamer' && static::payModel($get) === 'shift_share'),
 
                     TextInput::make(UserPayFields::key('package_rate'))
                         ->label('Flat / package rate')

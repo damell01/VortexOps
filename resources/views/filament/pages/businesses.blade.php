@@ -40,6 +40,7 @@
             <label>Name <input type="text" wire:model="businessForm.name" required maxlength="120"></label>
             <label>Short name <input type="text" wire:model="businessForm.short_name" maxlength="20" placeholder="e.g. VCX"></label>
             <label>Colour <input type="color" wire:model="businessForm.color"></label>
+            <label class="vxb-check"><input type="checkbox" wire:model="businessForm.tips_monthly"> Pay tips monthly <small>Tips come off weekly pay onto their own line, paid by a Tips pay run.</small></label>
             @error('businessForm.name')<span class="vxb-err">{{ $message }}</span>@enderror
             @error('businessForm.color')<span class="vxb-err">{{ $message }}</span>@enderror
             <div class="vxb-editor-actions">
@@ -138,6 +139,7 @@
 .vxb-editor{display:flex;flex-wrap:wrap;gap:12px;align-items:end;padding:14px;border-radius:12px;border:1px solid var(--vx-border,#e5e7eb);background:#fafafa}
 .dark .vxb-editor{background:#111827;border-color:#374151}
 .vxb-editor label{display:grid;gap:4px;font-size:12px;font-weight:600;color:#6b7280}
+.vxb-editor label.vxb-check{display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:22rem}.vxb-check small{flex-basis:100%;font-weight:400}
 .vxb-editor input[type=text]{border-radius:8px;border:1px solid var(--vx-border,#e5e7eb);padding:6px 10px;font-size:14px}
 .vxb-editor input[type=color]{width:52px;height:34px;border-radius:8px}
 .vxb-editor-actions{display:flex;gap:8px}

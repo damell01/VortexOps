@@ -173,7 +173,7 @@ class PaymentStructures extends Page
             'run_types' => 'array|max:50',
             'run_types.*.id' => 'nullable|integer|exists:pay_run_types,id',
             'run_types.*.name' => 'required|string|max:100|regex:/\\S/',
-            'run_types.*.kind' => 'nullable|in:wages,share',
+            'run_types.*.kind' => 'nullable|in:' . implode(',', array_keys(\App\Support\PayRunSchedules::KINDS)),
             'run_types.*.active' => 'required|boolean',
             'run_types.*.schedule_enabled' => 'required|boolean',
             'run_types.*.frequency' => 'required|in:' . implode(',', array_keys(\App\Support\PayRunSchedules::FREQUENCIES)),
@@ -260,7 +260,7 @@ class PaymentStructures extends Page
             $effective = $pay['effective'];
             $kind = $effective['payout_type'] ?? '';
             $method = match ($kind) {
-                'profit_share' => 'Show formula', 'sales_split' => 'Sales earnings', 'hourly' => 'Hourly wages',
+                'profit_share' => 'Show formula', 'sales_split' => 'Sales earnings', 'hourly' => 'Hourly wages', 'shift_share' => 'Hourly + shipments + share',
                 default => Streamer::payoutTypeLabels()[$kind] ?? 'Custom calculation',
             };
             $rate = match ($kind) {
@@ -268,6 +268,7 @@ class PaymentStructures extends Page
                 'sales_split' => number_format(100 - (float) ($effective['house_cut_percentage'] ?? 0), 2) . '% of earnings',
                 'profit_share' => number_format((float) ($effective['payout_percentage'] ?? 0), 2) . '% · show formula',
                 'package' => '$' . number_format((float) ($effective['package_rate'] ?? 0), 2) . ' / package',
+                'shift_share' => '$' . number_format((float) ($effective['hourly_rate'] ?? 0), 2) . ' / hr + shipments + ' . number_format((float) ($effective['payout_percentage'] ?? 0), 2) . '% share',
                 default => 'Configured calculation',
             };
             if ($member->paidHourlyRate() !== null) $rate .= ' + $' . number_format($member->paidHourlyRate(), 2) . ' / hr';
@@ -302,7 +303,7 @@ class PaymentStructures extends Page
         $this->member_override_values = [];
         $fields = $member->isFulfillment()
             ? ['payout_type','payout_percentage','hourly_rate','pwe_rate','label_rate','package_rate','include_tips','custom_payout_formula']
-            : ['payout_type','payout_percentage','house_cut_percentage','sales_split_basis','hourly_rate','custom_payout_formula','include_tips'];
+            : ['payout_type','payout_percentage','house_cut_percentage','sales_split_basis','hourly_rate','pwe_rate','label_rate','burden_rate_type','burden_rate_value','custom_payout_formula','include_tips'];
         foreach ($fields as $field) {
             $this->member_override_enabled[$field] = ! $resolved['legacy'] && array_key_exists($field, $resolved['overrides']);
             $this->member_override_values[$field] = $resolved['effective'][$field] ?? null;
@@ -317,13 +318,19 @@ class PaymentStructures extends Page
         $member = Streamer::findOrFail($this->editing_member_id);
         $overrides = [];
         foreach ($this->member_override_enabled as $field => $enabled) if ($enabled) $overrides[$field] = $this->member_override_values[$field] ?? null;
+        // The burden's type travels with its amount.
+        if (array_key_exists('burden_rate_value', $overrides)) {
+            $overrides['burden_rate_type'] = ($this->member_override_values['burden_rate_type'] ?? 'flat') === 'percentage' ? 'percentage' : 'flat';
+        } else {
+            unset($overrides['burden_rate_type']);
+        }
         if (! $member->isFulfillment()) {
             // A streamer's pay type is their own only when it was chosen here
             // (or they have their own formula); otherwise it follows their
             // business's default, so moving business changes how they're paid.
             if (trim((string) ($overrides['custom_payout_formula'] ?? '')) !== '') {
                 $overrides['payout_type'] = 'custom_formula';
-            } elseif (isset($overrides['payout_type']) && ! in_array($overrides['payout_type'], ['profit_share', 'sales_split', 'hourly'], true)) {
+            } elseif (isset($overrides['payout_type']) && ! in_array($overrides['payout_type'], ['profit_share', 'sales_split', 'hourly', 'shift_share'], true)) {
                 unset($overrides['payout_type']);
             }
         } else {

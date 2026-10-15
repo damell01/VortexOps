@@ -71,11 +71,7 @@ class PayRunAutomationService
      */
     public function syncWeek(string|Carbon $weekStart, bool $recalculate = true, ?int $businessId = null, ?string $kind = null, ?\App\Models\PayRunType $type = null): array
     {
-        $ofKind = fn ($q) => match ($kind) {
-            'share' => $q->whereIn('payout_type', PayRunSchedules::SHARE_TYPES),
-            'wages' => $q->whereNotIn('payout_type', PayRunSchedules::SHARE_TYPES),
-            default => $q,
-        };
+        $ofKind = fn ($q) => PayRunSchedules::scopeToKind($q, $kind);
 
         // The pay period containing that date: an existing run's own dates,
         // otherwise the configured pay week (see PaySchedule).
@@ -216,15 +212,12 @@ class PayRunAutomationService
                 ->update(['weekly_payout_batch_id' => null]);
 
             // Lines this type of run does not pay go back to wait for their own run.
-            if ($kind !== null) {
-                $detached += Payout::query()
-                    ->where('weekly_payout_batch_id', $batch->id)
-                    ->where('status', 'draft')
-                    ->where(fn ($q) => $kind === 'share'
-                        ? $q->whereNotIn('payout_type', PayRunSchedules::SHARE_TYPES)
-                        : $q->whereIn('payout_type', PayRunSchedules::SHARE_TYPES))
-                    ->update(['weekly_payout_batch_id' => null]);
-            }
+            $paysHere = Payout::query()->where('weekly_payout_batch_id', $batch->id)->tap($ofKind)->pluck('id');
+            $detached += Payout::query()
+                ->where('weekly_payout_batch_id', $batch->id)
+                ->where('status', 'draft')
+                ->whereNotIn('id', $paysHere)
+                ->update(['weekly_payout_batch_id' => null]);
 
             // Someone moved to another business takes their unpaid pay with them.
             if ($businessId !== null) {
@@ -246,7 +239,7 @@ class PayRunAutomationService
                     ->update(['weekly_payout_batch_id' => $batch->id]);
             }
 
-            if ($kind !== 'share') {
+            if ($kind === null || $kind === 'wages') {
                 $this->syncClockedTime($batch, $start, $end, $businessId);
             }
 

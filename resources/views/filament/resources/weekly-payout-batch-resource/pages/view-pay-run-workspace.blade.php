@@ -173,6 +173,25 @@
         </section>
 
         <aside class="vxw-aside">
+            @if($transfer = \App\Support\BusinessTransfer::forRun($run))
+            @php $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2); @endphp
+            <section class="vxw-card" data-vx-transfer>
+                <div class="vxw-card-head">
+                    <h3 class="vxw-h2">Business account transfer</h3>
+                    <span class="vxw-pill vxw-pill--accent">{{ $signed($transfer['transfer']) }}</span>
+                </div>
+                <div class="vxw-card-body">
+                    <p class="vxw-meta">To the separate bank account, for the {{ $transfer['shows'] }} {{ \Illuminate\Support\Str::plural('show', $transfer['shows']) }} on this run.</p>
+                    <dl class="vxw-dl mt-2">
+                        <div><dt>Product cost</dt><dd>{{ $signed($transfer['product_cost']) }}</dd></div>
+                        <div><dt>Whatnot net earnings</dt><dd>{{ $signed($transfer['net']) }}</dd></div>
+                        <div><dt>− Paid on this run</dt><dd>{{ $signed($transfer['payouts']) }}</dd></div>
+                        <div><dt>= Business revenue</dt><dd>{{ $signed($transfer['business_revenue']) }}</dd></div>
+                        <div><dt><strong>Transfer</strong></dt><dd><strong>{{ $signed($transfer['transfer']) }}</strong></dd></div>
+                    </dl>
+                </div>
+            </section>
+            @endif
             <section class="vxw-card">
                 <div class="vxw-card-head">
                     <h3 class="vxw-h2">Readiness</h3>

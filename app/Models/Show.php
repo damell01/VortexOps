@@ -42,6 +42,7 @@ class Show extends Model
     }
 
     protected $fillable = [
+        'house_cut_override',
         'whatnot_channel_id',
         'channel_attribution_suspect',
         'financials_revised_after_lock',
@@ -96,6 +97,7 @@ class Show extends Model
     ];
 
     protected $casts = [
+        'house_cut_override'          => 'decimal:2',
         'show_date'                   => 'date',
         'start_time'                  => 'datetime',
         'end_time'                    => 'datetime',

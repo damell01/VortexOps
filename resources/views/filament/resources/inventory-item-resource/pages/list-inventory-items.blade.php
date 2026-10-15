@@ -31,13 +31,13 @@
 .vx-card-fig .vx-metric-value{font-size:.72rem;letter-spacing:-.01em;margin-top:0;overflow:hidden;text-overflow:ellipsis}
 .vx-card-fig.is-qty{background:#ecfdf5}.vx-card-fig.is-qty .vx-metric-value{color:#047857}.vx-card-fig.is-qty.low{background:#fff7ed}.vx-card-fig.is-qty.low .vx-metric-value{color:#c2410c}.vx-card-fig.is-qty.out .vx-metric-value{color:#64748b}
 .dark .vx-card-figs{background:#182235;border-color:#334155}.dark .vx-card-fig+.vx-card-fig{border-color:#334155}.dark .vx-card-fig.is-qty{background:#052e2b}.dark .vx-card-fig.is-qty .vx-metric-value{color:#6ee7b7}.dark .vx-card-fig.is-qty.low{background:#3b1d08}.dark .vx-card-fig.is-qty.low .vx-metric-value{color:#fdba74}
-/* Actions: one row of icon buttons; the name shows on hover and is read out. */
-.vx-product-card .vx-card-actions{display:flex!important;flex-wrap:nowrap;gap:4px;padding:.45rem .55rem .55rem!important}
-.vx-product-card .vx-card-action{flex:1 1 0;min-width:0;min-height:30px!important;padding:0!important;grid-column:auto!important;border-radius:.5rem}
-.vx-product-card .vx-card-action svg{width:15px;height:15px}
-.vx-product-card .vx-card-action span{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Actions: icon over its name, four across, so every word shows and the card stays small. */
+.vx-product-card .vx-card-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:.45rem .5rem .55rem!important}
+.vx-product-card .vx-card-action{flex-direction:column;gap:1px;min-width:0;min-height:38px!important;padding:3px 2px!important;grid-column:auto!important;border-radius:.5rem;font-size:.6rem!important;line-height:.75rem;letter-spacing:-.01em}
+.vx-product-card .vx-card-action svg{width:14px;height:14px}
+.vx-product-card .vx-card-action span{display:block;max-width:100%;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;text-align:center;overflow-wrap:normal;word-break:keep-all}
 .vx-select-check{width:30px;height:30px;top:6px;left:6px;border-radius:8px}.vx-select-check input{width:16px;height:16px}
-@media(max-width:639px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-product-card .vx-product-image{aspect-ratio:16/9;height:auto}.vx-product-card .vx-product-title{display:-webkit-box;-webkit-line-clamp:2;font-size:.84rem;line-height:1.1rem;overflow:hidden}.vx-product-card .vx-product-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx-product-tags{flex-wrap:nowrap}.vx-product-tags .vx-product-meta{display:none}.vx-product-card .vx-card-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))}.vx-product-card .vx-card-action{min-height:34px!important}.vx-card-figs{grid-template-columns:1fr 1fr}.vx-card-fig:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e5e7eb}}
+@media(max-width:639px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-product-card .vx-product-image{aspect-ratio:16/9;height:auto}.vx-product-card .vx-product-title{display:-webkit-box;-webkit-line-clamp:2;font-size:.84rem;line-height:1.1rem;overflow:hidden}.vx-product-card .vx-product-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx-product-tags{flex-wrap:nowrap}.vx-product-tags .vx-product-meta{display:none}.vx-product-card .vx-card-action{min-height:40px!important}.vx-card-figs{grid-template-columns:1fr 1fr}.vx-card-fig:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e5e7eb}}
 @media(max-width:359px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
@@ -126,7 +126,7 @@
       </div>
       <div class="vx-card-actions">
        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
-       @if($canEdit)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add Stock</span></button>@endif
+       @if($canEdit)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
        @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>

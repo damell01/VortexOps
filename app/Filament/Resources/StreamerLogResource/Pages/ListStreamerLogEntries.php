@@ -225,8 +225,8 @@ class ListStreamerLogEntries extends ListRecords
 
         $tabs = [
             'all' => Tab::make('All reports'),
-            'attention' => Tab::make('Needs your attention')->modifyQueryUsing(fn (Builder $q) => $this->filterInbox($q, 'attention')),
-            'submissions' => Tab::make('Submissions')->modifyQueryUsing(fn (Builder $q) => $this->filterInbox($q, 'submissions')),
+            'attention' => Tab::make('Needs your attention')->modifyQueryUsing(fn (Builder $query) => $this->filterInbox($query, 'attention')),
+            'submissions' => Tab::make('Submissions')->modifyQueryUsing(fn (Builder $query) => $this->filterInbox($query, 'submissions')),
 
             // Started but not yet sent for review.
             'in_progress' => Tab::make('In Progress')

@@ -172,6 +172,42 @@ class Season
             && $now->toDateString() <= $thursday->endOfWeek(\Carbon\CarbonInterface::SUNDAY)->toDateString();
     }
 
+    /** Who visits when no season or catch event is running. */
+    public const EVERYDAY_VISITORS = [
+        'top' => ['pikachu', 'mew', 'eevee', 'gengar', 'jigglypuff', 'togepi', 'psyduck', 'mimikyu'],
+        'bottom' => ['pikachu', 'eevee', 'bulbasaur', 'squirtle', 'charmander', 'snorlax', 'meowth', 'piplup'],
+    ];
+
+    /** Seasonal casts for the visitors: who hangs from the top bar and who peeks up from the corner. */
+    private const VISITOR_CASTS = [
+        'halloween' => ['top' => ['gengar', 'haunter', 'mimikyu', 'pumpkaboo', 'drifloon', 'misdreavus'], 'bottom' => ['gastly', 'duskull', 'litwick', 'shuppet', 'yamask']],
+        'harvest' => ['top' => ['teddiursa', 'farfetchd', 'oddish'], 'bottom' => ['sunkern', 'seedot', 'skiddo', 'deerling', 'snorlax']],
+        'winter' => ['top' => ['delibird', 'snorunt', 'froslass'], 'bottom' => ['spheal', 'cubchoo', 'swinub', 'vanillite', 'piplup']],
+        'valentines' => ['top' => ['luvdisc', 'woobat', 'sylveon'], 'bottom' => ['smoochum', 'skitty', 'audino', 'clefairy']],
+        'spring' => ['top' => ['hoppip', 'butterfree', 'combee'], 'bottom' => ['budew', 'cherubi', 'petilil', 'eevee']],
+        'summer' => ['top' => ['wingull', 'staryu', 'psyduck'], 'bottom' => ['krabby', 'lotad', 'corphish', 'squirtle', 'popplio']],
+    ];
+
+    /**
+     * The Pokémon that drop in on every page: some hang upside down from
+     * under the top bar, others peek up from the bottom corner. A holiday's
+     * own visitor leads; otherwise the running catch event's cast, or the
+     * everyday regulars.
+     *
+     * @return array{top: list<string>, bottom: list<string>}
+     */
+    public static function visitors(?CarbonInterface $now = null): array
+    {
+        $cast = self::VISITOR_CASTS[static::event($now) ?? ''] ?? self::EVERYDAY_VISITORS;
+        $day = static::details($now);
+        if ($day) {
+            $side = $day['from'] === 'top' ? 'top' : 'bottom';
+            $cast[$side] = array_values(array_unique([$day['mon'], ...$cast[$side]]));
+        }
+
+        return $cast;
+    }
+
     /** @return array{key:string, mon:string, from:string, effect:?string, title:string}|null */
     public static function details(?CarbonInterface $now = null): ?array
     {

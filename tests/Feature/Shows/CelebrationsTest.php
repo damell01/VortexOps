@@ -210,4 +210,35 @@ class CelebrationsTest extends TestCase
         $this->actingAs(User::factory()->create());
         $this->assertFalse(\App\Filament\Pages\MyPokedex::canAccess(), 'not a streamer, no Pokédex');
     }
+
+    public function test_visitors_drop_in_all_year_with_the_seasons_cast(): void
+    {
+        $sep = Season::visitors(CarbonImmutable::parse('2026-09-10'));
+        $this->assertSame(Season::EVERYDAY_VISITORS, $sep, 'no season: the regulars');
+
+        $oct = Season::visitors(CarbonImmutable::parse('2026-10-20'));
+        $this->assertSame('gengar', $oct['top'][0], 'Gengar hangs from the top bar in October');
+        $this->assertContains('gastly', $oct['bottom']);
+
+        $xmas = Season::visitors(CarbonImmutable::parse('2026-12-24'));
+        $this->assertSame('delibird', $xmas['bottom'][0], "the holiday's own visitor leads");
+
+        foreach (['2026-09-10', '2026-10-20', '2026-11-12', '2026-12-24', '2027-02-14', '2027-04-02', '2027-07-04'] as $day) {
+            foreach (Season::visitors(CarbonImmutable::parse($day)) as $cast) {
+                foreach ($cast as $mon) $this->assertFileExists(public_path("img/pokemon/{$mon}.gif"), "{$day}: {$mon}");
+            }
+        }
+    }
+
+    public function test_visitors_render_unless_celebrations_are_off(): void
+    {
+        $this->actingAs($this->user->fresh());
+        $html = view('filament.components.season')->render();
+        $this->assertSame(2, substr_count($html, 'vx-season-peek'));
+        $this->assertStringContainsString('from-top', $html);
+
+        $this->user->forceFill(['celebrations' => 'off'])->save();
+        $this->actingAs($this->user->fresh());
+        $this->assertStringNotContainsString('vx-season-peek', view('filament.components.season')->render());
+    }
 }

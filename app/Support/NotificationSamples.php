@@ -52,6 +52,7 @@ class NotificationSamples
             'scraper_health_digest' => new ScraperHealthDigestNotification(app(\App\Services\ScraperHealthDigest::class)->build()),
             'weekly_owner_summary' => new WeeklyOwnerSummaryNotification(app(\App\Services\WeeklyOwnerSummary::class)->build(now()->subWeek()->startOfWeek())),
             'midweek_report' => new MidweekReportNotification(now()->startOfWeek()->format('M j').' – '.now()->endOfWeek()->format('M j'), 6, 18420.0, 512, $showUrl, 104.0, null),
+            'analytics_overdue' => $alert('2 shows are still missing their analytics', "These aired more than 4 hours ago and Whatnot analytics haven't come in yet:\n{$title} — ended Thu 9:00 PM, never checked\nIf the Whatnot sign-in lapsed, run php artisan whatnot:login.", 'warning'),
             'system_health' => new SystemHealthAlert(['Sample: queue worker heartbeat is 12 minutes old', 'Sample: 2 failed jobs in the last hour']),
             'approved_data_changed' => $alert('Whatnot data changed after approval', "{$title}: Gross Revenue changed after approval. Review Show Activity if the change affects operations or payout reporting.", 'warning'),
             'report_submission_requested' => $alert('Show report requested', "Please submit the end-of-stream report for \"{$title}\".", 'warning'),

@@ -110,6 +110,17 @@ Schedule::exec('nice -n 15 php artisan whatnot:backfill-nightly --since=2026-06-
     ->withoutOverlapping(300)
     ->runInBackground();
 
+// Catch-up: yesterday's and today's ended shows still without analytics get
+// checked directly every hour, all day (it skips while the browser is busy,
+// and the overnight run works newest shows first). Four hours after a show
+// ends with nothing, the owner hears about it.
+Schedule::command('whatnot:analytics-catchup')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->hourlyAt(30)
+    ->name('whatnot-analytics-catchup')
+    ->withoutOverlapping(20);
+
 // Alias cleanup is database-only and does not use the Whatnot browser.
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)

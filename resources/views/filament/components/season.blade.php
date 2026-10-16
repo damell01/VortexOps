@@ -1,22 +1,26 @@
 @php($season = \App\Support\Season::details())
-@if ($season)
-    {{-- A seasonal visitor (App\Support\Season) peeks out now and then; a click sends it away for this session. --}}
-    <div class="vx-season" data-season="{{ $season['key'] }}" aria-hidden="true"
-         x-data="{ gone: (() => { try { return sessionStorage.getItem('vx-season-gone') === @js($season['key']) } catch (e) { return false } })() }"
+@php($visitors = \App\Support\Season::visitors())
+@if (\App\Support\Celebrations::level(auth()->user()) !== 'off')
+    {{-- Visitors (App\Support\Season::visitors): one hangs upside down from under the top bar, another peeks
+         up from the corner, taking turns; each peek is someone new (resources/js/delight.js). A click sends them away for this session. --}}
+    <div class="vx-season" data-season="{{ $season['key'] ?? 'everyday' }}" aria-hidden="true"
+         x-data="{ gone: (() => { try { return sessionStorage.getItem('vx-season-gone') === '1' } catch (e) { return false } })() }"
          x-show="! gone">
-        <button type="button" @class(['vx-season-peek', 'from-top' => $season['from'] === 'top', 'from-bottom' => $season['from'] === 'bottom']) tabindex="-1"
-                title="{{ $season['title'] }} (click to send {{ ucfirst($season['mon']) }} away)"
-                @click="gone = true; try { sessionStorage.setItem('vx-season-gone', @js($season['key'])) } catch (e) {}">
-            <img src="/img/pokemon/{{ $season['mon'] }}.gif" alt="">
-        </button>
-        @if (in_array($season['effect'], ['snow', 'hearts', 'clovers'], true))
+        @foreach (['top' => 'from-top', 'bottom' => 'from-bottom'] as $side => $class)
+            <button type="button" class="vx-season-peek {{ $class }}" tabindex="-1" data-vx-visitors='@json($visitors[$side])'
+                    title="{{ $season['title'] ?? 'Hi!' }} (click to send them away)"
+                    @click="gone = true; try { sessionStorage.setItem('vx-season-gone', '1') } catch (e) {}">
+                <img src="/img/pokemon/{{ $visitors[$side][0] }}.gif" alt="">
+            </button>
+        @endforeach
+        @if ($season && in_array($season['effect'], ['snow', 'hearts', 'clovers'], true))
             {{-- Something light drifting down over the top of the page: snow, hearts or clovers. --}}
             <div class="vx-fall vx-fall--{{ $season['effect'] }}">
                 @for ($i = 0; $i < 18; $i++)
                     <i style="--x: {{ ($i * 41 + 7) % 100 }}%; --s: {{ $season['effect'] === 'snow' ? 3 + $i % 3 : 9 + $i % 3 * 3 }}px; --t: {{ 7 + ($i % 5) * 1.4 }}s; --d: -{{ ($i * 1.3) % 9 }}s; --w: {{ ($i % 2 ? 1 : -1) * (10 + $i % 4 * 6) }}px"></i>
                 @endfor
             </div>
-        @elseif ($season['effect'] === 'fireworks')
+        @elseif ($season && $season['effect'] === 'fireworks')
             @php($fwColours = \App\Support\Season::FIREWORK_COLOURS[$season['key']] ?? \App\Support\Season::FIREWORK_COLOURS['default'])
             {{-- All day: bursts keep popping across the top of every page. --}}
             <div class="vx-fireworks">

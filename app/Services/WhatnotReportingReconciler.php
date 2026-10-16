@@ -285,9 +285,12 @@ class WhatnotReportingReconciler
             ->whereDate('show_date', '>=', $since->toDateString())
             ->readyForAnalytics()
             ->when($onlyShowIds !== null, fn ($query) => $query->whereKey($onlyShowIds), fn ($query) => $query->missingAnalytics())
-            // Work the real backlog in the same order as Show Data Audit:
-            // first-time checks first, then partial rows, then old unavailable
-            // rows whose retry window has elapsed.
+            // Yesterday's and today's shows always go first, whatever their
+            // status: one tried too early (partial, or not published yet) must
+            // not wait behind a week of first-time checks. Then the backlog in
+            // the same order as Show Data Audit: first-time checks, partial
+            // rows, then old unavailable rows whose retry window has elapsed.
+            ->orderByRaw('CASE WHEN show_date >= ? THEN 0 ELSE 1 END', [\App\Support\BusinessTime::local()->subDay()->toDateString()])
             ->orderByRaw("CASE
                 WHEN analytics_sync_status IS NULL THEN 0
                 WHEN analytics_sync_status = 'partial' THEN 1

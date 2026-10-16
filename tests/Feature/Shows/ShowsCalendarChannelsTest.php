@@ -42,11 +42,13 @@ class ShowsCalendarChannelsTest extends TestCase
 
     public function test_every_show_in_a_day_is_on_the_month_calendar(): void
     {
+        // The cell shows three and "+N more"; the day panel lists every one of
+        // them from the page's data, so all of them are still on the page.
         Livewire::test(Shows::class, ['anchor' => '2026-10-14'])
             ->set('anchor', '2026-10-14')
             ->assertSee('Breaks show 6')
             ->assertSee('Shop singles night')
-            ->assertDontSee('more</button>', false);
+            ->assertSee('more</button>', false);
     }
 
     public function test_a_channel_can_be_hidden_shown_alone_and_brought_back(): void

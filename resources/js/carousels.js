@@ -4,7 +4,7 @@
 // grids. A group opts out with data-vx-no-carousel.
 import '../css/carousels.css';
 
-const GROUPS = '.vxr-stats, .vxr-tiles, .ivx-kpis, .vx-stream-kpis, .vx-payroll-kpis, .vxsim-tiles, .vx-an-kpis, .vx-report .vx-kpis, .fi-wi-stats-overview-stats-ctn';
+const GROUPS = '.vx-kstrip, .vxr-stats, .vxr-tiles, .ivx-kpis, .vx-stream-kpis, .vx-payroll-kpis, .vxsim-tiles, .vx-an-kpis, .vx-report .vx-kpis, .fi-wi-stats-overview-stats-ctn';
 const phone = window.matchMedia('(max-width: 640px)');
 
 function dotsFor(group) {

@@ -71,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \App\Support\PokemonHooks::register();
         // Times are stored in UTC and shown in the team's timezone (Central).
         // Filament applies this to date-time and time values only; plain dates
         // such as a show's date are never shifted.

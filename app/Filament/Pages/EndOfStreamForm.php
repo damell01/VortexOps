@@ -523,7 +523,13 @@ class EndOfStreamForm extends Page implements HasForms
             }
             $this->lastSavedAt = now()->toIso8601String(); $this->step = 3; $this->stagedQuantities = [];
             session()->flash('vx_celebrate', 'report');
-            if ($milestone = \App\Support\Celebrations::forReport($entry, $this->show)) \App\Support\Celebrations::flash($milestone['kind'], array_diff_key($milestone, ['kind' => 1]));
+            if ($milestone = \App\Support\Celebrations::forReport($entry, $this->show)) {
+                \App\Support\Celebrations::flash($milestone['kind'], array_diff_key($milestone, ['kind' => 1]));
+                // A record show: a wild Pokémon turns up as well (shown now unless the report's own catch is).
+                if ($milestone['kind'] === 'record_show' && ($wild = rescue(fn () => \App\Support\PokemonGames::encounter($entry), null, true))) {
+                    if (! session()->has('vx_caught')) \App\Support\PokemonGames::flashFor($wild, 'A wild Pokémon appeared for your record show!');
+                }
+            }
             $this->redirect(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'), navigate: true);
         } catch (\Throwable $e) {
             report($e); Notification::make()->title('Could not submit the report')->body($e->getMessage())->danger()->send();

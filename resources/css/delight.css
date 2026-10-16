@@ -438,3 +438,15 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 .vx-wild-open { align-self: center; flex: none; padding: 6px 12px; border-radius: 10px; background: #7c3aed; color: #fff !important; font-size: 12px; font-weight: 700; }
 .vx-wild-x { position: absolute; top: 6px; right: 10px; font-size: 18px; line-height: 1; color: #9ca3af; }
 @media (prefers-reduced-motion: reduce) { .vx-wild, .vx-wild * { animation: none !important; } }
+
+/* Birthday visitor (filament.components.season): their buddy in a party hat, all day. */
+.vx-bday { position: fixed; z-index: 44; left: 18px; bottom: 14px; display: flex; align-items: flex-end; gap: 6px; pointer-events: none; }
+.vx-bday img { position: relative; height: 56px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(40 0 70 / .3)); animation: vx-bday-hop 2.6s ease-in-out infinite; }
+.vx-bday-hat { position: absolute; left: 16px; bottom: 46px; z-index: 1; width: 22px; height: 26px; clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: repeating-linear-gradient(135deg, #f472b6 0 5px, #facc15 5px 10px, #7c3aed 10px 15px); animation: vx-bday-hop 2.6s ease-in-out infinite; }
+.vx-bday-hat::after { content: ''; position: absolute; }
+.vx-bday-say { margin-bottom: 30px; padding: 4px 9px; border-radius: 999px; background: #fff; color: #6d28d9; font-size: 12px; font-weight: 800; box-shadow: 0 6px 16px -8px rgb(46 16 101 / .5); white-space: nowrap; }
+.dark .vx-bday-say { background: #1e1340; color: #ddd6fe; }
+@keyframes vx-bday-hop { 0%, 70%, 100% { transform: translateY(0); } 78% { transform: translateY(-10px); } 86% { transform: translateY(0); } 92% { transform: translateY(-4px); } }
+@media (max-width: 1023px) { .vx-bday { bottom: calc(84px + env(safe-area-inset-bottom)); left: 10px; } }
+@media (prefers-reduced-motion: reduce) { .vx-bday img, .vx-bday-hat { animation: none; } }

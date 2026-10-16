@@ -3,6 +3,7 @@
 namespace App\Filament\Auth;
 
 use App\Support\Buddy;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Schema;
 
@@ -24,6 +25,12 @@ class EditProfile extends \Filament\Auth\Pages\EditProfile
                     ->options(Buddy::options())
                     ->placeholder('Not chosen yet (Pikachu)')
                     ->visible(fn () => (bool) auth()->user()?->streamer),
+                DatePicker::make('birthday')
+                    ->label('Birthday')
+                    ->helperText('Optional. A Pokémon in a party hat visits you all day on your birthday. Only the month and day are shown.')
+                    ->native(false)
+                    ->displayFormat('F j')
+                    ->maxDate(now()),
                 $this->getPasswordFormComponent(),
                 $this->getPasswordConfirmationFormComponent(),
                 $this->getCurrentPasswordFormComponent(),

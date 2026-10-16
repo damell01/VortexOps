@@ -177,9 +177,12 @@ class CelebrationsTest extends TestCase
         \App\Models\Setting::set('show_inventory_posting_policy', 'never');
         $show = Show::create(['title' => 'Spooky', 'show_date' => today()->toDateString(), 'status' => 'draft']);
         $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $this->streamer->id, 'status' => 'pending']);
+        // The draw is the regions this trainer has opened, plus the running event's species.
+        $pool = \App\Support\PokemonGames::rollPool(\App\Support\Trainer::forStreamer($this->streamer));
         $entry->update(['status' => 'admin_approved']);
 
-        $this->assertSame(Pokedex::roll($entry->id, 'halloween')[0], PokemonCatch::sole()->species);
+        $this->assertArrayHasKey('pumpkaboo', $pool, 'Halloween species join the draw');
+        $this->assertSame(Pokedex::roll($entry->id, 'halloween', $pool)[0], PokemonCatch::sole()->species);
     }
 
     public function test_the_pokedex_lists_the_running_event_and_any_event_catches(): void
@@ -200,15 +203,19 @@ class CelebrationsTest extends TestCase
         $this->assertStringContainsString('Spooky season event', $html);
     }
 
-    public function test_streamers_open_their_pokedex_from_the_dashboard_and_others_cannot(): void
+    public function test_streamers_open_their_pokedex_from_the_dashboard_and_staff_have_one_too(): void
     {
         $this->actingAs($this->user->fresh());
         $this->assertTrue(\App\Filament\Pages\MyPokedex::canAccess());
         Livewire::test(\App\Filament\Pages\MyPokedex::class)->assertOk()->assertSee('Your Pokédex')->assertSee('See all 100 Pokémon');
         $this->assertStringContainsString('MyPokedex::getUrl()', file_get_contents(resource_path('views/livewire/streamer-home.blade.php')), 'the dashboard links to it');
 
+        // Staff catch Pokémon for their work (App\Support\PokemonGames), so they have one too.
         $this->actingAs(User::factory()->create());
-        $this->assertFalse(\App\Filament\Pages\MyPokedex::canAccess(), 'not a streamer, no Pokédex');
+        $this->assertTrue(\App\Filament\Pages\MyPokedex::canAccess(), 'everyone signed in is a trainer');
+        $this->actingAs(User::factory()->create())->get(\App\Filament\Pages\MyPokedex::getUrl())->assertOk();
+        auth()->logout();
+        $this->assertFalse(\App\Filament\Pages\MyPokedex::canAccess(), 'signed out, no Pokédex');
     }
 
     public function test_visitors_drop_in_all_year_with_the_seasons_cast(): void

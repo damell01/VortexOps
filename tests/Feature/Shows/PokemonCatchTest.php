@@ -77,6 +77,8 @@ class PokemonCatchTest extends TestCase
     {
         Setting::set('show_report_review_policy', 'auto');
         $report = $this->report();
+        // A new trainer catches from the regions they've opened: Kanto to start with.
+        $pool = \App\Support\PokemonGames::rollPool(\App\Support\Trainer::forStreamer($this->streamer));
 
         $report->submitReport();
         $report->refresh()->update(['notes' => 'edited']);
@@ -84,7 +86,8 @@ class PokemonCatchTest extends TestCase
 
         $this->assertSame(1, PokemonCatch::where('streamer_log_entry_id', $report->id)->count());
         $caught = PokemonCatch::sole();
-        $this->assertSame(Pokedex::roll($report->id, \App\Support\Season::event())[0], $caught->species);
+        $this->assertSame(Pokedex::roll($report->id, \App\Support\Season::event(), $pool)[0], $caught->species);
+        $this->assertSame(1, Pokedex::DEX[$caught->species][1] ?? 1, 'a new trainer catches in Kanto');
         $this->assertSame($this->streamer->id, $caught->streamer_id);
     }
 

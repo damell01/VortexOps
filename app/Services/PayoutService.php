@@ -415,10 +415,14 @@ class PayoutService
             case 'custom_formula':
                 $formula = trim((string) $streamer->custom_payout_formula);
                 $calculatedPayout = $formula !== ''
-                    ? round($this->evaluateCustomFormula($formula, [
+                    ? round(\App\Support\PayoutFormula::evaluate($formula, [
                         'gross_revenue'         => $grossRevenue,
                         'whatnot_net'           => $netRevenue,
                         'streamer_share_net'    => $streamerShare,
+                        'product_cost'          => (float) ($logEntry?->product_cost ?? 0),
+                        'shipments_count'       => (float) ($logEntry?->number_of_shipments ?? $show->shipments()->count()),
+                        'pwe_count'             => (float) ($logEntry?->pwe_count ?? 0),
+                        'label_count'           => (float) ($logEntry?->label_count ?? 0),
                         'units_sold'            => (float) $show->units_sold,
                         'show_duration_hours'   => $show->show_duration ? round($show->show_duration / 60, 2) : 0,
                         'show_duration_minutes' => (float) ($show->show_duration ?? 0),
@@ -739,114 +743,6 @@ class PayoutService
         }
 
         return null;
-    }
-
-    private function evaluateCustomFormula(string $formula, array $variables): float
-    {
-        if (! preg_match('/^[\w\s+\-*\/().]+$/', $formula)) {
-            throw new \RuntimeException('Custom payout formula contains unsupported characters.');
-        }
-
-        $tokens = $this->tokenizeFormula($formula);
-        $output = [];
-        $operators = [];
-        $precedence = ['+' => 1, '-' => 1, '*' => 2, '/' => 2];
-
-        foreach ($tokens as $token) {
-            if (is_numeric($token)) {
-                $output[] = (float) $token;
-                continue;
-            }
-
-            if (preg_match('/^[A-Za-z_]\w*$/', $token)) {
-                if (! array_key_exists($token, $variables)) {
-                    throw new \RuntimeException("Unknown formula variable: {$token}");
-                }
-
-                $output[] = (float) $variables[$token];
-                continue;
-            }
-
-            if (isset($precedence[$token])) {
-                while (! empty($operators)) {
-                    $top = end($operators);
-                    if (! isset($precedence[$top]) || $precedence[$top] < $precedence[$token]) {
-                        break;
-                    }
-
-                    $output[] = array_pop($operators);
-                }
-
-                $operators[] = $token;
-                continue;
-            }
-
-            if ($token === '(') {
-                $operators[] = $token;
-                continue;
-            }
-
-            if ($token === ')') {
-                while (! empty($operators) && end($operators) !== '(') {
-                    $output[] = array_pop($operators);
-                }
-
-                if (empty($operators) || array_pop($operators) !== '(') {
-                    throw new \RuntimeException('Custom payout formula has mismatched parentheses.');
-                }
-            }
-        }
-
-        while (! empty($operators)) {
-            $operator = array_pop($operators);
-            if (in_array($operator, ['(', ')'], true)) {
-                throw new \RuntimeException('Custom payout formula has mismatched parentheses.');
-            }
-
-            $output[] = $operator;
-        }
-
-        return $this->evaluateRpn($output);
-    }
-
-    private function tokenizeFormula(string $formula): array
-    {
-        preg_match_all('/([A-Za-z_]\w*|\d+(?:\.\d+)?|[()+\-*\/])/', str_replace(' ', '', $formula), $matches);
-
-        return $matches[0] ?? [];
-    }
-
-    private function evaluateRpn(array $tokens): float
-    {
-        $stack = [];
-
-        foreach ($tokens as $token) {
-            if (is_float($token) || is_int($token)) {
-                $stack[] = (float) $token;
-                continue;
-            }
-
-            $right = array_pop($stack);
-            $left = array_pop($stack);
-
-            if ($left === null || $right === null) {
-                throw new \RuntimeException('Custom payout formula is incomplete.');
-            }
-
-            $stack[] = match ($token) {
-                '+' => $left + $right,
-                '-' => $left - $right,
-                '*' => $left * $right,
-                '/' => $right == 0.0 ? throw new \RuntimeException('Custom payout formula cannot divide by zero.') : $left / $right,
-                default => throw new \RuntimeException("Unsupported operator in formula: {$token}"),
-            };
-        }
-
-        if (count($stack) !== 1) {
-            throw new \RuntimeException('Custom payout formula could not be evaluated.');
-        }
-
-        return (float) $stack[0];
     }
 
     public function createWeeklyBatch(string $weekStart, ?int $businessId = null): WeeklyPayoutBatch

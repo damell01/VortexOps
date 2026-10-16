@@ -272,7 +272,15 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 .vx-month .vx-chip .tx{display:flex;gap:5px;align-items:baseline;min-width:0}
 .vx-month .vx-chip .tm{flex:none;font-weight:600}
 .vx-month .vx-chip .tt{min-width:0}
-.vx-dayp{flex:1 1 300px;display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-left:1px solid var(--vx-line);background:var(--vx-soft);min-width:0}
+.vx-dayp{flex:1 1 300px;padding:14px 16px;border-left:1px solid var(--vx-line);background:var(--vx-soft);min-width:0}
+/* contain:size: the panel takes the calendar's height instead of adding its
+   own, so a long day never makes the page longer; it sticks while the
+   calendar scrolls by and its list scrolls inside it. */
+@media(min-width:1181px){.vx-dayp{contain:size;min-height:440px}}
+.vx-dayp-in{position:sticky;top:calc(var(--vx-topbar-h, 64px) + 12px);display:flex;flex-direction:column;gap:10px;max-height:min(calc(100vh - var(--vx-topbar-h, 64px) - 36px),100%)}
+.vx-dayp-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;margin:0 -6px;padding:2px 6px;scrollbar-width:thin}
+.vx-dayp-list:focus-visible{outline:2px solid var(--vx-p);outline-offset:2px;border-radius:10px}
+.vx-dayp-add{flex:none}
 .vx-dayp-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .vx-dayp-h h3{font-size:1rem;font-weight:800}
 .vx-dayp-h span{font-size:.74rem;font-weight:600;color:var(--vx-muted)}
@@ -285,7 +293,7 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 .vx-dayp-empty{padding:24px 8px;text-align:center;font-size:.82rem;color:var(--vx-muted)}
 .vx-dayp-add{padding:10px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--vx-p) 45%,transparent);color:var(--vx-p);font-size:.8rem;font-weight:700}
 .vx-dayp-add:hover{background:var(--vx-p-soft)}
-@media(max-width:1180px){.vx-dayp{border-left:0;border-top:1px solid var(--vx-line)}}
+@media(max-width:1180px){.vx-dayp{border-left:0;border-top:1px solid var(--vx-line)}.vx-dayp-in{position:static;max-height:none}.vx-dayp-list{max-height:520px}}
 /* "only" appears on hover or focus, so the channel row reads as one set of switches. */
 @media(hover:hover){.vx-d .vx-only{opacity:0;transition:opacity .15s}.vx-d .vx-ctog:hover .vx-only,.vx-d .vx-ctog:focus-within .vx-only{opacity:1}}
 
@@ -326,7 +334,7 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 @php $filterCount = $this->activeFilterCount(); @endphp
 
 {{-- ── Desktop calendar ──────────────────────────────────────────── --}}
-<section class="vx-d vx-card" style="overflow:hidden">
+<section class="vx-d vx-card" style="overflow:clip">
     <div class="vx-bar">
         <button type="button" class="vx-btn ic" wire:click="goPrevious" aria-label="Previous"><x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4" /></button>
         <button type="button" class="vx-btn" wire:click="goToToday">Today</button>
@@ -393,10 +401,13 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 
         {{-- The picked day, in full. Rendered from the same JSON as the phone agenda. --}}
         <aside class="vx-dayp" aria-label="Selected day" aria-live="polite">
+            {{-- Sticks beside the calendar as the page scrolls; the day's shows scroll inside it. --}}
+            <div class="vx-dayp-in">
             <div class="vx-dayp-h">
                 <h3 x-text="sel && fmt(sel, { weekday: 'short', month: 'short', day: 'numeric' })"></h3>
                 <span x-text="dayLine(sel)"></span>
             </div>
+            <div class="vx-dayp-list" tabindex="0" aria-label="Shows on the selected day">
             <template x-for="p in day(sel)" :key="p.id">
                 <button type="button" class="vx-dcard" :style="'--c:' + p.color" @click="open(p.id)">
                     <span class="tm" x-text="p.time"></span>
@@ -408,7 +419,9 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
                 </button>
             </template>
             <div x-show="!day(sel).length" class="vx-dayp-empty">No shows this day.</div>
+            </div>
             <template x-if="d.canAdd"><button type="button" class="vx-dayp-add" @click="addOn(sel)" x-text="'+ Add a show on ' + (sel ? fmt(sel, { month: 'short', day: 'numeric' }) : '')"></button></template>
+            </div>
         </aside>
         </div>
 

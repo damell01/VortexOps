@@ -44,6 +44,14 @@ new MutationObserver((list) => {
     }
 }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-vx-done'], attributeOldValue: true });
 
+// ── A ticked checkbox (a Poké Ball) clicks shut ───────────────────────────
+document.addEventListener('change', (e) => {
+    const box = e.target;
+    if (!(box instanceof HTMLInputElement) || box.type !== 'checkbox' || !box.checked || calm.matches) return;
+    box.classList.remove('vx-ball-click'); void box.offsetWidth; box.classList.add('vx-ball-click');
+    setTimeout(() => box.classList.remove('vx-ball-click'), 450);
+}, true);
+
 // ── PACKED: settles in the first time a show is seen going from open to packed ──
 const WAITING = 'vx-stamp-waiting';
 function stamp(card, now = false) {

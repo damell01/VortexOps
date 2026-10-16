@@ -1,0 +1,53 @@
+name: Login animation checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'public/css/vortex-login.css'
+      - 'public/js/vortex-login.js'
+      - 'resources/views/filament/components/login-*.blade.php'
+      - 'resources/views/filament/components/workspace-entry.blade.php'
+      - 'tests/Browser/vortex-login.spec.ts'
+      - '.github/workflows/login-animation-checks.yml'
+jobs:
+  login:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo_sqlite,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - run: node --test tests/JavaScript/vortex-login.test.cjs
+      - run: cp .env.example .env && php artisan key:generate && php artisan view:cache
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare isolated login fixtures
+        run: touch /tmp/vortex-login.sqlite && php artisan migrate:fresh --force && php tests/Browser/mockup-fixtures.php
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-login.sqlite
+          APP_DEBUG: false
+      - name: Verify login, delayed navigation, and responsive layout
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/login-server.log 2>&1 &
+          npx playwright test --config=playwright.login.config.ts
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-login.sqlite
+          APP_DEBUG: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: login-animation-screenshots
+          path: tests/Browser/output/login

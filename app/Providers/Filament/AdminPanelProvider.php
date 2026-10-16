@@ -387,7 +387,11 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn () => request()->routeIs('filament.admin.auth.login') ? view('filament.components.login-assets') : '',
+                fn () => view('filament.components.login-assets'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => view('filament.components.workspace-entry'),
             )
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,

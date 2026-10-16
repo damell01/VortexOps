@@ -90,9 +90,10 @@ class ScraperHealthDigestTest extends TestCase
         $this->assertTrue($d['needs_attention']);
 
         $html = html_entity_decode((string) (new ScraperHealthDigestNotification($d))->toMail(new User)->render());
-        foreach (['needs attention', '3 new shows', 'good until Dec 11, 2026', 'whatnot_orders: 1', 'Sold but no orders', 'No shows imported for: Vortex Shop'] as $text) {
+        foreach (['needs attention', 'New shows', 'good until Dec 11, 2026', 'whatnot_orders', 'Exit 3: challenge', 'Sold but no orders', 'No shows imported for: Vortex Shop'] as $text) {
             $this->assertStringContainsString($text, $html);
         }
+        $this->assertMatchesRegularExpression('/New shows<\/div>\s*<div[^>]*>3</', $html, 'three new shows, in its tile');
     }
 
     public function test_command_sends_to_the_owner(): void

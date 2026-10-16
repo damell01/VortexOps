@@ -6,6 +6,7 @@ use App\Filament\Pages\SystemHealth;
 use App\Notifications\Concerns\EmailsWhenEnabled;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use App\Support\MailTable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -56,24 +57,27 @@ class ScraperHealthDigestNotification extends Notification
             ->greeting('Whatnot import health')
             ->line("**{$this->headline()}** {$d['period']}.")
             ->line('**Imported**')
-            ->line("• {$i['new_shows']} new ".str('show')->plural($i['new_shows']).", {$i['refreshed_shows']} refreshed")
-            ->line("• {$i['orders']} ".str('order')->plural($i['orders']))
-            ->line("• {$i['shipments_new']} new ".str('shipment')->plural($i['shipments_new']).", {$i['shipments_updated']} updated")
+            ->line(MailTable::stats([
+                'New shows' => (string) $i['new_shows'],
+                'Refreshed' => (string) $i['refreshed_shows'],
+                'Orders' => (string) $i['orders'],
+                'Shipments' => $i['shipments_new'].' new · '.$i['shipments_updated'].' updated',
+            ]))
             ->line('**Whatnot sign-in**')
             ->line($this->sessionLine());
 
         if ($d['pipelines'] !== []) {
             $mail->line('**Pipelines that are not OK**');
-            foreach ($d['pipelines'] as $p) {
-                $mail->line("• {$p['label']} — {$p['state']}: {$p['note']}");
-            }
+            $mail->line(MailTable::make(['Pipeline', 'State', 'Note'], array_map(fn ($p) => [
+                $p['label'], ['text' => $p['state'], 'tone' => 'bad'], $p['note'],
+            ], $d['pipelines'])));
         }
 
         if ($d['failures']['count'] > 0) {
             $mail->line("**{$d['failures']['count']} failed or partial ".str('import')->plural($d['failures']['count']).'**');
-            foreach ($d['failures']['by_source'] as $f) {
-                $mail->line("• {$f['source']}: {$f['count']}".($f['last_error'] !== '' ? " — last error: {$f['last_error']}" : ''));
-            }
+            $mail->line(MailTable::make(['Source', 'Failed', 'Last error'], array_map(fn ($f) => [
+                $f['source'], (string) $f['count'], $f['last_error'] !== '' ? $f['last_error'] : '—',
+            ], $d['failures']['by_source']), numeric: [1]));
         }
 
         $g = $d['gaps'];

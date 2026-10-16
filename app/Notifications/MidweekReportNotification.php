@@ -54,9 +54,11 @@ class MidweekReportNotification extends Notification
         }
 
         $mail->line("So far this week ({$this->weekLabel}):")
-            ->line("• {$this->showCount} show(s)")
-            ->line("• \${$gross} gross revenue")
-            ->line("• {$this->unitsSold} units sold");
+            ->line(\App\Support\MailTable::stats([
+                'Shows' => (string) $this->showCount,
+                'Gross revenue' => '$'.$gross,
+                'Units sold' => (string) $this->unitsSold,
+            ]));
 
         if ($pacing = $this->pacingLine()) {
             $mail->line($pacing);

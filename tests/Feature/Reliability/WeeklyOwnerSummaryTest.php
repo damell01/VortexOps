@@ -64,7 +64,7 @@ class WeeklyOwnerSummaryTest extends TestCase
         $this->assertSame('Giveaways', $s['tags'][0]['label']);
 
         $html = (string) (new WeeklyOwnerSummaryNotification($s))->toMail(new User)->render();
-        foreach (['$1,500.00 gross', '+50.0% vs the week before', 'Vortex Breaks: $1,300.00 gross', 'Niko: $1,300.00 over 2 shows', 'Giveaways:'] as $text) {
+        foreach (['$1,500.00 gross', '+50.0% vs the week before', '>Vortex Breaks</td>', '>$1,300.00</td>', '>Niko</td>', '>Giveaways</td>'] as $text) {
             $this->assertStringContainsString($text, html_entity_decode($html));
         }
     }

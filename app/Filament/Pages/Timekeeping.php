@@ -221,10 +221,39 @@ class Timekeeping extends Page
             ->sortByDesc(fn ($row) => $row['at']->getTimestamp())
             ->values();
 
-        $page = max(1, min($this->page, (int) ceil(max(1, $rows->count()) / $this->perPage)));
+        // One line per person, their clocked time and show reports nested under it.
+        $people = $rows->groupBy(fn ($row) => $row['clock']
+                ? 'u'.$row['clock']->user_id
+                : ($row['report']->streamer?->user_id ? 'u'.$row['report']->streamer->user_id : 's'.$row['report']->streamer_id))
+            ->map(function ($personRows, $key) {
+                $first = $personRows->first();
+                $clock = $personRows->whereNotNull('clock');
+                $reports = $personRows->whereNotNull('report');
 
-        return new \Illuminate\Pagination\LengthAwarePaginator($rows->forPage($page, $this->perPage)->values(), $rows->count(), $this->perPage, $page);
+                return [
+                    'key' => $key,
+                    'name' => $clock->first()['clock']?->user?->name ?? $first['report']?->streamer?->name ?? $first['clock']?->user?->name ?? 'Unknown',
+                    'rows' => $personRows->values(),
+                    'clock_minutes' => (int) $clock->sum(fn ($row) => (int) ($row['clock']->duration_minutes ?? 0)),
+                    'clock_count' => $clock->count(),
+                    'report_minutes' => (int) $reports->sum(fn ($row) => (int) round((float) $row['report']->hours_streamed * 60)),
+                    'report_count' => $reports->count(),
+                    'shows' => $personRows->map(fn ($row) => $row['clock']?->show_id ?? $row['report']?->show_id)->filter()->unique()->count(),
+                    'needs_review' => $clock->contains(fn ($row) => $row['clock']->status === 'flagged'),
+                    'latest' => $first['at'],
+                ];
+            })
+            ->sortByDesc(fn ($p) => $p['latest']->getTimestamp())
+            ->values();
+        $this->entryTotal = $rows->count();
+
+        $page = max(1, min($this->page, (int) ceil(max(1, $people->count()) / $this->perPage)));
+
+        return new \Illuminate\Pagination\LengthAwarePaginator($people->forPage($page, $this->perPage)->values(), $people->count(), $this->perPage, $page);
     }
+
+    /** How many entries (clocked and from reports) the period holds, across everyone. */
+    public int $entryTotal = 0;
 
     /**
      * Hours written on submitted show reports for shows in the period: the

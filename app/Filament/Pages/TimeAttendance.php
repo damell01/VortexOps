@@ -128,7 +128,7 @@ class TimeAttendance extends Page
             'person' => $i['entry']->streamer?->name ?? 'Unknown',
             'when' => $i['entry']->show?->show_date,
             'what' => $i['entry']->show?->title ?? 'Show #'.$i['entry']->show_id,
-            'issue' => TimeTrackingService::issueLabel($i['kind']),
+            'issue' => TimeTrackingService::issueLabel($i['kind']).($i['reason'] ? ' · '.$i['reason'] : ''),
             'clock' => $i['clock_minutes'],
             'report' => $i['report_minutes'],
             'tone' => $i['kind'] === 'missing' ? 'bad' : 'warn',

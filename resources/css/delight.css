@@ -236,12 +236,14 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 .vx-season-peek { position: fixed; z-index: 29; padding: 0; border: 0; background: none; cursor: pointer; }
 .vx-season-peek img { display: block; height: 56px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(40 0 70 / .3)); }
 /* Hanging upside down from under the top bar (Gengar). */
-.vx-season-peek.from-top { top: calc(var(--vx-topbar-h, 68px) - 46px); right: clamp(90px, 14vw, 260px); animation: vx-peek-down 14s ease-in-out 3s infinite; }
+.vx-season-peek.from-top { top: calc(var(--vx-topbar-h, 68px) - 46px); right: clamp(90px, 14vw, 260px); animation: vx-peek-down 26s ease-in-out 1.5s infinite; }
 .vx-season-peek.from-top img { transform: scaleY(-1); }
-@keyframes vx-peek-down { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(38px); } }
+/* Out for about four seconds near the start of each 26 s turn, swaying a little. */
+@keyframes vx-peek-down { 0%, 100% { transform: translateY(0); } 5% { transform: translateY(40px) rotate(-4deg); } 9% { transform: translateY(38px) rotate(4deg); } 13% { transform: translateY(40px) rotate(-3deg); } 17% { transform: translateY(38px); } 21% { transform: translateY(0); } }
 /* Rising from the bottom-right corner (everyone else). */
-.vx-season-peek.from-bottom { bottom: -46px; right: clamp(24px, 6vw, 90px); z-index: 45; animation: vx-peek-up 14s ease-in-out 3s infinite; }
-@keyframes vx-peek-up { 0%, 70%, 100% { transform: translateY(0); } 76%, 90% { transform: translateY(-40px); } }
+.vx-season-peek.from-bottom { bottom: -46px; right: clamp(24px, 6vw, 90px); z-index: 45; animation: vx-peek-up 26s ease-in-out 14.5s infinite; }
+@media (max-width: 767px) { .vx-season-peek.from-bottom { display: none; } } /* the phone tab bar lives there */
+@keyframes vx-peek-up { 0%, 100% { transform: translateY(0); } 5%, 17% { transform: translateY(-42px); } 9% { transform: translateY(-40px) rotate(3deg); } 13% { transform: translateY(-42px) rotate(-3deg); } 21% { transform: translateY(0); } }
 
 
 /* Snow, hearts or clovers drifting down over the top of the page. */

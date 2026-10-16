@@ -66,7 +66,7 @@ class NotificationSettingsPanelTest extends TestCase
     public function test_tabs_and_search_filter_the_list(): void
     {
         $page = Livewire::actingAs($this->owner)->test(NotificationSettings::class)->set('group', 'System');
-        $this->assertSame(['scraper_health_digest', 'system_health'], array_keys($page->instance()->visibleEvents()));
+        $this->assertSame(['scraper_health_digest', 'analytics_overdue', 'system_health'], array_keys($page->instance()->visibleEvents()));
 
         $page->set('group', 'all')->set('search', 'whatnot earnings');
         $this->assertArrayHasKey('whatnot_negative', $page->instance()->visibleEvents());

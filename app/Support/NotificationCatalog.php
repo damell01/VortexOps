@@ -172,6 +172,11 @@ class NotificationCatalog
                 'description' => 'Monday email: shows, orders and shipments imported last week, failures, gaps, and when the saved Whatnot sign-in expires.',
                 'roles' => ['owner'], 'involved' => false, 'in_app' => true, 'email' => true,
             ],
+            'analytics_overdue' => [
+                'group' => 'System', 'label' => 'Show analytics overdue', 'level' => 'alert',
+                'description' => 'A show aired more than 4 hours ago and its Whatnot analytics still have not come in.',
+                'roles' => ['owner'], 'involved' => false, 'in_app' => true, 'email' => true,
+            ],
             'system_health' => [
                 'group' => 'System', 'label' => 'System health problem', 'level' => 'alert',
                 'description' => 'The queue, worker, disk or Whatnot import needs attention.',

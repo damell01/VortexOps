@@ -396,6 +396,19 @@ new MutationObserver(() => {
     requestAnimationFrame(() => { badgeQueued = false; tabBadge(); shinySwap(); dexify(); });
 }).observe(document.body || document.documentElement, { childList: true, subtree: true }); // not text edits: timers tick every second
 
+// ── Visitors: each peek is someone new from the cast (App\Support\Season::visitors) ──
+document.addEventListener('animationiteration', (e) => {
+    const peek = e.target.closest?.('.vx-season-peek[data-vx-visitors]');
+    if (!peek || e.target !== peek) return;
+    let cast = [];
+    try { cast = JSON.parse(peek.dataset.vxVisitors || '[]'); } catch {}
+    if (cast.length < 2) return;
+    const img = peek.querySelector('img');
+    const now = img.getAttribute('src').split('/').pop().replace('.gif', '');
+    const next = cast[(cast.indexOf(now) + 1) % cast.length];
+    img.src = `/img/pokemon/${shinyVisit ? 'shiny/' : ''}${next}.gif`;
+});
+
 // The top bar's height, for anything that tucks underneath it (Gengar in October).
 function topbarVar() {
     const bar = document.querySelector('.fi-topbar');

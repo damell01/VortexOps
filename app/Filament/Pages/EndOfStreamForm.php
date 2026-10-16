@@ -511,6 +511,7 @@ class EndOfStreamForm extends Page implements HasForms
             }
             $this->lastSavedAt = now()->toIso8601String(); $this->step = 3; $this->stagedQuantities = [];
             session()->flash('vx_celebrate', 'report');
+            if ($milestone = \App\Support\Celebrations::forReport($entry, $this->show)) \App\Support\Celebrations::flash($milestone['kind'], array_diff_key($milestone, ['kind' => 1]));
             $this->redirect(\App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin'), navigate: true);
         } catch (\Throwable $e) {
             report($e); Notification::make()->title('Could not submit the report')->body($e->getMessage())->danger()->send();

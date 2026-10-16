@@ -6,6 +6,7 @@
 //   step       a Pokémon dashes along the top: "Step 2 of 3!"
 //   ask        Psyduck, confused: "Psy…? Request sent!"
 import '../css/poke-moments.css';
+import { allowSmall } from './celebrations.js';
 
 const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 const SLEEPY = ['snorlax', 'jigglypuff', 'slowpoke', 'wooloo', 'umbreon', 'pachirisu', 'drowzee', 'munchlax'];
@@ -17,6 +18,10 @@ function pool() {
     try { return JSON.parse(document.getElementById('vx-dex-pool')?.textContent || '[]'); } catch { return []; }
 }
 function pick(prefer = []) {
+    // During a catch event, the season's Pokémon turn up more often.
+    let ev = [];
+    try { ev = JSON.parse(document.getElementById('vx-fx')?.textContent || '{}').event?.pool || []; } catch {}
+    if (ev.length && Math.random() < 0.6) return ev[Math.floor(Math.random() * ev.length)];
     const all = pool();
     const ok = prefer.filter((p) => all.includes(p));
     const from = ok.length ? ok : all;
@@ -88,7 +93,7 @@ const MOMENTS = {
 };
 
 window.addEventListener('vx-poke', (event) => {
-    if (calm.matches) return;
+    if (calm.matches || !allowSmall()) return;
     const detail = Array.isArray(event.detail) ? event.detail[0] : event.detail;
     MOMENTS[detail?.kind]?.(detail);
 });

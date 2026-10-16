@@ -55,6 +55,17 @@ class EditProfile extends Page implements HasForms
                             ->searchable(),
                     ]),
 
+                Section::make('Celebrations')
+                    ->description('The little Pokémon moments when you get something done.')
+                    ->schema([
+                        \Filament\Forms\Components\ToggleButtons::make('celebrations')
+                            ->hiddenLabel()
+                            ->inline()
+                            ->options(\App\Support\Celebrations::LEVELS)
+                            ->default('all')
+                            ->required(),
+                    ]),
+
                 Section::make('Notification preferences')
                     ->description('Per-notification choices, including turning off emails, now live on their own page.')
                     ->schema([

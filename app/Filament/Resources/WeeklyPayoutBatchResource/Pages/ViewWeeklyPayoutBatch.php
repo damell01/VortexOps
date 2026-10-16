@@ -163,7 +163,9 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             ->visible(fn () => $this->record->status === 'submitted_to_adp')->requiresConfirmation()->action(function () {
                 app(PayoutService::class)->markBatchPaid($this->record);
                 Notification::make()->title('Pay run marked as paid — team balances updated.')->success()->send();
-                $this->dispatch('vx-pika-cheer', text: 'Pika pika! Everyone\'s paid!');
+                // The last of this week's runs to be paid gets the big one; otherwise Pikachu cheers.
+                if (\App\Support\Celebrations::allPaidFor($this->record)) \App\Support\Celebrations::fire($this, 'all_paid');
+                else $this->dispatch('vx-pika-cheer', text: 'Pika pika! Everyone\'s paid!');
                 $this->refreshFormData(['status']); $this->record->refresh();
             });
 

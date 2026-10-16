@@ -84,7 +84,7 @@ class PokemonCatchTest extends TestCase
 
         $this->assertSame(1, PokemonCatch::where('streamer_log_entry_id', $report->id)->count());
         $caught = PokemonCatch::sole();
-        $this->assertSame(Pokedex::roll($report->id)[0], $caught->species);
+        $this->assertSame(Pokedex::roll($report->id, \App\Support\Season::event())[0], $caught->species);
         $this->assertSame($this->streamer->id, $caught->streamer_id);
     }
 

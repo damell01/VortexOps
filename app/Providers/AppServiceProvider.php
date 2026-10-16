@@ -81,6 +81,13 @@ class AppServiceProvider extends ServiceProvider
             fn (\Filament\Forms\Components\TimePicker $picker) => $picker->timezone(config('app.timezone')),
         );
 
+        Event::listen(\Illuminate\Notifications\Events\NotificationSent::class, [\App\Listeners\QueueDevicePush::class, 'handle']);
+        Event::listen(Logout::class, function (Logout $event): void {
+            if ($event->user && ($hash = session()->pull('push_endpoint_hash') ?: request()->cookie('vx_push_device'))) {
+                \App\Models\WebPushSubscription::where('user_id', $event->user->id)->where('endpoint_hash', $hash)->delete();
+            }
+        });
+
         Event::listen(PasswordReset::class, function (PasswordReset $event): void {
             if ($event->user->must_change_password && ! \Illuminate\Support\Facades\Hash::check('password123!', $event->user->password)) {
                 $event->user->forceFill(['must_change_password' => false])->save();

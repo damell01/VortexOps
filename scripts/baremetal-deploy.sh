@@ -115,6 +115,11 @@ else
   echo "No migrations changed: skipping migrate"
 fi
 
+# Idempotent: keep the same encrypted Web Push keys across deployments.
+if [ -f app/Console/Commands/SetupWebPush.php ]; then
+  php artisan push:setup
+fi
+
 php artisan storage:link >/dev/null 2>&1 || true
 php artisan filament:clear-cached-components || true
 

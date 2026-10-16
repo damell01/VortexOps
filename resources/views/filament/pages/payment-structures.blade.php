@@ -382,11 +382,15 @@
             <p class="mt-3 text-xs text-gray-500">A Pay Run collects eligible shows for its chosen dates, including a monthly profit-share run. Each show still uses the supplied calculation; a custom override is only used when you intentionally set one.</p>
         </div>
 
+        @if(! $isSplit && ! $isShift)
         <details class="mt-5 rounded-[10px] border border-[var(--vx-border)] p-4">
             <summary class="cursor-pointer text-sm font-bold">Custom payout formula for the team</summary>
             <p class="mt-2 text-xs text-gray-500">Optional: replaces the standard calculation for streamers inheriting this team’s regular payout method. Leave blank to keep the supplied show formula. Individual overrides take priority.</p>
             <div class="mt-3">@include('filament.components.payout-formula-builder', ['model' => 'streamer.custom_payout_formula'])</div>
         </details>
+        @else
+            <p class="mt-4 text-xs text-gray-500">To use a team custom formula, select Regular payouts above. For a formula that applies to just one person, edit their individual compensation.</p>
+        @endif
     </div>
 
                 </div>

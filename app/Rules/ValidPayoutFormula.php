@@ -10,7 +10,9 @@ class ValidPayoutFormula implements ValidationRule
 {
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if ($value === null || trim((string) $value) === '') return;
+        if ($value === null) return;
+        if (! is_string($value)) { $fail('Enter a formula as text.'); return; }
+        if (trim($value) === '') return;
         try {
             PayoutFormula::validate((string) $value);
         } catch (\RuntimeException $exception) {

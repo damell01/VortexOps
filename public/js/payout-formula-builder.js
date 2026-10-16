@@ -28,13 +28,24 @@ window.vxPayoutFormulaBuilder = (formula, wire, fields, samples) => ({
     },
     insertPercentage() {
         const value = Number(this.percentage);
-        if (!Number.isFinite(value) || value < 0 || value > 100) { this.error = 'Enter a percentage from 0 to 100.'; return; }
-        this.insert(`(${value} / 100)`);
+        if (String(this.percentage).trim() === '' || !Number.isFinite(value) || value < 0 || value > 100) { this.error = 'Enter a percentage from 0 to 100.'; return; }
+        this.insert(`(${this.literal(value)} / 100)`);
     },
     insertNumber() {
         const value = Number(this.number);
-        if (!Number.isFinite(value) || Math.abs(value) > 1e12) { this.error = 'Enter a valid number.'; return; }
-        this.insert(value < 0 ? `(0 - ${Math.abs(value)})` : String(value));
+        if (String(this.number).trim() === '' || !Number.isFinite(value) || Math.abs(value) > 1e12) { this.error = 'Enter a valid number.'; return; }
+        this.insert(value < 0 ? `(0 - ${this.literal(Math.abs(value))})` : this.literal(value));
+    },
+    literal(value) {
+        const text = String(value);
+        if (!text.includes('e')) return text;
+        const [mantissa, exponent] = text.split('e');
+        const [whole, fraction = ''] = mantissa.split('.');
+        const digits = whole + fraction;
+        const point = whole.length + Number(exponent);
+        if (point <= 0) return '0.' + '0'.repeat(-point) + digits;
+        if (point >= digits.length) return digits + '0'.repeat(point - digits.length);
+        return digits.slice(0, point) + '.' + digits.slice(point);
     },
     async preview() {
         if (this.busy) return;

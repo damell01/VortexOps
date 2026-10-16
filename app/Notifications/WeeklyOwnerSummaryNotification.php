@@ -6,6 +6,7 @@ use App\Filament\Pages\ShowFormatComparison;
 use App\Notifications\Concerns\EmailsWhenEnabled;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use App\Support\MailTable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -26,7 +27,7 @@ class WeeklyOwnerSummaryNotification extends Notification
 
     private function money(float $value): string
     {
-        return '$'.number_format($value, 2);
+        return ($value < 0 ? '−$' : '$').number_format(abs($value), 2);
     }
 
     private function change(?float $pct): string
@@ -54,39 +55,46 @@ class WeeklyOwnerSummaryNotification extends Notification
             ->line('**'.$this->headline().'**');
 
         if ($t['shows'] > 0) {
-            $perHour = $t['hours'] > 0 ? ' · '.$this->money($t['gross'] / $t['hours']).'/hr gross' : '';
-            $mail->line("{$t['hours']} hours worked · {$t['units']} units sold{$perHour}");
+            $mail->line(MailTable::stats(array_filter([
+                'Gross' => $this->money($t['gross']),
+                'Net' => $this->money($t['net']),
+                'Hours' => (string) $t['hours'],
+                'Units' => (string) $t['units'],
+                'Gross / hr' => $t['hours'] > 0 ? $this->money($t['gross'] / $t['hours']) : null,
+            ])));
         }
 
         if ($s['channels'] !== []) {
             $mail->line('**By channel**');
-            foreach ($s['channels'] as $c) {
-                $mail->line("• {$c['name']}: {$this->money($c['gross'])} gross, {$this->money($c['net'])} net ({$c['shows']} ".str('show')->plural($c['shows']).')');
-            }
+            $mail->line(MailTable::make(['Channel', 'Shows', 'Gross', 'Net'], array_map(fn ($c) => [
+                $c['name'], (string) $c['shows'], $this->money($c['gross']), ['text' => $this->money($c['net']), 'tone' => $c['net'] < 0 ? 'bad' : null],
+            ], $s['channels']), numeric: [1, 2, 3]));
         }
 
         if ($s['streamers'] !== []) {
             $mail->line('**Top streamers** (a shared show counts for each streamer on it)');
-            foreach ($s['streamers'] as $st) {
-                $mail->line("• {$st['name']}: {$this->money($st['gross'])} over {$st['shows']} ".str('show')->plural($st['shows']));
-            }
+            $mail->line(MailTable::make(['Streamer', 'Shows', 'Gross'], array_map(fn ($st) => [
+                $st['name'], (string) $st['shows'], $this->money($st['gross']),
+            ], $s['streamers']), numeric: [1, 2]));
         }
 
         if ($s['tags'] !== []) {
             $mail->line('**What earned most per hour** (from show titles)');
-            foreach ($s['tags'] as $tag) {
-                $vs = $tag['gross_vs_overall_pct'] === null ? '' : ' ('.(($tag['gross_vs_overall_pct'] >= 0 ? '+' : '').number_format($tag['gross_vs_overall_pct'], 1)).'% vs all shows)';
-                $mail->line("• {$tag['label']}: {$this->money($tag['gross_per_hour'])}/hr gross over {$tag['shows']} shows{$vs}");
-            }
+            $mail->line(MailTable::make(['Format', 'Shows', 'Gross / hr', 'Vs all shows'], array_map(function ($tag) {
+                $pct = $tag['gross_vs_overall_pct'];
+
+                return [
+                    $tag['label'], (string) $tag['shows'], $this->money($tag['gross_per_hour']),
+                    $pct === null ? '—' : ['text' => ($pct >= 0 ? '+' : '').number_format($pct, 1).'%', 'tone' => $pct < 0 ? 'bad' : 'good'],
+                ];
+            }, $s['tags']), numeric: [1, 2, 3]));
         }
 
         $mail->line('**Needs your attention**');
         if ($s['attention'] === []) {
             $mail->line('Nothing — you are all caught up.');
         } else {
-            foreach ($s['attention'] as $item) {
-                $mail->line("• {$item['count']} {$item['label']}");
-            }
+            $mail->line(MailTable::make(['Item', 'Count'], array_map(fn ($item) => [$item['label'], (string) $item['count']], $s['attention']), numeric: [1]));
         }
 
         return $mail

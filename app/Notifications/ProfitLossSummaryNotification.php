@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Filament\Pages\ProfitLoss;
 use App\Notifications\Concerns\EmailsWhenEnabled;
+use App\Support\MailTable;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -51,10 +52,23 @@ class ProfitLossSummaryNotification extends Notification
         return ProfitLoss::getUrl(['period' => $this->summary['period'], 'anchor' => $this->summary['anchor']]);
     }
 
-    private function showLine(array $s): string
+    /** One show as a table row: its title with date and streamer under it, then the figures. */
+    private function showRow(array $s): array
     {
-        return "{$s['title']} ({$s['date']}, {$s['streamer']}) — sales {$this->money($s['sales'])}, COGS {$this->money($s['cogs'])}, pay {$this->money($s['payouts'])}, **profit {$this->money($s['profit'])}**"
-            .($s['incomplete'] ? ' · incomplete: '.implode(', ', $s['incomplete']) : '');
+        $sub = "{$s['date']} · {$s['streamer']}".($s['incomplete'] ? ' · incomplete: '.implode(', ', $s['incomplete']) : '');
+
+        return [
+            ['text' => $s['title'], 'sub' => $sub],
+            $this->money($s['sales']),
+            $this->money($s['cogs']),
+            $this->money($s['payouts']),
+            ['text' => $this->money($s['profit']), 'tone' => $s['profit'] < 0 ? 'bad' : null],
+        ];
+    }
+
+    private function showTable(array $shows): \Illuminate\Support\HtmlString
+    {
+        return MailTable::make(['Show', 'Sales', 'COGS', 'Pay', 'Profit'], array_map(fn ($s) => $this->showRow($s), $shows), numeric: [1, 2, 3, 4]);
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -66,30 +80,34 @@ class ProfitLossSummaryNotification extends Notification
             ->line('**'.$this->headline().'**');
 
         if ($t['shows'] > 0) {
-            $mail->line("Earnings {$this->money($t['earnings'])} · COGS {$this->money($t['cogs'])} · Streamer pay {$this->money($t['payouts'])} · Margin {$t['margin_pct']}%");
+            $mail->line(MailTable::stats([
+                'Earnings' => $this->money($t['earnings']),
+                'COGS' => $this->money($t['cogs']),
+                'Streamer pay' => $this->money($t['payouts']),
+                'Margin' => ['text' => $t['margin_pct'].'%', 'tone' => $t['margin_pct'] < 0 ? 'bad' : null],
+            ]));
         }
 
         if ($this->summary['streamers'] !== []) {
             $mail->line('**By streamer**');
-            foreach ($this->summary['streamers'] as $s) {
-                $mail->line("• {$s['label']}: {$this->money($s['profit'])} profit on {$this->money($s['sales'])} sales, {$s['shows']} ".str('show')->plural($s['shows']).($s['losing'] ? " ({$s['losing']} losing)" : ''));
-            }
+            $mail->line(MailTable::make(['Streamer', 'Shows', 'Sales', 'Profit'], array_map(fn ($s) => [
+                ['text' => $s['label'], 'sub' => $s['losing'] ? "{$s['losing']} losing" : null],
+                (string) $s['shows'],
+                $this->money($s['sales']),
+                ['text' => $this->money($s['profit']), 'tone' => $s['profit'] < 0 ? 'bad' : null],
+            ], $this->summary['streamers']), numeric: [1, 2, 3]));
         }
 
         $losing = array_values(array_filter($this->summary['shows'], fn ($s) => $s['profit'] < 0));
         if ($losing !== []) {
             $mail->line('**Shows that lost money**');
-            foreach ($losing as $s) {
-                $mail->line('• '.$this->showLine($s));
-            }
+            $mail->line($this->showTable($losing));
         }
 
         $rest = array_values(array_filter($this->summary['shows'], fn ($s) => $s['profit'] >= 0));
         if ($rest !== []) {
             $mail->line('**Every other show**');
-            foreach ($rest as $s) {
-                $mail->line('• '.$this->showLine($s));
-            }
+            $mail->line($this->showTable($rest));
         }
 
         if ($t['incomplete'] > 0) {

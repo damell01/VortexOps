@@ -73,10 +73,15 @@ class ShowLossSummaryNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)->subject($this->title())->greeting($this->title())->line('**'.$this->headline().'**');
-        foreach ($this->digest['shows'] as $s) {
+        if ($this->digest['shows'] !== []) {
+            $loss = fn ($s) => ['text' => $this->money($s['amount']), 'tone' => $s['amount'] < 0 ? 'bad' : null];
             $mail->line($this->whatnot()
-                ? "• {$s['title']} ({$s['date']}, {$s['streamer']}, {$s['business']}) — **{$this->money($s['amount'])}**"
-                : "• {$s['title']} ({$s['date']}, {$s['streamer']}) — earnings {$this->money($s['earnings'])}, COGS {$this->money($s['cogs'])}, pay {$this->money($s['payouts'])}, **{$this->money($s['amount'])}**");
+                ? \App\Support\MailTable::make(['Show', 'Business', 'Loss'], array_map(fn ($s) => [
+                    ['text' => $s['title'], 'sub' => "{$s['date']} · {$s['streamer']}"], $s['business'], $loss($s),
+                ], $this->digest['shows']), numeric: [2])
+                : \App\Support\MailTable::make(['Show', 'Earnings', 'COGS', 'Pay', 'Loss'], array_map(fn ($s) => [
+                    ['text' => $s['title'], 'sub' => "{$s['date']} · {$s['streamer']}"], $this->money($s['earnings']), $this->money($s['cogs']), $this->money($s['payouts']), $loss($s),
+                ], $this->digest['shows']), numeric: [1, 2, 3, 4]));
         }
         if ($this->whatnot() && $this->digest['count'] > 0) {
             $mail->line('_Whatnot estimates may change as analytics refresh. Business costs and payroll are not included._');

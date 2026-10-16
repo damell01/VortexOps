@@ -28,6 +28,7 @@ class VortexAlert extends Notification
         public readonly string $tone = 'info',
         public readonly array $links = [],
         public readonly ?string $icon = null,
+        public readonly array $extra = [],
     ) {}
 
     public function toDatabase(object $notifiable): array
@@ -47,7 +48,10 @@ class VortexAlert extends Notification
             return $i++ === 0 ? $action->button() : $action;
         })->values()->all());
 
-        return $n->getDatabaseMessage();
+        $message = $n->getDatabaseMessage();
+        if ($this->extra) $message['vx'] = ['event' => $this->event] + $this->extra;
+
+        return $message;
     }
 
     public function toMail(object $notifiable): MailMessage

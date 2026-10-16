@@ -208,6 +208,13 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ($kind = session()->pull('vx_celebrate')) ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate="' . e(is_string($kind) ? $kind : '') . '" hidden></div>') : '',
             )
             ->renderHook(
+                // A report approved on submit caught a Pokémon: delight.js reveals it after the "Report submitted" ball.
+                PanelsRenderHook::BODY_END,
+                fn () => is_array($c = session()->pull('vx_caught')) && isset(\App\Support\Pokedex::SPECIES[$c['species'] ?? ''])
+                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" hidden></div>')
+                    : '',
+            )
+            ->renderHook(
                 // Seasonal visitors (October: Gengar), see App\Support\Season.
                 PanelsRenderHook::BODY_END,
                 fn () => auth()->check() ? view('filament.components.season') : '',

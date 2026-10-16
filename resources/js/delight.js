@@ -125,6 +125,23 @@ function reportDone() {
 }
 window.vxReportDone = reportDone;
 
+// ── Gotcha! The report caught a Pokémon: a ball wobbles, clicks, and out it pops ──
+function catchReveal(species, shiny, rarity) {
+    document.querySelector('.vx-gotcha')?.remove();
+    const name = species.charAt(0).toUpperCase() + species.slice(1);
+    const box = document.createElement('div');
+    box.className = 'vx-gotcha' + (shiny ? ' is-shiny' : '') + (rarity === 'rare' ? ' is-rare' : '');
+    box.setAttribute('role', 'status');
+    const tag = shiny ? '✨ Shiny!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : '';
+    box.innerHTML = `<div class="vx-gotcha-stage"><span class="vx-gotcha-ball"></span><img class="vx-gotcha-mon" src="/img/pokemon/${shiny ? 'shiny/' : ''}${species}.gif" alt=""></div>`
+        + `<div class="vx-gotcha-text"><b>Gotcha! ${name} was caught!</b>${tag ? `<i>${tag}</i>` : ''}<span>Added to your Pokédex</span></div>`;
+    const close = () => { box.classList.add('is-out'); setTimeout(() => box.remove(), 300); };
+    box.addEventListener('click', close);
+    document.body.appendChild(box);
+    setTimeout(close, calm.matches ? 4000 : 5200);
+}
+window.vxCatchReveal = catchReveal;
+
 // ── Shiny: done statuses sparkle once, the first time they appear ───────
 const DONE = /^(paid|approved|finalized|complete|completed|submitted|ready for pay)$/i;
 function sparkleDone(scope = document) {
@@ -317,8 +334,43 @@ function unreadCount() {
     const badge = document.querySelector('.fi-topbar-database-notifications-btn .fi-badge, .fi-topbar-database-notifications-btn .fi-icon-btn-badge-ctn');
     return badge ? parseInt(badge.textContent.replace(/\D/g, ''), 10) || 0 : 0;
 }
+// ── "A wild report appeared!": when the bell's count goes up, ask whether it
+// was a report filed and approved, and pop a Pokémon toast for it once. ──
+let wildCount = null;
+const WILD_SEEN = 'vx-wild-seen';
+function wildSeen() { try { return JSON.parse(localStorage.getItem(WILD_SEEN) || '[]'); } catch { return []; } }
+function checkWild(n) {
+    if (wildCount !== null && n <= wildCount) { wildCount = n; return; }
+    const first = wildCount === null;
+    wildCount = n;
+    if (n === 0 || (first && document.visibilityState !== 'visible')) return;
+    fetch('/admin/wild-report.json', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null)
+        .then((w) => {
+            if (!w?.id || wildSeen().includes(w.id)) return;
+            try { localStorage.setItem(WILD_SEEN, JSON.stringify([w.id, ...wildSeen()].slice(0, 30))); } catch {}
+            wildToast(w);
+        });
+}
+function wildToast(w) {
+    document.querySelector('.vx-wild')?.remove();
+    const box = document.createElement('div');
+    box.className = 'vx-wild';
+    box.setAttribute('role', 'status');
+    const mon = w.species ? `<img class="vx-wild-mon" src="/img/pokemon/${w.shiny ? 'shiny/' : ''}${w.species}.gif" alt="">` : '<span class="vx-wild-ball"></span>';
+    box.innerHTML = `${mon}<div class="vx-wild-text"><b></b><span></span></div>${w.url ? '<a class="vx-wild-open">Open</a>' : ''}<button type="button" class="vx-wild-x" aria-label="Dismiss">×</button>`;
+    box.querySelector('b').textContent = w.title;
+    box.querySelector('.vx-wild-text span').textContent = w.body;
+    if (w.url) box.querySelector('.vx-wild-open').href = w.url;
+    const close = () => { box.classList.add('is-out'); setTimeout(() => box.remove(), 300); };
+    box.querySelector('.vx-wild-x').addEventListener('click', close);
+    document.body.appendChild(box);
+    setTimeout(close, 9000);
+}
+
 function tabBadge() {
     const n = unreadCount();
+    checkWild(n);
     const icon = document.querySelector('link[rel="icon"]');
     const base = document.title.replace(/^\(\d+\+?\) /, '');
     const title = n > 0 ? `(${n > 99 ? '99+' : n}) ${base}` : base;
@@ -350,6 +402,8 @@ function boot() {
     // A celebration flashed by the server for the page we just landed on.
     const flashed = document.querySelector('[data-vx-celebrate]');
     if (flashed) setTimeout(flashed.dataset.vxCelebrate === 'report' ? reportDone : celebrate, 250);
+    const caught = document.querySelector('[data-vx-caught]');
+    if (caught) { const { vxCaught, shiny, rarity } = caught.dataset; caught.remove(); setTimeout(() => catchReveal(vxCaught, shiny === '1', rarity), flashed ? 2500 : 300); }
     queueHeads();
     topbarVar();
     tabBadge();

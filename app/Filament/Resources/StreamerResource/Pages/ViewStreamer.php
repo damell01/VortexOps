@@ -54,6 +54,6 @@ class ViewStreamer extends ViewRecord
 
     protected function getFooterWidgets(): array
     {
-        return [StreamerEarningsChartWidget::class];
+        return [StreamerEarningsChartWidget::class, \App\Filament\Widgets\StreamerPokedexWidget::class];
     }
 }

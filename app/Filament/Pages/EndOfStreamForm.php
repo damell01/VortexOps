@@ -495,7 +495,20 @@ class EndOfStreamForm extends Page implements HasForms
             } else {
                 Notification::make()->title('Show report submitted with inventory issues')->body(implode("\n", $problems))->warning()->duration(12000)->send();
             }
-            if ($entry->status !== 'admin_approved') {
+            if ($entry->status === 'admin_approved') {
+                // Approved straight away: the streamer caught a Pokémon, and admins hear a wild report appeared.
+                $caught = \App\Models\PokemonCatch::where('streamer_log_entry_id', $entry->id)->first();
+                if ($caught) session()->flash('vx_caught', ['species' => $caught->species, 'shiny' => $caught->shiny, 'rarity' => \App\Support\Pokedex::rarity($caught->species)]);
+                $who = $entry->streamer()->value('name') ?? 'A streamer';
+                \App\Services\Notifier::send('report_filed', new \App\Notifications\VortexAlert(
+                    event: 'report_filed',
+                    title: 'A wild report appeared!',
+                    body: "{$who} filed {$this->show->title}" . ($caught ? ' and caught ' . ($caught->shiny ? 'a shiny ' : 'a ') . \App\Support\Pokedex::name($caught->species) . '!' : '.'),
+                    tone: 'success',
+                    links: ['Open report' => \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $entry])],
+                    extra: ['species' => $caught?->species, 'shiny' => (bool) $caught?->shiny],
+                ));
+            } else {
                 $unmatched = $entry->items()->whereNull('inventory_item_id')->count();
                 $problemCount = max($unmatched, count($problems));
                 \App\Services\Notifier::send('report_submitted', new \App\Notifications\VortexAlert(

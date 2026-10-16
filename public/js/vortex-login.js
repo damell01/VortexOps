@@ -4,6 +4,7 @@
     const root = () => document.querySelector('.vx-login-experience');
     let active = false;
     let timer;
+    let startedAt = 0;
     const announce = (text) => { const el = root()?.querySelector('[role=status]'); if (el) el.textContent = text; };
     const reset = () => {
         clearTimeout(timer);
@@ -19,7 +20,7 @@
             try { data = typeof payload === 'string' ? JSON.parse(payload) : payload; } catch { return; }
             const login = data?.components?.some(c => c.calls?.some(call => call.method === 'authenticate'));
             if (!login) return;
-            reset(); active = true;
+            reset(); active = true; startedAt = Date.now();
             document.body.classList.add('vx-login-catching');
             announce('Signing in…');
             // Restore the buddy after a stalled request; never claim authentication succeeded.
@@ -35,13 +36,16 @@
                 delete effects.redirect;
                 delete effects.redirectUsingNavigate;
                 clearTimeout(timer);
-                document.body.classList.remove('vx-login-catching');
-                document.body.classList.add('vx-login-caught');
-                announce('Signed in. Opening your workspace.');
+                // Even a cached/fast response lets the beam finish before the lid closes.
                 timer = setTimeout(() => {
-                    document.body.classList.add('vx-login-entering');
-                    timer = setTimeout(() => location.assign(destination.href), 350);
-                }, 650);
+                    document.body.classList.remove('vx-login-catching');
+                    document.body.classList.add('vx-login-caught');
+                    announce('Signed in. Opening your workspace.');
+                    timer = setTimeout(() => {
+                        document.body.classList.add('vx-login-entering');
+                        timer = setTimeout(() => location.assign(destination.href), 450);
+                    }, 650);
+                }, Math.max(0, 650 - (Date.now() - startedAt)));
             });
         });
     }

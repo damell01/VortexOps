@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Models\TimeEntry;
 use App\Models\User;
-use App\Models\WeeklyPayoutBatch;
 use App\Support\AdminModules;
 use App\Services\TimeTrackingService;
 use Filament\Actions\Action;
@@ -103,14 +102,18 @@ class Timekeeping extends Page
     public int    $page = 1;
     public int    $perPage = 15;
 
-    /** 'this_week' | 'last_week' | 'pay_period' | 'this_month' | 'custom' — for both the entries list and team hours. */
+    /**
+     * 'this_week' | 'last_week' | 'this_month' | 'custom' — for both the entries list and team hours.
+     * No "current pay period": pay periods differ from person to person, so one
+     * period for the whole team would be wrong for someone.
+     */
     public string $periodMode = 'this_week';
     public string $periodFrom = '';
     public string $periodTo   = '';
 
     public function setPeriodMode(string $mode): void
     {
-        $this->periodMode = in_array($mode, ['this_week', 'last_week', 'pay_period', 'this_month', 'custom'], true)
+        $this->periodMode = in_array($mode, ['this_week', 'last_week', 'this_month', 'custom'], true)
             ? $mode
             : 'this_week';
         $this->page = 1;
@@ -173,27 +176,12 @@ class Timekeeping extends Page
         return match ($this->periodMode) {
             'last_week'  => [now()->subWeek()->startOfWeek()->toDateString(), now()->subWeek()->endOfWeek()->toDateString()],
             'this_month' => [now()->startOfMonth()->toDateString(), now()->toDateString()],
-            'pay_period' => $this->currentPayPeriod(),
             'custom'     => [
                 $this->periodFrom ?: now()->startOfWeek()->toDateString(),
                 $this->periodTo   ?: now()->toDateString(),
             ],
             default => [now()->startOfWeek()->toDateString(), now()->toDateString()], // this_week
         };
-    }
-
-    /** The pay run week covering today, if one exists yet — else the current calendar week. */
-    private function currentPayPeriod(): array
-    {
-        $today = now()->toDateString();
-
-        $batch = WeeklyPayoutBatch::where('week_start', '<=', $today)
-            ->where('week_end', '>=', $today)
-            ->first();
-
-        return $batch
-            ? [$batch->week_start->toDateString(), $batch->week_end->toDateString()]
-            : [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
     }
 
     public function getPeriodLabelProperty(): string

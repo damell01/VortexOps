@@ -39,7 +39,7 @@ class Celebrations
             'level' => self::level($user),
             'milestone' => self::level($user) === 'off' ? null : rescue(fn () => self::payday($user), null, false),
             'event' => $event ? [
-                'key' => $event['key'], 'label' => $event['label'], 'emoji' => $event['emoji'], 'banner' => $event['banner'],
+                'key' => $event['key'], 'label' => $event['label'], 'emoji' => $event['emoji'],
                 'swap' => $event['swap'], 'pool' => $event['pool'],
             ] : null,
         ];

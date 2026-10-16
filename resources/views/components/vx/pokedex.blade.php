@@ -1,4 +1,4 @@
-@props(['streamer', 'title' => 'Your Pokédex'])
+@props(['streamer', 'title' => 'Your Pokédex', 'open' => false])
 {{-- Every approved show report catches a Pokémon (App\Support\Pokedex); uncaught ones show as silhouettes. --}}
 @php $dex = \App\Support\Pokedex::forStreamer($streamer); @endphp
 <section class="vx-dex" aria-labelledby="vx-dex-title-{{ $streamer?->id ?? 0 }}">
@@ -45,7 +45,7 @@
             </ul>
         </div>
     @endforeach
-    <details class="vx-dex-all">
+    <details class="vx-dex-all" @if ($open) open @endif>
         <summary>See all {{ $dex['total'] }} Pokémon <span>{{ $dex['caught'] }} caught</span></summary>
     <ul class="vx-dex-grid">
         @foreach ($dex['entries'] as $i => $e)

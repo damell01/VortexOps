@@ -134,7 +134,11 @@
                     @endif
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.payout_percentage">Use a different Streamer Pay %</span><input wire:model="member_override_values.payout_percentage" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.hourly_rate">Use a different hourly rate</span><input wire:model="member_override_values.hourly_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"><span class="mt-1 block text-xs text-gray-500">{{ (($member_override_values['payout_type'] ?? null) === 'hourly') ? 'Hours Worked × hourly rate, using the existing hourly calculation.' : ((($member_override_values['payout_type'] ?? null) === 'shift_share') ? 'Hours Worked × this rate, part of their pay and taken off the show before the share.' : ($editingMember->isRemote() ? 'Remote streamers do not receive an added hourly component with the show formula.' : 'Paid for each show\'s Hours Worked on top of their show-based payout.')) }}</span></label>
-                    <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Use a different calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:bg-gray-800" placeholder="Only for this streamer"></textarea></label>
+                    <div class="rounded-lg border p-3 md:col-span-2 lg:col-span-full"><label class="mb-3 flex gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="member_override_enabled.custom_payout_formula">Use a custom payout formula for this person</label>
+                    @if($member_override_enabled['custom_payout_formula'] ?? false)
+                        @include('filament.components.payout-formula-builder', ['model' => 'member_override_values.custom_payout_formula'])
+                        <p class="mt-2 text-xs text-gray-500">Custom formulas create profit-share pay lines. Choose Profit share or All pay at once when creating the run.</p>
+                    @endif</div>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.include_tips">Override tip handling</span><label class="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" wire:model="member_override_values.include_tips">Include tips in pay</label></label>
                 </div>
             @else
@@ -143,7 +147,11 @@
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.pwe_rate">PWE rate</span><input wire:model="member_override_values.pwe_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.label_rate">Label rate</span><input wire:model="member_override_values.label_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.package_rate">Flat/package rate</span><input wire:model="member_override_values.package_rate" type="number" step=".01" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
-                    <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Custom calculation</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:bg-gray-800"></textarea></label>
+                    <div class="rounded-lg border p-3 md:col-span-2 lg:col-span-full"><label class="mb-3 flex gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="member_override_enabled.custom_payout_formula">Use a custom payout formula for this person</label>
+                    @if($member_override_enabled['custom_payout_formula'] ?? false)
+                        @include('filament.components.payout-formula-builder', ['model' => 'member_override_values.custom_payout_formula'])
+                        <p class="mt-2 text-xs text-gray-500">Custom formulas create profit-share pay lines. Choose Profit share or All pay at once when creating the run.</p>
+                    @endif</div>
                 </div>
             @endif
 
@@ -161,7 +169,7 @@
 
 
     <section class="vx-card p-5" aria-labelledby="run-types-heading">
-        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types<x-vx-help topic="pay.run_types" /></h2>
+        <h2 id="run-types-heading" class="text-lg font-bold">Pay run types<x-vx-help topic="pay.run_types" /></h2><p class="mt-2 text-xs text-gray-500">What it pays chooses the lines to collect. Custom payout formulas calculate profit-share lines; collect them in a Profit share or All pay at once run. <button type="button" wire:click="openRatesEditor" class="font-bold text-primary-600 underline">Build a team formula</button> or edit a person above for their own calculation.</p>
         <p class="mt-1 text-sm text-gray-500">Create runs whenever you need them from Pay Runs → New, for any start and end dates. Wages and profit share stay separate pay lines, even in a combined run. Scheduling and automatic creation are optional for each type.</p>
         <div class="mt-4 grid gap-4 md:grid-cols-2">
             @foreach($run_types as $index => $type)
@@ -375,9 +383,9 @@
         </div>
 
         <details class="mt-5 rounded-[10px] border border-[var(--vx-border)] p-4">
-            <summary class="cursor-pointer text-sm font-bold">Advanced: change the standard calculation for everyone</summary>
-            <p class="mt-2 text-xs text-gray-500">Normally leave this blank. Use it only if the spreadsheet formula itself changes for the whole streamer team.</p>
-            <textarea wire:model="streamer.custom_payout_formula" rows="3" class="mt-3 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 font-mono text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Optional team-wide custom formula"></textarea>
+            <summary class="cursor-pointer text-sm font-bold">Custom payout formula for the team</summary>
+            <p class="mt-2 text-xs text-gray-500">Optional: replaces the standard calculation for streamers inheriting this team’s regular payout method. Leave blank to keep the supplied show formula. Individual overrides take priority.</p>
+            <div class="mt-3">@include('filament.components.payout-formula-builder', ['model' => 'streamer.custom_payout_formula'])</div>
         </details>
     </div>
 

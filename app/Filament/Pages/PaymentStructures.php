@@ -124,6 +124,25 @@ class PaymentStructures extends Page
         $this->editing_rates = false;
     }
 
+    /** Sample-only calculation: never saves rates or creates a payout. */
+    public function previewPayoutFormula(string $formula, array $samples): array
+    {
+        abort_unless(static::canAccess(), 403);
+        $validator = validator(['formula' => $formula, 'samples' => $samples], [
+            'formula' => ['required', 'string', 'max:1000', new \App\Rules\ValidPayoutFormula],
+            'samples' => 'required|array:' . implode(',', array_keys(\App\Support\PayoutFormula::FIELDS)),
+            'samples.*' => 'required|numeric|between:-1000000000000,1000000000000',
+        ]);
+        if ($validator->fails()) return ['error' => $validator->errors()->first()];
+        $data = $validator->validated();
+        try {
+            $amount = \App\Support\PayoutFormula::evaluate($data['formula'], $data['samples']);
+            return ['amount' => round($amount, 2)];
+        } catch (\RuntimeException $exception) {
+            return ['error' => $exception->getMessage()];
+        }
+    }
+
     public function addRunType(): void
     {
         abort_unless(static::canAccess(), 403);
@@ -181,7 +200,7 @@ class PaymentStructures extends Page
             'streamer.house_cut_percentage' => 'nullable|required_if:streamer.payout_type,sales_split|numeric|min:0|max:100',
             'streamer.sales_split_basis' => 'nullable|in:net,gross',
             'streamer.payout_percentage' => 'required_if:streamer.payout_type,profit_share|nullable|numeric|min:0|max:100',
-            'streamer.custom_payout_formula' => 'nullable|string|max:1000',
+            'streamer.custom_payout_formula' => ['nullable', 'string', 'max:1000', new \App\Rules\ValidPayoutFormula],
             'streamer.hourly_rate' => 'nullable|numeric|min:0',
             'payroll_week_start_day' => 'required|integer|in:' . implode(',', array_keys(PaySchedule::dayOptions())),
             'run_types' => 'array|max:50',
@@ -203,7 +222,7 @@ class PaymentStructures extends Page
             'fulfillment.pwe_rate' => 'nullable|numeric|min:0',
             'fulfillment.label_rate' => 'nullable|numeric|min:0',
             'fulfillment.include_tips' => 'boolean',
-            'fulfillment.custom_payout_formula' => 'nullable|string|max:1000',
+            'fulfillment.custom_payout_formula' => ['nullable', 'string', 'max:1000', new \App\Rules\ValidPayoutFormula],
         ]);
 
         $streamer = $this->streamer;
@@ -330,6 +349,10 @@ class PaymentStructures extends Page
 
     public function saveMemberOverrides(): void
     {
+        abort_unless(static::canAccess(), 403);
+        if ($this->member_override_enabled['custom_payout_formula'] ?? false) {
+            $this->validate(['member_override_values.custom_payout_formula' => ['nullable', 'string', 'max:1000', new \App\Rules\ValidPayoutFormula]]);
+        }
         $member = Streamer::findOrFail($this->editing_member_id);
         $overrides = [];
         foreach ($this->member_override_enabled as $field => $enabled) if ($enabled) $overrides[$field] = $this->member_override_values[$field] ?? null;
@@ -349,6 +372,7 @@ class PaymentStructures extends Page
                 unset($overrides['payout_type']);
             }
         } else {
+            if (trim((string) ($overrides['custom_payout_formula'] ?? '')) !== '') $overrides['payout_type'] = 'custom_formula';
             $overrides['payout_cadence'] = 'weekly';
         }
         PaymentStructure::saveOverrides($member, $overrides);

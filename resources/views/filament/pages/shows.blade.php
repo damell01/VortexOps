@@ -256,6 +256,9 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 @keyframes vxInR{from{opacity:.3;transform:translateX(28px)}}@keyframes vxInL{from{opacity:.3;transform:translateX(-28px)}}
 @media(prefers-reduced-motion:reduce){.vx-in-right,.vx-in-left,.vx-pill.live:before{animation:none}.vx-drawer{transition:none}}
 
+/* A channel's mascot on its pill. */
+.vx-mascot{width:20px;height:20px;margin:-4px 0 -4px -4px;object-fit:contain;image-rendering:pixelated}
+button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 /* Month with the day panel */
 .vx-month-wrap{display:flex;flex-wrap:wrap}
 .vx-month-main{flex:999 1 720px;min-width:0}

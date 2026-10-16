@@ -1,7 +1,16 @@
 @php($season = \App\Support\Season::details())
 @php($visit = \App\Support\VisitorCast::for(auth()->user(), \App\Support\Season::visitors()))
-@php($visitors = $visit['cast'])
+@php($visitors = \App\Support\VisitorCast::ambient($visit['cast']))
 @if (\App\Support\Celebrations::level(auth()->user()) !== 'off')
+    @php($me = auth()->user())
+    @if ($me?->birthday && $me->birthday->format('m-d') === now(\App\Support\BusinessTime::zone())->format('m-d'))
+        {{-- Their birthday: their buddy (or Pikachu) visits all day in a party hat. --}}
+        <div class="vx-bday" title="Happy birthday, {{ \Illuminate\Support\Str::before($me->name, ' ') ?: $me->name }}!">
+            <span class="vx-bday-hat" aria-hidden="true"></span>
+            <img src="/img/pokemon/{{ \App\Support\Buddy::chosen($me) ? \App\Support\Buddy::visitor($me) : 'pikachu' }}.gif" alt="">
+            <span class="vx-bday-say">Happy birthday, {{ \Illuminate\Support\Str::before($me->name, ' ') ?: $me->name }}!</span>
+        </div>
+    @endif
     {{-- Visitors (App\Support\Season::visitors): one hangs upside down from under the top bar, another peeks
          up from the corner, taking turns; each peek is someone new (resources/js/delight.js). A click sends them away for this session. --}}
     <div class="vx-season" data-season="{{ $season['key'] ?? 'everyday' }}" aria-hidden="true"

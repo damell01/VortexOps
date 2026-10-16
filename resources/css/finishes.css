@@ -71,3 +71,16 @@ html .fi-body button.fi-toggle {
     height: 1.5rem !important; min-height: 1.5rem !important; max-height: 1.5rem !important;
     padding: 0 !important; border-radius: 9999px !important; flex: none !important;
 }
+
+/* A Pokémon face on notifications in the bell window: a happy Pikachu for good
+   news, a sweating Psyduck for warnings and problems. Decoration only. */
+.fi-no-database .fi-no-notification.fi-status-success,
+.fi-no-database .fi-no-notification.fi-status-warning,
+.fi-no-database .fi-no-notification.fi-status-danger { position: relative; }
+.fi-no-database .fi-no-notification:is(.fi-status-success, .fi-status-warning, .fi-status-danger)::after {
+    content: ''; position: absolute; right: 14px; bottom: 10px; width: 34px; height: 34px; pointer-events: none;
+    background: center / contain no-repeat; image-rendering: pixelated; opacity: .9;
+}
+.fi-no-database .fi-no-notification.fi-status-success::after { background-image: url('/img/pokemon/pikachu.gif'); }
+.fi-no-database .fi-no-notification:is(.fi-status-warning, .fi-status-danger)::after { background-image: url('/img/pokemon/psyduck.gif'); }
+@media (max-width: 640px) { .fi-no-database .fi-no-notification::after { width: 26px; height: 26px; right: 10px; bottom: 8px; } }

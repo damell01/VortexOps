@@ -118,6 +118,12 @@ class WhatnotChannelResource extends Resource
                         ->label('Display Title')
                         ->maxLength(255)
                         ->placeholder('Defaults to the app name'),
+                    \Filament\Forms\Components\Select::make('mascot')
+                        ->label('Channel mascot')
+                        ->helperText('A Pokémon that rides along on this channel’s calendar pill.')
+                        ->options(fn () => collect(\App\Support\Pokedex::DEX)->keys()->merge(array_keys(\App\Support\PokemonData::EXTRA))->sort()->mapWithKeys(fn ($s) => [$s => \App\Support\Pokedex::name($s)])->all())
+                        ->searchable()
+                        ->placeholder('None'),
                 ]),
         ]);
     }

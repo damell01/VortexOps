@@ -68,6 +68,10 @@ class AdminPanelProvider extends PanelProvider
                     ->label('My notifications')
                     ->icon('heroicon-o-bell')
                     ->url(fn (): string => \App\Filament\Pages\MyNotifications::getUrl(panel: 'admin')),
+                \Filament\Actions\Action::make('my_pokedex')
+                    ->label('My Pokédex')
+                    ->icon('heroicon-o-sparkles')
+                    ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin')),
             ])
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
@@ -242,7 +246,7 @@ class AdminPanelProvider extends PanelProvider
                 // A report approved on submit caught a Pokémon: delight.js reveals it after the "Report submitted" ball.
                 PanelsRenderHook::BODY_END,
                 fn () => is_array($c = session()->pull('vx_caught')) && \App\Support\Pokedex::exists($c['species'] ?? null)
-                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" data-name="' . e(\App\Support\Pokedex::name($c['species'])) . '" data-event="' . e(($ev = \App\Support\Season::eventOf($c['species'])) ? \App\Support\Season::EVENTS[$ev]['emoji'] . ' ' . \App\Support\Season::EVENTS[$ev]['label'] : '') . '" hidden></div>')
+                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" data-name="' . e(\App\Support\Pokedex::name($c['species'])) . '" data-event="' . e(! empty($c['note']) ? $c['note'] : (($ev = \App\Support\Season::eventOf($c['species'])) ? \App\Support\Season::EVENTS[$ev]['emoji'] . ' ' . \App\Support\Season::EVENTS[$ev]['label'] : '')) . '" hidden></div>')
                     : '',
             )
             ->renderHook(

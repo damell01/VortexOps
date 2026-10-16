@@ -428,12 +428,31 @@ function boot() {
     const flashed = document.querySelector('[data-vx-celebrate]');
     if (flashed) setTimeout(flashed.dataset.vxCelebrate === 'report' ? reportDone : celebrate, 250);
     const caught = document.querySelector('[data-vx-caught]');
-    if (caught) { const { vxCaught, shiny, rarity, name, event } = caught.dataset; caught.remove(); setTimeout(() => catchReveal(vxCaught, shiny === '1', rarity, name, event), flashed ? 2500 : 300); }
+    if (caught) { const { vxCaught, shiny, rarity, name, event } = caught.dataset; caught.remove(); setTimeout(() => { catchReveal(vxCaught, shiny === '1', rarity, name, event); chimeIfOn(); }, flashed ? 2500 : 300); }
     queueHeads();
     topbarVar();
     tabBadge();
     rollShiny();
 }
+// An optional catch chime, made in the browser (no sound file to load). Off
+// unless someone turns it on in My Pokédex, and only for this device.
+window.vxCatchChime = () => {
+    try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        [[880, 0], [1175, .12], [1568, .24]].forEach(([hz, at]) => {
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.type = 'triangle'; o.frequency.value = hz;
+            g.gain.setValueAtTime(0.0001, ctx.currentTime + at);
+            g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + at + .02);
+            g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + at + .22);
+            o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + at); o.stop(ctx.currentTime + at + .25);
+        });
+        setTimeout(() => ctx.close(), 800);
+    } catch { /* no audio here */ }
+};
+function chimeIfOn() { try { if (localStorage.getItem('vx-dex-sound') === '1') window.vxCatchChime(); } catch { /* storage blocked */ } }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);
 document.addEventListener('livewire:init', () => {

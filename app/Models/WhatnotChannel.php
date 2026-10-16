@@ -19,6 +19,7 @@ class WhatnotChannel extends Model
         'notes',
         'logo_path',
         'display_title',
+        'mascot',
     ];
 
     protected $casts = [

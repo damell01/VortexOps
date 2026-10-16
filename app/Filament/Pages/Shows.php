@@ -310,7 +310,7 @@ class Shows extends Page
 
     #[Computed] public function channels(): Collection
     {
-        return WhatnotChannel::query()->orderBy('name')->get(['id', 'name', 'display_title', 'status']);
+        return WhatnotChannel::query()->orderBy('name')->get(['id', 'name', 'display_title', 'status', 'mascot']);
     }
 
     protected function scopedQuery()
@@ -574,6 +574,7 @@ class Shows extends Page
                 'id' => $id,
                 'name' => $channel ? ($channel->display_title ?: $channel->name) : 'No channel',
                 'color' => self::channelColor($id),
+                'mascot' => $channel?->mascot && \App\Support\Pokedex::exists($channel->mascot) ? $channel->mascot : null,
                 'hidden' => in_array($key, $hidden, true),
                 'count' => (int) $count,
             ];

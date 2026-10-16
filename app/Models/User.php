@@ -15,7 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'timezone', 'buddy', 'notifications_enabled', 'notification_in_app_enabled', 'notification_email_enabled', 'notification_preferences', 'celebrations'])]
+#[Fillable(['name', 'email', 'password', 'timezone', 'buddy', 'notifications_enabled', 'notification_in_app_enabled', 'notification_email_enabled', 'notification_preferences', 'celebrations', 'birthday'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -41,6 +41,7 @@ class User extends Authenticatable implements FilamentUser
             'notification_in_app_enabled' => 'boolean',
             'notification_email_enabled' => 'boolean',
             'notification_preferences' => 'array',
+            'birthday' => 'date',
         ];
     }
 

@@ -141,5 +141,5 @@ Route::middleware(['web', 'auth', 'throttle:30,1'])->prefix('admin/push')->name(
     Route::post('status', [\App\Http\Controllers\WebPushController::class, 'status'])->name('status');
     Route::post('subscriptions', [\App\Http\Controllers\WebPushController::class, 'store'])->name('store');
     Route::delete('subscriptions', [\App\Http\Controllers\WebPushController::class, 'destroy'])->name('destroy');
-    Route::post('test', [\App\Http\Controllers\WebPushController::class, 'test'])->middleware('throttle:3,1')->name('test');
+    Route::post('test', [\App\Http\Controllers\WebPushController::class, 'test'])->middleware('throttle:3,1,push-test:')->name('test');
 });

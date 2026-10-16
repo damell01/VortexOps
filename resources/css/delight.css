@@ -240,6 +240,10 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 .vx-season-peek.from-top img { transform: scaleY(-1); }
 /* Out for about four seconds near the start of each 26 s turn, swaying a little. */
 @keyframes vx-peek-down { 0%, 100% { transform: translateY(0); } 5% { transform: translateY(40px) rotate(-4deg); } 9% { transform: translateY(38px) rotate(4deg); } 13% { transform: translateY(40px) rotate(-3deg); } 17% { transform: translateY(38px); } 21% { transform: translateY(0); } }
+/* A rare visitor: a shiny Legendary, with a sparkle. */
+.vx-season-peek.is-rare img { filter: drop-shadow(0 0 6px rgb(250 204 21 / .8)) drop-shadow(0 4px 6px rgb(40 0 70 / .3)); }
+.vx-season-peek.is-rare::after { content: '✨'; position: absolute; left: -10px; bottom: -4px; font-size: 16px; animation: vx-rare-twinkle 1.2s ease-in-out infinite; }
+@keyframes vx-rare-twinkle { 0%, 100% { opacity: .4; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
 /* Rising from the bottom-right corner (everyone else). */
 .vx-season-peek.from-bottom { bottom: -46px; right: clamp(24px, 6vw, 90px); z-index: 45; animation: vx-peek-up 26s ease-in-out 14.5s infinite; }
 @media (max-width: 767px) { .vx-season-peek.from-bottom { display: none; } } /* the phone tab bar lives there */
@@ -266,7 +270,7 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 @keyframes vx-burst { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)) translateY(0) scaleY(.4); } 2% { opacity: 1; } 14% { opacity: .95; transform: translateY(2px) rotate(var(--r)) translateY(calc(-40px * var(--k))) scaleY(1); } 28%, 100% { opacity: 0; transform: translateY(14px) rotate(var(--r)) translateY(calc(-48px * var(--k))) scaleY(.5); } }
 @keyframes vx-burst-once { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)) translateY(0) scaleY(.4); } 8% { opacity: 1; } 45% { opacity: .95; transform: translateY(3px) rotate(var(--r)) translateY(calc(-42px * var(--k))) scaleY(1); } 100% { opacity: 0; transform: translateY(18px) rotate(var(--r)) translateY(calc(-50px * var(--k))) scaleY(.4); } }
 
-/* Pokédex tips: Rotom with one helpful line, dismissible. */
+/* VortexOps tips: Rotom with one helpful line, dismissible. */
 .vx-tip { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
 .vx-tip-mon { flex: none; height: 38px; width: auto; image-rendering: pixelated; animation: vx-tip-hover 3.2s ease-in-out infinite; }
 .vx-tip-bubble { position: relative; flex: 1; min-width: 0; padding: 8px 14px; border-radius: 12px; background: #f3edff; color: #3b1d78; font-size: 13.5px; line-height: 1.45; }

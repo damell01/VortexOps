@@ -1104,6 +1104,9 @@ class PayoutService
 
             $this->updateStreamerBalances($batch);
         });
+
+        // A copy of the run as finalized, for the record (never blocks payroll).
+        app(PayRunReport::class)->keep($batch, 'finalized');
     }
 
     public function markBatchPaid(WeeklyPayoutBatch $batch): void
@@ -1122,6 +1125,8 @@ class PayoutService
                         ->increment('total_earnings_paid', (float) $payout->calculated_payout);
                 });
         });
+
+        app(PayRunReport::class)->keep($batch, 'paid');
     }
 
     /**

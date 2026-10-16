@@ -308,6 +308,32 @@ class ExportController extends Controller
         return $pdf->stream($filename);
     }
 
+    /**
+     * A pay run as a PDF. ?stage=finalized|paid serves the copy kept at that
+     * moment (App\Services\PayRunReport::keep); otherwise the run as it is now.
+     */
+    public function payRunPdf(\App\Models\WeeklyPayoutBatch $batch, Request $request, \App\Services\PayRunReport $report): mixed
+    {
+        abort_unless(auth()->user()?->isAdmin() || auth()->user()?->isOwner(), 403);
+        $stage = (string) $request->query('stage', '');
+        if (in_array($stage, \App\Services\PayRunReport::STAGES, true) && \Illuminate\Support\Facades\Storage::disk('local')->exists($report->path($batch, $stage))) {
+            return \Illuminate\Support\Facades\Storage::disk('local')->download($report->path($batch, $stage), $report->filename($batch, $stage));
+        }
+
+        return $report->pdf($batch)->download($report->filename($batch));
+    }
+
+    /** A business's monthly statement. ?month=2026-09 (defaults to last month). */
+    public function businessStatementPdf(\App\Models\Business $business, Request $request, \App\Services\BusinessStatement $statement): mixed
+    {
+        abort_unless(auth()->user()?->isAdmin() || auth()->user()?->isOwner(), 403);
+        $month = preg_match('/^\d{4}-\d{2}$/', (string) $request->query('month'))
+            ? \Carbon\Carbon::createFromFormat('!Y-m', $request->query('month'), \App\Support\BusinessTime::zone())
+            : \App\Support\BusinessTime::local()->subMonthNoOverflow()->startOfMonth();
+
+        return $statement->pdf($business, $month)->download($statement->filename($business, $month));
+    }
+
     public function showPlPdf(Show $show): mixed
     {
         abort_unless(auth()->user()?->isAdmin(), 403);

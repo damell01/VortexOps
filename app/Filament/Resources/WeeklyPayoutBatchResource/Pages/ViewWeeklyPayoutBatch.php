@@ -183,8 +183,22 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 return response()->streamDownload(fn () => print($csv), $filename, ['Content-Type' => 'text/csv']);
             });
 
+        // The pay run as a PDF: now, or the copies kept when it was finalized and paid.
+        $kept = fn () => app(\App\Services\PayRunReport::class)->kept($this->record);
+        $keptLabel = fn (string $stage) => 'As ' . $stage . ' (' . \Carbon\Carbon::createFromTimestamp($kept()[$stage] ?? time(), \App\Support\BusinessTime::zone())->format('M j, g:i A') . ')';
+        $report = ActionGroup::make([
+            Action::make('pay_run_pdf')->label('Download PDF')->icon('heroicon-o-document-arrow-down')
+                ->url(fn () => route('export.pay-run-pdf', ['batch' => $this->record->id]))->openUrlInNewTab(),
+            Action::make('pay_run_pdf_finalized')->label(fn () => $keptLabel('finalized'))->icon('heroicon-o-lock-closed')
+                ->visible(fn () => isset($kept()['finalized']))
+                ->url(fn () => route('export.pay-run-pdf', ['batch' => $this->record->id, 'stage' => 'finalized']))->openUrlInNewTab(),
+            Action::make('pay_run_pdf_paid')->label(fn () => $keptLabel('paid'))->icon('heroicon-o-check-badge')
+                ->visible(fn () => isset($kept()['paid']))
+                ->url(fn () => route('export.pay-run-pdf', ['batch' => $this->record->id, 'stage' => 'paid']))->openUrlInNewTab(),
+        ])->label('Pay run report')->icon('heroicon-o-document-text')->button()->color('gray');
+
         return [
-            $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp, $report,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

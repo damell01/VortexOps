@@ -28,7 +28,7 @@
             <div class="vxr-stats" data-vx-timekeeping-tiles>
                 <x-vxr.stat label="Needs review" :value="$tiles['review']['count']" icon="heroicon-o-clipboard-document-check" :tone="$tiles['review']['count'] ? 'warn' : 'ok'" :note="$tiles['review']['count'] ? 'Settle before payroll' : 'Nothing waiting'" :href="$tiles['review']['url']" />
                 <x-vxr.stat label="Clocked in now" :value="$tiles['now']['count']" icon="heroicon-o-play-circle" tone="ok" note="Who is on the clock" :href="$tiles['now']['url']" />
-                <x-vxr.stat label="Team hours this week" :value="$h" icon="heroicon-o-users" tone="info" :note="$tiles['hours']['people'].' '.\Illuminate\Support\Str::plural('person', $tiles['hours']['people'])" :href="$tiles['hours']['url']" />
+                <x-vxr.stat label="Team hours this week" :value="$h" icon="heroicon-o-users" tone="info" :note="$tiles['hours']['people'].' '.\Illuminate\Support\Str::plural('person', $tiles['hours']['people']).($tiles['hours']['report_minutes'] ? ' · + '.$fmt($tiles['hours']['report_minutes']).' on show reports' : '')" :href="$tiles['hours']['url']" />
                 <x-vxr.stat label="Entries this week" :value="$tiles['entries']['count']" icon="heroicon-o-list-bullet" tone="accent" note="Every entry, editable" :href="$tiles['entries']['url']" />
             </div>
         @endif
@@ -51,12 +51,29 @@
                 </div>
             </div>
 
+            {{-- The period applies to both views: this week by default, older weeks a tap away. --}}
+            <div class="vxw-card-body" style="display:grid;gap:12px;padding-top:0">
+                <div class="flex flex-wrap items-center gap-2">
+                    @foreach ($periodOptions as $mode => $label)
+                        <button type="button" wire:click="setPeriodMode('{{ $mode }}')" @class(['vxw-chip', 'is-active' => $periodMode === $mode])>{{ $label }}</button>
+                    @endforeach
+                    <span class="vxw-meta ml-auto">{{ $this->periodLabel }}</span>
+                </div>
+                @if ($periodMode === 'custom')
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input wire:model.live="periodFrom" type="date" class="vxw-input" style="width:auto" aria-label="From">
+                        <span class="vxw-meta">to</span>
+                        <input wire:model.live="periodTo" type="date" class="vxw-input" style="width:auto" aria-label="To">
+                    </div>
+                @endif
+            </div>
+
             @if ($tab === 'history')
                 @if ($entries->isEmpty())
                     <div class="vxw-empty">
                         <x-filament::icon icon="heroicon-o-clock" />
-                        <div class="vxw-empty-title">No time yet</div>
-                        <div class="vxw-empty-text">Clock in above, or add time you forgot to clock.</div>
+                        <div class="vxw-empty-title">No time in this period</div>
+                        <div class="vxw-empty-text">Clocked time and hours from show reports show up here. Try an earlier period, clock in above, or add time you forgot to clock.</div>
                     </div>
                 @else
                     <div class="overflow-x-auto">
@@ -69,8 +86,26 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach ($entries as $e)
-                                    @php $mins = $e->duration_minutes; @endphp
+                                @foreach ($entries as $row)
+                                    @if ($r = $row['report'])
+                                        {{-- Hours written on a show report: shown alongside clocked time, edited on the report. --}}
+                                        @php $rm = (int) round((float) $r->hours_streamed * 60); @endphp
+                                        <tr wire:key="rep-{{ $r->id }}" style="border-top:1px solid var(--vxw-border)" data-vx-report-hours>
+                                            @if ($seesTeam)<td class="px-4 py-3 font-medium">{{ $r->streamer?->name ?? '—' }}</td>@endif
+                                            <td class="px-4 py-3 whitespace-nowrap">{{ $r->vxWorkedAt->format('D, M j') }}</td>
+                                            <td class="px-4 py-3 whitespace-nowrap tabular-nums vxw-meta" colspan="2">From the show report</td>
+                                            <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $fmt($rm) }}</td>
+                                            <td class="px-4 py-3" style="max-width:320px">
+                                                <div class="flex items-center gap-1.5"><x-filament::icon icon="heroicon-m-video-camera" class="h-4 w-4 shrink-0" style="color:#7c3aed" /><span class="truncate">{{ $r->show?->title ?? 'Show #'.$r->show_id }}</span></div>
+                                            </td>
+                                            <td class="px-4 py-3"><span class="vxw-pill">Show report</span></td>
+                                            <td class="px-4 py-3 text-right whitespace-nowrap">
+                                                @if ($seesTeam)<a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $r->id]) }}" wire:navigate>Open report</a>@endif
+                                            </td>
+                                        </tr>
+                                        @continue
+                                    @endif
+                                    @php $e = $row['clock']; $mins = $e->duration_minutes; @endphp
                                     <tr wire:key="te-{{ $e->id }}" style="border-top:1px solid var(--vxw-border)">
                                         @if ($seesTeam)<td class="px-4 py-3 font-medium">{{ $e->user?->name ?? '—' }}</td>@endif
                                         <td class="px-4 py-3 whitespace-nowrap">{{ $e->clocked_in_at->copy()->setTimezone($tz)->format('D, M j') }}</td>
@@ -119,34 +154,20 @@
                     @endif
                 @endif
             @else
-                <div class="vxw-card-body" style="display:grid;gap:12px">
-                    <div class="flex flex-wrap items-center gap-2">
-                        @foreach ($periodOptions as $mode => $label)
-                            <button type="button" wire:click="setPeriodMode('{{ $mode }}')" @class(['vxw-chip', 'is-active' => $periodMode === $mode])>{{ $label }}</button>
-                        @endforeach
-                        <span class="vxw-meta ml-auto">{{ $this->periodLabel }}</span>
-                    </div>
-                    @if ($periodMode === 'custom')
-                        <div class="flex flex-wrap items-center gap-2">
-                            <input wire:model.live="periodFrom" type="date" class="vxw-input" style="width:auto" aria-label="From">
-                            <span class="vxw-meta">to</span>
-                            <input wire:model.live="periodTo" type="date" class="vxw-input" style="width:auto" aria-label="To">
-                        </div>
-                    @endif
-                </div>
                 @if (count($team) === 0)
-                    <div class="vxw-empty"><div class="vxw-empty-title">No hours logged by the team for this period</div><div class="vxw-empty-text">Hourly team members' clocked time appears here.</div></div>
+                    <div class="vxw-empty"><div class="vxw-empty-title">No hours for this period</div><div class="vxw-empty-text">Clocked time and hours from show reports appear here. Try an earlier period.</div></div>
                 @else
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm" style="min-width:520px">
-                            <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)"><th class="px-4 py-2.5">Person</th><th class="px-4 py-2.5 text-right">Entries</th><th class="px-4 py-2.5 text-right">Hours</th><th class="px-4 py-2.5" style="width:35%"></th></tr></thead>
+                            <thead><tr class="text-left text-[11px] font-bold uppercase tracking-wide" style="color:var(--vxw-muted)"><th class="px-4 py-2.5">Person</th><th class="px-4 py-2.5 text-right">Clocked</th><th class="px-4 py-2.5 text-right">From show reports</th><th class="px-4 py-2.5 text-right">Total</th><th class="px-4 py-2.5" style="width:28%"></th></tr></thead>
                             <tbody>
                                 @foreach ($team as $member)
-                                    @php $pct = $team[0]['minutes'] > 0 ? round(($member['minutes'] / $team[0]['minutes']) * 100) : 0; @endphp
+                                    @php $pct = $team[0]['total'] > 0 ? round(($member['total'] / $team[0]['total']) * 100) : 0; @endphp
                                     <tr style="border-top:1px solid var(--vxw-border)">
                                         <td class="px-4 py-3 font-medium">{{ $member['name'] }}</td>
-                                        <td class="px-4 py-3 text-right tabular-nums">{{ $member['entries'] }}</td>
-                                        <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $fmt($member['minutes']) }}</td>
+                                        <td class="px-4 py-3 text-right tabular-nums">{{ $member['entries'] ? $fmt($member['minutes']) : '—' }}@if ($member['entries'])<div class="vxw-meta">{{ $member['entries'] }} {{ \Illuminate\Support\Str::plural('entry', $member['entries']) }}</div>@endif</td>
+                                        <td class="px-4 py-3 text-right tabular-nums">{{ $member['reports'] ? $fmt($member['report_minutes']) : '—' }}@if ($member['reports'])<div class="vxw-meta">{{ $member['reports'] }} {{ \Illuminate\Support\Str::plural('show', $member['reports']) }}</div>@endif</td>
+                                        <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $fmt($member['total']) }}</td>
                                         <td class="px-4 py-3"><div style="height:8px;border-radius:4px;background:var(--vxw-sunken)"><div style="height:8px;border-radius:4px;width:{{ $pct }}%;background:#7c3aed"></div></div></td>
                                     </tr>
                                 @endforeach

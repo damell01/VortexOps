@@ -104,6 +104,8 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
     Route::get('payouts',         [ExportController::class, 'payouts'])->name('payouts');
     Route::get('payouts/{payout}/pdf', [ExportController::class, 'payoutPdf'])->name('payout-pdf');
     Route::get('shows/{show}/pl-pdf',  [ExportController::class, 'showPlPdf'])->name('show-pl-pdf');
+    Route::get('pay-runs/{batch}/pdf', [ExportController::class, 'payRunPdf'])->name('pay-run-pdf');
+    Route::get('businesses/{business}/statement', [ExportController::class, 'businessStatementPdf'])->name('business-statement');
 });
 
 Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportController::class, 'manifestTemplate'])->name('manifest.template');

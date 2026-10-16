@@ -387,7 +387,7 @@
         </div>
 
         @if(! $isSplit && ! $isShift)
-        <details class="mt-5 rounded-[10px] border border-[var(--vx-border)] p-4">
+        <details wire:ignore.self class="mt-5 rounded-[10px] border border-[var(--vx-border)] p-4">
             <summary class="cursor-pointer text-sm font-bold">Custom payout formula for the team</summary>
             <p class="mt-2 text-xs text-gray-500">Optional: replaces the standard calculation for streamers inheriting this team’s regular payout method. Leave blank to keep the supplied show formula. Individual overrides take priority.</p>
             <div class="mt-3">@include('filament.components.payout-formula-builder', ['model' => 'streamer.custom_payout_formula'])</div>

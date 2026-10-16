@@ -125,6 +125,7 @@ class PaymentStructures extends Page
     }
 
     /** Sample-only calculation: never saves rates or creates a payout. */
+    #[\Livewire\Attributes\Renderless]
     public function previewPayoutFormula(string $formula, array $samples): array
     {
         abort_unless(static::canAccess(), 403);

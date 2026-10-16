@@ -3,6 +3,7 @@
 // person asks for reduced motion.
 import './poke-moments.js';
 import { allowSmall, allowBig } from './celebrations.js';
+import './finishes.js';
 const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 

@@ -17,7 +17,9 @@
         $showProgress = $totalUnits > 0 ? min(100, (int)round(($doneUnits / $totalUnits) * 100)) : 0;
     @endphp
 
-    <section class="vx-ful-card p-4 sm:p-5">
+    @php $allPacked = $totalUnits > 0 && $showProgress >= 100; @endphp
+    <section @class(['vx-ful-card vx-ful-show relative p-4 sm:p-5', 'is-packed' => (bool) $report?->fulfillment_reviewed_at]) data-vx-stamp-key="show-{{ $show->id }}" data-vx-done="{{ $report?->fulfillment_reviewed_at ? '1' : '0' }}">
+        @if ($report?->fulfillment_reviewed_at)<span class="vx-stamp" aria-hidden="true">PACKED</span>@endif
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600">Packing Workstation</div>
@@ -27,12 +29,13 @@
             <div class="rounded-xl px-3 py-2 text-xs font-semibold {{ $report?->fulfillment_reviewed_at ? 'bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300' : ($canCompleteFulfillment ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300') }}">{{ $report?->fulfillment_reviewed_at ? 'Complete' : ($canCompleteFulfillment ? 'Ready to Complete' : 'In Progress') }}</div>
         </div>
 
-        <div class="mt-4 flex items-center justify-between text-[10px] font-semibold text-gray-500"><span>Overall progress</span><span>{{ $doneUnits }}/{{ $totalUnits }} units · {{ $showProgress }}%</span></div>
+        <div class="mt-4 flex items-center justify-between gap-2 text-[10px] font-semibold text-gray-500"><span>Overall progress</span>
+            <span @class(['vx-catchball vx-catchball--sm', 'is-full' => $allPacked]) style="--vx-fill: {{ $showProgress }}%"><span class="vx-catchball-ball" aria-hidden="true"><i></i><b></b></span><span class="vx-catchball-text">{{ $doneUnits }}/{{ $totalUnits }} units · {{ $showProgress }}%</span></span></div>
         <div class="vx-progress mt-1.5"><span style="width:{{ $showProgress }}%"></span></div>
 
         <div class="vx-ful-kpis mt-4">
             @foreach([['Units Left',$pendingCount],['Lines Done',$fulfilledCount],['Issues',$notFulfilledCount],['Tracked Boxes',$packages->count()]] as [$label,$value])
-                <div class="vx-ful-kpi"><div class="text-[9px] font-bold uppercase tracking-wide text-gray-500">{{ $label }}</div><div class="mt-1 text-xl font-bold text-gray-950 dark:text-white">{{ $value }}</div></div>
+                <div class="vx-ful-kpi"><div class="text-[9px] font-bold uppercase tracking-wide text-gray-500">{{ $label }}</div><div class="mt-1 text-xl font-bold text-gray-950 dark:text-white" data-vx-num>{{ $value }}</div></div>
             @endforeach
         </div>
 
@@ -72,7 +75,7 @@
         <div class="mt-4 space-y-2.5">
             @forelse($lines as $line)
                 @php $item=$line->inventoryItem;$status=$line->fulfillmentStatus();$total=max(1,(int)$line->quantity);$packed=min((int)$line->packed_quantity,$total);$pct=min(100,round(($packed/$total)*100)); @endphp
-                <article class="vx-ful-item">
+                <article class="vx-ful-item" wire:key="ful-line-{{ $line->id }}" data-vx-exit data-vx-done="{{ $status === 'fulfilled' ? '1' : '0' }}">
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0 flex-1"><div class="text-sm font-bold text-gray-950 dark:text-white">{{ $line->item_name ?: $item?->name ?: 'Logged Item' }}</div><div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 sm:text-xs"><span class="font-bold">{{ $line->packingProgressLabel() }}</span>@if($item?->sku)<span>SKU {{ $item->sku }}</span>@endif @if(!$item)<span class="font-semibold text-amber-700">Unmapped — manual pack allowed</span>@endif @if($line->location?->name)<span>{{ $line->location->name }}</span>@endif</div></div>
                         <span class="rounded-full px-2.5 py-1 text-[10px] font-bold {{ $status === 'fulfilled' ? 'bg-green-100 text-green-700' : ($status === 'not_fulfilled' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">{{ $status === 'fulfilled' ? 'Packed' : ($status === 'not_fulfilled' ? 'Issue' : 'To Pack') }}</span>

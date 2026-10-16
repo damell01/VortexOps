@@ -43,14 +43,18 @@
             </div>
         </section>
 
-        <section class="grid gap-3 xl:grid-cols-2">
+        {{-- data-vx-queue: when the last show leaves, a sleepy Pokémon settles into the empty state (resources/js/finishes.js). --}}
+        <section class="grid gap-3 xl:grid-cols-2" data-vx-queue="fulfillment-{{ auth()->id() }}" data-vx-count="{{ $cards->whereNotIn('stage', ['Completed'])->count() }}">
             @forelse($cards as $card)
                 @php
                     $show = $card['show'];
                     $assigned = $show->fulfillmentUsers->pluck('name')->join(', ') ?: 'Needs assignment';
                     $streamer = $show->streamers->pluck('name')->join(', ') ?: 'No streamer';
+                    $packed = $card['total_units'] > 0 && $card['progress'] >= 100;
                 @endphp
-                <article class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-700">
+                <article @class(['vx-ful-show relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-700', 'is-packed' => $packed])
+                         data-vx-stamp-key="show-{{ $show->id }}" data-vx-done="{{ $packed ? '1' : '0' }}">
+                    @if ($packed)<span class="vx-stamp" aria-hidden="true">PACKED</span>@endif
                     <div class="p-4 sm:p-5">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
@@ -71,7 +75,8 @@
                         </div>
 
                         <div class="mt-4">
-                            <div class="mb-1.5 flex items-center justify-between text-[10px] font-semibold text-gray-500 sm:text-xs"><span>Streamer-log packing progress</span><span>{{ $card['packed_units'] }}/{{ $card['total_units'] }} · {{ $card['progress'] }}%</span></div>
+                            <div class="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-semibold text-gray-500 sm:text-xs"><span>Streamer-log packing progress</span>
+                                <span @class(['vx-catchball vx-catchball--sm', 'is-full' => $packed]) style="--vx-fill: {{ $card['progress'] }}%"><span class="vx-catchball-ball" aria-hidden="true"><i></i><b></b></span><span class="vx-catchball-text">{{ $card['packed_units'] }}/{{ $card['total_units'] }} · {{ $card['progress'] }}%</span></span></div>
                             <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full rounded-full bg-primary-600 transition-all" style="width:{{ $card['progress'] }}%"></div></div>
                         </div>
 
@@ -94,7 +99,7 @@
                     </div>
                 </article>
             @empty
-                <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900">
+                <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900" data-vx-empty>
                     <x-heroicon-o-check-circle class="mx-auto h-9 w-9 text-green-500"/>
                     <div class="mt-2 text-sm font-semibold text-gray-700 dark:text-gray-200">No active fulfillment work</div>
                     <div class="mt-1 text-xs text-gray-500">A show appears after its streamer report is approved and contains logged items.</div>

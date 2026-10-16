@@ -25,7 +25,7 @@
 
         <div class="divide-y divide-gray-100 dark:divide-white/5">
             @foreach ($steps as $step)
-                <div class="flex items-center gap-3 py-3">
+                <div class="flex items-center gap-3 py-3" data-vx-done="{{ $step['done'] ? '1' : '0' }}">
                     @if ($step['done'])
                         <x-heroicon-s-check-circle class="h-6 w-6 shrink-0 text-emerald-500" />
                     @else

@@ -111,7 +111,7 @@
             </div>
             <div class="vxr-card-body" style="display:grid;gap:16px">
                 @foreach ($this->checklist() as [$name, $text, $done, $go])
-                    <div style="display:flex;gap:12px;align-items:flex-start">
+                    <div style="display:flex;gap:12px;align-items:flex-start" data-vx-done="{{ $done ? '1' : '0' }}">
                         @if ($done)
                             <x-filament::icon icon="heroicon-s-check-circle" style="width:26px;height:26px;color:var(--vxw-ok);flex:none" />
                         @else

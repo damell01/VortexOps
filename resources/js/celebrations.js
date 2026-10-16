@@ -390,7 +390,6 @@ function boot() {
     } catch {}
     const ev = config().event?.key;
     if (ev) document.documentElement.dataset.vxEvent = ev; else delete document.documentElement.dataset.vxEvent;
-    eventBanner();
 }
 
 function afterOthers(fn, wait = 450) {
@@ -402,20 +401,5 @@ function afterOthers(fn, wait = 450) {
     setTimeout(tick, wait);
 }
 
-// ── The catch event's banner: a slim pill under the top bar, once a day ──
-function eventBanner() {
-    const ev = config().event;
-    if (!ev || document.querySelector('.vx-fx-banner') || !once(`banner:${ev.key}`)) return;
-    const pill = el('div', `vx-fx-banner vx-fx-banner--${ev.key}`);
-    pill.setAttribute('role', 'status');
-    pill.append(el('span', 'vx-fx-banner-emoji', ev.emoji), el('b', '', ev.label), el('span', '', ev.banner));
-    const x = el('button', 'vx-fx-banner-x', '×');
-    x.type = 'button'; x.setAttribute('aria-label', 'Dismiss');
-    const close = () => { pill.classList.add('is-out'); setTimeout(() => pill.remove(), 300); };
-    x.addEventListener('click', close);
-    pill.append(x);
-    document.body.append(pill);
-    setTimeout(close, 9000);
-}
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);

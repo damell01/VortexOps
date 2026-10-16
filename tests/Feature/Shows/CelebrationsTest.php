@@ -199,4 +199,15 @@ class CelebrationsTest extends TestCase
         $this->assertStringContainsString('data-vx-dex-event="halloween"', $html);
         $this->assertStringContainsString('Spooky season event', $html);
     }
+
+    public function test_streamers_open_their_pokedex_from_the_dashboard_and_others_cannot(): void
+    {
+        $this->actingAs($this->user->fresh());
+        $this->assertTrue(\App\Filament\Pages\MyPokedex::canAccess());
+        Livewire::test(\App\Filament\Pages\MyPokedex::class)->assertOk()->assertSee('Your Pokédex')->assertSee('See all 100 Pokémon');
+        $this->assertStringContainsString('MyPokedex::getUrl()', file_get_contents(resource_path('views/livewire/streamer-home.blade.php')), 'the dashboard links to it');
+
+        $this->actingAs(User::factory()->create());
+        $this->assertFalse(\App\Filament\Pages\MyPokedex::canAccess(), 'not a streamer, no Pokédex');
+    }
 }

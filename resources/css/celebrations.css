@@ -73,21 +73,6 @@
 @keyframes vx-fx-big-hop { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
 .vx-fx-big.is-calm, .vx-fx-big.is-calm * { animation: none !important; }
 
-/* ── The catch event's banner ────────────────────────────────────────── */
-.vx-fx-banner { position: fixed; left: 50%; top: calc(var(--vx-topbar-h, 64px) + 10px); z-index: 40; translate: -50% 0; display: flex; align-items: center; gap: .5rem; max-width: min(92vw, 40rem); padding: .4rem .5rem .4rem .8rem; border-radius: 999px; background: #f5f3ff; border: 1px solid #ddd6fe; color: #4c1d95; font-size: .8rem; box-shadow: 0 10px 24px -14px rgb(46 16 101 / .6); animation: vx-fx-banner-in .4s cubic-bezier(.2,1.3,.4,1) both; }
-.vx-fx-banner > span:nth-child(3) { color: rgb(91 33 182 / .85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dark .vx-fx-banner { background: #1e1435; border-color: #4c1d95; color: #ede9fe; }
-.dark .vx-fx-banner > span:nth-child(3) { color: #c4b5fd; }
-.vx-fx-banner--halloween { background: linear-gradient(90deg, #fff7ed, #f5f3ff); border-color: #fdba74; }
-.dark .vx-fx-banner--halloween { background: linear-gradient(90deg, rgb(124 45 18 / .55), #1e1435); border-color: rgb(251 146 60 / .5); }
-.vx-fx-banner-emoji { font-size: 1rem; }
-.vx-fx-banner b { white-space: nowrap; }
-.vx-fx-banner-x { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 999px; color: inherit; opacity: .6; }
-.vx-fx-banner-x:hover { opacity: 1; background: rgb(124 58 237 / .12); }
-.vx-fx-banner.is-out { animation: vx-fx-big-out .3s ease-in forwards; }
-@keyframes vx-fx-banner-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
-@media (max-width: 640px) { .vx-fx-banner > span:nth-child(3) { display: none; } }
-
 /* ── Halloween: a pumpkin rides on the Poké Balls ─────────────────────── */
 [data-vx-event="halloween"] .vx-catchball, [data-vx-event="halloween"] .vx-dex-ball { position: relative; }
 [data-vx-event="halloween"] .vx-catchball::after, [data-vx-event="halloween"] .vx-dex-ball::after { content: '🎃'; position: absolute; right: -.35em; top: -.45em; font-size: .9rem; line-height: 1; }

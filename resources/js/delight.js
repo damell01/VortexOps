@@ -1,6 +1,7 @@
 // Small touches for a card business: holo tilt, count-up figures, status
 // flips and a little foil confetti. Light by design; nothing runs when the
 // person asks for reduced motion.
+import './poke-moments.js';
 const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 
@@ -126,13 +127,13 @@ function reportDone() {
 window.vxReportDone = reportDone;
 
 // ── Gotcha! The report caught a Pokémon: a ball wobbles, clicks, and out it pops ──
-function catchReveal(species, shiny, rarity) {
+function catchReveal(species, shiny, rarity, displayName) {
     document.querySelector('.vx-gotcha')?.remove();
-    const name = species.charAt(0).toUpperCase() + species.slice(1);
+    const name = displayName || species.charAt(0).toUpperCase() + species.slice(1);
     const box = document.createElement('div');
-    box.className = 'vx-gotcha' + (shiny ? ' is-shiny' : '') + (rarity === 'rare' ? ' is-rare' : '');
+    box.className = 'vx-gotcha' + (shiny ? ' is-shiny' : '') + (rarity === 'rare' || rarity === 'legendary' ? ' is-rare' : '') + (rarity === 'legendary' ? ' is-legendary' : '');
     box.setAttribute('role', 'status');
-    const tag = shiny ? '✨ Shiny!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : '';
+    const tag = [shiny ? '✨ Shiny!' : '', rarity === 'legendary' ? '🌟 Legendary!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : ''].filter(Boolean).join(' · ');
     box.innerHTML = `<div class="vx-gotcha-stage"><span class="vx-gotcha-ball"></span><img class="vx-gotcha-mon" src="/img/pokemon/${shiny ? 'shiny/' : ''}${species}.gif" alt=""></div>`
         + `<div class="vx-gotcha-text"><b>Gotcha! ${name} was caught!</b>${tag ? `<i>${tag}</i>` : ''}<span>Added to your Pokédex</span></div>`;
     const close = () => { box.classList.add('is-out'); setTimeout(() => box.remove(), 300); };
@@ -403,7 +404,7 @@ function boot() {
     const flashed = document.querySelector('[data-vx-celebrate]');
     if (flashed) setTimeout(flashed.dataset.vxCelebrate === 'report' ? reportDone : celebrate, 250);
     const caught = document.querySelector('[data-vx-caught]');
-    if (caught) { const { vxCaught, shiny, rarity } = caught.dataset; caught.remove(); setTimeout(() => catchReveal(vxCaught, shiny === '1', rarity), flashed ? 2500 : 300); }
+    if (caught) { const { vxCaught, shiny, rarity, name } = caught.dataset; caught.remove(); setTimeout(() => catchReveal(vxCaught, shiny === '1', rarity, name), flashed ? 2500 : 300); }
     queueHeads();
     topbarVar();
     tabBadge();

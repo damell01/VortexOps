@@ -332,6 +332,7 @@ class EndOfStreamForm extends Page implements HasForms
         if ($line) $line->increment('quantity', max(1, $quantity));
         else $entry->items()->create(['inventory_item_id' => $item->id, 'item_name' => $item->name, 'quantity' => max(1, $quantity), 'disposition' => $disposition, 'unit_cost' => null]);
         $this->syncProductCost(); $this->touchDraft();
+        $this->dispatch('vx-poke', kind: 'item');
     }
 
     public function addManualLineItem(string $name, int $quantity = 1, ?float $unitCost = null, string $disposition = 'sold'): void
@@ -340,6 +341,7 @@ class EndOfStreamForm extends Page implements HasForms
         $disposition = array_key_exists($disposition, StreamerLogItem::DISPOSITIONS) ? $disposition : 'sold';
         $entry->items()->create(['inventory_item_id' => null, 'item_name' => $name, 'quantity' => max(1, $quantity), 'disposition' => $disposition, 'unit_cost' => $unitCost]);
         $this->syncProductCost(); $this->touchDraft();
+        $this->dispatch('vx-poke', kind: 'item');
     }
 
     public function addManualItemFromForm(): void
@@ -445,7 +447,7 @@ class EndOfStreamForm extends Page implements HasForms
         if (in_array($property, ['hoursStreamed', 'shipments', 'pweCount', 'labelCount', 'packagesOver500', 'logNotes'], true)) $this->saveDetails();
     }
 
-    public function goToStep(int $step): void { $step = max(1, min(3, $step)); $this->saveDetails(); $this->step = $step; $this->touchDraft($step); }
+    public function goToStep(int $step): void { $step = max(1, min(3, $step)); $forward = $step > $this->step; $this->saveDetails(); $this->step = $step; $this->touchDraft($step); if ($forward) $this->dispatch('vx-poke', kind: 'step', step: $step); }
 
     public function getDeductionPreviewProperty(): array
     {

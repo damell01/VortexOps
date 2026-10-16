@@ -42,22 +42,35 @@ class PokemonCatchTest extends TestCase
     {
         $this->assertSame(Pokedex::roll(42), Pokedex::roll(42));
 
-        $rolls = collect(range(1, 4000))->map(fn ($id) => Pokedex::roll($id));
-        $this->assertTrue($rolls->every(fn ($r) => isset(Pokedex::SPECIES[$r[0]])));
-        $rare = $rolls->filter(fn ($r) => Pokedex::rarity($r[0]) === 'rare')->count() / 4000;
-        $shiny = $rolls->filter(fn ($r) => $r[1])->count() / 4000;
-        $this->assertLessThan(.04, $rare);
-        $this->assertGreaterThan(.005, $rare);
-        $this->assertEqualsWithDelta(.02, $shiny, .012);
-        $this->assertCount(count(Pokedex::SPECIES), $rolls->pluck(0)->unique(), 'every species can be caught');
+        $n = 20000;
+        $rolls = collect(range(1, $n))->map(fn ($id) => Pokedex::roll($id));
+        $this->assertTrue($rolls->every(fn ($r) => Pokedex::exists($r[0])));
+        $share = fn (string $rarity) => $rolls->filter(fn ($r) => Pokedex::rarity($r[0]) === $rarity)->count() / $n;
+        $total = array_sum(array_map(fn ($e) => Pokedex::WEIGHTS[$e[2]], Pokedex::DEX));
+        $expected = fn (string $rarity) => collect(Pokedex::DEX)->filter(fn ($e) => $e[2] === $rarity)->count() * Pokedex::WEIGHTS[$rarity] / $total;
+        foreach (['common', 'uncommon', 'rare', 'legendary'] as $rarity) {
+            $this->assertEqualsWithDelta($expected($rarity), $share($rarity), .01, $rarity);
+        }
+        $this->assertLessThan($share('rare'), $share('legendary'));
+        $this->assertEqualsWithDelta(1 / Pokedex::SHINY_ODDS, $rolls->filter(fn ($r) => $r[1])->count() / $n, .006);
+        $this->assertCount(count(Pokedex::DEX), $rolls->pluck(0)->unique(), 'every species can be caught');
     }
 
     public function test_every_species_has_a_sprite_and_a_shiny(): void
     {
-        foreach (array_keys(Pokedex::SPECIES) as $species) {
-            $this->assertFileExists(public_path("img/pokemon/{$species}.gif"));
+        foreach (array_keys(Pokedex::DEX) as $species) {
+            $this->assertFileExists(public_path("img/pokemon/{$species}.gif"), $species);
             $this->assertFileExists(public_path("img/pokemon/shiny/{$species}.gif"));
         }
+    }
+
+    public function test_the_pokedex_has_100_pokemon_from_all_nine_generations(): void
+    {
+        $this->assertCount(100, Pokedex::DEX);
+        $this->assertSame(range(1, 9), collect(Pokedex::DEX)->pluck(1)->unique()->sort()->values()->all());
+        $numbers = collect(Pokedex::DEX)->pluck(0);
+        $this->assertSame($numbers->sort()->values()->all(), $numbers->values()->all(), 'in Pokédex order');
+        $this->assertSame('Ho-Oh', Pokedex::name('ho-oh'));
     }
 
     public function test_an_auto_approved_report_catches_one_and_only_one(): void
@@ -101,7 +114,7 @@ class PokemonCatchTest extends TestCase
 
         $this->assertSame([2, 3, 2, 1], [$dex['caught'], $dex['catches'], $psyduck['count'], $psyduck['shiny']]);
         $this->assertSame('mew', $dex['latest']->species);
-        $this->assertSame(count(Pokedex::SPECIES), $dex['total']);
+        $this->assertSame(count(Pokedex::DEX), $dex['total']);
     }
 
     public function test_the_profile_widget_shows_their_pokedex(): void
@@ -111,7 +124,7 @@ class PokemonCatchTest extends TestCase
         PokemonCatch::create(['streamer_id' => $this->streamer->id, 'streamer_log_entry_id' => $r->id, 'species' => 'snorlax', 'shiny' => false, 'caught_at' => now()]);
 
         Livewire::test(StreamerPokedexWidget::class, ['record' => $this->streamer])
-            ->assertSee('Ash’s Pokédex')->assertSee('1 of ' . count(Pokedex::SPECIES) . ' caught')->assertSee('Snorlax')->assertSee('???');
+            ->assertSee('Ash’s Pokédex')->assertSee('1 of ' . count(Pokedex::DEX) . ' caught')->assertSee('Snorlax')->assertSee('???');
     }
 
     public function test_the_wild_report_alert_carries_the_pokemon_and_the_toast_finds_it(): void

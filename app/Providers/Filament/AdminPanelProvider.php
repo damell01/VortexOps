@@ -223,10 +223,15 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ($kind = session()->pull('vx_celebrate')) ? new \Illuminate\Support\HtmlString('<div data-vx-celebrate="' . e(is_string($kind) ? $kind : '') . '" hidden></div>') : '',
             )
             ->renderHook(
+                // The Pokémon the little action moments can pick from (resources/js/poke-moments.js).
+                PanelsRenderHook::BODY_END,
+                fn () => new \Illuminate\Support\HtmlString('<script type="application/json" id="vx-dex-pool">' . json_encode(array_keys(\App\Support\Pokedex::DEX)) . '</script>'),
+            )
+            ->renderHook(
                 // A report approved on submit caught a Pokémon: delight.js reveals it after the "Report submitted" ball.
                 PanelsRenderHook::BODY_END,
-                fn () => is_array($c = session()->pull('vx_caught')) && isset(\App\Support\Pokedex::SPECIES[$c['species'] ?? ''])
-                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" hidden></div>')
+                fn () => is_array($c = session()->pull('vx_caught')) && \App\Support\Pokedex::exists($c['species'] ?? null)
+                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" data-name="' . e(\App\Support\Pokedex::name($c['species'])) . '" hidden></div>')
                     : '',
             )
             ->renderHook(

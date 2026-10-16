@@ -172,6 +172,23 @@ class PaymentStructure
     /** @return array{member_type:string,structure:string,defaults:array<string,mixed>,overrides:array<string,mixed>,effective:array<string,mixed>,legacy:bool,version:string} */
     public static function resolve(Streamer $member): array
     {
+        $resolved = self::resolveStored($member);
+
+        // The Payroll Simulator's what-if rates, held only on an in-memory
+        // copy of the person (Streamer::$whatIfCompensation), win over
+        // whatever is stored. Real people never carry any.
+        if ($member->whatIfCompensation) {
+            foreach (array_intersect_key($member->whatIfCompensation, array_flip(self::FIELDS)) as $field => $value) {
+                $resolved['effective'][$field] = self::normalize($field, $value);
+            }
+        }
+
+        return $resolved;
+    }
+
+    /** @return array{member_type:string,structure:string,defaults:array<string,mixed>,overrides:array<string,mixed>,effective:array<string,mixed>,legacy:bool,version:string} */
+    private static function resolveStored(Streamer $member): array
+    {
         $memberType = $member->isFulfillment() ? 'fulfillment' : 'streamer';
         $defaults = self::defaults($memberType, $member->getRawOriginal('business_id') ?? $member->business_id);
         $overrideFields = $member->compensation_override_fields;

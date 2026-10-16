@@ -37,12 +37,6 @@ class PayoutService
         $existingPayouts = $allExisting->whereNotIn('payout_type', array_keys(self::SPLIT_LINES))->keyBy('streamer_id');
         $existingSplits = collect(self::SPLIT_LINES)->map(fn ($key, $type) => $allExisting->where('payout_type', $type)->keyBy('streamer_id'));
 
-        // Prefer the pivot's actual is_primary flag. Shows that predate that
-        // flag (or where detectStreamers() never set one) have no streamer
-        // flagged primary at all — fall back to treating the first attached
-        // streamer as primary so solo-streamer shows and older data keep
-        // computing exactly as before.
-        $hasExplicitPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
         $editable = fn (?Payout $p) => $p && $p->status === 'draft' && (! $p->batch || $p->batch->status === 'draft');
 
         foreach ($streamers as $index => $streamer) {
@@ -56,9 +50,7 @@ class PayoutService
                 continue;
             }
 
-            $isPrimary = $hasExplicitPrimary
-                ? (bool) ($streamer->pivot->is_primary ?? false)
-                : $index === 0;
+            $isPrimary = $this->isPrimaryOnShow($streamers, $streamer, $index);
 
             $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $isPrimary);
             $splitLines = [];
@@ -101,6 +93,77 @@ class PayoutService
         }
 
         return $payouts;
+    }
+
+    /**
+     * Whether this person carries the revenue share on the show.
+     *
+     * Prefer the pivot's actual is_primary flag. Shows that predate that
+     * flag (or where detectStreamers() never set one) have no streamer
+     * flagged primary at all — fall back to treating the first attached
+     * streamer as primary so solo-streamer shows and older data keep
+     * computing exactly as before.
+     */
+    private function isPrimaryOnShow(\Illuminate\Support\Collection $streamers, Streamer $streamer, int $index): bool
+    {
+        $hasExplicitPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
+
+        return $hasExplicitPrimary
+            ? (bool) ($streamer->pivot->is_primary ?? false)
+            : $index === 0;
+    }
+
+    /**
+     * The pay calculateForShow() works out for each person on a show, without
+     * reading or writing a single payout — the Payroll Simulator's engine.
+     *
+     * It runs the same computeStreamerPayout() a pay run does, so a what-if
+     * cannot drift from real payroll. The show, its report and its people
+     * may be in-memory copies carrying edited values (see
+     * App\Services\PayrollSimulation); nothing here saves them. Unlike
+     * calculateForShow(), pay already locked on a finalized run is worked
+     * out afresh rather than read back, since the question is what the
+     * calculation gives for these inputs.
+     *
+     * Expects show.streamers (with pivot), show.streamerLogEntry and
+     * show.channel loaded.
+     *
+     * @return array<int, array{streamer: Streamer, is_primary: bool, lines: array<int, array<string, mixed>>, total: float, error: ?string}>
+     */
+    public function previewForShow(Show $show): array
+    {
+        $streamers = $show->streamers->values();
+        $rows = [];
+
+        foreach ($streamers as $index => $streamer) {
+            $isPrimary = $this->isPrimaryOnShow($streamers, $streamer, $index);
+
+            try {
+                $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $isPrimary);
+            } catch (\Throwable $e) {
+                $rows[] = ['streamer' => $streamer, 'is_primary' => $isPrimary, 'lines' => [], 'total' => 0.0, 'error' => $e->getMessage()];
+                continue;
+            }
+
+            $splits = [];
+            foreach (self::SPLIT_LINES as $type => $key) {
+                if ($result[$key] ?? null) {
+                    $splits[] = $result[$key] + ['payout_type' => $type];
+                }
+                unset($result[$key]);
+            }
+            $lines = [$result, ...$splits];
+
+            $rows[] = [
+                'streamer' => $streamer,
+                'is_primary' => $isPrimary,
+                'lines' => $lines,
+                'total' => round((float) collect($lines)->sum('calculated_payout'), 2),
+                'error' => null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**

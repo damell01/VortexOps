@@ -16,8 +16,18 @@ class Streamer extends Model
 
     protected static array $doNotRecordEvents = ['updated'];
 
+    /**
+     * What-if pay rates (PaymentStructure::FIELDS => value) on an in-memory
+     * copy of a person, set only by the Payroll Simulator. They override the
+     * stored rates wherever the payout engine reads them; never persisted.
+     */
+    public ?array $whatIfCompensation = null;
+
     protected static function booted(): void
     {
+        // A simulator copy must never be written back over the real person.
+        static::saving(fn (Streamer $streamer) => $streamer->whatIfCompensation === null ? null : false);
+
         $bust = fn () => Cache::forget('filter:streamers');
         static::saved($bust);
         static::deleted($bust);

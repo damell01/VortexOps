@@ -40,10 +40,25 @@ class BusinessTransfer
             ->whereIn('show_id', $showIds)
             ->whereNotIn('payout_type', \App\Support\PayRunSchedules::TIP_TYPES)
             ->sum('calculated_payout'), 2);
+
+        return self::fromTotals($showIds->count(), $productCost, $net, $paid);
+    }
+
+    /**
+     * The transfer for shows whose totals are already known — a pay run's,
+     * or the Payroll Simulator's what-if figures. $payouts excludes tips.
+     *
+     * @return array{shows:int,product_cost:float,net:float,payouts:float,business_revenue:float,transfer:float}
+     */
+    public static function fromTotals(int $shows, float $productCost, float $net, float $payouts): array
+    {
+        $productCost = round($productCost, 2);
+        $net = round($net, 2);
+        $paid = round($payouts, 2);
         $revenue = round($net - $paid, 2);
 
         return [
-            'shows' => $showIds->count(),
+            'shows' => $shows,
             'product_cost' => $productCost,
             'net' => $net,
             'payouts' => $paid,

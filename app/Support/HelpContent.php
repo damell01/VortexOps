@@ -235,8 +235,8 @@ class HelpContent
             ],
             'page.simulator' => [
                 'title' => 'Payroll Simulator',
-                'intro' => 'Try pay on made-up shows. Nothing here touches real pay, stock or reports.',
-                'steps' => ['Pick 1 show, 1 week or a 4-week month.', 'Change revenue, hours, shipments and products.', 'See each person\'s pay and the working behind it.'],
+                'intro' => 'Try pay changes on the real shows. Nothing here is saved.',
+                'steps' => ['Pick a period, and a business or person if you like.', 'Edit a show\'s numbers or a person\'s pay — edited values are marked.', 'See each person\'s pay, the working behind it and the difference from real.'],
             ],
             'page.businesses' => [
                 'title' => 'Businesses',

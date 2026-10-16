@@ -1,0 +1,70 @@
+name: Payout Formula checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'app/Support/PayoutFormula.php'
+      - 'app/Rules/ValidPayoutFormula.php'
+      - 'app/Filament/Pages/PaymentStructures.php'
+      - 'app/Services/PayoutService.php'
+      - 'resources/views/filament/components/payout-formula-builder.blade.php'
+      - 'resources/views/filament/pages/payment-structures.blade.php'
+      - 'public/js/payout-formula-builder.js'
+      - 'public/css/payout-formula-builder.css'
+      - 'tests/Feature/Payouts/PayoutFormulaBuilderTest.php'
+      - 'tests/Browser/payout-formula-builder.spec.ts'
+      - '.github/workflows/payout-formula-checks.yml'
+jobs:
+  formula:
+    runs-on: ubuntu-24.04
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: sqlite
+      SESSION_DRIVER: file
+      CACHE_STORE: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo_sqlite,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci && npm run build
+      - run: cp .env.example .env && php artisan key:generate && php artisan view:cache
+      - run: php artisan test tests/Feature/Payouts/PayoutFormulaBuilderTest.php tests/Feature/Payouts/PaymentStructureTest.php
+        env:
+          DB_DATABASE: ':memory:'
+          SESSION_DRIVER: array
+      - run: npx playwright install --with-deps chromium
+      - name: Seed browser fixtures
+        run: |
+          touch database/database.sqlite
+          php artisan migrate:fresh --force
+          php artisan db:seed --class=PayrollWorkspaceScreenshotSeeder --force
+      - name: Desktop and mobile formula builder
+        run: |
+          APP_DEBUG=false DEBUGBAR_ENABLED=false php artisan serve --host=127.0.0.1 --port=8000 >/tmp/formula-server.log 2>&1 &
+          formula_server_pid=$!
+          trap 'kill "$formula_server_pid" 2>/dev/null || true' EXIT
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/admin/login >/dev/null; then break; fi
+            sleep 1
+          done
+          npx playwright test tests/Browser/payout-formula-builder.spec.ts --workers=1 --timeout=90000
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: payout-formula-previews
+          path: |
+            tests/Browser/screenshots/payout-formula/*.png
+            tests/Browser/output
+            /tmp/formula-server.log
+          if-no-files-found: ignore

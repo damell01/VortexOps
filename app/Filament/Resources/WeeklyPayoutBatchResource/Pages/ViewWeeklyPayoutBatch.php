@@ -178,6 +178,9 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             });
 
         return [
+            Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
+                ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
+
             $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')

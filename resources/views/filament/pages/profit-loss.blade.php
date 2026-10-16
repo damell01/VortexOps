@@ -30,6 +30,7 @@
             <p class="vxr-subtitle">Profit &amp; loss: Whatnot earnings plus tips, minus COGS and recorded worker payouts.</p>
         </div>
         <div class="vxr-actions">
+            <a class="vxr-btn" href="{{ route('financial-reports.statement', array_filter(['business' => $business ?: null, 'month' => $from->format('Y-m')])) }}" target="_blank" rel="noopener">Business Statement</a>
             <button type="button" class="vxr-btn" wire:click="exportCsv"><x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export</button>
             <button type="button" class="vxr-btn vxr-btn--primary" wire:click="openSend"><x-filament::icon icon="heroicon-o-envelope" /> Send Summary</button>
         </div>

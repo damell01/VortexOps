@@ -20,7 +20,7 @@ for (const width of [390, 1366, 1920]) {
   const entry=page.locator('[data-vx-workspace-entry]');
   await expect(entry).toBeVisible({timeout:15000});
   await expect(entry).not.toHaveClass(/is-ready/);
-  await expect(page.locator('[data-vx-entry-status]')).toHaveText('Opening your workspace…');
+  await expect(page.locator('[data-vx-entry-status]')).toHaveText('Open your Dashboard');
   await page.screenshot({path:`tests/Browser/output/login/loading-${width}.png`});
   await expect(page.locator('.vx-login-experience')).toHaveCount(0,{timeout:20000});
   await expect(entry).toBeHidden({timeout:5000});

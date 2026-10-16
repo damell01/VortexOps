@@ -37,7 +37,7 @@
         slowTimer = setTimeout(() => {
             if (link) link.hidden = false;
             const caption = el.querySelector('.vx-entry-caption');
-            if (caption) caption.textContent = 'Still loading. You can open your workspace directly below.';
+            if (caption) caption.textContent = 'Still loading. You can open your Dashboard directly below.';
         }, 8000);
     }
     function reveal() {
@@ -48,7 +48,7 @@
         clearTimeout(slowTimer);
         el.hidden = false;
         const label = el.querySelector('[data-vx-entry-status]');
-        if (label) label.textContent = 'Welcome to your workspace';
+        if (label) label.textContent = 'Welcome to your Dashboard';
         // Two frames let the new page paint behind the ball before it opens.
         requestAnimationFrame(() => requestAnimationFrame(() => {
             el.classList.add('is-ready');
@@ -96,7 +96,7 @@
                 timer = setTimeout(() => {
                     document.body.classList.remove('vx-login-catching');
                     document.body.classList.add('vx-login-caught');
-                    announce('Signed in. Opening your workspace.');
+                    announce('Signed in. Open your Dashboard.');
                     timer = setTimeout(() => enter(destination.href), 650);
                 }, Math.max(0, 650 - (Date.now() - startedAt)));
             });

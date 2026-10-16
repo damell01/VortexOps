@@ -4,7 +4,7 @@
     <aside class="vx-login-art" aria-label="Vortex Ops">
         <div class="vx-wordmark"><img src="{{ $logo }}" alt="" width="42" height="42"> VORTEX <span>OPS</span></div>
         <h2>Power up<br>your next show.</h2>
-        <p>Your shows, inventory, and payroll.<br>One connected workspace.</p>
+        <p>Your shows, inventory, and payroll.<br>One connected dashboard.</p>
         <div class="vx-feature-pills"><span>Shows</span><span>Inventory</span><span>Payroll</span></div>
         <div class="vx-capture-scene" aria-hidden="true">
             <div class="vx-orbit"></div>

@@ -1,7 +1,3 @@
-@assets
-<link rel="stylesheet" href="/css/payout-formula-builder.css?v=1">
-<script src="/js/payout-formula-builder.js?v=1"></script>
-@endassets
 <div class="vx-formula" data-vx-formula x-data="vxPayoutFormulaBuilder($wire.entangle('{{ $model }}'), $wire, @js(\App\Support\PayoutFormula::FIELDS), @js(\App\Support\PayoutFormula::samples()))">
     <h3>Build a payout formula</h3>
     <p>Click fields and operators to build the calculation for one person on one show. You can also type directly.</p>

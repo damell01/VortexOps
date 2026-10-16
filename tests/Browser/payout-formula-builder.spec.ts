@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
 test('build, preview, reject malformed input and cancel without changing rates', async ({ page }, info) => {
+    page.setDefaultTimeout(15000);
+    page.on('pageerror', error => console.log('Browser error:', error.message));
+    page.on('console', message => { if (message.type() === 'error') console.log('Browser console:', message.text()); });
     await page.goto('/admin/login');
     await page.fill('input[type="email"]', 'dev@vortexbreaks.com');
     await page.fill('input[type="password"]', 'devpassword');

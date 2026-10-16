@@ -1,4 +1,8 @@
 <x-filament-panels::page>
+@assets
+<link rel="stylesheet" href="/css/payout-formula-builder.css?v=1">
+<script src="/js/payout-formula-builder.js?v=1"></script>
+@endassets
 @php
     $pct=(float)($streamer['payout_percentage']??0);
     $ship=(float)$streamer_burden_per_shipment;

@@ -1,0 +1,38 @@
+name: Financial report checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'app/Services/PayRunReport.php'
+      - 'app/Services/PayoutService.php'
+      - 'app/Http/Controllers/FinancialReportController.php'
+      - 'app/Models/PayRunReportSnapshot.php'
+      - 'app/Support/VisitorCast.php'
+      - 'resources/views/reports/**'
+      - 'tests/Feature/Reports/PayRunReportTest.php'
+      - 'tests/Unit/VisitorCastTest.php'
+      - '.github/workflows/financial-report-checks.yml'
+jobs:
+  reports:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan view:cache
+      - run: php artisan test tests/Feature/Reports/PayRunReportTest.php tests/Feature/Reports/ProfitLossReportTest.php tests/Unit/VisitorCastTest.php
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          SESSION_DRIVER: array
+          CACHE_STORE: array

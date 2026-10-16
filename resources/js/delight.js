@@ -404,8 +404,12 @@ document.addEventListener('animationiteration', (e) => {
     try { cast = JSON.parse(peek.dataset.vxVisitors || '[]'); } catch {}
     if (cast.length < 2) return;
     const img = peek.querySelector('img');
-    const now = img.getAttribute('src').split('/').pop().replace('.gif', '');
-    const next = cast[(cast.indexOf(now) + 1) % cast.length];
+    if (!img) return;
+    // The buddy appears more than once in the cast, so advance by position,
+    // not indexOf(species), which would keep returning to the first buddy.
+    const index = (Number(peek.dataset.vxVisitorIndex || 0) + 1) % cast.length;
+    peek.dataset.vxVisitorIndex = String(index);
+    const next = cast[index];
     img.src = `/img/pokemon/${shinyVisit ? 'shiny/' : ''}${next}.gif`;
 });
 

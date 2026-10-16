@@ -129,3 +129,9 @@ Route::middleware(['auth', 'web'])->get('/admin/wild-report.json', function () {
         'shiny' => (bool) ($alert->data['vx']['shiny'] ?? false), 'url' => $url,
     ])->header('Cache-Control', 'no-store');
 })->name('wild-report');
+
+// Private browser statements and matching printable PDFs.
+Route::middleware(['web', 'auth'])->prefix('admin/financial-reports')->name('financial-reports.')->group(function () {
+    Route::get('pay-runs/{batch}', [\App\Http\Controllers\FinancialReportController::class, 'run'])->name('pay-run');
+    Route::get('business-statement', [\App\Http\Controllers\FinancialReportController::class, 'statement'])->name('statement');
+});

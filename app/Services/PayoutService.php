@@ -1103,6 +1103,7 @@ class PayoutService
             $batch->payouts()->update(['status' => 'approved']);
 
             $this->updateStreamerBalances($batch);
+            app(PayRunReport::class)->snapshot($batch, 'finalized');
         });
     }
 
@@ -1121,6 +1122,7 @@ class PayoutService
                     Streamer::where('id', $payout->streamer_id)
                         ->increment('total_earnings_paid', (float) $payout->calculated_payout);
                 });
+            app(PayRunReport::class)->snapshot($batch, 'paid');
         });
     }
 

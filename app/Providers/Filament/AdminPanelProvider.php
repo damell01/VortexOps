@@ -213,10 +213,17 @@ class AdminPanelProvider extends PanelProvider
                 fn () => new \Illuminate\Support\HtmlString('<script type="application/json" id="vx-dex-pool">' . json_encode(array_keys(\App\Support\Pokedex::DEX)) . '</script>'),
             )
             ->renderHook(
+                // Celebrations (resources/js/celebrations.js): the person's level, the running catch event, and a milestone flashed for this page.
+                PanelsRenderHook::BODY_END,
+                fn () => auth()->check()
+                    ? new \Illuminate\Support\HtmlString('<script type="application/json" id="vx-fx">' . json_encode(\App\Support\Celebrations::payload(auth()->user()) + array_filter(['flash' => session()->pull('vx_fx')]), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) . '</script>')
+                    : '',
+            )
+            ->renderHook(
                 // A report approved on submit caught a Pokémon: delight.js reveals it after the "Report submitted" ball.
                 PanelsRenderHook::BODY_END,
                 fn () => is_array($c = session()->pull('vx_caught')) && \App\Support\Pokedex::exists($c['species'] ?? null)
-                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" data-name="' . e(\App\Support\Pokedex::name($c['species'])) . '" hidden></div>')
+                    ? new \Illuminate\Support\HtmlString('<div data-vx-caught="' . e($c['species']) . '" data-shiny="' . (! empty($c['shiny']) ? '1' : '0') . '" data-rarity="' . e($c['rarity'] ?? 'common') . '" data-name="' . e(\App\Support\Pokedex::name($c['species'])) . '" data-event="' . e(($ev = \App\Support\Season::eventOf($c['species'])) ? \App\Support\Season::EVENTS[$ev]['emoji'] . ' ' . \App\Support\Season::EVENTS[$ev]['label'] : '') . '" hidden></div>')
                     : '',
             )
             ->renderHook(

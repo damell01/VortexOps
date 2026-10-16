@@ -2,6 +2,7 @@
 // flips and a little foil confetti. Light by design; nothing runs when the
 // person asks for reduced motion.
 import './poke-moments.js';
+import { allowSmall, allowBig } from './celebrations.js';
 const calm = window.matchMedia('(prefers-reduced-motion: reduce)');
 const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
 
@@ -66,7 +67,7 @@ function flipChanged() {
 // Who pops out of the ball: Meowth for pay day, Pikachu for everything else.
 const MON = { pay: 'meowth', default: 'pikachu' };
 export function celebrate(event) {
-    if (calm.matches) return;
+    if (calm.matches || !allowBig()) return;
     const detail = Array.isArray(event?.detail) ? event.detail[0] : event?.detail;
     const mon = MON[detail?.kind] || MON.default;
     const catchBox = document.createElement('div');
@@ -98,7 +99,7 @@ window.addEventListener('vx-celebrate', celebrate);
 
 // ── Pay run marked paid: Pikachu hops up, cheers, and scampers off ───────
 export function pikaCheer(event) {
-    if (calm.matches) return;
+    if (calm.matches || !allowSmall()) return;
     const detail = Array.isArray(event?.detail) ? event.detail[0] : event?.detail;
     document.querySelector('.vx-pika')?.remove();
     const box = document.createElement('div');
@@ -127,13 +128,14 @@ function reportDone() {
 window.vxReportDone = reportDone;
 
 // ── Gotcha! The report caught a Pokémon: a ball wobbles, clicks, and out it pops ──
-function catchReveal(species, shiny, rarity, displayName) {
+function catchReveal(species, shiny, rarity, displayName, eventLabel) {
+    if (!allowBig()) return;
     document.querySelector('.vx-gotcha')?.remove();
     const name = displayName || species.charAt(0).toUpperCase() + species.slice(1);
     const box = document.createElement('div');
     box.className = 'vx-gotcha' + (shiny ? ' is-shiny' : '') + (rarity === 'rare' || rarity === 'legendary' ? ' is-rare' : '') + (rarity === 'legendary' ? ' is-legendary' : '');
     box.setAttribute('role', 'status');
-    const tag = [shiny ? '✨ Shiny!' : '', rarity === 'legendary' ? '🌟 Legendary!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : ''].filter(Boolean).join(' · ');
+    const tag = [eventLabel ? `${eventLabel} event!` : '', shiny ? '✨ Shiny!' : '', rarity === 'legendary' ? '🌟 Legendary!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : ''].filter(Boolean).join(' · ');
     box.innerHTML = `<div class="vx-gotcha-stage"><span class="vx-gotcha-ball"></span><img class="vx-gotcha-mon" src="/img/pokemon/${shiny ? 'shiny/' : ''}${species}.gif" alt=""></div>`
         + `<div class="vx-gotcha-text"><b>Gotcha! ${name} was caught!</b>${tag ? `<i>${tag}</i>` : ''}<span>Added to your Pokédex</span></div>`;
     const close = () => { box.classList.add('is-out'); setTimeout(() => box.remove(), 300); };
@@ -231,6 +233,10 @@ function gotcha(node) {
         toast.querySelector('.fi-no-notification-icon')?.before(icon);
         const word = document.createElement('span');
         word.className = 'vx-gotcha-word'; word.textContent = released ? 'Released!' : 'Gotcha!';
+        // During a catch event the toast wears its emoji: 🎃 Gotcha!
+        if (!released && document.documentElement.dataset.vxEvent) {
+            try { const ev = JSON.parse(document.getElementById('vx-fx')?.textContent || '{}').event; if (ev?.emoji) word.textContent = `${ev.emoji} Gotcha!`; } catch {}
+        }
         toast.querySelector('.fi-no-notification-text')?.prepend(word);
     });
 }
@@ -404,7 +410,7 @@ function boot() {
     const flashed = document.querySelector('[data-vx-celebrate]');
     if (flashed) setTimeout(flashed.dataset.vxCelebrate === 'report' ? reportDone : celebrate, 250);
     const caught = document.querySelector('[data-vx-caught]');
-    if (caught) { const { vxCaught, shiny, rarity, name } = caught.dataset; caught.remove(); setTimeout(() => catchReveal(vxCaught, shiny === '1', rarity, name), flashed ? 2500 : 300); }
+    if (caught) { const { vxCaught, shiny, rarity, name, event } = caught.dataset; caught.remove(); setTimeout(() => catchReveal(vxCaught, shiny === '1', rarity, name, event), flashed ? 2500 : 300); }
     queueHeads();
     topbarVar();
     tabBadge();

@@ -27,6 +27,24 @@
     @else
         <p class="vx-dex-empty">No catches yet. File a show report and see what you catch!</p>
     @endif
+    @foreach ($dex['events'] as $ev)
+        {{-- Event-only Pokémon (App\Support\Season::EVENTS): only catchable while their event runs. --}}
+        <div @class(['vx-dex-event', 'is-running' => $ev['running']]) data-vx-dex-event="{{ $ev['key'] }}">
+            <p class="vx-dex-event-head"><span aria-hidden="true">{{ $ev['emoji'] }}</span> <b>{{ $ev['label'] }} event</b>
+                <span>{{ $ev['entries']->where('count', '>', 0)->count() }} of {{ $ev['entries']->count() }} caught{{ $ev['running'] ? ' · only catchable now' : '' }}</span></p>
+            <ul class="vx-dex-grid vx-dex-grid--event">
+                @foreach ($ev['entries'] as $e)
+                    <li @class(['vx-dex-cell', 'is-caught' => $e['count'] > 0, 'is-'.$e['rarity']]) title="{{ $e['count'] > 0 ? \App\Support\Pokedex::name($e['species']).' · caught '.$e['count'].'×' : 'Not caught yet' }}">
+                        <span class="vx-dex-no">#{{ str_pad((string) $e['number'], 3, '0', STR_PAD_LEFT) }}</span>
+                        <img src="/img/pokemon/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
+                        <span class="vx-dex-name">{{ $e['count'] > 0 ? \App\Support\Pokedex::name($e['species']) : '???' }}</span>
+                        @if ($e['count'] > 0)<span class="vx-dex-n">×{{ $e['count'] }}@if ($e['shiny']) <b>✨</b>@endif</span>@endif
+                        @if ($e['rarity'] !== 'common')<span class="vx-dex-rarity" aria-label="{{ ucfirst($e['rarity']) }}">{{ ['uncommon' => '★', 'rare' => '★★', 'legendary' => '★★★'][$e['rarity']] }}</span>@endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endforeach
     <details class="vx-dex-all">
         <summary>See all {{ $dex['total'] }} Pokémon <span>{{ $dex['caught'] }} caught</span></summary>
     <ul class="vx-dex-grid">
@@ -92,6 +110,14 @@
 .vx-dex-all[open] summary::before { transform: rotate(90deg); }
 .vx-dex-all summary span { font-weight: 600; color: rgb(107 114 128); }
 .vx-dex-all .vx-dex-grid { margin-top: .7rem; }
+.vx-dex-event { display: grid; gap: .5rem; padding: .7rem .8rem; border-radius: .9rem; border: 1px dashed rgb(196 181 253); background: rgb(250 245 255); }
+.dark .vx-dex-event { border-color: rgb(124 58 237 / .5); background: rgb(46 16 101 / .25); }
+.vx-dex-event.is-running { border-style: solid; }
+.vx-dex-event[data-vx-dex-event="halloween"].is-running { border-color: #fb923c; background: linear-gradient(135deg, #fff7ed, #f5f3ff); }
+.dark .vx-dex-event[data-vx-dex-event="halloween"].is-running { border-color: rgb(251 146 60 / .6); background: linear-gradient(135deg, rgb(124 45 18 / .35), rgb(46 16 101 / .35)); }
+.vx-dex-event-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem; font-size: .85rem; }
+.vx-dex-event-head span:last-child { font-size: .78rem; color: rgb(107 114 128); }
+.vx-dex-grid--event { grid-template-columns: repeat(auto-fill, minmax(4.8rem, 1fr)); }
 @media (max-width: 640px) { .vx-dex-latest { display: none; } .vx-dex-grid { grid-template-columns: repeat(auto-fill, minmax(4.8rem, 1fr)); } }
 </style>
 @endonce

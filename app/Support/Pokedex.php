@@ -130,19 +130,40 @@ class Pokedex
 
     public const SHINY_ODDS = 50;
 
-    /** @return array{0:string,1:bool} the species and whether it's shiny, for a report id */
-    public static function roll(int $reportId): array
+    /** During a catch event its themed Pokémon are this many times as likely. */
+    public const EVENT_BOOST = 3;
+
+    /** In spring, shiny Eevee are about: one Eevee in this many is shiny. */
+    public const SPRING_EEVEE_SHINY_ODDS = 30;
+
+    /**
+     * The species and whether it's shiny, for a report id. During a catch event
+     * (Season::EVENTS) its themed Pokémon weigh three times as much and its
+     * event-only species join the draw.
+     *
+     * @return array{0:string,1:bool}
+     */
+    public static function roll(int $reportId, ?string $event = null): array
     {
-        $total = array_sum(array_map(fn ($e) => self::WEIGHTS[$e[2]], self::DEX));
-        $pick = crc32('pokedex-species|' . $reportId) % $total;
+        $details = $event !== null ? (Season::EVENTS[$event] ?? null) : null;
+        $boost = array_flip($details['boost'] ?? []);
+        $weights = [];
         foreach (self::DEX as $species => [, , $rarity]) {
-            $pick -= self::WEIGHTS[$rarity];
+            $weights[$species] = self::WEIGHTS[$rarity] * (isset($boost[$species]) ? self::EVENT_BOOST : 1);
+        }
+        foreach ($details['species'] ?? [] as $species => [, $rarity]) {
+            $weights[$species] = self::WEIGHTS[$rarity];
+        }
+        $pick = crc32('pokedex-species|' . $reportId) % array_sum($weights);
+        foreach ($weights as $species => $weight) {
+            $pick -= $weight;
             if ($pick < 0) {
                 break;
             }
         }
+        $odds = $event === 'spring' && $species === 'eevee' ? self::SPRING_EEVEE_SHINY_ODDS : self::SHINY_ODDS;
 
-        return [$species, crc32('pokedex-shiny|' . $reportId) % self::SHINY_ODDS === 0];
+        return [$species, crc32('pokedex-shiny|' . $reportId) % $odds === 0];
     }
 
     /** Catch the report's Pokémon if it hasn't been caught yet. Null when the report has no streamer. */
@@ -151,7 +172,7 @@ class Pokedex
         if (! $report->streamer_id) {
             return null;
         }
-        [$species, $shiny] = self::roll((int) $report->id);
+        [$species, $shiny] = self::roll((int) $report->id, Season::event());
 
         return PokemonCatch::firstOrCreate(
             ['streamer_log_entry_id' => $report->id],
@@ -161,22 +182,36 @@ class Pokedex
 
     public static function rarity(string $species): string
     {
-        return self::DEX[$species][2] ?? 'common';
+        return self::DEX[$species][2] ?? self::eventEntry($species)[1] ?? 'common';
     }
 
     public static function number(string $species): int
     {
-        return self::DEX[$species][0] ?? 0;
+        return self::DEX[$species][0] ?? self::eventEntry($species)[0] ?? 0;
     }
 
+    /** In the main Pokédex or an event's own species. */
     public static function exists(?string $species): bool
     {
-        return $species !== null && isset(self::DEX[$species]);
+        return $species !== null && (isset(self::DEX[$species]) || self::eventEntry($species) !== null);
     }
 
     public static function name(string $species): string
     {
-        return $species === 'ho-oh' ? 'Ho-Oh' : ucfirst($species);
+        return match ($species) {
+            'ho-oh' => 'Ho-Oh',
+            'farfetchd' => 'Farfetch’d',
+            'flabebe' => 'Flabébé',
+            default => ucfirst($species),
+        };
+    }
+
+    /** @return array{0:int,1:string}|null an event-only species' [number, rarity] */
+    private static function eventEntry(string $species): ?array
+    {
+        $event = Season::eventOf($species);
+
+        return $event ? Season::EVENTS[$event]['species'][$species] : null;
     }
 
     /**
@@ -194,11 +229,23 @@ class Pokedex
             'count' => (int) ($rows[$species]->n ?? 0), 'shiny' => (int) ($rows[$species]->shinies ?? 0),
         ])->values();
 
+        // Event-only species: every one caught so far, plus the running event's
+        // whole set (uncaught ones show as silhouettes) so there's something to chase.
+        $running = Season::event();
+        $events = collect(Season::EVENTS)->map(fn ($event, $key) => [
+            'key' => $key, 'label' => $event['label'], 'emoji' => $event['emoji'], 'running' => $key === $running,
+            'entries' => collect($event['species'])->map(fn ($e, $species) => [
+                'species' => $species, 'rarity' => $e[1], 'number' => $e[0],
+                'count' => (int) ($rows[$species]->n ?? 0), 'shiny' => (int) ($rows[$species]->shinies ?? 0),
+            ])->values(),
+        ])->filter(fn ($event) => $event['running'] || $event['entries']->sum('count') > 0)->values();
+
         return [
             'entries' => $entries,
+            'events' => $events,
             'caught' => $entries->where('count', '>', 0)->count(),
             'total' => count(self::DEX),
-            'catches' => (int) $entries->sum('count'),
+            'catches' => (int) $rows->sum('n'),
             'latest' => ($recent = $streamer ? PokemonCatch::where('streamer_id', $streamer->id)->latest('caught_at')->latest('id')->limit(12)->get() : collect())->first(),
             'recent' => $recent,
         ];

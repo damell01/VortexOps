@@ -37,6 +37,107 @@ class Season
         'default' => ['#f59e0b', '#a78bfa', '#f472b6', '#22d3ee', '#ef4444', '#4ade80', '#facc15', '#c084fc'],
     ];
 
+    /**
+     * Longer catch events, separate from the visitors above: while one runs,
+     * its themed Pokémon turn up three times as often in report catches, a few
+     * event-only species can be caught (and only then), celebrations borrow
+     * its Pokémon, and a thin banner says so. APP_SEASON=harvest (etc.)
+     * previews one.
+     *
+     * boost: species in the main Pokédex, three times as likely.
+     * species: event-only catches, species => [National Pokédex no., rarity].
+     * swap: celebration sprite => this season's stand-in.
+     * pool: who turns up in the small "it worked" pops.
+     *
+     * @var array<string, array{label:string, emoji:string, banner:string, boost:list<string>, species:array<string, array{0:int,1:string}>, swap:array<string,string>, pool:list<string>}>
+     */
+    public const EVENTS = [
+        'halloween' => [
+            'label' => 'Spooky season', 'emoji' => '🎃', 'banner' => 'Ghost types are out! Ghosts turn up 3× as often, and a few only appear this month.',
+            'boost' => ['gengar', 'misdreavus', 'mimikyu', 'litwick', 'murkrow', 'zorua', 'darkrai', 'absol', 'umbreon', 'cubone'],
+            'species' => ['gastly' => [92, 'common'], 'haunter' => [93, 'uncommon'], 'shuppet' => [353, 'common'], 'banette' => [354, 'uncommon'], 'duskull' => [355, 'common'], 'drifloon' => [425, 'common'], 'yamask' => [562, 'common'], 'chandelure' => [609, 'rare'], 'pumpkaboo' => [710, 'common']],
+            'swap' => ['machamp' => 'gengar', 'chansey' => 'mimikyu', 'pidgey' => 'murkrow', 'porygon' => 'rotom', 'bidoof' => 'pumpkaboo', 'pelipper' => 'drifloon', 'alakazam' => 'chandelure', 'kangaskhan' => 'banette', 'meowth' => 'sableye', 'snorlax' => 'duskull'],
+            'pool' => ['gastly', 'haunter', 'gengar', 'pumpkaboo', 'drifloon', 'shuppet', 'duskull', 'litwick', 'misdreavus', 'mimikyu', 'yamask'],
+        ],
+        'harvest' => [
+            'label' => 'Harvest season', 'emoji' => '🍂', 'banner' => 'Grass and Ground types are out, with harvest Pokémon you can only catch in November.',
+            'boost' => ['bulbasaur', 'oddish', 'chikorita', 'treecko', 'turtwig', 'snivy', 'sprigatito', 'rowlet', 'cubone', 'geodude', 'wooper', 'snorlax'],
+            'species' => ['farfetchd' => [83, 'uncommon'], 'sunkern' => [191, 'common'], 'sunflora' => [192, 'uncommon'], 'teddiursa' => [216, 'common'], 'seedot' => [273, 'common'], 'deerling' => [585, 'common'], 'skiddo' => [672, 'common'], 'applin' => [840, 'rare']],
+            'swap' => ['bidoof' => 'teddiursa', 'pidgey' => 'farfetchd', 'chansey' => 'sunflora', 'snorlax' => 'snorlax'],
+            'pool' => ['sunkern', 'teddiursa', 'seedot', 'deerling', 'skiddo', 'applin', 'oddish', 'bulbasaur', 'turtwig'],
+        ],
+        'winter' => [
+            'label' => 'Winter', 'emoji' => '❄️', 'banner' => 'Ice types are out until January 5th, and Regice might just show up.',
+            'boost' => ['delibird', 'lapras', 'articuno', 'piplup', 'snorlax', 'wooloo', 'vaporeon'],
+            'species' => ['swinub' => [220, 'common'], 'stantler' => [234, 'uncommon'], 'snorunt' => [361, 'common'], 'spheal' => [363, 'common'], 'regice' => [378, 'legendary'], 'snover' => [459, 'common'], 'froslass' => [478, 'rare'], 'vanillite' => [582, 'common'], 'cubchoo' => [613, 'common']],
+            'swap' => ['pelipper' => 'delibird', 'meowth' => 'delibird', 'machamp' => 'stantler', 'bidoof' => 'cubchoo', 'pidgey' => 'spheal', 'snorlax' => 'snorlax'],
+            'pool' => ['delibird', 'snorunt', 'spheal', 'swinub', 'cubchoo', 'vanillite', 'snover', 'piplup'],
+        ],
+        'valentines' => [
+            'label' => "Valentine's", 'emoji' => '💘', 'banner' => 'Love is in the air until the 14th: lovely Pokémon are out, with a few you can only catch now.',
+            'boost' => ['luvdisc', 'sylveon', 'clefairy', 'jigglypuff', 'togepi', 'gardevoir', 'ralts'],
+            'species' => ['smoochum' => [238, 'common'], 'skitty' => [300, 'common'], 'woobat' => [527, 'common'], 'audino' => [531, 'uncommon'], 'cottonee' => [546, 'common'], 'alomomola' => [594, 'rare'], 'spritzee' => [682, 'common']],
+            'swap' => ['chansey' => 'audino', 'pidgey' => 'woobat', 'pelipper' => 'luvdisc', 'meowth' => 'skitty'],
+            'pool' => ['luvdisc', 'smoochum', 'skitty', 'cottonee', 'spritzee', 'clefairy', 'sylveon', 'woobat'],
+        ],
+        'spring' => [
+            'label' => 'Spring', 'emoji' => '🌸', 'banner' => 'Bug and Fairy types are blooming, and shiny Eevee are about.',
+            'boost' => ['butterfree', 'scyther', 'heracross', 'clefairy', 'togepi', 'sylveon', 'oddish', 'chikorita', 'eevee'],
+            'species' => ['hoppip' => [187, 'common'], 'budew' => [406, 'common'], 'burmy' => [412, 'common'], 'combee' => [415, 'common'], 'cherubi' => [420, 'common'], 'sewaddle' => [540, 'common'], 'petilil' => [548, 'uncommon'], 'flabebe' => [669, 'uncommon']],
+            'swap' => ['pidgey' => 'hoppip', 'bidoof' => 'combee', 'chansey' => 'petilil'],
+            'pool' => ['hoppip', 'budew', 'cherubi', 'combee', 'sewaddle', 'petilil', 'flabebe', 'butterfree'],
+        ],
+        'summer' => [
+            'label' => 'Summer', 'emoji' => '☀️', 'banner' => 'Water and Fire types are out for the summer, beach Pokémon included.',
+            'boost' => ['squirtle', 'psyduck', 'poliwag', 'magikarp', 'lapras', 'marill', 'mudkip', 'piplup', 'oshawott', 'froakie', 'charmander', 'growlithe', 'ponyta', 'torchic', 'tepig', 'chimchar', 'cyndaquil', 'scorbunny'],
+            'species' => ['krabby' => [98, 'common'], 'horsea' => [116, 'common'], 'staryu' => [120, 'common'], 'lotad' => [270, 'common'], 'wailmer' => [320, 'uncommon'], 'corphish' => [341, 'common'], 'popplio' => [728, 'uncommon']],
+            'swap' => ['pidgey' => 'wingull', 'bidoof' => 'krabby', 'machamp' => 'wailmer'],
+            'pool' => ['krabby', 'staryu', 'lotad', 'corphish', 'popplio', 'wingull', 'squirtle', 'psyduck'],
+        ],
+    ];
+
+    /** The catch event running now, if any (team's time zone). */
+    public static function event(?CarbonInterface $now = null): ?string
+    {
+        $preview = (string) config('app.season', '');
+        if ($preview !== '') {
+            return isset(self::EVENTS[$preview]) ? $preview : null;
+        }
+
+        $now ??= now(BusinessTime::zone());
+        $md = $now->format('m-d');
+
+        return match (true) {
+            $now->month === 10 => 'halloween',
+            $now->month === 11 => 'harvest',
+            $now->month === 12 || $md <= '01-05' => 'winter',
+            $now->month === 2 && $now->day <= 14 => 'valentines',
+            in_array($now->month, [3, 4], true) => 'spring',
+            in_array($now->month, [6, 7, 8], true) => 'summer',
+            default => null,
+        };
+    }
+
+    /** @return array{key:string, label:string, emoji:string, banner:string, boost:list<string>, species:array<string, array{0:int,1:string}>, swap:array<string,string>, pool:list<string>}|null */
+    public static function eventDetails(?CarbonInterface $now = null): ?array
+    {
+        $key = static::event($now);
+
+        return $key ? ['key' => $key] + self::EVENTS[$key] : null;
+    }
+
+    /** Which event an event-only species belongs to. */
+    public static function eventOf(string $species): ?string
+    {
+        foreach (self::EVENTS as $key => $event) {
+            if (isset($event['species'][$species])) {
+                return $key;
+            }
+        }
+
+        return null;
+    }
+
     public static function current(?CarbonInterface $now = null): ?string
     {
         $preview = (string) config('app.season', '');

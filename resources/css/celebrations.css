@@ -1,0 +1,93 @@
+/* Celebrations (resources/js/celebrations.js): brief, pointer-transparent, Vortex purple. */
+.vx-fx { position: fixed; z-index: 2147482980; width: 0; height: 0; pointer-events: none; }
+.vx-fx-mon { position: absolute; left: -32px; top: -70px; height: 60px; width: auto; max-width: 96px; image-rendering: pixelated; filter: drop-shadow(0 6px 8px rgb(20 10 40 / .35)); animation: vx-fx-hop 1.2s cubic-bezier(.2,1.3,.4,1) forwards; }
+.vx-fx-say { position: absolute; left: 34px; top: -64px; padding: 4px 10px; border-radius: 11px; background: #fff; color: #4c1d95; border: 1px solid #ddd6fe; font: 800 12.5px/1.2 ui-sans-serif, system-ui, sans-serif; white-space: nowrap; box-shadow: 0 8px 20px -8px rgb(46 16 101 / .5); animation: vx-fx-say 1.2s ease-out forwards; }
+.dark .vx-fx-say { background: #1e1435; color: #ede9fe; border-color: #4c1d95; }
+.vx-fx-icon { position: absolute; left: -4px; top: -92px; font-style: normal; font-size: 20px; animation: vx-fx-icon 1.2s cubic-bezier(.2,1.4,.4,1) forwards; }
+
+@keyframes vx-fx-hop { 0% { opacity: 0; transform: translateY(18px) scale(.5); } 18% { opacity: 1; transform: translateY(-6px) scale(1.05); } 32% { transform: none; } 46% { transform: translateY(-9px); } 60% { transform: none; } 82% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+@keyframes vx-fx-say { 0%, 12% { opacity: 0; transform: translateX(-6px) scale(.85); } 26%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-8px); } }
+@keyframes vx-fx-icon { 0%, 10% { opacity: 0; transform: translateY(10px) scale(.4); } 28%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-12px); } }
+
+/* Stamp: the word slams down at a tilt. */
+.vx-fx-stamp { position: absolute; left: 28px; top: -58px; padding: 3px 9px; border: 2.5px solid #7c3aed; border-radius: 7px; color: #7c3aed; background: rgb(255 255 255 / .92); font: 900 14px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em; white-space: nowrap; rotate: -10deg; animation: vx-fx-stamp 1.2s cubic-bezier(.3,1.6,.5,1) forwards; }
+.dark .vx-fx-stamp { background: rgb(30 20 53 / .92); color: #c4b5fd; border-color: #a78bfa; }
+.vx-fx-season { position: absolute; left: -46px; top: -84px; font-style: normal; font-size: 18px; animation: vx-fx-icon 1.2s ease-out forwards; }
+@keyframes vx-fx-stamp { 0%, 14% { opacity: 0; transform: scale(2.2); } 26% { opacity: 1; transform: scale(.94); } 34%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+/* Coins: a little shower out of the top. */
+.vx-fx-coin { position: absolute; left: -6px; top: -78px; font-style: normal; font-size: 14px; opacity: 0; animation: vx-fx-coin .9s ease-out calc(.15s + var(--i) * .06s) forwards; }
+@keyframes vx-fx-coin { 0% { opacity: 0; transform: none; } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(calc((var(--i) - 2) * 18px), -46px) rotate(calc(var(--i) * 70deg)); } }
+
+/* Sparkle: three twinkles around it. */
+.vx-fx-spark { position: absolute; font-style: normal; font-size: 13px; opacity: 0; left: calc(-40px + var(--i) * 34px); top: calc(-86px + (var(--i) - 1) * (var(--i) - 1) * 18px); animation: vx-fx-spark .8s ease-in-out calc(.2s + var(--i) * .12s) forwards; }
+@keyframes vx-fx-spark { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0); } 50% { opacity: 1; transform: scale(1.1) rotate(40deg); } }
+
+/* Teleport: arrives in a ring, leaves in a squish. */
+.vx-fx--teleport .vx-fx-mon { animation-name: vx-fx-tele; }
+.vx-fx-ring { position: absolute; left: -26px; top: -54px; width: 52px; height: 24px; border-radius: 50%; border: 2px solid #a78bfa; opacity: 0; animation: vx-fx-ring .7s ease-out forwards; }
+@keyframes vx-fx-tele { 0% { opacity: 0; transform: scaleY(.1) scaleX(1.6); } 20% { opacity: 1; transform: scaleY(1.1) scaleX(.9); } 30%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scaleY(2) scaleX(.1); } }
+@keyframes vx-fx-ring { 0% { opacity: .9; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.8); } }
+
+/* Fly: off up and to the right, carrying something. */
+.vx-fx--fly .vx-fx-mon, .vx-fx--fly .vx-fx-icon { animation-name: vx-fx-fly; animation-duration: 1.25s; animation-timing-function: cubic-bezier(.5,0,.6,1); }
+.vx-fx--fly .vx-fx-icon { left: 6px; top: -40px; }
+@keyframes vx-fx-fly { 0% { opacity: 0; transform: translate(-10px, 14px) scale(.6); } 18% { opacity: 1; transform: none; } 45% { transform: translate(8px, -6px); } 100% { opacity: 0; transform: translate(150px, -120px) scale(.8); } }
+
+/* Carry: a few steps sideways with the box overhead. */
+.vx-fx--carry .vx-fx-mon { animation-name: vx-fx-carry; }
+.vx-fx--carry .vx-fx-icon { animation-name: vx-fx-carry-box; }
+@keyframes vx-fx-carry { 0% { opacity: 0; transform: translateX(-40px); } 15% { opacity: 1; } 30% { transform: translate(-22px, -5px); } 45% { transform: translate(-10px, 0); } 60% { transform: translate(2px, -5px); } 80% { opacity: 1; transform: translate(14px, 0); } 100% { opacity: 0; transform: translate(26px, 0); } }
+@keyframes vx-fx-carry-box { 0% { opacity: 0; transform: translateX(-40px); } 15% { opacity: 1; } 30% { transform: translate(-22px, -5px); } 45% { transform: translate(-10px, 0); } 60% { transform: translate(2px, -5px); } 80% { opacity: 1; transform: translate(14px, 0); } 100% { opacity: 0; transform: translate(26px, 0); } }
+
+/* Spin: one quick turn. */
+.vx-fx--spin .vx-fx-mon { animation-name: vx-fx-spin; }
+@keyframes vx-fx-spin { 0% { opacity: 0; transform: scale(.4) rotate(-200deg); } 35% { opacity: 1; transform: scale(1.05) rotate(10deg); } 45%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-12px); } }
+
+/* Scan: a Poké Ball ding at the field, with a combo count. */
+.vx-fx-ball { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; background: url('/img/pokeball.svg') center / contain no-repeat; animation: vx-fx-ding .7s cubic-bezier(.3,1.6,.5,1) forwards; }
+.vx-fx-combo { position: absolute; left: 14px; top: -26px; font: 900 13px/1 ui-sans-serif, system-ui, sans-serif; color: #7c3aed; text-shadow: 0 1px 0 #fff; animation: vx-fx-say .8s ease-out forwards; }
+@keyframes vx-fx-ding { 0% { opacity: 0; transform: scale(.3); } 30% { opacity: 1; transform: scale(1.25) rotate(-20deg); } 55% { transform: scale(1) rotate(12deg); } 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-10px); } }
+
+/* Reduced motion: a still card that just fades. */
+.vx-fx.is-calm * { animation: vx-fx-still 1.3s linear forwards !important; }
+@keyframes vx-fx-still { 0%, 85% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ── Milestones ───────────────────────────────────────────────────────── */
+.vx-fx-big { position: fixed; left: 50%; top: 38%; z-index: 2147482985; translate: -50% -50%; display: flex; flex-direction: column; align-items: center; gap: .55rem; padding: 1.1rem 1.6rem 1.2rem; border-radius: 1.3rem; background: rgb(255 255 255 / .96); border: 1px solid #ddd6fe; box-shadow: 0 24px 60px -18px rgb(46 16 101 / .55); text-align: center; cursor: pointer; animation: vx-fx-big-in .45s cubic-bezier(.2,1.4,.4,1) both; }
+.dark .vx-fx-big { background: rgb(30 20 53 / .96); border-color: #4c1d95; }
+.vx-fx-big.is-out { animation: vx-fx-big-out .25s ease-in forwards; }
+.vx-fx-big-stage { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: .3rem; min-height: 84px; }
+.vx-fx-big-mon { height: 84px; width: auto; image-rendering: pixelated; filter: drop-shadow(0 8px 10px rgb(20 10 40 / .3)); animation: vx-fx-big-hop .6s ease-in-out .2s 3; }
+.vx-fx-big-mon.is-friend { height: 58px; animation-delay: .35s; }
+.vx-fx-ball--big { position: static; width: 64px; height: 64px; animation: vx-fx-ding .9s cubic-bezier(.3,1.6,.5,1) forwards; }
+.vx-fx-big-text { display: grid; gap: .15rem; }
+.vx-fx-big-text b { font: 900 1.35rem/1.15 ui-sans-serif, system-ui, sans-serif; color: #5b21b6; letter-spacing: .01em; }
+.dark .vx-fx-big-text b { color: #ddd6fe; }
+.vx-fx-big-text span { font-size: .9rem; color: rgb(107 114 128); }
+.vx-fx-big--record_show .vx-fx-big-text b { background: linear-gradient(90deg, #f59e0b, #ef4444, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.vx-fx-bit { position: absolute; left: 50%; top: 45%; width: 7px; height: 11px; border-radius: 2px; pointer-events: none; animation: vx-fx-bit .9s cubic-bezier(.1,.8,.3,1) .15s forwards; opacity: 0; }
+@keyframes vx-fx-bit { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(260deg); } }
+@keyframes vx-fx-big-in { from { opacity: 0; transform: scale(.7) translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes vx-fx-big-out { to { opacity: 0; transform: scale(.92); } }
+@keyframes vx-fx-big-hop { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
+.vx-fx-big.is-calm, .vx-fx-big.is-calm * { animation: none !important; }
+
+/* ── The catch event's banner ────────────────────────────────────────── */
+.vx-fx-banner { position: fixed; left: 50%; top: calc(var(--vx-topbar-h, 64px) + 10px); z-index: 40; translate: -50% 0; display: flex; align-items: center; gap: .5rem; max-width: min(92vw, 40rem); padding: .4rem .5rem .4rem .8rem; border-radius: 999px; background: #f5f3ff; border: 1px solid #ddd6fe; color: #4c1d95; font-size: .8rem; box-shadow: 0 10px 24px -14px rgb(46 16 101 / .6); animation: vx-fx-banner-in .4s cubic-bezier(.2,1.3,.4,1) both; }
+.vx-fx-banner > span:nth-child(3) { color: rgb(91 33 182 / .85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dark .vx-fx-banner { background: #1e1435; border-color: #4c1d95; color: #ede9fe; }
+.dark .vx-fx-banner > span:nth-child(3) { color: #c4b5fd; }
+.vx-fx-banner--halloween { background: linear-gradient(90deg, #fff7ed, #f5f3ff); border-color: #fdba74; }
+.dark .vx-fx-banner--halloween { background: linear-gradient(90deg, rgb(124 45 18 / .55), #1e1435); border-color: rgb(251 146 60 / .5); }
+.vx-fx-banner-emoji { font-size: 1rem; }
+.vx-fx-banner b { white-space: nowrap; }
+.vx-fx-banner-x { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 999px; color: inherit; opacity: .6; }
+.vx-fx-banner-x:hover { opacity: 1; background: rgb(124 58 237 / .12); }
+.vx-fx-banner.is-out { animation: vx-fx-big-out .3s ease-in forwards; }
+@keyframes vx-fx-banner-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .vx-fx-banner > span:nth-child(3) { display: none; } }
+
+/* ── Halloween: a pumpkin rides on the Poké Balls ─────────────────────── */
+[data-vx-event="halloween"] .vx-catchball, [data-vx-event="halloween"] .vx-dex-ball { position: relative; }
+[data-vx-event="halloween"] .vx-catchball::after, [data-vx-event="halloween"] .vx-dex-ball::after { content: '🎃'; position: absolute; right: -.35em; top: -.45em; font-size: .9rem; line-height: 1; }

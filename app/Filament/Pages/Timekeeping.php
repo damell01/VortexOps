@@ -73,11 +73,13 @@ class Timekeeping extends Page
         $week = TimeEntry::query()->where('clocked_in_at', '>=', $weekStart)->where('status', '!=', 'rejected')->get(['id', 'user_id', 'clocked_in_at', 'clocked_out_at', 'status', 'approved_minutes']);
         $minutes = (int) $week->sum(fn (TimeEntry $e) => $e->status === 'approved' && $e->approved_minutes !== null ? (int) $e->approved_minutes : (int) ($e->duration_minutes ?? 0));
         $canTa = TimeAttendance::canAccess();
+        $local = \App\Support\BusinessTime::local();
+        $reportMinutes = (int) round((float) $this->reportHours($local->copy()->startOfWeek()->toDateString(), $local->toDateString())->sum('hours_streamed') * 60);
 
         return [
             'review' => ['count' => $canTa ? TimeAttendance::reviewCount() : 0, 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'review']) : null],
             'now' => ['count' => TimeEntry::query()->whereNull('clocked_out_at')->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'now']) : null],
-            'hours' => ['minutes' => $minutes, 'people' => $week->pluck('user_id')->unique()->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'people']) : null],
+            'hours' => ['minutes' => $minutes, 'report_minutes' => $reportMinutes, 'people' => $week->pluck('user_id')->unique()->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'people']) : null],
             'entries' => ['count' => $week->count(), 'url' => $canTa ? TimeAttendance::getUrl(['tab' => 'all']) : null],
         ];
     }
@@ -101,7 +103,7 @@ class Timekeeping extends Page
     public int    $page = 1;
     public int    $perPage = 15;
 
-    /** 'this_week' | 'last_week' | 'pay_period' | 'this_month' | 'custom' — admin team-hours view only. */
+    /** 'this_week' | 'last_week' | 'pay_period' | 'this_month' | 'custom' — for both the entries list and team hours. */
     public string $periodMode = 'this_week';
     public string $periodFrom = '';
     public string $periodTo   = '';
@@ -111,6 +113,7 @@ class Timekeeping extends Page
         $this->periodMode = in_array($mode, ['this_week', 'last_week', 'pay_period', 'this_month', 'custom'], true)
             ? $mode
             : 'this_week';
+        $this->page = 1;
 
         if ($mode === 'custom' && ! $this->periodFrom) {
             [$from, $to]      = $this->resolvedPeriod();
@@ -200,25 +203,59 @@ class Timekeeping extends Page
         return Carbon::parse($from)->format('M j') . ' – ' . Carbon::parse($to)->format('M j, Y');
     }
 
-    public function getEntriesProperty()
+    /**
+     * Everything worked in the period, newest first: clocked time and the
+     * hours written on show reports, side by side. Report hours are read
+     * here, not edited; they belong to the report.
+     */
+    public function getEntriesProperty(): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $query = TimeEntry::with(['user', 'show:id,title'])
-            ->orderByDesc('clocked_in_at');
+        [$from, $to] = $this->resolvedPeriod();
+        $clock = TimeEntry::with(['user', 'show:id,title'])
+            ->whereBetween('clocked_in_at', [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()])
+            ->when(! $this->canSeeTeamEntries(), fn ($q) => $q->where('user_id', auth()->id()))
+            ->get();
 
-        if (! $this->canSeeTeamEntries()) {
-            $query->where('user_id', auth()->id());
-        }
+        $rows = $clock->map(fn (TimeEntry $e) => ['at' => $e->clocked_in_at, 'clock' => $e, 'report' => null])
+            ->concat($this->reportHours($from, $to)->map(fn ($r) => ['at' => $r->vxWorkedAt, 'clock' => null, 'report' => $r]))
+            ->sortByDesc(fn ($row) => $row['at']->getTimestamp())
+            ->values();
 
-        return $query->paginate($this->perPage, ['*'], 'page', $this->page);
+        $page = max(1, min($this->page, (int) ceil(max(1, $rows->count()) / $this->perPage)));
+
+        return new \Illuminate\Pagination\LengthAwarePaginator($rows->forPage($page, $this->perPage)->values(), $rows->count(), $this->perPage, $page);
     }
 
     /**
-     * Hourly team's hours for the selected period, grouped by person — the
-     * "who worked how much this pay period" view admins actually need.
-     * Admins/owner are excluded here; they're not the hourly workers this
-     * summary is for (their own entries still show in the History table).
+     * Hours written on submitted show reports for shows in the period: the
+     * person's own, or everyone's for admins. Each carries vxWorkedAt (the
+     * show's start, or its day) for sorting alongside clocked time.
      *
-     * @return array<int, array{name: string, minutes: int, entries: int}>
+     * @return \Illuminate\Support\Collection<int, \App\Models\StreamerLogEntry>
+     */
+    public function reportHours(string $from, string $to): \Illuminate\Support\Collection
+    {
+        $own = $this->canSeeTeamEntries() ? null : (auth()->user()?->streamer()->value('id') ?? 0);
+
+        return \App\Models\StreamerLogEntry::query()
+            ->whereNotNull('submitted_at')
+            ->where('hours_streamed', '>', 0)
+            ->whereHas('show', fn ($q) => $q->whereDate('show_date', '>=', $from)->whereDate('show_date', '<=', $to)->where('status', '!=', 'cancelled'))
+            ->when($own !== null, fn ($q) => $q->where('streamer_id', $own))
+            ->with(['show:id,title,show_date,start_time', 'streamer:id,name,user_id'])
+            ->get(['id', 'show_id', 'streamer_id', 'status', 'hours_streamed', 'submitted_at'])
+            ->each(function ($r) {
+                $day = Carbon::parse($r->show->show_date->toDateString(), \App\Support\BusinessTime::zone());
+                $r->vxWorkedAt = $r->show->start_time ? $day->setTimeFrom($r->show->start_time) : $day->setTime(12, 0);
+            });
+    }
+
+    /**
+     * Each person's hours for the selected period: clocked time (hourly
+     * team; admins and the owner are left out) plus the hours on their show
+     * reports, so nobody's time is hidden just because it wasn't clocked.
+     *
+     * @return array<int, array{name: string, minutes: int, entries: int, report_minutes: int, reports: int, total: int}>
      */
     public function getTeamHoursProperty(): array
     {
@@ -227,20 +264,31 @@ class Timekeeping extends Page
         }
 
         [$from, $to] = $this->resolvedPeriod();
-        $toDateTime  = Carbon::parse($to)->endOfDay();
+        $people = [];
+        $row = fn (string $name) => ['name' => $name, 'minutes' => 0, 'entries' => 0, 'report_minutes' => 0, 'reports' => 0, 'total' => 0];
 
-        return TimeEntry::with('user')
+        TimeEntry::with('user')
             ->whereNotNull('clocked_out_at')
-            ->whereBetween('clocked_in_at', [$from, $toDateTime])
+            ->whereBetween('clocked_in_at', [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()])
             ->get(['user_id', 'clocked_in_at', 'clocked_out_at'])
             ->filter(fn ($e) => $e->user && ! $e->user->isAdmin() && ! $e->user->isOwner())
-            ->groupBy('user_id')
-            ->map(fn ($entries) => [
-                'name'    => $entries->first()->user->name ?? 'Unknown',
-                'minutes' => $entries->sum(fn ($e) => (int) $e->clocked_in_at->diffInMinutes($e->clocked_out_at)),
-                'entries' => $entries->count(),
-            ])
-            ->sortByDesc('minutes')
+            ->each(function ($e) use (&$people, $row) {
+                $key = 'u'.$e->user_id;
+                $people[$key] ??= $row($e->user->name ?? 'Unknown');
+                $people[$key]['minutes'] += (int) $e->clocked_in_at->diffInMinutes($e->clocked_out_at);
+                $people[$key]['entries']++;
+            });
+
+        $this->reportHours($from, $to)->each(function ($r) use (&$people, $row) {
+            $key = $r->streamer?->user_id ? 'u'.$r->streamer->user_id : 's'.$r->streamer_id;
+            $people[$key] ??= $row($r->streamer?->name ?? 'Unknown');
+            $people[$key]['report_minutes'] += (int) round((float) $r->hours_streamed * 60);
+            $people[$key]['reports']++;
+        });
+
+        return collect($people)
+            ->map(fn ($p) => ['total' => $p['minutes'] + $p['report_minutes']] + $p)
+            ->sortByDesc('total')
             ->values()
             ->toArray();
     }
@@ -445,9 +493,9 @@ class Timekeeping extends Page
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Name', 'Hours', 'Minutes', 'Entries']);
+            fputcsv($out, ['Name', 'Clocked hours', 'Clock entries', 'Show report hours', 'Show reports', 'Total hours']);
             foreach ($rows as $r) {
-                fputcsv($out, [$r['name'], round($r['minutes'] / 60, 2), $r['minutes'], $r['entries']]);
+                fputcsv($out, [$r['name'], round($r['minutes'] / 60, 2), $r['entries'], round($r['report_minutes'] / 60, 2), $r['reports'], round($r['total'] / 60, 2)]);
             }
             fclose($out);
         }, "team-hours-{$from}-to-{$to}.csv", ['Content-Type' => 'text/csv']);
@@ -455,8 +503,10 @@ class Timekeeping extends Page
 
     public function exportCsv(): StreamedResponse
     {
+        [$from, $to] = $this->resolvedPeriod();
         $query = TimeEntry::with('user')
             ->whereNotNull('clocked_out_at')
+            ->whereBetween('clocked_in_at', [Carbon::parse($from)->startOfDay(), Carbon::parse($to)->endOfDay()])
             ->orderByDesc('clocked_in_at');
 
         if (! $this->canSeeTeamEntries()) {
@@ -464,11 +514,16 @@ class Timekeeping extends Page
         }
 
         $entries = $query->get();
+        $reports = $this->reportHours($from, $to);
 
         $userTz = $this->userTimezone();
-        return response()->streamDownload(function () use ($entries, $userTz) {
+        return response()->streamDownload(function () use ($entries, $reports, $userTz) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['User', 'Date', 'Clocked In', 'Clocked Out', 'Duration (minutes)', 'Hours', 'Notes']);
+            foreach ($reports as $r) {
+                $minutes = (int) round((float) $r->hours_streamed * 60);
+                fputcsv($out, [$r->streamer?->name ?? 'Unknown', $r->vxWorkedAt->format('Y-m-d'), '', '', $minutes, round($minutes / 60, 2), 'Show report: '.($r->show?->title ?? '')]);
+            }
             foreach ($entries as $entry) {
                 $minutes = (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at);
                 $inTz = $entry->clocked_in_at->setTimezone($userTz);
@@ -484,7 +539,7 @@ class Timekeeping extends Page
                 ]);
             }
             fclose($out);
-        }, 'time-entries-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv']);
+        }, "time-entries-{$from}-to-{$to}.csv", ['Content-Type' => 'text/csv']);
     }
 
     public function userTimezone(): string

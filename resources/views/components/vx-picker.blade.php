@@ -1,6 +1,6 @@
 @props([
     'label',            // "Business" / "Channel"
-    'allLabel',         // "All Businesses"
+    'allLabel' => null, // "All Businesses"; null = no "all" choice
     'model',            // Livewire property the choice is written to
     'options' => [],    // list of ['value' => int, 'label' => string, 'color' => '#hex']
     'current' => null,  // selected value or null for "all"
@@ -15,6 +15,10 @@
     <button type="button" class="vx-picker-btn" @click="open = !open" :aria-expanded="open" aria-haspopup="listbox" aria-label="{{ $label }}: {{ $selected['label'] ?? $allLabel }}">
         @if($icon === 'business')
             <svg class="vx-picker-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4 16.5v-13h-.25a.75.75 0 0 1 0-1.5h12.5a.75.75 0 0 1 0 1.5H16v13h.25a.75.75 0 0 1 0 1.5h-3.5a.75.75 0 0 1-.75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1 0-1.5H4Zm3-11a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM7.5 9a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM11 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm.5 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z" clip-rule="evenodd"/></svg>
+        @elseif($icon === 'person')
+            <svg class="vx-picker-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z"/></svg>
+        @elseif($icon === 'pay')
+            <svg class="vx-picker-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M1 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4Zm12 4a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm13-1a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM1.75 14.5a.75.75 0 0 0 0 1.5c4.417 0 8.693.603 12.749 1.73 1.111.309 2.251-.512 2.251-1.696v-.784a.75.75 0 0 0-1.5 0v.784a.272.272 0 0 1-.35.25A49.043 49.043 0 0 0 1.75 14.5Z" clip-rule="evenodd"/></svg>
         @else
             <svg class="vx-picker-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3.25 4A2.25 2.25 0 0 0 1 6.25v7.5A2.25 2.25 0 0 0 3.25 16h7.5A2.25 2.25 0 0 0 13 13.75v-7.5A2.25 2.25 0 0 0 10.75 4h-7.5ZM19 4.75a.75.75 0 0 0-1.28-.53l-3 3a.75.75 0 0 0-.22.53v4.5c0 .2.08.39.22.53l3 3a.75.75 0 0 0 1.28-.53V4.75Z"/></svg>
         @endif
@@ -26,13 +30,13 @@
     </button>
     <div class="vx-picker-menu" x-cloak x-show="open" x-transition.origin.top role="listbox" aria-label="{{ $label }}">
         <div class="vx-picker-menu-head">{{ $label }}</div>
-        @php $choices = array_merge([['value' => null, 'label' => $allLabel, 'color' => null]], $options); @endphp
+        @php $choices = $allLabel === null ? $options : array_merge([['value' => null, 'label' => $allLabel, 'color' => null]], $options); @endphp
         @foreach($choices as $choice)
             @php $isOn = $choice['value'] === $current; @endphp
             <button type="button" role="option" @if($isOn) aria-selected="true" @endif
                     @class(['vx-picker-option', 'is-on' => $isOn])
-                    @click="open = false; $wire.set('{{ $model }}', {{ $choice['value'] === null ? 'null' : (int) $choice['value'] }})">
-                <i class="vx-picker-dot" @if($choice['color']) style="background: {{ $choice['color'] }}" @else data-all @endif aria-hidden="true"></i>
+                    @click="open = false; $wire.set('{{ $model }}', {{ $choice['value'] === null ? 'null' : (is_string($choice['value']) && ! is_numeric($choice['value']) ? \Illuminate\Support\Js::from($choice['value']) : (int) $choice['value']) }})">
+                <i class="vx-picker-dot" @if($choice['color'] ?? null) style="background: {{ $choice['color'] }}" @else data-all @endif aria-hidden="true"></i>
                 <span>{{ $choice['label'] }}</span>
                 @if($isOn)<svg class="vx-picker-check" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.58l7.3-7.3a1 1 0 0 1 1.4 0Z" clip-rule="evenodd"/></svg>@endif
             </button>

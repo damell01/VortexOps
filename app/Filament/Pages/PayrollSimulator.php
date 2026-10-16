@@ -2,14 +2,24 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\Product;
+use App\Models\Business;
 use App\Models\Streamer;
-use App\Support\ProfitShareFormula;
+use App\Services\PayrollSimulation;
+use App\Support\PaySchedule;
 use BackedEnum;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\Locked;
 use UnitEnum;
 
+/**
+ * What-if payroll over the real shows in the system.
+ *
+ * Pick a period (and a business or person); every figure the pay calculation
+ * reads is filled in from the real show, report and pay rates, and any of it
+ * can be changed here. Pay is worked out by PayoutService — the same code a
+ * pay run uses — on in-memory copies, so nothing is ever written.
+ */
 class PayrollSimulator extends Page
 {
     protected static ?string $title = 'Payroll Simulator';
@@ -18,8 +28,29 @@ class PayrollSimulator extends Page
     protected static string|UnitEnum|null $navigationGroup = 'Payouts';
     protected static ?int $navigationSort = 3;
 
-    public string $mode = 'month';
-    public array $shows = [];
+    public const SHOW_LIMIT = 60;
+
+    public string $from = '';
+    public string $to = '';
+    public ?int $businessId = null;
+    public ?int $streamerId = null;
+
+    /** show id => the inputs as edited (starts as the real values) */
+    public array $showInputs = [];
+    /** streamer id => the pay rates as edited (starts as the real values) */
+    public array $rateInputs = [];
+    /** show ids left out of the scenario */
+    public array $excluded = [];
+
+    /** show id => the real values, to compare edits against */
+    #[Locked] public array $showReal = [];
+    /** streamer id => the real rates */
+    #[Locked] public array $rateReal = [];
+    #[Locked] public array $showIds = [];
+    #[Locked] public int $matching = 0;
+
+    public ?int $editingShowId = null;
+    public ?int $editingStreamerId = null;
 
     public function getView(): string { return 'filament.pages.payroll-simulator'; }
     public static function canAccess(): bool { return auth()->user()?->isAdmin() ?? false; }
@@ -27,197 +58,214 @@ class PayrollSimulator extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Read-only sandbox: mock shows are grouped into weekly pay runs, then each streamer is paid from their combined weekly totals.';
+        return 'Real shows, real rates, the real pay calculation — change anything to see what it would pay. Nothing is saved.';
     }
 
-    public function mount(): void { $this->loadPreset('month'); }
-
-    public function loadPreset(string $mode): void
+    public function mount(): void
     {
-        $this->mode = in_array($mode, ['single', 'week', 'month'], true) ? $mode : 'single';
-        $count = match ($this->mode) { 'single' => 1, 'week' => 4, default => 12 };
-        $streamerIds = array_keys($this->streamerOptions());
-        $productIds = array_keys($this->productOptions());
-        $start = now()->startOfWeek();
-        $this->shows = [];
+        $this->setPeriod('last');
+    }
 
-        for ($i = 0; $i < $count; $i++) {
-            $weekOffset = $this->mode === 'month' ? intdiv($i, 3) : 0;
-            $dayOffset = $this->mode === 'month' ? (($i % 3) * 2) : min($i * 2, 6);
-            $streamerId = $streamerIds[$i % max(1, count($streamerIds))] ?? null;
-            $productA = $productIds[($i * 2) % max(1, count($productIds))] ?? null;
-            $productB = $productIds[(($i * 2) + 1) % max(1, count($productIds))] ?? null;
+    public function setPeriod(string $which): void
+    {
+        [$start, $end] = match ($which) {
+            'this' => PaySchedule::periodFor(now(), $this->businessId),
+            'four' => [now()->subWeeks(4)->startOfDay(), now()->startOfDay()],
+            default => PaySchedule::periodFor(now()->subWeek(), $this->businessId),
+        };
+        $this->from = $start->toDateString();
+        $this->to = $end->toDateString();
+        $this->loadShows();
+    }
 
-            $this->shows[] = [
-                'name' => 'Mock Show ' . ($i + 1),
-                'date' => $start->copy()->addWeeks($weekOffset)->addDays($dayOffset)->toDateString(),
-                'streamer_id' => $streamerId,
-                'gross' => 4200 + (($i % 4) * 850),
-                'hours' => 4 + (($i % 3) * .5),
-                'shipments' => 45 + (($i % 5) * 11),
-                'tips' => 40 + (($i % 4) * 15),
-                'products' => array_values(array_filter([
-                    $productA ? ['product_id' => $productA, 'quantity' => 6 + ($i % 3)] : null,
-                    $productB ? ['product_id' => $productB, 'quantity' => 3 + ($i % 2)] : null,
-                ])),
-            ];
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['from', 'to', 'businessId', 'streamerId'], true)) {
+            $this->loadShows();
         }
     }
 
-    public function addShow(): void
+    /** Fill every input from the real records; keeps edits on shows and people still in view. */
+    public function loadShows(): void
     {
-        $streamerId = array_key_first($this->streamerOptions());
-        $productId = array_key_first($this->productOptions());
-        $this->shows[] = [
-            'name' => 'Mock Show ' . (count($this->shows) + 1),
-            'date' => now()->toDateString(), 'streamer_id' => $streamerId,
-            'gross' => 5000, 'hours' => 4, 'shipments' => 60, 'tips' => 50,
-            'products' => $productId ? [['product_id' => $productId, 'quantity' => 5]] : [],
-        ];
+        $from = $this->validDate($this->from) ?? now()->subWeek()->toDateString();
+        $to = $this->validDate($this->to) ?? now()->toDateString();
+        if ($to < $from) {
+            [$from, $to] = [$to, $from];
+        }
+        [$this->from, $this->to] = [$from, $to];
+
+        $sim = app(PayrollSimulation::class);
+        $shows = $sim->shows($from, $to, $this->businessId, $this->streamerId, self::SHOW_LIMIT);
+        $this->matching = $shows->count() < self::SHOW_LIMIT ? $shows->count() : $sim->countShows($from, $to, $this->businessId, $this->streamerId);
+
+        $showReal = $showInputs = $rateReal = $rateInputs = [];
+        foreach ($shows as $show) {
+            $showReal[$show->id] = $sim->showInputs($show);
+            $showInputs[$show->id] = $this->showInputs[$show->id] ?? $showReal[$show->id];
+            foreach ($show->streamers as $streamer) {
+                $rateReal[$streamer->id] ??= $sim->rateInputs($streamer);
+                $rateInputs[$streamer->id] ??= $this->rateInputs[$streamer->id] ?? $rateReal[$streamer->id];
+            }
+        }
+
+        $this->showIds = $shows->pluck('id')->all();
+        $this->showReal = $showReal;
+        $this->showInputs = $showInputs;
+        $this->rateReal = $rateReal;
+        $this->rateInputs = $rateInputs;
+        $this->excluded = array_values(array_intersect($this->excluded, $this->showIds));
     }
 
-    public function removeShow(int $index): void { unset($this->shows[$index]); $this->shows = array_values($this->shows); }
-
-    public function addProduct(int $showIndex): void
+    public function toggleShow(int $showId): void
     {
-        if (! isset($this->shows[$showIndex])) return;
-        $productId = array_key_first($this->productOptions());
-        if ($productId) $this->shows[$showIndex]['products'][] = ['product_id' => $productId, 'quantity' => 1];
+        $this->excluded = in_array($showId, $this->excluded, true)
+            ? array_values(array_diff($this->excluded, [$showId]))
+            : [...$this->excluded, $showId];
     }
 
-    public function removeProduct(int $showIndex, int $productIndex): void
+    public function editShow(int $showId): void
     {
-        if (! isset($this->shows[$showIndex]['products'][$productIndex])) return;
-        unset($this->shows[$showIndex]['products'][$productIndex]);
-        $this->shows[$showIndex]['products'] = array_values($this->shows[$showIndex]['products']);
+        if (! isset($this->showReal[$showId])) {
+            return;
+        }
+        $this->editingShowId = $showId;
+        $this->dispatch('open-modal', id: 'sim-show-editor');
     }
 
-    public function productOptions(): array
+    public function editStreamer(int $streamerId): void
     {
-        return Product::query()->where('is_active', true)
-            ->orderByRaw('CASE WHEN average_cost > 0 THEN 0 WHEN unit_cost > 0 THEN 1 ELSE 2 END')
-            ->orderByDesc('total_units_received')->orderBy('name')->limit(50)->get()
-            ->mapWithKeys(fn (Product $p) => [$p->id => $p->name . ($p->sku ? ' · ' . $p->sku : '')])->all();
+        if (! isset($this->rateReal[$streamerId])) {
+            return;
+        }
+        $this->editingStreamerId = $streamerId;
+        $this->dispatch('open-modal', id: 'sim-rate-editor');
     }
 
+    public function resetShow(int $showId): void
+    {
+        if (isset($this->showReal[$showId])) {
+            $this->showInputs[$showId] = $this->showReal[$showId];
+        }
+    }
+
+    public function resetStreamer(int $streamerId): void
+    {
+        if (isset($this->rateReal[$streamerId])) {
+            $this->rateInputs[$streamerId] = $this->rateReal[$streamerId];
+        }
+    }
+
+    public function resetField(string $kind, int $id, string $field): void
+    {
+        if ($kind === 'show' && array_key_exists($field, $this->showReal[$id] ?? [])) {
+            $this->showInputs[$id][$field] = $this->showReal[$id][$field];
+        } elseif ($kind === 'rate' && array_key_exists($field, $this->rateReal[$id] ?? [])) {
+            $this->rateInputs[$id][$field] = $this->rateReal[$id][$field];
+        }
+    }
+
+    public function resetAll(): void
+    {
+        $this->showInputs = $this->showReal;
+        $this->rateInputs = $this->rateReal;
+        $this->excluded = [];
+    }
+
+    public function showEdits(int $showId): array
+    {
+        return PayrollSimulation::edits($this->showInputs[$showId] ?? [], $this->showReal[$showId] ?? []);
+    }
+
+    public function rateEdits(int $streamerId): array
+    {
+        return PayrollSimulation::edits($this->rateInputs[$streamerId] ?? [], $this->rateReal[$streamerId] ?? []);
+    }
+
+    /** The scenario: the included shows, worked out with the edited inputs and with the real ones. */
+    public function simulation(): array
+    {
+        $sim = app(PayrollSimulation::class);
+        $ids = array_values(array_diff($this->showIds, $this->excluded));
+        $result = $sim->run($sim->showsById($ids), $this->showInputs, $this->rateInputs);
+
+        // Shows left out still list, greyed, so they can be put back.
+        $result['excluded'] = $sim->showsById(array_values(array_intersect($this->showIds, $this->excluded)))
+            ->map(fn ($show) => ['id' => $show->id, 'title' => $show->title ?: "Show #{$show->id}", 'date' => $show->show_date,
+                'streamers' => $show->streamers->pluck('name')->implode(', ')])->all();
+
+        return $result;
+    }
+
+    /** @return array<int, array{value:int,label:string,color:?string}> */
+    public function businessOptions(): array
+    {
+        return Business::query()->orderBy('sort_order')->orderBy('name')->get()
+            ->map(fn (Business $b) => ['value' => $b->id, 'label' => $b->name, 'color' => $b->color ?: null])->all();
+    }
+
+    /** @return array<int, array{value:int,label:string,color:?string}> */
     public function streamerOptions(): array
     {
         return Streamer::query()->where('status', 'active')
-            ->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type'))
-            ->orderBy('name')->limit(20)->get()->mapWithKeys(function (Streamer $streamer): array {
-                $resolved = $streamer->effectiveCompensation();
-                $pct = (float) ($resolved['effective']['payout_percentage'] ?? 0);
-                $adjusted = count($resolved['overrides'] ?? []) > 0;
-                return [$streamer->id => $streamer->name . ' · ' . number_format($pct, 2) . '% ' . ($adjusted ? 'adjusted' : 'team default')];
-            })->all();
+            ->when($this->businessId, fn ($q) => $q->where('business_id', $this->businessId))
+            ->orderBy('name')->get(['id', 'name'])
+            ->map(fn (Streamer $s) => ['value' => $s->id, 'label' => $s->name, 'color' => null])->all();
     }
 
-    public function simulation(): array
+    /** @return array<int, array{value:string,label:string,color:string}> */
+    public function payTypeOptions(): array
     {
-        $productIds = collect($this->shows)->flatMap(fn ($show) => collect($show['products'] ?? [])->pluck('product_id'))->filter()->unique();
-        $products = Product::query()->whereIn('id', $productIds)->get()->keyBy('id');
-        $streamerIds = collect($this->shows)->pluck('streamer_id')->filter()->unique();
-        $streamers = Streamer::query()->whereIn('id', $streamerIds)->get()->keyBy('id');
+        $colors = ['#7c3aed', '#8b5cf6', '#a78bfa', '#6d28d9', '#5b21b6', '#c4b5fd', '#9333ea', '#4c1d95', '#a855f7'];
 
-        $showRows = collect($this->shows)->map(function (array $show, int $index) use ($products, $streamers) {
-            $streamer = $streamers->get((int) ($show['streamer_id'] ?? 0));
-            $productRows = collect($show['products'] ?? [])->map(function (array $row) use ($products) {
-                $product = $products->get((int) ($row['product_id'] ?? 0));
-                if (! $product) return null;
-                $qty = max(0, (float) ($row['quantity'] ?? 0));
-                $unitCost = max(0, (float) ($product->costBasis() ?? 0));
-                return [
-                    'name' => $product->name, 'sku' => $product->sku, 'quantity' => $qty,
-                    'unit_cost' => $unitCost, 'line_total' => round($qty * $unitCost, 2),
-                ];
-            })->filter()->values();
+        $options = [];
+        foreach (array_values(array_keys(Streamer::assignablePayoutTypeLabels())) as $i => $type) {
+            $options[] = ['value' => $type, 'label' => Streamer::assignablePayoutTypeLabels()[$type], 'color' => $colors[$i % count($colors)]];
+        }
 
-            $date = Carbon::parse($show['date'] ?? now()->toDateString());
-            $gross = max(0, (float) ($show['gross'] ?? 0));
-            $hours = max(0, (float) ($show['hours'] ?? 0));
-            $shipments = max(0, (float) ($show['shipments'] ?? 0));
-            $tips = max(0, (float) ($show['tips'] ?? 0));
-            $productCost = round((float) $productRows->sum('line_total'), 2);
-            $burden = ProfitShareFormula::burden($shipments, $hours);
+        return $options;
+    }
 
-            return [
-                'index' => $index, 'name' => $show['name'] ?: 'Mock Show ' . ($index + 1), 'date' => $date,
-                'week_key' => $date->copy()->startOfWeek()->toDateString(),
-                'week_label' => $date->copy()->startOfWeek()->format('M j') . ' – ' . $date->copy()->endOfWeek()->format('M j'),
-                'streamer' => $streamer, 'streamer_id' => $streamer?->id,
-                'products' => $productRows, 'product_cost' => $productCost,
-                'gross' => $gross, 'hours' => $hours, 'shipments' => $shipments, 'tips' => $tips,
-                'burden' => $burden, 'net_contribution' => round($gross - $productCost - $burden, 2),
-            ];
-        })->values();
+    /** Which rate fields a pay type reads, for the rate editor. @return array<int,string> */
+    public static function rateFieldsFor(?string $type): array
+    {
+        return match ($type) {
+            'profit_share' => ['payout_percentage', 'hourly_rate', 'include_tips'],
+            'sales_split' => ['house_cut_percentage', 'sales_split_basis', 'include_tips'],
+            'shift_share' => ['hourly_rate', 'pwe_rate', 'label_rate', 'payout_percentage', 'burden_rate_type', 'burden_rate_value', 'include_tips'],
+            'hybrid' => ['hourly_rate', 'payout_percentage', 'burden_rate_type', 'burden_rate_value', 'include_tips'],
+            'pwe_labels' => ['pwe_rate', 'label_rate', 'hourly_rate', 'include_tips'],
+            'hourly' => ['hourly_rate'],
+            'package' => ['package_rate', 'include_tips'],
+            'flat_rate' => ['package_rate'],
+            'custom_formula' => ['custom_payout_formula', 'payout_percentage', 'hourly_rate', 'package_rate', 'pwe_rate', 'label_rate'],
+            default => ['payout_percentage', 'hourly_rate', 'include_tips'],
+        };
+    }
 
-        $weeklyPersonPayouts = $showRows
-            ->groupBy(fn ($row) => $row['week_key'] . ':' . ($row['streamer_id'] ?: 0))
-            ->map(function ($personShows) {
-                $streamer = $personShows->first()['streamer'];
-                $gross = round((float) $personShows->sum('gross'), 2);
-                $cogs = round((float) $personShows->sum('product_cost'), 2);
-                $hours = round((float) $personShows->sum('hours'), 2);
-                $shipments = round((float) $personShows->sum('shipments'), 2);
-                $tips = round((float) $personShows->sum('tips'), 2);
-                $burden = ProfitShareFormula::burden($shipments, $hours);
-                $net = ProfitShareFormula::netRevenue($gross, $cogs, $burden);
-
-                $resolved = $streamer?->effectiveCompensation() ?? ['effective' => [], 'overrides' => []];
-                $effective = $resolved['effective'] ?? [];
-                $percentage = max(0, (float) ($effective['payout_percentage'] ?? 0));
-                $includeTips = (bool) ($effective['include_tips'] ?? true);
-                $basePay = round($net * ($percentage / 100), 2);
-                $streamerPay = round(max(0, $basePay + ($includeTips ? $tips : 0)), 2);
-
-                return [
-                    'week_key' => $personShows->first()['week_key'],
-                    'week_label' => $personShows->first()['week_label'],
-                    'streamer' => $streamer, 'name' => $streamer?->name ?? 'No streamer',
-                    'shows' => $personShows->count(), 'show_names' => $personShows->pluck('name')->values(),
-                    'gross' => $gross, 'cogs' => $cogs, 'hours' => $hours, 'shipments' => $shipments,
-                    'tips' => $tips, 'burden' => $burden, 'net' => $net,
-                    'pay_rate' => $percentage, 'include_tips' => $includeTips,
-                    'using_custom' => count($resolved['overrides'] ?? []) > 0,
-                    'streamer_pay' => $streamerPay,
-                    'business' => round($gross - $cogs - $burden - $streamerPay, 2),
-                    'note' => 'Weekly totals: $' . number_format($gross, 2)
-                        . ' gross − $' . number_format($cogs, 2)
-                        . ' product cost − $' . number_format($burden, 2)
-                        . ' burden = $' . number_format($net, 2)
-                        . ' weekly net × ' . number_format($percentage, 2) . '% = $' . number_format($basePay, 2)
-                        . ($includeTips ? ' + $' . number_format($tips, 2) . ' weekly tips' : '') . '.',
-                ];
-            })->values();
-
-        $weeks = $showRows->groupBy('week_key')->map(function ($weekShows, $weekKey) use ($weeklyPersonPayouts) {
-            $payouts = $weeklyPersonPayouts->where('week_key', $weekKey)->values();
-            $gross = round((float) $weekShows->sum('gross'), 2);
-            $cogs = round((float) $weekShows->sum('product_cost'), 2);
-            $burden = round((float) $weekShows->sum('burden'), 2);
-            $pay = round((float) $payouts->sum('streamer_pay'), 2);
-            return [
-                'key' => $weekKey, 'label' => $weekShows->first()['week_label'],
-                'shows' => $weekShows->count(), 'people' => $payouts->count(), 'payouts' => $payouts,
-                'gross' => $gross, 'cogs' => $cogs, 'burden' => $burden,
-                'streamer_pay' => $pay, 'business' => round($gross - $cogs - $burden - $pay, 2),
-            ];
-        })->values();
-
-        $people = $weeklyPersonPayouts->groupBy(fn ($row) => $row['streamer']?->id ?: 0)->map(function ($personWeeks) {
-            return [
-                'name' => $personWeeks->first()['name'], 'weeks' => $personWeeks->count(),
-                'shows' => (int) $personWeeks->sum('shows'), 'pay' => round((float) $personWeeks->sum('streamer_pay'), 2),
-            ];
-        })->values();
-
+    public static function fieldLabels(): array
+    {
         return [
-            'rows' => $showRows, 'weekly_payouts' => $weeklyPersonPayouts, 'weeks' => $weeks, 'people' => $people,
-            'gross' => round((float) $showRows->sum('gross'), 2),
-            'cogs' => round((float) $showRows->sum('product_cost'), 2),
-            'burden' => round((float) $showRows->sum('burden'), 2),
-            'streamer_pay' => round((float) $weeklyPersonPayouts->sum('streamer_pay'), 2),
-            'business' => round((float) $weeks->sum('business'), 2),
+            'gross_revenue' => 'Gross sales', 'whatnot_net' => 'Whatnot net', 'tips' => 'Tips',
+            'house_cut_override' => 'House cut override %', 'product_cost' => 'Product cost',
+            'hours_streamed' => 'Hours worked', 'number_of_shipments' => 'Shipments',
+            'pwe_count' => 'Envelopes (PWE)', 'label_count' => 'Packages (labels)',
+            'payout_type' => 'Pay type', 'payout_percentage' => 'Share %', 'house_cut_percentage' => 'House cut %',
+            'sales_split_basis' => 'Split basis', 'package_rate' => 'Package / flat rate', 'hourly_rate' => 'Hourly rate',
+            'pwe_rate' => 'Per envelope', 'label_rate' => 'Per package', 'include_tips' => 'Include tips',
+            'custom_payout_formula' => 'Custom formula', 'burden_rate_type' => 'Burden type', 'burden_rate_value' => 'Burden',
         ];
+    }
+
+    private function validDate(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+        try {
+            return Carbon::parse($value)->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

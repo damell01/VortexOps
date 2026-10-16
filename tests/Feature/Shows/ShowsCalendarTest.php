@@ -67,17 +67,19 @@ class ShowsCalendarTest extends TestCase
             ->assertSee('Vortex Cards Night');
     }
 
-    public function test_a_busy_day_lists_every_show_in_a_scrolling_box_instead_of_growing(): void
+    public function test_a_busy_day_shows_three_and_how_many_more_the_day_panel_lists_the_rest(): void
     {
-        foreach (['14:00', '16:30', '18:00', '20:30', '22:30', '00:00'] as $i => $t) $this->show('2026-10-07', $t, null, "Slot {$i}");
+        foreach (['14:00', '16:30', '18:00', '20:30', '22:30', '23:30'] as $i => $t) $this->show('2026-10-07', $t, null, "Slot {$i}");
 
-        // Every show is in the day (the box scrolls);
-        // there is no "+N more" hiding most of a busy day any more.
-        Livewire::test(Shows::class)
+        // The cell shows the first three and "+3 more"; every show is still in
+        // the page's data, which the day panel lists when the day is picked.
+        $page = Livewire::test(Shows::class)
             ->assertSeeHtml('title="Slot 0 · ')
-            ->assertSeeHtml('title="Slot 5 · ')
-            ->assertSeeHtml('class="vx-cell-list"')
-            ->assertDontSee('more</button>', false);
+            ->assertSeeHtml('title="Slot 2 · ')
+            ->assertDontSeeHtml('title="Slot 3 · ')
+            ->assertSee('+3 more')
+            ->assertSeeHtml('class="vx-dayp"');
+        $this->assertCount(6, collect($page->instance()->calendarPayload()['shows'])->where('date', '2026-10-07'));
     }
 
     public function test_a_day_of_three_shows_them_all(): void

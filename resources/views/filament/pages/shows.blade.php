@@ -31,6 +31,8 @@
         open(id) { this.openId = id; this.full = false },
         close() { this.openId = null; this.full = false },
         day(s) { return this.by[s] || [] },
+        pick(s) { this.sel = s },
+        dayLine(s) { const n = this.day(s).length; const live = this.day(s).filter(p => p.state === 'live').length; return n + (n === 1 ? ' show' : ' shows') + (live ? ' · ' + live + ' live now' : '') },
         dt(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d) },
         iso(x) { return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0') },
         add(s, n) { const x = this.dt(s); x.setDate(x.getDate() + n); return this.iso(x) },
@@ -74,13 +76,26 @@
 .vx-cal button{cursor:pointer}
 .vx-d{display:block}.vx-m{display:none}
 @media(max-width:767px){.vx-d{display:none}.vx-m{display:block}}
-/* KPIs */
-.vx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}
-.vx-kpi{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;min-width:0}
-.vx-kpi-ic{flex:none;display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--vx-p-soft);color:var(--vx-p)}
-.vx-kpi-v{font-size:1.45rem;font-weight:800;line-height:1.1;white-space:nowrap}
-.vx-kpi-l{font-size:.8rem;font-weight:600;margin-top:2px}.vx-kpi-s{font-size:.72rem;color:var(--vx-faint);margin-top:4px}
-@media(max-width:1100px){.vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* KPI strip */
+.vx-kstrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px;background:var(--vx-bg);border:1px solid var(--vx-line);border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.vx-kcell{display:flex;flex-direction:column;gap:2px;padding:12px 18px;min-width:0;border-left:1px solid var(--vx-line2)}
+.vx-kcell:first-child{border-left:0}
+.vx-kcell .l{font-size:.74rem;font-weight:600;color:var(--vx-muted)}
+.vx-kcell .v{font-size:1.3rem;font-weight:800;line-height:1.2;white-space:nowrap}
+.vx-kcell .v small{font-size:.78rem;font-weight:600;color:var(--vx-muted)}
+.vx-kcell .s{font-size:.72rem;color:var(--vx-faint)}
+.vx-kbar{display:block;height:6px;margin-top:7px;border-radius:999px;background:var(--vx-line2);overflow:hidden}
+.vx-kbar i{display:block;height:100%;border-radius:999px;background:#16a34a}
+.vx-unassigned-bar{display:none;align-items:center;gap:10px;width:100%;margin-bottom:12px;padding:10px 12px;border-radius:12px;border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;font-size:.82rem;font-weight:700;text-align:left}
+.vx-unassigned-bar .n{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:#ea580c;color:#fff;font-size:.72rem}
+.vx-unassigned-bar .go{margin-left:auto}
+.dark .vx-unassigned-bar{background:#2a1606;border-color:#7c2d12;color:#fdba74}
+@media(max-width:767px){
+ .vx-unassigned-bar.vx-m-flex{display:flex}
+ .vx-kstrip{background:transparent;border:0;box-shadow:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .vx-kcell{border:1px solid var(--vx-line);border-radius:12px;background:var(--vx-bg);padding:10px 12px}
+ .vx-kcell .v{font-size:1.15rem}
+}
 /* Toolbar */
 .vx-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--vx-line)}
 .vx-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 12px;border:1px solid var(--vx-line);border-radius:10px;background:var(--vx-bg);font-size:.8rem;font-weight:600;color:var(--vx-text)}
@@ -241,6 +256,50 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 @keyframes vxInR{from{opacity:.3;transform:translateX(28px)}}@keyframes vxInL{from{opacity:.3;transform:translateX(-28px)}}
 @media(prefers-reduced-motion:reduce){.vx-in-right,.vx-in-left,.vx-pill.live:before{animation:none}.vx-drawer{transition:none}}
 
+/* Month with the day panel */
+.vx-month-wrap{display:flex;flex-wrap:wrap}
+.vx-month-main{flex:999 1 720px;min-width:0}
+.vx-cell{height:auto;min-height:136px;cursor:pointer}
+.vx-cell:hover{background:color-mix(in srgb,var(--vx-p) 3%,transparent)}
+.vx-cell.picked{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--vx-p) 55%,transparent);background:color-mix(in srgb,var(--vx-p) 5%,transparent)}
+.vx-cell.today{box-shadow:inset 0 0 0 2px var(--vx-p)}
+.vx-cell-list{overflow:visible;flex:none}
+.vx-mix{display:flex;gap:1px;height:4px;margin:2px 2px 4px;border-radius:999px;overflow:hidden;background:var(--vx-line2)}
+.vx-mix i{display:block;min-width:4px}
+.vx-cdot{flex:none;width:7px;height:7px;border-radius:999px;background:var(--c)}
+.vx-month .vx-chip{border:0;border-left:0;padding:3px 6px;background:color-mix(in srgb,var(--c) 8%,var(--vx-bg));border-radius:6px}
+.vx-month .vx-chip:hover{background:color-mix(in srgb,var(--c) 16%,var(--vx-bg));box-shadow:none}
+.vx-month .vx-chip .tx{display:flex;gap:5px;align-items:baseline;min-width:0}
+.vx-month .vx-chip .tm{flex:none;font-weight:600}
+.vx-month .vx-chip .tt{min-width:0}
+.vx-dayp{flex:1 1 300px;display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-left:1px solid var(--vx-line);background:var(--vx-soft);min-width:0}
+.vx-dayp-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.vx-dayp-h h3{font-size:1rem;font-weight:800}
+.vx-dayp-h span{font-size:.74rem;font-weight:600;color:var(--vx-muted)}
+.vx-dcard{display:flex;gap:12px;width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--vx-line);background:var(--vx-bg);text-align:left}
+.vx-dcard:hover{border-color:color-mix(in srgb,var(--c) 45%,var(--vx-line));box-shadow:0 3px 10px rgba(15,23,42,.06)}
+.vx-dcard .tm{flex:none;width:58px;font-size:.74rem;font-weight:700;color:var(--vx-p)}
+.vx-dcard .tt{display:block;font-size:.84rem;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.vx-dcard .who{display:flex;align-items:center;gap:6px;margin:3px 0 5px;font-size:.74rem;color:var(--vx-muted);min-width:0}
+.vx-dcard .who span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vx-dayp-empty{padding:24px 8px;text-align:center;font-size:.82rem;color:var(--vx-muted)}
+.vx-dayp-add{padding:10px;border-radius:10px;border:1px dashed color-mix(in srgb,var(--vx-p) 45%,transparent);color:var(--vx-p);font-size:.8rem;font-weight:700}
+.vx-dayp-add:hover{background:var(--vx-p-soft)}
+@media(max-width:1180px){.vx-dayp{border-left:0;border-top:1px solid var(--vx-line)}}
+/* "only" appears on hover or focus, so the channel row reads as one set of switches. */
+@media(hover:hover){.vx-d .vx-only{opacity:0;transition:opacity .15s}.vx-d .vx-ctog:hover .vx-only,.vx-d .vx-ctog:focus-within .vx-only{opacity:1}}
+
+/* Phones: one row of header buttons (Show Performance lives in the Reports
+   menu), and channel pills without their "only" links. */
+@media(max-width:767px){
+ html body .fi-page:has(.vx-cal) .fi-header-actions-ctn{width:100%}
+ html body .fi-page:has(.vx-cal) .fi-header-actions-ctn>.fi-ac{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;width:100%;gap:8px!important}
+ .fi-page:has(.vx-cal) .fi-header-actions-ctn a[href$="/admin/reports"]{display:none!important}
+ .fi-page:has(.vx-cal) .fi-header-actions-ctn>.fi-ac>*{flex:1 1 0!important;min-width:0;width:auto!important}
+ .vx-m .vx-only{display:none}
+ .vx-m .vx-legend{gap:6px}
+}
+
 /* Show details are a centered dialog at every screen size. */
 .vx-backdrop{display:block;position:fixed;inset:0;z-index:109;background:rgba(15,23,42,.5);backdrop-filter:blur(3px)}
 .vx-drawer,.vx-drawer.full{z-index:110;top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:auto;max-height:calc(100dvh - 48px);border:1px solid var(--vx-line);border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,.3)}
@@ -253,16 +312,21 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
     <div class="mb-4">@livewire('create-manual-show', ['streamer' => auth()->user()->streamer])</div>
 @endif
 
-{{-- ── KPIs (desktop) ─────────────────────────────────────────────── --}}
-<div class="vx-d">
-<div class="vx-kpis">
-    <div class="vx-card vx-kpi"><div class="vx-kpi-ic"><x-filament::icon icon="heroicon-o-calendar-days" class="h-5 w-5" /></div><div class="min-w-0"><div class="vx-kpi-v">{{ number_format($stats['total']) }}</div><div class="vx-kpi-l">Total Shows</div><div class="vx-kpi-s">{{ $stats['label'] }}</div></div></div>
-    <div class="vx-card vx-kpi"><div class="vx-kpi-ic" style="background:#dcfce7;color:#16a34a"><x-filament::icon icon="heroicon-o-check-circle" class="h-5 w-5" /></div><div class="min-w-0 flex-1"><div class="vx-kpi-v">{{ number_format($stats['completed']) }}</div><div class="vx-kpi-l">Completed</div><div class="vx-kpi-s">Report workflow done</div></div>
-        <svg viewBox="0 0 36 36" width="46" height="46" aria-label="{{ $stats['completedPct'] }}% completed" role="img" style="flex:none"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--vx-line)" stroke-width="3.5"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--vx-p)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="{{ round($stats['completedPct'] * 0.974, 1) }} 100" transform="rotate(-90 18 18)"/><text x="18" y="21" text-anchor="middle" font-size="8.5" font-weight="800" fill="currentColor">{{ $stats['completedPct'] }}%</text></svg></div>
-    <div class="vx-card vx-kpi"><div class="vx-kpi-ic" style="background:#d1fae5;color:#059669"><x-filament::icon icon="heroicon-o-banknotes" class="h-5 w-5" /></div><div class="min-w-0"><div class="vx-kpi-v">${{ number_format($stats['gross'], 0) }}</div><div class="vx-kpi-l">Whatnot Gross</div><div class="vx-kpi-s">{{ $stats['label'] }}</div></div></div>
-    <div class="vx-card vx-kpi"><div class="vx-kpi-ic" style="background:#e0e7ff;color:#4f46e5"><x-filament::icon icon="heroicon-o-chart-bar" class="h-5 w-5" /></div><div class="min-w-0"><div class="vx-kpi-v">${{ number_format($stats['net'], 0) }}</div><div class="vx-kpi-l">Est. Whatnot Net</div><div class="vx-kpi-s">{{ $stats['label'] }}</div></div></div>
-</div>
-</div>
+{{-- ── KPIs: one slim strip on desktop, a swipeable row on phones ─── --}}
+@php $netPct = $stats['gross'] > 0 ? (int) round($stats['net'] / $stats['gross'] * 100) : null; $unassignedCount = $isAdmin ? $this->unassignedShows->count() : 0; @endphp
+<section class="vx-kstrip" aria-label="{{ $this->anchorDate()->format('F') }} at a glance">
+    <div class="vx-kcell"><span class="l">Total shows</span><span class="v">{{ number_format($stats['total']) }}</span><span class="s">{{ $stats['label'] }}</span></div>
+    <div class="vx-kcell"><span class="l">Reports done</span><span class="v">{{ number_format($stats['completed']) }} <small>of {{ number_format($stats['total']) }}</small></span>
+        <span class="vx-kbar" role="img" aria-label="{{ $stats['completedPct'] }}% of reports done"><i style="width:{{ max($stats['completedPct'], $stats['completed'] ? 2 : 0) }}%"></i></span></div>
+    <div class="vx-kcell"><span class="l">Whatnot gross</span><span class="v">${{ number_format($stats['gross'], 0) }}</span><span class="s">{{ $stats['label'] }}</span></div>
+    <div class="vx-kcell"><span class="l">Est. Whatnot net</span><span class="v">${{ number_format($stats['net'], 0) }}</span><span class="s">{{ $netPct !== null ? $netPct.'% of gross after fees' : $stats['label'] }}</span></div>
+</section>
+@if($unassignedCount)
+    {{-- Phones: the Unassigned header button is tucked away, so the count sits here too. --}}
+    <button type="button" class="vx-unassigned-bar vx-m-flex" wire:click="mountAction('unassigned')">
+        <span class="n">{{ $unassignedCount }}</span>{{ Str::plural('show', $unassignedCount) }} with no streamer yet<span class="go">Assign ›</span>
+    </button>
+@endif
 
 {{-- ── Filters (shared by both layouts) ──────────────────────────── --}}
 @php $filterCount = $this->activeFilterCount(); @endphp
@@ -288,24 +352,32 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
     @include('filament.pages.partials.shows-channel-toggles')
 
     @if($viewMode === 'month')
+        {{-- Month: each day shows its first three shows, a strip of its channel
+             mix and "+N more"; clicking a day lists all of it in the panel. --}}
+        <div class="vx-month-wrap">
+        <div class="vx-month-main">
         <div class="vx-dows">@foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $d)<div>{{ strtoupper($d) }}</div>@endforeach</div>
         <div class="vx-month">
             @foreach($this->monthWeeks() as $week)
                 @foreach($week as $cell)
-                    @php $iso = $cell['date']->toDateString(); $count = $cell['shows']->count(); $isToday = $iso === $todayIso; @endphp
-                    <div wire:key="cell-{{ $iso }}" @class(['vx-cell', 'out' => ! $cell['inMonth'], 'today' => $isToday, 'add' => $isAdmin])
-                         @if($isAdmin) @click="addOn('{{ $iso }}')" title="Add a show on {{ $cell['date']->format('M j') }}" @endif>
+                    @php
+                        $iso = $cell['date']->toDateString(); $count = $cell['shows']->count(); $isToday = $iso === $todayIso;
+                        $mix = $cell['shows']->groupBy('color')->map->count()->sortDesc();
+                    @endphp
+                    <div wire:key="cell-{{ $iso }}" @class(['vx-cell', 'out' => ! $cell['inMonth'], 'today' => $isToday])
+                         :class="sel === '{{ $iso }}' && 'picked'" @click="pick('{{ $iso }}')" title="{{ $cell['date']->format('l, M j') }}">
                         <div class="vx-cell-h">
                             <button type="button" class="vx-num" wire:click.stop="openDay('{{ $iso }}')" @click.stop aria-label="Open {{ $cell['date']->format('l, F j') }}">{{ $cell['date']->day === 1 || $loop->parent->first && $loop->first ? $cell['date']->format('M j') : $cell['date']->day }}</button>
-                            @if($isToday)<span class="vx-today-tag">Today</span>@elseif($count > 3)<span class="vx-cell-count">{{ $count }} shows</span>@endif
+                            @if($isToday)<span class="vx-today-tag">Today</span>@elseif($count)<span class="vx-cell-count">{{ $count }} {{ Str::plural('show', $count) }}</span>@endif
                         </div>
                         @if($count)
-                            {{-- Every show for the day; the list scrolls inside the box. --}}
-                            <div class="vx-cell-list" @click.stop tabindex="-1">
-                                @foreach($cell['shows'] as $p)
+                            <div class="vx-mix" aria-hidden="true">@foreach($mix as $color => $n)<i style="flex:{{ $n }};background:{{ $color }}"></i>@endforeach</div>
+                            <div class="vx-cell-list">
+                                @foreach($cell['shows']->take(3) as $p)
                                     <button type="button" class="vx-chip {{ $p['state'] }}" style="--c:{{ $p['color'] }}" @click.stop="open({{ $p['id'] }})" title="{{ $p['title'] }}@if($p['channel']) · {{ $p['channel'] }}@endif">
-                                        <span class="tx"><span class="tm block">{{ $p['time'] }}</span><span class="tt block">{{ $p['title'] }}</span>@if(auth()->user()?->isOwner())<span class="block text-[10px]">{{ $p['analytics'] }}</span>@endif</span>
-                                        @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@else<span class="vx-av" title="{{ $p['streamers'] ?? 'Unassigned' }}">{{ $p['streamers'] ? $p['initial'] : '?' }}</span>@endif
+                                        <span class="vx-cdot" aria-hidden="true"></span>
+                                        <span class="tx"><span class="tm">{{ $p['time'] }}</span> <span class="tt">{{ $p['title'] }}</span></span>
+                                        @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@endif
                                         {{-- The back of the card, shown on hover: the numbers, or who and when if it has not aired. --}}
                                         <span class="vx-chip-back" aria-hidden="true">
                                             @if($p['state'] === 'upcoming')
@@ -316,11 +388,34 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
                                         </span>
                                     </button>
                                 @endforeach
+                                @if($count > 3)<button type="button" class="vx-more" @click.stop="pick('{{ $iso }}')">+{{ $count - 3 }} more</button>@endif
                             </div>
                         @endif
                     </div>
                 @endforeach
             @endforeach
+        </div>
+        </div>
+
+        {{-- The picked day, in full. Rendered from the same JSON as the phone agenda. --}}
+        <aside class="vx-dayp" aria-label="Selected day" aria-live="polite">
+            <div class="vx-dayp-h">
+                <h3 x-text="sel && fmt(sel, { weekday: 'short', month: 'short', day: 'numeric' })"></h3>
+                <span x-text="dayLine(sel)"></span>
+            </div>
+            <template x-for="p in day(sel)" :key="p.id">
+                <button type="button" class="vx-dcard" :style="'--c:' + p.color" @click="open(p.id)">
+                    <span class="tm" x-text="p.time"></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="tt" x-text="p.title"></span>
+                        <span class="who"><span class="vx-cdot"></span><span x-text="(p.channel || 'No channel') + ' · ' + (p.streamers || 'Unassigned')"></span></span>
+                        <span class="vx-pill" :class="p.state" x-text="p.stateLabel"></span>
+                    </span>
+                </button>
+            </template>
+            <div x-show="!day(sel).length" class="vx-dayp-empty">No shows this day.</div>
+            <template x-if="d.canAdd"><button type="button" class="vx-dayp-add" @click="addOn(sel)" x-text="'+ Add a show on ' + (sel ? fmt(sel, { month: 'short', day: 'numeric' }) : '')"></button></template>
+        </aside>
         </div>
 
     @elseif($viewMode === 'week')

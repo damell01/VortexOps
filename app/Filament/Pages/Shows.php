@@ -98,9 +98,10 @@ class Shows extends Page
             Action::make('unassigned')
                 ->label('Unassigned')
                 ->icon('heroicon-o-user-plus')
-                ->color('gray')
+                // Orange while shows are waiting on a streamer: it's work, not a report.
+                ->color(fn () => $this->unassignedShows->isNotEmpty() ? 'warning' : 'gray')
                 ->badge(fn () => $this->unassignedShows->count() ?: null)
-                ->badgeColor('danger')
+                ->badgeColor('warning')
                 ->visible(fn () => auth()->user()?->isAdmin() ?? false)
                 ->modalWidth('5xl')
                 ->modalHeading('Unassigned shows')

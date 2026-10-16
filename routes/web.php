@@ -125,7 +125,7 @@ Route::middleware(['auth', 'web'])->get('/admin/wild-report.json', function () {
 
     return response()->json([
         'id' => $alert->id, 'title' => $alert->data['title'] ?? 'A wild report appeared!', 'body' => $alert->data['body'] ?? '',
-        'species' => in_array($alert->data['vx']['species'] ?? null, array_keys(\App\Support\Pokedex::SPECIES), true) ? $alert->data['vx']['species'] : null,
+        'species' => \App\Support\Pokedex::exists($alert->data['vx']['species'] ?? null) ? $alert->data['vx']['species'] : null,
         'shiny' => (bool) ($alert->data['vx']['shiny'] ?? false), 'url' => $url,
     ])->header('Cache-Control', 'no-store');
 })->name('wild-report');

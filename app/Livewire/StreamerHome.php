@@ -237,6 +237,7 @@ class StreamerHome extends Component
             ->body('An admin has been told. The report stays as filed until they reopen it.')
             ->success()
             ->send();
+        $this->dispatch('vx-poke', kind: 'ask');
     }
 
     /** @return array{shows:int, gross:float, paid:float, unpaid:float, label:string} */

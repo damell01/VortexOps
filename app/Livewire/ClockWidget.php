@@ -111,6 +111,7 @@ class ClockWidget extends Component
         $this->reset(['showId', 'reason', 'note', 'changing']);
         Notification::make()->title('Clocked in')->body($entry->show_id ? 'Linked to '.(\App\Models\Show::whereKey($entry->show_id)->value('title') ?? 'the show') : 'Link a show or give a reason any time before you clock out.')->success()->send();
         $this->dispatch('clock-changed');
+        $this->dispatch('vx-poke', kind: 'clock_in'); // a Pokémon runs across (resources/js/poke-moments.js)
     }
 
     public function clockOut(): void
@@ -126,6 +127,7 @@ class ClockWidget extends Component
             ->body($entry->status === 'flagged' ? 'This entry was flagged for an admin to review: '.implode(', ', $entry->flagLabels()).'.' : null)
             ->{$entry->status === 'flagged' ? 'warning' : 'success'}()->send();
         $this->dispatch('clock-changed');
+        $this->dispatch('vx-poke', kind: 'clock_out');
     }
 
     public function startChange(): void

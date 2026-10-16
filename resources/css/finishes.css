@@ -6,11 +6,24 @@
 .vx-tick-draw { animation: vx-tick-draw .5s cubic-bezier(.3,1.4,.5,1) both; }
 @keyframes vx-tick-draw { 0% { clip-path: inset(0 100% 0 0); transform: scale(.7); } 60% { clip-path: inset(0 0 0 0); transform: scale(1.12); } 100% { clip-path: inset(0 0 0 0); transform: none; } }
 
-/* Checkboxes: the tick pops in when ticked (never on page load). */
-.fi-checkbox-input:checked { animation: none; }
-.fi-checkbox-input { transition: background-size .18s cubic-bezier(.3,1.6,.5,1); }
-.fi-checkbox-input:checked, .fi-checkbox-input:indeterminate { background-size: 100% 100%; }
-.fi-checkbox-input:not(:checked):not(:indeterminate) { background-size: 0 0; }
+/* Checkboxes are Poké Balls: an empty outline until ticked, then a full ball
+   that clicks shut (the wobble plays only when someone ticks it, never on load).
+   Some selected = a purple half ball. Hidden checkboxes behind custom toggles are left alone. */
+.fi-checkbox-input,
+.fi-body input[type=checkbox]:not(.sr-only):not(.peer):not([hidden]):not(.fi-toggle-input) {
+  appearance: none; -webkit-appearance: none; width: 1.05rem; height: 1.05rem; flex: none; padding: 0; cursor: pointer;
+  border: 0 !important; border-radius: 999px !important; box-shadow: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='%23a1a1b5' stroke-width='5'%3E%3Ccircle cx='32' cy='32' r='28'/%3E%3Cpath d='M4 32h18M42 32h18'/%3E%3Ccircle cx='32' cy='32' r='9'/%3E%3C/svg%3E") center / 100% 100% no-repeat !important; color: transparent;
+  transition: transform .15s ease, filter .15s ease;
+}
+.dark .fi-checkbox-input:not(:checked):not(:indeterminate), .dark .fi-body input[type=checkbox]:not(.sr-only):not(.peer):not([hidden]):not(.fi-toggle-input):not(:checked):not(:indeterminate) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none' stroke='%236b6b85' stroke-width='5'%3E%3Ccircle cx='32' cy='32' r='28'/%3E%3Cpath d='M4 32h18M42 32h18'/%3E%3Ccircle cx='32' cy='32' r='9'/%3E%3C/svg%3E") !important; }
+.fi-checkbox-input:hover, .fi-body input[type=checkbox]:not(.sr-only):not(.peer):not([hidden]):hover { filter: drop-shadow(0 0 3px rgb(139 92 246 / .45)); }
+.fi-checkbox-input:checked, .fi-body input[type=checkbox]:not(.sr-only):not(.peer):not([hidden]):checked { background-image: url('/img/pokeball.svg') !important; }
+.fi-checkbox-input:indeterminate, .fi-body input[type=checkbox]:not(.sr-only):not(.peer):not([hidden]):indeterminate { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M3 32a29 29 0 0 1 58 0z' fill='%238b5cf6'/%3E%3Ccircle cx='32' cy='32' r='28' fill='none' stroke='%231f1d2b' stroke-width='4'/%3E%3Cpath d='M4 32h56' stroke='%231f1d2b' stroke-width='5'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%23fff' stroke='%231f1d2b' stroke-width='4'/%3E%3C/svg%3E") !important; }
+.fi-checkbox-input:focus-visible, .fi-body input[type=checkbox]:not(.sr-only):not(.peer):not([hidden]):focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+.fi-checkbox-input:disabled, .fi-body input[type=checkbox]:disabled { opacity: .45; cursor: not-allowed; }
+.vx-ball-click { animation: vx-ball-click .42s cubic-bezier(.3,1.5,.5,1); }
+@keyframes vx-ball-click { 0% { transform: scale(.6) rotate(-25deg); } 45% { transform: scale(1.18) rotate(12deg); } 70% { transform: scale(.96) rotate(-5deg); } 100% { transform: none; } }
 
 /* PACKED: a small purple stamp on a fully packed show; the card goes quiet. */
 .vx-stamp { position: absolute; top: .7rem; right: 6.6rem; z-index: 1; padding: .12rem .45rem; border: 2px solid #7c3aed; border-radius: .4rem; color: #7c3aed; background: rgb(255 255 255 / .85); font: 900 .68rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .12em; rotate: -8deg; pointer-events: none; opacity: .9; }
@@ -45,7 +58,7 @@
 .vx-num-nudge { font-variant-numeric: tabular-nums; color: #7c3aed !important; transition: color .4s; }
 
 @media (prefers-reduced-motion: reduce) {
-  .vx-done-flash, .vx-tick-draw, .vx-stamp.is-new, .vx-row-out, .vx-rest *, .vx-catchball-ball { animation: none !important; }
+  .vx-done-flash, .vx-tick-draw, .vx-stamp.is-new, .vx-ball-click, .vx-row-out, .vx-rest *, .vx-catchball-ball { animation: none !important; }
   .vx-rest-mon { opacity: 1; }
   .vx-rest-ball { display: none; }
 }

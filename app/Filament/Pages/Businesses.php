@@ -41,38 +41,7 @@ class Businesses extends Page
 
     protected function getHeaderActions(): array
     {
-        return [\App\Filament\Actions\SetUpStreamerInventoryAction::forBusiness(), $this->statementAction()];
-    }
-
-    /** A business's monthly statement PDF; its own "Statement" link opens this with it chosen. */
-    protected function statementAction(): \Filament\Actions\Action
-    {
-        $months = collect(range(0, 11))->mapWithKeys(function ($back) {
-            $m = \App\Support\BusinessTime::local()->startOfMonth()->subMonthsNoOverflow($back);
-
-            return [$m->format('Y-m') => $m->format('F Y') . ($back === 0 ? ' (so far)' : '')];
-        })->all();
-
-        return \Filament\Actions\Action::make('businessStatement')
-            ->label('Monthly statement')
-            ->icon('heroicon-o-document-text')
-            ->color('gray')
-            ->modalHeading('Monthly statement')
-            ->modalDescription('Shows, Whatnot net, product cost, pay and the business-account transfer for one month, as a PDF to send.')
-            ->modalWidth('md')
-            ->modalSubmitActionLabel('Download PDF')
-            ->fillForm(fn (array $arguments) => [
-                'business_id' => (string) ($arguments['business'] ?? \App\Models\Business::ordered()->first()?->id),
-                'month' => array_keys($months)[1],
-            ])
-            ->schema([
-                \Filament\Forms\Components\Select::make('business_id')->label('Business')->options(fn () => \App\Models\Business::ordered()->pluck('name', 'id')->all())->required(),
-                \Filament\Forms\Components\Select::make('month')->label('Month')->options($months)->required(),
-            ])
-            ->action(function (array $data): void {
-                $url = route('export.business-statement', ['business' => $data['business_id'], 'month' => $data['month']]);
-                $this->js('window.open(' . json_encode($url) . ", '_blank')");
-            });
+        return [\App\Filament\Actions\SetUpStreamerInventoryAction::forBusiness()];
     }
 
     public function getSubheading(): ?string

@@ -397,28 +397,21 @@ new MutationObserver(() => {
 }).observe(document.body || document.documentElement, { childList: true, subtree: true }); // not text edits: timers tick every second
 
 // ── Visitors: each peek is someone new from the cast (App\Support\Season::visitors) ──
-// About one page in 500 (?vxrare=1 forces it), a shiny Legendary is the first to hang down.
-function visitorTurn(peek, first = false) {
-    let cast = [], rare = [];
-    try { cast = JSON.parse(peek.dataset.vxVisitors || '[]'); rare = JSON.parse(peek.dataset.vxRare || '[]'); } catch {}
-    const img = peek.querySelector('img');
-    if (!img) return;
-    peek.classList.remove('is-rare');
-    if (first && rare.length && (/[?&]vxrare=1\b/.test(location.search) || Math.random() < 1 / (parseInt(peek.dataset.vxRareOdds, 10) || 500))) {
-        img.src = `/img/pokemon/shiny/${rare[Math.floor(Math.random() * rare.length)]}.gif`;
-        peek.classList.add('is-rare');
-        return;
-    }
-    if (first || cast.length < 2) return;
-    const turn = (parseInt(peek.dataset.vxTurn || '0', 10) + 1) % cast.length;
-    peek.dataset.vxTurn = String(turn);
-    img.src = `/img/pokemon/${shinyVisit ? 'shiny/' : ''}${cast[turn]}.gif`;
-}
 document.addEventListener('animationiteration', (e) => {
     const peek = e.target.closest?.('.vx-season-peek[data-vx-visitors]');
-    if (peek && e.target === peek) visitorTurn(peek);
+    if (!peek || e.target !== peek) return;
+    let cast = [];
+    try { cast = JSON.parse(peek.dataset.vxVisitors || '[]'); } catch {}
+    if (cast.length < 2) return;
+    const img = peek.querySelector('img');
+    if (!img) return;
+    // The buddy appears more than once in the cast, so advance by position,
+    // not indexOf(species), which would keep returning to the first buddy.
+    const index = (Number(peek.dataset.vxVisitorIndex || 0) + 1) % cast.length;
+    peek.dataset.vxVisitorIndex = String(index);
+    const next = cast[index];
+    img.src = `/img/pokemon/${shinyVisit ? 'shiny/' : ''}${next}.gif`;
 });
-function visitorsBoot() { document.querySelectorAll('.vx-season-peek[data-vx-rare]:not([data-vx-turn])').forEach((p) => { p.dataset.vxTurn = '0'; visitorTurn(p, true); }); }
 
 // The top bar's height, for anything that tucks underneath it (Gengar in October).
 function topbarVar() {
@@ -440,7 +433,6 @@ function boot() {
     topbarVar();
     tabBadge();
     rollShiny();
-    visitorsBoot();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 document.addEventListener('livewire:navigated', boot);

@@ -34,6 +34,7 @@
 </style>
 
 <div class="vx-mn">
+    @include('filament.components.device-push-settings')
     <section class="card grid gap-4 sm:grid-cols-3">
         <label class="switch"><input type="checkbox" wire:model.live="enabled"> Notifications on</label>
         <label class="switch"><input type="checkbox" wire:model="inApp" @disabled(! $enabled)> In the app (bell)</label>

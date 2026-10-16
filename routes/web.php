@@ -104,8 +104,6 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
     Route::get('payouts',         [ExportController::class, 'payouts'])->name('payouts');
     Route::get('payouts/{payout}/pdf', [ExportController::class, 'payoutPdf'])->name('payout-pdf');
     Route::get('shows/{show}/pl-pdf',  [ExportController::class, 'showPlPdf'])->name('show-pl-pdf');
-    Route::get('pay-runs/{batch}/pdf', [ExportController::class, 'payRunPdf'])->name('pay-run-pdf');
-    Route::get('businesses/{business}/statement', [ExportController::class, 'businessStatementPdf'])->name('business-statement');
 });
 
 Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportController::class, 'manifestTemplate'])->name('manifest.template');
@@ -131,3 +129,17 @@ Route::middleware(['auth', 'web'])->get('/admin/wild-report.json', function () {
         'shiny' => (bool) ($alert->data['vx']['shiny'] ?? false), 'url' => $url,
     ])->header('Cache-Control', 'no-store');
 })->name('wild-report');
+
+// Private browser statements and matching printable PDFs.
+Route::middleware(['web', 'auth'])->prefix('admin/financial-reports')->name('financial-reports.')->group(function () {
+    Route::get('pay-runs/{batch}', [\App\Http\Controllers\FinancialReportController::class, 'run'])->name('pay-run');
+    Route::get('business-statement', [\App\Http\Controllers\FinancialReportController::class, 'statement'])->name('statement');
+});
+
+Route::middleware(['web', 'auth', 'throttle:30,1'])->prefix('admin/push')->name('push.')->group(function () {
+    Route::get('config', [\App\Http\Controllers\WebPushController::class, 'config'])->name('config');
+    Route::post('status', [\App\Http\Controllers\WebPushController::class, 'status'])->name('status');
+    Route::post('subscriptions', [\App\Http\Controllers\WebPushController::class, 'store'])->name('store');
+    Route::delete('subscriptions', [\App\Http\Controllers\WebPushController::class, 'destroy'])->name('destroy');
+    Route::post('test', [\App\Http\Controllers\WebPushController::class, 'test'])->middleware('throttle:3,1,push-test:')->name('test');
+});

@@ -4,114 +4,83 @@ namespace App\Services;
 
 use App\Models\Business;
 use App\Models\Payout;
-use App\Models\Streamer;
-use App\Models\User;
+use App\Models\StreamerLogEntry;
 use App\Models\WeeklyPayoutBatch;
+use App\Models\PayRunReportSnapshot;
 use App\Support\BusinessTransfer;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\Storage;
+use App\Support\PayRunSchedules;
+use Illuminate\Support\Carbon;
 
-/**
- * A pay run as a PDF: each person with their pay lines and shows, the totals,
- * and the business-account transfer. A copy is kept when a run is finalized
- * and again when it is marked paid, so there is always a record of what was
- * paid; the download button renders the run as it stands now.
- */
+/** Read-only reporting: never recalculates pay or changes the transfer formula. */
 class PayRunReport
 {
-    public const STAGES = ['finalized', 'paid'];
-
-    /** @return array<string, mixed> */
-    public function build(WeeklyPayoutBatch $run): array
+    public function run(WeeklyPayoutBatch $run): array
     {
-        $payouts = Payout::where('weekly_payout_batch_id', $run->id)
-            ->with(['streamer:id,name,business_id', 'show:id,title,show_date'])
-            ->orderBy('streamer_id')->get();
-        $types = Streamer::payoutTypeLabels();
-
-        $people = $payouts->groupBy('streamer_id')->map(function ($lines) use ($types) {
-            $streamer = $lines->first()->streamer;
-            $sum = fn (callable $where) => round((float) $lines->filter($where)->sum('calculated_payout'), 2);
-            $main = $lines->reject(fn ($l) => in_array($l->payout_type, ['show_hours', 'show_tips'], true));
-
-            return [
-                'name' => $streamer?->name ?? 'Unknown',
-                'pay_type' => $main->pluck('payout_type')->unique()->map(fn ($t) => $types[$t] ?? str($t)->headline())->implode(', ') ?: 'Hourly',
-                'shows' => $lines->pluck('show_id')->filter()->unique()->count(),
-                'hours' => round((float) $lines->sum('hours_worked'), 2),
-                'envelopes' => (int) $lines->sum('pwe_count'),
-                'packages' => (int) $lines->sum('label_count'),
-                'main' => $sum(fn ($l) => ! in_array($l->payout_type, ['show_hours', 'show_tips'], true)),
-                'wages' => $sum(fn ($l) => $l->payout_type === 'show_hours'),
-                'tips' => $sum(fn ($l) => $l->payout_type === 'show_tips'),
-                'total' => $sum(fn () => true),
-                'show_lines' => $lines->groupBy('show_id')->map(fn ($s) => [
-                    'title' => $s->first()->show?->title ?? 'Show #'.$s->first()->show_id,
-                    'date' => $s->first()->show?->show_date?->format('M j'),
-                    'sort' => $s->first()->show?->show_date?->format('Y-m-d') ?? '',
-                    'amount' => round((float) $s->sum('calculated_payout'), 2),
-                ])->sortBy('sort')->values()->all(),
-            ];
-        })->sortByDesc('total')->values();
-
-        $totals = [
-            'people' => $people->count(),
-            'shows' => $payouts->pluck('show_id')->filter()->unique()->count(),
-            'hours' => round((float) $people->sum('hours'), 2),
-            'main' => round((float) $people->sum('main'), 2),
-            'wages' => round((float) $people->sum('wages'), 2),
-            'tips' => round((float) $people->sum('tips'), 2),
-            'total' => round((float) $people->sum('total'), 2),
-        ];
+        $run->load(['business', 'payouts.streamer', 'payouts.show']);
+        $lines = $run->payouts->map(fn ($p) => [
+            'person_id' => $p->streamer_id, 'person' => $p->streamer?->name ?? 'Unassigned',
+            'show' => $p->show?->title ?? 'Non-show pay',
+            'date' => $p->show?->show_date?->toDateString(),
+            'type' => $p->payout_type,
+            'hours' => (float) $p->hours_worked,
+            'amount' => (float) $p->calculated_payout,
+            'status' => $p->status,
+        ])->values();
 
         return [
-            'run' => $run,
-            'name' => $this->name($run),
-            'business' => $run->business_id ? Business::whereKey($run->business_id)->value('name') : null,
-            'dates' => $run->week_start?->format('M j').' – '.$run->week_end?->format('M j, Y'),
-            'status' => str($run->status)->replace('_', ' ')->headline(),
-            'finalized_by' => $run->finalized_by ? User::whereKey($run->finalized_by)->value('name') : null,
-            'people' => $people,
-            'totals' => $totals,
+            'title' => 'Pay Run #'.$run->id,
+            'business' => $run->businessLabel(), 'kind' => $run->kindLabel(),
+            'period' => $run->week_start->format('M j').' - '.$run->week_end->format('M j, Y'),
+            'status' => WeeklyPayoutBatch::statusLabels()[$run->status] ?? $run->status,
+            'generated_at' => now()->toIso8601String(),
+            'snapshot' => false,
+            'total' => round((float) $lines->sum('amount'), 2),
+            'people' => $lines->groupBy('person_id')->map(fn ($rows) => [
+                'name' => $rows->first()['person'], 'entries' => $rows->count(), 'total' => round((float) $rows->sum('amount'), 2),
+            ])->values()->all(),
+            'lines' => $lines->all(),
             'transfer' => BusinessTransfer::forRun($run),
-            'generated_at' => now(\App\Support\BusinessTime::zone()),
+            'notes' => $run->notes,
         ];
     }
 
-    public function name(WeeklyPayoutBatch $run): string
+    /** Called inside the lifecycle transaction, after all payout statuses are updated. */
+    public function snapshot(WeeklyPayoutBatch $run, string $stage): void
     {
-        return $run->pay_run_type_name ?: 'Pay run #'.$run->id;
+        if (! in_array($stage, ['finalized', 'paid'], true)) {
+            throw new \InvalidArgumentException('Unsupported report snapshot stage.');
+        }
+        $data = $this->run($run->fresh());
+        $data['snapshot'] = true;
+        PayRunReportSnapshot::firstOrCreate(
+            ['weekly_payout_batch_id' => $run->id, 'stage' => $stage],
+            ['payload' => $data, 'created_by' => auth()->id()],
+        );
     }
 
-    public function pdf(WeeklyPayoutBatch $run): \Barryvdh\DomPDF\PDF
+    public function month(Business $business, Carbon $month): array
     {
-        return Pdf::loadView('pdf.pay-run', $this->build($run))->setPaper('a4', 'portrait');
-    }
+        $service = app(ProfitLossReport::class);
+        // The primary host determines the business, as on the existing P&L report.
+        $rows = $service->rows($month->copy()->startOfMonth(), $month->copy()->endOfMonth(), ['business' => $business->id])
+            ->where('business_id', $business->id)->values();
+        $ids = $rows->pluck('id');
+        $productCosts = StreamerLogEntry::whereIn('show_id', $ids)->selectRaw('show_id, SUM(product_cost) as cost')->groupBy('show_id')->pluck('cost', 'show_id');
+        $transferPay = Payout::whereIn('show_id', $ids)->whereNotIn('payout_type', PayRunSchedules::TIP_TYPES)->sum('calculated_payout');
+        $totals = $service->totals($rows);
+        $lines = $rows->map(fn ($r) => [
+            'date' => $r['date']?->toDateString(), 'show' => $r['title'], 'person' => $r['streamer'],
+            'net' => $r['whatnot_net'], 'tips' => $r['tips'], 'pay' => $r['payouts'],
+            'cogs' => $r['cogs'], 'product_cost' => (float) ($productCosts[$r['id']] ?? 0),
+            'profit' => $r['profit'], 'incomplete' => $r['incomplete'],
+        ])->all();
 
-    public function filename(WeeklyPayoutBatch $run, ?string $stage = null): string
-    {
-        return 'pay-run-'.$run->id.'-'.str($this->name($run))->slug().'-'.$run->week_start?->format('Y-m-d').($stage ? "-{$stage}" : '').'.pdf';
-    }
-
-    public function path(WeeklyPayoutBatch $run, string $stage): string
-    {
-        return "pay-runs/{$run->id}/{$stage}.pdf";
-    }
-
-    /** Keep a copy of the run as it is now, for the record. Never stops payroll if it fails. */
-    public function keep(WeeklyPayoutBatch $run, string $stage): void
-    {
-        rescue(fn () => Storage::disk('local')->put($this->path($run, $stage), $this->pdf($run->fresh())->output()));
-    }
-
-    /** @return array<string, int> stage => when it was saved (unix time), for the copies that exist */
-    public function kept(WeeklyPayoutBatch $run): array
-    {
-        $disk = Storage::disk('local');
-
-        return collect(self::STAGES)
-            ->filter(fn ($stage) => $disk->exists($this->path($run, $stage)))
-            ->mapWithKeys(fn ($stage) => [$stage => $disk->lastModified($this->path($run, $stage))])
-            ->all();
+        return [
+            'title' => 'Monthly Business Statement', 'business' => $business->name,
+            'period' => $month->format('F Y'), 'generated_at' => now()->toIso8601String(),
+            'status' => $totals['incomplete'] > 0 || $month->copy()->endOfMonth()->isFuture() ? 'Provisional' : 'Complete as recorded',
+            'totals' => $totals, 'lines' => $lines,
+            'transfer' => BusinessTransfer::fromTotals($rows->count(), (float) $productCosts->sum(), (float) $rows->sum('whatnot_net'), (float) $transferPay),
+        ];
     }
 }

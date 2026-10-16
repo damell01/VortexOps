@@ -1,0 +1,41 @@
+name: Web Push checks
+on:
+  pull_request:
+    branches: [Production, Dev]
+    paths:
+      - 'app/Services/WebPushService.php'
+      - 'app/Http/Controllers/WebPushController.php'
+      - 'app/Jobs/SendDevicePush.php'
+      - 'app/Listeners/QueueDevicePush.php'
+      - 'app/Models/WebPushSubscription.php'
+      - 'public/sw.js'
+      - 'public/js/device-push.js'
+      - 'tests/Feature/Notifications/WebPushTest.php'
+      - '.github/workflows/web-push-checks.yml'
+jobs:
+  push:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo_sqlite,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/JavaScript/web-push.test.cjs tests/JavaScript/vortex-login.test.cjs
+      - run: cp .env.example .env && php artisan key:generate && php artisan view:cache
+      - run: php artisan test tests/Feature/Notifications/WebPushTest.php
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          SESSION_DRIVER: array
+          CACHE_STORE: array

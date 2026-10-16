@@ -1,5 +1,6 @@
 @php($season = \App\Support\Season::details())
-@php($visitors = \App\Support\Season::visitorsFor(auth()->user()?->buddy))
+@php($visit = \App\Support\VisitorCast::for(auth()->user(), \App\Support\Season::visitors()))
+@php($visitors = $visit['cast'])
 @if (\App\Support\Celebrations::level(auth()->user()) !== 'off')
     {{-- Visitors (App\Support\Season::visitors): one hangs upside down from under the top bar, another peeks
          up from the corner, taking turns; each peek is someone new (resources/js/delight.js). A click sends them away for this session. --}}
@@ -8,10 +9,10 @@
          x-show="! gone">
         @foreach (['top' => 'from-top', 'bottom' => 'from-bottom'] as $side => $class)
             <button type="button" class="vx-season-peek {{ $class }}" tabindex="-1" data-vx-visitors='@json($visitors[$side])'
-                    @if ($side === 'top') data-vx-rare='@json(\App\Support\Season::RARE_VISITORS)' data-vx-rare-odds="{{ \App\Support\Season::RARE_ODDS }}" @endif
                     title="{{ $season['title'] ?? 'Hi!' }} (click to send them away)"
                     @click="gone = true; try { sessionStorage.setItem('vx-season-gone', '1') } catch (e) {}">
                 <img src="/img/pokemon/{{ $visitors[$side][0] }}.gif" alt="">
+                @if($side === 'top' && $visit['rare'])<span style="position:absolute;right:-8px;bottom:0;font-size:15px" aria-hidden="true">✨</span>@endif
             </button>
         @endforeach
         @if ($season && in_array($season['effect'], ['snow', 'hearts', 'clovers'], true))

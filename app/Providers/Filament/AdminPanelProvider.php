@@ -199,6 +199,14 @@ class AdminPanelProvider extends PanelProvider
                     : '',
             )
             ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn () => view('filament.components.login-assets'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => view('filament.components.workspace-entry'),
+            )
+            ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn () => view('filament.components.login-pokemon'),
             )

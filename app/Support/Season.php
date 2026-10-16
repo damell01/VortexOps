@@ -188,32 +188,6 @@ class Season
         'summer' => ['top' => ['wingull', 'staryu', 'psyduck'], 'bottom' => ['krabby', 'lotad', 'corphish', 'squirtle', 'popplio']],
     ];
 
-    /** About one page in this many, a shiny Legendary peeks out instead. */
-    public const RARE_ODDS = 500;
-
-    public const RARE_VISITORS = ['mew', 'lugia', 'rayquaza', 'celebi', 'jirachi', 'ho-oh', 'mewtwo', 'darkrai'];
-
-    /**
-     * The visitors for one person: their chosen dashboard buddy takes every
-     * other turn hanging from the top bar, so the season's cast still shows.
-     *
-     * @return array{top: list<string>, bottom: list<string>}
-     */
-    public static function visitorsFor(?string $buddy, ?CarbonInterface $now = null): array
-    {
-        $cast = static::visitors($now);
-        if ($buddy && preg_match('/^[a-z0-9-]+$/', $buddy) && is_file(public_path("img/pokemon/{$buddy}.gif"))) {
-            $others = array_values(array_diff($cast['top'], [$buddy]));
-            $cast['top'] = [];
-            foreach ($others as $mon) {
-                array_push($cast['top'], $buddy, $mon);
-            }
-            $cast['top'] = $cast['top'] ?: [$buddy];
-        }
-
-        return $cast;
-    }
-
     /**
      * The Pokémon that drop in on every page: some hang upside down from
      * under the top bar, others peek up from the bottom corner. A holiday's

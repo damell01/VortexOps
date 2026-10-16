@@ -173,11 +173,9 @@ class PalletResource extends Resource
                     try { $preview = app(PalletArchiveService::class)->archive($record); Notification::make()->title('Pallet deleted')->body(number_format(collect($preview['effects'])->sum('quantity'), 2) . ' inventory units reversed. Undo is available from Archived Pallets.')->success()->send(); }
                     catch (\Throwable $e) { report($e); Notification::make()->title('Pallet was not deleted')->body($e->getMessage())->danger()->persistent()->send(); }
                 }),
-                \Filament\Actions\ActionGroup::make([
-                    ViewAction::make(),
-                    Action::make('scanning_station')->label('Scanning Station')->icon('heroicon-o-qr-code')->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
-                    EditAction::make(),
-                ]),
+                ViewAction::make()->label('View')->icon('heroicon-o-eye')->button()->size('sm'),
+                EditAction::make()->label('Edit')->icon('heroicon-o-pencil-square')->button()->size('sm'),
+                Action::make('scanning_station')->label('Scanning Station')->icon('heroicon-o-qr-code')->iconButton()->tooltip('Scanning Station')->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

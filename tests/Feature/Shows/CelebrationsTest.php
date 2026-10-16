@@ -213,7 +213,7 @@ class CelebrationsTest extends TestCase
         // Staff catch Pokémon for their work (App\Support\PokemonGames), so they have one too.
         $this->actingAs(User::factory()->create());
         $this->assertTrue(\App\Filament\Pages\MyPokedex::canAccess(), 'everyone signed in is a trainer');
-        $this->actingAs(User::factory()->create())->get(\App\Filament\Pages\MyPokedex::getUrl())->assertOk();
+        Livewire::test(\App\Filament\Pages\MyPokedex::class)->assertOk()->assertSee('Mystery Eggs');
         auth()->logout();
         $this->assertFalse(\App\Filament\Pages\MyPokedex::canAccess(), 'signed out, no Pokédex');
     }

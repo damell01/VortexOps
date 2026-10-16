@@ -1,5 +1,5 @@
 @php($greet = \App\Support\LoginGreeting::for())
-<link rel="stylesheet" href="{{ asset('css/vortex-login.css') }}?v=1">
+<link rel="stylesheet" href="{{ asset('css/vortex-login.css') }}?v=2">
 <div class="vx-login-experience" wire:ignore>
     <aside class="vx-login-art" aria-label="Vortex Ops">
         <div class="vx-wordmark">▽ VORTEX <span>OPS</span></div>

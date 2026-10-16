@@ -10,8 +10,10 @@ for (const width of [390, 1366, 1920]) {
   else expect(art!.y+art!.height).toBeLessThanOrEqual(form!.y+2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);
   await page.screenshot({path:`tests/Browser/output/login/before-${width}.png`,fullPage:true});
+  let releaseNavigation: () => void = () => {};
+  const gate = new Promise<void>(resolve => { releaseNavigation = resolve; });
   await page.route('**/admin**', async route=>{
-   if(route.request().method()==='GET' && route.request().headers()['x-livewire-navigate']) await new Promise(resolve=>setTimeout(resolve,2000));
+   if(route.request().method()==='GET' && new URL(route.request().url()).pathname !== '/admin/login') await gate;
    await route.continue();
   });
   await page.locator('input[type=email]').fill(fs.readFileSync('storage/mockup-owner.txt','utf8').trim());
@@ -22,9 +24,10 @@ for (const width of [390, 1366, 1920]) {
   await expect(entry).not.toHaveClass(/is-ready/);
   await expect(page.locator('[data-vx-entry-status]')).toHaveText('Open your Dashboard');
   await page.screenshot({path:`tests/Browser/output/login/loading-${width}.png`});
+  releaseNavigation();
   await expect(page.locator('.vx-login-experience')).toHaveCount(0,{timeout:20000});
   await expect(entry).toBeHidden({timeout:5000});
-  expect(await page.evaluate(()=>sessionStorage.getItem('vx-workspace-entry'))).toBeNull();
+  await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem('vx-workspace-entry'))).toBeNull();
   await expect(page.locator('.fi-main')).toBeVisible();
   await page.screenshot({path:`tests/Browser/output/login/dashboard-${width}.png`,fullPage:true});
  });

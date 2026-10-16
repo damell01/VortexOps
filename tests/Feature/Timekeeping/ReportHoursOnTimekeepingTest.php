@@ -30,6 +30,7 @@ class ReportHoursOnTimekeepingTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-16 12:00'));
         config(['app.owner_email' => 'owner@vortex.com']);
         Setting::set('enabled_admin_modules', json_encode(['timekeeping']));
+        Setting::set(\App\Services\TimeTrackingService::SINCE_SETTING, '2026-10-01');
         AdminModules::flushMemo();
         $this->owner = User::factory()->create(['email' => 'owner@vortex.com']);
         $this->jayUser = User::factory()->create(['name' => 'Jay']);
@@ -53,12 +54,17 @@ class ReportHoursOnTimekeepingTest extends TestCase
 
         $page = Livewire::actingAs($this->owner)->test(Timekeeping::class);
         $page->assertSee('Wednesday Breaks')->assertSee('From the show report');
-        $this->assertSame(2, $page->instance()->entries->total(), 'this week: one clock entry and one report');
+        $entries = $page->instance()->entries;
+        $this->assertSame(1, $entries->total(), 'one line for Jay');
+        $this->assertSame(2, $page->instance()->entryTotal, 'this week: one clock entry and one report, nested under it');
+        $jay = $entries->first();
+        $this->assertSame(['Jay', 120, 210, 1, 1], [$jay['name'], $jay['clock_minutes'], $jay['report_minutes'], $jay['clock_count'], $jay['report_count']]);
 
         $page->call('setPeriodMode', 'this_month');
         $this->assertSame('this_month', $page->get('periodMode'));
-        $this->assertSame(3, $page->instance()->entries->total());
-        $this->assertContains('Old Friday Show', $page->instance()->entries->getCollection()->map(fn ($row) => $row['report']?->show?->title)->filter()->all());
+        $rows = $page->instance()->entries->first()['rows'];
+        $this->assertSame(3, $page->instance()->entryTotal);
+        $this->assertContains('Old Friday Show', $rows->map(fn ($row) => $row['report']?->show?->title)->filter()->all());
     }
 
     public function test_team_hours_add_report_hours_to_clocked_hours(): void
@@ -82,5 +88,37 @@ class ReportHoursOnTimekeepingTest extends TestCase
         $this->actingAs($this->jayUser);
         $titles = app(Timekeeping::class)->reportHours('2026-10-12', '2026-10-18')->map(fn ($r) => $r->show->title)->all();
         $this->assertSame(['Wednesday Breaks'], $titles);
+    }
+
+    public function test_report_hours_only_go_to_review_when_they_are_a_real_outlier_for_that_person(): void
+    {
+        $time = app(\App\Services\TimeTrackingService::class);
+        $kinds = fn () => $time->showHoursIssues()->map(fn ($i) => [$i['entry']->show->title, $i['kind']])->all();
+
+        $this->report('2026-10-05', 3, 'A');
+        $this->report('2026-10-06', 3.5, 'B');
+        $this->report('2026-10-07', 4, 'C');
+        $this->assertSame([], $kinds(), 'everyday report hours with nothing clocked need no review');
+
+        $this->report('2026-10-14', 5, 'Ordinary-ish');
+        $this->assertSame([], $kinds(), 'within an hour of their highest, under double their usual');
+
+        $odd = $this->report('2026-10-15', 9, 'Way long');
+        $issues = $time->showHoursIssues()->keyBy(fn ($i) => $i['entry']->show->title);
+        $this->assertSame('outlier', $issues['Way long']['kind']);
+        $this->assertStringContainsString('more than double their usual', $issues['Way long']['reason']);
+        $this->assertCount(1, $issues);
+
+        $time->resolveShowHours($odd, $this->owner, 'report', null, 'Double show');
+        $this->assertSame([], $kinds(), 'settled once, it stays settled');
+    }
+
+    public function test_someone_new_is_only_flagged_past_twelve_hours(): void
+    {
+        $time = app(\App\Services\TimeTrackingService::class);
+        $this->report('2026-10-14', 8, 'Long first show');
+        $this->assertCount(0, $time->showHoursIssues());
+        $this->report('2026-10-15', 13, 'Marathon');
+        $this->assertSame(['Marathon'], $time->showHoursIssues()->map(fn ($i) => $i['entry']->show->title)->all());
     }
 }

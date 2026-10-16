@@ -36,7 +36,7 @@
         <section class="vxw-card">
             <div class="vxw-card-head" style="flex-wrap:wrap;gap:12px">
                 <div class="vxw-chips" role="tablist" aria-label="Timekeeping views">
-                    <button type="button" role="tab" wire:click="setTab('history')" @class(['vxw-chip', 'is-active' => $tab === 'history'])>{{ $seesTeam ? 'All entries' : 'My history' }} <span class="vxw-chip-count">{{ number_format($entries->total()) }}</span></button>
+                    <button type="button" role="tab" wire:click="setTab('history')" @class(['vxw-chip', 'is-active' => $tab === 'history'])>{{ $seesTeam ? 'All entries' : 'My history' }} <span class="vxw-chip-count">{{ number_format($this->entryTotal) }}</span></button>
                     @if ($seesTeam)
                         <button type="button" role="tab" wire:click="setTab('team')" @class(['vxw-chip', 'is-active' => $tab === 'team'])>Team hours</button>
                     @endif
@@ -85,13 +85,33 @@
                                     <th class="px-4 py-2.5">Show or reason</th><th class="px-4 py-2.5">Status</th><th class="px-4 py-2.5 text-right"></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                @foreach ($entries as $row)
+                            {{-- One line per person; their clocked time and show reports open underneath. --}}
+                            @foreach ($entries as $person)
+                            <tbody x-data="{ open: {{ ! $seesTeam || $entries->count() === 1 ? 'true' : 'false' }} }" wire:key="person-{{ $person['key'] }}" data-vx-person>
+                                <tr class="cursor-pointer" style="border-top:1px solid var(--vxw-border);background:var(--vxw-sunken)" @click="open = ! open">
+                                    <td class="px-4 py-3 font-semibold" colspan="{{ $seesTeam ? 4 : 3 }}">
+                                        <span class="inline-flex items-center gap-2">
+                                            <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4 transition-transform" x-bind:style="open ? 'transform:rotate(90deg)' : ''" />
+                                            {{ $person['name'] }}
+                                            @if ($person['needs_review'])<span class="vxw-pill vxw-pill--warn">Needs review</span>@endif
+                                        </span>
+                                        <div class="vxw-meta mt-0.5" style="padding-left:1.5rem">
+                                            {{ collect([$person['clock_count'] ? $person['clock_count'].' clocked '.\Illuminate\Support\Str::plural('entry', $person['clock_count']) : null, $person['report_count'] ? $person['report_count'].' show '.\Illuminate\Support\Str::plural('report', $person['report_count']) : null, $person['shows'] ? $person['shows'].' '.\Illuminate\Support\Str::plural('show', $person['shows']) : null])->filter()->implode(' · ') }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-bold tabular-nums">{{ $fmt($person['clock_minutes'] + $person['report_minutes']) }}</td>
+                                    <td class="px-4 py-3 vxw-meta" colspan="3">
+                                        @if ($person['clock_count'])Clocked {{ $fmt($person['clock_minutes']) }}@endif
+                                        @if ($person['clock_count'] && $person['report_count']) · @endif
+                                        @if ($person['report_count'])From show reports {{ $fmt($person['report_minutes']) }}@endif
+                                    </td>
+                                </tr>
+                                @foreach ($person['rows'] as $row)
                                     @if ($r = $row['report'])
                                         {{-- Hours written on a show report: shown alongside clocked time, edited on the report. --}}
                                         @php $rm = (int) round((float) $r->hours_streamed * 60); @endphp
-                                        <tr wire:key="rep-{{ $r->id }}" style="border-top:1px solid var(--vxw-border)" data-vx-report-hours>
-                                            @if ($seesTeam)<td class="px-4 py-3 font-medium">{{ $r->streamer?->name ?? '—' }}</td>@endif
+                                        <tr wire:key="rep-{{ $r->id }}" style="border-top:1px solid var(--vxw-border)" data-vx-report-hours x-show="open" x-cloak>
+                                            @if ($seesTeam)<td class="px-4 py-3"></td>@endif
                                             <td class="px-4 py-3 whitespace-nowrap">{{ $r->vxWorkedAt->format('D, M j') }}</td>
                                             <td class="px-4 py-3 whitespace-nowrap tabular-nums vxw-meta" colspan="2">From the show report</td>
                                             <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $fmt($rm) }}</td>
@@ -106,8 +126,8 @@
                                         @continue
                                     @endif
                                     @php $e = $row['clock']; $mins = $e->duration_minutes; @endphp
-                                    <tr wire:key="te-{{ $e->id }}" style="border-top:1px solid var(--vxw-border)">
-                                        @if ($seesTeam)<td class="px-4 py-3 font-medium">{{ $e->user?->name ?? '—' }}</td>@endif
+                                    <tr wire:key="te-{{ $e->id }}" style="border-top:1px solid var(--vxw-border)" x-show="open" x-cloak>
+                                        @if ($seesTeam)<td class="px-4 py-3"></td>@endif
                                         <td class="px-4 py-3 whitespace-nowrap">{{ $e->clocked_in_at->copy()->setTimezone($tz)->format('D, M j') }}</td>
                                         <td class="px-4 py-3 whitespace-nowrap tabular-nums">{{ $this->formatTimeInUserTz($e->clocked_in_at) }}</td>
                                         <td class="px-4 py-3 whitespace-nowrap tabular-nums">
@@ -141,6 +161,7 @@
                                     </tr>
                                 @endforeach
                             </tbody>
+                            @endforeach
                         </table>
                     </div>
                     @if ($entries->lastPage() > 1)

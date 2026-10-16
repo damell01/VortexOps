@@ -943,11 +943,11 @@ class PayoutService
             }
         }
 
-        // Hours Worked an admin has not settled: missing, or clock and report disagree.
+        // Hours Worked an admin has not settled: missing, clock and report disagree, or unusual report hours.
         $time = app(TimeTrackingService::class);
         foreach ($time->showHoursIssues(null, $showIds->all()) as $issue) {
             $title = $issue['entry']->show?->title ?? "Show #{$issue['entry']->show_id}";
-            $problems[] = "{$title} — Hours Worked: " . TimeTrackingService::issueLabel($issue['kind']) . '. Settle it on Time & Attendance.';
+            $problems[] = "{$title} — Hours Worked: " . TimeTrackingService::issueLabel($issue['kind']) . ($issue['reason'] ? " ({$issue['reason']})" : '') . '. Settle it on Time & Attendance.';
         }
 
         // Clocked time someone edited, added by hand, or left open is not paid until reviewed.

@@ -28,7 +28,7 @@
                 <div class="vxw-empty">
                     <x-filament::icon icon="heroicon-o-check-badge" />
                     <div class="vxw-empty-title">Nothing waiting for review</div>
-                    <div class="vxw-empty-text">Edited, hand-added, overlapping and forgotten clock-outs land here, with shows whose report hours are missing or differ from the clock by more than {{ \App\Services\TimeTrackingService::MISMATCH_MINUTES }} minutes.</div>
+                    <div class="vxw-empty-text">Edited, hand-added, overlapping and forgotten clock-outs land here, with shows whose report hours are missing, differ from the clock by more than {{ \App\Services\TimeTrackingService::MISMATCH_MINUTES }} minutes, or are a real outlier for that person (more than double their usual, or well past their highest). Everyday report hours don't need review.</div>
                 </div>
             @else
                 <div class="overflow-x-auto">

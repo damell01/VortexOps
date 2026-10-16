@@ -31,6 +31,17 @@ class TimeTrackingService
     /** Report and clock may differ by this much before an admin has to look. */
     public const MISMATCH_MINUTES = 15;
 
+    /**
+     * Report hours with nothing clocked are taken as written. Only a real
+     * outlier goes to review: more than double the person's usual, or an hour
+     * past the most they've ever reported. Someone with fewer than 3 earlier
+     * reports has no usual yet, so only more than 12 hours counts.
+     */
+    public const OUTLIER_TYPICAL_FACTOR = 2;
+    public const OUTLIER_OVER_HIGHEST_MINUTES = 60;
+    public const OUTLIER_MIN_HISTORY = 3;
+    public const OUTLIER_NO_HISTORY_MINUTES = 12 * 60;
+
     public const SINCE_SETTING = 'hours_tracking_since';
 
     /** Shows before this date predate Hours Worked tracking and are not reviewed. */
@@ -246,8 +257,9 @@ class TimeTrackingService
     }
 
     /**
-     * Shows whose Hours Worked an admin has to settle: report and clock
-     * disagree, the report has hours nothing was clocked for, or no hours at all.
+     * Shows whose Hours Worked an admin has to settle: no hours at all, report
+     * and clock disagree, or report hours (with nothing clocked) that are a
+     * real outlier for that person. Everyday report hours need no review.
      *
      * @return Collection<int, array{entry:StreamerLogEntry,kind:string,report_minutes:?int,clock_minutes:int,user_id:?int}>
      */
@@ -267,27 +279,72 @@ class TimeTrackingService
             ->groupBy(fn (TimeEntry $e) => $e->show_id.':'.$e->user_id)
             ->map(fn ($g) => $g->sum(fn (TimeEntry $e) => $e->status === 'approved' ? (int) $e->approved_minutes : (int) $e->duration_minutes));
 
-        return $entries->map(function (StreamerLogEntry $entry) use ($clock) {
+        $history = $this->reportHistory($entries->pluck('streamer_id')->filter()->unique()->all());
+
+        return $entries->map(function (StreamerLogEntry $entry) use ($clock, $history) {
             $uid = $entry->streamer?->user_id;
             $clockMinutes = (int) ($clock[$entry->show_id.':'.$uid] ?? 0);
             $reportMinutes = $entry->hours_streamed !== null ? (int) round((float) $entry->hours_streamed * 60) : null;
+            // Their other reports, newest first, not counting this one.
+            $earlier = ($history[$entry->streamer_id] ?? collect())->reject(fn ($h) => $h['id'] === $entry->id)->pluck('minutes');
+            $reason = $reportMinutes !== null && $clockMinutes === 0 ? $this->outlierReason($reportMinutes, $earlier) : null;
             $kind = match (true) {
                 $reportMinutes === null => 'missing',
-                // Remote streamers are not on site to clock in.
-                $clockMinutes === 0 => $entry->streamer?->streamer_type === 'remote' ? null : 'no_clock',
+                $clockMinutes === 0 => $reason ? 'outlier' : null,
                 abs($reportMinutes - $clockMinutes) > self::MISMATCH_MINUTES => 'mismatch',
                 default => null,
             };
 
-            return $kind ? ['entry' => $entry, 'kind' => $kind, 'report_minutes' => $reportMinutes, 'clock_minutes' => $clockMinutes, 'user_id' => $uid] : null;
+            return $kind ? ['entry' => $entry, 'kind' => $kind, 'reason' => $reason, 'report_minutes' => $reportMinutes, 'clock_minutes' => $clockMinutes, 'user_id' => $uid] : null;
         })->filter()->values();
+    }
+
+    /**
+     * Why report hours are an outlier for this person, or null when they're
+     * ordinary for them. $earlier: their other reports' minutes, newest first.
+     */
+    public function outlierReason(int $reportMinutes, \Illuminate\Support\Collection $earlier): ?string
+    {
+        $hours = fn (int $m) => rtrim(rtrim(number_format($m / 60, 1), '0'), '.').'h';
+        if ($earlier->count() < self::OUTLIER_MIN_HISTORY) {
+            return $reportMinutes > self::OUTLIER_NO_HISTORY_MINUTES ? 'More than '.$hours(self::OUTLIER_NO_HISTORY_MINUTES).' for one show' : null;
+        }
+        $usual = (int) $earlier->take(10)->median();
+        if ($usual > 0 && $reportMinutes > $usual * self::OUTLIER_TYPICAL_FACTOR) {
+            return $hours($reportMinutes).' is more than double their usual '.$hours($usual);
+        }
+        $highest = (int) $earlier->max();
+        if ($reportMinutes > $highest + self::OUTLIER_OVER_HIGHEST_MINUTES) {
+            return $hours($reportMinutes).' is well past their highest so far ('.$hours($highest).')';
+        }
+
+        return null;
+    }
+
+    /**
+     * Each person's report hours, newest first, for working out their usual
+     * and their highest.
+     *
+     * @return array<int, \Illuminate\Support\Collection<int, array{id:int, minutes:int}>> streamer id => reports
+     */
+    private function reportHistory(array $streamerIds): array
+    {
+        if ($streamerIds === []) {
+            return [];
+        }
+
+        return StreamerLogEntry::whereIn('streamer_id', $streamerIds)->whereNotNull('submitted_at')->where('hours_streamed', '>', 0)
+            ->latest('submitted_at')->latest('id')->get(['id', 'streamer_id', 'hours_streamed'])
+            ->groupBy('streamer_id')
+            ->map(fn ($g) => $g->map(fn ($r) => ['id' => $r->id, 'minutes' => (int) round((float) $r->hours_streamed * 60)])->values())
+            ->all();
     }
 
     public static function issueLabel(string $kind): string
     {
         return [
             'missing' => 'Hours missing',
-            'no_clock' => 'Report hours, nothing clocked',
+            'outlier' => 'Unusual report hours',
             'mismatch' => 'Clock and report differ',
         ][$kind] ?? $kind;
     }

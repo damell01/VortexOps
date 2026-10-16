@@ -120,14 +120,28 @@ function decorateTable(table) {
 }
 
 function decorateTables(root = document) {
-    // Reports retain every metric and column label in their mobile card view.
-    root.querySelectorAll('.vx-report table:not(.fi-ta-table)').forEach((table) => {
-        const labels = [...table.querySelectorAll('thead th')].map((th) => th.textContent.trim());
-        if (!labels.length || table.querySelector('th[rowspan], th[colspan]')) return;
+    // Every other table in a page or a pop-up keeps every value and its
+    // column name, as a card per row on phones (no sideways scrolling). A
+    // table that must stay a grid opts out with data-vx-keep-table.
+    root.querySelectorAll(':is(.fi-main, .fi-modal-window, .vx-report) table:not(.fi-ta-table):not(.vx-cardify):not([data-vx-keep-table])').forEach((table) => {
+        if (table.querySelector('th[rowspan]')) return;
+        // A table its page already hides on phones (in favour of a mobile
+        // list of its own) stays hidden: the cards would show it twice.
+        const tagged = table.classList.contains('vx-mobile-report-table');
+        if (tagged) table.classList.remove('vx-mobile-report-table');
+        const hiddenByPage = getComputedStyle(table).display === 'none';
+        if (hiddenByPage) return;
+        // A header spanning two columns names both of them.
+        const labels = [...table.querySelectorAll(':scope > thead > tr:last-child > th')]
+            .flatMap((th) => Array(Number(th.getAttribute('colspan')) || 1).fill(th.textContent.replace(/\s+/g, ' ').trim()));
+        if (!labels.length) return;
         table.classList.add('vx-mobile-report-table');
-        table.querySelectorAll('tbody tr').forEach((row) => {
-            row.querySelectorAll(':scope > td').forEach((cell, index) => {
-                if (!cell.hasAttribute('colspan')) cell.dataset.reportLabel = labels[index] || 'Details';
+        table.querySelectorAll(':scope > tbody > tr, :scope > tfoot > tr').forEach((row) => {
+            let column = 0;
+            row.querySelectorAll(':scope > td, :scope > th').forEach((cell) => {
+                const span = Number(cell.getAttribute('colspan')) || 1;
+                if (span === 1 && labels[column] && !cell.dataset.reportLabel) cell.dataset.reportLabel = labels[column];
+                column += span;
             });
         });
     });

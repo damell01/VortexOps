@@ -276,3 +276,14 @@ a.vxr-stat:hover .vxr-stat-icon, .vxr-tile:hover .vxr-stat-icon, .vxr-linkrow:ho
 @media (prefers-reduced-motion: reduce) {
   .vxr *, .vxr-drawer, .vxr-drawer * { animation: none !important; transition: none !important; }
 }
+
+/* Phones: a select inside a report control becomes the styled picker
+   button (mobile-controls.js). The control is already the box, so the
+   picker sits inside it borderless, and the control grows to fit it and
+   any line under it (the period's dates) instead of overlapping. */
+@media (max-width: 767px) {
+    .vxr-actions { width: 100%; display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .vxr-control { height: auto; min-height: 44px; padding: 4px 12px; width: 100%; }
+    .vxr-control > span { flex: 1; min-width: 0; }
+    .vxr-control .vx-picker-trigger { border: 0 !important; background: transparent !important; box-shadow: none !important; min-height: 36px !important; padding: 4px 0 !important; font-size: 15px !important; font-weight: 600; }
+}

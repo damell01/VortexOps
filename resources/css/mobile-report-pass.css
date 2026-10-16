@@ -256,3 +256,61 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
 .vx-age .vx-age-item-value{font-size:15px}
 .vx-age .vx-age-item-units{font-size:11px}
 }
+
+/* Every hand-written table (responsive-data-tables.js tags them): totals
+   rows and row headers card up like the body rows, and nothing scrolls
+   sideways around them. */
+@media(max-width:1023px){
+ .vx-mobile-report-table tfoot{display:grid!important;grid-template-columns:minmax(0,1fr);gap:12px;padding:0 12px 12px}
+ .vx-mobile-report-table tfoot tr{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px;border-radius:12px;background:#f5f3ff;min-width:0;font-weight:700}
+ .dark .vx-mobile-report-table tfoot tr{background:#24183c}
+ .vx-mobile-report-table :is(tbody,tfoot) :is(td,th){display:block!important;min-width:0!important;width:auto!important;border:0!important;padding:0!important;text-align:left!important;white-space:normal!important;overflow-wrap:anywhere}
+ .vx-mobile-report-table :is(tbody,tfoot) :is(td,th):first-child,.vx-mobile-report-table :is(tbody,tfoot) :is(td,th)[colspan]{grid-column:1/-1}
+ .vx-mobile-report-table :is(tbody,tfoot) :is(td,th)[data-report-label]::before{content:attr(data-report-label);display:block;margin-bottom:4px;color:#64748b;font-size:10px;line-height:1.4;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+ .vx-mobile-report-table tbody tr[hidden],.vx-mobile-report-table tbody tr[style*="display: none"]{display:none!important}
+ :is(.overflow-x-auto,.vxr-table-wrap,.vx-report-table):has(> .vx-mobile-report-table){overflow-x:visible!important}
+ .vx-mobile-report-table tbody tr:empty{display:none!important}
+}
+
+/* Tab bars and chip rows wrap onto a second line on phones instead of
+   scrolling sideways off the screen. */
+@media(max-width:767px){
+ .fi-main :is(.fi-tabs,.vxi-tabs,.vxr-tabs,.ivx-itabs,.vxled-chips,.vxw-chips,.vxr-seg,.vx-legend,.invr-tabbar),
+ .fi-main nav.fi-tabs,
+ .fi-main .flex.overflow-x-auto:not(.vx-carousel):not([data-vx-carousel]){
+   flex-wrap:wrap!important;overflow-x:visible!important;row-gap:6px!important;
+   -webkit-mask-image:none!important;mask-image:none!important;
+ }
+ .fi-main :is(.fi-tabs,.vxi-tabs,.vxr-tabs,.ivx-itabs,.vxr-seg) > *{flex-shrink:0}
+ .fi-main .fi-ta-content-ctn{overflow-x:visible!important}
+}
+
+/* KPI tiles may shrink below their content's width (kpi-fit.js shrinks the
+   number to match); numbers never break mid-figure. */
+:is(.ivx-kpi,.vxsim-tile,.vx-stream-kpi,.vx-payroll-kpi,.vxr-stat,.vx-kpi,.vx-an-kpi,.fi-wi-stats-overview-stat){min-width:0;max-width:100%}
+:is(.ivx-kpi,.vxsim-tile,.vx-stream-kpi,.vx-payroll-kpi,.vxr-stat,.vx-an-kpi) :is(strong,b){white-space:nowrap}
+.vx-payroll-kpi>div{min-width:0}
+@media(max-width:1100px){.vx-stream-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+
+
+/* Streams Overview period bar on phones: ‹ period › on one row, From and To
+   side by side under it, the range label last. */
+@media(max-width:700px){
+ html body .fi-main .vx-period{grid-template-columns:44px minmax(0,1fr) minmax(0,1fr) 44px!important;gap:8px!important}
+ html body .fi-main .vx-period>button:first-child{grid-column:1!important;grid-row:1!important}
+ html body .fi-main .vx-period>.vx-period-select{grid-column:2/4!important;grid-row:1!important}
+ html body .fi-main .vx-period>button:last-of-type{grid-column:4!important;grid-row:1!important}
+ html body .fi-main .vx-period>div:nth-of-type(2){grid-column:1/3!important;grid-row:2!important}
+ html body .fi-main .vx-period>div:nth-of-type(3){grid-column:3/5!important;grid-row:2!important}
+ html body .fi-main .vx-period>.vx-period-label{grid-column:1/-1!important;grid-row:3!important}
+ html body .fi-main .vx-period>button{min-height:44px;padding:0!important;align-self:end}
+}
+
+/* In a card cell, a status pill or a button never runs into the cell
+   beside it: it shrinks to the cell and wraps its words instead. */
+@media(max-width:1023px){
+ .vx-mobile-report-table :is(td,th)>*,.fi-ta-table td.fi-ta-cell>*{max-width:100%;min-width:0}
+ .vx-mobile-report-table :is(td,th) :is(span,a,button,.fi-badge),.fi-ta-table td.fi-ta-cell .fi-badge{max-width:100%;white-space:normal!important;overflow-wrap:anywhere;text-align:left}
+ .vx-mobile-report-table :is(td,th) :is(span,.fi-badge)[class*="rounded"],.fi-ta-table td.fi-ta-cell .fi-badge{display:inline-flex;height:auto!important;min-height:0}
+}
+@media(max-width:1023px){.vx-mobile-report-table .vxled-details{min-width:0!important;max-width:100%!important}}

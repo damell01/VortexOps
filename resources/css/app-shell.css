@@ -68,7 +68,10 @@ html.vx-touch [data-vx-touch-page] svg.h-4 { width: 1.35rem; height: 1.35rem; }
 .vx-install-chip:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
 .vx-install-chip__icon { width: 1rem; height: 1rem; flex: none; }
 .dark .vx-install-chip { color: #ddd6fe; background: rgb(167 139 250 / .12); border-color: rgb(167 139 250 / .3); }
-html.vx-standalone [data-vx-install] { display: none !important; }
+html.vx-standalone :is([data-vx-install], #vx-install-banner) { display: none !important; }
+@media (display-mode: standalone), (display-mode: window-controls-overlay), (display-mode: minimal-ui), (display-mode: fullscreen) {
+    :is([data-vx-install], #vx-install-banner) { display: none !important; }
+}
 @media (max-width: 639px) {
     .vx-install-chip { width: 2.25rem; padding: 0; justify-content: center; margin-inline-end: .25rem; }
     .vx-install-chip__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -112,3 +115,18 @@ html.vx-standalone [data-vx-install] { display: none !important; }
 .vx-install-guide :focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
 @keyframes vx-install-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .vx-install-guide { animation: none; } }
+
+/* Back to top (resources/js/app-shell.js). Above the phone tab bar. */
+.vx-to-top {
+    position: fixed; z-index: 44; right: 1rem; bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    width: 2.75rem !important; height: 2.75rem !important; min-height: 0 !important; padding: 0 !important;
+    display: grid; place-items: center; border-radius: 999px !important;
+    background: #7c3aed !important; color: #fff !important; box-shadow: 0 8px 22px rgb(76 29 149 / .35);
+    opacity: 0; transform: translateY(12px) scale(.9); pointer-events: none;
+    transition: opacity .2s, transform .2s;
+}
+.vx-to-top.is-shown { opacity: 1; transform: none; pointer-events: auto; }
+.vx-to-top svg { width: 1.2rem; height: 1.2rem; }
+.vx-to-top:focus-visible { outline: 3px solid #c4b5fd; outline-offset: 2px; }
+@media (max-width: 1023px) { .vx-to-top { bottom: calc(84px + env(safe-area-inset-bottom)); right: .9rem; } }
+@media (prefers-reduced-motion: reduce) { .vx-to-top { transition: none; } }

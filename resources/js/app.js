@@ -8,6 +8,8 @@ import './confirmation-dialog.js';
 import './guided-help.js';
 import './app-shell.js';
 import './mobile-controls.js';
+import './kpi-fit.js';
+import './carousels.js';
 import '../css/mobile-report-pass.css';
 // Some Filament/Livewire pages attach beforeunload guards after interactive
 // actions. In VortexOps those guards were sticking around after the action had

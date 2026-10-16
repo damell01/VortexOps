@@ -79,7 +79,7 @@
             </template>
         </div>
         @endif
-        <section x-data="{ ios: /iphone|ipad|ipod/i.test(navigator.userAgent), installed: window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true, canPrompt: !!document.documentElement.dataset.vxInstallable }"
+        <section x-data="{ ios: /iphone|ipad|ipod/i.test(navigator.userAgent), installed: window.vxIsInstalled ? window.vxIsInstalled() : navigator.standalone === true, canPrompt: !!document.documentElement.dataset.vxInstallable }"
                  x-on:beforeinstallprompt.window="canPrompt = true"
                  class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900" aria-labelledby="install-heading">
             <div class="flex flex-wrap items-center justify-between gap-3">

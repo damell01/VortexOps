@@ -258,29 +258,13 @@ class TimekeepingTest extends TestCase
         $this->assertEmpty($teamHours, 'Team Hours is for hourly/non-admin workers, not admins clocking their own time');
     }
 
-    public function test_pay_period_preset_uses_the_covering_weekly_payout_batch(): void
+    public function test_there_is_no_team_wide_pay_period_filter(): void
     {
-        $batchStart = now()->subDays(2)->toDateString();
-        $batchEnd   = now()->addDays(4)->toDateString();
-        \App\Models\WeeklyPayoutBatch::create([
-            'week_start' => $batchStart,
-            'week_end'   => $batchEnd,
-            'status'     => 'draft',
-        ]);
-
-        TimeEntry::create([
-            'user_id'        => $this->regular->id,
-            'clocked_in_at'  => now()->subDay(),
-            'clocked_out_at' => now()->subDay()->addHour(),
-        ]);
-
+        // Pay periods differ from person to person, so Timekeeping doesn't offer one.
         $this->actingAs($this->admin);
         $component = Livewire::test(Timekeeping::class)->call('setPeriodMode', 'pay_period');
 
-        $teamHours = $component->instance()->getTeamHoursProperty();
-        $this->assertNotEmpty($teamHours);
-
-        $label = $component->instance()->getPeriodLabelProperty();
-        $this->assertStringContainsString(\Illuminate\Support\Carbon::parse($batchStart)->format('M j'), $label);
+        $this->assertSame('this_week', $component->get('periodMode'));
+        $component->assertDontSee('Current pay period');
     }
 }

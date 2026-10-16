@@ -212,6 +212,10 @@ class AdminPanelProvider extends PanelProvider
                     HTML),
             )
             ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.install-app-button'),
+            )
+            ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
                 fn (): string => auth()->check()
                     ? Blade::render("@include('filament.components.desktop-mega-nav')")

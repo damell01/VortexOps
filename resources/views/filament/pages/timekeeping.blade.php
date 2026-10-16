@@ -5,7 +5,7 @@
         $seesTeam = ($user?->isOwner() || $user?->isAdmin()) ?? false;
         $team = $seesTeam && $tab === 'team' ? $this->teamHours : [];
         $tz = $this->userTimezone();
-        $periodOptions = ['this_week' => 'This week', 'last_week' => 'Last week', 'pay_period' => 'Current pay period', 'this_month' => 'This month', 'custom' => 'Custom range'];
+        $periodOptions = ['this_week' => 'This week', 'last_week' => 'Last week', 'this_month' => 'This month', 'custom' => 'Custom range'];
         $fmt = fn (?int $m) => $m === null ? '—' : intdiv($m, 60) . 'h ' . str_pad((string) ($m % 60), 2, '0', STR_PAD_LEFT) . 'm';
     @endphp
 

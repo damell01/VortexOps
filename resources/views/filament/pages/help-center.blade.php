@@ -91,7 +91,7 @@
                         <span x-show="!installed && !ios">Install it on this device to open it full screen from your home screen or taskbar. It updates itself — there's nothing to reinstall.</span>
                     </p>
                 </div>
-                <x-filament::button x-show="!installed && canPrompt" x-cloak icon="heroicon-o-arrow-down-tray" x-on:click="window.vxInstallApp()">Install app</x-filament::button>
+                <x-filament::button x-show="!installed" x-cloak icon="heroicon-o-arrow-down-tray" x-on:click="window.vxInstallApp()">Install app</x-filament::button>
             </div>
         </section>
         <div class="rounded-2xl border border-gray-200 p-5 dark:border-gray-700">

@@ -18,6 +18,6 @@
         </div>
     </aside>
     <div class="vx-login-greeting"><img src="{{ $greet['sprite'] }}" alt="" width="48" height="48"><span>{{ $greet['bubble'] }}<small>{{ $greet['caption'] }}</small></span></div>
-    <div class="vx-login-wipe" aria-hidden="true"></div>
+
     <span class="vx-capture-status" role="status" aria-live="polite"></span>
 </div>

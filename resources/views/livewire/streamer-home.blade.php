@@ -99,10 +99,6 @@
 
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
 
-    @if ($me = auth()->user()?->streamer)
-        <x-vx.pokedex :streamer="$me" />
-    @endif
-
     {{-- Every report, as cards. --}}
     <section class="vsh-reports" aria-labelledby="vsh-reports-title">
         <div class="vsh-reports-head">

@@ -8,6 +8,8 @@ import './confirmation-dialog.js';
 import './guided-help.js';
 import './app-shell.js';
 import './mobile-controls.js';
+import './kpi-fit.js';
+import './carousels.js';
 import '../css/mobile-report-pass.css';
 
 // Keep each user's timezone aligned with the browser they actually sign in

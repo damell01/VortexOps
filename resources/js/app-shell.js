@@ -28,7 +28,10 @@ const session = {
     set(key, value) { try { sessionStorage.setItem(key, value); } catch { /* private mode */ } },
 };
 
-const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+// Any of the installed-app display modes: desktop app windows can report
+// window-controls-overlay or minimal-ui rather than standalone.
+const APP_MODES = '(display-mode: standalone), (display-mode: window-controls-overlay), (display-mode: minimal-ui), (display-mode: fullscreen)';
+const isStandalone = () => window.matchMedia?.(APP_MODES).matches || window.navigator.standalone === true;
 const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const dismissed = () => session.get(DISMISS_KEY) === '1';
 
@@ -61,7 +64,10 @@ let deferredPrompt = null;
 
 // The top-bar "Install app" button ([data-vx-install]) hides itself once the
 // app is running installed.
-if (isStandalone()) document.documentElement.classList.add('vx-standalone');
+// Re-applied after in-app navigation, which can replace <html>'s classes.
+const markStandalone = () => { if (isStandalone()) document.documentElement.classList.add('vx-standalone'); };
+markStandalone();
+document.addEventListener('livewire:navigated', markStandalone);
 
 function dismissInstall(el) {
     session.set(DISMISS_KEY, '1');
@@ -224,6 +230,7 @@ window.vxInstallApp = async () => {
     return choice?.outcome === 'accepted';
 };
 window.vxCanInstall = () => !isStandalone();
+window.vxIsInstalled = isStandalone;
 
 // Browsers without an install prompt (iPhone, Safari) never fire beforeinstallprompt.
 setTimeout(offerInstall, 1500);
@@ -288,3 +295,37 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('focus', checkForUpdate);
 setInterval(checkForUpdate, 10 * 60 * 1000);
+
+// ── Notifications ───────────────────────────────────────────────────────
+// Following a link out of the notifications window closes it, so the page
+// it opened isn't left behind the window. Also on arrival, for links that
+// navigate in place (wire:navigate keeps the window's state otherwise).
+const closeNotifications = () => window.dispatchEvent(new CustomEvent('close-modal-quietly', { detail: { id: 'database-notifications' } }));
+document.addEventListener('click', (event) => {
+    const link = event.target.closest?.('a[href]');
+    if (!link || !link.closest('.fi-no-database') || link.getAttribute('href').startsWith('#')) return;
+    closeNotifications();
+}, true);
+document.addEventListener('livewire:navigated', closeNotifications);
+
+// ── Back to top ─────────────────────────────────────────────────────────
+// A small round button once you're well down a long page.
+(() => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'vx-to-top';
+    button.setAttribute('aria-label', 'Back to top');
+    button.innerHTML = '<svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 17a.75.75 0 0 1-.75-.75V5.56L5.53 9.28a.75.75 0 0 1-1.06-1.06l5-5a.75.75 0 0 1 1.06 0l5 5a.75.75 0 1 1-1.06 1.06L10.75 5.56v10.69A.75.75 0 0 1 10 17Z" clip-rule="evenodd"/></svg>';
+    button.addEventListener('click', () => window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
+    let shown = false;
+    const update = () => {
+        const show = window.scrollY > window.innerHeight * 1.2;
+        if (show === shown) return;
+        shown = show;
+        button.classList.toggle('is-shown', show);
+    };
+    const mount = () => { if (!button.isConnected) document.body.appendChild(button); update(); };
+    window.addEventListener('scroll', update, { passive: true });
+    document.addEventListener('livewire:navigated', mount);
+    if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
+})();

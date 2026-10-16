@@ -1,0 +1,24 @@
+/* Swipeable KPI rows on phones (resources/js/carousels.js). */
+@media (max-width: 640px) {
+    html body .vx-carousel {
+        display: grid !important;
+        grid-auto-flow: column !important;
+        grid-template-columns: none !important;
+        grid-auto-columns: 78% !important;
+        gap: 10px !important;
+        overflow-x: auto !important;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: 2px;
+        padding: 2px 2px 4px !important;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    .vx-carousel::-webkit-scrollbar { display: none; }
+    html body .vx-carousel > * { scroll-snap-align: start; grid-column: auto !important; grid-row: auto !important; min-width: 0; }
+    .vx-carousel-dots { display: flex; justify-content: center; gap: 6px; margin: 8px 0 14px; }
+    .vx-carousel-dots i { width: 6px; height: 6px; border-radius: 999px; background: rgb(124 58 237 / .25); transition: width .2s, background .2s; }
+    .vx-carousel-dots i.is-on { width: 18px; background: #7c3aed; }
+}
+@media (min-width: 641px) { .vx-carousel-dots { display: none; } }
+@media (prefers-reduced-motion: reduce) { .vx-carousel-dots i { transition: none; } }

@@ -69,7 +69,7 @@ html body .fi-main .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell.vx-mobile
 
 /* Shared phone controls: readable totals and reachable actions in drawers. */
 @media(max-width:767px){
-.vx-settings-layout>aside nav{display:flex;gap:4px;overflow-x:auto;white-space:nowrap}
+.vx-settings-layout>aside nav{display:flex;flex-wrap:wrap;gap:4px}
 .vx-settings-layout>aside{position:static;padding:6px}
 .vx-settings-layout .space-y-6{min-width:0}
 .vx-settings-save{bottom:calc(12px + env(safe-area-inset-bottom))}

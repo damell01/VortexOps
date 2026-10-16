@@ -792,7 +792,8 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 /* Mobile app shell — same information architecture as desktop, touch-first. */
 .vx-mobile-menu{display:none}
 @media(max-width:1023px){
-  html,body{max-width:100%;overflow-x:hidden}
+  /* clip, not hidden: hidden on both html and body makes body its own scroller, which un-sticks the top bar. */
+  html,body{max-width:100%;overflow-x:clip}
   .fi-main{padding-bottom:82px!important}
   .fi-page{padding-inline:12px!important}
   .fi-page-content{padding-top:12px!important}

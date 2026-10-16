@@ -62,3 +62,12 @@
   .vx-rest-mon { opacity: 1; }
   .vx-rest-ball { display: none; }
 }
+
+/* Toggle switches are buttons, but never take a button's size: blanket
+   button min-height/padding rules (button-hierarchy-responsive.css on some
+   builds, the phone rules) turned Filament's 44×24 switch into a round blob. */
+html .fi-body button.fi-toggle {
+    width: 2.75rem !important; min-width: 2.75rem !important;
+    height: 1.5rem !important; min-height: 1.5rem !important; max-height: 1.5rem !important;
+    padding: 0 !important; border-radius: 9999px !important; flex: none !important;
+}

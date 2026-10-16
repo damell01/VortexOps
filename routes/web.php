@@ -123,3 +123,11 @@ Route::middleware(['web', 'auth'])->prefix('admin/financial-reports')->name('fin
     Route::get('pay-runs/{batch}', [\App\Http\Controllers\FinancialReportController::class, 'run'])->name('pay-run');
     Route::get('business-statement', [\App\Http\Controllers\FinancialReportController::class, 'statement'])->name('statement');
 });
+
+Route::middleware(['web', 'auth', 'throttle:30,1'])->prefix('admin/push')->name('push.')->group(function () {
+    Route::get('config', [\App\Http\Controllers\WebPushController::class, 'config'])->name('config');
+    Route::post('status', [\App\Http\Controllers\WebPushController::class, 'status'])->name('status');
+    Route::post('subscriptions', [\App\Http\Controllers\WebPushController::class, 'store'])->name('store');
+    Route::delete('subscriptions', [\App\Http\Controllers\WebPushController::class, 'destroy'])->name('destroy');
+    Route::post('test', [\App\Http\Controllers\WebPushController::class, 'test'])->middleware('throttle:3,1,push-test:')->name('test');
+});

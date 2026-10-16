@@ -1,4 +1,4 @@
-<div class="vx-formula" data-vx-formula x-data="vxPayoutFormulaBuilder($wire.entangle('{{ $model }}'), $wire, @js(\App\Support\PayoutFormula::FIELDS), @js(\App\Support\PayoutFormula::samples()))">
+<div class="vx-formula" wire:ignore data-vx-formula x-data="vxPayoutFormulaBuilder($wire.entangle('{{ $model }}'), $wire, @js(\App\Support\PayoutFormula::FIELDS), @js(\App\Support\PayoutFormula::samples()))">
     <h3>Build a payout formula</h3>
     <p>Click fields and operators to build the calculation for one person on one show. You can also type directly.</p>
     <label class="mt-3">Find a field<input type="search" x-model="search" placeholder="Search revenue, hours, shipments…" autocomplete="off"></label>
@@ -8,7 +8,6 @@
         </template>
     </div>
     <label>Formula<textarea x-ref="formula" x-model="formula" rows="3" maxlength="1000" spellcheck="false" autocomplete="off" placeholder="streamer_share_net * (payout_percentage / 100)"></textarea></label>
-    @error($model)<p class="vx-formula-error" role="alert">{{ $message }}</p>@enderror
     <div class="vx-formula-toolbar" aria-label="Formula operators">
         <template x-for="[value, label] in [['+','+'],['-','−'],['*','×'],['/','÷'],['(','('],[')',')']]" :key="value"><button type="button" @click="insert(value)" :aria-label="'Insert ' + label" x-text="label"></button></template>
         <div><label class="sr-only">Percentage</label><input aria-label="Percentage" type="number" min="0" max="100" step="any" x-model="percentage"><button type="button" @click="insertPercentage">Insert %</button></div>
@@ -24,3 +23,5 @@
     <div class="vx-formula-preview"><button type="button" @click="preview" :disabled="busy || !(formula || '').trim()" x-text="busy ? 'Calculating…' : 'Preview calculation'"></button><output x-cloak x-show="result !== null" x-text="result" aria-live="polite"></output><span class="vx-formula-error" x-cloak x-show="error" x-text="error" role="alert"></span></div>
     <p class="vx-formula-note">Preview shows the formula subtotal. Existing owner fees, monthly tip separation and any additional in-house hourly pay still apply. Include tips explicitly in the formula when required. Save the team rates or individual override to apply it; preview saves nothing.</p>
 </div>
+
+@error($model)<p class="mt-2 text-sm text-danger-600" role="alert">{{ $message }}</p>@enderror

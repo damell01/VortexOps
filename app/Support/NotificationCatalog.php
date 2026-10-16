@@ -76,6 +76,11 @@ class NotificationCatalog
                 'description' => 'A streamer filed a show report that needs review.',
                 'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
             ],
+            'report_filed' => [
+                'group' => 'Reports', 'label' => 'A wild report appeared!', 'level' => 'info',
+                'description' => 'A streamer filed a show report that was approved automatically (and caught a Pokémon).',
+                'roles' => ['admins'], 'involved' => false, 'in_app' => true, 'email' => false,
+            ],
             'report_reviewed' => [
                 'group' => 'Reports', 'label' => 'Your report was reviewed', 'level' => 'action', 'locked' => true,
                 'description' => 'A report was approved, sent back for changes, reopened, or an edit request was declined.',

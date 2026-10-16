@@ -100,3 +100,20 @@ Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportContr
 Route::middleware(['auth', 'web'])->get('/admin/help-topics.json', function () {
     return response()->json(\App\Support\HelpTopics::all())->header('Cache-Control', 'private, max-age=300');
 })->name('help.topics');
+
+// The newest unread "A wild report appeared!" alert, for the Pokémon toast
+// (resources/js/delight.js asks when the notification bell's count goes up).
+Route::middleware(['auth', 'web'])->get('/admin/wild-report.json', function () {
+    $alert = auth()->user()->unreadNotifications()->where('created_at', '>=', now()->subMinutes(15))->latest()->limit(10)->get()
+        ->first(fn ($n) => ($n->data['vx']['event'] ?? null) === 'report_filed');
+    if (! $alert) {
+        return response()->json(null)->header('Cache-Control', 'no-store');
+    }
+    $url = collect($alert->data['actions'] ?? [])->pluck('url')->filter()->first();
+
+    return response()->json([
+        'id' => $alert->id, 'title' => $alert->data['title'] ?? 'A wild report appeared!', 'body' => $alert->data['body'] ?? '',
+        'species' => in_array($alert->data['vx']['species'] ?? null, array_keys(\App\Support\Pokedex::SPECIES), true) ? $alert->data['vx']['species'] : null,
+        'shiny' => (bool) ($alert->data['vx']['shiny'] ?? false), 'url' => $url,
+    ])->header('Cache-Control', 'no-store');
+})->name('wild-report');

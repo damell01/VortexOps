@@ -56,6 +56,7 @@ class NotificationSamples
             'approved_data_changed' => $alert('Whatnot data changed after approval', "{$title}: Gross Revenue changed after approval. Review Show Activity if the change affects operations or payout reporting.", 'warning'),
             'report_submission_requested' => $alert('Show report requested', "Please submit the end-of-stream report for \"{$title}\".", 'warning'),
             'report_submitted' => $alert('Show report submitted', "{$title} is ready for admin approval.", 'warning'),
+            'report_filed' => $alert('A wild report appeared!', "Jay filed {$title} and caught a Psyduck!", 'success'),
             'report_reviewed' => $alert('Changes Requested on Your Show Report', "Your show report for {$title} needs revision.\n\nReason: Two items are missing a location.", 'warning'),
             'report_reopen_requested' => $alert('A streamer wants to change a filed report', "{$title} — forgot to add the giveaway packs", 'warning'),
             'report_items_added' => $alert('Items added to your show report', "Items have been added to the log for \"{$title}\"", 'success'),

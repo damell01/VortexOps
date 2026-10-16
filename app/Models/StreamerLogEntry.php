@@ -59,6 +59,17 @@ class StreamerLogEntry extends Model
                 $entry->hours_review = null;
             }
         });
+
+        // Approved (automatically or by an admin): the streamer catches a Pokémon.
+        static::saved(function (self $entry) {
+            if ($entry->wasChanged('status') && $entry->status === 'admin_approved') {
+                try {
+                    \App\Support\Pokedex::catchFor($entry);
+                } catch (\Throwable $e) {
+                    report($e); // a Pokémon must never stop a report being approved
+                }
+            }
+        });
     }
 
     public static function statusLabels(): array
@@ -294,7 +305,9 @@ class StreamerLogEntry extends Model
             'revision_reason' => null,
         ]);
 
-        $this->notifyStreamer('✓ Show Report Approved', "Your show report for {$this->show?->title} has been approved.", 'success');
+        $caught = \App\Models\PokemonCatch::where('streamer_log_entry_id', $this->id)->first();
+        $this->notifyStreamer('✓ Show Report Approved', "Your show report for {$this->show?->title} has been approved."
+            . ($caught ? ' You caught ' . ($caught->shiny ? 'a shiny ' : 'a ') . \App\Support\Pokedex::name($caught->species) . '!' : ''), 'success');
         return $postingProblems;
     }
 

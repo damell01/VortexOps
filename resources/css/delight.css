@@ -392,3 +392,46 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 @keyframes vx-pika-say { from { opacity: 0; transform: translateY(6px) scale(.8); } to { opacity: 1; transform: none; } }
 @keyframes vx-pika-bolt { 0% { opacity: 0; transform: scale(.4); } 40% { opacity: 1; transform: scale(1.15); } 100% { opacity: 0; transform: translateY(-14px) scale(.9); } }
 @media (max-width: 600px) { .vx-pika { right: 12px; } .vx-pika-mon { width: 68px; } }
+
+/* Gotcha! A report's catch: a Poké Ball wobbles three times, clicks, and the Pokémon pops out. */
+.vx-gotcha { position: fixed; left: 50%; bottom: 28px; z-index: 95; translate: -50% 0; display: flex; align-items: center; gap: 14px; min-width: min(360px, calc(100vw - 32px)); padding: 12px 18px 12px 12px; border-radius: 18px;
+  background: linear-gradient(135deg, #1b0b36, #2e1065 60%, #4c1d95); color: #fff; box-shadow: 0 22px 50px -18px rgb(46 16 101 / .8), 0 0 0 1px rgb(196 181 253 / .25); cursor: pointer;
+  animation: vx-gotcha-in .45s cubic-bezier(.2,1.3,.4,1) both; }
+.vx-gotcha.is-out { animation: vx-gotcha-out .3s ease-in forwards; }
+@keyframes vx-gotcha-in { from { opacity: 0; transform: translateY(24px) scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes vx-gotcha-out { to { opacity: 0; transform: translateY(16px) scale(.96); } }
+.vx-gotcha-stage { position: relative; width: 76px; height: 76px; flex: none; }
+.vx-gotcha-ball { position: absolute; left: 50%; bottom: 6px; width: 34px; height: 34px; translate: -50% 0; background: url('/img/pokeball.svg') center / contain no-repeat;
+  animation: vx-gotcha-wobble 1.5s ease-in-out both, vx-gotcha-ballout .25s ease-in 1.55s forwards; transform-origin: 50% 90%; }
+@keyframes vx-gotcha-wobble { 0%, 100% { rotate: 0deg; } 10% { rotate: -22deg; } 20% { rotate: 16deg; } 30% { rotate: 0deg; } 42% { rotate: -18deg; } 52% { rotate: 12deg; } 62% { rotate: 0deg; } 74% { rotate: -12deg; } 82% { rotate: 8deg; } 90% { rotate: 0deg; } }
+@keyframes vx-gotcha-ballout { to { opacity: 0; scale: .4; } }
+.vx-gotcha-mon { position: absolute; inset: 0; margin: auto; max-width: 72px; max-height: 72px; image-rendering: pixelated; opacity: 0; filter: drop-shadow(0 6px 10px rgb(0 0 0 / .45));
+  animation: vx-gotcha-pop .5s cubic-bezier(.2,1.6,.4,1) 1.65s forwards; }
+@keyframes vx-gotcha-pop { from { opacity: 0; transform: translateY(14px) scale(.3); filter: brightness(4); } to { opacity: 1; transform: none; filter: drop-shadow(0 6px 10px rgb(0 0 0 / .45)); } }
+.vx-gotcha-text { display: grid; gap: 2px; min-width: 0; opacity: 0; animation: vx-gotcha-text .4s ease-out 1.75s forwards; }
+@keyframes vx-gotcha-text { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.vx-gotcha-text b { font-size: 15px; }
+.vx-gotcha-text i { justify-self: start; font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: rgb(251 191 36 / .2); color: #fde68a; }
+.vx-gotcha-text span { font-size: 12px; color: #c4b5fd; }
+.vx-gotcha.is-shiny { box-shadow: 0 22px 50px -18px rgb(46 16 101 / .8), 0 0 0 2px #fbbf24, 0 0 26px rgb(251 191 36 / .45); }
+.vx-gotcha.is-rare .vx-gotcha-text i { background: rgb(232 121 249 / .22); color: #f5d0fe; }
+@media (prefers-reduced-motion: reduce) { .vx-gotcha, .vx-gotcha * { animation: none !important; } .vx-gotcha-ball { display: none; } .vx-gotcha-mon, .vx-gotcha-text { opacity: 1; } }
+
+/* "A wild report appeared!": a Pokémon jumps out of the grass in the corner. */
+.vx-wild { position: fixed; right: 20px; top: 78px; z-index: 96; display: flex; align-items: center; gap: 12px; width: min(380px, calc(100vw - 32px)); padding: 12px 40px 12px 12px; border-radius: 16px;
+  background: var(--vx-wild-bg, #fff); color: #1f2937; border: 1px solid rgb(196 181 253 / .7); box-shadow: 0 20px 44px -18px rgb(46 16 101 / .5); overflow: hidden;
+  animation: vx-wild-in .45s cubic-bezier(.2,1.3,.4,1) both; }
+.dark .vx-wild { --vx-wild-bg: #17112a; color: #ede9fe; border-color: rgb(124 58 237 / .5); }
+.vx-wild.is-out { animation: vx-wild-out .3s ease-in forwards; }
+@keyframes vx-wild-in { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+@keyframes vx-wild-out { to { opacity: 0; transform: translateX(30px); } }
+.vx-wild-mon { position: relative; z-index: 1; width: 56px; height: 56px; flex: none; object-fit: contain; image-rendering: pixelated; animation: vx-wild-jump .6s cubic-bezier(.2,1.5,.4,1) .3s both; }
+@keyframes vx-wild-jump { from { opacity: 0; transform: translateY(26px) scale(.6); } to { opacity: 1; transform: none; } }
+.vx-wild-ball { width: 40px; height: 40px; flex: none; margin: 8px; background: url('/img/pokeball.svg') center / contain no-repeat; }
+.vx-wild-text { display: grid; gap: 2px; min-width: 0; }
+.vx-wild-text b { font-size: 14px; color: #6d28d9; }
+.dark .vx-wild-text b { color: #c4b5fd; }
+.vx-wild-text span { font-size: 13px; line-height: 1.35; }
+.vx-wild-open { align-self: center; flex: none; padding: 6px 12px; border-radius: 10px; background: #7c3aed; color: #fff !important; font-size: 12px; font-weight: 700; }
+.vx-wild-x { position: absolute; top: 6px; right: 10px; font-size: 18px; line-height: 1; color: #9ca3af; }
+@media (prefers-reduced-motion: reduce) { .vx-wild, .vx-wild * { animation: none !important; } }

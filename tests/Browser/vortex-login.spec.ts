@@ -3,6 +3,12 @@ import fs from 'node:fs';
 for (const width of [390, 1366, 1920]) {
  test(`workspace entrance at ${width}`, async ({page}) => {
   await page.setViewportSize({width,height:1000});
+  let releaseNavigation: () => void = () => {};
+  const gate = new Promise<void>(resolve => { releaseNavigation = resolve; });
+  await page.route('**/*', async route=>{
+   if(route.request().method()==='GET' && new URL(route.request().url()).pathname.startsWith('/admin') && new URL(route.request().url()).pathname !== '/admin/login') await gate;
+   await route.continue();
+  });
   await page.goto('/admin/login');
   const art=await page.locator('.vx-login-art').boundingBox();
   const form=await page.locator('.fi-simple-main').boundingBox();
@@ -10,12 +16,6 @@ for (const width of [390, 1366, 1920]) {
   else expect(art!.y+art!.height).toBeLessThanOrEqual(form!.y+2);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2)).toBe(true);
   await page.screenshot({path:`tests/Browser/output/login/before-${width}.png`,fullPage:true});
-  let releaseNavigation: () => void = () => {};
-  const gate = new Promise<void>(resolve => { releaseNavigation = resolve; });
-  await page.route('**/admin**', async route=>{
-   if(route.request().method()==='GET' && new URL(route.request().url()).pathname !== '/admin/login') await gate;
-   await route.continue();
-  });
   await page.locator('input[type=email]').fill(fs.readFileSync('storage/mockup-owner.txt','utf8').trim());
   await page.locator('input[type=password]').fill('MockupTest123!');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();

@@ -32,6 +32,10 @@
         if (!el) return;
         el.hidden = false;
         el.classList.remove('is-ready', 'is-leaving');
+        const title = el.querySelector('[data-vx-entry-status]');
+        if (title) title.textContent = 'Open your Dashboard';
+        const caption = el.querySelector('.vx-entry-caption');
+        if (caption) caption.textContent = 'Getting your dashboard ready.';
         const link = el.querySelector('[data-vx-entry-continue]');
         if (link) { link.href = destination; link.hidden = true; }
         slowTimer = setTimeout(() => {

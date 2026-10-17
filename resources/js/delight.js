@@ -129,14 +129,14 @@ function reportDone() {
 window.vxReportDone = reportDone;
 
 // ── Gotcha! The report caught a Pokémon: a ball wobbles, clicks, and out it pops ──
-function catchReveal(species, shiny, rarity, displayName, eventLabel) {
+function catchReveal(species, shiny, rarity, displayName, eventLabel, note = '') {
     if (!allowBig()) return;
     document.querySelector('.vx-gotcha')?.remove();
     const name = displayName || species.charAt(0).toUpperCase() + species.slice(1);
     const box = document.createElement('div');
     box.className = 'vx-gotcha' + (shiny ? ' is-shiny' : '') + (rarity === 'rare' || rarity === 'legendary' ? ' is-rare' : '') + (rarity === 'legendary' ? ' is-legendary' : '');
     box.setAttribute('role', 'status');
-    const tag = [eventLabel ? `${eventLabel} event!` : '', shiny ? '✨ Shiny!' : '', rarity === 'legendary' ? '🌟 Legendary!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : ''].filter(Boolean).join(' · ');
+    const tag = [note || (eventLabel ? `${eventLabel} event!` : ''), shiny ? '✨ Shiny!' : '', rarity === 'legendary' ? '🌟 Legendary!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : ''].filter(Boolean).join(' · ');
     box.innerHTML = `<div class="vx-gotcha-stage"><span class="vx-gotcha-ball"></span><img class="vx-gotcha-mon" src="/img/pokemon/${shiny ? 'shiny/' : ''}${species}.gif" alt=""></div>`
         + `<div class="vx-gotcha-text"><b>Gotcha! ${name} was caught!</b>${tag ? `<i>${tag}</i>` : ''}<span>Added to your Pokédex</span></div>`;
     const close = () => { box.classList.add('is-out'); setTimeout(() => box.remove(), 300); };
@@ -428,7 +428,7 @@ function boot() {
     const flashed = document.querySelector('[data-vx-celebrate]');
     if (flashed) setTimeout(flashed.dataset.vxCelebrate === 'report' ? reportDone : celebrate, 250);
     const caught = document.querySelector('[data-vx-caught]');
-    if (caught) { const { vxCaught, shiny, rarity, name, event } = caught.dataset; caught.remove(); setTimeout(() => { catchReveal(vxCaught, shiny === '1', rarity, name, event); chimeIfOn(); }, flashed ? 2500 : 300); }
+    if (caught) { const { vxCaught, shiny, rarity, name, event, note } = caught.dataset; caught.remove(); setTimeout(() => { catchReveal(vxCaught, shiny === '1', rarity, name, event, note); chimeIfOn(); }, flashed ? 2500 : 300); }
     queueHeads();
     topbarVar();
     tabBadge();

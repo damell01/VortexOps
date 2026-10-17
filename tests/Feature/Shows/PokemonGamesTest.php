@@ -199,23 +199,25 @@ class PokemonGamesTest extends TestCase
         $this->assertNull(PokemonCatch::where('user_id', $admin->id)->first()->streamer_id);
     }
 
-    public function test_staff_catch_one_pokemon_for_each_day_they_get_work_done(): void
+    public function test_everyone_catches_one_pokemon_a_day_for_checking_in(): void
     {
         $admin = User::factory()->create(['email' => 'daily@example.test']);
         $this->actingAs($admin);
         Show::create(['title' => 'Morning edit', 'show_date' => '2026-11-18', 'status' => 'draft']);
         Show::create(['title' => 'Afternoon edit', 'show_date' => '2026-11-18', 'status' => 'draft']);
+        $this->assertNull(\App\Support\PokemonHooks::checkIn($admin), 'already checked in today');
         $this->assertSame(1, PokemonCatch::where('user_id', $admin->id)->where('source', 'daily')->count(), 'once a day');
 
         $this->travelTo(CarbonImmutable::parse('2026-11-19 10:00', 'America/Chicago'));
         \App\Support\PokemonHooks::register(); // a new request
-        Show::create(['title' => 'Next day', 'show_date' => '2026-11-19', 'status' => 'draft']);
+        $this->assertNotNull(\App\Support\PokemonHooks::checkIn($admin), 'opening a page the next day');
         $this->assertSame(2, PokemonCatch::where('user_id', $admin->id)->where('source', 'daily')->count());
 
-        // Streamers catch from their reports, not from a day's saves.
-        $this->actingAs($this->user);
-        Show::create(['title' => 'Streamer edit', 'show_date' => '2026-11-19', 'status' => 'draft']);
-        $this->assertSame(0, PokemonCatch::where('source', 'daily')->where('streamer_id', $this->streamer->id)->count());
+        // Streamers check in too.
+        $streamerCatch = \App\Support\PokemonHooks::checkIn($this->user);
+        $this->assertSame($this->streamer->id, $streamerCatch?->streamer_id);
+        $this->assertSame('daily', $streamerCatch->source);
+        $this->assertStringContainsString('data-vx-caught="' . $streamerCatch->species . '"', \App\Support\PokemonHooks::revealHtml($streamerCatch, 'Daily check-in'));
     }
 
     public function test_every_tenth_approval_catches_the_approver_one(): void

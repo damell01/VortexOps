@@ -21,24 +21,14 @@ class PokemonHooks
     public static function register(): void
     {
         self::$dailySeen = [];
-        // A day's work: staff catch one Pokémon the first time each day they
-        // save anything. Checked at most once per person per day (cache), so
-        // ordinary saves cost nothing extra.
+        // A daily check-in also counts a save, for work done without a full page load.
         \Illuminate\Support\Facades\Event::listen('eloquent.saved: *', function (string $event, array $models) {
             $model = $models[0] ?? null;
-            $user = auth()->user();
-            if (! $user || ! $model || $model instanceof \App\Models\User || $model instanceof \Illuminate\Notifications\DatabaseNotification
+            if (! auth()->check() || ! $model || $model instanceof \App\Models\User || $model instanceof \Illuminate\Notifications\DatabaseNotification
                 || str_starts_with($model::class, 'App\\Models\\Pokemon') || $model instanceof \App\Models\WebPushSubscription) {
                 return;
             }
-            $day = now(BusinessTime::zone())->toDateString();
-            if (isset(self::$dailySeen[$user->id . $day])) {
-                return;
-            }
-            self::$dailySeen[$user->id . $day] = true;
-            if (\Illuminate\Support\Facades\Cache::add("pokemon-daily:{$user->id}:{$day}", 1, now()->addDay())) {
-                self::safely(fn () => PokemonGames::flashFor(PokemonGames::dailyActivity($user), 'For a day’s work'));
-            }
+            PokemonGames::flashFor(self::checkIn(auth()->user()), 'Daily check-in');
         });
 
         StreamerLogEntry::saved(function (StreamerLogEntry $report) {
@@ -71,6 +61,37 @@ class PokemonHooks
                 self::safely(fn () => PokemonGames::flashFor(PokemonGames::payRunPaid($batch, auth()->user()), 'For paying the team'));
             }
         });
+    }
+
+    /**
+     * The first time today this person opens a page or saves anything: their
+     * daily catch. Checked at most once per person per day (cache), so an
+     * ordinary page or save costs nothing extra. Null when already caught.
+     */
+    public static function checkIn(?\App\Models\User $user): ?\App\Models\PokemonCatch
+    {
+        if (! $user) {
+            return null;
+        }
+        $day = now(BusinessTime::zone())->toDateString();
+        if (isset(self::$dailySeen[$user->id . $day])) {
+            return null;
+        }
+        self::$dailySeen[$user->id . $day] = true;
+        if (! \Illuminate\Support\Facades\Cache::add("pokemon-daily:{$user->id}:{$day}", 1, now()->addDay())) {
+            return null;
+        }
+        $catch = null;
+        self::safely(function () use ($user, &$catch) { $catch = PokemonGames::dailyActivity($user); });
+
+        return $catch?->wasRecentlyCreated ? $catch : null;
+    }
+
+    /** The catch reveal for a page that is rendering now (delight.js plays it). */
+    public static function revealHtml(\App\Models\PokemonCatch $catch, string $note): string
+    {
+        return '<div data-vx-caught="' . e($catch->species) . '" data-shiny="' . ($catch->shiny ? '1' : '0') . '" data-rarity="' . e(Pokedex::rarity($catch->species))
+            . '" data-name="' . e(Pokedex::name($catch->species)) . '" data-note="' . e($note) . '" hidden></div>';
     }
 
     /** Tell the streamer about an evolution or a new egg. */

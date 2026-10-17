@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  * Everything you can do with Pokémon beyond the one a report catches
  * (App\Support\Pokedex): regions that open as you fill the last one, evolutions
  * for a run of on-time reports, Mystery Eggs, releasing and trading duplicates,
- * and catches for real work (a day's work for staff, a record show, a received
+ * and catches for real work (a daily check-in, a record show, a received
  * pallet, packing, approving, paying a run, settling hours).
  *
  * Every catch goes through grant(), under a key that names exactly what
@@ -475,14 +475,14 @@ class PokemonGames
     }
 
     /**
-     * A day's work: the first day each staff member (anyone without a
-     * streamer profile; streamers catch from their reports) saves anything,
-     * they catch one. Once per person per business day.
+     * A daily check-in: the first time each day someone uses the app (opens a
+     * page or saves anything), they catch one. Everyone, streamers included.
+     * Once per person per business day.
      */
     public static function dailyActivity(User $user): ?PokemonCatch
     {
         $trainer = Trainer::forUser($user);
-        if (! $trainer || $trainer->streamerId) {
+        if (! $trainer) {
             return null;
         }
 
@@ -523,7 +523,7 @@ class PokemonGames
     {
         return [
             'report' => 'Show report', 'encounter' => 'Record show', 'safari' => 'Pallet received', 'delivery' => 'Packing',
-            'approvals' => 'Approving reports', 'hours' => 'Settling hours', 'payrun' => 'Paying a pay run', 'daily' => 'A day’s work', 'egg' => 'Hatched from an egg',
+            'approvals' => 'Approving reports', 'hours' => 'Settling hours', 'payrun' => 'Paying a pay run', 'daily' => 'Daily check-in', 'egg' => 'Hatched from an egg',
         ][$source] ?? ucfirst($source);
     }
 

@@ -73,17 +73,16 @@ class WhatnotLiveRunTest extends TestCase
         $this->assertSame([], WhatnotLiveLog::lines());
     }
 
-    public function test_the_owner_menu_links_to_the_scraper(): void
+    public function test_admin_owner_tools_links_to_the_scraper_for_the_owner_only(): void
     {
         $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
-        $item = collect(\Filament\Facades\Filament::getPanel('admin')->getUserMenuItems())->first(fn ($i) => $i->getName() === 'whatnot_scraper');
-
-        $this->assertNotNull($item);
-        $this->assertTrue($item->isVisible());
-        $this->assertStringContainsString('whatnot-sync', $item->getUrl());
+        $html = view('filament.components.desktop-mega-nav')->render();
+        $ownerTools = substr($html, strpos($html, 'Owner tools'));
+        $this->assertStringContainsString('Whatnot Scraper', $ownerTools);
+        $this->assertStringContainsString(WhatnotSyncPage::getUrl(panel: 'admin'), $ownerTools);
 
         $this->actingAs(User::factory()->create(['email' => 'someone@example.com']));
-        $this->assertFalse($item->isVisible());
+        $this->assertStringNotContainsString('Whatnot Scraper', view('filament.components.desktop-mega-nav')->render());
     }
 
     public function test_the_page_shows_the_live_log_and_the_shows_pulled_this_run(): void

@@ -69,9 +69,9 @@ class WhatnotSyncPage extends Page
     public function runReporting(string $mode): void
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
-        abort_unless(in_array($mode, ['test', 'freshness', 'analytics', 'full'], true), 422);
+        abort_unless(in_array($mode, ['test', 'freshness', 'analytics', 'catchup', 'full'], true), 422);
         $active = $this->reportingJob;
-        if (in_array($active['status'] ?? null, ['queued', 'running'], true)) {
+        if (in_array($active['status'] ?? null, ['queued', 'running', 'waiting'], true)) {
             Notification::make()->title('A Whatnot job is already active')->warning()->send();
             return;
         }
@@ -79,8 +79,69 @@ class WhatnotSyncPage extends Page
             'mode' => $mode, 'status' => 'queued', 'launched_by' => auth()->id(),
             'queued_at' => now()->toIso8601String(), 'phase' => 'Waiting for queue worker',
         ]));
+        \App\Support\WhatnotLiveLog::clear();
         RunWhatnotReportingJob::dispatch($mode, (int) auth()->id());
         Notification::make()->title(ucfirst($mode).' Whatnot job queued')->success()->send();
+    }
+
+    public function getJobActiveProperty(): bool
+    {
+        return in_array($this->reportingJob['status'] ?? null, ['queued', 'running', 'waiting'], true);
+    }
+
+    /** What the scraper has printed so far this run (App\Support\WhatnotLiveLog). */
+    public function getLiveLogProperty(): array
+    {
+        return \App\Support\WhatnotLiveLog::lines();
+    }
+
+    /**
+     * Shows this run has written to — analytics filled or orders re-pulled —
+     * newest first, so you can watch the data land instead of reading logs.
+     */
+    public function getPulledThisRunProperty(): \Illuminate\Support\Collection
+    {
+        $since = $this->runStartedAt();
+        if (! $since) {
+            return collect();
+        }
+
+        return \App\Models\Show::query()
+            ->with('channel:id,name')
+            ->where(fn ($q) => $q->where('last_analytics_synced_at', '>=', $since)->orWhere('last_synced_at', '>=', $since))
+            ->get(['id', 'title', 'show_date', 'whatnot_channel_id', 'gross_revenue', 'whatnot_net', 'units_sold', 'buyers_count', 'analytics_sync_status', 'analytics_sync_note', 'last_analytics_synced_at', 'last_synced_at'])
+            ->sortByDesc(fn ($show) => max($show->last_analytics_synced_at?->getTimestamp() ?? 0, $show->last_synced_at?->getTimestamp() ?? 0))
+            ->take(30)
+            ->values();
+    }
+
+    /** Running totals for this run, and how much is still left to catch up. */
+    public function getRunStatsProperty(): array
+    {
+        $since = $this->runStartedAt();
+        $logs = $since ? ShowIngestionLog::where('created_at', '>=', $since) : null;
+        $reportingStart = \Illuminate\Support\Carbon::parse('2026-07-01');
+
+        return [
+            'analytics' => $since ? \App\Models\Show::where('last_analytics_synced_at', '>=', $since)->count() : 0,
+            'orders' => $since ? (clone $logs)->where('source', 'whatnot_orders')->count() : 0,
+            'still_due' => \App\Models\Show::query()->whereDate('show_date', '>=', $reportingStart)->readyForAnalytics()->missingAnalytics()->count(),
+            'elapsed' => $since ? \Carbon\CarbonInterval::seconds((int) $since->diffInSeconds(
+                ! $this->jobActive && ! empty($this->reportingJob['finished_at']) ? \Illuminate\Support\Carbon::parse($this->reportingJob['finished_at']) : now()
+            ))->cascade()->forHumans(['short' => true, 'parts' => 2]) : null,
+        ];
+    }
+
+    public function getRunSinceProperty(): ?\Illuminate\Support\Carbon
+    {
+        return $this->runStartedAt();
+    }
+
+    private function runStartedAt(): ?\Illuminate\Support\Carbon
+    {
+        $at = $this->reportingJob['started_at'] ?? $this->reportingJob['queued_at'] ?? null;
+
+        return $at ? \Illuminate\Support\Carbon::parse($at)->setTimezone(config('app.timezone')) : null;
     }
 
     public function importAnalyticsCsv(): void

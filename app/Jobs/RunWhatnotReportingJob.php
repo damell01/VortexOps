@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Artisan;
+use App\Support\WhatnotLiveLog;
 use App\Support\WhatnotPipelineLock;
 
 class RunWhatnotReportingJob implements ShouldQueue
@@ -31,6 +32,8 @@ class RunWhatnotReportingJob implements ShouldQueue
             'test' => ['--test' => true],
             'freshness' => ['--since' => now()->subDays(7)->toDateString(), '--show-limit' => 10, '--order-batch' => 10, '--analytics-limit' => 5, '--shipment-batch' => 10, '--max-runtime' => 2700, '--skip-if-busy' => true],
             'analytics' => ['--since' => '2026-07-01', '--analytics-only' => true, '--analytics-limit' => 0, '--max-runtime' => 21600, '--skip-if-busy' => true],
+            // Everything since July, every missing analytics row included — the "get us up to date" button.
+            'catchup' => ['--since' => '2026-07-01', '--show-limit' => 30, '--order-batch' => 30, '--analytics-limit' => 0, '--shipment-batch' => 30, '--max-runtime' => 12600, '--skip-if-busy' => true],
             'full' => ['--since' => '2026-07-01', '--show-limit' => 30, '--order-batch' => 30, '--analytics-limit' => 25, '--shipment-batch' => 30, '--max-runtime' => 10800, '--skip-if-busy' => true],
             default => throw new \InvalidArgumentException("Unknown Whatnot reporting mode: {$this->mode}"),
         };
@@ -81,9 +84,15 @@ class RunWhatnotReportingJob implements ShouldQueue
             'active_holder'=>null,
             'next_retry_at'=>null,
         ])));
+        WhatnotLiveLog::clear();
+        $live = new WhatnotLiveLog();
         try {
-            $code = Artisan::call('whatnot:sync-reporting', $args);
-            $output = trim(Artisan::output());
+            try {
+                $code = Artisan::call('whatnot:sync-reporting', $args, $live);
+            } finally {
+                $live->flush();
+            }
+            $output = trim($live->all());
 
             // --skip-if-busy intentionally returns success for scheduled jobs,
             // but a UI run must never display that as a completed scrape.

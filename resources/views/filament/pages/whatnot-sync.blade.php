@@ -1,5 +1,6 @@
 <x-filament-panels::page>
-    <div class="space-y-6" wire:poll.10s>
+    {{-- Poll fast only while a run is going, so the live log keeps up without loading an idle page. --}}
+    <div class="space-y-6" @if($this->jobActive) wire:poll.3s @else wire:poll.15s @endif>
         @php($job = $this->reportingJob)
         @php($locks = $this->pipelineStatus)
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -7,20 +8,27 @@
                 <div class="flex flex-col lg:flex-row lg:items-center gap-4">
                     <div class="flex-1">
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded-full {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-500 animate-pulse' : (($job['status'] ?? '') === 'blocked' ? 'bg-amber-500' : (($job['status'] ?? '') === 'failed' ? 'bg-red-500' : 'bg-emerald-500')) }}"></span>
+                            <span class="h-2.5 w-2.5 rounded-full {{ $this->jobActive ? 'bg-blue-500 animate-pulse' : (($job['status'] ?? '') === 'blocked' ? 'bg-amber-500' : (($job['status'] ?? '') === 'failed' ? 'bg-red-500' : 'bg-emerald-500')) }}"></span>
                             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Whatnot Scraper</h2>
                         </div>
                         <p class="text-xs text-gray-500 mt-1">{{ $job['phase'] ?? 'Ready for the next sync.' }}</p>
                     </div>
-                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ in_array($job['status'] ?? '', ['queued','running']) ? 'bg-blue-100 text-blue-700' : (($job['status'] ?? '') === 'blocked' ? 'bg-amber-100 text-amber-700' : (($job['status'] ?? '') === 'failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')) }}">
+                    <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $this->jobActive ? 'bg-blue-100 text-blue-700' : (($job['status'] ?? '') === 'blocked' ? 'bg-amber-100 text-amber-700' : (($job['status'] ?? '') === 'failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700')) }}">
                         {{ strtoupper($job['status'] ?? 'IDLE') }}
                     </span>
                 </div>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <button wire:click="runReporting('freshness')" class="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">Freshness Sync</button>
-                    <button wire:click="runReporting('analytics')" wire:confirm="Run missing/incomplete analytics for all channels from July 1 forward?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-violet-600 text-white hover:bg-violet-700">Analytics Backfill</button>
-                    <button wire:click="runReporting('full')" wire:confirm="Run the full Whatnot reconciliation from July 1 forward?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-gray-900 text-white hover:bg-gray-800">Full Reconciliation</button>
-                    <button wire:click="runReporting('test')" class="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700">Smoke Test</button>
+                <div class="vx-runs">
+                    @foreach([
+                        ['catchup', 'Catch up everything', 'Every show since July: discovery, all missing analytics, orders, shipments and ledger. Runs in the background for up to a few hours.', 'Run the full catch-up? It keeps the scraper busy until it is done, and you can watch it below.', 'is-primary'],
+                        ['freshness', 'Freshness sync', 'Last 7 days only. Quick, about 10–45 minutes.', null, ''],
+                        ['analytics', 'Analytics only', 'Just the shows still missing analytics, by ID.', 'Run missing/incomplete analytics for all channels from July 1 forward?', ''],
+                        ['full', 'Reconciliation', 'Everything since July, in smaller batches.', 'Run the full Whatnot reconciliation from July 1 forward?', ''],
+                        ['test', 'Smoke test', 'One show through each step, to check sign-in.', null, ''],
+                    ] as [$mode, $label, $hint, $confirm, $class])
+                        <button type="button" wire:click="runReporting('{{ $mode }}')" @if($confirm) wire:confirm="{{ $confirm }}" @endif @disabled($this->jobActive) class="vx-run {{ $class }}">
+                            <b>{{ $label }}</b><small>{{ $hint }}</small>
+                        </button>
+                    @endforeach
                 </div>
                 @if(!empty($job['started_at']))
                     <p class="text-xs text-gray-400">Started {{ \Carbon\Carbon::parse($job['started_at'])->diffForHumans() }}</p>
@@ -28,7 +36,7 @@
                 @if(!empty($job['error']))
                     <div class="rounded-lg bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-300">{{ $job['error'] }}</div>
                 @endif
-                @if(in_array($job['status'] ?? '', ['queued','running']))
+                @if($this->jobActive)
                     <div class="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"><div class="h-full w-2/3 animate-pulse rounded-full bg-violet-500"></div></div>
                 @endif
                 @if(!empty($job['output']))
@@ -71,6 +79,61 @@
                 </div>
             </div>
         </div>
+
+        {{-- Live run: what the scraper is printing and the shows it has written to, while it happens. --}}
+        @php($log = $this->liveLog)
+        @php($pulled = $this->pulledThisRun)
+        @php($stats = $this->runStats)
+        @php($since = $this->runSince)
+        <section class="vxr-live" aria-labelledby="vxr-live-h">
+            <div class="vxr-live-head">
+                <div>
+                    <h2 id="vxr-live-h">{{ $this->jobActive ? 'Live run' : 'Last run' }} @if(!empty($job['mode']))<span>· {{ ['catchup' => 'Catch up everything', 'freshness' => 'Freshness sync', 'analytics' => 'Analytics only', 'full' => 'Reconciliation', 'test' => 'Smoke test'][$job['mode']] ?? $job['mode'] }}</span>@endif</h2>
+                    <p>{{ $this->jobActive ? 'Updates every few seconds. You can leave this page; the run keeps going.' : 'Start a run above to watch it here.' }}</p>
+                </div>
+                @if($stats['elapsed'])<span class="vxr-live-time">{{ $stats['elapsed'] }}</span>@endif
+            </div>
+            <div class="vxr-live-stats">
+                <div><b>{{ number_format($stats['analytics']) }}</b><small>Shows with analytics pulled</small></div>
+                <div><b>{{ number_format($stats['orders']) }}</b><small>Shows with orders re-pulled</small></div>
+                <div class="{{ $stats['still_due'] ? 'is-due' : 'is-done' }}"><b>{{ number_format($stats['still_due']) }}</b><small>{{ $stats['still_due'] ? 'Shows still missing analytics' : 'All caught up on analytics' }}</small></div>
+            </div>
+            <div class="vxr-live-grid">
+                <div class="vxr-live-col">
+                    <h3>What it's doing</h3>
+                    <pre class="vxr-live-log" wire:key="vxr-live-log"
+                         x-data="{ stick: true }"
+                         x-init="$el.scrollTop = $el.scrollHeight; new MutationObserver(() => { if (stick) $el.scrollTop = $el.scrollHeight }).observe($el, { childList: true, subtree: true, characterData: true })"
+                         @scroll="stick = $el.scrollTop + $el.clientHeight >= $el.scrollHeight - 40">@forelse($log as $line)<span @class(['is-bad' => preg_match('/fail|error|denied|timeout|challenge/i', $line), 'is-good' => preg_match('/collected|updated|reconciled|created|finished|PASS/', $line) && ! preg_match('/fail|error/i', $line)])>{{ $line }}</span>
+@empty<span class="is-idle">{{ $this->jobActive ? 'Waiting for the queue worker to pick this up…' : 'Nothing yet.' }}</span>@endforelse</pre>
+                </div>
+                <div class="vxr-live-col">
+                    <h3>What it's pulled <span>{{ $pulled->count() >= 30 ? 'latest 30' : $pulled->count() }}</span></h3>
+                    <div class="vx-pulled">
+                        @forelse($pulled as $show)
+                            <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}" class="vx-pulled-card" wire:key="pulled-{{ $show->id }}">
+                                <span class="vx-pulled-top">
+                                    <b>{{ $show->title ?: 'Show #'.$show->id }}</b>
+                                    <small>{{ $show->channel?->name }} · {{ $show->show_date?->format('M j') }}</small>
+                                </span>
+                                <span class="vx-pulled-nums">
+                                    <span><small>Gross</small>{{ $show->gross_revenue !== null ? '$'.number_format((float) $show->gross_revenue, 0) : '—' }}</span>
+                                    <span><small>Net</small>{{ $show->whatnot_net !== null ? '$'.number_format((float) $show->whatnot_net, 0) : '—' }}</span>
+                                    <span><small>Sold</small>{{ $show->units_sold ?? '—' }}</span>
+                                    <span><small>Buyers</small>{{ $show->buyers_count ?? '—' }}</span>
+                                </span>
+                                <span class="vx-pulled-tags">
+                                    @if($show->last_analytics_synced_at && $since && $show->last_analytics_synced_at->gte($since))<i class="ok">Analytics {{ $show->analytics_sync_status === 'partial' ? '(partial)' : '' }}</i>@endif
+                                    @if($show->last_synced_at && $since && $show->last_synced_at->gte($since))<i>Orders</i>@endif
+                                </span>
+                            </a>
+                        @empty
+                            <p class="vxr-live-empty">Shows appear here as their numbers come in.</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-gray-900 p-5 space-y-4">
             <div>
@@ -374,4 +437,60 @@
         </div>
 
     </div>
+<style>
+.vx-runs { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: .5rem; }
+.vx-run { display: grid; gap: .2rem; text-align: left; padding: .65rem .8rem; border-radius: .75rem; border: 1px solid rgb(229 231 235); background: #fff; transition: border-color .15s, box-shadow .15s; }
+.vx-run b { font-size: .8rem; color: rgb(17 24 39); }
+.vx-run small { font-size: .7rem; line-height: 1.3; color: rgb(107 114 128); }
+.vx-run:hover:not(:disabled) { border-color: #a78bfa; box-shadow: 0 0 0 3px rgb(124 58 237 / .08); }
+.vx-run:disabled { opacity: .5; cursor: not-allowed; }
+.vx-run.is-primary { background: linear-gradient(135deg, #7c3aed, #6d28d9); border-color: #6d28d9; }
+.vx-run.is-primary b, .vx-run.is-primary small { color: #fff; }
+.vx-run.is-primary small { opacity: .85; }
+.dark .vx-run { background: rgb(17 24 39); border-color: rgb(55 65 81); }
+.dark .vx-run b { color: rgb(243 244 246); }
+.dark .vx-run.is-primary { background: linear-gradient(135deg, #7c3aed, #5b21b6); }
+.vxr-live { display: grid; gap: .9rem; padding: 1.1rem 1.2rem; border-radius: .9rem; border: 1px solid rgb(221 214 254); background: #fff; min-width: 0; }
+.dark .vxr-live { border-color: rgb(91 33 182 / .6); background: rgb(17 24 39); }
+.vxr-live-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+.vxr-live-head h2 { font-size: .9rem; font-weight: 700; }
+.vxr-live-head h2 span { font-weight: 500; color: rgb(124 58 237); }
+.vxr-live-head p { font-size: .75rem; color: rgb(107 114 128); margin-top: .15rem; }
+.vxr-live-time { flex: none; font-size: .72rem; font-weight: 700; padding: .2rem .6rem; border-radius: 999px; background: rgb(245 243 255); color: #6d28d9; }
+.dark .vxr-live-time { background: rgb(46 16 101 / .5); color: #ddd6fe; }
+.vxr-live-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.vxr-live-stats div { min-width: 0; padding: .55rem .7rem; border-radius: .7rem; background: rgb(249 250 251); }
+.dark .vxr-live-stats div { background: rgb(31 41 55 / .6); }
+.vxr-live-stats b { display: block; font-size: 1.15rem; line-height: 1.2; }
+.vxr-live-stats small { display: block; font-size: .68rem; color: rgb(107 114 128); }
+.vxr-live-stats .is-due b { color: #b45309; }
+.vxr-live-stats .is-done b { color: #059669; }
+.vxr-live-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: .9rem; }
+@media (max-width: 1024px) { .vxr-live-grid { grid-template-columns: minmax(0, 1fr); } }
+.vxr-live-col { display: grid; gap: .4rem; align-content: start; min-width: 0; }
+.vxr-live-col h3 { font-size: .75rem; font-weight: 700; color: rgb(75 85 99); }
+.vxr-live-col h3 span { font-weight: 500; color: rgb(156 163 175); }
+.dark .vxr-live-col h3 { color: rgb(209 213 219); }
+.vxr-live-log { height: 22rem; overflow-y: auto; margin: 0; padding: .7rem .8rem; border-radius: .7rem; background: #0f0a1f; color: #d1d5db; font-size: .7rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.vxr-live-log .is-bad { color: #fca5a5; }
+.vxr-live-log .is-good { color: #86efac; }
+.vxr-live-log .is-idle { color: #a78bfa; }
+.vx-pulled { display: grid; gap: .45rem; max-height: 22rem; overflow-y: auto; padding-right: .15rem; }
+.vx-pulled-card { display: grid; gap: .35rem; padding: .55rem .7rem; border-radius: .7rem; border: 1px solid rgb(229 231 235); background: #fff; animation: vx-pulled-in .35s ease both; }
+.vx-pulled-card:hover { border-color: #c4b5fd; }
+.dark .vx-pulled-card { border-color: rgb(55 65 81); background: rgb(31 41 55 / .5); }
+@keyframes vx-pulled-in { from { opacity: 0; transform: translateY(-4px); } }
+.vx-pulled-top { display: grid; min-width: 0; }
+.vx-pulled-top b { font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vx-pulled-top small, .vx-pulled-nums small { font-size: .66rem; color: rgb(107 114 128); }
+.vx-pulled-nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .3rem; font-size: .76rem; font-weight: 700; }
+.vx-pulled-nums small { display: block; font-weight: 500; }
+.vx-pulled-tags { display: flex; flex-wrap: wrap; gap: .3rem; }
+.vx-pulled-tags i { font-style: normal; font-size: .64rem; font-weight: 700; padding: .1rem .45rem; border-radius: 999px; background: rgb(243 244 246); color: rgb(75 85 99); }
+.vx-pulled-tags i.ok { background: rgb(237 233 254); color: #6d28d9; }
+.dark .vx-pulled-tags i { background: rgb(55 65 81); color: rgb(209 213 219); }
+.dark .vx-pulled-tags i.ok { background: rgb(76 29 149 / .5); color: #ddd6fe; }
+.vxr-live-empty { font-size: .76rem; color: rgb(107 114 128); padding: 1rem; text-align: center; border: 1px dashed rgb(221 214 254); border-radius: .7rem; }
+@media (prefers-reduced-motion: reduce) { .vx-pulled-card { animation: none; } }
+</style>
 </x-filament-panels::page>

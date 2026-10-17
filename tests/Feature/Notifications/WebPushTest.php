@@ -90,13 +90,14 @@ class WebPushTest extends TestCase
         Queue::assertPushed(SendDevicePush::class, fn ($job) => $job->userId === $user->id && $job->notificationId === $notice->id);
     }
 
-    public function test_delivery_rechecks_preferences_and_keeps_sensitive_details_off_lock_screen(): void
+    public function test_delivery_rechecks_preferences_and_shows_the_notification_itself(): void
     {
         $user = $this->user(); $data = $this->subscription();
         $this->postJson(route('push.store'), $data)->assertOk();
-        $notice = $user->notifications()->create(['id' => (string) Str::uuid(), 'type' => 'test', 'data' => ['title' => 'Payroll $1000', 'body' => 'Private figures']]);
+        $notice = $user->notifications()->create(['id' => (string) Str::uuid(), 'type' => 'test', 'data' => ['title' => 'Show report approved', 'body' => '**Friday Breaks** was <b>approved</b>.']]);
         $push = $this->mock(WebPushService::class);
-        $push->shouldReceive('send')->once()->withArgs(fn ($device, $payload) => $device->user_id === $user->id && ! str_contains(json_encode($payload), '1000') && ! str_contains(json_encode($payload), 'Private figures'))->andReturnTrue();
+        $push->shouldReceive('send')->once()->withArgs(fn ($device, $payload) => $device->user_id === $user->id
+            && $payload['title'] === 'Show report approved' && $payload['body'] === 'Friday Breaks was approved.')->andReturnTrue();
         (new SendDevicePush($user->id, $notice->id))->handle($push);
         $user->update(['notifications_enabled' => false]);
         (new SendDevicePush($user->id, $notice->id))->handle($push);

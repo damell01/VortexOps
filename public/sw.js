@@ -101,7 +101,7 @@ async function networkWithStaleFallback(req) {
     }
 }
 
-// Device push: payloads contain no payroll or personal details.
+// Device push: shows the notification's own title and text (App\Jobs\SendDevicePush).
 self.addEventListener('push', event => {
     let payload = {};
     try { payload = event.data?.json() || {}; } catch (_) {}
@@ -109,7 +109,8 @@ self.addEventListener('push', event => {
     let target;
     try { target = new URL(raw, self.location.origin); } catch (_) { target = new URL('/admin', self.location.origin); }
     if (target.origin !== self.location.origin) target = new URL('/admin', self.location.origin);
-    event.waitUntil(self.registration.showNotification('Vortex Ops', {
+    const title = typeof payload.title === 'string' && payload.title.trim() ? payload.title.slice(0, 80) : 'Vortex Ops';
+    event.waitUntil(self.registration.showNotification(title, {
         body: typeof payload.body === 'string' ? payload.body.slice(0, 180) : 'You have a new alert. Open Vortex Ops to view it.',
         icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
         tag: typeof payload.tag === 'string' ? payload.tag : 'vortex-alert',

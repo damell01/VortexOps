@@ -16,7 +16,7 @@ use Livewire\Attributes\Computed;
 /**
  * Anyone's own Pokédex (App\Support\Pokedex, PokemonGames): streamers catch
  * from their reports, everyone catches from their work. Regions, badges,
- * eggs, the team raid, releasing and trading duplicates all live here.
+ * eggs, releasing and trading duplicates all live here.
  * Its own page, so the sprites only load when someone opens it.
  */
 class MyPokedex extends Page
@@ -40,17 +40,6 @@ class MyPokedex extends Page
     public static function canAccess(): bool
     {
         return auth()->check();
-    }
-
-    public function mount(): void
-    {
-        // The team beat a raid since they last looked: collect the Legendary.
-        if ($trainer = $this->trainer()) {
-            $won = rescue(fn () => PokemonGames::claimRaid($trainer), null, true);
-            if ($won?->wasRecentlyCreated) {
-                session()->now('vx_caught', ['species' => $won->species, 'shiny' => $won->shiny, 'rarity' => 'legendary', 'note' => 'The team won the raid!']);
-            }
-        }
     }
 
     public function trainer(): ?Trainer
@@ -148,7 +137,7 @@ class MyPokedex extends Page
         ];
     }
 
-    // ── Eggs and the raid ───────────────────────────────────────────────
+    // ── Eggs ───────────────────────────────────────────────
 
     #[Computed] public function eggs(): Collection
     {
@@ -157,11 +146,4 @@ class MyPokedex extends Page
         return $t ? PokemonGames::eggsFor($t)->with('hatched:id,species,shiny')->latest('id')->limit(8)->get() : collect();
     }
 
-    #[Computed] public function raid(): array
-    {
-        $goal = PokemonGames::raidGoal();
-        $progress = PokemonGames::raidProgress();
-
-        return ['goal' => $goal, 'progress' => $progress, 'boss' => PokemonGames::raidBoss(), 'pct' => $goal > 0 ? min(100, (int) floor($progress / $goal * 100)) : 0];
-    }
 }

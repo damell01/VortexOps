@@ -8,7 +8,6 @@ use App\Models\PokemonCatch;
 use App\Models\PokemonEgg;
 use App\Models\PokemonEvolution;
 use App\Models\PokemonTrade;
-use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
 use App\Models\WeeklyPayoutBatch;
@@ -22,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  * Everything you can do with Pokémon beyond the one a report catches
  * (App\Support\Pokedex): regions that open as you fill the last one, evolutions
  * for a run of on-time reports, Mystery Eggs, releasing and trading duplicates,
- * the monthly team raid, and catches for real work (a record show, a received
+ * and catches for real work (a record show, a received
  * pallet, packing, approving, paying a run, settling hours).
  *
  * Every catch goes through grant(), under a key that names exactly what
@@ -412,61 +411,6 @@ class PokemonGames
         }
     }
 
-    // ── Team raid ───────────────────────────────────────────────────────
-
-    /**
-     * The month's raid goal sets itself: beat last month's Whatnot gross.
-     * Nothing to beat (no sales last month) means no raid that month.
-     */
-    public static function raidGoal(?CarbonImmutable $month = null): float
-    {
-        $month ??= CarbonImmutable::now(BusinessTime::zone());
-
-        return self::raidProgress($month->subMonthNoOverflow());
-    }
-
-    /** This month's Legendary: the same for everyone, different each month. */
-    public static function raidBoss(?CarbonImmutable $month = null): string
-    {
-        $month ??= CarbonImmutable::now(BusinessTime::zone());
-        $legends = collect(Pokedex::DEX)->filter(fn ($e) => $e[2] === 'legendary')->keys()->values();
-
-        return $legends[crc32('raid|' . $month->format('Y-m')) % $legends->count()];
-    }
-
-    /** Whatnot gross for the month so far, counted toward the raid. */
-    public static function raidProgress(?CarbonImmutable $month = null): float
-    {
-        $month ??= CarbonImmutable::now(BusinessTime::zone());
-
-        return (float) Cache::remember('pokemon-raid:' . $month->format('Y-m'), 600, fn () => Show::whereBetween('show_date', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()])
-            ->where('status', '!=', 'cancelled')->sum('gross_revenue'));
-    }
-
-    /**
-     * The team beat last month's sales this month (or did last month): everyone who caught
-     * anything that month catches the raid Legendary. Claimed when they next
-     * open their Pokédex.
-     */
-    public static function claimRaid(Trainer $trainer): ?PokemonCatch
-    {
-        $now = CarbonImmutable::now(BusinessTime::zone());
-        foreach ([$now, $now->subMonthNoOverflow()] as $month) {
-            $key = 'raid:' . $month->format('Y-m') . ':' . $trainer->key();
-            $goal = self::raidGoal($month);
-            if ($goal <= 0 || PokemonCatch::where('source_key', $key)->exists() || self::raidProgress($month) <= $goal) {
-                continue;
-            }
-            $joined = PokemonCatch::ownedBy($trainer)->where('source', '!=', 'raid')
-                ->whereBetween('caught_at', [$month->startOfMonth(), $month->endOfMonth()])->exists();
-            if ($joined) {
-                return self::grant($trainer, 'raid', $key, self::raidBoss($month));
-            }
-        }
-
-        return null;
-    }
-
     // ── Catches for real work ───────────────────────────────────────────
 
     /** A record show: a wild Pokémon turns up for its streamer. */
@@ -565,7 +509,6 @@ class PokemonGames
         return [
             'report' => 'Show report', 'encounter' => 'Record show', 'safari' => 'Pallet received', 'delivery' => 'Packing',
             'approvals' => 'Approving reports', 'hours' => 'Settling hours', 'payrun' => 'Paying a pay run', 'egg' => 'Hatched from an egg',
-            'raid' => 'Team raid',
         ][$source] ?? ucfirst($source);
     }
 

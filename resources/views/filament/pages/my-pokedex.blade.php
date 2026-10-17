@@ -4,28 +4,20 @@
     $raid = $this->raid;
     $trades = $this->trades;
     $eggs = $this->eggs;
-    $isOwner = auth()->user()?->isOwner();
 @endphp
 <div class="vxp">
     <div class="vxp-row">
-        {{-- Team raid: a monthly sales goal; beat it and everyone who caught anything gets the month's Legendary. --}}
+        {{-- Team raid: beat last month's Whatnot sales and everyone who caught a Pokémon this month gets the month's Legendary. --}}
         <section class="vxp-card vxp-raid" aria-labelledby="vxp-raid-h">
             <img src="/img/pokemon/{{ $raid['boss'] }}.gif" alt="" class="vxp-raid-boss">
             <div class="min-w-0 flex-1">
                 <h2 id="vxp-raid-h">Team raid: {{ \App\Support\Pokedex::name($raid['boss']) }}</h2>
                 @if ($raid['goal'] > 0)
-                    <p>Hit ${{ number_format($raid['goal']) }} in Whatnot sales this month and everyone who caught a Pokémon this month catches {{ \App\Support\Pokedex::name($raid['boss']) }}.</p>
-                    <div class="vxp-bar" role="img" aria-label="{{ $raid['pct'] }}% of the raid goal"><i style="width: {{ $raid['pct'] }}%"></i></div>
-                    <p class="vxp-sub"><b>${{ number_format($raid['progress']) }}</b> of ${{ number_format($raid['goal']) }} · {{ $raid['pct'] }}%{{ $raid['pct'] >= 100 ? ' — raid won!' : '' }}</p>
+                    <p>Beat last month’s ${{ number_format($raid['goal']) }} in Whatnot sales and everyone who caught a Pokémon this month catches {{ \App\Support\Pokedex::name($raid['boss']) }}.</p>
+                    <div class="vxp-bar" role="img" aria-label="{{ $raid['pct'] }}% of last month's sales"><i style="width: {{ $raid['pct'] }}%"></i></div>
+                    <p class="vxp-sub"><b>${{ number_format($raid['progress']) }}</b> of ${{ number_format($raid['goal']) }} · {{ $raid['pct'] }}%{{ $raid['progress'] > $raid['goal'] ? ' — raid won!' : '' }}</p>
                 @else
-                    <p>No raid this month{{ $isOwner ? ' yet. Set a sales goal to start one.' : '.' }}</p>
-                @endif
-                @if ($isOwner)
-                    <form wire:submit="saveRaidGoal" class="vxp-goal">
-                        <label for="vxp-goal-in">Monthly goal ($)</label>
-                        <input id="vxp-goal-in" type="text" inputmode="decimal" wire:model="raidGoal" placeholder="e.g. 750000">
-                        <button type="submit" class="vxp-btn">Save</button>
-                    </form>
+                    <p>The raid starts once there’s a month of sales to beat.</p>
                 @endif
             </div>
         </section>
@@ -121,8 +113,6 @@
 .vxp-bar { height: .55rem; border-radius: 999px; background: rgb(237 233 254); overflow: hidden; }
 .dark .vxp-bar { background: rgb(46 16 101 / .6); }
 .vxp-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #f59e0b); transition: width .6s ease; }
-.vxp-goal { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .78rem; }
-.vxp-goal input { width: 9rem; min-height: 2.25rem; border-radius: .6rem; border: 1px solid rgb(209 213 219); padding: 0 .6rem; font-size: .85rem; background: transparent; }
 .vxp-btn { min-height: 2.25rem; padding: 0 .9rem; border-radius: .6rem; border: 1px solid rgb(209 213 219); background: #fff; font-size: .8rem; font-weight: 700; color: #4c1d95; }
 .dark .vxp-btn { background: rgb(31 41 55); border-color: rgb(75 85 99); color: #ddd6fe; }
 .vxp-btn.primary { background: #7c3aed; border-color: #7c3aed; color: #fff; }

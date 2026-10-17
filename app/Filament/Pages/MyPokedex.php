@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Models\PokemonCatch;
 use App\Models\PokemonTrade;
-use App\Models\Setting;
 use App\Models\User;
 use App\Support\Pokedex;
 use App\Support\PokemonGames;
@@ -29,7 +28,6 @@ class MyPokedex extends Page
     public string $tradeMine = '';
     public string $tradeWith = '';
     public string $tradeTheirs = '';
-    public string $raidGoal = '';
 
     public function getView(): string { return 'filament.pages.my-pokedex'; }
     public function getSubheading(): ?string
@@ -46,7 +44,6 @@ class MyPokedex extends Page
 
     public function mount(): void
     {
-        $this->raidGoal = (string) (PokemonGames::raidGoal() ?: '');
         // The team beat a raid since they last looked: collect the Legendary.
         if ($trainer = $this->trainer()) {
             $won = rescue(fn () => PokemonGames::claimRaid($trainer), null, true);
@@ -166,13 +163,5 @@ class MyPokedex extends Page
         $progress = PokemonGames::raidProgress();
 
         return ['goal' => $goal, 'progress' => $progress, 'boss' => PokemonGames::raidBoss(), 'pct' => $goal > 0 ? min(100, (int) floor($progress / $goal * 100)) : 0];
-    }
-
-    public function saveRaidGoal(): void
-    {
-        abort_unless(auth()->user()?->isOwner(), 403);
-        $goal = max(0, (float) preg_replace('/[^0-9.]/', '', $this->raidGoal));
-        Setting::set('pokemon_raid_goal', $goal ?: 0);
-        Notification::make()->title($goal ? 'Raid goal set to $' . number_format($goal) : 'Raid turned off')->success()->send();
     }
 }

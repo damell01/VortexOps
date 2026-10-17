@@ -173,13 +173,24 @@ class SyncWhatnotReporting extends Command
                 Setting::set('whatnot_ui_job', json_encode($state));
             }
         };
-        $retry = function (callable $work, string $phase) use ($progress) {
+        // A Cloudflare check or signed-out page isn't transient: retrying, or moving
+        // on to the next channel, only means more page loads into the same wall
+        // and a longer lock-out. Once seen, everything else in this run is skipped.
+        $blocked = null;
+        $retry = function (callable $work, string $phase) use ($progress, &$blocked) {
+            if ($blocked) {
+                throw $blocked;
+            }
             $last = null;
             for ($attempt = 1; $attempt <= 2; $attempt++) {
                 try {
                     return $work();
                 } catch (\Throwable $e) {
                     $last = $e;
+                    if ($e instanceof \App\Exceptions\WhatnotBlockedException) {
+                        $blocked = $e;
+                        break;
+                    }
                     if ($attempt < 2) {
                         $progress("{$phase}: transient failure; retrying once in 3 seconds — {$this->describeError($e)}");
                         sleep(3);
@@ -194,6 +205,10 @@ class SyncWhatnotReporting extends Command
             foreach ($channels as $index => $channel) {
                 if (WhatnotRunControl::stopRequestedSince($startedAt)) {
                     $this->warn('Stopped from Scraper Status so a fresh run could start.');
+                    break;
+                }
+                if ($blocked) {
+                    $this->warn('Stopped: Whatnot showed a Cloudflare check or signed-out page. Shows pulled before that are saved. Wait 30–60 minutes before running again; if it keeps happening, refresh the sign-in with php artisan whatnot:login.');
                     break;
                 }
                 if (! $testMode && (microtime(true) - $startedAt) >= $maxRuntime) {

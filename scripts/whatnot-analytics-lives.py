@@ -742,7 +742,7 @@ def historical_analytics(module, session):
     target_set = set(targets)
     rows: list[dict[str, Any]] = []
     module.info(
-        f"historical-analytics: full Past scan -> See Analytics "
+        f"historical-analytics: direct by ID, Past list as fallback "
         f"since={since or 'all'} targets={len(target_ids)} batch={len(targets)}"
     )
 
@@ -812,119 +812,127 @@ def historical_analytics(module, session):
 
     def action(page):
         module.prepare(page)
-        page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
-        page.wait_for_timeout(1800)
-        module.check_login(page)
-        if not select_tab(module, page, "Past"):
-            return
-
         pending = list(targets)
         total = len(pending)
-        index = recent_index(page)
-        matched = [live_id for live_id in pending if live_id in index]
-        module.info(
-            f"historical-analytics: Past index complete rows={len(index)} "
-            f"matched={len(matched)}/{total}"
-        )
 
-        for position, live_id in enumerate(pending, 1):
+        def collect(metric, live_id, target, position, how):
             meta = target_meta.get(live_id, {})
-            expected_title = clean(meta.get("title"))
-            expected_date = clean(meta.get("show_date")) or None
-            target = index.get(live_id)
-
-            if not target:
-                # Not matched in the Past list (a row without an ID link, or one the
-                # virtual list didn't render): open the show's analytics page directly
-                # by its ID before giving up. Only a page that really belongs to this
-                # show counts.
-                direct = open_analytics_by_id(module, page, live_id)
-                if direct:
-                    metric = wait_for_metrics(module, page, timeout_ms=30000)
-                    if metric and has_useful_data(metric):
-                        metric["whatnot_live_id"] = live_id
-                        metric["title"] = expected_title or metric.get("title")
-                        metric["show_date"] = expected_date or metric.get("show_date")
-                        metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
-                        for key in ("_preview", "_titles", "_dates"):
-                            metric.pop(key, None)
-                        rows.append(metric)
-                        module.info(
-                            f"historical-analytics [{position}/{total}]: collected uuid={live_id} directly "
-                            f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
-                        )
-                        continue
-                module.info(
-                    f"historical-analytics [{position}/{total}]: uuid={live_id} not found in scanned Past history "
-                    "and its analytics page did not load; leaving due for later/historical retry"
-                )
-                rows.append({
-                    "whatnot_live_id": live_id,
-                    "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Show's analytics weren't reachable yet (not present in the scanned Past list, and its analytics page didn't load).",
-                })
-                continue
-            if not verify_identity(module, target, live_id, expected_title, expected_date):
-                rows.append({
-                    "whatnot_live_id": live_id,
-                    "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Seller Hub row identity did not match the database target.",
-                })
-                continue
-
-            # Re-open Past for each matched target because See Analytics navigates away.
-            if position > 1:
-                try:
-                    page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
-                except Exception as exc:
-                    module.info(f"historical-analytics: return to Seller Hub warning={exc}")
-                page.wait_for_timeout(1000)
-                module.check_login(page)
-                if not select_tab(module, page, "Past"):
-                    break
-
-            if not click_target_analytics(module, page, target):
-                rows.append({
-                    "whatnot_live_id": live_id,
-                    "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Past row found but See Analytics could not be opened.",
-                })
-                continue
-
-            module.info(
-                f"historical-analytics [{position}/{total}]: See Analytics opened uuid={live_id} url={page.url}"
-            )
-            metric = wait_for_metrics(module, page, timeout_ms=30000)
-            if not metric or not has_useful_data(metric):
-                rows.append({
-                    "whatnot_live_id": live_id,
-                    "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "See Analytics loaded but metrics are not stable/ready yet.",
-                })
-                module.info(
-                    f"historical-analytics [{position}/{total}]: metrics not ready uuid={live_id}; leaving due"
-                )
-                continue
-
             metric["whatnot_live_id"] = live_id
-            metric["cover_image_url"] = target.get("cover_image_url")
-            metric["title"] = expected_title or metric.get("title")
-            metric["show_date"] = expected_date or metric.get("show_date")
+            if target:
+                metric["cover_image_url"] = target.get("cover_image_url")
+            metric["title"] = clean(meta.get("title")) or metric.get("title")
+            metric["show_date"] = clean(meta.get("show_date")) or metric.get("show_date")
             metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
-            metric.pop("_preview", None)
-            metric.pop("_titles", None)
-            metric.pop("_dates", None)
+            for key in ("_preview", "_titles", "_dates"):
+                metric.pop(key, None)
             rows.append(metric)
             module.info(
-                f"historical-analytics [{position}/{total}]: collected uuid={live_id} "
+                f"historical-analytics [{position}/{total}]: collected uuid={live_id} {how}"
                 f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')} "
                 f"duration_min={metric.get('show_duration')}"
             )
 
-        module.info(
-            f"historical-analytics: batch finished targets={total} matched={len(matched)} "
-            f"results={len(rows)}"
-        )
+        def transient(live_id, position, note):
+            rows.append({"whatnot_live_id": live_id, "_analytics_transient_failure": True, "_analytics_failure_note": note})
+            module.info(f"historical-analytics [{position}/{total}]: uuid={live_id} not collected — {note}")
+
+        def collected_count():
+            return sum(1 for r in rows if not r.get("_analytics_transient_failure"))
+
+        loads = 0
+
+        def pace():
+            # A steady pace: rapid-fire page loads are what earn a Cloudflare check.
+            nonlocal loads
+            if loads:
+                page.wait_for_timeout(random.randint(1500, 3500))
+            loads += 1
+
+        # Pass 1 — open each show's analytics straight from its ID. Seller Hub's
+        # Past rows no longer reliably carry a See Analytics action, and walking
+        # the Past list for every show is a lot of page loads for nothing.
+        not_ready: dict[str, int] = {}
+        fallback: list[tuple[int, str]] = []
+        try:
+            for position, live_id in enumerate(pending, 1):
+                pace()
+                if open_analytics_by_id(module, page, live_id):
+                    metric = wait_for_metrics(module, page, timeout_ms=30000)
+                    if metric and has_useful_data(metric):
+                        collect(metric, live_id, None, position, "directly ")
+                        continue
+                    not_ready[live_id] = position
+                    continue
+                fallback.append((position, live_id))
+        except SystemExit as stop_exc:
+            # A Cloudflare check or signed-out page partway through: hand back what
+            # was collected instead of losing it. The next call hits the same wall
+            # straight away and reports it.
+            if collected_count():
+                module.info(f"historical-analytics: stopped early (exit {stop_exc.code}); returning {collected_count()} collected show(s)")
+                return
+            raise
+
+        for live_id, position in not_ready.items():
+            transient(live_id, position, "Analytics page opened but its numbers weren't ready yet.")
+        if not fallback:
+            return
+
+        # Pass 2 — only for shows whose page wouldn't open by ID: find them in the
+        # Past list and use the row's own See Analytics action, if it has one.
+        module.info(f"historical-analytics: {len(fallback)} show(s) need the Past list")
+        try:
+            pace()
+            page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(1800)
+            module.check_login(page)
+            if not select_tab(module, page, "Past"):
+                for position, live_id in fallback:
+                    transient(live_id, position, "Seller Hub Past tab could not be opened.")
+                return
+            index = recent_index(page)
+            module.info(
+                f"historical-analytics: Past index complete rows={len(index)} "
+                f"matched={sum(1 for _, i in fallback if i in index)}/{len(fallback)}"
+            )
+            on_lives = True
+            for position, live_id in fallback:
+                meta = target_meta.get(live_id, {})
+                target = index.get(live_id)
+                if not target:
+                    transient(live_id, position, "Show's analytics weren't reachable yet (not present in the scanned Past list, and its analytics page didn't load).")
+                    continue
+                if not verify_identity(module, target, live_id, clean(meta.get("title")), clean(meta.get("show_date")) or None):
+                    transient(live_id, position, "Seller Hub row identity did not match the database target.")
+                    continue
+                if not target.get("analytics_url"):
+                    transient(live_id, position, "Past row found but it has no See Analytics action, and its analytics page didn't load directly.")
+                    continue
+                if not on_lives:
+                    pace()
+                    page.goto(f"{module.BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(1000)
+                    module.check_login(page)
+                    if not select_tab(module, page, "Past"):
+                        break
+                    on_lives = True
+                if not click_target_analytics(module, page, target):
+                    transient(live_id, position, "Past row found but See Analytics could not be opened.")
+                    continue
+                on_lives = False
+                module.info(f"historical-analytics [{position}/{total}]: See Analytics opened uuid={live_id} url={page.url}")
+                metric = wait_for_metrics(module, page, timeout_ms=30000)
+                if not metric or not has_useful_data(metric):
+                    transient(live_id, position, "See Analytics loaded but metrics are not stable/ready yet.")
+                    continue
+                collect(metric, live_id, target, position, "")
+        except SystemExit as stop_exc:
+            if collected_count():
+                module.info(f"historical-analytics: stopped early (exit {stop_exc.code}); returning {collected_count()} collected show(s)")
+                return
+            raise
+
+        module.info(f"historical-analytics: batch finished targets={total} collected={collected_count()} results={len(rows)}")
 
     session.fetch(
         f"{module.BASE}/dashboard/home",

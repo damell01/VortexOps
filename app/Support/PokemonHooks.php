@@ -15,8 +15,32 @@ use App\Notifications\VortexAlert;
  */
 class PokemonHooks
 {
+    /** Who has already been checked for today's catch in this request. */
+    private static array $dailySeen = [];
+
     public static function register(): void
     {
+        self::$dailySeen = [];
+        // A day's work: staff catch one Pokémon the first time each day they
+        // save anything. Checked at most once per person per day (cache), so
+        // ordinary saves cost nothing extra.
+        \Illuminate\Support\Facades\Event::listen('eloquent.saved: *', function (string $event, array $models) {
+            $model = $models[0] ?? null;
+            $user = auth()->user();
+            if (! $user || ! $model || $model instanceof \App\Models\User || $model instanceof \Illuminate\Notifications\DatabaseNotification
+                || str_starts_with($model::class, 'App\\Models\\Pokemon') || $model instanceof \App\Models\WebPushSubscription) {
+                return;
+            }
+            $day = now(BusinessTime::zone())->toDateString();
+            if (isset(self::$dailySeen[$user->id . $day])) {
+                return;
+            }
+            self::$dailySeen[$user->id . $day] = true;
+            if (\Illuminate\Support\Facades\Cache::add("pokemon-daily:{$user->id}:{$day}", 1, now()->addDay())) {
+                self::safely(fn () => PokemonGames::flashFor(PokemonGames::dailyActivity($user), 'For a day’s work'));
+            }
+        });
+
         StreamerLogEntry::saved(function (StreamerLogEntry $report) {
             if ($report->wasChanged('status') && $report->status === 'admin_approved') {
                 self::safely(function () use ($report) {

@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\DB;
  * Everything you can do with Pokémon beyond the one a report catches
  * (App\Support\Pokedex): regions that open as you fill the last one, evolutions
  * for a run of on-time reports, Mystery Eggs, releasing and trading duplicates,
- * and catches for real work (a record show, a received
+ * and catches for real work (a day's work for staff, a record show, a received
  * pallet, packing, approving, paying a run, settling hours).
  *
  * Every catch goes through grant(), under a key that names exactly what
@@ -474,6 +474,21 @@ class PokemonGames
         return $trainer ? self::grant($trainer, 'hours', 'hours:' . $report->hours_reviewed_by . ':' . intdiv($count, PokemonData::HOURS_EVERY)) : null;
     }
 
+    /**
+     * A day's work: the first day each staff member (anyone without a
+     * streamer profile; streamers catch from their reports) saves anything,
+     * they catch one. Once per person per business day.
+     */
+    public static function dailyActivity(User $user): ?PokemonCatch
+    {
+        $trainer = Trainer::forUser($user);
+        if (! $trainer || $trainer->streamerId) {
+            return null;
+        }
+
+        return self::grant($trainer, 'daily', 'daily:' . $user->id . ':' . now(BusinessTime::zone())->toDateString());
+    }
+
     /** Marking a pay run paid. */
     public static function payRunPaid(WeeklyPayoutBatch $batch, ?User $by): ?PokemonCatch
     {
@@ -508,7 +523,7 @@ class PokemonGames
     {
         return [
             'report' => 'Show report', 'encounter' => 'Record show', 'safari' => 'Pallet received', 'delivery' => 'Packing',
-            'approvals' => 'Approving reports', 'hours' => 'Settling hours', 'payrun' => 'Paying a pay run', 'egg' => 'Hatched from an egg',
+            'approvals' => 'Approving reports', 'hours' => 'Settling hours', 'payrun' => 'Paying a pay run', 'daily' => 'A day’s work', 'egg' => 'Hatched from an egg',
         ][$source] ?? ucfirst($source);
     }
 

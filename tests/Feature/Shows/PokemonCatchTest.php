@@ -101,8 +101,10 @@ class PokemonCatchTest extends TestCase
         $this->actingAs(User::factory()->create(['email' => 'admin-dex@example.test']));
         $report->refresh()->approveByAdmin();
 
-        $this->assertSame(1, PokemonCatch::count());
-        $this->assertStringContainsString(Pokedex::name(PokemonCatch::sole()->species), $this->user->notifications()->latest()->first()?->data['body'] ?? '');
+        // The streamer's report catch (the admin also gets their day's-work catch).
+        $this->assertSame(1, PokemonCatch::where('source', 'report')->count());
+        $this->assertSame(1, PokemonCatch::where('source', 'daily')->count());
+        $this->assertStringContainsString(Pokedex::name(PokemonCatch::where('source', 'report')->sole()->species), $this->user->notifications()->latest()->first()?->data['body'] ?? '');
     }
 
     public function test_the_pokedex_counts_species_shinies_and_the_latest_catch(): void

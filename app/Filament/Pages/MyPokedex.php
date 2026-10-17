@@ -34,7 +34,7 @@ class MyPokedex extends Page
     {
         return auth()->user()?->streamer()->exists()
             ? 'Every approved show report catches a Pokémon, and so does good work. Gotta catch ’em all!'
-            : 'Approving reports, paying the team, receiving pallets and packing orders all catch Pokémon.';
+            : 'Every day you get work done here catches a Pokémon, and so do paying the team, receiving pallets and packing orders.';
     }
 
     public static function canAccess(): bool

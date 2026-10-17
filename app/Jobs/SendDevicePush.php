@@ -37,9 +37,17 @@ class SendDevicePush implements ShouldQueue
             }
         }
         $devices = WebPushSubscription::where('user_id', $user->id)->when($this->deviceId, fn ($q) => $q->whereKey($this->deviceId))->limit(8)->get();
+        // The notification itself, as it reads in the bell: its title and its text.
+        $plain = fn ($text, int $max) => \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(str_replace(['**', '__'], '', (string) $text))))), $max, '…');
+        $title = $notification ? $plain($notification->data['title'] ?? '', 80) : '';
+        $body = $notification ? $plain($notification->data['body'] ?? '', 180) : '';
         foreach ($devices as $device) {
-            // Avoid financial or personal details on shared lock screens.
-            $push->send($device, ['title' => 'Vortex Ops', 'body' => $this->deviceId ? 'Push notifications are working on this device.' : 'You have a new alert. Open Vortex Ops to view it.', 'tag' => 'vortex-'.$this->notificationId, 'url' => $url]);
+            $push->send($device, [
+                'title' => $this->deviceId ? 'Vortex Ops' : ($title !== '' ? $title : 'Vortex Ops'),
+                'body' => $this->deviceId ? 'Push notifications are working on this device.' : ($body !== '' ? $body : ($title !== '' ? 'Open Vortex Ops to see it.' : 'You have a new alert. Open Vortex Ops to view it.')),
+                'tag' => 'vortex-'.$this->notificationId,
+                'url' => $url,
+            ]);
         }
     }
 }

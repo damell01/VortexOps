@@ -73,6 +73,11 @@ class AdminPanelProvider extends PanelProvider
                     ->label('My Pokédex')
                     ->icon('heroicon-o-sparkles')
                     ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin')),
+                \Filament\Actions\Action::make('whatnot_scraper')
+                    ->label('Whatnot scraper')
+                    ->icon('heroicon-o-arrow-path')
+                    ->visible(fn (): bool => (bool) auth()->user()?->isOwner())
+                    ->url(fn (): string => \App\Filament\Pages\WhatnotSyncPage::getUrl(panel: 'admin')),
             ])
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))

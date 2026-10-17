@@ -21,9 +21,22 @@ class RunWhatnotReportingJob implements ShouldQueue
 
     private const MAX_BUSY_WAIT_SECONDS = 3600;
 
-    public function __construct(public readonly string $mode, public readonly int $launchedBy)
+    public function __construct(public readonly string $mode, public readonly int $launchedBy, public readonly ?string $runId = null)
     {
         $this->onQueue('whatnot');
+    }
+
+    /**
+     * Writes the page's run state — unless a newer run has replaced this one.
+     * "Run now" stops whatever is going and starts fresh; the stopped run
+     * must not then mark the new one finished, or failed, when it unwinds.
+     */
+    private function saveState(string $json): void
+    {
+        if ($this->runId !== null && (json_decode(Setting::get('whatnot_ui_job', '{}'), true)['run_id'] ?? null) !== $this->runId) {
+            return;
+        }
+        Setting::set('whatnot_ui_job', $json);
     }
 
     public function handle(): void
@@ -48,7 +61,7 @@ class RunWhatnotReportingJob implements ShouldQueue
         if ($holder && ($holder['alive'] ?? false)) {
             $waitAge = now()->diffInSeconds(\Illuminate\Support\Carbon::parse($waitStartedAt));
             if ($waitAge >= self::MAX_BUSY_WAIT_SECONDS) {
-                Setting::set('whatnot_ui_job', json_encode(array_merge($existing, [
+                $this->saveState(json_encode(array_merge($existing, [
                     'mode' => $this->mode,
                     'status' => 'blocked',
                     'launched_by' => $this->launchedBy,
@@ -60,7 +73,7 @@ class RunWhatnotReportingJob implements ShouldQueue
                 return;
             }
 
-            Setting::set('whatnot_ui_job', json_encode(array_merge($existing, [
+            $this->saveState(json_encode(array_merge($existing, [
                 'mode' => $this->mode,
                 'status' => 'waiting',
                 'launched_by' => $this->launchedBy,
@@ -75,7 +88,7 @@ class RunWhatnotReportingJob implements ShouldQueue
             return;
         }
 
-        Setting::set('whatnot_ui_job', json_encode(array_merge($existing, [
+        $this->saveState(json_encode(array_merge($existing, [
             'mode'=>$this->mode,
             'status'=>'running',
             'launched_by'=>$this->launchedBy,
@@ -84,8 +97,7 @@ class RunWhatnotReportingJob implements ShouldQueue
             'active_holder'=>null,
             'next_retry_at'=>null,
         ])));
-        WhatnotLiveLog::clear();
-        $live = new WhatnotLiveLog();
+        $live = new WhatnotLiveLog($this->runId);
         try {
             try {
                 $code = Artisan::call('whatnot:sync-reporting', $args, $live);
@@ -98,7 +110,7 @@ class RunWhatnotReportingJob implements ShouldQueue
             // but a UI run must never display that as a completed scrape.
             if (str_contains($output, 'Reporting sync skipped') || str_contains($output, 'Reporting sync did not start')) {
                 $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
-                Setting::set('whatnot_ui_job', json_encode(array_merge($state, [
+                $this->saveState(json_encode(array_merge($state, [
                     'status' => 'waiting',
                     'phase' => 'Another Whatnot pipeline acquired the lock first; retrying automatically',
                     'output' => $output !== '' ? mb_substr($output, -12000) : null,
@@ -130,7 +142,7 @@ class RunWhatnotReportingJob implements ShouldQueue
 
             if ($detectedFailures !== []) {
                 $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
-                Setting::set('whatnot_ui_job', json_encode(array_merge($state, [
+                $this->saveState(json_encode(array_merge($state, [
                     'status' => 'failed',
                     'finished_at' => now()->toIso8601String(),
                     'phase' => 'Pipeline finished with scraper/import errors',
@@ -141,7 +153,7 @@ class RunWhatnotReportingJob implements ShouldQueue
             }
 
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
-            Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'phase'=>$code===0?'Pipeline completed successfully':'Pipeline failed','output'=>$output !== '' ? mb_substr($output,-12000) : 'Command completed without captured console output.'])));
+            $this->saveState(json_encode(array_merge($state, ['status'=>$code===0?'completed':'failed','finished_at'=>now()->toIso8601String(),'phase'=>$code===0?'Pipeline completed successfully':'Pipeline failed','output'=>$output !== '' ? mb_substr($output,-12000) : 'Command completed without captured console output.'])));
             if ($code !== 0) {
                 $lines = preg_split('/\R/', $output) ?: [];
                 $useful = array_values(array_filter($lines, fn ($line) =>
@@ -154,7 +166,7 @@ class RunWhatnotReportingJob implements ShouldQueue
             }
         } catch (\Throwable $e) {
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
-            Setting::set('whatnot_ui_job', json_encode(array_merge($state, ['status'=>'failed','finished_at'=>now()->toIso8601String(),'error'=>$e->getMessage()])));
+            $this->saveState(json_encode(array_merge($state, ['status'=>'failed','finished_at'=>now()->toIso8601String(),'error'=>$e->getMessage()])));
             throw $e;
         }
     }

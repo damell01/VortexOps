@@ -10,6 +10,7 @@ use App\Services\WhatnotReportingReconciler;
 use App\Services\WhatnotScraper;
 use App\Support\WhatnotBrowserLock;
 use App\Support\WhatnotPipelineLock;
+use App\Support\WhatnotRunControl;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Formatter\OutputFormatter;
@@ -156,7 +157,13 @@ class SyncWhatnotReporting extends Command
         }
 
         $this->line('Coordinator lock acquired. Starting channel work now.');
-        $progress = function (string $line) {
+        $progress = function (string $line) use ($startedAt) {
+            // "Run now" on Scraper Status asks whatever is running to stop. The
+            // next line of progress is the soonest safe point: throwing here
+            // unwinds the scraper call, whose Process stops the browser.
+            if (WhatnotRunControl::stopRequestedSince($startedAt)) {
+                throw new \RuntimeException('Stopped from Scraper Status so a fresh run could start.');
+            }
             $this->line('      <fg=gray>'.OutputFormatter::escape($line).'</>');
             $state = json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
             if (in_array($state['status'] ?? null, ['queued', 'running'], true)) {
@@ -185,6 +192,10 @@ class SyncWhatnotReporting extends Command
 
         try {
             foreach ($channels as $index => $channel) {
+                if (WhatnotRunControl::stopRequestedSince($startedAt)) {
+                    $this->warn('Stopped from Scraper Status so a fresh run could start.');
+                    break;
+                }
                 if (! $testMode && (microtime(true) - $startedAt) >= $maxRuntime) {
                     $this->warn("Runtime ceiling reached ({$maxRuntime}s); stopping cleanly before the next channel. The next scheduled pass will continue.");
                     break;

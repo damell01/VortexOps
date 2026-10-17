@@ -19,13 +19,15 @@
                 </div>
                 <div class="vx-runs">
                     @foreach([
-                        ['catchup', 'Catch up everything', 'Every show since July: discovery, all missing analytics, orders, shipments and ledger. Runs in the background for up to a few hours.', 'Run the full catch-up? It keeps the scraper busy until it is done, and you can watch it below.', 'is-primary'],
-                        ['freshness', 'Freshness sync', 'Last 7 days only. Quick, about 10–45 minutes.', null, ''],
-                        ['analytics', 'Analytics only', 'Just the shows still missing analytics, by ID.', 'Run missing/incomplete analytics for all channels from July 1 forward?', ''],
-                        ['full', 'Reconciliation', 'Everything since July, in smaller batches.', 'Run the full Whatnot reconciliation from July 1 forward?', ''],
-                        ['test', 'Smoke test', 'One show through each step, to check sign-in.', null, ''],
-                    ] as [$mode, $label, $hint, $confirm, $class])
-                        <button type="button" wire:click="runReporting('{{ $mode }}')" @if($confirm) wire:confirm="{{ $confirm }}" @endif @disabled($this->jobActive) class="vx-run {{ $class }}">
+                        ['catchup', 'Run now: catch up everything', 'Every show since July: discovery, all missing analytics, orders, shipments and ledger. Starts immediately; takes up to a few hours.', 'is-primary'],
+                        ['freshness', 'Freshness sync', 'Last 7 days only. Quick, about 10–45 minutes.', ''],
+                        ['analytics', 'Analytics only', 'Just the shows still missing analytics, by ID.', ''],
+                        ['full', 'Reconciliation', 'Everything since July, in smaller batches.', ''],
+                        ['test', 'Smoke test', 'One show through each step, to check sign-in.', ''],
+                    ] as [$mode, $label, $hint, $class])
+                        <button type="button" wire:click="runReporting('{{ $mode }}')" wire:loading.attr="disabled" wire:target="runReporting"
+                            wire:confirm="{{ ($this->jobActive || ($locks['pipeline'] ?? null) || ($locks['browser'] ?? null)) ? 'The scraper is busy. Stop what it is doing and start “'.$label.'” now?' : 'Start “'.$label.'” now? It runs in the background; you can watch it below.' }}"
+                            class="vx-run {{ $class }}">
                             <b>{{ $label }}</b><small>{{ $hint }}</small>
                         </button>
                     @endforeach
@@ -75,7 +77,7 @@
                 </div>
                 <div class="mt-4 grid grid-cols-2 gap-2">
                     <button wire:click="recoverStaleLocks" wire:confirm="Recover only locks whose recorded process is confirmed dead?" class="px-3 py-2 text-xs font-semibold rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50">Clear Stale</button>
-                    <button wire:click="forceClearLocks" wire:confirm="Force stop the active Whatnot browser owner and release both browser and coordinator locks? Use this only when the scraper is stuck." class="px-3 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700">Stop & Clear</button>
+                    <button wire:click="forceClearLocks" wire:confirm="Stop everything the Whatnot scraper is doing right now and clear its locks?" class="px-3 py-2 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700">Stop & Clear</button>
                 </div>
             </div>
         </div>
@@ -88,7 +90,7 @@
         <section class="vxr-live" aria-labelledby="vxr-live-h">
             <div class="vxr-live-head">
                 <div>
-                    <h2 id="vxr-live-h">{{ $this->jobActive ? 'Live run' : 'Last run' }} @if(!empty($job['mode']))<span>· {{ ['catchup' => 'Catch up everything', 'freshness' => 'Freshness sync', 'analytics' => 'Analytics only', 'full' => 'Reconciliation', 'test' => 'Smoke test'][$job['mode']] ?? $job['mode'] }}</span>@endif</h2>
+                    <h2 id="vxr-live-h">{{ $this->jobActive ? 'Live run' : 'Last run' }} @if(!empty($job['mode']))<span>· {{ \App\Filament\Pages\WhatnotSyncPage::RUN_MODES[$job['mode']] ?? $job['mode'] }}</span>@endif</h2>
                     <p>{{ $this->jobActive ? 'Updates every few seconds. You can leave this page; the run keeps going.' : 'Start a run above to watch it here.' }}</p>
                 </div>
                 @if($stats['elapsed'])<span class="vxr-live-time">{{ $stats['elapsed'] }}</span>@endif
@@ -105,7 +107,7 @@
                          x-data="{ stick: true }"
                          x-init="$el.scrollTop = $el.scrollHeight; new MutationObserver(() => { if (stick) $el.scrollTop = $el.scrollHeight }).observe($el, { childList: true, subtree: true, characterData: true })"
                          @scroll="stick = $el.scrollTop + $el.clientHeight >= $el.scrollHeight - 40">@forelse($log as $line)<span @class(['is-bad' => preg_match('/fail|error|denied|timeout|challenge/i', $line), 'is-good' => preg_match('/collected|updated|reconciled|created|finished|PASS/', $line) && ! preg_match('/fail|error/i', $line)])>{{ $line }}</span>
-@empty<span class="is-idle">{{ $this->jobActive ? 'Waiting for the queue worker to pick this up…' : 'Nothing yet.' }}</span>@endforelse</pre>
+@empty<span class="is-idle">{{ $this->jobActive ? 'Starting…' : 'Nothing yet.' }}</span>@endforelse</pre>
                 </div>
                 <div class="vxr-live-col">
                     <h3>What it's pulled <span>{{ $pulled->count() >= 30 ? 'latest 30' : $pulled->count() }}</span></h3>

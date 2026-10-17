@@ -20,6 +20,12 @@ class WhatnotLiveLog extends Output
     public const MAX_LINES = 400;
 
     private string $all = '';
+
+    /** @param string|null $runId the page run this output belongs to; a replaced run stops writing. */
+    public function __construct(private ?string $runId = null)
+    {
+        parent::__construct();
+    }
     private float $lastFlush = 0;
 
     public static function clear(): void
@@ -50,6 +56,9 @@ class WhatnotLiveLog extends Output
     public function flush(): void
     {
         $this->lastFlush = microtime(true);
+        if ($this->runId !== null && (json_decode((string) Setting::get('whatnot_ui_job', '{}'), true)['run_id'] ?? null) !== $this->runId) {
+            return;
+        }
         $lines = array_values(array_filter(preg_split('/\R/', $this->all) ?: [], fn ($l) => trim($l) !== ''));
         Setting::set(self::KEY, implode("\n", array_slice($lines, -self::MAX_LINES)));
     }

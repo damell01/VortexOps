@@ -66,23 +66,39 @@ class WhatnotSyncPage extends Page
         return json_decode(Setting::get('whatnot_ui_job', '{}'), true) ?: [];
     }
 
+    /**
+     * Start a run right now: stop whatever the scraper is doing, clear its
+     * locks and launch this one in the background (App\Support\WhatnotRunControl),
+     * instead of queueing behind it.
+     */
     public function runReporting(string $mode): void
     {
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
-        abort_unless(in_array($mode, ['test', 'freshness', 'analytics', 'catchup', 'full'], true), 422);
-        $active = $this->reportingJob;
-        if (in_array($active['status'] ?? null, ['queued', 'running', 'waiting'], true)) {
-            Notification::make()->title('A Whatnot job is already active')->warning()->send();
-            return;
-        }
+        abort_unless(array_key_exists($mode, self::RUN_MODES), 422);
+
+        $stopped = \App\Support\WhatnotRunControl::stopEverything();
+        $runId = (string) \Illuminate\Support\Str::uuid();
         Setting::set('whatnot_ui_job', json_encode([
-            'mode' => $mode, 'status' => 'queued', 'launched_by' => auth()->id(),
-            'queued_at' => now()->toIso8601String(), 'phase' => 'Waiting for queue worker',
+            'run_id' => $runId, 'mode' => $mode, 'status' => 'queued', 'launched_by' => auth()->id(),
+            'queued_at' => now()->toIso8601String(), 'started_at' => now()->toIso8601String(), 'phase' => 'Starting now…',
         ]));
         \App\Support\WhatnotLiveLog::clear();
-        RunWhatnotReportingJob::dispatch($mode, (int) auth()->id());
-        Notification::make()->title(ucfirst($mode).' Whatnot job queued')->success()->send();
+
+        $direct = \App\Support\WhatnotRunControl::launch($mode, (int) auth()->id(), $runId);
+        Notification::make()
+            ->title(self::RUN_MODES[$mode] . ($direct ? ' started' : ' queued'))
+            ->body($stopped . ($direct ? ' Watch it below.' : ' It could not be started directly, so it will start when the queue worker picks it up.'))
+            ->{$direct ? 'success' : 'warning'}()
+            ->send();
     }
+
+    public const RUN_MODES = [
+        'catchup' => 'Catch up everything',
+        'freshness' => 'Freshness sync',
+        'analytics' => 'Analytics only',
+        'full' => 'Reconciliation',
+        'test' => 'Smoke test',
+    ];
 
     public function getJobActiveProperty(): bool
     {
@@ -238,25 +254,19 @@ class WhatnotSyncPage extends Page
         abort_unless(auth()->user()?->isSuperAdmin(), 403);
 
         try {
-            $browser = WhatnotBrowserLock::stopActiveOwner();
-            if (! $browser['ok']) {
-                Notification::make()->title('Could not stop Whatnot browser')->body($browser['message'])->danger()->send();
-                return;
-            }
-
-            WhatnotPipelineLock::forceRelease();
+            $stopped = \App\Support\WhatnotRunControl::stopEverything();
             Setting::set('whatnot_ui_job', json_encode([
                 'status' => 'idle',
-                'phase' => 'Locks manually cleared by super admin',
+                'phase' => 'Stopped by ' . (auth()->user()?->name ?? 'an admin'),
                 'finished_at' => now()->toIso8601String(),
                 'launched_by' => auth()->id(),
             ]));
 
-            Notification::make()->title('Whatnot pipeline cleared')->body($browser['message'])->success()->send();
+            Notification::make()->title('Whatnot scraper stopped')->body($stopped)->success()->send();
         } catch (\Throwable $e) {
             report($e);
             Notification::make()
-                ->title('Could not clear Whatnot process')
+                ->title('Could not stop the Whatnot scraper')
                 ->body($e->getMessage())
                 ->danger()
                 ->persistent()

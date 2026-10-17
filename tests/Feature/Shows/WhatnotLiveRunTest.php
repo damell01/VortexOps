@@ -9,7 +9,9 @@ use App\Models\Show;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Support\WhatnotLiveLog;
+use App\Support\WhatnotRunControl;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -39,16 +41,49 @@ class WhatnotLiveRunTest extends TestCase
         $this->assertStringContainsString('Coordinator lock acquired.', $log->all());
     }
 
-    public function test_catch_up_queues_one_background_run_and_refuses_a_second(): void
+    public function test_run_now_starts_immediately_in_the_background_and_replaces_a_running_one(): void
     {
+        Process::fake();
         Queue::fake();
         $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
+        Setting::set('whatnot_ui_job', json_encode(['run_id' => 'old-run', 'mode' => 'analytics', 'status' => 'running', 'started_at' => now()->subHour()->toIso8601String()]));
+        $oldRunStartedAt = microtime(true) - 3600;
 
         Livewire::test(WhatnotSyncPage::class)->call('runReporting', 'catchup');
-        Queue::assertPushed(RunWhatnotReportingJob::class, fn ($job) => $job->mode === 'catchup');
 
-        Livewire::test(WhatnotSyncPage::class)->call('runReporting', 'freshness');
-        Queue::assertPushed(RunWhatnotReportingJob::class, 1);
+        Process::assertRan(fn ($process) => str_contains($process->command, 'whatnot:run-now') && str_contains($process->command, "'catchup'"));
+        Queue::assertNothingPushed();
+        $state = json_decode(Setting::get('whatnot_ui_job'), true);
+        $this->assertSame('catchup', $state['mode']);
+        $this->assertNotSame('old-run', $state['run_id']);
+        // The run that was going is told to stop; a run started after this is not.
+        $this->assertTrue(WhatnotRunControl::stopRequestedSince($oldRunStartedAt));
+        $this->assertFalse(WhatnotRunControl::stopRequestedSince(microtime(true) + 1));
+    }
+
+    public function test_a_replaced_run_no_longer_writes_to_the_page(): void
+    {
+        Setting::set('whatnot_ui_job', json_encode(['run_id' => 'new-run', 'status' => 'running']));
+        WhatnotLiveLog::clear();
+
+        $old = new WhatnotLiveLog('old-run');
+        $old->writeln('old output');
+        $old->flush();
+
+        $this->assertSame([], WhatnotLiveLog::lines());
+    }
+
+    public function test_the_owner_menu_links_to_the_scraper(): void
+    {
+        $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
+        $item = collect(\Filament\Facades\Filament::getPanel('admin')->getUserMenuItems())->first(fn ($i) => $i->getName() === 'whatnot_scraper');
+
+        $this->assertNotNull($item);
+        $this->assertTrue($item->isVisible());
+        $this->assertStringContainsString('whatnot-sync', $item->getUrl());
+
+        $this->actingAs(User::factory()->create(['email' => 'someone@example.com']));
+        $this->assertFalse($item->isVisible());
     }
 
     public function test_the_page_shows_the_live_log_and_the_shows_pulled_this_run(): void

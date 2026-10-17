@@ -195,8 +195,27 @@ class PokemonGamesTest extends TestCase
         $pallet->update(['status' => 'received']);
 
         $mine = PokemonCatch::where('user_id', $admin->id)->pluck('source')->sort()->values()->all();
-        $this->assertSame(['payrun', 'safari'], $mine, 'one for the pay run, one for the pallet');
+        $this->assertSame(['daily', 'payrun', 'safari'], $mine, "one for the day's work, one for the pay run, one for the pallet");
         $this->assertNull(PokemonCatch::where('user_id', $admin->id)->first()->streamer_id);
+    }
+
+    public function test_staff_catch_one_pokemon_for_each_day_they_get_work_done(): void
+    {
+        $admin = User::factory()->create(['email' => 'daily@example.test']);
+        $this->actingAs($admin);
+        Show::create(['title' => 'Morning edit', 'show_date' => '2026-11-18', 'status' => 'draft']);
+        Show::create(['title' => 'Afternoon edit', 'show_date' => '2026-11-18', 'status' => 'draft']);
+        $this->assertSame(1, PokemonCatch::where('user_id', $admin->id)->where('source', 'daily')->count(), 'once a day');
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-19 10:00', 'America/Chicago'));
+        \App\Support\PokemonHooks::register(); // a new request
+        Show::create(['title' => 'Next day', 'show_date' => '2026-11-19', 'status' => 'draft']);
+        $this->assertSame(2, PokemonCatch::where('user_id', $admin->id)->where('source', 'daily')->count());
+
+        // Streamers catch from their reports, not from a day's saves.
+        $this->actingAs($this->user);
+        Show::create(['title' => 'Streamer edit', 'show_date' => '2026-11-19', 'status' => 'draft']);
+        $this->assertSame(0, PokemonCatch::where('source', 'daily')->where('streamer_id', $this->streamer->id)->count());
     }
 
     public function test_every_tenth_approval_catches_the_approver_one(): void

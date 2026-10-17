@@ -134,7 +134,14 @@ def extract_show_rows(page) -> list[dict[str, Any]]:
           const shipments = [...row.querySelectorAll('a,button,[role="button"]')]
             .find(a => /^\s*View Shipments\s*$/i.test(a.textContent || ''));
           const openUrl = open?.getAttribute('href') || null;
-          const liveId = (openUrl?.match(/\/dashboard\/live\/([0-9a-f-]{36})/i) || [])[1] || null;
+          const analyticsHref = analytics?.getAttribute('href') || '';
+          // The row's show ID: its "open" link if it has one, else the See Analytics
+          // link's live_id, else any link in the row that carries a show UUID.
+          const anyLive = [...row.querySelectorAll('a[href]')].map(a => a.getAttribute('href') || '')
+            .map(h => (h.match(/\/live\/([0-9a-f-]{36})/i) || h.match(/[?&]live_id=([0-9a-f-]{36})/i) || [])[1]).find(Boolean);
+          const liveId = (openUrl?.match(/\/dashboard\/live\/([0-9a-f-]{36})/i) || [])[1]
+            || (analyticsHref.match(/[?&]live_id=([0-9a-f-]{36})/i) || [])[1]
+            || anyLive || null;
           return {
             cover_image_url: cover,
             live_id: liveId,
@@ -424,6 +431,30 @@ def reconcile_index(module, session):
         f"upcoming={len(result['upcoming_ids'])} past_exhausted={result['past_exhausted']}"
     )
     return result
+
+
+def open_analytics_by_id(module, page, live_id: str) -> bool:
+    """Open a show's Seller Hub analytics straight from its ID.
+
+    Used when the Past list didn't yield the row. True only when the page that
+    loads is the analytics overview for exactly this show.
+    """
+    if not re.fullmatch(r"[0-9a-f-]{36}", live_id or "", re.I):
+        return False
+    href = f"{module.BASE}/dashboard/analytics/overview?tab=livestream&live_id={live_id}"
+    module.info(f"analytics: opening analytics directly uuid={live_id}")
+    try:
+        page.goto(href, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(1800)
+        module.check_login(page)
+    except Exception as exc:
+        module.info(f"analytics: direct analytics navigation failed uuid={live_id} error={exc}")
+        return False
+    current = (page.url or "").lower()
+    ok = "dashboard/analytics/overview" in current and f"live_id={live_id.lower()}" in current
+    if not ok:
+        module.info(f"analytics: direct analytics did not stay on this show uuid={live_id} url={page.url}")
+    return ok
 
 
 def click_target_analytics(module, page, target: dict[str, Any]) -> bool:
@@ -803,14 +834,34 @@ def historical_analytics(module, session):
             target = index.get(live_id)
 
             if not target:
+                # Not matched in the Past list (a row without an ID link, or one the
+                # virtual list didn't render): open the show's analytics page directly
+                # by its ID before giving up. Only a page that really belongs to this
+                # show counts.
+                direct = open_analytics_by_id(module, page, live_id)
+                if direct:
+                    metric = wait_for_metrics(module, page, timeout_ms=30000)
+                    if metric and has_useful_data(metric):
+                        metric["whatnot_live_id"] = live_id
+                        metric["title"] = expected_title or metric.get("title")
+                        metric["show_date"] = expected_date or metric.get("show_date")
+                        metric["detail_url"] = f"{module.BASE}/dashboard/live/{live_id}"
+                        for key in ("_preview", "_titles", "_dates"):
+                            metric.pop(key, None)
+                        rows.append(metric)
+                        module.info(
+                            f"historical-analytics [{position}/{total}]: collected uuid={live_id} directly "
+                            f"gross={metric.get('gross_revenue')} net={metric.get('whatnot_net')}"
+                        )
+                        continue
                 module.info(
-                    f"historical-analytics [{position}/{total}]: uuid={live_id} not found in scanned Past history; "
-                    "leaving due for later/historical retry"
+                    f"historical-analytics [{position}/{total}]: uuid={live_id} not found in scanned Past history "
+                    "and its analytics page did not load; leaving due for later/historical retry"
                 )
                 rows.append({
                     "whatnot_live_id": live_id,
                     "_analytics_transient_failure": True,
-                    "_analytics_failure_note": "Show was not present in the scanned Seller Hub Past history.",
+                    "_analytics_failure_note": "Show's analytics weren't reachable yet (not present in the scanned Past list, and its analytics page didn't load).",
                 })
                 continue
             if not verify_identity(module, target, live_id, expected_title, expected_date):

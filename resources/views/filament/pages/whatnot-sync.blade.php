@@ -106,7 +106,7 @@
                     <pre class="vxr-live-log" wire:key="vxr-live-log"
                          x-data="{ stick: true }"
                          x-init="$el.scrollTop = $el.scrollHeight; new MutationObserver(() => { if (stick) $el.scrollTop = $el.scrollHeight }).observe($el, { childList: true, subtree: true, characterData: true })"
-                         @scroll="stick = $el.scrollTop + $el.clientHeight >= $el.scrollHeight - 40">@forelse($log as $line)<span @class(['is-bad' => preg_match('/fail|error|denied|timeout|challenge/i', $line), 'is-good' => preg_match('/collected|updated|reconciled|created|finished|PASS/', $line) && ! preg_match('/fail|error/i', $line)])>{{ $line }}</span>
+                         @scroll="stick = $el.scrollTop + $el.clientHeight >= $el.scrollHeight - 40">@forelse($log as $line)<span @class(['is-bad' => preg_match('/fail|error|denied|timeout|challenge|cloudflare|rate limit|stopped/i', $line), 'is-good' => preg_match('/collected|updated|reconciled|created|finished|PASS/', $line) && ! preg_match('/fail|error/i', $line)])>{{ $line }}</span>
 @empty<span class="is-idle">{{ $this->jobActive ? 'Starting…' : 'Nothing yet.' }}</span>@endforelse</pre>
                 </div>
                 <div class="vxr-live-col">

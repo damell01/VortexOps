@@ -182,28 +182,6 @@ class PokemonGamesTest extends TestCase
         $this->assertSame('void', $late->refresh()->status);
     }
 
-    public function test_the_raid_legendary_goes_to_everyone_who_caught_this_month_once_last_months_sales_are_beaten(): void
-    {
-        // The goal sets itself: last month's Whatnot gross.
-        Show::create(['title' => 'October', 'show_date' => '2026-10-20', 'status' => 'draft', 'gross_revenue' => 1000]);
-        Show::create(['title' => 'Big one', 'show_date' => '2026-11-05', 'status' => 'draft', 'gross_revenue' => 900]);
-        $this->assertSame(1000.0, PokemonGames::raidGoal());
-        $this->give($this->trainer, 'pidgey');
-        PokemonCatch::query()->update(['caught_at' => now()]);
-        $this->assertNull(PokemonGames::claimRaid($this->trainer), 'not beaten yet');
-        Show::create(['title' => 'Bigger one', 'show_date' => '2026-11-06', 'status' => 'draft', 'gross_revenue' => 600]);
-        \Illuminate\Support\Facades\Cache::flush();
-        $idle = Trainer::forUser(User::factory()->create(['email' => 'idle@example.test']));
-
-        $won = PokemonGames::claimRaid($this->trainer);
-
-        $this->assertSame(PokemonGames::raidBoss(), $won->species);
-        $this->assertSame('legendary', Pokedex::rarity($won->species));
-        $this->assertSame($won->id, PokemonGames::claimRaid($this->trainer)?->id ?? $won->id, 'once a month');
-        $this->assertSame(1, PokemonCatch::where('source', 'raid')->count());
-        $this->assertNull(PokemonGames::claimRaid($idle), 'only trainers who caught something this month');
-    }
-
     public function test_work_catches_pokemon_for_whoever_did_it_once(): void
     {
         $admin = User::factory()->create(['email' => 'boss@example.test']);
@@ -236,7 +214,7 @@ class PokemonGamesTest extends TestCase
     {
         $this->give($this->trainer, 'charmander', 10);
         $this->actingAs($this->user);
-        Livewire::test(MyPokedex::class)->assertOk()->assertSee('Team raid')->assertSee('Kanto')->assertSee('is-gold', false)->assertSee('Release one');
+        Livewire::test(MyPokedex::class)->assertOk()->assertSee('Mystery Eggs')->assertDontSee('Team raid')->assertSee('Kanto')->assertSee('is-gold', false)->assertSee('Release one');
 
         $staff = User::factory()->create(['email' => 'packer@example.test']);
         $this->actingAs($staff);

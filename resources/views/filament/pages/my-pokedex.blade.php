@@ -1,26 +1,11 @@
 <x-filament-panels::page>
 @php
     $trainer = $this->trainer();
-    $raid = $this->raid;
     $trades = $this->trades;
     $eggs = $this->eggs;
 @endphp
 <div class="vxp">
-    <div class="vxp-row">
-        {{-- Team raid: beat last month's Whatnot sales and everyone who caught a Pokémon this month gets the month's Legendary. --}}
-        <section class="vxp-card vxp-raid" aria-labelledby="vxp-raid-h">
-            <img src="/img/pokemon/{{ $raid['boss'] }}.gif" alt="" class="vxp-raid-boss">
-            <div class="min-w-0 flex-1">
-                <h2 id="vxp-raid-h">Team raid: {{ \App\Support\Pokedex::name($raid['boss']) }}</h2>
-                @if ($raid['goal'] > 0)
-                    <p>Beat last month’s ${{ number_format($raid['goal']) }} in Whatnot sales and everyone who caught a Pokémon this month catches {{ \App\Support\Pokedex::name($raid['boss']) }}.</p>
-                    <div class="vxp-bar" role="img" aria-label="{{ $raid['pct'] }}% of last month's sales"><i style="width: {{ $raid['pct'] }}%"></i></div>
-                    <p class="vxp-sub"><b>${{ number_format($raid['progress']) }}</b> of ${{ number_format($raid['goal']) }} · {{ $raid['pct'] }}%{{ $raid['progress'] > $raid['goal'] ? ' — raid won!' : '' }}</p>
-                @else
-                    <p>The raid starts once there’s a month of sales to beat.</p>
-                @endif
-            </div>
-        </section>
+    <div>
 
         {{-- Mystery Eggs: a perfect week, or every few releases; each hatches after a few more catches. --}}
         <section class="vxp-card" aria-labelledby="vxp-eggs-h">
@@ -107,9 +92,6 @@
 .dark .vxp-card p { color: rgb(156 163 175); }
 .vxp-sub { font-size: .78rem !important; color: rgb(107 114 128) !important; }
 .vxp-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem; }
-.vxp-raid { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 1rem; background: linear-gradient(135deg, #fff, #f5f3ff); }
-.dark .vxp-raid { background: linear-gradient(135deg, rgb(17 24 39), rgb(46 16 101 / .45)); }
-.vxp-raid-boss { width: 5rem; height: 5rem; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 6px 10px rgb(76 29 149 / .3)); }
 .vxp-bar { height: .55rem; border-radius: 999px; background: rgb(237 233 254); overflow: hidden; }
 .dark .vxp-bar { background: rgb(46 16 101 / .6); }
 .vxp-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #f59e0b); transition: width .6s ease; }

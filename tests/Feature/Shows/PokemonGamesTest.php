@@ -182,12 +182,17 @@ class PokemonGamesTest extends TestCase
         $this->assertSame('void', $late->refresh()->status);
     }
 
-    public function test_the_raid_legendary_goes_to_everyone_who_caught_this_month_once_the_goal_is_hit(): void
+    public function test_the_raid_legendary_goes_to_everyone_who_caught_this_month_once_last_months_sales_are_beaten(): void
     {
-        Setting::set('pokemon_raid_goal', 1000);
-        Show::create(['title' => 'Big one', 'show_date' => '2026-11-05', 'status' => 'draft', 'gross_revenue' => 1500]);
+        // The goal sets itself: last month's Whatnot gross.
+        Show::create(['title' => 'October', 'show_date' => '2026-10-20', 'status' => 'draft', 'gross_revenue' => 1000]);
+        Show::create(['title' => 'Big one', 'show_date' => '2026-11-05', 'status' => 'draft', 'gross_revenue' => 900]);
+        $this->assertSame(1000.0, PokemonGames::raidGoal());
         $this->give($this->trainer, 'pidgey');
         PokemonCatch::query()->update(['caught_at' => now()]);
+        $this->assertNull(PokemonGames::claimRaid($this->trainer), 'not beaten yet');
+        Show::create(['title' => 'Bigger one', 'show_date' => '2026-11-06', 'status' => 'draft', 'gross_revenue' => 600]);
+        \Illuminate\Support\Facades\Cache::flush();
         $idle = Trainer::forUser(User::factory()->create(['email' => 'idle@example.test']));
 
         $won = PokemonGames::claimRaid($this->trainer);

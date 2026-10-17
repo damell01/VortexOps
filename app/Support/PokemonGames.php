@@ -8,7 +8,6 @@ use App\Models\PokemonCatch;
 use App\Models\PokemonEgg;
 use App\Models\PokemonEvolution;
 use App\Models\PokemonTrade;
-use App\Models\Setting;
 use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
@@ -415,9 +414,15 @@ class PokemonGames
 
     // ── Team raid ───────────────────────────────────────────────────────
 
-    public static function raidGoal(): float
+    /**
+     * The month's raid goal sets itself: beat last month's Whatnot gross.
+     * Nothing to beat (no sales last month) means no raid that month.
+     */
+    public static function raidGoal(?CarbonImmutable $month = null): float
     {
-        return (float) Setting::get('pokemon_raid_goal', 0);
+        $month ??= CarbonImmutable::now(BusinessTime::zone());
+
+        return self::raidProgress($month->subMonthNoOverflow());
     }
 
     /** This month's Legendary: the same for everyone, different each month. */
@@ -439,20 +444,17 @@ class PokemonGames
     }
 
     /**
-     * The team beat this month's (or last month's) goal: everyone who caught
+     * The team beat last month's sales this month (or did last month): everyone who caught
      * anything that month catches the raid Legendary. Claimed when they next
      * open their Pokédex.
      */
     public static function claimRaid(Trainer $trainer): ?PokemonCatch
     {
-        $goal = self::raidGoal();
-        if ($goal <= 0) {
-            return null;
-        }
         $now = CarbonImmutable::now(BusinessTime::zone());
         foreach ([$now, $now->subMonthNoOverflow()] as $month) {
             $key = 'raid:' . $month->format('Y-m') . ':' . $trainer->key();
-            if (PokemonCatch::where('source_key', $key)->exists() || self::raidProgress($month) < $goal) {
+            $goal = self::raidGoal($month);
+            if ($goal <= 0 || PokemonCatch::where('source_key', $key)->exists() || self::raidProgress($month) <= $goal) {
                 continue;
             }
             $joined = PokemonCatch::ownedBy($trainer)->where('source', '!=', 'raid')

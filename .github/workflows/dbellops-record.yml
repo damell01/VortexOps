@@ -44,6 +44,8 @@ jobs:
           touch database/database.sqlite
           php -v
           composer --version
+          php -l config/app.php
+          php -l app/Providers/Filament/AdminPanelProvider.php
           composer validate --no-check-publish
           composer install --no-interaction --prefer-dist --no-progress --no-scripts
           php artisan key:generate --force

@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/dbellops-record.yml'
       - 'demo/**'
+      - 'config/app.php'
+      - 'app/Providers/Filament/AdminPanelProvider.php'
       - 'resources/views/filament/components/dashboard-reference.blade.php'
   workflow_dispatch:
 permissions:

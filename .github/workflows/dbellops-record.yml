@@ -32,7 +32,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, gd, intl, zip, bcmath
+          extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, gd, intl, zip, bcmath, redis, pcntl
           coverage: none
       - uses: actions/setup-node@v4
         with:
@@ -40,12 +40,16 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: |
-          composer install --no-interaction --prefer-dist --no-progress
-          npm ci
-          npm run build
           cp .env.example .env
           touch database/database.sqlite
+          php -v
+          composer --version
+          composer validate --no-check-publish
+          composer install --no-interaction --prefer-dist --no-progress --no-scripts
           php artisan key:generate --force
+          php artisan package:discover --ansi
+          npm ci --ignore-scripts
+          npm run build
           php artisan migrate --force
       - name: Seed isolated fictional demo account
         run: php demo/create-recording-user.php

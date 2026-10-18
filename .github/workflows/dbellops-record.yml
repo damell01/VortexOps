@@ -22,6 +22,8 @@ jobs:
       APP_ENV: local
       APP_DEBUG: 'false'
       DEBUGBAR_ENABLED: 'false'
+      TELESCOPE_ENABLED: 'false'
+      CLOCKWORK_ENABLE: 'false'
       APP_URL: http://127.0.0.1:8088
       DBELLOPS_DEMO: 'true'
       DB_CONNECTION: sqlite
@@ -60,6 +62,8 @@ jobs:
           php artisan migrate --force
       - name: Seed isolated fictional demo account
         run: php demo/create-recording-user.php
+      - name: Seed realistic fictional demo data
+        run: php demo/seed-fictional-data.php
       - name: Start real Laravel app
         run: |
           php artisan serve --host=127.0.0.1 --port=8088 > /tmp/dbellops-server.log 2>&1 &

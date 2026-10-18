@@ -6,8 +6,8 @@ const context=await browser.newContext({viewport:{width:1280,height:720},deviceS
 const page=await context.newPage();
 let index=0;
 async function shot(label) {
-  await page.waitForTimeout(1400);
-  await page.screenshot({path:'demo/output/'+String(index++).padStart(2,'0')+'-'+label+'.png'});
+  await page.waitForTimeout(2000);
+  await page.screenshot({path:'demo/output/'+String(index++).padStart(2,'0')+'-'+label+'.png',fullPage:true,animations:'disabled'});
 }
 try {
   await page.goto('http://127.0.0.1:8088/admin/login',{waitUntil:'domcontentloaded',timeout:60000});

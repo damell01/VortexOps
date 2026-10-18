@@ -13,7 +13,10 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),\n\n    // Only applies on a non-production DBellOps demo instance.\n    'dbellops_demo' => env('DBELLOPS_DEMO', false),
+    'name' => env('APP_NAME', 'Laravel'),
+
+    // Only applies on a non-production DBellOps demo instance.
+    'dbellops_demo' => env('DBELLOPS_DEMO', false),
 
     /*
     |--------------------------------------------------------------------------

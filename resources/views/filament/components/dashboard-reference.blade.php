@@ -29,7 +29,7 @@
         <div class="relative grid gap-5 lg:grid-cols-[1fr_260px]">
             <div class="min-w-0">
                 <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
-                <p class="mt-2 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
+                <p class="mt-2 text-sm text-indigo-100">Here's what's happening with {{ config('app.dbellops_demo') && config('app.env') !== 'production' ? 'DBellOps' : 'Vortex Ops' }} today.</p>
                 <div class="mt-6 flex flex-wrap gap-2">
                     @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)
                     <a href="{{ $link['url'] }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold transition {{ $loop->first ? 'border-violet-400 bg-violet-600 shadow-lg shadow-violet-900/40 hover:bg-violet-500' : 'border-white/20 bg-white/5 hover:bg-white/15' }}"><x-dynamic-component :component="$link['icon']" class="h-4 w-4" />{{ $link['label'] }}</a>

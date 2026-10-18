@@ -1,0 +1,54 @@
+{
+  "fictional": true,
+  "seller": "Harbor Card Co. (fictional)",
+  "period": "September 2026",
+  "summary": {
+    "gross_sales": 18420,
+    "whatnot_fees": 2210,
+    "cogs": 7820,
+    "giveaways": 460,
+    "other_expenses": 1130,
+    "net_profit": 6800,
+    "shows": 14
+  },
+  "inventory": [
+    {
+      "name": "2024 Chrome Hobby Box",
+      "sku": "DEMO-001",
+      "quantity": 18,
+      "unit_cost": 115
+    },
+    {
+      "name": "Assorted Card Sleeves",
+      "sku": "DEMO-002",
+      "quantity": 240,
+      "unit_cost": 0.85
+    },
+    {
+      "name": "Collector Bundle",
+      "sku": "DEMO-003",
+      "quantity": 36,
+      "unit_cost": 24
+    }
+  ],
+  "shows": [
+    {
+      "name": "Friday Night Breaks",
+      "gross": 2450,
+      "fees": 294,
+      "cogs": 1040,
+      "giveaways": 80,
+      "expenses": 125,
+      "profit": 911
+    },
+    {
+      "name": "Weekend Singles",
+      "gross": 1820,
+      "fees": 218,
+      "cogs": 760,
+      "giveaways": 35,
+      "expenses": 90,
+      "profit": 717
+    }
+  ]
+}

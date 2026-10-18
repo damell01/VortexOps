@@ -88,4 +88,36 @@ foreach ($items as $i=>$item) {
     $productId=DB::table('products')->where('sku',$sku)->value('id');
     demoInsert('inventory_stock',['inventory_item_id'=>$productId,'inventory_location_id'=>$locationId],['quantity'=>$qty]);
 }
+
+// Streamer submissions make the Reports inbox and review KPIs look lived-in.
+foreach (['Alex Morgan','Jordan Taylor','Casey Rivera'] as $i=>$name) {
+    $email='seller-team-'.($i+1).'@example.test';
+    demoInsert('streamers',['email'=>$email],[
+        'name'=>$name,'status'=>'active','whatnot_channel_id'=>$channelIds[$channels[$i][1]],
+        'hourly_rate'=>20 + $i*3,
+    ]);
+}
+$streamerIds=DB::table('streamers')->whereIn('email',[
+    'seller-team-1@example.test','seller-team-2@example.test','seller-team-3@example.test',
+])->pluck('id')->values()->all();
+if (Schema::hasTable('streamer_log_entries') && count($streamerIds)===3) {
+    $showIds=DB::table('shows')->where('whatnot_show_id','like','DBELL-DEMO-%')
+        ->where('gross_revenue','>',0)->orderBy('show_date','desc')->limit(21)->pluck('id');
+    foreach ($showIds as $i=>$showId) {
+        $gross=(float) DB::table('shows')->where('id',$showId)->value('gross_revenue');
+        $state=['approved','approved','pending','approved','changes_requested'][$i%5];
+        demoInsert('streamer_log_entries',['show_id'=>$showId],[
+            'streamer_id'=>$streamerIds[$i%3],
+            'status'=>$state,
+            'hours_streamed'=>round(2.5+($i%5)*0.5,2),
+            'gross_revenue'=>$gross,
+            'business_net_rev'=>round($gross*.62,2),
+            'product_cost'=>round($gross*.19,2),
+            'number_of_shipments'=>12+($i%28),
+            'notes'=>'Fictional completed seller show report for demonstration.',
+            'submitted_at'=>now()->subDays($i%16)->toDateTimeString(),
+            'reviewed_at'=>$state==='approved' ? now()->subDays($i%10)->toDateTimeString() : null,
+        ]);
+    }
+}
 echo "Seeded ".count($channels)." fictional seller channels, 36 shows, and ".count($items)." inventory products.\n";

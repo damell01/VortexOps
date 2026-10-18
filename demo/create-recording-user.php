@@ -9,8 +9,8 @@ $app = require __DIR__ . '/../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
 $user = App\Models\User::firstOrCreate(
-    ['email' => 'seller.demo@example.test'],
-    ['name' => 'Demo Seller', 'password' => 'OnlyForIsolatedGithubRunner123!']
+    ['email' => getenv('DEMO_RECORD_EMAIL')],
+    ['name' => 'Demo Seller', 'password' => getenv('DEMO_RECORD_PASSWORD')]
 );
 $user->assignRole('admin');
 echo "Fictional admin account created in isolated SQLite database.\n";

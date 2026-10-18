@@ -25,7 +25,7 @@
         .vx-dashboard-reference .vx-middle .fi-wi-widget,.vx-dashboard-reference .vx-middle .fi-wi-widget>section{height:100%}
         @media(max-width:640px){.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:1.25rem}.vx-dashboard-reference .fi-wi-stats-overview-stat{padding:.8rem}.vx-dashboard-reference .vx-hero-art{display:none}}
     </style>
-    <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center;">
+    <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="@if(config('app.dbellops_demo')) background-image:radial-gradient(circle at 85% 15%,rgba(45,212,191,.24),transparent 35%),linear-gradient(110deg,#082f49,#0f766e 65%,#115e59); @else background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}'); @endif background-size:cover;background-position:center;">
         <div class="relative grid gap-5 lg:grid-cols-[1fr_260px]">
             <div class="min-w-0">
                 <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>

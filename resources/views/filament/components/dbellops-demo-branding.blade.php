@@ -12,11 +12,15 @@ html body .fi-btn-color-primary, html body button[type="submit"], html body .fi-
 html body .fi-sidebar-item.fi-active > .fi-sidebar-item-btn { background: rgb(13 148 136 / .16) !important; }
 html body .fi-sidebar-item.fi-active svg { color: #0d9488 !important; }
 html body [style*="#7c3aed"] { filter: hue-rotate(80deg); }
+html body [class*="pokemon"], html body [class*="pokeball"], html body [class*="pokedex"],
+html body [id*="pokemon"], html body [id*="pokeball"], html body [id*="pokedex"],
+html body [data-mascot], html body .debugbar, html body #phpdebugbar,
+html body .phpdebugbar, html body [id^="phpdebugbar"] { display:none !important; }
 </style>
 <script>
 (() => {
   const substitutions = [
-    [/Vortex\\s*Ops/gi, 'DBellOps'],
+    [/Vortex\s*Ops/gi, 'DBellOps'],
     [/VortexOps/gi, 'DBellOps'],
     [/Vortex Breaks operations center/gi, 'DBellOps seller operations center']
   ];
@@ -40,8 +44,17 @@ html body [style*="#7c3aed"] { filter: hue-rotate(80deg); }
       }
     }
   };
+  const hideThemeElements = () => {
+    document.querySelectorAll('a,button,[role="menuitem"],[role="link"],.fi-sidebar-item').forEach(el => {
+      const label = (el.textContent || '').trim();
+      if (/pok[eé]mon|pok[eé]dex|pok[eé]ball|my buddy|mascot/i.test(label) && label.length < 85) {
+        el.style.setProperty('display','none','important');
+      }
+    });
+  };
   const start = () => {
     update(document.body);
+    hideThemeElements();
     document.title = replaceText(document.title);
     const observer = new MutationObserver((records) => {
       for (const record of records) {
@@ -54,6 +67,7 @@ html body [style*="#7c3aed"] { filter: hue-rotate(80deg); }
           if (node.nodeType === 1) update(node);
         }
       }
+      hideThemeElements();
       document.title = replaceText(document.title);
     });
     observer.observe(document.body, {childList:true,subtree:true,characterData:true});

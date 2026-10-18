@@ -34,7 +34,11 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        // DBellOps demo uses the existing VortexOps layouts and components unchanged.\n        // Branding override is permitted only in a non-production environment.\n        $dbellDemo = config('app.env') !== 'production' && (bool) config('app.dbellops_demo', false);\n\n        // Read branding from settings (cached 1hr), fall back to defaults on fresh install
+        // DBellOps demo uses the existing VortexOps layouts and components unchanged.
+        // Branding override is permitted only in a non-production environment.
+        $dbellDemo = config('app.env') !== 'production' && (bool) config('app.dbellops_demo', false);
+
+        // Read branding from settings (cached 1hr), fall back to defaults on fresh install
         try {
             $brandName    = Setting::get('brand_name',    'VortexOps');
             $primaryColor = Setting::get('primary_color', '#7c3aed');
@@ -45,7 +49,13 @@ class AdminPanelProvider extends PanelProvider
             $logoPath     = null;
         }
 
-        if ($dbellDemo) {\n            $brandName = 'DBellOps';\n            $primaryColor = '#0D9488';\n            $logoPath = null;\n        }\n\n        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
+        if ($dbellDemo) {
+            $brandName = 'DBellOps';
+            $primaryColor = '#0D9488';
+            $logoPath = null;
+        }
+
+        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
             $primaryColor = '#7c3aed';
         }
 
@@ -78,7 +88,19 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
-            // Recolor existing VortexOps components for the isolated DBellOps demo.\n            // No layout or component markup is replaced.\n            ->renderHook(\n                PanelsRenderHook::HEAD_END,\n                fn (): string => $dbellDemo ? <<<'HTML'\n<style>\n:root { --vx-soft-primary:#ccfbf1; --vx-primary-text:#0f766e; --vx-violet-bg:#ccfbf1; --vx-violet:#0f766e; }\n.fi-sidebar-item.fi-active>.fi-sidebar-item-btn { background:rgb(13 148 136 / .22); }\n.fi-sidebar-item.fi-active>.fi-sidebar-item-btn svg { color:#5eead4; }\n</style>\nHTML : '',\n            )\n            ->viteTheme('resources/css/filament/admin/theme.css')
+            // Recolor existing VortexOps components for the isolated DBellOps demo.
+            // No layout or component markup is replaced.
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => $dbellDemo ? <<<'HTML'
+<style>
+:root { --vx-soft-primary:#ccfbf1; --vx-primary-text:#0f766e; --vx-violet-bg:#ccfbf1; --vx-violet:#0f766e; }
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn { background:rgb(13 148 136 / .22); }
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn svg { color:#5eead4; }
+</style>
+HTML : '',
+            )
+            ->viteTheme('resources/css/filament/admin/theme.css')
             // Desktop uses the custom top navigation. Keep Filament's native
             // sidebar behavior for mobile only; do not render a desktop toggle.
             // Mobile-optimized: 6xl on desktop, full width on mobile

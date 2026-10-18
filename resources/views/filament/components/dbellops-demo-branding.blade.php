@@ -24,6 +24,26 @@ html body img[src*="pokemon"], html body img[src*="pokeball"],
 html body img[src*="vortex"], html body img[alt*="Vortex"],
 html body [class*="debugbar"], html body [id*="debugbar"] {display:none !important;}
 html body [style*="pokemon"], html body [style*="pokeball"] {background-image:none !important;}
+
+/* Demo login: replace the legacy game artwork with a clean brand panel. */
+@media (min-width: 850px) {
+  html body:has(input[type="password"])::before {
+    content:""; position:fixed; inset:0 auto 0 0; width:53%; z-index:40;
+    background:radial-gradient(circle at 30% 70%,#115e59 0%,transparent 42%),linear-gradient(145deg,#061b2c,#073b45 75%,#0f766e);
+    pointer-events:none;
+  }
+  html body:has(input[type="password"])::after {
+    content:"DBellOps\\A\\A SELL SMARTER.\\A OPERATE SMOOTHER.\\A GROW FASTER.\\A\\A Shows • Inventory • Reporting • Payroll";
+    white-space:pre-wrap; position:fixed; top:18%; left:5%; width:40%; z-index:41;
+    color:#f0fdfa; font:700 clamp(22px,3vw,48px)/1.4 Arial,sans-serif;
+    letter-spacing:-.025em; pointer-events:none;
+  }
+}
+html body:has(input[type="password"]) button[type="submit"] {background:#0d9488!important;color:white!important;}
+html body:has(input[type="password"]) input:focus {--tw-ring-color:#0d9488!important;border-color:#0d9488!important;}
+html body [class*="pwa-install"], html body [id*="pwa-install"] {display:none!important;}
+html body .vx-dashboard-reference .text-violet-600, html body .vx-dashboard-reference .text-purple-600 {color:#0d9488!important;}
+html body .vx-dashboard-reference .bg-violet-600, html body .vx-dashboard-reference .bg-purple-600 {background-color:#0d9488!important;}
 </style>
 <script>
 (() => {

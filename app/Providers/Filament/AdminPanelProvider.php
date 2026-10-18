@@ -79,13 +79,13 @@ class AdminPanelProvider extends PanelProvider
                     ->label('My notifications')
                     ->icon('heroicon-o-bell')
                     ->url(fn (): string => \App\Filament\Pages\MyNotifications::getUrl(panel: 'admin')),
-                \Filament\Actions\Action::make('my_pokedex')
+                ...($dbellDemo ? [] : [\Filament\Actions\Action::make('my_pokedex')
                     ->label('My Pokédex')
                     ->icon('heroicon-o-sparkles')
-                    ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin')),
+                    ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin'))]),
             ])
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
-            ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
+            ->brandLogo(fn (): ?string => $dbellDemo ? asset('images/dbellops-logo.svg') : static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
             // Apply isolated DBellOps branding to the real application pages only.

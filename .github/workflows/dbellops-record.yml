@@ -6,6 +6,8 @@ on:
       - '.github/workflows/dbellops-record.yml'
       - 'demo/**'
       - 'config/app.php'
+      - 'public/images/dbellops-logo.svg'
+      - 'resources/views/filament/components/dashboard-reference.blade.php'
       - 'app/Providers/Filament/AdminPanelProvider.php'
       - 'resources/views/filament/components/dashboard-reference.blade.php'
       - 'resources/views/filament/components/dbellops-demo-branding.blade.php'

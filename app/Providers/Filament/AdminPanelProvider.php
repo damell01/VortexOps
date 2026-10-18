@@ -88,17 +88,10 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
-            // Recolor existing VortexOps components for the isolated DBellOps demo.
-            // No layout or component markup is replaced.
+            // Apply isolated DBellOps branding to the real application pages only.
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => $dbellDemo ? <<<'HTML'
-<style>
-:root { --vx-soft-primary:#ccfbf1; --vx-primary-text:#0f766e; --vx-violet-bg:#ccfbf1; --vx-violet:#0f766e; }
-.fi-sidebar-item.fi-active>.fi-sidebar-item-btn { background:rgb(13 148 136 / .22); }
-.fi-sidebar-item.fi-active>.fi-sidebar-item-btn svg { color:#5eead4; }
-</style>
-HTML : '',
+                fn (): string => $dbellDemo ? view('filament.components.dbellops-demo-branding')->render() : '',
             )
             ->viteTheme('resources/css/filament/admin/theme.css')
             // Desktop uses the custom top navigation. Keep Filament's native

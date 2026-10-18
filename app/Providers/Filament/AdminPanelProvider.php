@@ -34,7 +34,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        // Read branding from settings (cached 1hr), fall back to defaults on fresh install
+        // DBellOps demo uses the existing VortexOps layouts and components unchanged.\n        // Branding override is permitted only in a non-production environment.\n        $dbellDemo = config('app.env') !== 'production' && (bool) config('app.dbellops_demo', false);\n\n        // Read branding from settings (cached 1hr), fall back to defaults on fresh install
         try {
             $brandName    = Setting::get('brand_name',    'VortexOps');
             $primaryColor = Setting::get('primary_color', '#7c3aed');
@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             $logoPath     = null;
         }
 
-        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
+        if ($dbellDemo) {\n            $brandName = 'DBellOps';\n            $primaryColor = '#0D9488';\n            $logoPath = null;\n        }\n\n        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
             $primaryColor = '#7c3aed';
         }
 

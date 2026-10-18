@@ -16,12 +16,24 @@ html body [class*="pokemon"], html body [class*="pokeball"], html body [class*="
 html body [id*="pokemon"], html body [id*="pokeball"], html body [id*="pokedex"],
 html body [data-mascot], html body .debugbar, html body #phpdebugbar,
 html body .phpdebugbar, html body [id^="phpdebugbar"] { display:none !important; }
+
+/* Neutralize legacy game-themed dashboard art and branded assets for seller demo. */
+html body [class*="mascot"], html body [class*="buddy"], html body [class*="poke"],
+html body [id*="mascot"], html body [id*="buddy"], html body [id*="poke"],
+html body img[src*="pokemon"], html body img[src*="pokeball"],
+html body img[src*="vortex"], html body img[alt*="Vortex"],
+html body [class*="debugbar"], html body [id*="debugbar"] {display:none !important;}
+html body [style*="pokemon"], html body [style*="pokeball"] {background-image:none !important;}
 </style>
 <script>
 (() => {
   const substitutions = [
     [/Vortex\s*Ops/gi, 'DBellOps'],
     [/VortexOps/gi, 'DBellOps'],
+    [/Vortex\\s*Breaks/gi, 'DBell Collectibles'],
+    [/Vortex\\s*Cards/gi, 'Coastal Card Vault'],
+    [/Vortex\\s*Collects/gi, 'The Hobby Market'],
+    [/Vortex\\s*Shop/gi, 'DBell Marketplace'],
     [/Vortex Breaks operations center/gi, 'DBellOps seller operations center']
   ];
   const replaceText = (value) => substitutions.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value);
@@ -55,6 +67,10 @@ html body .phpdebugbar, html body [id^="phpdebugbar"] { display:none !important;
   const start = () => {
     update(document.body);
     hideThemeElements();
+    document.querySelectorAll('img').forEach(img => {
+      const descriptor=(img.getAttribute('src')||'')+' '+(img.getAttribute('alt')||'');
+      if (/vortex|pok[eé]mon|pok[eé]ball|mascot/i.test(descriptor)) img.style.setProperty('display','none','important');
+    });
     document.title = replaceText(document.title);
     const observer = new MutationObserver((records) => {
       for (const record of records) {

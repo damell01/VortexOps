@@ -8,6 +8,8 @@ on:
       - 'config/app.php'
       - 'app/Providers/Filament/AdminPanelProvider.php'
       - 'resources/views/filament/components/dashboard-reference.blade.php'
+      - 'resources/views/filament/components/dbellops-demo-branding.blade.php'
+      - 'app/Filament/Pages/Auth/Login.php'
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,7 +20,8 @@ jobs:
     env:
       APP_NAME: DBellOps
       APP_ENV: local
-      APP_DEBUG: 'true'
+      APP_DEBUG: 'false'
+      DEBUGBAR_ENABLED: 'false'
       APP_URL: http://127.0.0.1:8088
       DBELLOPS_DEMO: 'true'
       DB_CONNECTION: sqlite

@@ -16,7 +16,9 @@ class Login extends BaseLogin
 
     public function getSubheading(): ?string
     {
-        return 'Sign in to Vortex Ops to manage shows, inventory, fulfillment, and payroll.';
+        return (config('app.env') !== 'production' && config('app.dbellops_demo'))
+            ? 'Sign in to DBellOps to manage shows, inventory, fulfillment, and payroll.'
+            : 'Sign in to Vortex Ops to manage shows, inventory, fulfillment, and payroll.';
     }
     protected function getRememberFormComponent(): Component
     {

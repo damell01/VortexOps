@@ -45,6 +45,7 @@ class PayrollSimulation
     {
         return $this->query($from, $to, $businessId, $streamerId)
             ->with(['streamers', 'streamerLogEntry', 'channel'])
+            ->withCount('shipments')
             ->orderBy('show_date')->orderBy('id')
             ->limit($limit)
             ->get();
@@ -64,6 +65,7 @@ class PayrollSimulation
 
         return Show::query()->whereKey($ids)
             ->with(['streamers', 'streamerLogEntry', 'channel'])
+            ->withCount('shipments')
             ->orderBy('show_date')->orderBy('id')
             ->get();
     }

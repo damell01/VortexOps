@@ -150,6 +150,48 @@ class Streamer extends Model
         return ['last_week' => $lastWeekRevenue, 'baseline' => $baselineAvg, 'change_pct' => (($lastWeekRevenue - $baselineAvg) / $baselineAvg) * 100];
     }
 
+    /**
+     * performanceTrend() for many streamers at once: one query for the four
+     * weeks it compares, instead of four per streamer.
+     *
+     * @param  iterable<Streamer>  $streamers
+     * @return array<int, array{last_week: float, baseline: float, change_pct: float}|null> keyed by streamer id
+     */
+    public static function performanceTrendsFor(iterable $streamers): array
+    {
+        $ids = collect($streamers)->pluck('id')->filter()->values();
+        if ($ids->isEmpty()) return [];
+
+        $lastWeekStart = now()->copy()->subWeek()->startOfWeek();
+        $weeks = [];
+        for ($i = 0; $i <= 3; $i++) $weeks[$i] = $lastWeekStart->copy()->subWeeks($i)->toDateString();
+
+        $rows = \Illuminate\Support\Facades\DB::table('shows')
+            ->join('show_streamer', 'shows.id', '=', 'show_streamer.show_id')
+            ->whereIn('show_streamer.streamer_id', $ids)
+            ->whereNotIn('shows.status', ['cancelled'])
+            ->whereDate('shows.show_date', '>=', $weeks[3])
+            ->whereDate('shows.show_date', '<=', $lastWeekStart->copy()->endOfWeek()->toDateString())
+            ->get(['show_streamer.streamer_id', 'shows.show_date', 'shows.gross_revenue']);
+
+        $revenue = [];
+        foreach ($rows as $row) {
+            $week = array_search(\Illuminate\Support\Carbon::parse($row->show_date)->startOfWeek()->toDateString(), $weeks, true);
+            if ($week === false) continue;
+            $revenue[$row->streamer_id][$week] = ($revenue[$row->streamer_id][$week] ?? 0) + (float) $row->gross_revenue;
+        }
+
+        $out = [];
+        foreach ($ids as $id) {
+            $last = $revenue[$id][0] ?? 0.0;
+            $baselineAvg = (($revenue[$id][1] ?? 0) + ($revenue[$id][2] ?? 0) + ($revenue[$id][3] ?? 0)) / 3;
+            $out[$id] = $last <= 0 || $baselineAvg <= 0 ? null
+                : ['last_week' => $last, 'baseline' => $baselineAvg, 'change_pct' => (($last - $baselineAvg) / $baselineAvg) * 100];
+        }
+
+        return $out;
+    }
+
     public function isPerformanceTrendingDown(float $thresholdPct = 30.0): bool
     {
         $trend = $this->performanceTrend();

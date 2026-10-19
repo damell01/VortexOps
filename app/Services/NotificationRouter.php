@@ -179,7 +179,18 @@ class NotificationRouter
         }
     }
 
+    /** @var array<string, Collection> audiences already resolved by this router */
+    private array $audiences = [];
+
     private function audience(string $key): Collection
+    {
+        // Resolving the same audience for every event type (the notification
+        // settings pages walk the whole catalog) was the same role and owner
+        // queries dozens of times over.
+        return $this->audiences[$key] ??= $this->resolveAudience($key);
+    }
+
+    private function resolveAudience(string $key): Collection
     {
         return match (true) {
             $key === 'everyone' => User::all(),

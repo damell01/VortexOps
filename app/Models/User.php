@@ -20,7 +20,49 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles, LogsActivity, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, LogsActivity, TwoFactorAuthenticatable;
+    use HasRoles {
+        hasPermissionTo as private spatieHasPermissionTo;
+    }
+
+    /** @var array<string, bool> permission answers already worked out this request */
+    private array $permissionAnswers = [];
+
+    /**
+     * Spatie's check, remembered for the rest of a web request.
+     *
+     * Every lookup by name scans the whole permission list again, and the menu,
+     * quick-create and each resource's canAccess() ask the same few questions
+     * many times per page — about a quarter of a page's server time. Roles don't
+     * change mid-request; commands, workers and tests always check afresh.
+     */
+    public function hasPermissionTo($permission, ?string $guardName = null): bool
+    {
+        if (! is_string($permission) || app()->runningInConsole()) {
+            return $this->spatieHasPermissionTo($permission, $guardName);
+        }
+
+        $key = $permission . '|' . $guardName;
+        if (array_key_exists($key, $this->permissionAnswers)) {
+            $answer = $this->permissionAnswers[$key];
+            if ($answer instanceof \Throwable) {
+                throw $answer;
+            }
+
+            return $answer;
+        }
+
+        try {
+            return $this->permissionAnswers[$key] = $this->spatieHasPermissionTo($permission, $guardName);
+        } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+            // Policy abilities ("viewAny"…) reach here through the gate and are
+            // not permissions at all; finding that out scans the whole list, so
+            // it is worth remembering too.
+            $this->permissionAnswers[$key] = $e;
+
+            throw $e;
+        }
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

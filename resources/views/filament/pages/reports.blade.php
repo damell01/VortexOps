@@ -39,7 +39,12 @@
     .vxrep-chan .vxr-stat-icon { width: 46px; height: 46px; }
     .vxrep-tile-row { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     .vxrep-tile-row .vxr-linkrow b { font-size: 14.5px; }
-    .vxrep-tile-row .vxr-linkrow span { font-size: 12.5px; display: block; line-height: 1.35; }
+    /* Icon, title and arrow share one centred line; the description runs full width below. */
+    .vxrep-jump { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; align-content: start; column-gap: 12px; row-gap: 8px; padding: 14px 16px; }
+    .vxrep-jump > b { line-height: 1.25; }
+    .vxrep-jump > svg { width: 18px; height: 18px; color: var(--vxw-faint); }
+    .vxrep-jump .vxrep-jump-text { grid-column: 1 / -1; line-height: 1.4; }
+    .vxrep-tile-row .vxr-linkrow .vxrep-jump-text { font-size: 12.5px; display: block; line-height: 1.35; }
     .vxrep-wide-table th, .vxrep-wide-table td { white-space: nowrap; }
     .vxrep-pipe { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
     .vxrep-pipe > div { padding: 14px 16px; border: 1px solid var(--vxw-border); border-radius: 12px; }
@@ -395,10 +400,11 @@
             <h3 class="vxr-card-title" style="margin-bottom:12px"><x-filament::icon icon="heroicon-o-bolt" /> Jump to Report</h3>
             <div class="vxrep-tile-row">
                 @foreach ($jump as $link)
-                    <a href="{{ $link['url'] }}" class="vxr-linkrow">
+                    <a href="{{ $link['url'] }}" class="vxr-linkrow vxrep-jump">
                         <span class="vxr-linkrow-icon"><x-filament::icon :icon="$link['icon']" /></span>
-                        <span style="min-width:0;color:inherit"><b>{{ $link['label'] }}</b><span>{{ $link['text'] }}</span></span>
+                        <b>{{ $link['label'] }}</b>
                         <x-filament::icon icon="heroicon-m-chevron-right" />
+                        <span class="vxrep-jump-text">{{ $link['text'] }}</span>
                     </a>
                 @endforeach
             </div>

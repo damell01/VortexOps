@@ -102,6 +102,9 @@ class AdminPanelProvider extends PanelProvider
 
         return $panel
             ->spa(hasPrefetching: true)
+            // The custom top menu and its mobile sheet replace the sidebar on every
+            // signed-in page, so don't spend a fifth of each request building it.
+            ->sidebarLivewireComponent(\App\Livewire\HiddenSidebar::class)
             // Initials avatars drawn in place rather than fetched from ui-avatars.com on every page.
             ->defaultAvatarProvider(\App\Filament\AvatarProviders\InitialsAvatarProvider::class)
             ->databaseNotifications()

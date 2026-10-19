@@ -49,6 +49,11 @@ class MyNotifications extends Page
      */
     public function events(): array
     {
+        return once(fn () => $this->resolveEvents());
+    }
+
+    private function resolveEvents(): array
+    {
         $user = auth()->user();
         $router = app(NotificationRouter::class);
         $out = [];

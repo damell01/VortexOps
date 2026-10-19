@@ -8,10 +8,10 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * The channel switcher used to live in the topbar as a bare native <select>.
- * Moved into the sidebar (rendered via SIDEBAR_NAV_START, right above the nav
- * groups) so it reads as part of the app's primary navigation rather than a
- * floating topbar control.
+ * The channel switcher sits in the custom top menu (desktop-mega-nav), which
+ * replaced the sidebar on every signed-in page. The sidebar is no longer built
+ * at all (App\Livewire\HiddenSidebar), so the switcher renders once per menu
+ * (desktop and phone) — it used to render a third, invisible copy in the sidebar.
  */
 class ChannelSwitcherPlacementTest extends TestCase
 {
@@ -32,21 +32,21 @@ class ChannelSwitcherPlacementTest extends TestCase
         return $u;
     }
 
-    public function test_channel_switcher_renders_inside_the_sidebar_nav_not_the_topbar(): void
+    public function test_channel_switcher_renders_once_in_the_top_menu_and_the_sidebar_is_not_built(): void
     {
         $this->actingAs($this->admin());
 
         $html = $this->get('/admin')->getContent();
 
-        $navPos = strpos($html, 'fi-sidebar-nav');
-        $topbarClosePos = strpos($html, 'fi-topbar-close-sidebar-btn') ?: strpos($html, '</header>');
+        $menuPos = strpos($html, 'vx-desktop-mega-nav');
         $switcherPos = strpos($html, 'vx-channel-switcher');
 
+        $this->assertNotFalse($menuPos, 'Top menu did not render.');
         $this->assertNotFalse($switcherPos, 'Channel switcher did not render at all.');
-        $this->assertNotFalse($navPos, 'Sidebar nav did not render.');
-        // The switcher must appear after the sidebar nav opens (SIDEBAR_NAV_START),
-        // not before it inside the topbar/header markup that precedes the sidebar.
-        $this->assertGreaterThan($navPos, $switcherPos);
+        $this->assertGreaterThan($menuPos, $switcherPos, 'The switcher belongs to the top menu.');
+        // One for the desktop menu, one for the phone menu — no third, hidden copy.
+        $this->assertSame(2, substr_count($html, 'class="vx-channel-switcher'), 'Desktop and phone menus only.');
+        $this->assertStringNotContainsString('fi-sidebar-nav', $html, 'The hidden sidebar should not be built.');
     }
 
     public function test_channel_switcher_hidden_for_users_who_cannot_switch_channels(): void

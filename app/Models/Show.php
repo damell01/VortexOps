@@ -306,6 +306,35 @@ class Show extends Model
     }
 
     /**
+     * Whatnot links are stored whole. The scraper can hand over the page's own
+     * relative href ("/dashboard/live/…"), which the show form's URL field — and
+     * the browser before it — rejected, so the show could not be saved at all.
+     */
+    public static function normalizeWhatnotUrl(?string $url): ?string
+    {
+        $url = trim((string) $url);
+        if ($url === '') {
+            return null;
+        }
+        if (str_starts_with($url, '//')) {
+            return 'https:' . $url;
+        }
+        if (str_starts_with($url, '/')) {
+            return 'https://www.whatnot.com' . $url;
+        }
+        if (! preg_match('#^[a-z][a-z0-9+.-]*://#i', $url) && preg_match('#^(www\.)?whatnot\.com(/|$)#i', $url)) {
+            return 'https://' . $url;
+        }
+
+        return $url;
+    }
+
+    public function setDetailUrlAttribute(?string $value): void
+    {
+        $this->attributes['detail_url'] = static::normalizeWhatnotUrl($value);
+    }
+
+    /**
      * Make sure a show with streamers has one marked primary — the one its report
      * and pay are filed under. Picking streamers on the show form saves them all
      * as non-primary, which left the show looking unowned.

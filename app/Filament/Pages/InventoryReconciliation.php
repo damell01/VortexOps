@@ -84,7 +84,7 @@ class InventoryReconciliation extends Page implements HasForms
 
     public function getItemsProperty()
     {
-        return InventoryItem::where('status', 'active')
+        return InventoryItem::where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'sku', 'average_cost']);
     }

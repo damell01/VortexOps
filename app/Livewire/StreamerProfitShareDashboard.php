@@ -102,7 +102,7 @@ class StreamerProfitShareDashboard extends Component
     public function getRelatedLogs()
     {
         $now = now();
-        return $this->streamer->streamerLogEntries()
+        return $this->streamer->streamerLogEntries()->with('show')
             ->whereYear('created_at', $now->year)
             ->whereMonth('created_at', $now->month)
             ->where('status', '!=', 'draft')

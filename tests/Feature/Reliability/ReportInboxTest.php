@@ -64,8 +64,12 @@ class ReportInboxTest extends TestCase
         $report = StreamerLogEntry::create(['show_id'=>$show->id,'streamer_id'=>$streamer->id,'status'=>'pending','notes'=>'Check special packaging']);
         StreamerLogItem::create(['streamer_log_entry_id'=>$report->id,'item_name'=>'Reported giveaway','quantity'=>2,'disposition'=>'giveaway','unit_cost'=>5]);
         Livewire::test(EditStreamerLogEntry::class,['record'=>$report->id])->assertOk()->assertSee('Reported giveaway')->assertSee('Check special packaging')->assertSee('Items reported by the streamer');
-        \Illuminate\Support\Facades\DB::statement('PRAGMA defer_foreign_keys = ON');
-        $orphan = StreamerLogEntry::create(['show_id'=>999999,'streamer_id'=>$streamer->id,'status'=>'pending','notes'=>'Legacy saved notes']);
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            \Illuminate\Support\Facades\DB::statement('PRAGMA defer_foreign_keys = ON');
+            $orphan = StreamerLogEntry::create(['show_id'=>999999,'streamer_id'=>$streamer->id,'status'=>'pending','notes'=>'Legacy saved notes']);
+        } else {
+            $orphan = \Illuminate\Support\Facades\Schema::withoutForeignKeyConstraints(fn () => StreamerLogEntry::create(['show_id'=>999999,'streamer_id'=>$streamer->id,'status'=>'pending','notes'=>'Legacy saved notes']));
+        }
         Livewire::test(EditStreamerLogEntry::class,['record'=>$orphan->id])->assertOk()->assertSee('This legacy report is not linked to a show')->assertSee('Legacy saved notes');
     }
 

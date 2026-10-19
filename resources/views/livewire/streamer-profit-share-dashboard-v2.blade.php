@@ -1,4 +1,8 @@
 <div class="space-y-4 md:space-y-6">
+    @php($pendingEarnings = $currentPacket->status === 'draft' ? $relatedLogs->filter(fn ($log) => ! $log->show || \App\Support\ProfitShareFormula::earningsForShow($log->show) === null)->count() : 0)
+    @if($pendingEarnings > 0)
+        <p class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">Estimate incomplete: earnings are still pending for {{ $pendingEarnings }} show(s). The estimate includes only shows with earnings available.</p>
+    @endif
     <!-- Header -->
     <div class="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700 p-4 md:p-6">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">

@@ -92,7 +92,7 @@ class StreamerLogEntry extends Model
             (float) ($this->product_cost ?? 0),
             (float) ($this->hours_streamed ?? 0),
             (float) ($this->number_of_shipments ?? $show->shipments()->count()),
-            (float) ($this->streamer->payout_percentage ?? 0),
+            (float) $this->streamer->compensationValue('payout_percentage', 0),
         )['earnings'];
     }
 

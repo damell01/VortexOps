@@ -20,6 +20,7 @@ class ProfitSharePacketReadSafetyTest extends TestCase
         $packet->refresh();
         $before = $packet->getRawOriginal();
         app(ProfitShareCalculationService::class)->updatePacketWithCalculations($packet);
+        app(ProfitShareCalculationService::class)->finalizePacket($packet);
         $this->assertSame($before, $packet->fresh()->getRawOriginal());
     }
 

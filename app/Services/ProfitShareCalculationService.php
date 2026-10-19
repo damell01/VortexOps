@@ -15,20 +15,25 @@ class ProfitShareCalculationService
             ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
             ->where('status', '!=', 'draft')
+            ->with(['show.shippingSurcharges', 'streamer'])
             ->get();
 
         $totals = [
             'gross_revenue' => $logs->sum('gross_revenue'),
             'product_cost' => $logs->sum('product_cost'),
-            'shipping_cost' => $logs->sum(fn($log) => $log->show?->shippingSurcharges()->sum('amount') ?? 0),
+            'shipping_cost' => $logs->sum(fn($log) => $log->show?->shippingSurcharges->sum('total_amount') ?? 0),
             'hours_worked' => $logs->sum('hours_streamed'),
             'num_shows' => $logs->count(),
         ];
 
-        $totals['net_profit'] = max(0, $totals['gross_revenue'] - $totals['product_cost'] - $totals['shipping_cost']);
-
-        // Calculate based on streamer's payout type
-        $totals['profit_share_amount'] = $this->calculateProfitShare($streamer, $totals);
+        $totals['earnings_pending'] = $logs->filter(fn ($log) => ! $log->show || \App\Support\ProfitShareFormula::earningsForShow($log->show) === null)->count();
+        $totals['net_profit'] = $logs->sum(function ($log) {
+            if (! $log->show || ($earnings = \App\Support\ProfitShareFormula::earningsForShow($log->show)) === null) return 0;
+            return \App\Support\ProfitShareFormula::netRevenue($earnings, (float) $log->product_cost,
+                \App\Support\ProfitShareFormula::burden((float) ($log->number_of_shipments ?? $log->show->shipments()->count()), (float) $log->hours_streamed));
+        });
+        // Sum the exact report estimates, including their per-show rounding.
+        $totals['profit_share_amount'] = $logs->sum(fn ($log) => $log->profitShareAmount() ?? 0);
         $totals['hourly_earnings'] = $this->calculateHourlyEarnings($streamer, $totals);
 
         return $totals;
@@ -36,11 +41,12 @@ class ProfitShareCalculationService
 
     public function calculateProfitShare(Streamer $streamer, array $totals): float
     {
-        if (!$streamer->profit_share_pct) {
+        $percentage = (float) $streamer->compensationValue('payout_percentage', 0);
+        if (! $percentage) {
             return 0;
         }
 
-        return round($totals['net_profit'] * ($streamer->profit_share_pct / 100), 2);
+        return round($totals['net_profit'] * ($percentage / 100), 2);
     }
 
     public function calculateHourlyEarnings(Streamer $streamer, array $totals): float
@@ -125,6 +131,11 @@ class ProfitShareCalculationService
 
     public function finalizePacket(ProfitSharePacket $packet): void
     {
+        if ($packet->status !== 'draft') return;
+        $totals = $this->calculateForMonth($packet->streamer, $packet->year, $packet->month);
+        if ($totals['earnings_pending'] > 0) {
+            throw new \RuntimeException('Import missing Whatnot earnings before finalizing this packet.');
+        }
         // Update calculations one final time
         $this->updatePacketWithCalculations($packet);
 

@@ -15,10 +15,6 @@
             if ($links) $groups[$group->getLabel() ?: 'Navigation'] = $links;
         }
     }
-    if (isset($groups['Inventory']) && \App\Filament\Pages\InventoryGuide::canAccess()
-        && ! collect($groups['Inventory'])->contains(fn ($link) => $link[0] === 'Inventory Guide')) {
-        $groups['Inventory'][] = ['Inventory Guide', \App\Filament\Pages\InventoryGuide::getUrl(panel:'admin', parameters: ['tab'=>'tasks'])];
-    }
     if (\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess()
         && ! collect($groups['Shows'] ?? [])->contains(fn ($link) => $link[0] === 'Stream Review')) {
         $groups['Shows'][] = ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review')];

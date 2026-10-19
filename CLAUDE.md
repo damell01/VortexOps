@@ -122,6 +122,7 @@ Or pass already-loaded relations explicitly (see `ReceivingService::creditStock(
 | Whatnot scrape | `WhatnotChannel` | `WhatnotScraper` | Settings page |
 | Sheet import | `Product` | `ProductSheetImporter` | `ImportInventorySheet` page, `inventory:import-cost-sheet` |
 | Handbook | — | `InventoryManual` (content) | `Handbook` page, `ExportController@inventoryManualPdf` |
+| Show performance | `Show` | `ShowPerformanceReport` (on `ProfitLossReport` rows) | `ShowPerformance` page — day/time heatmap, leaderboard, champion |
 
 ---
 

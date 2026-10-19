@@ -13,6 +13,8 @@ class NavVisibility
         \App\Filament\Pages\EditProfile::class,
         // Everyone's own notification choices, like their profile.
         \App\Filament\Pages\MyNotifications::class,
+        // Everyone's own Pokédex — every signed-in trainer, whatever their role.
+        \App\Filament\Pages\MyPokedex::class,
         \App\Filament\Pages\TwoFactorAuth::class,
         \App\Filament\Pages\TwoFactorVerify::class,
         // New show-first shipment page is part of the existing Streams workflow;

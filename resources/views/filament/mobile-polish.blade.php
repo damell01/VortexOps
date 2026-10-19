@@ -36,6 +36,14 @@
        its close button and first nav link land under the status bar. */
     .fi-sidebar { padding-top: var(--vx-safe-top) !important; }
 
+    /* Toasts too: Filament pins its notification stack 1rem from the very top,
+       which in the installed app is inside the status bar — they slid in under
+       the clock and battery and couldn't be read or dismissed. The bell's
+       notification panel (.fi-no-database) is a modal and already clears it. */
+    .fi-no:not(.fi-no-database) {
+        top: calc(var(--vx-safe-top) + 1rem) !important;
+    }
+
     /* Shared form/dialog behavior. Inventory uses forms heavily, so keep
        confirmations compact while allowing real work to use the screen. */
     .fi-modal:not(.fi-modal-slide-over) .fi-modal-window { max-height: min(92vh, 920px); }

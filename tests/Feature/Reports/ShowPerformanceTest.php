@@ -78,12 +78,12 @@ class ShowPerformanceTest extends TestCase
         return $show;
     }
 
-    private function report(): array
+    private function report(string $basis = 'business'): array
     {
         $rows = app(ProfitLossReport::class)->rows(Carbon::parse('2026-10-01'), Carbon::parse('2026-10-15'));
         $durations = Show::pluck('show_duration', 'id')->map(fn ($m) => (float) $m)->all();
 
-        return [app(ShowPerformanceReport::class), app(ShowPerformanceReport::class)->enrich($rows, $durations)];
+        return [app(ShowPerformanceReport::class), app(ShowPerformanceReport::class)->enrich($rows, $durations, $basis)];
     }
 
     public function test_net_per_hour_is_profit_over_hours_streamed_for_the_slot(): void
@@ -115,6 +115,26 @@ class ShowPerformanceTest extends TestCase
         $this->assertSame(['Alex 2026-10-13'], $svc->leaderboard($rows, 'net')->pluck('title')->all());
         $this->assertSame('Jordan 2026-10-14', $svc->leaderboard($rows, 'gross')->first()['title']);
         $this->assertNull($svc->heatmap($rows)['cells'][2][10]['net_hour']);
+    }
+
+    public function test_whatnot_net_is_the_default_and_counts_before_costs_and_pay(): void
+    {
+        $this->show($this->alex, '2026-10-13', 1000, 300, 200, ['show_duration' => 120]);
+        $this->show($this->jordan, '2026-10-14', 5000, 100, 80, ['show_duration' => 60], false); // pay not final
+        $this->show($this->jordan, '2026-10-15', 0, 0, 0, ['gross_revenue' => 900]); // earnings not in
+
+        [$svc, $rows] = $this->report('whatnot');
+        $t = $svc->totals($rows);
+
+        $this->assertSame(1, $t['pending']);
+        $this->assertSame(6000.0, $t['net']);
+        $this->assertSame(500.0, $rows->firstWhere('title', 'Alex 2026-10-13')['net_hour']);
+        $this->assertSame('Jordan 2026-10-14', $svc->leaderboard($rows, 'net')->first()['title']);
+
+        Livewire::test(ShowPerformance::class)
+            ->assertSet('basis', 'whatnot')->assertSee('Whatnot net')
+            ->call('setBasis', 'business')->assertSet('basis', 'business')->assertSee('finalized shows only')
+            ->call('setBasis', 'nonsense')->assertSet('basis', 'whatnot');
     }
 
     public function test_one_lucky_show_does_not_top_the_best_times_once_real_slots_exist(): void

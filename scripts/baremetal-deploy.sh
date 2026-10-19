@@ -95,6 +95,42 @@ else
   echo "Composer unchanged: skipping composer install"
 fi
 
+# Cache on Redis. Every page reads settings, permissions and modules through
+# the cache, and on the database store each read is a MySQL query. Once a Redis
+# server answers here, move the cache to it, but only after proving it can
+# write, read and lock; otherwise put .env back. Sessions and queues stay where
+# they are, so nobody is signed out. Opt out with VORTEX_REDIS_CACHE=off.
+env_value() { { grep -E "^$1=" .env || true; } | tail -n1 | cut -d= -f2- | tr -d "\"'"; }
+set_env() {
+  if grep -qE "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else printf '\n%s=%s\n' "$1" "$2" >> .env; fi
+}
+CACHE_NOW="$(env_value CACHE_STORE)"
+if [ "$(env_value VORTEX_REDIS_CACHE)" != "off" ] && [ "${CACHE_NOW:-database}" = "database" ]; then
+  REDIS_ADDR_HOST="$(env_value REDIS_HOST)"; REDIS_ADDR_HOST="${REDIS_ADDR_HOST:-127.0.0.1}"
+  REDIS_ADDR_PORT="$(env_value REDIS_PORT)"; REDIS_ADDR_PORT="${REDIS_ADDR_PORT:-6379}"
+  if timeout 3 bash -c "exec 3<>/dev/tcp/$REDIS_ADDR_HOST/$REDIS_ADDR_PORT" 2>/dev/null; then
+    cp .env .env.before-redis
+    if php -m 2>/dev/null | grep -qi '^redis$'; then REDIS_CLIENT_PICK=phpredis; else REDIS_CLIENT_PICK=predis; fi
+    set_env CACHE_STORE redis
+    set_env REDIS_CLIENT "$REDIS_CLIENT_PICK"
+    # Production and Dev share this server's Redis; their keys must not meet.
+    [ -n "$(env_value CACHE_PREFIX)" ] || set_env CACHE_PREFIX "vortexops-$ENVIRONMENT-cache-"
+    php artisan config:clear >/dev/null
+    if php artisan cache:probe redis --locks-free; then
+      echo "Cache moved to Redis ($REDIS_CLIENT_PICK); restarting workers so they share it"
+      rm -f .env.before-redis
+      WORKER_CHANGED=1
+    else
+      echo "Redis did not pass the check (or a lock is held); cache stays on MySQL for now"
+      mv .env.before-redis .env
+      php artisan config:clear >/dev/null
+    fi
+  else
+    echo "No Redis server at $REDIS_ADDR_HOST:$REDIS_ADDR_PORT; cache stays on MySQL."
+    echo "To speed pages up: sudo apt install redis-server && sudo systemctl enable --now redis-server; the next deploy switches over."
+  fi
+fi
+
 if [ "$FRONTEND_CHANGED" -eq 1 ]; then
   echo "Frontend/theme changed: rebuilding Vite assets"
   # node_modules is disposable on this server. Interrupted/concurrent npm

@@ -292,6 +292,16 @@ JSON arrays (notification users) are stored encoded: `json_encode([1, 2, 3])`.
 
 ---
 
+## Cache (Redis)
+
+The cache moves from the database to Redis on its own: each bare-metal deploy
+checks for a Redis server (`REDIS_HOST`/`REDIS_PORT`, default 127.0.0.1:6379)
+and, if one answers, sets `CACHE_STORE=redis`, `REDIS_CLIENT` (phpredis if the
+extension is loaded, else predis) and a per-environment `CACHE_PREFIX` (Prod and
+Dev share the server), then runs `php artisan cache:probe redis --locks-free`.
+A failed probe, or a database cache lock still held by a Whatnot run, puts
+`.env` back. Sessions and queues are untouched. `VORTEX_REDIS_CACHE=off` opts out.
+
 ## Scheduler / queue
 
 - Queue worker: `php artisan queue:work --sleep=3 --tries=3 --timeout=120`

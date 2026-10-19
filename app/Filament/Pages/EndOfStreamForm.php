@@ -149,6 +149,9 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $quantity = max(0, (int) ($quantity ?? 0));
         if ($quantity === 0) { unset($this->stagedQuantities[$inventoryItemId]); return; }
+        if (!$this->show) return;
+        $this->authorizeShow();
+        if (!$this->inventoryScopeQuery()->whereKey($inventoryItemId)->exists()) return;
         $this->stagedQuantities[$inventoryItemId] = $quantity;
     }
 
@@ -158,7 +161,8 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $staged = array_filter($this->stagedQuantities, fn ($qty) => $qty > 0);
         if (empty($staged)) return ['items' => 0, 'units' => 0, 'cost' => 0.0];
-        $costs = InventoryItem::whereKey(array_keys($staged))->pluck('average_cost', 'id');
+        $costs = $this->inventoryScopeQuery()->whereKey(array_keys($staged))->pluck('average_cost', 'id');
+        $staged = array_intersect_key($staged, $costs->all());
         $cost = 0.0;
         foreach ($staged as $itemId => $quantity) $cost += (float) ($costs[$itemId] ?? 0) * $quantity;
         return ['items' => count($staged), 'units' => array_sum($staged), 'cost' => round($cost, 2)];
@@ -168,6 +172,9 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $staged = array_filter($this->stagedQuantities, fn ($qty) => $qty > 0);
         if (empty($staged)) return;
+        $allowed = $this->inventoryScopeQuery()->whereKey(array_keys($staged))->pluck('id')->flip()->all();
+        $staged = array_intersect_key($staged, $allowed);
+        if (empty($staged)) { $this->stagedQuantities = []; return; }
         foreach ($staged as $inventoryItemId => $quantity) $this->addLineItem((int) $inventoryItemId, (int) $quantity, $disposition);
         $this->stagedQuantities = [];
         $this->showInventoryPicker = false;
@@ -276,19 +283,31 @@ class EndOfStreamForm extends Page implements HasForms
         return StreamerLogEntry::firstOrCreate(['show_id' => $this->show->id], ['streamer_id' => $streamerId, 'status' => 'pending']);
     }
 
+    private ?string $authorizedShowKey = null;
+
     private function authorizeShow(): void
     {
         $user = auth()->user();
         abort_unless($user, 403);
         if ($user->isAdmin() || $user->isOwner()) return;
+        $key = $user->id.':'.$this->show?->id;
+        if ($this->authorizedShowKey === $key) return;
         $streamerId = $user->streamer?->id;
         abort_unless($streamerId && $this->show?->streamers()->where('streamers.id', $streamerId)->exists(), 403);
+        $this->authorizedShowKey = $key;
     }
 
     private function editableEntry(): ?StreamerLogEntry
     {
         $entry = $this->logEntry();
         if ($entry) abort_unless($entry->canStreamerEdit() && (!$entry->isSubmitted() || $entry->status === 'changes_requested'), 403, 'This report is locked. Request a revision before editing.');
+        if ($entry && $entry->items()->where('deducted_quantity', '>', 0)->exists()) {
+            // Revisions may remove or reduce a previously posted line. Return
+            // the original posting before changing it; resubmission posts the
+            // revised quantities once, rather than leaving deleted stock behind.
+            $entry->restoreInventoryOnRejection();
+            abort_if($entry->items()->where('deducted_quantity', '>', 0)->exists(), 409, 'Posted stock could not be restored. Ask an admin to review this report.');
+        }
         return $entry;
     }
 
@@ -485,10 +504,15 @@ class EndOfStreamForm extends Page implements HasForms
         $lines = $entry->items()->with('inventoryItem')->get();
         if ($lines->isEmpty()) { Notification::make()->title('No items added')->body('Add at least one item used during this show.')->warning()->send(); return; }
         try {
-            $this->saveDetails();
-            foreach ($lines as $line) if ($line->costIsFromInventory()) $line->forceFill(['unit_cost' => $line->effectiveUnitCost()])->save();
-            $entry->update(['product_cost' => round((float) $lines->sum(fn ($line) => $line->total_cost), 2), 'status' => 'streamer_reviewed']);
-            $problems = $entry->submitReport(); $entry->refresh();
+            $problems = \Illuminate\Support\Facades\DB::transaction(function () use ($entry) {
+                StreamerLogEntry::whereKey($entry->id)->lockForUpdate()->firstOrFail();
+                $this->saveDetails(); // Rechecks ownership and editability after acquiring the lock.
+                $lines = $entry->items()->with('inventoryItem')->get();
+                foreach ($lines as $line) if ($line->costIsFromInventory()) $line->forceFill(['unit_cost' => $line->effectiveUnitCost()])->save();
+                $entry->update(['product_cost' => round((float) $lines->sum(fn ($line) => $line->total_cost), 2)]);
+                return $entry->submitReport();
+            }, 3);
+            $entry->refresh();
             $postingPolicy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
             StreamerLogEntry::whereKey($entry->id)->update(['draft_step' => 3, 'draft_saved_at' => now()]);
             if (empty($problems)) {

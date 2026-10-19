@@ -547,6 +547,14 @@ class StreamerLogEntry extends Model
 
     public function restoreInventoryOnRejection(): void
     {
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            static::whereKey($this->id)->lockForUpdate()->firstOrFail();
+            $this->restoreInventoryWithinTransaction();
+        }, 3);
+    }
+
+    private function restoreInventoryWithinTransaction(): void
+    {
         if (! $this->show || ! $this->streamer) return;
 
         $inventoryService = app(\App\Services\InventoryService::class);
@@ -557,11 +565,14 @@ class StreamerLogEntry extends Model
 
             $item = $line->inventoryItem;
             $quantity = (int) $line->deducted_quantity;
-            $candidates = $line->inventory_location_id ? $locations->where('id', $line->inventory_location_id) : $locations;
+            // A reversal returns stock to its original shelf, even if the
+            // visibility policy changed after posting. It never chooses a new shelf.
+            $candidates = $line->inventory_location_id ? InventoryLocation::whereKey($line->inventory_location_id)->get() : $locations;
 
             foreach ($candidates as $location) {
                 $stock = InventoryStock::where('inventory_item_id', $item->id)
                     ->where('inventory_location_id', $location->id)
+                    ->lockForUpdate()
                     ->first();
                 if ($stock === null) continue;
 

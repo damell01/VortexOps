@@ -169,4 +169,25 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
         $this->assertSame($submitted, $entry->submitted_at->toIso8601String());
     }
 
+
+    public function test_removing_a_posted_item_during_an_authorized_revision_returns_the_stock(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('streamer');
+        $streamer = Streamer::create(['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
+        $show = $this->show();
+        $show->streamers()->attach($streamer->id);
+        $location = \App\Models\InventoryLocation::create(['name' => 'Own shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $streamer->id]);
+        $item = \App\Models\InventoryItem::create(['name' => 'Posted item', 'is_active' => true]);
+        $stock = \App\Models\InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id, 'quantity' => 7]);
+        $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id,
+            'status' => 'changes_requested', 'approval_status' => 'pending_approval', 'submitted_at' => now(), 'edit_window_minutes' => 120]);
+        $line = $entry->items()->create(['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id,
+            'item_name' => $item->name, 'quantity' => 3, 'deducted_quantity' => 3, 'disposition' => 'sold']);
+        Livewire::actingAs($user)->test(EndOfStreamForm::class, ['showId' => (string) $show->id])
+            ->call('removeLineItem', $line->id)->assertOk();
+        $this->assertSame(10.0, (float) $stock->fresh()->quantity);
+        $this->assertSame(0, $entry->items()->count());
+    }
+
 }

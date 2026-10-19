@@ -44,7 +44,7 @@ class FulfillmentCenterTest extends TestCase
     protected function tearDown(): void
     {
         AdminModules::flushMemo();
-        ChannelContext::clear();
+        ChannelContext::flushMemo();
         parent::tearDown();
     }
 

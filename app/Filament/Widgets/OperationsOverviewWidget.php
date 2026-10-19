@@ -40,7 +40,7 @@ class OperationsOverviewWidget extends BaseWidget
                 $pStart = now()->subMonthNoOverflow()->startOfMonth();
                 $pEnd   = now()->subMonthNoOverflow();
 
-                $pendingLogs = StreamerLogEntry::where('status', 'pending')->inChannelContext()->count();
+                $pendingLogs = StreamerLogEntry::where('status', 'streamer_reviewed')->where('approval_status', 'pending_approval')->whereNotNull('submitted_at')->inChannelContext()->count();
 
                 $monthGross = (float) Show::whereBetween('show_date', [$mStart->toDateString(), $mEnd->copy()->endOfDay()->toDateTimeString()])
                     ->inChannelContext()
@@ -59,8 +59,8 @@ class OperationsOverviewWidget extends BaseWidget
                 $grossByMonth = Show::query()
                     ->inChannelContext()
                     ->whereBetween('show_date', [now()->subMonthsNoOverflow(5)->startOfMonth(), now()->endOfMonth()])
-                    ->selectRaw("DATE_FORMAT(show_date, '%Y-%m') as month_key, COALESCE(SUM(gross_revenue), 0) as gross_total")
-                    ->groupByRaw("DATE_FORMAT(show_date, '%Y-%m')")
+                    ->selectRaw("SUBSTR(show_date, 1, 7) as month_key, COALESCE(SUM(gross_revenue), 0) as gross_total")
+                    ->groupByRaw("SUBSTR(show_date, 1, 7)")
                     ->pluck('gross_total', 'month_key');
 
                 $monthlyGross = [];

@@ -198,6 +198,9 @@ class PayoutService
             ];
         }
 
+        if (in_array($streamer->payout_type, ['profit_share', 'hybrid'], true)
+            && \App\Support\ProfitShareFormula::earningsForShow($show) === null) return null;
+
         $streamers = $show->streamers;
         $hasPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
         $member = $streamers->firstWhere('id', $streamer->id);

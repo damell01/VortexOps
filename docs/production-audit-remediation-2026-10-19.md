@@ -2,7 +2,7 @@
 
 Base revision: a56496f668515d6e5faf33262030cbe2caafcb04.
 
-## Implemented; PHP runtime validation required before deployment
+## Implemented; full CI must pass before deployment
 
 - A01: report ownership checked on every entry lookup, including direct URLs and Livewire actions.
 - A02: item/detail/draft writes reject approved, locked, expired, or already submitted reports; edit-window reads no longer mutate the submission timestamp.
@@ -15,13 +15,15 @@ Base revision: a56496f668515d6e5faf33262030cbe2caafcb04.
 - A10: feedback harness follows the Livewire response callback, delayed indicator and success payload; server-error coverage added.
 - A11: deployment depends on complete SQLite/MySQL CI and frontend checks, serializes deployments, and deploys only the validated commit if it is still the branch head.
 - A14: streamer/settings changes now invalidate calculated pay-run readiness.
-- A17: report posting serializes retries inside a transaction; stock changes and deducted quantity commit together. Sequential-retry regression added. Actual concurrent MySQL execution remains a CI/runtime verification item.
+- A17: report posting serializes retries inside a transaction; stock changes and deducted quantity commit together. Sequential-retry and revision-removal regressions added. Submission, posting and reversal writes are transactional; revisions return posted stock before changing line quantities. Actual concurrent MySQL execution remains a CI/runtime verification item.
 
 ## Validation in this workspace
 
-Passed: shared UX, confirmation and action-feedback JavaScript checks; five scan-range checks; static PHP parsing; git diff whitespace checks.
+Passed: production frontend build, PHP syntax checks, Blade template compilation, shared UX/confirmation/action-feedback JavaScript checks, five scan-range checks, and git diff whitespace checks.
 
-Not run here: PHPUnit, PHP template compilation, MySQL concurrency and full frontend build. PHP/Composer/vendor dependencies are absent. The build stops at the missing Filament vendor stylesheet. Deployment now waits for complete CI, rather than treating these local checks as a deployment pass.
+PHP runtime was provisioned during remediation. Focused runs passed: 106 tests / 308 assertions covering the changed domains and inbox/retry paths; a separate 200-test run / 934 assertions including Reliability; and 21 tests / 47 assertions after the final basket/revision/dashboard fixes. These runs overlap and must not be added into a unique test count.
+
+The first complete CI attempt failed. Most SQLite failures cascaded from an obsolete ChannelContext::clear() call in FulfillmentCenterTest teardown; that call is corrected. A dashboard widget missing optional detail data and a MySQL-only monthly aggregate are corrected too. Other unrelated full-suite failures remain under investigation; passing focused checks is not a complete deployment pass. Deployment stays gated on the complete SQLite/MySQL CI suite. Production-only export reconciliation and restore verification remain open below.
 
 ## Audit items still requiring external evidence
 

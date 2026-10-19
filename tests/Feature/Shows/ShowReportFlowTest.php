@@ -154,7 +154,8 @@ class ShowReportFlowTest extends TestCase
         $entry->reopenForEditing();
 
         $this->assertNotSame('rejected', $entry->fresh()->approval_status);
-        $this->assertNotSame('changes_requested', $entry->fresh()->status);
+        $this->assertSame('changes_requested', $entry->fresh()->status);
+        $this->assertTrue($entry->fresh()->canStreamerEdit());
     }
 
     public function test_declining_answers_the_request_and_leaves_the_report_alone(): void
@@ -304,7 +305,7 @@ class ShowReportFlowTest extends TestCase
 
         \Livewire\Livewire::actingAs($this->admin->fresh())
             ->test(\App\Filament\Resources\StreamerLogResource\Pages\ListStreamerLogEntries::class)
-            ->loadTable()
+            ->set('activeTab', 'all')->loadTable()
             ->callTableAction('send_back', $entry, ['notes' => 'Hours look wrong.']);
 
         $entry->refresh();

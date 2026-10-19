@@ -40,8 +40,13 @@ class ProfitShareFormula
     /** Settled earnings take precedence; sales never substitute for missing earnings. */
     public static function earningsForShow(\App\Models\Show $show): ?float
     {
-        $earnings = $show->completed_earnings ?? $show->whatnot_net;
-        return $earnings === null ? null : (float) $earnings;
+        if ($show->completed_earnings !== null) return (float) $show->completed_earnings;
+        // The legacy estimated-earnings column defaults to zero, even before
+        // import. A settled zero is explicit in completed_earnings; otherwise
+        // only a complete analytics import confirms that zero is real.
+        if ($show->whatnot_net === null) return null;
+        $estimated = (float) $show->whatnot_net;
+        return $estimated != 0.0 || $show->analytics_sync_status === 'complete' ? $estimated : null;
     }
 
     /**

@@ -277,7 +277,7 @@ class StreamerInventoryAccessTest extends TestCase
         try {
             $this->send($item, $this->theirs, 4);
         } finally {
-            $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
+            $this->assertEqualsWithDelta(10.0, (float) InventoryStock::withoutGlobalScope('streamerLocationOverride')->where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $this->theirs->id)->value('quantity'), 0.01);
 
             $this->assertSame(0, \App\Models\InventoryMovement::where('movement_type', 'transfer')->count());
@@ -301,7 +301,7 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->send($item, $this->theirs, 4);
 
-        $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
+        $this->assertEqualsWithDelta(10.0, (float) InventoryStock::withoutGlobalScope('streamerLocationOverride')->where('inventory_item_id', $item->id)
             ->where('inventory_location_id', $this->theirs->id)->value('quantity'), 0.01);
 
         $this->assertSame(0, \App\Models\InventoryMovement::where('movement_type', 'transfer')->count());

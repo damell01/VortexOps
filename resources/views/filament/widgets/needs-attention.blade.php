@@ -38,7 +38,7 @@
                     @php
                         $rowClass = 'flex w-full items-center gap-3 py-3 -mx-2 px-2 rounded-lg text-left hover:bg-gray-50 dark:hover:bg-white/5 transition';
                     @endphp
-                    @if ($item['detail'])
+                    @if ($item['detail'] ?? null)
                         {{-- Opens the list behind the count instead of leaving the dashboard. --}}
                         <button type="button" wire:click="openDetail('{{ $item['detail'] }}')" wire:loading.attr="disabled" class="{{ $rowClass }}" aria-haspopup="dialog">
                     @else
@@ -50,7 +50,7 @@
                         </span>
                         <span class="text-sm text-gray-800 dark:text-gray-100 flex-1 min-w-0">{{ $item['label'] }}</span>
                         <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-300 dark:text-gray-600 shrink-0" />
-                    @if ($item['detail'])
+                    @if ($item['detail'] ?? null)
                         </button>
                     @else
                         </a>

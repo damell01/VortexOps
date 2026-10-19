@@ -657,7 +657,7 @@ class StreamerLogResource extends Resource
             $missing[] = 'No streamer assigned';
         }
         if ($show && $show->show_date && ! $show->show_date->isFuture()
-            && (float) ($show->gross_revenue ?? 0) <= 0 && (float) ($show->whatnot_net ?? 0) == 0.0) {
+            && \App\Support\ProfitShareFormula::earningsForShow($show) === null) {
             $missing[] = 'Whatnot earnings not imported';
         }
 

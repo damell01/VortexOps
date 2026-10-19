@@ -62,7 +62,7 @@ class ProfitLossReport
             $entry = $show->streamerLogEntry;
 
             $missing = [];
-            if ($show->completed_earnings === null && $show->whatnot_net === null) {
+            if (\App\Support\ProfitShareFormula::earningsForShow($show) === null) {
                 $missing[] = 'Earnings not in yet';
             }
             if (! $show->latestDeductionRequest) {

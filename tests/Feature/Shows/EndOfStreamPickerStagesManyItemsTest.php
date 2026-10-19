@@ -69,7 +69,7 @@ class EndOfStreamPickerStagesManyItemsTest extends TestCase
             'unit_cost' => $cost, 'average_cost' => $cost, 'is_active' => true,
         ]);
 
-        $location = InventoryLocation::firstOrCreate(['name' => 'Main'], ['is_active' => true]);
+        $location = InventoryLocation::firstOrCreate(['name' => 'Main'], ['type' => 'main_storage', 'status' => 'active']);
 
         InventoryStock::create([
             'inventory_item_id'     => $item->id,
@@ -198,4 +198,18 @@ class EndOfStreamPickerStagesManyItemsTest extends TestCase
         $this->assertSame(0, $entry->items()->count());
         $this->assertFalse($page->instance()->showInventoryPicker);
     }
+
+    public function test_a_hidden_item_cannot_be_staged_or_exposed_in_the_basket_summary(): void
+    {
+        $item = InventoryItem::create(['name' => 'Private box', 'average_cost' => 123, 'is_active' => true]);
+        $hidden = InventoryLocation::create(['name' => 'Private shelf', 'type' => 'other', 'status' => 'active']);
+        InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $hidden->id, 'quantity' => 10]);
+        $page = $this->page()->call('stageItem', $item->id);
+        $this->assertSame([], $page->instance()->stagedQuantities);
+        $page->set('stagedQuantities', [$item->id => 1]);
+        $this->assertSame(['items' => 0, 'units' => 0, 'cost' => 0.0], $page->instance()->stagedSummary);
+        $page->call('addStagedItems');
+        $this->assertSame(0, StreamerLogEntry::firstWhere('show_id', $this->show->id)->items()->count());
+    }
+
 }

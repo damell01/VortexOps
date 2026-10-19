@@ -165,6 +165,10 @@ class ProfitShareFormulaTest extends TestCase
         $this->assertSame(-25.0, ProfitShareFormula::earningsForShow($show));
         $show->completed_earnings = null;
         $this->assertSame(900.0, ProfitShareFormula::earningsForShow($show));
+        $show->whatnot_net = 0;
+        $this->assertNull(ProfitShareFormula::earningsForShow($show));
+        $show->analytics_sync_status = 'complete';
+        $this->assertSame(0.0, ProfitShareFormula::earningsForShow($show));
         $show->whatnot_net = null;
         $this->assertNull(ProfitShareFormula::earningsForShow($show));
     }

@@ -21,7 +21,7 @@ class ReportInboxPayTest extends TestCase
     private function report(string $status = 'streamer_reviewed'): StreamerLogEntry
     {
         $streamer = Streamer::create(['name' => 'Tyler Share', 'status' => 'active', 'payout_type' => 'profit_share', 'payout_percentage' => 10]);
-        $show = Show::create(['title' => 'Inbox Pay Show', 'show_date' => now()->subDay()->toDateString(), 'gross_revenue' => 1000]);
+        $show = Show::create(['title' => 'Inbox Pay Show', 'show_date' => now()->subDay()->toDateString(), 'gross_revenue' => 1200, 'completed_earnings' => 1000]);
         $show->streamers()->attach($streamer->id, ['is_primary' => true]);
 
         return StreamerLogEntry::create([
@@ -41,7 +41,7 @@ class ReportInboxPayTest extends TestCase
         $this->owner();
         $entry = $this->report()->load(['show.streamers', 'show.channel', 'streamer']);
 
-        // ($1,000 sales − $200 product cost) × 10%, with no hours or shipments to burden it.
+        // ($1,000 completed earnings − $200 product cost) × 10%, with no hours or shipments to burden it.
         $pay = app(PayoutService::class)->payForReport($entry);
         $this->assertSame('estimate', $pay['state']);
         $this->assertEqualsWithDelta(80.0, $pay['amount'], 0.001);
@@ -81,7 +81,7 @@ class ReportInboxPayTest extends TestCase
         $this->owner();
         $entry = $this->report();
         $entry->update(['hours_streamed' => null]);
-        $entry->show->update(['gross_revenue' => 0, 'whatnot_net' => 0]);
+        $entry->show->update(['gross_revenue' => 0, 'whatnot_net' => 0, 'completed_earnings' => null]);
         \App\Models\StreamerLogItem::create(['streamer_log_entry_id' => $entry->id, 'item_name' => 'Hand-typed slab', 'quantity' => 1, 'disposition' => 'sold']);
 
         Livewire::test(ListStreamerLogEntries::class)

@@ -329,3 +329,61 @@ document.addEventListener('livewire:navigated', closeNotifications);
     document.addEventListener('livewire:navigated', mount);
     if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
 })();
+
+// ── Pop-ups clear the status bar in the installed app ────────────────────
+// Installed on an iPhone, the app draws under the status bar (the clock and
+// battery strip), and taps there never reach the page. Filament's own modals
+// and the top bar already leave room, but the hand-built overlays — the pay
+// override drawer, the mobile menu, the Shows drawer and dozens more — put
+// their header and Close button right in that strip, so they couldn't be
+// closed. Rather than patch each one, check what is under the strip whenever
+// something opens, and push a pop-up's content down by the strip's height.
+(() => {
+    const inset = () => {
+        // No headless browser has a notch; tests set data-vx-safe-top to stand in for one.
+        const forced = parseFloat(document.documentElement.dataset.vxSafeTop);
+        if (forced) return forced;
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;top:0;left:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top,0px)';
+        document.body.appendChild(probe);
+        const value = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+        probe.remove();
+        return value;
+    };
+
+    const fixedAncestor = (el) => {
+        for (let node = el; node && node !== document.body; node = node.parentElement) {
+            if (getComputedStyle(node).position === 'fixed') return node;
+        }
+        return null;
+    };
+
+    const clear = () => {
+        if (!isStandalone() || !document.body) return;
+        const strip = inset();
+        if (strip < 4) return;
+        for (const x of [12, window.innerWidth / 2, window.innerWidth - 12]) {
+            const top = document.elementFromPoint(x, strip / 2);
+            if (!top || top.closest('.fi-topbar, nav.fi-topbar, .fi-modal')) continue;
+            const overlay = fixedAncestor(top);
+            if (!overlay || overlay.dataset.vxStatusClear === '1' || overlay.getBoundingClientRect().top >= strip) continue;
+            // Something on the way down already leaves room (camera scanner header…).
+            let handled = false;
+            for (let node = top; node && node !== overlay.parentElement; node = node.parentElement) {
+                if ((parseFloat(getComputedStyle(node).paddingTop) || 0) >= strip) { handled = true; break; }
+            }
+            if (handled) continue;
+            overlay.style.paddingTop = `${(parseFloat(getComputedStyle(overlay).paddingTop) || 0) + strip}px`;
+            overlay.dataset.vxStatusClear = '1';
+        }
+    };
+
+    // Pop-ups open on a tap (Alpine) or after a server round trip (Livewire),
+    // and some slide in, so look again once the transition has finished.
+    const soon = () => { requestAnimationFrame(clear); setTimeout(clear, 120); setTimeout(clear, 450); };
+    document.addEventListener('click', soon, true);
+    document.addEventListener('livewire:navigated', soon);
+    document.addEventListener('livewire:init', () => {
+        window.Livewire?.hook?.('commit', ({ succeed }) => succeed(() => setTimeout(soon, 0)));
+    });
+})();

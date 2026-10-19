@@ -67,6 +67,10 @@ class ShowObserver
             NotifyShowPendingReview::dispatch($show->id);
         }
 
+        if ($show->wasChanged('title')) {
+            $this->redetectAfterTitleChange($show);
+        }
+
         if ($show->wasChanged('title') || $show->ai_streamer_suggestion === null) {
             $this->detectImportedShowStreamer($show, $show->wasChanged('title'));
         }
@@ -114,6 +118,44 @@ class ShowObserver
             tone: 'warning',
             links: ['Open show' => \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show->id])],
         ));
+    }
+
+    /**
+     * A retitled show ("…w/ Cate" → "…w/ Dennis") gets its streamer worked out
+     * again, instead of keeping whoever the old title named.
+     *
+     * Only an assignment detection made itself is redone: the show's streamers
+     * must be exactly the ones the last detection attached. Anyone an admin
+     * picked by hand stays. A show whose report is already submitted or that has
+     * pay recorded is left alone too — that work belongs to whoever did it.
+     * Detection then runs on the new title (detectImportedShowStreamer below);
+     * if the new title names nobody, the show goes back to Unassigned.
+     */
+    private function redetectAfterTitleChange(Show $show): void
+    {
+        if ($show->import_source !== 'auto_whatnot' || blank($show->title)) return;
+
+        $current = $show->streamers()->pluck('streamers.id')->sort()->values()->all();
+        if ($current === []) return;
+
+        $detected = collect(is_array($show->ai_streamer_suggestion) ? $show->ai_streamer_suggestion : [])
+            ->where('confidence', 'high')->pluck('streamer_id')->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
+        if ($detected !== $current) return; // picked by hand, or never auto-detected
+
+        if ($show->payouts()->exists()) return;
+        $log = StreamerLogEntry::where('show_id', $show->id)->first();
+        if ($log && ($log->status !== 'pending' || $log->updated_at?->gt($log->created_at))) return;
+
+        $show->streamers()->detach();
+        $show->updateQuietly(['ai_streamer_suggestion' => null]);
+        $show->unsetRelation('streamers');
+
+        // Re-detect now, so the empty report stub can follow the new streamer.
+        $this->detectImportedShowStreamer($show, true);
+        if ($log) {
+            $primary = $show->streamers()->wherePivot('is_primary', true)->first() ?? $show->streamers()->first();
+            $primary ? $log->updateQuietly(['streamer_id' => $primary->id]) : $log->delete();
+        }
     }
 
     private function detectImportedShowStreamer(Show $show, bool $forceAttempt = false): void

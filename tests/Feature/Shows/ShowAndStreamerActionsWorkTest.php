@@ -150,6 +150,23 @@ class ShowAndStreamerActionsWorkTest extends TestCase
         $this->assertSame('Renamed Show', $this->show->fresh()->title);
     }
 
+    public function test_a_show_with_pay_recorded_saves_too(): void
+    {
+        // The Show Recap section reads each payout's streamer. In the browser the
+        // saved record came back without them and that lazy read failed the save;
+        // the test harness keeps the preload, so this guards the flow rather than
+        // reproducing that failure.
+        \App\Models\Payout::create(['show_id' => $this->show->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 42, 'status' => 'draft']);
+
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['title' => 'Renamed With Pay'])
+            ->call('save')
+            ->assertHasNoFormErrors()
+            ->assertOk();
+
+        $this->assertSame('Renamed With Pay', $this->show->fresh()->title);
+    }
+
     // ── Streamers ─────────────────────────────────────────────────────────────
 
     public function test_creating_a_streamer_stores_their_payout_terms(): void

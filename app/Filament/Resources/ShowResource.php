@@ -577,7 +577,10 @@ class ShowResource extends Resource
     private static function showRecapSection(): Section
     {
         return Section::make('Show Recap')
-                ->visible(fn (?Show $record) => (bool) $record?->payouts?->count())
+                // Load them here: the edit page preloads payouts.streamer, but the
+                // record is refreshed after a save, and reading each payout's
+                // streamer one at a time broke saving with an error the page hid.
+                ->visible(fn (?Show $record) => (bool) $record?->loadMissing('payouts.streamer')->payouts->count())
                 ->columnSpanFull()
                 ->schema([
                     Placeholder::make('payouts_summary')

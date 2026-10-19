@@ -214,6 +214,12 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.components.login-assets'),
             )
             ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => $isAuthenticatedAdminView()
+                    ? '<link rel="stylesheet" href="' . e(asset('css/workspace-consistency.css')) . '?v=' . filemtime(public_path('css/workspace-consistency.css')) . '">'
+                    : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.components.workspace-entry'),
             )

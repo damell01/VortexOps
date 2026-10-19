@@ -1,0 +1,150 @@
+/* Shared presentation for signed-in screens. No navigation or business rules. */
+.fi-body {
+    --vx-ui-radius: 14px;
+    --vx-ui-control: 10px;
+    --vx-ui-line: var(--vx-border, #e3e3ea);
+    --vx-ui-surface: var(--vx-surface, #fff);
+    --vx-ui-muted: var(--vx-muted, #5a5a68);
+}
+
+/* Headings and actions follow the same rhythm on resource and custom pages. */
+.fi-body .fi-main .fi-header { align-items: flex-start; gap: 16px 24px; }
+.fi-body .fi-main .fi-header-heading,
+.fi-body .fi-main .vxw-hero .vxw-h1 {
+    font-size: clamp(22px, 2vw, 28px);
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -.025em;
+    overflow-wrap: anywhere;
+}
+.fi-body .fi-main .fi-header-subheading,
+.fi-body .fi-main .vxw-hero .vxw-sub {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--vx-ui-muted);
+    max-width: 80ch;
+}
+.fi-body .fi-header-actions-ctn,
+.fi-body .vxw-hero-actions { gap: 8px; flex-wrap: wrap; }
+.fi-body .fi-main :is(.fi-section-header-heading, .fi-ta-header-heading, .vxw-h2) {
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+/* Filters remain a compact group and can wrap without clipping selectors. */
+.fi-body .fi-main .fi-ta-header-toolbar {
+    padding: 16px 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--vx-ui-line);
+}
+.fi-body .fi-main :is(.vxr-toolbar--card, .vx-roster-filters) {
+    gap: 12px;
+    align-items: center;
+}
+.fi-body .fi-main .fi-ta-header-toolbar .fi-input-wrp { min-width: 0; max-width: 100%; }
+.fi-body .fi-main .fi-ta-filters-above-content-ctn {
+    padding: 16px 20px;
+    background: var(--vx-ui-surface);
+    border-bottom: 1px solid var(--vx-ui-line);
+}
+.fi-body .fi-main .fi-ta-filter-indicators {
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-block: 10px;
+}
+
+/* Comfortable rows, clear headings and aligned numerical values. */
+.fi-body .fi-main .fi-ta-header-cell {
+    padding: 12px 16px;
+    height: auto;
+    vertical-align: middle;
+}
+.fi-body .fi-main .fi-ta-header-cell-label {
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: .01em;
+    color: var(--vx-ui-muted);
+}
+.fi-body .fi-main .fi-ta-cell {
+    padding: 14px 16px;
+    vertical-align: middle;
+    line-height: 1.45;
+}
+.fi-body .fi-main .fi-ta-text-item-label { line-height: 1.45; }
+.fi-body .fi-main .fi-ta-text-description { font-size: 12px; line-height: 1.5; }
+.fi-body .fi-main .fi-ta-row { transition: background-color 120ms ease; }
+.fi-body .fi-main .fi-ta-row:hover { background: rgb(124 58 237 / .035); }
+.fi-body .fi-main :is(.fi-ta-actions, .vxr-row-actions) { gap: 8px; flex-wrap: wrap; }
+.fi-body .fi-main :is(.vxw-num, .vx-money, .vxr-money, .vx-roster-table dd) {
+    font-variant-numeric: tabular-nums;
+}
+.fi-body .fi-main .fi-ta-pagination { padding: 16px 20px; gap: 12px; }
+.fi-body .fi-main :is(.vxr-table, .vx-roster-table) th {
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--vx-ui-muted);
+    line-height: 1.45;
+}
+.fi-body .fi-main :is(.vxr-table, .vx-roster-table) td { padding: 14px 16px; line-height: 1.45; }
+.fi-body .fi-main :is(.vxr-table, .vx-roster-table) .num { text-align: right; font-variant-numeric: tabular-nums; }
+.fi-body .fi-main .vx-roster-card { padding: 16px; border-radius: var(--vx-ui-radius); }
+
+/* Consistent control geometry; preserve color/status variants and search icons. */
+.fi-body .fi-main .fi-btn,
+.fi-body .fi-modal .fi-btn,
+.fi-body .fi-main .vxw-btn { border-radius: var(--vx-ui-control); min-height: 40px; }
+.fi-body .fi-main .fi-input-wrp,
+.fi-body .fi-modal .fi-input-wrp {
+    min-height: 44px;
+    border-radius: var(--vx-ui-control);
+}
+.fi-body .fi-main :is(.vxw-input, .vxw-select),
+.fi-body .vx-ps-modal-panel :is(input:not([type=checkbox]):not([type=radio]), select) {
+    min-height: 44px;
+    border-radius: var(--vx-ui-control);
+}
+.fi-body .fi-main :is(.vxw-input, .vxw-select, .vxw-textarea):focus-visible,
+.fi-body .vx-ps-modal-panel :is(input, select, textarea):focus-visible {
+    outline: 2px solid #8b5cf6;
+    outline-offset: 2px;
+}
+
+/* Keep native modal widths and focus trapping; polish their interior only. */
+.fi-body .fi-modal-window {
+    border-radius: 18px;
+    border: 1px solid var(--vx-ui-line);
+    box-shadow: 0 24px 80px rgb(15 23 42 / .2);
+}
+.fi-body .fi-modal-header { padding: 22px 24px 18px; }
+.fi-body .fi-modal-heading { font-size: 20px; line-height: 1.35; letter-spacing: -.02em; }
+.fi-body .fi-modal-description { font-size: 14px; line-height: 1.6; }
+.fi-body .fi-modal-content { padding-inline: 24px; }
+.fi-body .fi-modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--vx-ui-surface);
+    border-top: 1px solid var(--vx-ui-line);
+    padding: 16px 24px;
+    border-radius: 0 0 18px 18px;
+}
+.fi-body :is(.vxr-drawer-head, .vx-ps-modal-head) { gap: 16px; }
+.fi-body .vxr-drawer-foot { flex-shrink: 0; background: var(--vx-ui-surface); }
+.fi-body .vxr-drawer-body { min-height: 0; overscroll-behavior: contain; }
+
+@media (max-width: 639px) {
+    .fi-body .fi-header-actions-ctn { width: 100%; }
+    .fi-body .fi-main :is(.fi-ta-header-toolbar, .fi-ta-filters-above-content-ctn, .fi-ta-pagination) { padding: 14px; }
+    .fi-body .fi-main .fi-ta-header-toolbar .fi-input-wrp { max-width: 100%; }
+    .fi-body .fi-main :is(.fi-btn, .vxw-btn), .fi-body .fi-modal .fi-btn { min-height: 44px; }
+    .fi-body .fi-modal-header { padding: 18px 16px 14px; }
+    .fi-body .fi-modal-content { padding-inline: 16px; }
+    .fi-body .fi-modal-footer { padding: 14px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .fi-body .fi-main .fi-ta-row { transition: none; }
+}

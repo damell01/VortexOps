@@ -8,10 +8,12 @@ use Illuminate\Support\Collection;
  * When shows do best and which shows did best, from the same rows as Business
  * Profitability (ProfitLossReport) so the figures cannot disagree with it.
  *
- * Net is business profit after product cost and pay, and is only counted for
- * a finalized show; a show still missing earnings, COGS or final pay is
- * "pending" and stays out of every net figure rather than counting as $0.
- * Gross is Whatnot sales and counts for every show.
+ * Net has two bases. Whatnot net (the default) is what Whatnot paid out after
+ * its fees — completed earnings once settled, else the estimate — and counts
+ * for any show whose earnings are in. Business net is profit after product
+ * cost and pay too, and counts only for a finalized show. A show without its
+ * figure is "pending" and stays out of every net number rather than counting
+ * as $0. Gross is Whatnot sales and counts for every show.
  */
 class ShowPerformanceReport
 {
@@ -26,8 +28,13 @@ class ShowPerformanceReport
         'shows' => 'Shows',
     ];
 
+    public const BASES = [
+        'whatnot' => 'Whatnot net',
+        'business' => 'Business net',
+    ];
+
     public const BOARD = [
-        'net' => 'Net profit',
+        'net' => 'Net',
         'gross' => 'Gross sales',
         'net_hour' => 'Net / hour',
     ];
@@ -36,25 +43,29 @@ class ShowPerformanceReport
     public const MIN_SHOWS = 3;
 
     /**
-     * Each P&L row with the fields this report ranks on.
+     * Each P&L row with the fields this report ranks on. "final" means the
+     * show's net counts on this basis; "net" is that figure.
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function enrich(Collection $rows, array $durations = []): Collection
+    public function enrich(Collection $rows, array $durations = [], string $basis = 'whatnot'): Collection
     {
-        return $rows->map(function (array $r) use ($durations) {
+        return $rows->map(function (array $r) use ($durations, $basis) {
             $hours = $r['hours'] ?? null;
             if (($hours === null || $hours <= 0) && isset($durations[$r['id']]) && $durations[$r['id']] > 0) {
                 $hours = $durations[$r['id']] / 60;
             }
             $hours = $hours !== null && $hours > 0 ? round((float) $hours, 2) : null;
-            $final = $r['incomplete'] === [];
+            $final = $basis === 'business'
+                ? $r['incomplete'] === []
+                : ! in_array('Earnings not in yet', $r['incomplete'], true);
+            $net = $basis === 'business' ? (float) $r['profit'] : (float) $r['whatnot_net'];
 
             return $r + [
                 'final' => $final,
                 'stream_hours' => $hours,
-                'net' => $final ? (float) $r['profit'] : null,
-                'net_hour' => $final && $hours ? round($r['profit'] / $hours, 2) : null,
+                'net' => $final ? $net : null,
+                'net_hour' => $final && $hours ? round($net / $hours, 2) : null,
                 'gross_hour' => $hours ? round($r['sales'] / $hours, 2) : null,
                 'day' => $r['date'] ? ((int) $r['date']->format('N')) - 1 : null,
                 'block' => $r['start'] ? intdiv((int) $r['start']->format('G'), 2) : null,
@@ -74,14 +85,14 @@ class ShowPerformanceReport
             'final' => $final->count(),
             'pending' => $rows->count() - $final->count(),
             'gross' => round((float) $rows->sum('sales'), 2),
-            'net' => $final->isEmpty() ? null : round((float) $final->sum('profit'), 2),
-            'net_hour' => $finalHours > 0 ? round((float) $finalTimed->sum('profit') / $finalHours, 2) : null,
+            'net' => $final->isEmpty() ? null : round((float) $final->sum('net'), 2),
+            'net_hour' => $finalHours > 0 ? round((float) $finalTimed->sum('net') / $finalHours, 2) : null,
             'hours' => round((float) $rows->sum(fn ($r) => $r['stream_hours'] ?? 0), 1),
         ];
     }
 
     /**
-     * The day × time grid. Each cell: shows, gross, net (finalized only) and
+     * The day × time grid. Each cell: shows, gross, net (counted shows only) and
      * the per-hour rates, which are totals over hours rather than an average
      * of per-show rates, so a long show weighs as much as it streamed.
      *
@@ -114,9 +125,9 @@ class ShowPerformanceReport
             'shows' => $rows->count(),
             'final' => $rows->where('final', true)->count(),
             'gross' => round((float) $rows->sum('sales'), 2),
-            'net' => $rows->where('final', true)->isEmpty() ? null : round((float) $rows->where('final', true)->sum('profit'), 2),
+            'net' => $rows->where('final', true)->isEmpty() ? null : round((float) $rows->where('final', true)->sum('net'), 2),
             'gross_hour' => $hours > 0 ? round((float) $timed->sum('sales') / $hours, 2) : null,
-            'net_hour' => $finalHours > 0 ? round((float) $final->sum('profit') / $finalHours, 2) : null,
+            'net_hour' => $finalHours > 0 ? round((float) $final->sum('net') / $finalHours, 2) : null,
         ];
     }
 
@@ -156,7 +167,7 @@ class ShowPerformanceReport
     }
 
     /**
-     * Top shows by gross, net or net per hour. Net rankings use finalized
+     * Top shows by gross, net or net per hour. Net rankings use counted
      * shows only; gross counts every show.
      *
      * @return Collection<int, array<string, mixed>>

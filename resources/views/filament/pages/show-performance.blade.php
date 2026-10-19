@@ -25,6 +25,11 @@
                 <h1 class="vxr-title">Show Performance</h1>
                 <p class="vxr-subtitle">Your strongest time slots and highest-performing shows. Times are Central.</p>
             </div>
+            <div class="vxr-seg vxsp-basis" role="tablist" aria-label="Net basis">
+                @foreach (SPR::BASES as $k => $label)
+                    <button type="button" wire:click="setBasis('{{ $k }}')" @class(['is-active' => $this->basis === $k]) title="{{ $k === 'business' ? 'After product cost and pay — finalized shows only' : 'What Whatnot paid out after its fees' }}">{{ $label }}</button>
+                @endforeach
+            </div>
         </div>
 
         <div class="vxr-toolbar">
@@ -51,9 +56,9 @@
 
         <div class="vxr-stats">
             <x-vxr.stat label="Gross sales" :value="$money($t['gross'])" icon="heroicon-o-shopping-cart" tone="accent" :note="$t['shows'].' '.\Illuminate\Support\Str::plural('show', $t['shows'])" />
-            <x-vxr.stat label="Net profit" :value="$money($t['net'])" icon="heroicon-o-banknotes" tone="ok" :value-class="($t['net'] ?? 0) < 0 ? 'vxr-val-bad' : ''" :note="$t['pending'] ? $t['pending'].' pending, not counted' : 'All shows finalized'" />
-            <x-vxr.stat label="Net / streaming hour" :value="$t['net_hour'] === null ? '—' : $money($t['net_hour'])" icon="heroicon-o-arrow-trending-up" tone="info" :note="$t['hours'].' hours streamed'" />
-            <x-vxr.stat label="Finalized shows" :value="$t['final']" icon="heroicon-o-check-badge" tone="warn" :note="'of '.$t['shows'].' in range'" />
+            <x-vxr.stat label="{{ $this->netLabel() }}" :value="$money($t['net'])" icon="heroicon-o-banknotes" tone="ok" :value-class="($t['net'] ?? 0) < 0 ? 'vxr-val-bad' : ''" :note="$t['pending'] ? $t['pending'].' pending, not counted' : ($this->basis === 'business' ? 'All shows finalized' : 'Every show has earnings')" />
+            <x-vxr.stat label="{{ $this->netLabel() }} / hour" :value="$t['net_hour'] === null ? '—' : $money($t['net_hour'])" icon="heroicon-o-arrow-trending-up" tone="info" :note="$t['hours'].' hours streamed'" />
+            <x-vxr.stat :label="$this->basis === 'business' ? 'Finalized shows' : 'Shows with earnings'" :value="$t['final']" icon="heroicon-o-check-badge" tone="warn" :note="'of '.$t['shows'].' in range'" />
         </div>
 
         <div class="vxsp-grid">
@@ -65,7 +70,7 @@
                     </div>
                     <div class="vxr-seg" role="tablist">
                         @foreach (SPR::METRICS as $k => $label)
-                            <button type="button" wire:click="setMetric('{{ $k }}')" @class(['is-active' => $this->metric === $k])>{{ $label }}</button>
+                            <button type="button" wire:click="setMetric('{{ $k }}')" @class(['is-active' => $this->metric === $k])>{{ $k === 'net_hour' ? 'Net / hour' : $label }}</button>
                         @endforeach
                     </div>
                 </div>
@@ -128,7 +133,7 @@
                 <div class="vxr-card-body">
                     @if ($champion)
                         <div class="vxsp-champ-body">
-                            <span class="vxr-pill vxr-pill--warn">Highest {{ strtolower(SPR::BOARD[$this->board]) }}</span>
+                            <span class="vxr-pill vxr-pill--warn">Highest {{ $this->board === 'gross' ? 'gross sales' : ($this->basis === 'business' ? 'business net' : 'Whatnot net').($this->board === 'net_hour' ? ' / hour' : '') }}</span>
                             <svg class="vxsp-badge" viewBox="0 0 120 120" aria-hidden="true">
                                 <defs>
                                     <linearGradient id="vxsp-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset=".55" stop-color="#f59e0b"/><stop offset="1" stop-color="#b45309"/></linearGradient>
@@ -145,16 +150,16 @@
                             <h3 class="vxsp-champ-title">{{ $champion['title'] }}</h3>
                             <p class="vxsp-champ-meta">{{ $champion['channel'] }} · {{ $champion['streamer'] }} · {{ $champion['date']?->format('M j') }}</p>
                             <p class="vxsp-champ-value">{{ $boardFmt($champion['value']) }}</p>
-                            <p class="vxsp-champ-cap">{{ strtolower(SPR::BOARD[$this->board]) }}</p>
+                            <p class="vxsp-champ-cap">{{ $this->board === 'gross' ? 'gross sales' : ($this->basis === 'business' ? 'business net' : 'Whatnot net').($this->board === 'net_hour' ? ' per hour' : '') }}</p>
                             <div class="vxsp-champ-facts">
                                 <span><strong>{{ $money($champion['sales']) }}</strong>Gross sales</span>
-                                <span><strong>{{ $champion['final'] ? $money($champion['net']) : 'Pending' }}</strong>Net profit</span>
+                                <span><strong>{{ $champion['final'] ? $money($champion['net']) : 'Pending' }}</strong>{{ $this->netLabel() }}</span>
                                 <span><strong>{{ $hrs($champion['stream_hours']) }}</strong>Duration</span>
                             </div>
                             <a class="vxr-btn vxr-btn--primary vxsp-champ-btn" href="{{ $this->showUrl($champion['id']) }}"><x-filament::icon icon="heroicon-o-eye" /> View show</a>
                         </div>
                     @else
-                        <p class="vxsp-empty">No {{ $this->board === 'gross' ? '' : 'finalized ' }}shows to crown yet.</p>
+                        <p class="vxsp-empty">No {{ $this->board === 'gross' ? '' : ($this->basis === 'business' ? 'finalized ' : '') }}shows to crown yet.</p>
                     @endif
                 </div>
             </section>
@@ -186,7 +191,7 @@
             <div class="vxr-card-head">
                 <div>
                     <h2 class="vxr-card-title"><x-filament::icon icon="heroicon-o-chart-bar" /> Show Leaderboard</h2>
-                    <p class="vxr-card-sub">{{ $this->board === 'gross' ? 'Whatnot sales, every show.' : 'Business profit after product cost and pay, finalized shows only.' }}</p>
+                    <p class="vxr-card-sub">{{ $this->board === 'gross' ? 'Whatnot sales, every show.' : ($this->basis === 'business' ? 'Business profit after product cost and pay, finalized shows only.' : 'What Whatnot paid out after its fees, shows with earnings in.') }}</p>
                 </div>
                 <div class="vxr-seg" role="tablist">
                     @foreach (SPR::BOARD as $k => $label)
@@ -195,7 +200,7 @@
                 </div>
             </div>
             @if ($board->isEmpty())
-                <div class="vxr-card-body"><p class="vxsp-empty">Nothing to rank yet{{ $this->board === 'gross' ? '' : ' — shows appear here once they are finalized' }}.</p></div>
+                <div class="vxr-card-body"><p class="vxsp-empty">Nothing to rank yet{{ $this->board === 'gross' ? '' : ($this->basis === 'business' ? ' — shows appear here once they are finalized' : ' — shows appear here once their Whatnot earnings are in') }}.</p></div>
             @else
                 <ol class="vxsp-board">
                     <li class="vxsp-board-head" aria-hidden="true"><span>Rank</span><span>Show</span><span>Channel</span><span>Duration</span><span>Gross</span><span>Net</span><span>Net / hr</span><span></span></li>
@@ -213,7 +218,7 @@
                     @endforeach
                 </ol>
             @endif
-            <div class="vxr-card-foot">Net uses recorded costs and pay. Gross is Whatnot sales; Whatnot earnings after fees are on Whatnot Performance.</div>
+            <div class="vxr-card-foot">{{ $this->basis === 'business' ? 'Business net takes off recorded product cost and pay. Gross is Whatnot sales.' : 'Whatnot net is after Whatnot\'s fees, before product cost and pay — switch to Business net at the top for those. Gross is Whatnot sales.' }}</div>
         </section>
     </div>
 </x-filament-panels::page>

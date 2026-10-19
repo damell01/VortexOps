@@ -18,8 +18,9 @@ use Livewire\Attributes\Url;
 
 /**
  * Show Performance — which days and times earn the most, and the shows that
- * did best. Rows come from Business Profitability, so net here is the same
- * net there; a show not yet finalized is pending and stays out of net figures.
+ * did best. Net is Whatnot net by default; switch to business net (after
+ * product cost and pay) for finalized shows. Rows come from Business
+ * Profitability, so business net here is the same figure there.
  * Admin only: streamers never see cost or profit.
  */
 class ShowPerformance extends Page
@@ -44,6 +45,10 @@ class ShowPerformance extends Page
 
     #[Url]
     public string $streamer = '';
+
+    /** whatnot | business — which net the page ranks on. */
+    #[Url]
+    public string $basis = 'whatnot';
 
     #[Url]
     public string $metric = 'net_hour';
@@ -73,16 +78,29 @@ class ShowPerformance extends Page
     public function mount(): void
     {
         $this->range = array_key_exists($this->range, self::RANGES) ? $this->range : '90';
+        $this->basis = array_key_exists($this->basis, ShowPerformanceReport::BASES) ? $this->basis : 'whatnot';
         $this->metric = array_key_exists($this->metric, ShowPerformanceReport::METRICS) ? $this->metric : 'net_hour';
         $this->board = array_key_exists($this->board, ShowPerformanceReport::BOARD) ? $this->board : 'net';
     }
 
     public function updated(string $name): void
     {
-        if (in_array($name, ['range', 'channel', 'business', 'streamer'], true)) {
+        if (in_array($name, ['range', 'channel', 'business', 'streamer', 'basis'], true)) {
             $this->rowsMemo = null;
             $this->cell = null;
         }
+    }
+
+    public function setBasis(string $basis): void
+    {
+        $this->basis = array_key_exists($basis, ShowPerformanceReport::BASES) ? $basis : 'whatnot';
+        $this->rowsMemo = null;
+    }
+
+    /** "Whatnot net" or "Business net", for labels. */
+    public function netLabel(): string
+    {
+        return ShowPerformanceReport::BASES[$this->basis];
     }
 
     public function setMetric(string $metric): void
@@ -146,7 +164,7 @@ class ShowPerformance extends Page
                 return [$s->id => $minutes];
             })->all();
 
-        return $this->rowsMemo = app(ShowPerformanceReport::class)->enrich($rows, $durations);
+        return $this->rowsMemo = app(ShowPerformanceReport::class)->enrich($rows, $durations, $this->basis);
     }
 
     public function totals(): array

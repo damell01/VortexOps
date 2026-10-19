@@ -156,3 +156,9 @@
   .vx-mega-menu a.has-icon:hover .vx-mega-link-icon{color:#5b21b6}
   .vx-mega-section{margin-top:6px;padding-top:12px;border-top:1px solid #eef0f4}
 }
+
+/* Menu link icons on the phone menu, matching the desktop menu's. */
+.vx-mobile-submenu .vx-mm-link{display:inline-flex;align-items:center;gap:12px;min-width:0}
+.vx-mobile-submenu a svg.vx-mm-link-icon{width:18px!important;height:18px!important;color:#7c3aed;flex:none}
+.dark .vx-mobile-submenu a svg.vx-mm-link-icon{color:#a78bfa}
+.dark .vx-mega-menu a.has-icon .vx-mega-link-icon{color:#a78bfa}

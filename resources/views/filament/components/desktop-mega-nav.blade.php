@@ -121,12 +121,12 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
 @unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless
 @foreach($links as $link)
-@php [$text,$url] = $link; $section = $link[2] ?? null; $icon = $link[3] ?? null; @endphp
+@php [$text,$url] = $link; $section = $link[2] ?? null; $icon = \App\Support\NavIcons::for($link); @endphp
 @if($sectioned && $section !== $lastSection)<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
 <a href="{{ $url }}" @click="open=false" @class(['has-icon' => $icon])>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
 @endforeach
 @if($label==='Admin' && $ownerLinks)
-<details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as [$text,$url])<a href="{{ $url }}" @click="open=false">{{ $text }}</a>@endforeach</div></details>
+<details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as $link)<a href="{{ $link[1] }}" @click="open=false" class="has-icon">@if($ownerIcon = \App\Support\NavIcons::for($link))<x-filament::icon :icon="$ownerIcon" class="vx-mega-link-icon"/>@endif<span>{{ $link[0] }}</span></a>@endforeach</div></details>
 @endif
 </div></div>
 @endforeach

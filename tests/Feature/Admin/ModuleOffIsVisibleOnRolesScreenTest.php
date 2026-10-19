@@ -61,7 +61,7 @@ class ModuleOffIsVisibleOnRolesScreenTest extends TestCase
         $label = (string) $this->invokeLabel(\App\Filament\Pages\Timekeeping::class, 'Timekeeping');
 
         $this->assertStringContainsString('module off', $label);
-        $this->assertStringContainsString('timekeeping', $label);
+        $this->assertStringContainsString('Timekeeping', $label);
     }
 
     private function invokeLabel(string $class, string $label): \Illuminate\Support\HtmlString

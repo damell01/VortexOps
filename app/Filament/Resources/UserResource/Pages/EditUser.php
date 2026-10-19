@@ -39,7 +39,7 @@ class EditUser extends EditRecord
         // on removal matters because super_admin is filtered out of the select
         // options, so an unrelated edit to an existing super admin would
         // otherwise silently drop the role from the submitted state.
-        foreach (UserResource::UNGRANTABLE_ROLES as $role) {
+        foreach (auth()->user()?->isOwner() ? UserResource::UNGRANTABLE_ROLES : UserResource::PRIVILEGED_ROLES as $role) {
             $had = in_array($role, $this->privilegedBefore, true);
             $has = $this->record->hasRole($role);
             if ($has && ! $had) {

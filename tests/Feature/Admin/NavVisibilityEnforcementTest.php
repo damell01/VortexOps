@@ -122,7 +122,7 @@ class NavVisibilityEnforcementTest extends TestCase
         // the row has to say so rather than reading as a working switch.
         \Livewire\Livewire::test(\App\Filament\Resources\RoleResource\Pages\CreateRole::class)
             ->assertOk()
-            ->assertSee('code rule', false);
+            ->assertSee('extra rule', false);
 
         $this->assertTrue(
             \App\Filament\Resources\RoleResource::hasOwnAccessRule(\App\Filament\Pages\InventoryAnalytics::class),

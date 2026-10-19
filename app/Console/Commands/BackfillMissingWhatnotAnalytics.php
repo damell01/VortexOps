@@ -65,10 +65,7 @@ class BackfillMissingWhatnotAnalytics extends Command
             // future show with a start time through.
             ->readyForAnalytics()
             ->whereNotIn('status', ['cancelled'])
-            ->where(function ($q) {
-                $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
-                  ->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0);
-            })
+            ->missingHistoricalAnalytics()
             ->orderByDesc('show_date')
             ->orderByDesc('start_time')
             ->orderByDesc('id');

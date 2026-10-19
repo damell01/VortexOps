@@ -147,6 +147,7 @@ class FulfillmentResource extends Resource
                     ->visibleFrom('md'),
             ])
             ->filters([
+                \Filament\Tables\Filters\TernaryFilter::make('is_slow_pack')->label('Long fulfillment'),
                 SelectFilter::make('work_stage')
                     ->label('Work Queue')
                     ->options([

@@ -76,18 +76,16 @@ class EntranceAnimationsDoNotPersistTransformTest extends TestCase
         $offenders = [];
 
         foreach ($this->stylesheets() as $file) {
-            foreach (file($file) as $index => $line) {
-                if (! preg_match('/animation\s*:\s*([^;]+);/', $line, $m)) {
-                    continue;
-                }
-
-                $shorthand = $m[1];
-
-                $usesTransform = array_filter($risky, fn (string $name) => preg_match('/\b' . preg_quote($name, '/') . '\b/', $shorthand));
-                $persists = preg_match('/\b(both|forwards)\b/', $shorthand);
-
-                if ($usesTransform && $persists) {
-                    $offenders[] = basename($file) . ':' . ($index + 1) . ' — ' . trim($line);
+            $css = file_get_contents($file);
+            // Only containers that can hold fixed dialogs: transient effect
+            // sprites are removed after playback and cannot host a modal.
+            preg_match_all('/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER);
+            foreach ($rules as $rule) {
+                if (! preg_match('/\.(fi-page-content|fi-simple-page|fi-main|fi-page|fi-ta|fi-section)(?![\w-])/', $rule[1])) continue;
+                if (! preg_match('/animation\s*:\s*([^;]+);/', $rule[2], $m)) continue;
+                $usesTransform = array_filter($risky, fn (string $name) => preg_match('/\b' . preg_quote($name, '/') . '\b/', $m[1]));
+                if ($usesTransform && preg_match('/\b(both|forwards)\b/', $m[1])) {
+                    $offenders[] = basename($file) . ': ' . trim($rule[1]);
                 }
             }
         }
@@ -104,11 +102,14 @@ class EntranceAnimationsDoNotPersistTransformTest extends TestCase
     {
         // Named on its own because everything on every page sits inside it: if
         // this one regresses, every table-rendered modal in the panel moves.
-        $css = file_get_contents(resource_path('css/app.css'));
+        $css = implode("\n", array_map('file_get_contents', [...$this->stylesheets(), public_path('css/workspace-consistency.css')]));
 
-        preg_match('/\.fi-page-content,\s*\.fi-simple-page\s*\{([^}]*)\}/', $css, $m);
-
-        $this->assertNotEmpty($m, '.fi-page-content entrance rule is gone — check whether it moved or was renamed');
-        $this->assertMatchesRegularExpression('/animation:[^;]*\bbackwards\b/', $m[1]);
+        preg_match_all('/([^{}]+)\{([^{}]*)\}/', $css, $rules, PREG_SET_ORDER);
+        foreach ($rules as $rule) {
+            if (! preg_match('/\.(fi-page-content|fi-simple-page)(?![\w-])/', $rule[1])) continue;
+            $this->assertDoesNotMatchRegularExpression('/transform\s*:\s*(?!none)[^;]+;/', $rule[2]);
+            $this->assertDoesNotMatchRegularExpression('/animation\s*:[^;]*\b(both|forwards)\b/', $rule[2]);
+        }
+        $this->assertStringContainsString('.fi-page-content', $css);
     }
 }

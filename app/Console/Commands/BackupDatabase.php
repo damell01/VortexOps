@@ -87,10 +87,19 @@ class BackupDatabase extends Command
 
         $this->ensureDir(dirname($fullPath));
 
-        if (! copy($source, $fullPath)) {
-            throw new \RuntimeException("Failed to copy SQLite database to {$fullPath}");
+        if (!is_string($source) || !is_file($source)) {
+            throw new \RuntimeException('SQLite backup requires an existing file database.');
         }
+        // A file copy misses committed WAL pages and can capture a partially
+        // written database. SQLite creates a consistent online snapshot here.
+        if (file_exists($fullPath)) {
+            $fullPath = substr($fullPath, 0, -7).'_'.bin2hex(random_bytes(4)).'.sqlite';
+        }
+        $sourceDb = new \PDO('sqlite:'.$source);
+        $sourceDb->exec('VACUUM INTO '.$sourceDb->quote($fullPath));
+        $sourceDb = null;
 
+        $filename = 'backups/'.basename($fullPath);
         $size = round(filesize($fullPath) / 1024, 1);
         $this->info("SQLite backup saved → storage/app/{$filename} ({$size} KB)");
 
@@ -113,6 +122,13 @@ class BackupDatabase extends Command
             }
         }
 
+        if ($connection === 'sqlite') {
+            $restored = new \PDO('sqlite:'.$fullPath);
+            if ($restored->query('PRAGMA quick_check')->fetchColumn() !== 'ok') {
+                throw new \RuntimeException('SQLite backup integrity verification failed.');
+            }
+            $restored = null;
+        }
         $this->line('Backup verification passed.');
     }
 

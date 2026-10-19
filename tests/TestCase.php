@@ -13,6 +13,10 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        // Tests must declare HTTP dependencies; signed-in page sweeps must
+        // never wait on or send requests to a real AI or seller service.
+        \Illuminate\Support\Facades\Http::preventStrayRequests();
+
         // ChannelContext memoizes per-request (a real request only ever runs
         // once, so this is invisible in production) — but PHPUnit runs many
         // test methods in the same PHP process, so a leftover memo from a

@@ -234,7 +234,7 @@ class InventoryAge extends Page
             $buckets[$key]['pages'] = $pages;
             $buckets[$key]['page'] = $page;
             $buckets[$key]['items'] = array_slice($buckets[$key]['items'], ($page - 1) * self::ITEM_LIMIT, self::ITEM_LIMIT);
-            $buckets[$key]['hidden_items'] = 0;
+            $buckets[$key]['hidden_items'] = $buckets[$key]['item_count'] - count($buckets[$key]['items']);
         }
 
         return [

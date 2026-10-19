@@ -72,7 +72,8 @@ class PalletSlipParserTest extends TestCase
         $this->assertSame(1, $lines[0]['case_count']); // default qty
         $this->assertNull($lines[0]['unit_cost']);
         $this->assertSame('Box C', $lines[1]['description']);
-        $this->assertSame(3, $lines[1]['case_count']);
+        $this->assertSame(1, $lines[1]['case_count']);
+        $this->assertSame(3, $lines[1]['quantity_per_case']);
     }
 
     public function test_vision_failure_raises(): void

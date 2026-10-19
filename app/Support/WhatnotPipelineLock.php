@@ -45,14 +45,10 @@ class WhatnotPipelineLock
 
         $lock = Cache::lock(self::KEY, self::TTL);
 
-        try {
-            if ($waitSeconds > 0) {
-                $lock->block($waitSeconds);
-            } elseif (! $lock->get()) {
-                return null;
-            }
-        } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
-            return null;
+        $deadline = hrtime(true) + max(0, $waitSeconds) * 1_000_000_000;
+        while (!$lock->get()) {
+            if ($waitSeconds <= 0 || hrtime(true) >= $deadline) return null;
+            usleep(100_000);
         }
 
         Cache::put(self::HOLDER_KEY, [
@@ -71,9 +67,7 @@ class WhatnotPipelineLock
             return;
         }
 
-        try {
-            $lock->release();
-        } finally {
+        if ($lock->release()) {
             Cache::forget(self::HOLDER_KEY);
         }
     }

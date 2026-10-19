@@ -41,11 +41,12 @@ trait HasModuleAccess
 
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return \App\Support\RoleAccess::grants(static::class) || parent::canView($record);
+        return static::canAccess() && (\App\Support\RoleAccess::grants(static::class) || parent::canView($record));
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        if (!static::canAccess() || NavVisibility::isReadOnlyForUser(static::class, auth()->user())) return false;
         return \App\Support\RoleAccess::allowsEditing(static::class) || parent::canEdit($record);
     }
 

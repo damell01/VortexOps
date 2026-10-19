@@ -68,6 +68,14 @@ class EveryGrantedPageOpensTest extends TestCase
      * again, which is the failure this whole test exists to catch.
      */
     private const RESTRICTED_BY_SOMETHING_ELSE = [
+        \App\Filament\Pages\ImportStatus::class => 'owner only',
+        \App\Filament\Pages\WhatnotScraperPage::class => 'owner only',
+        \App\Filament\Pages\NavigationManager::class => 'owner only',
+        \App\Filament\Pages\NoShowCleanup::class => 'owner or super_admin only',
+        \App\Filament\Pages\WhatnotSyncPage::class => 'owner only',
+        \App\Filament\Pages\ShowDataAudit::class => 'owner only',
+        \App\Filament\Pages\WhatnotSheetCheck::class => 'owner only',
+
         \App\Filament\Pages\DemoData::class            => 'owner or super_admin only',
         \App\Filament\Pages\WhatnotBackfill::class     => 'owner only',
         \App\Filament\Pages\AiMonitoring::class        => 'owner or admin, and the ai module',

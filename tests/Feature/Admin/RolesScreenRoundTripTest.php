@@ -75,8 +75,7 @@ class RolesScreenRoundTripTest extends TestCase
         foreach (RoleResource::roleControlledPages() as $class) {
             $key = RoleResource::pageKey($class);
 
-            $form["page_perms.{$key}.visible"]  = $overrides[$class] ?? true;
-            $form["page_perms.{$key}.editable"] = true;
+            $form["page_perms.{$key}.access"] = ($overrides[$class] ?? true) ? 'manage' : 'hidden';
         }
 
         Livewire::actingAs($this->owner());
@@ -118,7 +117,7 @@ class RolesScreenRoundTripTest extends TestCase
         $shownButNotGranted = [];
 
         foreach (RoleResource::roleControlledPages() as $class) {
-            $ticked  = $state[RoleResource::pageKey($class)]['visible'] ?? false;
+            $ticked  = (($state[RoleResource::pageKey($class)]['access'] ?? 'hidden') !== 'hidden');
             $granted = in_array($class, NavVisibility::visibleForRole('admin'), true);
 
             if ($ticked && ! $granted) {
@@ -139,7 +138,15 @@ class RolesScreenRoundTripTest extends TestCase
         // enumerates, and not what this test is looking for.
         $explained = [
             \App\Filament\Pages\DemoData::class,
+            \App\Filament\Pages\NavigationManager::class,
+            \App\Filament\Pages\NoShowCleanup::class,
+            \App\Filament\Pages\WhatnotSheetCheck::class,
             \App\Filament\Pages\WhatnotBackfill::class,
+            \App\Filament\Pages\WhatnotScraperPage::class,
+            \App\Filament\Pages\WhatnotSyncPage::class,
+            \App\Filament\Pages\ImportStatus::class,
+            \App\Filament\Pages\ShowDataAudit::class,
+            \App\Filament\Pages\ShowCleanup::class,
             \App\Filament\Pages\AiMonitoring::class,
             \App\Filament\Resources\FeatureFlagResource::class,
             \App\Filament\Pages\Timekeeping::class,

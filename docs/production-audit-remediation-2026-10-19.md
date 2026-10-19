@@ -34,3 +34,19 @@ The first complete CI attempt failed. Most SQLite failures cascaded from an obso
 - A34: restore a recent production backup into an isolated database/storage environment and record recovery time and integrity checks. No production backup or host session is available here. Backup creation alone is not restore verification.
 
 No production records were edited, compensation rates changed, or paid history rewritten during source remediation. These verification items must stay open until evidence is recorded.
+
+
+## Remaining cleanup batch
+
+- Restored the missing all-channel import entry point used by three screens, retaining per-channel errors instead of reporting a partial import as a success.
+- Restored a per-show order-count guard so a lost Seller Hub filter cannot attach a channel-wide scrape to one show.
+- Fixed role visibility and read-only enforcement, hidden payroll navigation, fulfillment-admin identity/help, and explicit per-role overrides. Older admin navigation defaults remain available unless explicitly hidden.
+- Applied the inventory table query to catalogue cards so location, own-stock, and other filters agree across views. Scoped vendor access to staff or an explicit role grant. Fixed SQLite record binding for aggregated inventory movement detail links.
+- Kept approved/finalized payroll immutable while allowing draft calculations and loan withholding; payroll previews now calculate without writing historical payouts. The report editor now uses earnings and the shared profit-share formula, including unknown earnings and confirmed losses.
+- Prevented submitted/approved monthly packets from being recalculated by a dashboard read and restored service initialization on Livewire updates.
+- Replaced raw SQLite file copies with consistent snapshots, integrity checks and collision-safe filenames. An isolated WAL-data restore and checksum regression passes; this does not verify an actual production MySQL backup.
+- Made browser/pipeline lock waits use monotonic time and retain owner metadata when a contender releases its own lock. Renamed the duplicate legacy refresh command.
+- Historical backfills distinguish missing analytics from confirmed zero/negative earnings. Manifest parsing rejects partial-page failures; delayed jobs remain tracked and report their status without launching duplicate work.
+- Updated regression coverage to exercise current report tabs, inventory cards, compensation overrides and bounded reporting schedules. Tests reject undeclared outbound HTTP requests. Full SQLite/MySQL CI remains required for deployment.
+
+Validation is recorded in the associated commit and CI run; no focused test total should be treated as a complete suite result. Export reconciliation, live role/channel checks and a production-backup restore remain open as listed above.

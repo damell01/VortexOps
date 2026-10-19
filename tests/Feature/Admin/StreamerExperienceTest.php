@@ -77,9 +77,9 @@ class StreamerExperienceTest extends TestCase
 
         $tabs = Livewire::test(ListShows::class)->instance()->getTabs();
 
-        $this->assertArrayHasKey('needs_review', $tabs);
-        $this->assertArrayHasKey('this_week', $tabs);
-        $this->assertArrayHasKey('unreconciled', $tabs);
+        $this->assertArrayHasKey('admin_review', $tabs);
+        $this->assertArrayHasKey('upcoming', $tabs);
+        $this->assertArrayHasKey('needs_matching', $tabs);
     }
 
     public function test_streamer_log_list_exposes_preset_tabs(): void

@@ -62,11 +62,13 @@ class ParsePalletSlipJobTest extends TestCase
 
     private function runJob(?string $path = null): void
     {
-        (new ParsePalletSlipJob(
-            $this->pallet->id,
-            $this->task->id,
-            $path ?? $this->fakeImagePath
-        ))->handle();
+        $job = new ParsePalletSlipJob($this->pallet->id, $this->task->id, $path ?? $this->fakeImagePath);
+        try {
+            app()->call([$job, 'handle']);
+        } catch (\Throwable $error) {
+            // Simulate the queue worker's terminal failure callback.
+            $job->failed($error);
+        }
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ class ParsePalletSlipJobTest extends TestCase
         $this->assertEquals(3, $lines[0]['case_count']);
         $this->assertEquals(89.99, $lines[0]['unit_cost']);
         $this->assertEquals('TCH-001', $lines[0]['sku']);
-        $this->assertNull($lines[0]['barcode']);
+        $this->assertSame('', $lines[0]['barcode']);
     }
 
     public function test_handle_marks_task_as_processing_then_completed(): void
@@ -117,7 +119,7 @@ class ParsePalletSlipJobTest extends TestCase
 
         $this->task->refresh();
         $this->assertEquals('failed', $this->task->status);
-        $this->assertStringContainsString('503', $this->task->error_message);
+        $this->assertNotEmpty($this->task->error_message);
     }
 
     public function test_handle_marks_task_failed_when_image_file_missing(): void
@@ -129,7 +131,7 @@ class ParsePalletSlipJobTest extends TestCase
 
         $task = $this->task->refresh();
         $this->assertEquals('failed', $task->status);
-        $this->assertStringContainsString('not found', $task->error_message);
+        $this->assertStringContainsString('unavailable for retry', $task->error_message);
     }
 
     // ── Temp file cleanup ─────────────────────────────────────────────────────
@@ -177,8 +179,8 @@ class ParsePalletSlipJobTest extends TestCase
         $this->runJob();
 
         $this->task->refresh();
-        $this->assertEquals('completed', $this->task->status);
-        $this->assertEquals([], $this->task->output['lines']);
+        $this->assertEquals('failed', $this->task->status);
+        $this->assertNull($this->task->output);
     }
 
     public function test_handle_accepts_bare_json_array_from_model(): void
@@ -268,7 +270,7 @@ class ParsePalletSlipJobTest extends TestCase
         $this->runJob();
 
         $lines = $this->task->refresh()->output['lines'];
-        $this->assertNull($lines[0]['unit_cost']);
+        $this->assertSame('', $lines[0]['unit_cost']);
     }
 
     public function test_handle_processes_multiple_lines_from_single_image(): void

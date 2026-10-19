@@ -149,6 +149,12 @@ class ShowDataAudit extends Page
         $verifiedSql = "(shows.last_analytics_synced_at IS NOT NULL OR shows.analytics_sync_status = 'complete' OR shows.raw_import_payload LIKE '%whatnot_analytics_csv%')";
         $uuidSql = "CONCAT(COALESCE(whatnot_show_id,''),' ',COALESCE(detail_url,'')) REGEXP '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'";
 
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite') {
+            $hex = '[0-9a-fA-F]';
+            $pattern = '*'.str_repeat($hex, 8).'-'.str_repeat($hex, 4).'-'.str_repeat($hex, 4).'-'.str_repeat($hex, 4).'-'.str_repeat($hex, 12).'*';
+            $uuidSql = "(COALESCE(whatnot_show_id,'') || ' ' || COALESCE(detail_url,'')) GLOB '".$pattern."'";
+        }
+
         $fieldCoverage = function (string $field) use ($base, $verifiedSql) {
             $total = (clone $base)->count();
             $present = $field === 'shows.completed_earnings'

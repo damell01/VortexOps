@@ -223,20 +223,8 @@ class InventoryItemResource extends Resource
 
     public static function canAccess(): bool
     {
-        // An explicit grant on Roles & Permissions is the answer; the rules
-        // below are the fallback for roles that have no explicit list.
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
-        $user = auth()->user();
-
-        // Allow streamers to access for creating items even if module is disabled
-        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            return true;
-        }
-
-        // Default module access check for admins/owners
+        if (! AdminModules::isEnabled('inventory') || NavVisibility::isHiddenForUser(static::class, auth()->user())) return false;
+        if (\App\Support\RoleAccess::grants(static::class)) return true;
         return parent::canAccess();
     }
 

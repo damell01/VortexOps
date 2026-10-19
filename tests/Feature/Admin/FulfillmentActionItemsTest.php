@@ -107,6 +107,7 @@ class FulfillmentActionItemsTest extends TestCase
         $this->actingAs($this->fulfillmentAdmin());
 
         Livewire::test(\App\Filament\Resources\StreamerLogResource\Pages\ListStreamerLogEntries::class)
+            ->set('activeTab', 'all')
             ->assertTableActionVisible('fulfillment_review', $entry);
     }
 

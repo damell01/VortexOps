@@ -51,7 +51,7 @@ class ScanIntoStreamerLogTest extends TestCase
             'created_by'         => $this->admin->id,
         ]);
 
-        $this->location = InventoryLocation::create(['name' => 'Main', 'is_active' => true]);
+        $this->location = InventoryLocation::create(['name' => 'Main', 'type' => 'main_storage', 'status' => 'active']);
     }
 
     private function stockedItem(array $attributes = [], int $quantity = 5): Product

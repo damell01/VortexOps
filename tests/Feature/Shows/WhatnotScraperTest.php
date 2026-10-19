@@ -97,9 +97,9 @@ class WhatnotScraperTest extends TestCase
         config(['vortex.whatnot.email' => null]);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches('/WHATNOT_EMAIL/');
+        $this->expectExceptionMessageMatches('/authentication/');
 
-        app(WhatnotScraper::class)->fetchShows();
+        $this->mockScraper(WhatnotScraper::EXIT_AUTH_REQUIRED, '', 'No saved sign-in')->fetchShows();
     }
 
     public function test_fetch_shows_returns_parsed_json_on_success(): void

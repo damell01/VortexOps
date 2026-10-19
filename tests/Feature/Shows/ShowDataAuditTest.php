@@ -49,12 +49,12 @@ class ShowDataAuditTest extends TestCase
         $page = Livewire::test(ShowDataAudit::class);
 
         $page->call('setStatusFilter', 'unavailable');
-        $onlyUnavailable = $page->instance()->getAuditData()['missing'];
+        $onlyUnavailable = $page->instance()->auditData()['missing'];
         $this->assertCount(1, $onlyUnavailable);
         $this->assertSame('Confirmed no-show', $onlyUnavailable->first()->title);
 
         $page->call('setStatusFilter', 'unclassified');
-        $onlyUnchecked = $page->instance()->getAuditData()['missing'];
+        $onlyUnchecked = $page->instance()->auditData()['missing'];
         $this->assertCount(1, $onlyUnchecked);
         $this->assertSame('Never checked yet', $onlyUnchecked->first()->title);
     }
@@ -73,7 +73,7 @@ class ShowDataAuditTest extends TestCase
         // last_analytics_synced_at is not mass-assignable (see Show::$fillable).
         $show->forceFill(['last_analytics_synced_at' => now()])->saveQuietly();
 
-        $data = Livewire::test(ShowDataAudit::class)->instance()->getAuditData();
+        $data = Livewire::test(ShowDataAudit::class)->instance()->auditData();
 
         $this->assertSame(0, $data['followUpTotal']);
         $this->assertCount(0, $data['missing']);
@@ -90,13 +90,13 @@ class ShowDataAuditTest extends TestCase
 
         $page = Livewire::test(ShowDataAudit::class);
 
-        $firstPage = $page->instance()->getAuditData();
+        $firstPage = $page->instance()->auditData();
         $this->assertSame(55, $firstPage['followUpTotal']);
         $this->assertSame(2, $firstPage['followUpPages']);
         $this->assertCount(50, $firstPage['missing']);
 
         $page->call('goToFollowUpPage', 2);
-        $secondPage = $page->instance()->getAuditData();
+        $secondPage = $page->instance()->auditData();
         $this->assertCount(5, $secondPage['missing']);
 
         $titlesSeen = $firstPage['missing']->pluck('id')->merge($secondPage['missing']->pluck('id'))->unique();
@@ -113,9 +113,9 @@ class ShowDataAuditTest extends TestCase
 
         $page = Livewire::test(ShowDataAudit::class);
         $page->call('goToFollowUpPage', 2);
-        $this->assertSame(2, $page->instance()->getAuditData()['followUpPage']);
+        $this->assertSame(2, $page->instance()->auditData()['followUpPage']);
 
         $page->call('setStatusFilter', 'unclassified');
-        $this->assertSame(1, $page->instance()->getAuditData()['followUpPage']);
+        $this->assertSame(1, $page->instance()->auditData()['followUpPage']);
     }
 }

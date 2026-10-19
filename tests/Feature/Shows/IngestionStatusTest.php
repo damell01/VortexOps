@@ -27,7 +27,7 @@ class IngestionStatusTest extends TestCase
         parent::setUp();
 
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $this->admin = User::factory()->create(['email' => 'admin@test.com']);
+        $this->admin = User::factory()->create(['email' => config('app.owner_email')]);
         $this->admin->assignRole('admin');
         $this->actingAs($this->admin);
 
@@ -41,12 +41,14 @@ class IngestionStatusTest extends TestCase
 
     private function log(array $attributes = []): ShowIngestionLog
     {
-        return ShowIngestionLog::create(array_merge([
+        $record = ShowIngestionLog::create(array_merge([
             'whatnot_channel_id' => $this->channel->id,
             'source'             => 'whatnot_show_index',
             'status'             => 'success',
             'raw_payload'        => [],
         ], $attributes));
+        if (isset($attributes['created_at'])) $record->forceFill(['created_at' => $attributes['created_at']])->saveQuietly();
+        return $record;
     }
 
     // ── The channel column ────────────────────────────────────────────────
@@ -174,12 +176,12 @@ class IngestionStatusTest extends TestCase
         ]);
 
         $this->assertSame(
-            'Import failed for this show',
+            'Show import failed',
             $this->log(['status' => 'failed', 'show_id' => $show->id])->summary(),
         );
 
         $this->assertSame(
-            'Import failed before a show could be identified',
+            'Scraper failed',
             $this->log(['status' => 'failed', 'show_id' => null])->summary(),
         );
     }
@@ -190,10 +192,10 @@ class IngestionStatusTest extends TestCase
     {
         // The whole point: before this, a job failing every ten minutes showed
         // up only as a success timestamp that quietly stopped moving.
-        Setting::set('whatnot_last_import_success_at', now()->subHours(6)->toISOString());
-        Setting::set('whatnot_last_import_failure_at', now()->subMinutes(4)->toISOString());
+        $this->log(['source' => 'whatnot_show_analytics', 'whatnot_channel_id' => null, 'created_at' => now()->subHours(6)->toISOString()]);
+        $this->log(['source' => 'whatnot_show_analytics', 'status' => 'failed', 'whatnot_channel_id' => null, 'created_at' => now()->subMinutes(4)->toISOString()]);
 
-        $job = collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_last_import');
+        $job = collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_show_analytics');
 
         $this->assertSame('failing', $job['state']);
         $this->assertStringContainsString('Last attempt failed', $job['note']);
@@ -202,20 +204,20 @@ class IngestionStatusTest extends TestCase
 
     public function test_a_success_newer_than_the_last_failure_reads_as_ok(): void
     {
-        Setting::set('whatnot_last_import_failure_at', now()->subHours(6)->toISOString());
-        Setting::set('whatnot_last_import_success_at', now()->subMinutes(4)->toISOString());
+        $this->log(['source' => 'whatnot_show_analytics', 'status' => 'failed', 'whatnot_channel_id' => null, 'created_at' => now()->subHours(6)->toISOString()]);
+        $this->log(['source' => 'whatnot_show_analytics', 'whatnot_channel_id' => null, 'created_at' => now()->subMinutes(4)->toISOString()]);
         Setting::set('whatnot_last_recent_refresh_success_at', now()->subMinutes(20)->toISOString());
 
-        $this->assertSame('ok', collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_last_import')['state']);
-        $this->assertSame('ok', ScraperStatus::overall());
+        $this->assertSame('ok', collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_show_analytics')['state']);
+        $this->assertSame('unknown', ScraperStatus::overall(), 'Unobserved pipelines must not be marked healthy.');
     }
 
     public function test_a_success_that_stopped_moving_reads_as_stale(): void
     {
-        Setting::set('whatnot_last_import_success_at', now()->subHours(3)->toISOString());
+        $this->log(['source' => 'whatnot_show_analytics', 'whatnot_channel_id' => null, 'created_at' => now()->subHours(4)->toISOString()]);
         Setting::set('whatnot_last_recent_refresh_success_at', now()->subMinutes(10)->toISOString());
 
-        $this->assertSame('stale', collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_last_import')['state']);
+        $this->assertSame('stale', collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_show_analytics')['state']);
     }
 
     public function test_a_paused_schedule_is_reported_as_paused_not_broken(): void
@@ -238,9 +240,10 @@ class IngestionStatusTest extends TestCase
 
     public function test_a_garbled_timestamp_does_not_take_the_page_down(): void
     {
-        Setting::set('whatnot_last_import_success_at', 'not a date at all');
+        Setting::set('scheduler_last_heartbeat', 'not a date at all');
+        $this->assertFalse(ScraperStatus::schedulerIsRunning());
 
-        $this->assertSame('unknown', collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_last_import')['state']);
+        $this->assertSame('unknown', collect(ScraperStatus::jobs())->firstWhere('key', 'whatnot_show_analytics')['state']);
     }
 
     public function test_a_silent_scheduler_is_detectable(): void
@@ -254,33 +257,31 @@ class IngestionStatusTest extends TestCase
         $this->assertFalse(ScraperStatus::schedulerIsRunning());
     }
 
-    public function test_per_channel_activity_counts_the_last_day_only(): void
+    public function test_channel_health_uses_the_latest_result_for_each_pipeline(): void
     {
-        $this->log();
-        $this->log(['status' => 'failed', 'error_message' => 'Timed out']);
-        $this->log()->forceFill(['created_at' => now()->subDays(3)])->saveQuietly();
-
+        $this->log(['source' => 'whatnot_show_analytics', 'status' => 'failed', 'created_at' => now()->subDays(3)]);
+        $this->log(['source' => 'whatnot_show_analytics']);
+        $this->log(['source' => 'whatnot_orders', 'status' => 'failed']);
         $row = collect(ScraperStatus::byChannel())->first();
-
         $this->assertSame($this->channel->id, $row['channel']->id);
-        $this->assertSame(2, $row['runs_24h']);
         $this->assertSame(1, $row['failures_24h']);
-        $this->assertNotNull($row['last_success_at']);
+        $this->assertSame('success', collect($row['pipelines'])->firstWhere('source', 'whatnot_show_analytics')['status']);
+        $this->assertNotNull($row['last_at']);
     }
 
     // ── The page ──────────────────────────────────────────────────────────
 
     public function test_the_page_renders_the_status_panel(): void
     {
-        Setting::set('whatnot_last_import_success_at', now()->subMinutes(3)->toISOString());
+        $this->log(['source' => 'whatnot_show_analytics', 'whatnot_channel_id' => null, 'created_at' => now()->subMinutes(3)->toISOString()]);
         Setting::set('scheduler_last_heartbeat', now()->subMinutes(1)->toISOString());
         $this->log();
 
         Livewire::test(ListShowIngestionLogs::class)
             ->assertSuccessful()
             ->assertSee('Whatnot importer')
-            ->assertSee('Show index')
-            ->assertSee('By channel')
+            ->assertSee('Shows + Analytics')
+            ->assertSee('Vortex Cards')
             ->assertSee('Vortex Cards');
     }
 

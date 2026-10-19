@@ -298,12 +298,12 @@ class EditStreamerLogEntry extends EditRecord
         $record = $this->record;
 
         // Auto-fill gross_revenue from the show if it wasn't set.
-        if (! $record->gross_revenue && $record->show) {
+        if ($record->gross_revenue === null && $record->show) {
             $record->gross_revenue = $record->show->gross_revenue;
         }
 
         // Recalculate profit share once we have cost data.
-        if ($record->gross_revenue && $record->product_cost !== null) {
+        if ($record->product_cost !== null) {
             $record->profit_share_amount = $record->profitShareAmount();
         }
         $record->save();

@@ -154,11 +154,11 @@ class AllowListVisibilityTest extends TestCase
 
         $state = RoleResource::pagePermsFormState('reviewer', []);
 
-        $this->assertTrue($state[RoleResource::pageKey(self::GRANTED)]['visible']);
-        $this->assertFalse($state[RoleResource::pageKey(self::DENIED)]['visible']);
+        $this->assertSame('manage', $state[RoleResource::pageKey(self::GRANTED)]['access']);
+        $this->assertSame('hidden', $state[RoleResource::pageKey(self::DENIED)]['access']);
 
         // A page absent from the allow-list must show as unticked, not ticked
         // — otherwise the screen claims access the role does not have.
-        $this->assertFalse($state[RoleResource::pageKey(self::SHIPPED_LATER)]['visible']);
+        $this->assertSame('hidden', $state[RoleResource::pageKey(self::SHIPPED_LATER)]['access']);
     }
 }

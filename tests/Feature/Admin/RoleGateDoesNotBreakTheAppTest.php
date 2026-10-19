@@ -106,6 +106,7 @@ class RoleGateDoesNotBreakTheAppTest extends TestCase
         // The gate must still do its job — this is the behaviour the whole
         // feature exists for, and the fix above must not have opened it back up.
         NavVisibility::setVisibleForRole('admin', [\App\Filament\Resources\ShowResource::class]);
+        NavVisibility::setHiddenForRole('admin', [\App\Filament\Resources\InventoryItemResource::class]);
         NavVisibility::flushMemo();
 
         $this->get(\App\Filament\Resources\InventoryItemResource::getUrl('index', panel: 'admin'))
@@ -118,6 +119,7 @@ class RoleGateDoesNotBreakTheAppTest extends TestCase
     public function test_withholding_a_resource_also_closes_its_child_pages(): void
     {
         NavVisibility::setVisibleForRole('admin', []);
+        NavVisibility::setHiddenForRole('admin', [\App\Filament\Resources\InventoryItemResource::class]);
         NavVisibility::flushMemo();
 
         $item = \App\Models\InventoryItem::firstOrFail();

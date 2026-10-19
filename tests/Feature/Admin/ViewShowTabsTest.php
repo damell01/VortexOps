@@ -53,12 +53,10 @@ class ViewShowTabsTest extends TestCase
 
         Livewire::test(ViewShow::class, ['record' => $show->id])
             ->assertOk()
-            ->assertSee('Overview')
-            ->assertSee('Financials')
-            ->assertSee('Analytics')
-            ->assertSee('Approval')
+            ->assertSee('Streamer Report')
+            ->assertSee('Show Financials')
             ->assertSee('Show Details')
-            ->assertSee('Gross Revenue');
+            ->assertSee('Gross Sales');
     }
 
     public function test_approval_tab_is_hidden_without_a_deduction_request(): void
@@ -68,7 +66,7 @@ class ViewShowTabsTest extends TestCase
 
         Livewire::test(ViewShow::class, ['record' => $show->id])
             ->assertOk()
-            ->assertSee('Overview')
+            ->assertSee('Streamer Report')
             ->assertDontSee('Approval Summary');
     }
 }

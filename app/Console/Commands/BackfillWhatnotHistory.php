@@ -10,10 +10,8 @@ use Illuminate\Console\Command;
  * Walk the back catalogue until every past show has its analytics and shipments.
  *
  * This command deliberately uses the dedicated historical commands instead of
- * whatnot:refresh-recent. VortexOps has two commands named refresh-recent in the
- * codebase, and the registered one is the targeted orders/shipments/ledger job;
- * relying on that ambiguous command made this history runner pass options the
- * active command does not support.
+ * whatnot:refresh-recent, which handles targeted orders/shipments/ledger work.
+ * Show discovery has its own whatnot:refresh-recent-shows command.
  */
 class BackfillWhatnotHistory extends Command
 {
@@ -23,7 +21,9 @@ class BackfillWhatnotHistory extends Command
                             {--analytics-limit=25 : Analytics shows per pass}
                             {--shipment-batch=4 : Shipment shows per browser batch}
                             {--sleep=20 : Seconds to wait between analytics passes}
-                            {--dry-run : Report what is outstanding and stop}';
+                            {--dry-run : Report what is outstanding and stop}
+                            {--verify : Verify saved sign-in and attempt one analytics target}
+                            {--batches=0 : Maximum analytics passes per channel (0 = until complete)}';
 
     protected $description = 'Backfill all historical Whatnot analytics and shipment data into VortexOps';
 
@@ -36,7 +36,7 @@ class BackfillWhatnotHistory extends Command
             ->get();
 
         if ($channels->isEmpty()) {
-            $this->error('No active Whatnot channels are enabled for import.');
+            $this->error('No Whatnot channels are active and enabled for import.');
             return self::FAILURE;
         }
 
@@ -46,10 +46,27 @@ class BackfillWhatnotHistory extends Command
         $shipmentBatch = max(1, min(10, (int) $this->option('shipment-batch')));
         $sleep = max(0, (int) $this->option('sleep'));
 
-        $this->reportCoverage($channels->pluck('id')->all());
+        $outstanding = $this->reportCoverage($channels->pluck('id')->all());
+        $this->line("Analytics pass size: up to {$analyticsLimit} shows per channel.");
 
-        if ($this->option('dry-run')) {
+        if ($this->option('dry-run') || $outstanding === 0) {
             return self::SUCCESS;
+        }
+
+        if (\App\Support\WhatnotBrowserLock::isHeld()) {
+            $this->error('Historical backfill stopped: the browser lock is held by another job.');
+            $this->line('Inspect it with php artisan whatnot:unlock before retrying.');
+            return self::FAILURE;
+        }
+        $verify = (bool) $this->option('verify');
+        $maxPasses = $verify ? 1 : max(0, (int) $this->option('batches'));
+        if ($verify) {
+            $this->line('Verifying on one show');
+            $analyticsLimit = 1;
+            if (!app(\App\Services\WhatnotScraper::class)->hasCookieFile()) {
+                $this->error('No saved Whatnot sign-in is available. Refresh the sign-in before verification.');
+                return self::FAILURE;
+            }
         }
 
         // Analytics is intentionally done one channel at a time and in repeated
@@ -59,7 +76,9 @@ class BackfillWhatnotHistory extends Command
             $this->newLine();
             $this->info("Analytics backfill: {$channel->name}");
 
+            $passes = 0;
             while (true) {
+                if ($maxPasses > 0 && $passes++ >= $maxPasses) break;
                 $before = $this->missingAnalyticsCount($channel->id, $analyticsDays);
                 if ($before === 0) {
                     $this->line('  Analytics complete.');
@@ -96,6 +115,10 @@ class BackfillWhatnotHistory extends Command
             }
         }
 
+        if ($verify) {
+            return $this->reportCoverage($channels->pluck('id')->all()) < $outstanding ? self::SUCCESS : self::FAILURE;
+        }
+
         // Shipment reconciliation already supports all shows in range, all active
         // imported channels, and --limit=0 means no show-count ceiling.
         $this->newLine();
@@ -118,38 +141,39 @@ class BackfillWhatnotHistory extends Command
         return self::SUCCESS;
     }
 
-    private function reportCoverage(array $channelIds): void
+    private function pastShows(array $channelIds)
     {
-        $past = Show::query()
-            ->whereIn('whatnot_channel_id', $channelIds)
-            ->whereDate('show_date', '<=', today())
-            ->whereNotNull('detail_url');
+        return Show::whereIn('whatnot_channel_id', $channelIds)->readyForAnalytics();
+    }
 
+    private function missingAnalytics($query)
+    {
+        return $query->missingHistoricalAnalytics();
+    }
+
+    private function reportCoverage(array $channelIds): int
+    {
+        $past = $this->pastShows($channelIds);
         $total = (clone $past)->count();
-        $missingAnalytics = (clone $past)
-            ->where(function ($q) {
-                $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
-                  ->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0);
-            })
-            ->count();
-        $missingShipments = (clone $past)->doesntHave('shipments')->count();
-
+        $missingAnalytics = $this->missingAnalytics(clone $past)->count();
+        $missingShipments = (clone $past)->whereNull('last_shipments_synced_at')->doesntHave('shipments')->count();
+        $outstanding = (clone $past)->where(function ($q) {
+            $q->where(fn ($q) => $this->missingAnalytics($q))
+                ->orWhere(fn ($q) => $q->whereNull('last_shipments_synced_at')->doesntHave('shipments'));
+        })->count();
         $this->newLine();
-        $this->line("  {$total} past shows · {$missingAnalytics} missing analytics · {$missingShipments} with no shipment rows");
+        $this->line("  {$total} past shows · {$missingAnalytics} missing analytics · {$missingShipments} with no shipment sync");
+        $this->line($outstanding ? "{$outstanding} still missing analytics or shipments" : 'Nothing outstanding');
+        foreach (WhatnotChannel::whereNotIn('id', $channelIds)->where('status', 'active')->get() as $excluded) {
+            $this->line($excluded->name);
+            $this->line("  include in import is switched off; its shows are excluded.");
+        }
+        return $outstanding;
     }
 
     private function missingAnalyticsCount(int $channelId, int $days): int
     {
-        return Show::query()
-            ->where('whatnot_channel_id', $channelId)
-            ->whereDate('show_date', '<=', today())
-            ->whereDate('show_date', '>=', today()->subDays($days))
-            ->whereNotNull('detail_url')
-            ->whereNotIn('status', ['cancelled'])
-            ->where(function ($q) {
-                $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
-                  ->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0);
-            })
-            ->count();
+        return $this->missingAnalytics($this->pastShows([$channelId])
+            ->whereDate('show_date', '>=', today()->subDays($days)))->count();
     }
 }

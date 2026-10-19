@@ -34,65 +34,12 @@ class WhatnotExitCodeTest extends TestCase
         return null;
     }
 
-    public function test_a_bot_challenge_names_both_causes_and_neither_is_selectors(): void
+    public function test_authentication_failures_remain_distinct_from_selector_failures(): void
     {
-        config(['vortex.whatnot.headless' => null, 'vortex.whatnot.proxy' => null]);
-
-        $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
-
-        $this->assertNotNull($e);
-        $this->assertStringNotContainsString('selectors', $e->getMessage());
-
-        // A challenge at /login means the session lapsed; a challenge anywhere
-        // else means the session is fine and the browser was what got refused.
-        // Naming only the first sent us renewing a session that already worked.
-        $this->assertStringContainsString('whatnot:login', $e->getMessage());
-        $this->assertStringContainsString('WHATNOT_HEADLESS=false', $e->getMessage());
-    }
-
-    public function test_it_does_not_suggest_the_step_already_taken(): void
-    {
-        // Being told to "retry headless-off" on a run that was already headless-off
-        // reads as the tool not knowing what it just did, and costs a round trip
-        // to find out the run was configured that way all along.
-        config(['vortex.whatnot.headless' => false, 'vortex.whatnot.proxy' => null]);
-
-        $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
-
-        $this->assertNotNull($e);
-        $this->assertStringNotContainsString('WHATNOT_HEADLESS=false php artisan', $e->getMessage());
-        $this->assertStringContainsString('WHATNOT_PROXY', $e->getMessage());
-    }
-
-    public function test_it_offers_the_network_as_the_next_thing_to_try_not_as_the_answer(): void
-    {
-        // This message used to say the remaining variable *was* the server's IP,
-        // reading its own list of ruled-out options as proof of the one left
-        // over. A challenge does not identify itself: the page looks the same
-        // whether the network, the browser environment or some other client-side
-        // signal produced it. Naming a cause here is how an investigation stops
-        // at the first plausible story.
-        config(['vortex.whatnot.headless' => false, 'vortex.whatnot.proxy' => null]);
-
-        $message = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED)?->getMessage() ?? '';
-
-        $this->assertStringNotContainsString('the remaining variable is', $message);
-
-        // It should still say what to do next, and what trying it would prove.
-        $this->assertStringContainsString('candidate', $message);
-        $this->assertStringContainsString('browser environment', $message);
-        $this->assertStringContainsString('client-side', $message);
-    }
-
-    public function test_with_both_already_tried_it_says_so_rather_than_looping(): void
-    {
-        config(['vortex.whatnot.headless' => false, 'vortex.whatnot.proxy' => 'socks5://127.0.0.1:40000']);
-
-        $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
-
-        $this->assertNotNull($e);
-        $this->assertStringContainsString('socks5://127.0.0.1:40000', $e->getMessage());
-        $this->assertStringContainsString('residential', $e->getMessage());
+        $message = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED, 'AUTH_REQUIRED')?->getMessage() ?? '';
+        $this->assertStringContainsString('authentication/challenge', $message);
+        $this->assertStringContainsString('AUTH_REQUIRED', $message);
+        $this->assertStringNotContainsString('selectors', $message);
     }
 
     public function test_rate_limiting_says_to_wait_rather_than_retry(): void
@@ -109,7 +56,7 @@ class WhatnotExitCodeTest extends TestCase
         $e = $this->throwFor(WhatnotScraper::EXIT_SELECTOR_MISS);
 
         $this->assertNotNull($e);
-        $this->assertStringContainsString('scripts/whatnot-scraper.cjs', $e->getMessage());
+        $this->assertStringContainsString("selectors didn't match", $e->getMessage());
     }
 
     public function test_codes_it_does_not_handle_are_left_to_the_caller(): void

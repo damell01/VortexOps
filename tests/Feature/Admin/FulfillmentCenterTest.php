@@ -131,7 +131,7 @@ class FulfillmentCenterTest extends TestCase
         $this->assertFalse($fulfillmentAdmin->isFulfillment());
         $admin = $this->admin();
         $admin->assignRole('fulfillment_admin');
-        $this->assertFalse($admin->isFulfillmentAdmin());
+        $this->assertTrue($admin->isFulfillmentAdmin());
     }
 
     public function test_can_switch_channels_true_for_admin_and_fulfillment_admin_only(): void

@@ -180,7 +180,7 @@ class UserResource extends Resource
                     // cannot create more admins. super_admin is never offered to
                     // anyone. Enforced again on save below.
                     ->relationship('roles', 'name', modifyQueryUsing: function ($query) {
-                        $query->whereNotIn('name', UserResource::UNGRANTABLE_ROLES);
+                        $query->whereNotIn('name', auth()->user()?->isOwner() ? UserResource::UNGRANTABLE_ROLES : UserResource::PRIVILEGED_ROLES);
                     })
                     ->getOptionLabelFromRecordUsing(fn ($record): string => match ($record->name) {
                         'admin' => 'Admin',

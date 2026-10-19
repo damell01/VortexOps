@@ -68,6 +68,7 @@ class ShowResource extends Resource
 
     public static function canEdit($r): bool
     {
+        if (!static::canAccess() || \App\Support\NavVisibility::isReadOnlyForUser(static::class, auth()->user())) return false;
         // "Can Edit" on Roles & Permissions, which used to be a checkbox
         // nothing read.
         if (\App\Support\RoleAccess::allowsEditing(static::class)) {

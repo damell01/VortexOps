@@ -88,6 +88,6 @@ class InventoryCycleGuideTest extends TestCase
         $tabs = Livewire::test(InventoryGuide::class)->instance()->visibleTabs;
 
         $this->assertArrayHasKey('cycle', $tabs);
-        $this->assertSame('cycle', array_key_first($tabs));
+        $this->assertSame('tasks', array_key_first($tabs));
     }
 }

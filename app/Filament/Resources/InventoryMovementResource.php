@@ -40,6 +40,7 @@ class InventoryMovementResource extends Resource
 
     public static function canAccess(): bool
     {
+        if (! AdminModules::isEnabled('inventory') || \App\Support\NavVisibility::isHiddenForUser(static::class, auth()->user())) return false;
         if (\App\Support\RoleAccess::grants(static::class)) return true;
         return static::isVisibleToRole() && AdminModules::isEnabled('inventory');
     }
@@ -87,7 +88,7 @@ class InventoryMovementResource extends Resource
         // inventory_movements.id. Ordering the outer query instead makes `id`
         // refer to our MIN(id) aggregate and keeps pallet receipt collapsing intact.
         $grouped = parent::getEloquentQuery()
-            ->selectRaw("MIN(id) as id,
+            ->selectRaw("CAST(MIN(id) AS SIGNED) as id,
                 inventory_item_id,
                 MIN(lot_id) as lot_id,
                 from_location_id,

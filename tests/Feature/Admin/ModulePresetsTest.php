@@ -71,7 +71,7 @@ class ModulePresetsTest extends TestCase
     {
         $slugs = AdminModules::presets()['basics']['slugs'];
 
-        $this->assertEqualsCanonicalizing(['streams', 'payouts', 'inventory'], $slugs);
+        $this->assertEqualsCanonicalizing(['streams', 'fulfillment', 'payouts', 'inventory'], $slugs);
     }
 
     public function test_owner_applying_a_preset_updates_the_unsaved_selection(): void
@@ -80,7 +80,7 @@ class ModulePresetsTest extends TestCase
 
         Livewire::test(AppSettings::class)
             ->call('applyModulePreset', 'basics')
-            ->assertSet('enabled_modules', ['streams', 'payouts', 'inventory']);
+            ->assertSet('enabled_modules', ['streams', 'fulfillment', 'payouts', 'inventory']);
     }
 
     public function test_applying_a_preset_does_not_persist_until_save(): void
@@ -91,7 +91,7 @@ class ModulePresetsTest extends TestCase
 
         // Setting itself is untouched — only saveSettings() writes it.
         $this->assertNotEquals(
-            json_encode(['streams', 'payouts', 'inventory']),
+            json_encode(['streams', 'fulfillment', 'payouts', 'inventory']),
             \App\Models\Setting::get('enabled_admin_modules')
         );
     }
@@ -105,7 +105,7 @@ class ModulePresetsTest extends TestCase
             ->call('saveSettings');
 
         AdminModules::flushMemo();
-        $this->assertEqualsCanonicalizing(['streams', 'payouts', 'inventory'], AdminModules::enabledSlugs());
+        $this->assertEqualsCanonicalizing(['streams', 'fulfillment', 'payouts', 'inventory'], AdminModules::enabledSlugs());
     }
 
     public function test_non_owner_cannot_apply_a_preset(): void

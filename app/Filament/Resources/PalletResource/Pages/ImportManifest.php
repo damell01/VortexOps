@@ -152,6 +152,13 @@ class ImportManifest extends Page
         if (in_array($task->status, ['pending', 'processing'], true)) {
             $this->stage = 'processing';
             $this->parseError = null;
+            $this->parseErrorIsTimeout = false;
+            if ($task->status === 'pending' && $task->created_at?->lt(now()->subMinutes(5))) {
+                $this->parseError = "Task #{$task->id}: This job has not picked up yet. Check the AI queue worker; it remains queued and will update here when it starts.";
+            } elseif ($task->status === 'processing' && $task->started_at?->lt(now()->subMinutes(95))) {
+                $this->parseError = "Task #{$task->id}: This job may have timed out. Check the worker before retrying; it remains tracked here to avoid duplicate imports.";
+                $this->parseErrorIsTimeout = true;
+            }
             return;
         }
 

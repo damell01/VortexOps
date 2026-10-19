@@ -104,7 +104,12 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
         // fulfillment and timekeeping ship switched off, so their pages stay
         // shut however the roles are configured.
         sort($denied);
-        $this->assertSame(['FulfillmentResource', 'Timekeeping'], $denied);
+        $this->assertSame([
+            'AppSettings', 'Businesses', 'ImportStatus', 'InventoryCount', 'InventoryImporter',
+            'NavigationManager', 'NoShowCleanup', 'PayRunBackfill', 'PaymentStructures',
+            'PayrollOverview', 'PayrollSimulator', 'ShowDataAudit', 'TimeAttendance',
+            'Timekeeping', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
+        ], $denied);
     }
 
     public function test_a_grant_cannot_reach_into_a_module_that_is_off(): void
@@ -188,7 +193,10 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
         $this->assertSame([
             'DashboardImproved',
             'EditProfile',
+            'HelpCenter',
             'MyNotifications',
+            'MyPokedex',
+            'PalletReceivingHistory',
             'PalletResource',
             'TwoFactorAuth',
             'TwoFactorVerify',

@@ -12,7 +12,7 @@ use Symfony\Component\Process\Process;
 
 class RefreshRecentWhatnotShows extends Command
 {
-    protected $signature = 'whatnot:refresh-recent
+    protected $signature = 'whatnot:refresh-recent-shows
                             {--limit=8 : Maximum completed shows to refresh per run}
                             {--days=30 : Rolling completed-show refresh window}
                             {--debug : Stream scraper diagnostics}';
@@ -284,7 +284,11 @@ class RefreshRecentWhatnotShows extends Command
                 // for ten minutes before giving up — twice an hour, achieving
                 // nothing. Locks are not reentrant, so only block() when get()
                 // did not already take it.
-                $lock->block((int) config('vortex.whatnot.browser_lock_wait', 1200));
+                $deadline = hrtime(true) + max(1, (int) config('vortex.whatnot.browser_lock_wait', 1200)) * 1_000_000_000;
+                do {
+                    if (hrtime(true) >= $deadline) throw new \Illuminate\Contracts\Cache\LockTimeoutException;
+                    usleep(100_000);
+                } while (!$lock->get());
             }
 
             $held = true;

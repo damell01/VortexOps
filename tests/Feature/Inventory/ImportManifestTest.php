@@ -93,7 +93,7 @@ class ImportManifestTest extends TestCase
         $page->checkProcessing();
 
         $this->assertEquals('upload', $page->stage);
-        $this->assertEquals('Vision model not available', $page->parseError);
+        $this->assertEquals("Task #{$this->task->id}: Vision model not available", $page->parseError);
     }
 
     public function test_check_processing_does_nothing_while_still_pending(): void
@@ -121,12 +121,12 @@ class ImportManifestTest extends TestCase
     {
         $this->task->markProcessing();
         // Wind the clock back past the processing timeout
-        $this->task->update(['started_at' => now()->subMinutes(11)]);
+        $this->task->update(['started_at' => now()->subMinutes(100)]);
 
         $page = $this->makePage();
         $page->checkProcessing();
 
-        $this->assertEquals('upload', $page->stage);
+        $this->assertEquals('processing', $page->stage);
         $this->assertTrue($page->parseErrorIsTimeout);
         $this->assertStringContainsString('timed out', $page->parseError);
     }
@@ -154,8 +154,8 @@ class ImportManifestTest extends TestCase
         $page = $this->makePage();
         $page->checkProcessing();
 
-        $this->assertEquals('upload', $page->stage);
-        $this->assertTrue($page->parseErrorIsTimeout);
+        $this->assertEquals('processing', $page->stage);
+        $this->assertFalse($page->parseErrorIsTimeout);
         $this->assertStringContainsString('not picked up', $page->parseError);
     }
 

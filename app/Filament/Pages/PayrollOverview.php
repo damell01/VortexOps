@@ -25,6 +25,7 @@ use UnitEnum;
 
 class PayrollOverview extends Page
 {
+    use \App\Filament\Concerns\HasAdminNavVisibility;
     protected static ?string $title = 'Payroll';
     protected static ?string $navigationLabel = 'Payroll';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
@@ -109,7 +110,7 @@ class PayrollOverview extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return (auth()->user()?->isAdmin() ?? false) && ! \App\Support\NavVisibility::isHiddenForUser(static::class, auth()->user());
     }
 
     public function getSubheading(): ?string

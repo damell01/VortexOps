@@ -265,7 +265,11 @@ class ListShows extends ListRecords
                     try {
                         $result = app(WhatnotScraper::class)->importAllEnabledChannels(limit: (int) config('vortex.whatnot.limit', 50));
                         $channelNote = $result['channels'] > 1 ? " across {$result['channels']} channels" : '';
-                        Notification::make()->title('Whatnot import complete')->body("{$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.")->success()->send();
+                        $summary = "{$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.";
+                        $notice = Notification::make()->body($summary . (empty($result['errors']) ? '' : ' Errors: ' . implode(' | ', $result['errors'])));
+                        if (! empty($result['errors'])) $notice->title('Whatnot import finished with errors')->warning();
+                        else $notice->title('Whatnot import complete')->success();
+                        $notice->send();
                     } catch (\RuntimeException $e) {
                         Notification::make()->title('Whatnot import failed')->body($e->getMessage())->danger()->send();
                     }

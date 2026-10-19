@@ -20,7 +20,10 @@ class BackupDatabaseTest extends TestCase
         $this->backupDir = storage_path('app/backups');
 
         // Point the default connection at a real SQLite file so copy() works
-        touch($this->dbPath);
+        $source = new \PDO('sqlite:'.$this->dbPath);
+        $source->exec('CREATE TABLE IF NOT EXISTS backup_probe (id INTEGER PRIMARY KEY, value TEXT)');
+        $source->exec("INSERT INTO backup_probe (value) VALUES ('restore me')");
+        $source = null;
         config([
             'database.default'                       => 'sqlite',
             'database.connections.sqlite.database'   => $this->dbPath,
@@ -36,6 +39,7 @@ class BackupDatabaseTest extends TestCase
         // Clean up any backups created during the test
         foreach (glob($this->backupDir . '/*.sqlite') ?: [] as $f) {
             unlink($f);
+            @unlink($f.'.sha256');
         }
 
         parent::tearDown();
@@ -121,4 +125,23 @@ class BackupDatabaseTest extends TestCase
 
         unlink($oldFile);
     }
+
+    public function test_a_restored_backup_contains_committed_wal_data_and_a_valid_checksum(): void
+    {
+        $source = new \PDO('sqlite:'.$this->dbPath);
+        $source->exec('PRAGMA journal_mode=WAL');
+        $source->exec('PRAGMA wal_autocheckpoint=0');
+        $source->exec("INSERT INTO backup_probe (value) VALUES ('committed in WAL')");
+        $before = glob($this->backupDir.'/*.sqlite') ?: [];
+        $this->artisan('db:backup')->assertSuccessful();
+        $new = array_values(array_diff(glob($this->backupDir.'/*.sqlite') ?: [], $before));
+        $this->assertCount(1, $new);
+        $restored = new \PDO('sqlite:'.$new[0]);
+        $this->assertSame('ok', $restored->query('PRAGMA quick_check')->fetchColumn());
+        $this->assertSame('committed in WAL', $restored->query('SELECT value FROM backup_probe ORDER BY id DESC LIMIT 1')->fetchColumn());
+        $this->assertStringStartsWith(hash_file('sha256', $new[0]), file_get_contents($new[0].'.sha256'));
+        $source = null;
+        $restored = null;
+    }
+
 }

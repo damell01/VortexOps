@@ -163,7 +163,7 @@ class User extends Authenticatable implements FilamentUser
     /** Elevated fulfillment role: sees every channel's fulfillment work, not just their own assigned shows. */
     public function isFulfillmentAdmin(): bool
     {
-        return $this->hasRole('fulfillment_admin') && ! $this->isAdmin();
+        return $this->hasRole('fulfillment_admin');
     }
 
     /** Roles allowed to pick a specific channel (or "All Channels") via the topbar switcher. */

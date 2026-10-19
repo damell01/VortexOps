@@ -44,7 +44,7 @@ class PayrollTeamSetupTest extends TestCase
         $channel = WhatnotChannel::firstOrCreate(['name' => 'Breaks'], ['status' => 'active']);
         $show = Show::create([
             'whatnot_channel_id' => $channel->id, 'title' => 'Night break', 'show_date' => today()->toDateString(),
-            'gross_revenue' => 1000, 'whatnot_net' => 900, 'tips' => 0, 'show_duration' => (int) ($hours * 60), 'status' => 'reconciled',
+            'gross_revenue' => 1100, 'completed_earnings' => 1000, 'whatnot_net' => 900, 'tips' => 0, 'show_duration' => (int) ($hours * 60), 'status' => 'reconciled',
         ]);
         $show->streamers()->attach($streamer->id, ['is_primary' => true]);
         StreamerLogEntry::create([

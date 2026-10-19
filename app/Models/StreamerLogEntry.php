@@ -82,12 +82,18 @@ class StreamerLogEntry extends Model
         ];
     }
 
-    public function profitShareAmount(): float
+    public function profitShareAmount(): ?float
     {
-        $gross = (float) ($this->gross_revenue ?? $this->show?->gross_revenue ?? 0);
-        $cost = (float) ($this->product_cost ?? 0);
-        $psPct = (float) ($this->streamer?->payout_percentage ?? 0);
-        return round(max(0, $gross - $cost) * ($psPct / 100), 2);
+        $show = $this->show;
+        $earnings = $show ? \App\Support\ProfitShareFormula::earningsForShow($show) : null;
+        if ($earnings === null || ! $this->streamer) return null;
+        return \App\Support\ProfitShareFormula::forShow(
+            $earnings,
+            (float) ($this->product_cost ?? 0),
+            (float) ($this->hours_streamed ?? 0),
+            (float) ($this->number_of_shipments ?? $show->shipments()->count()),
+            (float) ($this->streamer->payout_percentage ?? 0),
+        )['earnings'];
     }
 
     public function show(): BelongsTo { return $this->belongsTo(Show::class); }

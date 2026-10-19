@@ -83,7 +83,7 @@ class RoleResource extends Resource
     public static function pagePermsToLists(array $pagePerms): array
     {
         $hidden=[];$readonly=[];$visible=[];
-        foreach(static::pageOptions() as $class=>$label){$key=static::pageKey($class);$entry=$pagePerms[$key]??[];$access=$entry['access']??'manage';if($access==='hidden'){$hidden[]=$class;continue;}$visible[]=$class;if($access==='view')$readonly[]=$class;}
+        foreach(static::pageOptions() as $class=>$label){$key=static::pageKey($class);$entry=$pagePerms[$key]??[];$access=$entry['access']??(isset($entry['visible']) ? (!$entry['visible'] ? 'hidden' : (!empty($entry['editable']) ? 'manage' : 'view')) : 'hidden');if(!in_array($access,['hidden','view','manage'],true))$access='hidden';if($access==='hidden'){$hidden[]=$class;continue;}$visible[]=$class;if($access==='view')$readonly[]=$class;}
         return [$hidden,$readonly,$visible];
     }
 

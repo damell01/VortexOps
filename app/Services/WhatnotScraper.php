@@ -212,6 +212,12 @@ class WhatnotScraper
 
     public function persistShowOrders(Show $show,array $rows):array
     {
+        // A lost Seller Hub show filter can return the whole channel's orders.
+        // Leave existing rows untouched when the result is implausibly large.
+        if ((int) $show->units_sold > 0 && count($rows) > ((int) $show->units_sold * 2 + 100)) {
+            Log::warning('Whatnot order import rejected: result exceeds show count', ['show_id' => $show->id, 'expected_units' => $show->units_sold, 'rows' => count($rows)]);
+            throw new \RuntimeException("Order import stopped for show #{$show->id}: the scraped count exceeds the expected show count. Verify the Seller Hub show filter before retrying.");
+        }
         $created=0;$skipped=0;$updated=0;$defaultLocationId=$show->defaultInventoryLocation()?->id;
         $existingByOrderId=WhatnotShowOrder::where('show_id',$show->id)->whereNotNull('whatnot_order_id')->get()->keyBy('whatnot_order_id');
         $existingFallbackKeys=WhatnotShowOrder::where('show_id',$show->id)->whereNull('whatnot_order_id')->get(['buyer_username','item_name','lot_number'])->map(fn($r)=>"{$r->buyer_username}|{$r->item_name}|{$r->lot_number}")->flip()->toArray();
@@ -301,9 +307,31 @@ class WhatnotScraper
         $process->start();while($process->isRunning()){$process->checkTimeout();if($err=$process->getIncrementalErrorOutput())foreach(explode("\n",trim($err))as$line)if($line!=='')$onProgress($line);usleep(200_000);}if($err=$process->getIncrementalErrorOutput())foreach(explode("\n",trim($err))as$line)if($line!=='')$onProgress($line);
     }
 
-    protected function withBrowserLock(callable $fn,?int $waitSeconds=null)
+    protected function withBrowserLock(callable $fn, ?int $waitSeconds = null)
     {
-        $waitSeconds??=(int)config('vortex.whatnot.browser_lock_wait',1200);$lock=\App\Support\WhatnotBrowserLock::make();if(!$lock->get()){if((bool)config('vortex.whatnot.browser_lock_fail_fast',false)){throw new \RuntimeException('Shared Whatnot browser is already active; scheduled run will not wait or pile up.');}self::announceLockWait();try{$lock->block($waitSeconds);}catch(\Illuminate\Contracts\Cache\LockTimeoutException $e){throw new \RuntimeException('Timed out waiting for the shared Whatnot browser lock.',0,$e);}}try{return$fn();}finally{$lock->release();}
+        $configuredWait = max(1, (int) config('vortex.whatnot.browser_lock_wait', 1200));
+        $waitSeconds = $waitSeconds === null ? $configuredWait : min($waitSeconds, $configuredWait);
+        $lock = \App\Support\WhatnotBrowserLock::make();
+        if (!$lock->get()) {
+            if ((bool) config('vortex.whatnot.browser_lock_fail_fast', false)) {
+                throw new \RuntimeException('Shared Whatnot browser is already active; scheduled run will not wait or pile up.');
+            }
+            self::announceLockWait();
+            // Monotonic time cannot be frozen by a business-date calculation
+            // or moved backwards by a clock correction while a worker waits.
+            $deadline = hrtime(true) + max(0, $waitSeconds) * 1_000_000_000;
+            do {
+                if (hrtime(true) >= $deadline) {
+                    throw new \RuntimeException('Timed out waiting for the shared Whatnot browser lock. Inspect the owner with php artisan whatnot:unlock before retrying.');
+                }
+                usleep(100_000);
+            } while (!$lock->get());
+        }
+        try {
+            return $fn();
+        } finally {
+            $lock->release();
+        }
     }
 
     public static function announceLockWait():void
@@ -329,6 +357,27 @@ class WhatnotScraper
         $fromShows=Show::query()->when($channel,fn($q)=>$q->where('whatnot_channel_id',$channel->id))->whereNotNull('detail_url')->orderByDesc('show_date')->limit(20)->pluck('detail_url');foreach($fromShows as$url)if(preg_match($uuid,(string)$url,$m)&&!in_array($m[1],$avoidLiveIds,true))return$m[1];$onlyChannel=WhatnotChannel::count()===1;$fromLogs=ShowIngestionLog::query()->where('source','whatnot')->whereNotNull('raw_payload')->latest('id')->limit(50)->pluck('raw_payload');foreach($fromLogs as$payload){if(!is_array($payload))continue;$stamped=$payload['_channel_id']??null;$belongsHere=$stamped!==null?((int)$stamped===(int)$channel?->id):($onlyChannel||$channel===null);if($belongsHere&&preg_match($uuid,(string)($payload['detail_url']??''),$m)&&!in_array($m[1],$avoidLiveIds,true))return$m[1];}return null;
     }
 
+    /** Import only active channels that the owner has included in imports. */
+    public function importAllEnabledChannels(int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null): array
+    {
+        $totals = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'channels' => 0];
+        foreach (WhatnotChannel::query()->where('status', 'active')->where('include_in_import', true)->orderBy('id')->get() as $channel) {
+            $totals['channels']++;
+            try {
+                $result = $this->importShows($channel, $limit, $debug, $withOrders, $onProgress);
+                foreach (['created', 'updated', 'skipped'] as $key) {
+                    $totals[$key] += (int) ($result[$key] ?? 0);
+                }
+            } catch (\Throwable $e) {
+                $message = "{$channel->name}: {$e->getMessage()}";
+                $totals['errors'][] = $message;
+                Log::error('Whatnot channel import failed', ['channel_id' => $channel->id, 'error' => $e->getMessage()]);
+                if ($onProgress) $onProgress($message);
+            }
+        }
+        return $totals;
+    }
+
     public function importShows(?WhatnotChannel $channel=null,int $limit=50,bool $debug=false,bool $withOrders=true,?callable $onProgress=null,?string $seedLiveId=null):array
     {
         if($onProgress)$onProgress("Loading recent Seller Hub Past shows and their See Analytics links");try{$rows=$this->fetchShows($limit,$debug,$channel?->whatnot_username,$onProgress);}catch(\Throwable$e){ShowIngestionLog::create(['whatnot_channel_id'=>$channel?->id,'source'=>'whatnot','status'=>'failed','error_message'=>$e->getMessage(),'raw_payload'=>['channel'=>$channel?->name,'limit'=>$limit]]);throw$e;}$created=0;$updated=0;$skipped=0;if($onProgress)$onProgress(sprintf('Fetched %d show(s) from Whatnot — importing…',count($rows)));$orderTargets=[];
@@ -337,7 +386,7 @@ class WhatnotScraper
             else{if(!$lookupDate){$skipped++;continue;}$status=($payload['units_sold']??0)>0?'mapping':'draft';
                 // Another channel has a show with this title that day: keep both, but send this one to Review show channels in case it is the same stream.
                 $twin=$channel&&$lookupTitle?Show::query()->where('title',$lookupTitle)->whereDate('show_date',$lookupDate)->whereNotNull('whatnot_channel_id')->where('whatnot_channel_id','!=',$channel->id)->exists():false;
-                $show=Show::create(array_merge($payload,['status'=>$status,'created_by'=>auth()->id()??1],$twin?['channel_attribution_suspect'=>true]:[]));$show->detectStreamers();$created++;$showModel=$show;ShowIngestionLog::create(['show_id'=>$show->id,'whatnot_channel_id'=>$show->whatnot_channel_id??$channel?->id,'source'=>'whatnot','status'=>'success','raw_payload'=>$row]);if($onProgress)$onProgress("Created: \"{$show->title}\" ({$lookupDate})");}$this->ensureStreamerLogEntry($showModel);$liveId=$row['whatnot_live_id']??$this->extractLiveIdFromUrl($row['detail_url']??null);if($withOrders&&$liveId)$orderTargets[]=['show'=>$showModel,'live_id'=>$liveId];}
+                $show=Show::create(array_merge($payload,['status'=>$status,'created_by'=>auth()->id()??1],$twin?['channel_attribution_suspect'=>true]:[]));$show->detectStreamers();$created++;$showModel=$show;ShowIngestionLog::create(['show_id'=>$show->id,'whatnot_channel_id'=>$show->whatnot_channel_id??$channel?->id,'source'=>'whatnot','status'=>'success','raw_payload'=>$row]);if($onProgress)$onProgress("Created: \"{$show->title}\" ({$lookupDate})");}if($onProgress){$names=$showModel->streamers()->pluck('name')->implode(', ');if($names!=='')$onProgress("matched streamer: {$names}");}$this->ensureStreamerLogEntry($showModel);$liveId=$row['whatnot_live_id']??$this->extractLiveIdFromUrl($row['detail_url']??null);if($withOrders&&$liveId)$orderTargets[]=['show'=>$showModel,'live_id'=>$liveId];}
         if($onProgress)$onProgress("Shows done: {$created} created, {$updated} updated, {$skipped} skipped.");$ordersCreated=0;$shipmentsCreated=0;if($withOrders&&!empty($orderTargets)){if($onProgress)$onProgress(sprintf('Scraping orders for %d show(s)…',count($orderTargets)));$ordersCreated=$this->importOrdersForTargets($orderTargets,$channel?->whatnot_username,$debug,$onProgress);if($onProgress)$onProgress("Orders done: {$ordersCreated} order(s) created.");if($onProgress)$onProgress(sprintf('Scraping shipments for %d show(s)…',count($orderTargets)));$showsWithOrders=collect($orderTargets)->pluck('show')->unique('id');$shipmentResults=$this->refreshShipmentsForShows($showsWithOrders,$channel?->whatnot_username,$debug);$shipmentsCreated=$shipmentResults['updated']??0;if($onProgress)$onProgress("Shipments done: {$shipmentsCreated} shipment(s) imported.");}Log::info('WhatnotScraper import complete',['channel'=>$channel?->name,'created'=>$created,'updated'=>$updated,'skipped'=>$skipped,'orders_created'=>$ordersCreated,'shipments_created'=>$shipmentsCreated]);return compact('created','updated','skipped','ordersCreated','shipmentsCreated');
     }
 
@@ -370,10 +419,10 @@ class WhatnotScraper
     {
         $sources=[];$byKey=[];foreach($targets as$t){$show=$t['show']??null;$liveId=$t['live_id']??null;if(!$show||!$liveId)continue;$sources[]=['live_id'=>$liveId,'show_key'=>$show->id];$byKey[$show->id]=$show;}if(empty($sources))return 0;
         try{$ordersByShow=$this->fetchOrdersForShows($sources,$channelUsername,$debug,$onProgress);}catch(\Throwable$e){$message=$e->getMessage();if(str_contains($message,'CHANNEL_SWITCH_')||str_contains($message,'CHANNEL_CONTEXT_MISMATCH')||str_contains($message,'CHANNEL_SWITCH_FAILED'))throw$e;Log::error('WhatnotScraper: batched order scrape failed — '.$message);return 0;}
-        $created=0;foreach($ordersByShow as$key=>$rows){$show=$byKey[$key]??null;if(!$show)continue;$result=$this->persistShowOrders($show,$rows);$created+=$result['created']??0;}return$created;
+        $created=0;foreach($ordersByShow as$key=>$rows){$show=$byKey[$key]??null;if(!$show)continue;try{$result=$this->persistShowOrders($show,$rows);$created+=$result['created']??0;}catch(\RuntimeException $e){if(!str_starts_with($e->getMessage(),'Order import stopped for show #'))throw $e;if($onProgress)$onProgress($e->getMessage());}}return$created;
     }
 
-    private function throwForExitCode(int $exitCode,string $stderr,?string $commandLine=null):void
+    protected function throwForExitCode(int $exitCode,string $stderr,?string $commandLine=null):void
     {
         if($exitCode===0)return;
         $diagnostics=implode("\n",array_slice(array_values(array_filter(explode("\n",$stderr),fn($l)=>trim($l)!=='')),0,80));if($diagnostics==='')$diagnostics="The scraper exited {$exitCode} without diagnostics. Command: ".($commandLine??'(not recorded)');if($exitCode===self::EXIT_AUTH_REQUIRED)throw new \App\Exceptions\WhatnotBlockedException("Whatnot returned an authentication/challenge page.\n".$diagnostics);if($exitCode===self::EXIT_RATE_LIMITED)throw new \App\Exceptions\WhatnotBlockedException("Whatnot is rate limiting this account. Wait and retry.\n\n".$diagnostics);if($exitCode===self::EXIT_SELECTOR_MISS)throw new \RuntimeException("Whatnot scraper: page selectors didn't match.\n\n".$diagnostics);

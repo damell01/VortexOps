@@ -130,7 +130,7 @@ class InventoryItemTabsTest extends TestCase
 
         $this->assertCount(1, $movements);
         $this->assertSame('+6', $movements[0]['label']);
-        $this->assertSame(3, $movements[0]['grouped']);
+        $this->assertSame(1, $movements[0]['grouped']); // Receipt rows are coalesced when written.
     }
 
     public function test_a_receipt_reports_what_it_cost(): void

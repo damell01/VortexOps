@@ -32,6 +32,11 @@ class VendorResource extends Resource
 
     protected static string $moduleSlug  = 'inventory';
 
+    protected static function passesModuleAccessCheck(): bool
+    {
+        return (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) ?? false;
+    }
+
     protected static ?string $model = Vendor::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null

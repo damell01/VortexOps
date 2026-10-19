@@ -46,17 +46,15 @@ class OrdersBackfillIsBoundedTest extends TestCase
 
     public function test_the_scheduled_backfill_is_bounded(): void
     {
-        $command = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
-            ->first(fn ($event) => str_contains($event->command ?? '', 'whatnot:import-orders'));
-
-        $this->assertNotNull($command, 'the orders backfill is no longer scheduled');
-
-        $this->assertStringContainsString(
-            '--limit',
-            $command->command,
-            'the scheduled orders backfill is unbounded again — it will hold the browser lock for '
-            . 'hours and starve whatnot:refresh-recent of analytics',
-        );
+        $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
+        $pipelines = $events->filter(fn ($event) => str_contains($event->command ?? '', 'whatnot:sync-reporting'));
+        $this->assertCount(2, $pipelines);
+        foreach ($pipelines as $event) {
+            foreach (['--analytics-limit=', '--max-runtime=', '--skip-if-busy'] as $flag) {
+                $this->assertStringContainsString($flag, $event->command);
+            }
+        }
+        $this->assertFalse($events->contains(fn ($event) => str_contains($event->command ?? '', 'whatnot:import-orders')));
     }
 
     public function test_a_limited_run_says_how_many_it_left_behind(): void

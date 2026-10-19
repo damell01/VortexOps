@@ -118,6 +118,7 @@ class StreamerLogEditingTest extends TestCase
         // entry lands in changes_requested rather than plain pending so the
         // streamer (and the tab/tile) can tell it was sent back.
         Livewire::test(ListStreamerLogEntries::class)
+            ->set('activeTab', 'all')
             ->callTableAction('send_back', $entry, ['notes' => 'Costs look wrong']);
 
         $entry->refresh();
@@ -177,6 +178,7 @@ class StreamerLogEditingTest extends TestCase
         Livewire::actingAs($admin);
 
         Livewire::test(ListStreamerLogEntries::class)
+            ->set('activeTab', 'all')
             ->callTableAction('fulfillment_review', $entry);
 
         $entry->refresh();
@@ -199,6 +201,7 @@ class StreamerLogEditingTest extends TestCase
         Livewire::actingAs($admin);
 
         Livewire::test(ListStreamerLogEntries::class)
+            ->set('activeTab', 'all')
             ->callTableAction('send_back', $entry, ['notes' => 'Recount the labels']);
 
         $entry->refresh();

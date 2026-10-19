@@ -47,6 +47,12 @@ class PayRunAutomationTest extends TestCase
 
         if ($streamer) {
             $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+            \App\Models\StreamerLogEntry::create([
+                'show_id' => $show->id, 'streamer_id' => $streamer->id,
+                'status' => 'admin_approved', 'approval_status' => 'approved',
+                'submitted_at' => now(), 'reviewed_at' => now(), 'product_cost' => 100,
+                'hours_streamed' => 1, 'hours_review' => 'report',
+            ]);
         }
 
         return $show;

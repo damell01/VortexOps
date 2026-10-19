@@ -56,7 +56,7 @@ class HowItWorks extends Page
             ];
         }
 
-        if ($user?->isAdmin()) {
+        if ($user?->isAdmin() && ! $user->isFulfillmentAdmin()) {
             return [
                 'label' => 'Admin',
                 'items' => [

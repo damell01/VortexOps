@@ -58,7 +58,7 @@ class RoleEditorTest extends TestCase
             ->fillForm([
                 'name'       => 'manager',
                 'guard_name' => 'web',
-                "page_perms.{$key}.visible" => false,
+                "page_perms.{$key}.access" => 'hidden',
             ])
             ->call('create')
             ->assertHasNoFormErrors();
@@ -77,11 +77,11 @@ class RoleEditorTest extends TestCase
 
         // The form pre-fills with the currently hidden pages.
         $component = Livewire::test(EditRole::class, ['record' => $role->getRouteKey()])
-            ->assertFormSet(["page_perms.{$key}.visible" => false]);
+            ->assertFormSet(["page_perms.{$key}.access" => 'hidden']);
 
         // Re-checking Visible and saving removes the hidden page.
         $component
-            ->fillForm(["page_perms.{$key}.visible" => true])
+            ->fillForm(["page_perms.{$key}.access" => 'manage'])
             ->call('save')
             ->assertHasNoFormErrors();
 
@@ -98,7 +98,7 @@ class RoleEditorTest extends TestCase
             ->fillForm([
                 'name'       => 'manager',
                 'guard_name' => 'web',
-                "page_perms.{$key}.editable" => false,
+                "page_perms.{$key}.access" => 'view',
             ])
             ->call('create')
             ->assertHasNoFormErrors();
@@ -115,10 +115,10 @@ class RoleEditorTest extends TestCase
         Livewire::actingAs($this->owner());
 
         $component = Livewire::test(EditRole::class, ['record' => $role->getRouteKey()])
-            ->assertFormSet(["page_perms.{$key}.editable" => false]);
+            ->assertFormSet(["page_perms.{$key}.access" => 'view']);
 
         $component
-            ->fillForm(["page_perms.{$key}.editable" => true])
+            ->fillForm(["page_perms.{$key}.access" => 'manage'])
             ->call('save')
             ->assertHasNoFormErrors();
 

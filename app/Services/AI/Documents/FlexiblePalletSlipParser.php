@@ -196,7 +196,7 @@ PROMPT;
                     'page' => $index + 1,
                     'error' => $response->error,
                 ]);
-                continue;
+                throw new \RuntimeException('Manifest image extraction failed on page '.($index + 1).': '.($response->error ?: 'The model returned no response.'));
             }
             $lines = array_merge($lines, $this->parseJsonLines($response->content));
         }

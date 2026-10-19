@@ -344,7 +344,7 @@ class PalletCorrectionTest extends TestCase
         $chrome = $this->pallet->lines()->create(['line_number' => 1, 'description' => 'Chrome', 'case_count' => 1]);
         $this->pallet->lines()->create(['line_number' => 2, 'description' => 'Prizm', 'case_count' => 1]);
 
-        $this->receivePage()
+        $page = $this->receivePage()
             ->set('barcodeInput', '5551234')
             ->call('submitBarcode')
             ->call('assignPendingTo', $chrome->id)
@@ -354,7 +354,10 @@ class PalletCorrectionTest extends TestCase
 
         $this->assertNotNull($chrome->inventory_item_id, 'The scan should have created the item.');
         $this->assertSame('5551234', $chrome->inventoryItem->barcode);
-        $this->assertSame(1, $chrome->receivedCases(), 'The box in hand is a case received.');
+        $this->assertSame(0, $chrome->receivedCases(), 'Linking a barcode must not credit unconfirmed stock.');
+        $page->set('partialReceiveQuantity.'.$chrome->id, 1)
+            ->call('receivePartialLine', $chrome->id, (string) str()->uuid());
+        $this->assertSame(1, $chrome->fresh()->receivedCases());
     }
 
     public function test_one_staged_line_needs_no_question_at_all(): void

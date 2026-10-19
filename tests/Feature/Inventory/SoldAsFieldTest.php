@@ -116,6 +116,7 @@ class SoldAsFieldTest extends TestCase
 
         Livewire::actingAs($this->admin())
             ->test(ListInventoryItems::class)
+            ->set('viewMode', 'table')
             ->loadTable()
             ->assertCanSeeTableRecords([$auction, $bin])
             ->filterTable('sold_as', 'Auction')

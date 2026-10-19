@@ -455,10 +455,11 @@ class PayRunAutomationService
 
                     $eligible++;
                     try {
-                        foreach ($this->payouts->calculateForShow($show) as $payout) {
-                            if ($memberType === 'fulfillment' && ! $payout->streamer?->isFulfillment()) continue;
-                            if ($memberType === 'streamer' && $payout->streamer?->isFulfillment()) continue;
-                            $calculated += (float) $payout->calculated_payout;
+                        foreach ($this->payouts->previewForShow($show) as $preview) {
+                            if ($memberType === 'fulfillment' && !$preview['streamer']->isFulfillment()) continue;
+                            if ($memberType === 'streamer' && $preview['streamer']->isFulfillment()) continue;
+                            if ($preview['error']) throw new \RuntimeException($preview['error']);
+                            $calculated += (float) $preview['total'];
                         }
                     } catch (\Throwable $e) {
                         $errors[] = ($show->title ?: "Show #{$show->id}") . ': ' . $e->getMessage();

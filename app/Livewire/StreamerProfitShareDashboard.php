@@ -19,13 +19,17 @@ class StreamerProfitShareDashboard extends Component
 
     private ProfitShareCalculationService $calculationService;
 
+    public function boot(ProfitShareCalculationService $calculationService): void
+    {
+        $this->calculationService = $calculationService;
+    }
+
     public function mount(Streamer $streamer): void
     {
         $mine = auth()->user()?->streamer;
         abort_unless($mine && (int) $mine->id === (int) $streamer->id, 403);
 
         $this->streamer = $mine->load('profitSharePackets');
-        $this->calculationService = app(ProfitShareCalculationService::class);
     }
 
     private function ownPacket(ProfitSharePacket $packet): ProfitSharePacket

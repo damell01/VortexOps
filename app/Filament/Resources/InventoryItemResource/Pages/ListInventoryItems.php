@@ -85,8 +85,7 @@ class ListInventoryItems extends ListRecords
 
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = InventoryItemResource::getEloquentQuery()
-            ->with(['stock.location']);
+        $query = $this->getFilteredTableQuery()->with(['stock.location'])->reorder();
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';
@@ -99,16 +98,6 @@ class ListInventoryItems extends ListRecords
                     ->orWhere('category', 'like', $term);
             });
         }
-
-        if ($this->stockHealth) {
-            $query = match ($this->stockHealth) {
-                'out' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0'),
-                'low' => $query->whereNotNull('reorder_level')->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level'),
-                'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND (products.reorder_level IS NULL OR stock_sum_quantity > products.reorder_level)'),
-                default => $query,
-            };
-        }
-
 
         $query = match ($this->catalogSort) {
             'value' => $query->orderByDesc('stock_sum_quantity')->orderBy('name'),

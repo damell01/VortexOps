@@ -31,7 +31,7 @@ class MissingAnalyticsScopeTest extends TestCase
     {
         return Show::create(array_merge([
             'title' => 'Test show',
-            'show_date' => today()->subDays(3)->toDateString(),
+            'show_date' => today()->subDays(10)->toDateString(),
             'created_by' => $this->userId,
         ], $overrides));
     }

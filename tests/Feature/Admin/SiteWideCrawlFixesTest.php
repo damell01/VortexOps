@@ -121,7 +121,7 @@ class SiteWideCrawlFixesTest extends TestCase
         $item = InventoryItem::create(['sku' => 'SKU-X', 'name' => 'Item X', 'unit_cost' => 1, 'is_active' => true]);
         $movement = InventoryMovement::create(['inventory_item_id' => $item->id, 'quantity' => 1, 'movement_type' => 'opening']);
 
-        $this->get("/admin/inventory-movements/{$movement->id}")->assertOk();
+        $this->get(\App\Filament\Resources\InventoryMovementResource::getUrl('view', ['record' => $movement]))->assertOk();
     }
 
     public function test_payout_preview_view_renders_without_a_parse_error(): void

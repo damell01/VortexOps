@@ -63,7 +63,7 @@ class CodeRuleTagTest extends TestCase
 
         $label = (string) $method->invoke(null, \App\Filament\Resources\ActivityLogResource::class, 'Activity Log');
 
-        $this->assertStringContainsString('code rule', $label);
+        $this->assertStringContainsString('extra rule', $label);
     }
 
     public function test_the_tag_is_not_claimed_for_every_page(): void

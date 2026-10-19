@@ -127,7 +127,7 @@ class BackfillWhatnotHistoryTest extends TestCase
 
         $this->artisan('whatnot:backfill-history --dry-run')
             ->expectsOutputToContain('2 still missing analytics or shipments')
-            ->expectsOutputToContain('1 pass of up to 20')
+            ->expectsOutputToContain('up to 25 shows per channel')
             ->assertSuccessful();
     }
 

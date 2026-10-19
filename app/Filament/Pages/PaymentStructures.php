@@ -16,7 +16,7 @@ class PaymentStructures extends Page
     /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return static::canAccess();
     }
 
     use \App\Filament\Concerns\HasAdminNavVisibility;
@@ -177,7 +177,7 @@ class PaymentStructures extends Page
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Payroll'; }
     public static function getNavigationSort(): ?int { return 2; }
-    public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner()) ?? false; }
+    public static function canAccess(): bool { $u = auth()->user(); return (($u?->isAdmin() || $u?->isOwner()) ?? false) && ! \App\Support\NavVisibility::isHiddenForUser(static::class, $u); }
     public function getView(): string { return 'filament.pages.payment-structures'; }
 
     public function setMemberFilter(string $filter): void
@@ -331,6 +331,7 @@ class PaymentStructures extends Page
 
     public function editMember(int $id): void
     {
+        abort_unless(static::canAccess(), 403);
         $member = Streamer::findOrFail($id);
         $resolved = PaymentStructure::resolve($member);
         $this->editing_member_id = $id;
@@ -346,7 +347,7 @@ class PaymentStructures extends Page
     }
 
     public function closeMemberEditor(): void { $this->editing_member_id = null; $this->member_override_enabled = []; $this->member_override_values = []; }
-    public function adoptDefaults(int $id): void { $m=Streamer::findOrFail($id); PaymentStructure::adoptDefaults($m); Notification::make()->title($m->name.' now inherits team defaults')->success()->send(); }
+    public function adoptDefaults(int $id): void { abort_unless(static::canAccess(), 403); $m=Streamer::findOrFail($id); PaymentStructure::adoptDefaults($m); Notification::make()->title($m->name.' now inherits team defaults')->success()->send(); }
 
     public function saveMemberOverrides(): void
     {

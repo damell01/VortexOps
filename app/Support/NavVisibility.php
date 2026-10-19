@@ -32,12 +32,14 @@ class NavVisibility
 
     public static function visibleForRole(string $role): array
     {
-        return self::visibleByRole()[$role === 'fulfillment_admin' ? 'admin' : $role] ?? [];
+        $map = self::visibleByRole();
+        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
     }
 
     public static function hasExplicitVisibility(string $role): bool
     {
-        return array_key_exists($role === 'fulfillment_admin' ? 'admin' : $role, self::visibleByRole());
+        $map = self::visibleByRole();
+        return array_key_exists($role, $map) || ($role === 'fulfillment_admin' && array_key_exists('admin', $map));
     }
 
     /**
@@ -78,7 +80,8 @@ class NavVisibility
 
     public static function hiddenForRole(string $role): array
     {
-        return self::hiddenByRole()[$role === 'fulfillment_admin' ? 'admin' : $role] ?? [];
+        $map = self::hiddenByRole();
+        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
     }
 
     public static function setHiddenForRole(string $role, array $classes): void
@@ -93,12 +96,6 @@ class NavVisibility
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) return false;
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
-        // Resource routes resolve to their List/View page class in the menu.
-        $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
-            ? $class::getResource()
-            : $class;
-        if ($user->isAdmin() && in_array($navigationClass, [\App\Filament\Pages\AppSettings::class, \App\Filament\Pages\NotificationSettings::class, \App\Filament\Resources\UserResource::class, \App\Filament\Resources\ActivityLogResource::class, \App\Filament\Resources\InventoryMovementResource::class, \App\Filament\Resources\InventoryItemResource::class, \App\Filament\Resources\PalletResource::class, \App\Filament\Resources\VendorResource::class, \App\Filament\Pages\PalletReceivingHistory::class, \App\Filament\Pages\InventoryGuide::class], true)) return false;
-
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;
 
@@ -113,6 +110,22 @@ class NavVisibility
         $navigationClass = is_subclass_of($class, \Filament\Resources\Pages\Page::class)
             ? $class::getResource()
             : $class;
+        // Older saved allow-lists predate these core admin tools. Keep their
+        // defaults, while an explicit Hide choice (including the Roles form)
+        // always takes precedence.
+        if (in_array($class, self::hiddenForRole($role), true) || in_array($navigationClass, self::hiddenForRole($role), true)) return false;
+        if (in_array($role, ['admin', 'fulfillment_admin'], true) && in_array($navigationClass, [
+            \App\Filament\Pages\AppSettings::class,
+            \App\Filament\Pages\NotificationSettings::class,
+            \App\Filament\Resources\UserResource::class,
+            \App\Filament\Resources\ActivityLogResource::class,
+            \App\Filament\Resources\InventoryMovementResource::class,
+            \App\Filament\Resources\InventoryItemResource::class,
+            \App\Filament\Resources\PalletResource::class,
+            \App\Filament\Resources\VendorResource::class,
+            \App\Filament\Pages\PalletReceivingHistory::class,
+            \App\Filament\Pages\InventoryGuide::class,
+        ], true)) return true;
         if (self::hasExplicitVisibility($role)) {
             return in_array($class, self::visibleForRole($role), true)
                 || in_array($navigationClass, self::visibleForRole($role), true);
@@ -137,7 +150,8 @@ class NavVisibility
 
     public static function readonlyForRole(string $role): array
     {
-        return self::readonlyByRole()[$role === 'fulfillment_admin' ? 'admin' : $role] ?? [];
+        $map = self::readonlyByRole();
+        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
     }
 
     public static function setReadonlyForRole(string $role, array $classes): void

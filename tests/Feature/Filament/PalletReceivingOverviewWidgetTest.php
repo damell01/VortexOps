@@ -14,7 +14,7 @@ class PalletReceivingOverviewWidgetTest extends TestCase
 
     public function test_pallet_receiving_overview_renders_without_a_server_error(): void
     {
-        Pallet::factory()->create(['status' => 'staged']);
+        Pallet::create(['status' => 'staged', 'reference' => 'Receiving overview']);
 
         Livewire::test(PalletReceivingOverviewWidget::class)
             ->assertSuccessful()

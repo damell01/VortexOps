@@ -114,7 +114,7 @@ class AdminModulesTest extends TestCase
     {
         $groups = AdminModules::visibleNavigationGroups();
 
-        $this->assertContains('Settings', $groups);
+        $this->assertContains('System', $groups);
     }
 
     public function test_navigation_group_for_returns_null_with_single_operational_group(): void
@@ -132,7 +132,7 @@ class AdminModulesTest extends TestCase
         AdminModules::flushMemo();
 
         $this->assertEquals('Streams', AdminModules::navigationGroupFor('streams'));
-        $this->assertEquals('Payouts & Pay Runs', AdminModules::navigationGroupFor('payouts'));
+        $this->assertEquals('Payroll', AdminModules::navigationGroupFor('payouts'));
     }
 
     public function test_presets_only_reference_real_module_slugs(): void
@@ -149,7 +149,7 @@ class AdminModulesTest extends TestCase
     public function test_basics_preset_is_shows_payouts_and_inventory_only(): void
     {
         $this->assertEqualsCanonicalizing(
-            ['streams', 'payouts', 'inventory'],
+            ['streams', 'fulfillment', 'payouts', 'inventory'],
             AdminModules::presets()['basics']['slugs']
         );
     }

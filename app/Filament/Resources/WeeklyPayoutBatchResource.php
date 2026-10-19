@@ -29,7 +29,7 @@ class WeeklyPayoutBatchResource extends Resource
     /** Secondary workspace tool: opened from its hub; direct access/permissions stay unchanged. */
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return static::canAccess();
     }
 
     use HasModuleAccess;

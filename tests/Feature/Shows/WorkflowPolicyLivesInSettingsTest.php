@@ -92,11 +92,8 @@ class WorkflowPolicyLivesInSettingsTest extends TestCase
 
     public function test_the_dashboard_still_reports_what_is_waiting(): void
     {
-        // Only the radio buttons moved. The counts beside them were the one
-        // place these queues are reported, and losing them to a tidy-up would
-        // be a worse outcome than the panel being in the wrong place.
-        $widgets = array_map('strval', Livewire::test(DashboardImproved::class)->instance()->getWidgets());
-
-        $this->assertContains('App\\Filament\\Widgets\\ShowQueueCountsWidget', $widgets);
+        $overview = Livewire::test(DashboardImproved::class)->instance()->getViewData()['dashboardOverview'];
+        $this->assertArrayHasKey('reviews', $overview);
+        $this->assertIsInt($overview['reviews']);
     }
 }

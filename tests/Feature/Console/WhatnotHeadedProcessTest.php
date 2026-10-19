@@ -35,6 +35,7 @@ class WhatnotHeadedProcessTest extends TestCase
         // getenv('DISPLAY') leaking in from the machine running the suite would
         // decide these assertions instead of the code under test.
         putenv('DISPLAY');
+        config(['vortex.whatnot.headless' => null]);
     }
 
     public function test_headless_runs_node_directly(): void
@@ -78,7 +79,7 @@ class WhatnotHeadedProcessTest extends TestCase
     public function test_the_scraper_script_is_always_the_thing_being_run(): void
     {
         foreach ([['WHATNOT_HEADLESS' => 'true'], ['WHATNOT_HEADLESS' => 'false']] as $env) {
-            $this->assertStringContainsString('whatnot-scraper.cjs', $this->commandFor($env));
+            $this->assertStringContainsString('whatnot-runner.cjs', $this->commandFor($env));
         }
     }
 }

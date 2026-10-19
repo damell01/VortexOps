@@ -17,7 +17,9 @@ class Payout extends Model
     protected static function booted(): void
     {
         static::saving(function (Payout $payout) {
-            if ($payout->exists && $payout->getOriginal('status') !== 'draft') {
+            $batchId = $payout->getOriginal('weekly_payout_batch_id');
+            $batchLocked = $payout->exists && $batchId && WeeklyPayoutBatch::whereKey($batchId)->where('status', '!=', 'draft')->exists();
+            if ($payout->exists && ($batchLocked || !in_array($payout->getOriginal('status'), ['draft', 'pending'], true))) {
                 $financialFields = [
                     'streamer_id', 'show_id', 'payout_type', 'gross_show_revenue',
                     'product_cost', 'hours_worked', 'shipments_count', 'burden_amount',

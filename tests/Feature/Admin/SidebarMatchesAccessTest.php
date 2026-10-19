@@ -130,7 +130,7 @@ class SidebarMatchesAccessTest extends TestCase
         );
     }
 
-    public function test_a_streamer_gets_the_locations_link_its_access_rule_grants(): void
+    public function test_streamer_locations_are_reachable_from_the_inventory_hub(): void
     {
         $this->actingAs($this->userWithRole('streamer'));
 
@@ -138,6 +138,7 @@ class SidebarMatchesAccessTest extends TestCase
         // own locations are scoped in the query. The nav override used to say
         // admin/owner and quietly undo that.
         $this->assertTrue(\App\Filament\Resources\InventoryLocationResource::canAccess());
-        $this->assertTrue(\App\Filament\Resources\InventoryLocationResource::shouldRegisterNavigation());
+        $this->assertFalse(\App\Filament\Resources\InventoryLocationResource::shouldRegisterNavigation());
+        $this->assertTrue(\App\Filament\Resources\RoleResource::neverAppearsInSidebar(\App\Filament\Resources\InventoryLocationResource::class));
     }
 }

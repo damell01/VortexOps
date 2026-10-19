@@ -13,9 +13,10 @@ class ManifestSpreadsheetParserTest extends TestCase
 {
     public function test_spreadsheet_manifest_with_known_headers_does_not_call_ai(): void
     {
-        $gateway = $this->mock(AiGateway::class);
-        $gateway->shouldNotReceive('json');
-        $gateway->shouldNotReceive('vision');
+        $provider = $this->mock(\App\AI\Contracts\AIProvider::class);
+        $provider->shouldNotReceive('chat');
+        $provider->shouldNotReceive('vision');
+        $gateway = app(AiGateway::class);
 
         $sheet = new Spreadsheet();
         $sheet->getActiveSheet()->fromArray([

@@ -2,120 +2,101 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Filament\Resources\StreamerResource\Pages\CreateStreamer;
-use App\Filament\Resources\StreamerResource\Pages\EditStreamer;
+use App\Filament\Pages\PaymentStructures;
 use App\Models\Streamer;
 use App\Models\User;
+use App\Support\PaymentStructure;
+use App\Support\UserPayFields;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
-/**
- * The Custom Formula payout type gets a checkbox "formula builder" so admins
- * don't have to hand-write formulas like `package_rate + (payout_percentage
- * / 100) * streamer_share_net` for combos (Package + Profit Share, PWE +
- * Labels + Profit Share, etc).
- */
+/** Individual formulas now live in Rates & Adjustments, beside team defaults. */
 class StreamerFormulaBuilderTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function admin(): User
+    protected function setUp(): void
     {
-        Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $u = User::factory()->create();
-        $u->assignRole('admin');
-        return $u;
+        parent::setUp();
+        Role::findOrCreate('admin', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('admin');
+        $this->actingAs($user);
+        PaymentStructure::saveDefaults('streamer', ['payout_type' => 'profit_share', 'payout_percentage' => 8, 'custom_payout_formula' => null]);
     }
 
-    public function test_checking_package_and_profit_share_assembles_the_formula(): void
+    private function member(): Streamer
     {
-        Livewire::actingAs($this->admin());
-
-        Livewire::test(CreateStreamer::class)
-            ->fillForm([
-                'name' => 'Combo Streamer',
-                'payout_type' => 'custom_formula',
-            ])
-            ->set('data.component_package', true)
-            ->set('data.component_profit_share', true)
-            ->assertSet('data.custom_payout_formula', 'package_rate + (payout_percentage / 100) * streamer_share_net');
+        return Streamer::create(['name' => 'Combo Streamer', 'status' => 'active', 'payout_type' => 'profit_share']);
     }
 
-    public function test_unchecking_a_component_removes_it_from_the_formula(): void
+    private function editor(Streamer $member)
     {
-        Livewire::actingAs($this->admin());
-
-        Livewire::test(CreateStreamer::class)
-            ->fillForm(['name' => 'Combo Streamer', 'payout_type' => 'custom_formula'])
-            ->set('data.component_package', true)
-            ->set('data.component_tips', true)
-            ->assertSet('data.custom_payout_formula', 'package_rate + tip_share')
-            ->set('data.component_package', false)
-            ->assertSet('data.custom_payout_formula', 'tip_share');
+        return Livewire::test(PaymentStructures::class)->call('editMember', $member->id);
     }
 
-    public function test_pwe_and_labels_and_profit_share_combo(): void
+    public function test_an_individual_formula_is_saved_without_changing_another_member(): void
     {
-        Livewire::actingAs($this->admin());
-
-        Livewire::test(CreateStreamer::class)
-            ->fillForm(['name' => 'Fulfillment Combo', 'payout_type' => 'custom_formula'])
-            ->set('data.component_pwe', true)
-            ->set('data.component_labels', true)
-            ->set('data.component_profit_share', true)
-            ->assertSet(
-                'data.custom_payout_formula',
-                '(payout_percentage / 100) * streamer_share_net + pwe_rate + label_rate'
-            );
+        $member = $this->member();
+        $other = $this->member();
+        $formula = 'package_rate + (payout_percentage / 100) * streamer_share_net';
+        $this->editor($member)
+            ->set('member_override_enabled.custom_payout_formula', true)
+            ->set('member_override_values.custom_payout_formula', $formula)
+            ->call('saveMemberOverrides')->assertHasNoErrors();
+        $this->assertSame($formula, $member->fresh()->custom_payout_formula);
+        $this->assertSame('custom_formula', $member->fresh()->payout_type);
+        $this->assertNull($other->fresh()->custom_payout_formula);
     }
 
-    public function test_rate_fields_become_visible_only_for_checked_components(): void
+    public function test_an_invalid_formula_is_rejected_and_existing_pay_is_preserved(): void
     {
-        Livewire::actingAs($this->admin());
-
-        $component = Livewire::test(CreateStreamer::class)
-            ->fillForm(['name' => 'X', 'payout_type' => 'custom_formula']);
-
-        $component->assertFormFieldIsHidden('package_rate');
-
-        $component->set('data.component_package', true)
-            ->assertFormFieldIsVisible('package_rate');
+        $member = $this->member();
+        $this->editor($member)
+            ->set('member_override_enabled.custom_payout_formula', true)
+            ->set('member_override_values.custom_payout_formula', 'unknown_pay_variable + 1')
+            ->call('saveMemberOverrides')->assertHasErrors(['member_override_values.custom_payout_formula']);
+        $this->assertNull($member->fresh()->custom_payout_formula);
     }
 
-    public function test_checkboxes_are_not_persisted_as_streamer_attributes(): void
+    public function test_reopening_the_editor_prefills_the_saved_formula(): void
     {
-        Livewire::actingAs($this->admin());
-
-        Livewire::test(CreateStreamer::class)
-            ->fillForm([
-                'name' => 'Persist Check',
-                'payout_type' => 'custom_formula',
-                'payout_cadence' => 'weekly',
-            ])
-            ->set('data.component_package', true)
-            ->set('data.package_rate', 50)
-            ->call('create')
-            ->assertHasNoFormErrors();
-
-        $streamer = Streamer::where('name', 'Persist Check')->firstOrFail();
-        $this->assertSame('package_rate', $streamer->custom_payout_formula);
-        $this->assertEqualsWithDelta(50.0, (float) $streamer->package_rate, 0.01);
-        $this->assertArrayNotHasKey('component_package', $streamer->getAttributes());
+        $member = $this->member();
+        PaymentStructure::saveOverrides($member, ['custom_payout_formula' => 'package_rate + tip_share', 'payout_type' => 'custom_formula']);
+        $this->editor($member->fresh())
+            ->assertSet('member_override_enabled.custom_payout_formula', true)
+            ->assertSet('member_override_values.custom_payout_formula', 'package_rate + tip_share');
     }
 
-    public function test_edit_page_precheck_reflects_saved_formula(): void
+    public function test_profile_pay_edits_preserve_a_formula_that_the_profile_does_not_display(): void
     {
-        $streamer = Streamer::create([
-            'name' => 'Existing', 'status' => 'active',
-            'payout_type' => 'custom_formula',
-            'custom_payout_formula' => 'package_rate + tip_share',
-        ]);
+        $member = $this->member();
+        PaymentStructure::saveOverrides($member, ['custom_payout_formula' => 'package_rate + tip_share', 'payout_type' => 'custom_formula']);
+        $data = UserPayFields::prefill($member->fresh());
+        $data['pay_payout_percentage'] = 9;
+        UserPayFields::apply($member->fresh(), $data);
+        $this->assertSame('package_rate + tip_share', $member->fresh()->custom_payout_formula);
+        $this->assertSame('custom_formula', $member->fresh()->payout_type);
+    }
 
-        Livewire::actingAs($this->admin());
+    public function test_disabling_the_formula_override_restores_the_team_formula(): void
+    {
+        $member = $this->member();
+        PaymentStructure::saveOverrides($member, ['custom_payout_formula' => 'package_rate', 'payout_type' => 'custom_formula']);
+        $this->editor($member->fresh())->set('member_override_enabled.custom_payout_formula', false)
+            ->call('saveMemberOverrides')->assertHasNoErrors();
+        $this->assertNull($member->fresh()->compensationValue('custom_payout_formula'));
+        $this->assertSame('profit_share', $member->fresh()->compensationValue('payout_type'));
+    }
 
-        Livewire::test(EditStreamer::class, ['record' => $streamer->getRouteKey()])
-            ->assertFormSet(['component_package' => true, 'component_tips' => true, 'component_profit_share' => false]);
+    public function test_streamers_cannot_open_the_compensation_editor(): void
+    {
+        Role::findOrCreate('streamer', 'web');
+        $user = User::factory()->create();
+        $user->assignRole('streamer');
+        $this->actingAs($user);
+        Livewire::test(PaymentStructures::class)->assertForbidden();
     }
 }

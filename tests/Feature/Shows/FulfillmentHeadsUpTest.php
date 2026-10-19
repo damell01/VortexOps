@@ -103,6 +103,10 @@ class FulfillmentHeadsUpTest extends TestCase
     {
         $show = $this->show(array_merge(['status' => 'reconciled'], $attributes));
 
+        $streamer = \App\Models\Streamer::create(['name' => 'Host', 'status' => 'active']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $log = \App\Models\StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved', 'approval_status' => 'approved', 'submitted_at' => now()]);
+        \App\Models\StreamerLogItem::create(['streamer_log_entry_id' => $log->id, 'item_name' => 'Cards', 'quantity' => 2, 'packed_quantity' => 0, 'unit_cost' => 1, 'disposition' => 'sold']);
         Shipment::create([
             'show_id'         => $show->id,
             'tracking_number' => 'TRK-' . uniqid(),
@@ -120,8 +124,7 @@ class FulfillmentHeadsUpTest extends TestCase
         Livewire::test(ListFulfillmentShows::class)
             ->loadTable()
             ->filterTable('is_slow_pack', true)
-            ->assertCanSeeTableRecords([$slow])
-            ->assertCanNotSeeTableRecords([$ordinary]);
+            ->assertSee('Jumbo Night')->assertDontSee('Quick Night');
     }
 
     public function test_the_queue_can_also_be_narrowed_to_the_quick_ones(): void
@@ -133,7 +136,6 @@ class FulfillmentHeadsUpTest extends TestCase
         Livewire::test(ListFulfillmentShows::class)
             ->loadTable()
             ->filterTable('is_slow_pack', false)
-            ->assertCanSeeTableRecords([$ordinary])
-            ->assertCanNotSeeTableRecords([$slow]);
+            ->assertSee('Quick Night')->assertDontSee('Jumbo Night');
     }
 }

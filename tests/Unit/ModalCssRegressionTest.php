@@ -19,7 +19,7 @@ class ModalCssRegressionTest extends TestCase
 {
     public function test_app_css_never_targets_the_bare_fi_modal_selector(): void
     {
-        $css = file_get_contents(resource_path('css/app.css'));
+        $css = file_get_contents(resource_path('css/app.css')).file_get_contents(public_path('css/workspace-consistency.css'));
 
         $this->assertDoesNotMatchRegularExpression(
             '/(?<![\w-])\.fi-modal\s*\{/',
@@ -39,7 +39,7 @@ class ModalCssRegressionTest extends TestCase
      */
     public function test_app_css_never_hides_overflow_on_fi_modal_window(): void
     {
-        $css = file_get_contents(resource_path('css/app.css'));
+        $css = file_get_contents(resource_path('css/app.css')).file_get_contents(public_path('css/workspace-consistency.css'));
 
         preg_match_all('/\.fi-modal-window\s*\{([^}]*)\}/', $css, $matches);
 

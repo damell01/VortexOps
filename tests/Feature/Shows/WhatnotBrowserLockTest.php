@@ -53,14 +53,14 @@ class WhatnotBrowserLockTest extends TestCase
     private function holdTheLock(): void
     {
         Cache::lock('whatnot:browser', 1800)->get();
-        Cache::put('whatnot:browser:holder_pid', 424242, 1800);
+        Cache::put('whatnot:browser:holder_pid', getmypid(), 1800);
     }
 
     public function test_a_locked_out_run_does_not_report_success(): void
     {
         $this->holdTheLock();
 
-        $this->artisan('whatnot:refresh-recent --limit=1')
+        $this->artisan('whatnot:refresh-recent-shows --limit=1')
             ->expectsOutputToContain('another browser job is still running')
             ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
@@ -70,7 +70,7 @@ class WhatnotBrowserLockTest extends TestCase
         // The zero-filled table was the misleading part: it looked like work.
         $this->holdTheLock();
 
-        $this->artisan('whatnot:refresh-recent --limit=1')
+        $this->artisan('whatnot:refresh-recent-shows --limit=1')
             ->doesntExpectOutputToContain('Recent Whatnot refresh complete')
             ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
@@ -79,11 +79,11 @@ class WhatnotBrowserLockTest extends TestCase
     {
         $this->holdTheLock();
 
-        $this->artisan('whatnot:refresh-recent --limit=1')
+        $this->artisan('whatnot:refresh-recent-shows --limit=1')
             ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
 
         $this->assertSame(
-            424242,
+            getmypid(),
             Cache::get('whatnot:browser:holder_pid'),
             'the locked-out run erased the PID of the job that actually holds the lock',
         );
@@ -101,7 +101,7 @@ class WhatnotBrowserLockTest extends TestCase
 
         $this->holdTheLock();
 
-        $this->artisan('whatnot:refresh-recent --limit=1')
+        $this->artisan('whatnot:refresh-recent-shows --limit=1')
             ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
 
@@ -111,7 +111,7 @@ class WhatnotBrowserLockTest extends TestCase
     public static function lockTakingCommands(): array
     {
         return [
-            'refresh-recent'  => ['whatnot:refresh-recent --limit=1'],
+            'refresh-recent'  => ['whatnot:refresh-recent-shows --limit=1'],
             'sync-show-index' => ['whatnot:sync-show-index --enrich=1'],
         ];
     }
@@ -128,7 +128,7 @@ class WhatnotBrowserLockTest extends TestCase
         $this->artisan($command);
 
         $this->assertSame(
-            424242,
+            getmypid(),
             Cache::get('whatnot:browser:holder_pid'),
             "{$command} erased the PID of the job that actually holds the lock",
         );

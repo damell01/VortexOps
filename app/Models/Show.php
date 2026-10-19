@@ -598,6 +598,13 @@ class Show extends Model
         });
     }
 
+    /** Unknown fields in a historical export, preserving confirmed zero/loss figures. */
+    public function scopeMissingHistoricalAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where(fn ($q) => $q->whereNull('gross_revenue')->orWhereNull('completed_earnings')
+            ->orWhereNull('buyers_count')->orWhereNull('total_views'));
+    }
+
     public function scopeMissingAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query

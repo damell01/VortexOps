@@ -202,36 +202,16 @@ class ProductInsightsTest extends TestCase
             ->assertSee('$40'); // inventory value / dead value KPI
     }
 
-    public function test_summarize_button_populates_the_narrative(): void
+    public function test_insights_render_catalogue_metrics_without_an_ai_request(): void
     {
-        Setting::set('enabled_admin_modules', json_encode(['streams', 'inventory', 'ai']));
-        AdminModules::flushMemo();
-
-        Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
-        $admin = User::factory()->create(['email' => 'summarizer@test.com']);
+        Role::findOrCreate('admin', 'web');
+        $admin = User::factory()->create();
         $admin->assignRole('admin');
-        config(['app.owner_email' => 'owner@test.com']);
-
         $item = InventoryItem::create(['name' => 'Summarized Item', 'unit_cost' => 5, 'is_active' => true]);
         $this->stock($item, 10);
         $this->sale($item, 2, 5, 20);
-
-        $fake = new class implements AIProvider {
-            public function name(): string { return 'fake'; }
-            public function chat(array $m, string $model, array $o = []): string { return 'Catalogue is healthy.'; }
-            public function stream(array $m, string $model, array $o = []): \Generator { yield ''; }
-            public function vision(string $p, string $i, string $model, array $o = []): string { return ''; }
-            public function embed(string $t, string $model): ?array { return null; }
-            public function listModels(): array { return []; }
-            public function isHealthy(): bool { return true; }
-        };
-        $this->app->instance(AIProvider::class, $fake);
-
-        Livewire::actingAs($admin);
-        Livewire::test(ProductInsights::class)
-            ->assertSee('Summarize catalogue')
-            ->call('generateNarrative')
-            ->assertSet('narrative', 'Catalogue is healthy.')
-            ->assertSee('Catalogue is healthy.');
+        Livewire::actingAs($admin)->test(ProductInsights::class)
+            ->assertOk()->assertSee('Summarized Item')->assertSee('Inventory intelligence');
+        $this->assertEqualsWithDelta(10, $this->rowFor($item->id)['margin'], 0.01);
     }
 }

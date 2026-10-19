@@ -544,6 +544,12 @@ class AppSettings extends Page
 
             $channelNote = $result['channels'] > 1 ? " across {$result['channels']} channels" : '';
             $this->whatnotImportResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.";
+            if (! empty($result['errors'])) {
+                $this->whatnotImportResult .= ' Errors: ' . implode(' | ', $result['errors']);
+                $this->whatnotImportStatus = 'error';
+                Notification::make()->title('Whatnot import finished with errors')->body($this->whatnotImportResult)->warning()->send();
+                return;
+            }
             $this->whatnotImportStatus = 'success';
 
             $this->whatnotLastImport = now()->toDateTimeString();

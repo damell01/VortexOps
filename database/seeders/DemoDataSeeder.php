@@ -482,7 +482,7 @@ class DemoDataSeeder extends Seeder
 
         // ── Payouts ──────────────────────────────────────────────────────────
 
-        $batch1 = WeeklyPayoutBatch::firstOrCreate(
+        $batch1 = WeeklyPayoutBatch::whereDate('week_start', Carbon::now()->subDays(14)->startOfWeek()->toDateString())->first() ?? WeeklyPayoutBatch::firstOrCreate(
             ['week_start' => Carbon::now()->subDays(14)->startOfWeek()->toDateString()],
             [
                 'week_end'     => Carbon::now()->subDays(14)->endOfWeek()->toDateString(),
@@ -508,7 +508,7 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
-        $batch2 = WeeklyPayoutBatch::firstOrCreate(
+        $batch2 = WeeklyPayoutBatch::whereDate('week_start', Carbon::now()->subDays(3)->startOfWeek()->toDateString())->first() ?? WeeklyPayoutBatch::firstOrCreate(
             ['week_start' => Carbon::now()->subDays(3)->startOfWeek()->toDateString()],
             [
                 'week_end'     => Carbon::now()->subDays(3)->endOfWeek()->toDateString(),
@@ -592,7 +592,7 @@ class DemoDataSeeder extends Seeder
 
             // Find or create the batch for this week
             $batchStart = $showDate->copy()->startOfWeek(Carbon::MONDAY);
-            $batch = WeeklyPayoutBatch::firstOrCreate(
+            $batch = WeeklyPayoutBatch::whereDate('week_start', $batchStart->toDateString())->first() ?? WeeklyPayoutBatch::firstOrCreate(
                 ['week_start' => $batchStart->toDateString()],
                 [
                     'week_end'     => $batchStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),

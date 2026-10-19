@@ -41,7 +41,7 @@ class ListFulfillmentShows extends ListRecords
         // Do not sort in SQL by fulfillment_reviewed_at. Some older production
         // databases were created before that optional signoff column existed,
         // which made the whole Fulfillment Center 500 before a user could pack.
-        return FulfillmentResource::getEloquentQuery()
+        return $this->getFilteredTableQuery()
             ->orderByDesc('show_date')
             ->limit(24)
             ->get()

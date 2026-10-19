@@ -61,6 +61,7 @@
         </div>
     </section>
 
+    @if (method_exists($this, 'detailModalId'))
     <x-filament::modal :id="$this->detailModalId()" width="4xl">
         @if ($detailData)
             <x-slot name="heading">{{ $detailData['title'] }}</x-slot>
@@ -106,4 +107,5 @@
             <p class="text-sm text-gray-500">These details could not be loaded. Use the full page instead.</p>
         @endif
     </x-filament::modal>
+    @endif
 </x-filament-widgets::widget>

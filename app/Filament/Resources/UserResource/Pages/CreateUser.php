@@ -14,7 +14,7 @@ class CreateUser extends CreateRecord
     {
         // Nobody — owner included — may mint a new super admin, even via a
         // crafted request that bypasses the restricted select options.
-        foreach (UserResource::UNGRANTABLE_ROLES as $role) {
+        foreach (auth()->user()?->isOwner() ? UserResource::UNGRANTABLE_ROLES : UserResource::PRIVILEGED_ROLES as $role) {
             if ($this->record->hasRole($role)) {
                 $this->record->removeRole($role);
             }

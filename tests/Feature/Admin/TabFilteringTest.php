@@ -50,7 +50,7 @@ class TabFilteringTest extends TestCase
         Show::create(['title' => 'Reconciled', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $creator->id]);
         Show::create(['title' => 'Pending', 'show_date' => now()->toDateString(), 'status' => 'pending_review', 'created_by' => $creator->id]);
 
-        foreach (['past_7_days', 'all', 'needs_review', 'this_week', 'unreconciled'] as $tabKey) {
+        foreach (array_keys((new ListShows())->getTabs()) as $tabKey) {
             Livewire::test(ListShows::class)->set('activeTab', $tabKey)->assertOk();
         }
     }
@@ -63,23 +63,20 @@ class TabFilteringTest extends TestCase
 
         $tabs = (new ListShows())->getTabs();
 
-        $this->assertSame(1, $tabs['needs_review']->modifyQuery(Show::query())->count());
-        $this->assertSame(1, $tabs['unreconciled']->modifyQuery(Show::query())->count());
+        $this->assertSame(2, $tabs['needs_matching']->modifyQuery(Show::query())->count());
+        $this->assertSame(2, $tabs['needs_matching']->modifyQuery(Show::query())->count());
         $this->assertSame(2, $tabs['all']->modifyQuery(Show::query())->count());
     }
 
-    public function test_past_7_days_is_the_default_tab_and_scopes_to_the_recent_window(): void
+    public function test_default_tab_shows_operational_work_and_excludes_historical_imports(): void
     {
         $creator = User::factory()->create();
-        Show::create(['title' => 'Yesterday', 'show_date' => now()->subDay()->toDateString(), 'status' => 'pending_review', 'created_by' => $creator->id]);
-        Show::create(['title' => 'Ten Days Ago', 'show_date' => now()->subDays(10)->toDateString(), 'status' => 'pending_review', 'created_by' => $creator->id]);
-        Show::create(['title' => 'Next Month', 'show_date' => now()->addMonth()->toDateString(), 'status' => 'draft', 'created_by' => $creator->id]);
-
-        $this->assertSame('past_7_days', (new ListShows())->getDefaultActiveTab());
-
-        $tab = (new ListShows())->getTabs()['past_7_days'];
-        $titles = $tab->modifyQuery(Show::query())->pluck('title')->all();
-        $this->assertSame(['Yesterday'], $titles, 'the default view is only shows that streamed in the last 7 days');
+        $active = Show::create(['title' => 'Operational', 'show_date' => today(), 'is_operational' => true, 'created_by' => $creator->id]);
+        $historical = Show::create(['title' => 'Historical', 'import_source' => 'auto_whatnot', 'show_date' => today()->subDays(10), 'is_operational' => false, 'created_by' => $creator->id]);
+        $historical->forceFill(['is_operational' => false])->save();
+        $page = new ListShows();
+        $this->assertSame('all', $page->getDefaultActiveTab());
+        $this->assertSame([$active->id], $page->getTabs()['all']->modifyQuery(Show::query())->pluck('id')->all());
     }
 
     public function test_every_streamer_log_tab_renders_without_error(): void
@@ -90,8 +87,8 @@ class TabFilteringTest extends TestCase
         $showA = Show::create(['title' => 'A', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $creator->id]);
         $showB = Show::create(['title' => 'B', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $creator->id]);
 
-        StreamerLogEntry::create(['show_id' => $showA->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
-        StreamerLogEntry::create(['show_id' => $showB->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
+        StreamerLogEntry::create(['show_id' => $showA->id, 'streamer_id' => $streamer->id, 'status' => 'pending', 'submitted_at' => null]);
+        StreamerLogEntry::create(['show_id' => $showB->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved', 'approval_status' => 'approved']);
 
         // Taken from the page rather than written out: a hardcoded list went
         // stale when the tabs were renamed, and setting an activeTab that does
@@ -109,8 +106,8 @@ class TabFilteringTest extends TestCase
         $showA = Show::create(['title' => 'A', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $creator->id]);
         $showB = Show::create(['title' => 'B', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $creator->id]);
 
-        StreamerLogEntry::create(['show_id' => $showA->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
-        StreamerLogEntry::create(['show_id' => $showB->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
+        StreamerLogEntry::create(['show_id' => $showA->id, 'streamer_id' => $streamer->id, 'status' => 'pending', 'submitted_at' => null]);
+        StreamerLogEntry::create(['show_id' => $showB->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved', 'approval_status' => 'approved']);
 
         $tabs = (new ListStreamerLogEntries())->getTabs();
 

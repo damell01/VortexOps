@@ -63,7 +63,7 @@ class WhatnotUnlockTest extends TestCase
     private function spawn(string $marker): int
     {
         $process = proc_open(
-            ['php', '-r', 'sleep(120);', $marker],
+            [PHP_BINARY, '-r', 'sleep(120);', $marker],
             [['pipe', 'r'], ['pipe', 'w'], ['pipe', 'w']],
             $pipes,
         );

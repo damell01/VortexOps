@@ -73,6 +73,8 @@ class ProfitShareCalculationService
 
     public function updatePacketWithCalculations(ProfitSharePacket $packet): void
     {
+        // Viewing the dashboard must never rewrite submitted or approved pay.
+        if ($packet->status !== 'draft') return;
         $calculations = $this->calculateForMonth(
             $packet->streamer,
             $packet->year,

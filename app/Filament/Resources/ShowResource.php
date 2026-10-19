@@ -500,7 +500,22 @@ class ShowResource extends Resource
                         ->nullable(),
                     TextInput::make('detail_url')
                         ->label('Whatnot Show URL')
-                        ->url()
+                        // A relative Whatnot link ("/dashboard/live/…") shows whole, so it passes as a URL.
+                        ->formatStateUsing(fn (?string $state) => Show::normalizeWhatnotUrl($state))
+                        ->dehydrateStateUsing(fn (?string $state) => Show::normalizeWhatnotUrl($state))
+                        // Checked here, not with type="url": the browser's own check blocked
+                        // the whole form, silently, for a link in a collapsed section. A link
+                        // the show already has may stay; a newly typed one must be a real URL.
+                        ->inputMode('url')
+                        ->rule(fn (?Show $record) => function (string $attribute, $value, \Closure $fail) use ($record) {
+                            $value = Show::normalizeWhatnotUrl($value);
+                            if ($value === null || ($record && Show::normalizeWhatnotUrl($record->getRawOriginal('detail_url')) === $value)) {
+                                return;
+                            }
+                            if (! filter_var($value, FILTER_VALIDATE_URL)) {
+                                $fail('The Whatnot show URL must be a web link, like https://www.whatnot.com/live/…');
+                            }
+                        })
                         ->nullable()
                         ->columnSpanFull(),
                 ]);

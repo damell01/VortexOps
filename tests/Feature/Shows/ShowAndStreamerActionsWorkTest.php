@@ -167,6 +167,29 @@ class ShowAndStreamerActionsWorkTest extends TestCase
         $this->assertSame('Renamed With Pay', $this->show->fresh()->title);
     }
 
+    public function test_a_show_with_a_relative_whatnot_link_saves_and_the_link_is_made_whole(): void
+    {
+        // The scraper stored Whatnot's own relative href; the form's URL field
+        // (and the browser, silently) refused it, so the show couldn't be saved.
+        \Illuminate\Support\Facades\DB::table('shows')->where('id', $this->show->id)->update(['detail_url' => '/dashboard/live/abc-123']);
+
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['title' => 'Linked Show'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('https://www.whatnot.com/dashboard/live/abc-123', $this->show->fresh()->detail_url);
+        $this->assertSame('Linked Show', $this->show->fresh()->title);
+    }
+
+    public function test_a_newly_typed_whatnot_link_must_be_a_link(): void
+    {
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['detail_url' => 'not a link'])
+            ->call('save')
+            ->assertHasFormErrors(['detail_url']);
+    }
+
     public function test_picking_a_streamer_on_the_form_makes_them_primary(): void
     {
         $this->show->streamers()->detach();

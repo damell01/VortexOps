@@ -160,6 +160,9 @@ class EndOfStreamCatalogScalesTest extends TestCase
     public function test_a_thousand_items_does_not_mean_a_thousand_queries(): void
     {
         $this->stockCatalog(1000);
+        // Today's Pokémon check-in has already happened: that is a fixed cost
+        // once a day, not the per-item growth this test is here to catch.
+        \Illuminate\Support\Facades\Cache::put('pokemon-daily:' . $this->user->id . ':' . now(\App\Support\BusinessTime::zone())->toDateString(), 1, now()->addDay());
 
         DB::enableQueryLog();
         $this->page()->call('loadDetails');

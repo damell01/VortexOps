@@ -178,9 +178,14 @@ class Show extends Model
                 : $dr->lines()->sum('line_total'));
         }
 
-        $payouts = $this->payouts_sum_calculated_payout !== null
+        // withSum() leaves NULL for a show with no payouts. That is still a loaded
+        // answer (zero), not a reason to query again, so look for the column
+        // rather than its value; otherwise every unpaid show was an extra query.
+        $payouts = array_key_exists('payouts_sum_calculated_payout', $this->getAttributes())
             ? (float) $this->payouts_sum_calculated_payout
-            : (float) $this->payouts()->sum('calculated_payout');
+            : ($this->relationLoaded('payouts')
+                ? (float) $this->payouts->sum('calculated_payout')
+                : (float) $this->payouts()->sum('calculated_payout'));
 
         $base   = $net + $tips;
         $margin = round($base - $cogs - $payouts, 2);

@@ -466,12 +466,15 @@ class NeedsAttentionWidget extends Widget
     /** @return \Illuminate\Support\Collection<int, array{streamer: Streamer, trend: array}> */
     private function trendingDownStreamers(): \Illuminate\Support\Collection
     {
-        return Streamer::where('status', 'active')
-            ->inChannelContext()
-            ->get()
-            ->filter(fn (Streamer $s) => $s->isPerformanceTrendingDown())
-            ->map(fn (Streamer $s) => ['streamer' => $s, 'trend' => $s->performanceTrend()])
-            ->values();
+        return once(function () {
+            $streamers = Streamer::where('status', 'active')->inChannelContext()->get();
+            $trends = Streamer::performanceTrendsFor($streamers);
+
+            return $streamers
+                ->filter(fn (Streamer $s) => ($trends[$s->id]['change_pct'] ?? 0) <= -30.0 && isset($trends[$s->id]))
+                ->map(fn (Streamer $s) => ['streamer' => $s, 'trend' => $trends[$s->id]])
+                ->values();
+        });
     }
 
     private function trendingDownStreamerCount(): int

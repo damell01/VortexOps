@@ -584,7 +584,9 @@ class PayoutService
         $hoursWorked = $hours;
         $shipments   = $logEntry?->number_of_shipments !== null
             ? (int) $logEntry->number_of_shipments
-            : (int) $show->shipments()->count();
+            : (array_key_exists('shipments_count', $show->getAttributes())
+                ? (int) $show->shipments_count // preloaded with withCount() by list pages
+                : (int) $show->shipments()->count());
 
         $working = ProfitShareFormula::forShow(
             grossRevenue: (float) $show->gross_revenue,

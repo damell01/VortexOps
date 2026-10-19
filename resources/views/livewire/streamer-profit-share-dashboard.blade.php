@@ -124,7 +124,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Edit Packet: {{ $selectedPacket->getMonthLabel() }}</h2>
 
-            <form wire:submit="savePacket" class="space-y-6">
+            <form wire:submit="savePacket" class="space-y-6" novalidate>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Gross Revenue</label>

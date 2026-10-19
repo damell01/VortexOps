@@ -143,7 +143,7 @@
                 <p class="mt-1 text-xs text-gray-500">Upload the Whatnot Seller Analytics → Shows CSV for older shows. Current-day and future shows are ignored automatically.</p>
             </div>
 
-            <form wire:submit="importAnalyticsCsv" class="grid grid-cols-1 md:grid-cols-[220px_1fr_auto] gap-3 items-end">
+            <form wire:submit="importAnalyticsCsv" class="grid grid-cols-1 md:grid-cols-[220px_1fr_auto] gap-3 items-end" novalidate>
                 <label class="block">
                     <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Channel</span>
                     <select wire:model="analyticsCsvChannelId" class="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-950 text-sm">

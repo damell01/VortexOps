@@ -167,6 +167,30 @@ class ShowAndStreamerActionsWorkTest extends TestCase
         $this->assertSame('Renamed With Pay', $this->show->fresh()->title);
     }
 
+    public function test_picking_a_streamer_on_the_form_makes_them_primary(): void
+    {
+        $this->show->streamers()->detach();
+        $other = Streamer::create(['name' => 'Morgan', 'status' => 'active']);
+
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['streamers' => [$this->streamer->id, $other->id]])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNotNull($this->show->fresh()->primaryStreamer(), 'a show with streamers has a primary');
+        $this->assertSame(1, $this->show->fresh()->streamers()->wherePivot('is_primary', true)->count());
+    }
+
+    public function test_a_press_that_sent_nothing_is_logged(): void
+    {
+        \Illuminate\Support\Facades\Log::spy();
+
+        $this->post('/admin/client-diagnostic', ['what' => 'Pressed but nothing was sent', 'detail' => 'Save changes', 'page' => '/admin/shows/1/edit'])
+            ->assertNoContent();
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')->withArgs(fn ($message, $context) => str_contains($message, 'nothing was sent') && $context['detail'] === 'Save changes');
+    }
+
     // ── Streamers ─────────────────────────────────────────────────────────────
 
     public function test_creating_a_streamer_stores_their_payout_terms(): void

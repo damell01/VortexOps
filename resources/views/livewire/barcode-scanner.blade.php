@@ -66,7 +66,7 @@
         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Or enter barcode manually:
         </label>
-        <form wire:submit="submitManual" class="flex gap-2">
+        <form wire:submit="submitManual" class="flex gap-2" novalidate>
             <input
                 type="text"
                 wire:model="manualInput"

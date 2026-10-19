@@ -32,6 +32,55 @@ function revealFirstError() {
     }, 120);
 }
 
+// Tell the server, so a failure on someone's phone can be read in Log Viewer.
+function report(what, detail = '') {
+    try {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (!token) return;
+        fetch('/admin/client-diagnostic', {
+            method: 'POST', keepalive: true, credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': token, Accept: 'application/json' },
+            body: JSON.stringify({ what: String(what).slice(0, 200), detail: String(detail).slice(0, 2000), page: location.pathname }),
+        }).catch(() => {});
+    } catch (_) {}
+}
+
+// A press that never reaches the server: the browser's own form checks blocked
+// it, or a script error swallowed it. Either way the button looked dead.
+let awaiting = null;
+let lastScriptError = '';
+window.addEventListener('error', (event) => { lastScriptError = String(event.message || event.error || '').slice(0, 300); });
+function expectRequest(label) {
+    const mine = { label, at: Date.now() };
+    awaiting = mine;
+    lastScriptError = '';
+    setTimeout(() => {
+        if (awaiting !== mine) return;
+        awaiting = null;
+        renderFeedback(`\u201c${label}\u201d didn\u2019t go through \u2014 nothing was sent. Reload the page and try again.`, true);
+        report('Pressed but nothing was sent', `${label}${lastScriptError ? ' | script error: ' + lastScriptError : ''}`);
+    }, 4000);
+}
+document.addEventListener('submit', (event) => {
+    if (event.target.matches?.('form[wire\\:submit], form[wire\\:submit\\.prevent]')) {
+        expectRequest(event.submitter?.innerText?.trim() || 'Save');
+    }
+}, true);
+document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button[type="submit"]');
+    const form = button?.form;
+    if (form?.matches?.('form[wire\\:submit]')) expectRequest(button.innerText.trim() || 'Save');
+}, true);
+// The browser's own check failing on a field, which blocks the submit outright.
+document.addEventListener('invalid', (event) => {
+    const field = event.target;
+    const label = field.closest('.fi-fo-field')?.querySelector('label')?.innerText?.replace(/\*/g, '').trim() || field.name || field.id;
+    awaiting = null;
+    renderFeedback(`Not saved \u2014 ${label}: ${field.validationMessage}`, true);
+    report('Browser blocked a form', `${label}: ${field.validationMessage} (value ${String(field.value).slice(0, 40)})`);
+    field.closest('.fi-fo-field')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}, true);
+
 function installFeedback() {
     if (installed || !window.Livewire) return;
     installed = true;
@@ -42,6 +91,7 @@ function installFeedback() {
         if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = null; } }
         const actions = (body?.components || []).some(component => (component.calls || []).some(call => !['$refresh', '$set', '$dispatch', '__dispatch'].includes(call.method)));
         if (!actions) return;
+        awaiting = null;
         pending++;
         let finished = false;
         // Only for something slow: a quick save flashing "Working…" is just noise.
@@ -64,6 +114,7 @@ function installFeedback() {
             if (!messages.length) return;
             const count = Object.keys(errors).length;
             renderFeedback(`Not saved \u2014 ${count === 1 ? '1 field needs' : count + ' fields need'} fixing: ${messages[0]}`, true);
+            report('Form did not pass validation', Object.entries(errors).map(([k, v]) => `${k}: ${[].concat(v)[0]}`).join(' | '));
             setTimeout(revealFirstError, 60);
         });
         // Livewire 4 only calls fail() when the network drops. A server error
@@ -74,6 +125,7 @@ function installFeedback() {
             if (status < 400) return;
             reported = true;
             finish();
+            if (status >= 500) report('Server error on an action', `HTTP ${status}`);
             renderFeedback(status === 419 ? 'Your session expired. Refresh the page and sign in again.'
                 : (status === 403 ? 'You don\u2019t have permission to do that.' : 'That didn\u2019t save \u2014 something went wrong on our side. Try again, and tell us if it keeps happening.'), true);
         });

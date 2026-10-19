@@ -51,7 +51,7 @@
             </div>
         @endforeach
         @if ($this->myDuplicates->isNotEmpty())
-            <form wire:submit="proposeTrade" class="vxp-trade-form">
+            <form wire:submit="proposeTrade" class="vxp-trade-form" novalidate>
                 <label>Your spare
                     <select wire:model="tradeMine"><option value="">Choose…</option>@foreach ($this->myDuplicates as $s => $n)<option value="{{ $s }}">{{ \App\Support\Pokedex::name($s) }} (×{{ $n }})</option>@endforeach</select>
                 </label>

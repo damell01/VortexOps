@@ -35,7 +35,7 @@
     </div>
 
     @if($editingBusinessId !== null)
-        <form wire:submit="saveBusiness" class="vxb-editor">
+        <form wire:submit="saveBusiness" class="vxb-editor" novalidate>
             <strong>{{ $editingBusinessId ? 'Edit business' : 'New business' }}</strong>
             <label>Name <input type="text" wire:model="businessForm.name" required maxlength="120"></label>
             <label>Short name <input type="text" wire:model="businessForm.short_name" maxlength="20" placeholder="e.g. VCX"></label>

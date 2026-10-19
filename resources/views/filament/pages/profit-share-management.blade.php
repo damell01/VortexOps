@@ -4,7 +4,7 @@
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Split Profit Share</h2>
 
-            <form wire:submit="submitDistribution" class="space-y-6">
+            <form wire:submit="submitDistribution" class="space-y-6" novalidate>
                 {{-- Select Payout --}}
                 <div class="space-y-2">
                     <label class="block text-sm font-semibold text-gray-900 dark:text-gray-100">

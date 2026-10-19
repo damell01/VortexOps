@@ -140,7 +140,7 @@
                                 <tr wire:key="import-edit-{{ $row['line'] }}" class="bg-primary-50/40 dark:bg-primary-500/5">
                                     <td></td>
                                     <td colspan="7" class="px-4 py-3">
-                                        <form wire:submit="saveEdit" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+                                        <form wire:submit="saveEdit" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))" novalidate>
                                             <label class="vxw-field" style="grid-column:span 2"><span class="vxw-label">Product name</span><input wire:model="editForm.name" type="text" class="vxw-input" required>@error('name')<span class="text-xs text-red-600">{{ $message }}</span>@enderror</label>
                                             <label class="vxw-field"><span class="vxw-label">SKU</span><input wire:model="editForm.sku" type="text" class="vxw-input"></label>
                                             <label class="vxw-field"><span class="vxw-label">Type</span><input wire:model="editForm.type" type="text" list="import-types" class="vxw-input"></label>

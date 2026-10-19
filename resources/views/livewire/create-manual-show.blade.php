@@ -22,7 +22,7 @@
             </div>
 
             {{-- Body --}}
-            <form wire:submit="createShow" class="px-6 py-6">
+            <form wire:submit="createShow" class="px-6 py-6" novalidate>
                 {{-- Show Basics Section --}}
                 <div class="space-y-4 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
                     <div class="flex items-center gap-2 mb-4">

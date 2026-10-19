@@ -4,7 +4,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Items & Options</h2>
 
-            <form wire:submit="generateLabels" class="space-y-4">
+            <form wire:submit="generateLabels" class="space-y-4" novalidate>
                 {{ $this->form }}
 
                 <div class="flex gap-2 justify-end pt-4">

@@ -9,7 +9,7 @@
                 Run Whatnot imports and syncs directly from the admin panel. Supports shows, orders, shipments, and ledger data.
             </x-slot>
 
-            <form wire:submit="runImport" class="space-y-6">
+            <form wire:submit="runImport" class="space-y-6" novalidate>
                 {{ $this->form }}
 
                 <div class="flex gap-3 pt-6">

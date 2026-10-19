@@ -80,3 +80,14 @@ html.vx-workspace-pending .vx-workspace-entry[hidden],.vx-workspace-entry:not([h
 .vx-workspace-entry.is-leaving{opacity:0;pointer-events:none}
 @keyframes vx-entry-spin{to{rotate:360deg}}
 @media(prefers-reduced-motion:reduce){.vx-workspace-entry,.vx-workspace-entry *{animation:none!important;transition:none!important}.vx-entry-light{display:none}.vx-workspace-entry.is-ready .vx-ball-top,.vx-workspace-entry.is-ready .vx-ball-bottom{transform:none;translate:none}}
+
+/* Installed app (iPhone): the page draws under the status bar and the home
+   indicator. The brand line sat in the status bar, over the clock and battery,
+   and the background stopped short of the bottom edge, leaving a dark band
+   under the home indicator. env() is 0 in a browser tab, so nothing moves there. */
+html:has(.vx-login-experience){background:#160d29}
+body:has(.vx-login-experience) .fi-simple-layout{min-height:100lvh!important}
+@media(max-width:800px){
+body:has(.vx-login-experience) .vx-login-art{top:calc(22px + env(safe-area-inset-top,0px))}
+body:has(.vx-login-experience) .fi-simple-main{margin-top:calc(230px + env(safe-area-inset-top,0px))!important;margin-bottom:calc(24px + env(safe-area-inset-bottom,0px))!important}
+}

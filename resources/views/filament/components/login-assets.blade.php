@@ -1,5 +1,5 @@
-<link rel="preload" href="{{ asset('css/vortex-login.css') }}?v=5" as="style">
-<link rel="stylesheet" href="{{ asset('css/vortex-login.css') }}?v=5">
+<link rel="preload" href="{{ asset('css/vortex-login.css') }}?v=6" as="style">
+<link rel="stylesheet" href="{{ asset('css/vortex-login.css') }}?v=6">
 <script>
 try {
     const entry = JSON.parse(sessionStorage.getItem('vx-workspace-entry') || 'null');

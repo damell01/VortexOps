@@ -951,3 +951,9 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
  .vx-desktop-mega-nav{flex:1 1 100%!important;justify-content:flex-start}
  .fi-topbar .fi-global-search{margin-left:auto!important;flex-basis:320px!important;max-width:420px}
 }
+
+/* Menu link icons on the phone menu, matching the desktop menu's. */
+.vx-mobile-submenu .vx-mm-link{display:inline-flex;align-items:center;gap:12px;min-width:0}
+.vx-mobile-submenu a svg.vx-mm-link-icon{width:18px!important;height:18px!important;color:#7c3aed;flex:none}
+.dark .vx-mobile-submenu a svg.vx-mm-link-icon{color:#a78bfa}
+.dark .vx-mega-menu a.has-icon .vx-mega-link-icon{color:#a78bfa}

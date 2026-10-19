@@ -37,6 +37,12 @@ class ProfitLoss extends Page
     public string $anchor = '';
 
     #[Url]
+    public string $from = '';
+
+    #[Url]
+    public string $to = '';
+
+    #[Url]
     public string $channel = '';
 
     #[Url]
@@ -87,7 +93,7 @@ class ProfitLoss extends Page
 
     public function mount(): void
     {
-        if (! in_array($this->period, ['day', 'week', 'month', 'year'], true)) {
+        if (! in_array($this->period, ['day', 'week', 'month', 'year', 'custom'], true)) {
             $this->period = 'week';
         }
         if ($this->showFilter === 'complete') {
@@ -98,6 +104,15 @@ class ProfitLoss extends Page
     /** @return array{0:Carbon,1:Carbon,2:string} */
     public function range(): array
     {
+        if ($this->period === 'custom' && $this->from !== '' && $this->to !== '') {
+            try {
+                $from = Carbon::createFromFormat('!Y-m-d', $this->from);
+                $to = Carbon::createFromFormat('!Y-m-d', $this->to);
+                if ($from && $to && $from->lte($to)) return [$from, $to, $from->format('M j, Y').' – '.$to->format('M j, Y')];
+            } catch (\Throwable) {
+                // Malformed URL dates fall back to the normal weekly range.
+            }
+        }
         try {
             $a = $this->anchor !== '' ? Carbon::parse($this->anchor) : BusinessTime::local()->startOfDay();
         } catch (\Throwable) {
@@ -116,7 +131,8 @@ class ProfitLoss extends Page
     /** @return array{0:Carbon,1:Carbon} the same length of time just before */
     public function previousRange(): array
     {
-        [$from] = $this->range();
+        [$from, $to] = $this->range();
+        if ($this->period === 'custom') return [$from->copy()->subDays($from->diffInDays($to) + 1), $from->copy()->subDay()];
 
         return match ($this->period) {
             'day' => [$from->copy()->subDay(), $from->copy()->subDay()],
@@ -128,14 +144,21 @@ class ProfitLoss extends Page
 
     public function setView(string $view): void
     {
-        $this->period = in_array($view, ['day', 'week', 'month', 'year'], true) ? $view : 'week';
+        $this->period = in_array($view, ['day', 'week', 'month', 'year', 'custom'], true) ? $view : 'week';
         $this->rowsMemo = null;
     }
 
     public function shift(int $by): void
     {
-        [$from] = $this->range();
+        [$from, $to] = $this->range();
         $by = max(-1, min(1, $by));
+        if ($this->period === 'custom') {
+            $days = ($from->diffInDays($to) + 1) * $by;
+            $this->from = $from->copy()->addDays($days)->toDateString();
+            $this->to = $to->copy()->addDays($days)->toDateString();
+            $this->rowsMemo = null;
+            return;
+        }
         $next = match ($this->period) {
             'day' => $from->copy()->addDays($by),
             'month' => $from->copy()->addMonthsNoOverflow($by),
@@ -148,6 +171,7 @@ class ProfitLoss extends Page
 
     public function today(): void
     {
+        if ($this->period === 'custom') $this->period = 'week';
         $this->anchor = '';
         $this->rowsMemo = null;
     }

@@ -188,7 +188,7 @@ class DashboardImproved extends Dashboard
         // Net matches Show::profitAndLoss(): settled Whatnot earnings, or Whatnot's
         // estimate until a show settles, so recent months don't read as zero.
         $data = \Illuminate\Support\Facades\Cache::remember(
-            'dashboard:reference:v3:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
+            'dashboard:reference:v4:'.($channelId ?? 'all').':'.$local->toDateString(), 60,
             function () use ($start, $local, $months, $channelId) {
                 $rows = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])
                     ->whereBetween('show_date', [$start->toDateString(), $local->copy()->endOfDay()->toDateTimeString()])
@@ -217,7 +217,7 @@ class DashboardImproved extends Dashboard
                     'series'=>$series,
                     'shows_today'=>Show::query()->inChannelContext()->whereDate('show_date',$local->toDateString())->whereNotIn('status',['cancelled'])->count(),
                     'open_deliveries'=>\App\Models\Pallet::whereIn('status',['staged','receiving'])->count(),
-                    'reviews'=>StreamerLogEntry::query()->inChannelContext()->where('status','pending')->whereNotNull('submitted_at')->count(),
+                    'reviews'=>StreamerLogEntry::query()->inChannelContext()->where('status','streamer_reviewed')->where('approval_status','pending_approval')->whereNotNull('submitted_at')->count(),
                     'active_channels'=>\App\Models\WhatnotChannel::where('status','active')->when($channelId, fn ($q) => $q->whereKey($channelId))->count(),
                 ];
             }

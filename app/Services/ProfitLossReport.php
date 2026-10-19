@@ -62,7 +62,7 @@ class ProfitLossReport
             $entry = $show->streamerLogEntry;
 
             $missing = [];
-            if ($pl['gross'] > 0 && $pl['net'] <= 0) {
+            if ($show->completed_earnings === null && $show->whatnot_net === null) {
                 $missing[] = 'Earnings not in yet';
             }
             if (! $show->latestDeductionRequest) {

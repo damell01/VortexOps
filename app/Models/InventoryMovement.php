@@ -26,6 +26,14 @@ class InventoryMovement extends Model
 
     protected static function booted(): void
     {
+        static::addGlobalScope('streamerLocations', function (\Illuminate\Database\Eloquent\Builder $query) {
+            $user = auth()->user();
+            if (!$user?->isStreamer() || $user->isAdmin() || $user->isOwner()) return;
+            $ids = \App\Support\InventoryVisibility::locationIdsFor($user) ?? [];
+            $query->where(fn ($q) => $q->whereIn($query->qualifyColumn('from_location_id'), $ids)
+                ->orWhereIn($query->qualifyColumn('to_location_id'), $ids));
+        });
+
         // Receiving one pallet line case-by-case used to write one audit row per
         // case, so a 12-case receipt appeared as twelve identical +1 entries.
         // Keep the audit trail but collapse that one business event into a
@@ -97,8 +105,20 @@ class InventoryMovement extends Model
     public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); }
     public function item(): BelongsTo { return $this->belongsTo(Product::class, 'inventory_item_id'); }
     public function lot(): BelongsTo { return $this->belongsTo(InventoryLot::class); }
-    public function fromLocation(): BelongsTo { return $this->belongsTo(InventoryLocation::class, 'from_location_id'); }
-    public function toLocation(): BelongsTo { return $this->belongsTo(InventoryLocation::class, 'to_location_id'); }
+    public function fromLocation(): BelongsTo
+    {
+        $relation = $this->belongsTo(InventoryLocation::class, 'from_location_id');
+        $visible = auth()->check() ? \App\Support\InventoryVisibility::locationIdsFor(auth()->user()) : null;
+        if ($visible !== null) $relation->whereIn('inventory_locations.id', $visible);
+        return $relation;
+    }
+    public function toLocation(): BelongsTo
+    {
+        $relation = $this->belongsTo(InventoryLocation::class, 'to_location_id');
+        $visible = auth()->check() ? \App\Support\InventoryVisibility::locationIdsFor(auth()->user()) : null;
+        if ($visible !== null) $relation->whereIn('inventory_locations.id', $visible);
+        return $relation;
+    }
     public function createdByUser(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
 
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder

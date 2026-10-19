@@ -128,7 +128,7 @@ class ReportsOverview extends Page
     {
         [$from, $to] = $this->period();
         $business = $this->business !== '' ? ['business' => $this->business] : [];
-        $pl = fn (string $tab) => ProfitLoss::getUrl(['period' => $this->range === 'this_year' ? 'year' : ($from->diffInDays($to) > 7 ? 'month' : 'week'), 'anchor' => $from->toDateString(), 'tab' => $tab] + $business);
+        $pl = fn (string $tab) => ProfitLoss::getUrl(['period' => 'custom', 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'tab' => $tab] + $business);
 
         return [
             'losses' => WhatnotLosses::getUrl(['range' => 'custom', 'from' => $from->toDateString(), 'to' => $to->toDateString()] + $business),

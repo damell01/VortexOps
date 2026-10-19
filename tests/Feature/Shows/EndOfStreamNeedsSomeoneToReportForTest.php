@@ -62,7 +62,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
 
         Livewire::actingAs($user->fresh())
             ->test(EndOfStreamForm::class, ['showId' => (string) $show->id])
-            ->assertOk();
+            ->assertForbidden();
 
         $this->assertSame(0, StreamerLogEntry::count(), 'a report was created with nobody to own it');
     }
@@ -74,9 +74,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
 
         Livewire::actingAs($user->fresh())
             ->test(EndOfStreamForm::class, ['showId' => (string) $this->show()->id])
-            ->assertOk()
-            ->assertSee('This report cannot be started yet')
-            ->assertSee('not linked to a streamer profile');
+            ->assertForbidden();
     }
 
     public function test_an_admin_is_told_to_assign_a_streamer(): void
@@ -134,4 +132,41 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
 
         $this->assertSame($streamer->id, StreamerLogEntry::firstWhere('show_id', $show->id)?->streamer_id);
     }
+
+    public function test_a_streamer_cannot_select_another_persons_show(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('streamer');
+        $streamer = Streamer::create(['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
+        $own = $this->show('Own');
+        $own->streamers()->attach($streamer->id);
+        $other = $this->show('Other');
+        Livewire::actingAs($user)->test(EndOfStreamForm::class, ['showId' => (string) $own->id])
+            ->call('selectShow', (string) $other->id)->assertForbidden();
+        $this->assertFalse(StreamerLogEntry::where('show_id', $other->id)->exists());
+    }
+
+    public function test_an_approved_report_rejects_direct_item_mutation(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('streamer');
+        $streamer = Streamer::create(['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
+        $show = $this->show();
+        $show->streamers()->attach($streamer->id);
+        $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id,
+            'status' => 'admin_approved', 'approval_status' => 'approved', 'submitted_at' => now()]);
+        Livewire::actingAs($user)->test(EndOfStreamForm::class, ['showId' => (string) $show->id])
+            ->call('addManualLineItem', 'Injected item', 1, 100)->assertForbidden();
+        $this->assertSame(0, $entry->items()->count());
+    }
+
+    public function test_checking_the_edit_window_does_not_extend_it(): void
+    {
+        $entry = new StreamerLogEntry(['status' => 'streamer_reviewed', 'submitted_at' => now()->subHour(), 'edit_window_minutes' => 120]);
+        $submitted = $entry->submitted_at->toIso8601String();
+        $entry->canStreamerEdit();
+        $entry->getEditWindowExpiresAt();
+        $this->assertSame($submitted, $entry->submitted_at->toIso8601String());
+    }
+
 }

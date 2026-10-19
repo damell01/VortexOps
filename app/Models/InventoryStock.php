@@ -62,7 +62,7 @@ class InventoryStock extends Model
         static::addGlobalScope('streamerLocationOverride', function (\Illuminate\Database\Eloquent\Builder $query) {
             $user = auth()->user();
             if (!$user?->isStreamer() || $user->isAdmin() || $user->isOwner()) return;
-            $ids = \App\Support\InventoryVisibility::overrideForStreamer($user->streamer?->id);
+            $ids = \App\Support\InventoryVisibility::locationIdsFor($user);
             if ($ids !== null) $query->whereIn($query->qualifyColumn('inventory_location_id'), $ids);
         });
 

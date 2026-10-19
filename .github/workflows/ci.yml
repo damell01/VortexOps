@@ -6,6 +6,7 @@ concurrency:
 
 on:
   workflow_dispatch:
+  workflow_call:
   pull_request:
     branches:
       - Production
@@ -44,6 +45,12 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Frontend reliability checks
+        run: |
+          node scripts/check-ux.cjs
+          node scripts/check-confirmations.cjs
+          node scripts/check-action-feedback.cjs
 
       - name: Build frontend
         run: npm run build

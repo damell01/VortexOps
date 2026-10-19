@@ -362,4 +362,18 @@ class ShowReportFlowTest extends TestCase
         $entry->approveByAdmin();
         $this->assertSame('done', $step('log_approved'));
     }
+
+    public function test_posting_a_report_twice_only_deducts_stock_once(): void
+    {
+        $location = \App\Models\InventoryLocation::create(['name' => 'Report shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $this->streamer->id]);
+        $item = \App\Models\InventoryItem::create(['name' => 'Retry item', 'is_active' => true]);
+        $stock = \App\Models\InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id, 'quantity' => 10]);
+        $entry = $this->entry();
+        $line = $entry->items()->create(['inventory_item_id' => $item->id, 'item_name' => $item->name, 'quantity' => 3, 'disposition' => 'sold']);
+        $this->assertSame([], $entry->postInventoryMovements());
+        $this->assertSame([], $entry->fresh()->postInventoryMovements());
+        $this->assertSame(7.0, (float) $stock->fresh()->quantity);
+        $this->assertSame(3, (int) $line->fresh()->deducted_quantity);
+    }
+
 }

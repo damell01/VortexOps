@@ -46,8 +46,9 @@ class PayoutMatchesTheCalculationsSheetTest extends TestCase
             'whatnot_channel_id' => $this->channel->id,
             'title'              => 'Free Storm Emeralda',
             'show_date'          => today()->toDateString(),
-            'gross_revenue'      => 7371.10,
-            'whatnot_net'        => 6500.00,   // deliberately not the basis any more
+            'gross_revenue'      => 8000.00,
+            'completed_earnings' => 7371.10,
+            'whatnot_net'        => 6500.00,   // settled earnings take precedence
             'tips'               => 0,
             'show_duration'      => 267,
             'status'             => 'reconciled',

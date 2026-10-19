@@ -26,7 +26,12 @@ class InventoryHistory
                         ->orWhereIn('to_location_id', $locations));
                 }
                 return view('filament.components.inventory-history', [
-                    'item' => $item, 'movements' => $query->latest('id')->limit(100)->get(),
+                    'item' => $item, 'movements' => $query->latest('id')->limit(100)->get()->each(function ($movement) use ($locations) {
+                        if ($locations === null) return;
+                        if (!in_array((int) $movement->from_location_id, $locations, true)) $movement->setRelation('fromLocation', null);
+                        if (!in_array((int) $movement->to_location_id, $locations, true)) $movement->setRelation('toLocation', null);
+                        $movement->reason = null;
+                    }),
                 ]);
             });
     }

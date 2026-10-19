@@ -70,7 +70,7 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $showId = $showId ?: request()->query('showId');
         if ($showId) {
-            $this->show = Show::with(['streamers', 'channel'])->find($showId);
+            $this->show = Show::with(['streamers', 'channel'])->findOrFail($showId);
             $this->resumeDraft();
         }
     }
@@ -205,29 +205,12 @@ class EndOfStreamForm extends Page implements HasForms
 
     private function reportLocationIds()
     {
+        $locations = collect(\App\Support\InventoryVisibility::reportLocationIdsForStreamer($this->reportStreamerId()));
         $user = auth()->user();
         if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            $override = \App\Support\InventoryVisibility::overrideForStreamer($user->streamer?->id);
-            if ($override !== null) return collect($override);
+            return $locations->intersect(\App\Support\InventoryVisibility::locationIdsFor($user) ?? [])->values();
         }
-        $ids = collect();
-        $streamerId = $this->reportStreamerId();
-        if ($streamerId) {
-            $ids = Streamer::find($streamerId)?->inventoryLocations()->pluck('inventory_locations.id') ?? collect();
-        }
-
-        // For the step-by-step rollout, streamers can draw directly from the
-        // shared warehouse instead of requiring stock to be transferred into a
-        // personal location first.
-        $warehouseIds = InventoryLocation::query()
-            ->where('status', 'active')
-            ->where('type', 'main_storage')
-            ->pluck('id');
-
-        $defaultReceiving = InventoryLocation::defaultReceivingId();
-        if ($defaultReceiving) $warehouseIds->push($defaultReceiving);
-
-        return $ids->merge($warehouseIds)->filter()->unique()->values();
+        return $locations;
     }
 
     private function inventoryScopeQuery()
@@ -287,14 +270,31 @@ class EndOfStreamForm extends Page implements HasForms
     public function logEntry(): ?StreamerLogEntry
     {
         if (! $this->show) return null;
+        $this->authorizeShow();
         $streamerId = $this->reportStreamerId();
         if (! $streamerId) return null;
         return StreamerLogEntry::firstOrCreate(['show_id' => $this->show->id], ['streamer_id' => $streamerId, 'status' => 'pending']);
     }
 
+    private function authorizeShow(): void
+    {
+        $user = auth()->user();
+        abort_unless($user, 403);
+        if ($user->isAdmin() || $user->isOwner()) return;
+        $streamerId = $user->streamer?->id;
+        abort_unless($streamerId && $this->show?->streamers()->where('streamers.id', $streamerId)->exists(), 403);
+    }
+
+    private function editableEntry(): ?StreamerLogEntry
+    {
+        $entry = $this->logEntry();
+        if ($entry) abort_unless($entry->canStreamerEdit() && (!$entry->isSubmitted() || $entry->status === 'changes_requested'), 403, 'This report is locked. Request a revision before editing.');
+        return $entry;
+    }
+
     private function touchDraft(?int $step = null): void
     {
-        $entry = $this->logEntry(); if (! $entry) return;
+        $entry = $this->editableEntry(); if (! $entry) return;
         $savedAt = now();
         StreamerLogEntry::whereKey($entry->id)->update(array_filter(['draft_step' => $step ?? $this->step, 'draft_saved_at' => $savedAt], fn ($value) => $value !== null));
         $this->lastSavedAt = $savedAt->toIso8601String();
@@ -331,7 +331,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function addLineItem(int $inventoryItemId, int $quantity = 1, string $disposition = 'sold'): void
     {
-        $entry = $this->logEntry(); $item = $this->inventoryScopeQuery()->find($inventoryItemId); if (! $entry || ! $item) return;
+        $entry = $this->editableEntry(); $item = $this->inventoryScopeQuery()->find($inventoryItemId); if (! $entry || ! $item) return;
         $disposition = array_key_exists($disposition, StreamerLogItem::DISPOSITIONS) ? $disposition : 'sold';
         $line = $entry->items()->where('inventory_item_id', $item->id)->where('disposition', $disposition)->first();
         if ($line) $line->increment('quantity', max(1, $quantity));
@@ -342,7 +342,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function addManualLineItem(string $name, int $quantity = 1, ?float $unitCost = null, string $disposition = 'sold'): void
     {
-        $entry = $this->logEntry(); $name = trim($name); if (! $entry || $name === '') return;
+        $entry = $this->editableEntry(); $name = trim($name); if (! $entry || $name === '') return;
         $disposition = array_key_exists($disposition, StreamerLogItem::DISPOSITIONS) ? $disposition : 'sold';
         $entry->items()->create(['inventory_item_id' => null, 'item_name' => $name, 'quantity' => max(1, $quantity), 'disposition' => $disposition, 'unit_cost' => $unitCost]);
         $this->syncProductCost(); $this->touchDraft();
@@ -357,10 +357,10 @@ class EndOfStreamForm extends Page implements HasForms
         $this->manualName = ''; $this->manualQuantity = 1; $this->manualDisposition = 'sold'; $this->showManualItemForm = false;
     }
 
-    public function setLineQuantity(int $lineId, int $quantity): void { $this->logEntry()?->items()->find($lineId)?->update(['quantity' => max(1, $quantity)]); $this->syncProductCost(); $this->touchDraft(); }
+    public function setLineQuantity(int $lineId, int $quantity): void { $this->editableEntry()?->items()->find($lineId)?->update(['quantity' => max(1, $quantity)]); $this->syncProductCost(); $this->touchDraft(); }
     public function setLineCost(int $lineId, ?float $unitCost): void
     {
-        $line = $this->logEntry()?->items()->find($lineId); if (! $line) return;
+        $line = $this->editableEntry()?->items()->find($lineId); if (! $line) return;
         $line->update(['unit_cost' => ($unitCost !== null && $unitCost > 0) ? $unitCost : null]); $this->syncProductCost(); $this->touchDraft();
     }
     public function clearLineCost(int $lineId): void { $this->setLineCost($lineId, null); }
@@ -368,17 +368,17 @@ class EndOfStreamForm extends Page implements HasForms
     public function setLineDisposition(int $lineId, string $disposition): void
     {
         if (! array_key_exists($disposition, StreamerLogItem::DISPOSITIONS)) return;
-        $entry = $this->logEntry(); $line = $entry?->items()->find($lineId); if (! $entry || ! $line) return;
+        $entry = $this->editableEntry(); $line = $entry?->items()->find($lineId); if (! $entry || ! $line) return;
         $existing = $entry->items()->whereKeyNot($line->id)->where('inventory_item_id', $line->inventory_item_id)->where('item_name', $line->item_name)->where('disposition', $disposition)->first();
         if ($existing) { $existing->increment('quantity', $line->quantity); $line->delete(); } else $line->update(['disposition' => $disposition]);
         $this->touchDraft();
     }
 
-    public function removeLineItem(int $lineId): void { $this->logEntry()?->items()->find($lineId)?->delete(); $this->syncProductCost(); $this->touchDraft(); }
+    public function removeLineItem(int $lineId): void { $this->editableEntry()?->items()->find($lineId)?->delete(); $this->syncProductCost(); $this->touchDraft(); }
 
     private function syncProductCost(): void
     {
-        $entry = $this->logEntry(); if (! $entry) return;
+        $entry = $this->editableEntry(); if (! $entry) return;
         $cost = $entry->items()->with('inventoryItem')->get()->sum(fn (StreamerLogItem $line) => $line->total_cost);
         StreamerLogEntry::whereKey($entry->id)->update(['product_cost' => round((float) $cost, 2)]);
     }
@@ -424,7 +424,7 @@ class EndOfStreamForm extends Page implements HasForms
         $fill = array_filter([
             'number_of_shipments' => $entry->number_of_shipments === null && $this->shipments !== '' ? (int) $this->shipments : null,
         ], fn ($value) => $value !== null);
-        if ($fill !== []) StreamerLogEntry::whereKey($entry->id)->update($fill);
+        if ($fill !== [] && $entry->canStreamerEdit() && (!$entry->isSubmitted() || $entry->status === 'changes_requested')) StreamerLogEntry::whereKey($entry->id)->update($fill);
         $this->pweCount = (string) ($entry->pwe_count ?? ''); $this->labelCount = (string) ($entry->label_count ?? '');
         $this->packagesOver500 = (string) ($entry->number_of_packages_over_500 ?? ''); $this->logNotes = (string) ($entry->notes ?? '');
         $this->isSlowPack = (bool) ($this->show?->is_slow_pack ?? false); $this->fulfillmentNotes = (string) ($this->show?->fulfillment_notes ?? '');
@@ -432,7 +432,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function saveDetails(): void
     {
-        $entry = $this->logEntry(); if (! $entry) return; $savedAt = now();
+        $entry = $this->editableEntry(); if (! $entry) return; $savedAt = now();
         $hours = $this->hoursStreamed !== '' && is_numeric($this->hoursStreamed) ? round(min(24, max(0, (float) $this->hoursStreamed)), 2) : null;
         $entry->update([
             'hours_streamed' => $hours,

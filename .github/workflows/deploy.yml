@@ -5,8 +5,15 @@ on:
     branches: [Dev, Production]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
   deploy:
+    needs: validate
     name: Deploy ${{ github.ref_name }} bare-metal
     if: github.ref_name == 'Dev' || github.ref_name == 'Production'
     runs-on: ubuntu-24.04
@@ -50,8 +57,13 @@ jobs:
             OLD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
 
             git fetch origin "$BRANCH"
-            git checkout -B "$BRANCH" "origin/$BRANCH"
-            git reset --hard "origin/$BRANCH"
+            VERIFIED_SHA='${{ github.sha }}'
+            if [ "$(git rev-parse "origin/$BRANCH")" != "$VERIFIED_SHA" ]; then
+              echo "Branch advanced while validation ran; a newer deployment will handle it."
+              exit 0
+            fi
+            git checkout -B "$BRANCH" "$VERIFIED_SHA"
+            git reset --hard "$VERIFIED_SHA"
 
             export DEPLOY_OLD_SHA="$OLD_SHA"
             bash scripts/baremetal-deploy.sh "$BRANCH"

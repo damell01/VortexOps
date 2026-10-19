@@ -1,6 +1,8 @@
 <x-filament-panels::page>
 @php
 $tabs=['overview'=>'Overview','movements'=>'Activity','stock'=>'Locations','cost'=>'Price & Cost','receiving'=>'History','lots'=>'Lots','analysis'=>'Analysis','aliases'=>'Aliases'];
+if (\App\Support\InventoryVisibility::isLimited(auth()->user())) $tabs = array_intersect_key($tabs, array_flip(['overview', 'movements', 'stock']));
+$tab = array_key_exists($tab, $tabs) ? $tab : 'overview';
 $totalQty=collect($this->stockByLocation)->sum('qty');$lots=$this->lots;$cost=$record->effectiveCost();$target=(float)($record->sale_price??0);$margin=($target>0&&$cost>0)?$target-$cost:null;$pct=($margin!==null&&$target>0)?($margin/$target)*100:null;
 @endphp
 <style>

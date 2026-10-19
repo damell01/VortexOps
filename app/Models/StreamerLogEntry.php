@@ -180,15 +180,15 @@ class StreamerLogEntry extends Model
     public function canStreamerEdit(): bool
     {
         if ($this->status === 'admin_approved' || $this->approval_status === 'approved') return false;
-        if (! $this->isSubmitted()) return true;
         if ($this->isLocked()) return false;
+        if (! $this->isSubmitted()) return true;
         if (! $this->submitted_at) return true;
-        return ! $this->submitted_at->addMinutes($this->edit_window_minutes)->isPast();
+        return ! $this->submitted_at->copy()->addMinutes($this->edit_window_minutes)->isPast();
     }
 
     public function getEditWindowExpiresAt(): ?\Illuminate\Support\Carbon
     {
-        return $this->submitted_at ? $this->submitted_at->addMinutes($this->edit_window_minutes) : null;
+        return $this->submitted_at ? $this->submitted_at->copy()->addMinutes($this->edit_window_minutes) : null;
     }
 
     public function getMinutesUntilEditWindowCloses(): ?int
@@ -388,27 +388,9 @@ class StreamerLogEntry extends Model
      */
     private function inventoryPostingLocations()
     {
-        $locations = $this->streamer
-            ? $this->streamer->inventoryLocations()->where('status', 'active')->get()
-            : collect();
-
-        $mainLocations = InventoryLocation::query()
-            ->where('status', 'active')
-            ->where('type', 'main_storage')
-            ->get();
-
-        $locations = $locations->concat($mainLocations)->unique('id')->values();
-
-        $defaultReceivingId = InventoryLocation::defaultReceivingId();
-        if ($defaultReceivingId && ! $locations->contains('id', $defaultReceivingId)) {
-            $defaultReceiving = InventoryLocation::query()
-                ->whereKey($defaultReceivingId)
-                ->where('status', 'active')
-                ->first();
-            if ($defaultReceiving) $locations->push($defaultReceiving);
-        }
-
-        return $locations->unique('id')->values();
+        $allowed = \App\Support\InventoryVisibility::reportLocationIdsForStreamer($this->streamer_id);
+        return InventoryLocation::where('status', 'active')->whereIn('id', $allowed)
+            ->orderByRaw('CASE WHEN streamer_id = ? THEN 0 ELSE 1 END', [$this->streamer_id])->orderBy('id')->get();
     }
 
     public function inventoryPostingProblems(): array
@@ -442,6 +424,16 @@ class StreamerLogEntry extends Model
     }
 
     public function postInventoryMovements(): array
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () {
+            // Serialize retries before reading deducted quantities. Stock and the
+            // posting marker must commit together, including on approval/retry.
+            static::whereKey($this->id)->lockForUpdate()->firstOrFail();
+            return $this->postInventoryMovementsWithinTransaction();
+        }, 3);
+    }
+
+    private function postInventoryMovementsWithinTransaction(): array
     {
         $problems = [];
         if (! $this->show) return ['No show attached to this report.'];

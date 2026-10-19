@@ -84,11 +84,15 @@ class PayRunReadinessService
                 $problems[] = "{$showTitle} — {$person} does not have a calculated payout amount.";
             }
 
-            if (in_array($payout->payout_type, ['hourly', 'hybrid'], true)
+            if (in_array($payout->payout_type, ['hourly', 'hybrid', 'show_hours', 'split_hourly'], true)
                 && $payout->show_id
-                && (float) ($payout->hours_worked ?? 0) <= 0
-                && (int) ($show?->show_duration ?? 0) <= 0) {
-                $problems[] = "{$showTitle} — {$person} is paid using hours, but no confirmed show duration is available.";
+                && (float) ($payout->hours_worked ?? 0) <= 0) {
+                $problems[] = "{$showTitle} — {$person} is paid using hours, but no confirmed hours worked are available.";
+            }
+
+            if (in_array($payout->payout_type, ['profit_share', 'hybrid'], true)
+                && $show && \App\Support\ProfitShareFormula::earningsForShow($show) === null) {
+                $problems[] = "{$showTitle} — {$person}'s profit-based payout is missing earnings. Import earnings and recalculate the Pay Run.";
             }
 
             if (in_array($payout->payout_type, ['profit_share', 'hybrid'], true)
@@ -98,7 +102,7 @@ class PayRunReadinessService
             }
 
             if ($show && $this->sourceChangedAfterPayout($show, $payout)) {
-                $problems[] = "{$showTitle} — {$person}'s payout is stale because show, report, inventory, or fulfillment data changed after it was calculated. Recalculate the Pay Run.";
+                $problems[] = "{$showTitle} — {$person}'s payout is stale because show, report, inventory, fulfillment, or pay settings changed after it was calculated. Recalculate the Pay Run.";
             }
         }
 
@@ -116,6 +120,8 @@ class PayRunReadinessService
 
         $timestamps = collect([
             $show->updated_at,
+            $payout->streamer?->updated_at,
+            \App\Models\Setting::whereIn('key', ['payroll_burden_per_shipment', 'payroll_burden_per_hour', 'default_owner_fee_type', 'default_owner_fee_value', 'default_owner_fee_deduct_from_payout'])->max('updated_at'),
             $show->streamerLogEntry?->updated_at,
             $show->latestDeductionRequest?->updated_at,
         ]);

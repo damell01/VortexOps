@@ -589,7 +589,7 @@ class PayoutService
                 : (int) $show->shipments()->count());
 
         $working = ProfitShareFormula::forShow(
-            grossRevenue: (float) $show->gross_revenue,
+            grossRevenue: \App\Support\ProfitShareFormula::earningsForShow($show) ?? 0.0,
             productCost:  $productCost,
             hours:        $hoursWorked,
             shipments:    $shipments,

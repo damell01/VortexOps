@@ -66,6 +66,11 @@ class InventoryActivity extends Page
             ->latest('id')
             ->limit($this->limit * 4);
 
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        if ($visible !== null) {
+            $q->where(fn ($locations) => $locations->whereIn('from_location_id', $visible)->orWhereIn('to_location_id', $visible));
+        }
+
         match ($this->tab) {
             'received' => $q->whereNull('from_location_id')->whereNotNull('to_location_id')->whereNotIn('movement_type', ['adjustment', 'count']),
             'adjusted' => $q->whereIn('movement_type', ['adjustment', 'count', 'damaged']),
@@ -94,9 +99,9 @@ class InventoryActivity extends Page
                 'item_id' => $m->item && ! $m->item->trashed() ? $m->item->id : null,
                 'change' => $signed,
                 'qty' => abs((float) $m->quantity),
-                'from' => $m->fromLocation?->name,
-                'to' => $m->toLocation?->name,
-                'reason' => $m->reason,
+                'from' => $visible === null || in_array((int) $m->from_location_id, $visible, true) ? $m->fromLocation?->name : null,
+                'to' => $visible === null || in_array((int) $m->to_location_id, $visible, true) ? $m->toLocation?->name : null,
+                'reason' => $visible === null ? $m->reason : null,
                 'at' => $m->created_at,
             ];
         }
@@ -104,7 +109,7 @@ class InventoryActivity extends Page
 
         // New SKUs belong in "All".
         if ($this->tab === 'all' && trim($this->search) === '') {
-            $created = InventoryItem::query()->latest('id')->limit(10)->get(['id', 'name', 'created_at'])
+            $created = InventoryItemResource::getEloquentQuery()->latest('id')->limit(10)->get(['id', 'name', 'created_at'])
                 ->map(fn ($i) => ['kind' => 'created', 'item' => $i->name, 'item_id' => $i->id, 'change' => 0, 'qty' => 0, 'from' => null, 'to' => null, 'reason' => null, 'at' => $i->created_at]);
             $rows = $rows->concat($created);
         }

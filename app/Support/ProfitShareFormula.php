@@ -12,11 +12,11 @@ use App\Models\Setting;
  * it is labelled "Burden Rate":
  *
  *     burden   = shipments × rate_per_shipment  +  hours × rate_per_hour
- *     net rev  = gross revenue − product cost − burden
+ *     net rev  = earnings − product cost − burden
  *     earnings = net rev × the streamer's profit share %
  *
  * Each half of the burden applies only where its rate has been set in
- * Settings. Set neither and there is no burden: net revenue is simply gross
+ * Settings. Set neither and there is no burden: net revenue is simply earnings
  * minus product cost. The rates below are what the sheet used and what the
  * settings page suggests — they are not applied until somebody saves them.
  *
@@ -37,6 +37,13 @@ use App\Models\Setting;
  */
 class ProfitShareFormula
 {
+    /** Settled earnings take precedence; sales never substitute for missing earnings. */
+    public static function earningsForShow(\App\Models\Show $show): ?float
+    {
+        $earnings = $show->completed_earnings ?? $show->whatnot_net;
+        return $earnings === null ? null : (float) $earnings;
+    }
+
     /**
      * The rates on the sheet this came from, offered as the starting point on
      * the settings page. Suggestions, not defaults — nothing applies them until

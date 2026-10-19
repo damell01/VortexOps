@@ -154,4 +154,19 @@ class ProfitShareFormulaTest extends TestCase
         $this->assertStringContainsString('$3,455.10', $explained);
         $this->assertStringContainsString('8% = $276.41', $explained);
     }
+
+    public function test_the_revenue_basis_prefers_completed_earnings_and_preserves_zero_and_losses(): void
+    {
+        $show = new \App\Models\Show(['gross_revenue' => 1000, 'whatnot_net' => 900, 'completed_earnings' => 800]);
+        $this->assertSame(800.0, ProfitShareFormula::earningsForShow($show));
+        $show->completed_earnings = 0;
+        $this->assertSame(0.0, ProfitShareFormula::earningsForShow($show));
+        $show->completed_earnings = -25;
+        $this->assertSame(-25.0, ProfitShareFormula::earningsForShow($show));
+        $show->completed_earnings = null;
+        $this->assertSame(900.0, ProfitShareFormula::earningsForShow($show));
+        $show->whatnot_net = null;
+        $this->assertNull(ProfitShareFormula::earningsForShow($show));
+    }
+
 }

@@ -112,7 +112,7 @@
                 $shareEligible = !$reportBlocked && $shareStreamer
                     && in_array($shareStreamer->payout_type, ['profit_share', 'hybrid'], true)
                     && $this->show->streamers->contains('id', $shareStreamer->id);
-                $shareRevenue = $this->show->completed_earnings ?? $this->show->whatnot_net;
+                $shareRevenue = \App\Support\ProfitShareFormula::earningsForShow($this->show);
                 $shareEstimate = null;
                 $shareWorking = null;
                 $sharePending = false;

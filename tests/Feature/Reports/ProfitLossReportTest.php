@@ -104,7 +104,7 @@ class ProfitLossReportTest extends TestCase
     {
         $this->show($this->alex, '2026-10-13', 1000, 0, 0);
         $this->show($this->jordan, '2026-10-14', 500, 100, 80, [], false);
-        $this->show($this->jordan, '2026-10-14', 0, 100, 80, ['gross_revenue' => 300]);
+        $this->show($this->jordan, '2026-10-14', 0, 100, 80, ['gross_revenue' => 300, 'whatnot_net' => null]);
 
         $rows = app(ProfitLossReport::class)->rows(Carbon::parse('2026-10-12'), Carbon::parse('2026-10-18'));
         $alex = $rows->firstWhere('streamer', 'Alex');
@@ -157,4 +157,28 @@ class ProfitLossReportTest extends TestCase
 
         $this->assertFalse(ProfitLoss::canAccess());
     }
+
+    public function test_zero_and_negative_earnings_are_present_figures(): void
+    {
+        $this->show($this->alex, '2026-10-13', 0, 100, 80, ['gross_revenue' => 300]);
+        $this->show($this->jordan, '2026-10-14', -50, 100, 80, ['gross_revenue' => 300]);
+        foreach (app(ProfitLossReport::class)->rows(Carbon::parse('2026-10-12'), Carbon::parse('2026-10-18')) as $row) {
+            $this->assertNotContains('Earnings not in yet', $row['incomplete']);
+        }
+    }
+
+    public function test_custom_report_dates_and_comparison_keep_the_exact_range(): void
+    {
+        $page = app(ProfitLoss::class);
+        $page->period = 'custom';
+        $page->from = '2026-09-16';
+        $page->to = '2026-10-15';
+        [$from, $to] = $page->range();
+        $this->assertSame('2026-09-16', $from->toDateString());
+        $this->assertSame('2026-10-15', $to->toDateString());
+        [$previousFrom, $previousTo] = $page->previousRange();
+        $this->assertSame('2026-08-17', $previousFrom->toDateString());
+        $this->assertSame('2026-09-15', $previousTo->toDateString());
+    }
+
 }

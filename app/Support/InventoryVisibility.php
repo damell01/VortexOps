@@ -82,6 +82,17 @@ class InventoryVisibility
             $enabled ? json_encode(array_values(array_unique(array_map('intval', $ids)))) : '');
     }
 
+    /** The same policy for report picking, validation, posting and retries. */
+    public static function reportLocationIdsForStreamer(?int $streamerId): array
+    {
+        $override = static::overrideForStreamer($streamerId);
+        if ($override !== null) return $override;
+        return array_values(array_unique([
+            ...static::configuredForStreamers(),
+            ...InventoryLocation::where('streamer_id', $streamerId)->whereNotNull('streamer_id')->pluck('id')->map(fn ($id) => (int) $id)->all(),
+        ]));
+    }
+
     /** Whether this user's view of stock is limited at all. */
     public static function isLimited(?User $user): bool
     {

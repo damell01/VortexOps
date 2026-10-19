@@ -318,4 +318,33 @@ class StreamerInventoryAccessTest extends TestCase
         $this->assertEqualsWithDelta(3.0, (float) InventoryStock::where('inventory_item_id', $item->id)
             ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);
     }
+
+    public function test_an_individual_override_replaces_global_and_own_locations_for_reports_and_totals(): void
+    {
+        $this->actingAs($this->streamerUser);
+        $allowed = $this->stocked('Allowed', $this->main, 3);
+        $this->stocked('Hidden', $this->mine, 9);
+        Setting::set('streamer_inventory_locations:'.$this->streamerUser->streamer->id, json_encode([$this->main->id]));
+        $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($this->streamerUser));
+        $this->assertSame([$this->main->id], InventoryVisibility::reportLocationIdsForStreamer($this->streamerUser->streamer->id));
+        $this->assertSame(3.0, (float) InventoryStock::sum('quantity'));
+        $this->assertSame([$allowed->id], InventoryItemResource::getEloquentQuery()->pluck('id')->all());
+    }
+
+
+    public function test_hidden_location_movements_are_excluded_and_transfer_endpoints_are_masked(): void
+    {
+        $item = $this->stocked('Shared item', $this->main);
+        $hidden = \App\Models\InventoryMovement::create(['inventory_item_id' => $item->id,
+            'to_location_id' => $this->theirs->id, 'quantity' => 100, 'movement_type' => 'opening']);
+        $transfer = \App\Models\InventoryMovement::create(['inventory_item_id' => $item->id,
+            'from_location_id' => $this->theirs->id, 'to_location_id' => $this->main->id,
+            'quantity' => 1, 'movement_type' => 'transfer']);
+        $this->actingAs($this->streamerUser);
+        $this->assertNull(\App\Models\InventoryMovement::find($hidden->id));
+        $visible = \App\Models\InventoryMovement::with(['fromLocation', 'toLocation'])->findOrFail($transfer->id);
+        $this->assertNull($visible->fromLocation);
+        $this->assertSame($this->main->id, $visible->toLocation->id);
+    }
+
 }

@@ -39,9 +39,11 @@ class ViewInventoryItem extends Page
 
     private function loadRelations(): void
     {
+        abort_unless(InventoryItemResource::getEloquentQuery()->whereKey($this->record->id)->exists(), 404);
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
         $this->record->load([
-            'stock.location',
-            'lots' => fn ($q) => $q->latest('received_at')->limit(20),
+            'stock' => fn ($q) => $q->when($visible !== null, fn ($q) => $q->whereIn('inventory_location_id', $visible))->with('location'),
+            'lots' => fn ($q) => $q->when($visible !== null, fn ($q) => $q->whereRaw('1 = 0'))->latest('received_at')->limit(20),
             'identities',
             'preferredVendor',
         ]);
@@ -73,6 +75,7 @@ class ViewInventoryItem extends Page
 
     public function getLotsProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         return $this->record->lots()->with('receivingSession.vendor')->orderByDesc('received_at')->get()->map(fn ($lot) => [
             'id' => $lot->id,
             'source' => $lot->source,
@@ -90,6 +93,7 @@ class ViewInventoryItem extends Page
 
     public function getReceivingHistoryProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         return $this->record->palletLines()->with(['pallet.vendor', 'lot', 'cases'])->orderByDesc('created_at')->limit(50)->get()->map(fn ($line) => [
             'id' => $line->id,
             'pallet_id' => $line->pallet_id,
@@ -107,14 +111,14 @@ class ViewInventoryItem extends Page
 
     public function getMovementsProperty(): array
     {
-        return $this->record->movements()->with(['toLocation', 'fromLocation', 'lot'])->orderByDesc('created_at')->limit(200)->get()->map(fn ($m) => [
+        return $this->record->movements()->when(\App\Support\InventoryVisibility::locationIdsFor(auth()->user()) !== null, fn ($q) => $q->where(fn ($q) => $q->whereIn('from_location_id', \App\Support\InventoryVisibility::locationIdsFor(auth()->user()))->orWhereIn('to_location_id', \App\Support\InventoryVisibility::locationIdsFor(auth()->user()))))->with(['toLocation', 'fromLocation', 'lot'])->orderByDesc('created_at')->limit(200)->get()->map(fn ($m) => [
             'id' => $m->id,
             'type' => $m->movement_type,
             'qty' => $m->signedChange(),
             'location' => $this->movementLocation($m),
             'before' => $m->quantity_before,
             'after' => $m->quantity_after,
-            'reason' => $m->reason ?? '—',
+            'reason' => \App\Support\InventoryVisibility::isLimited(auth()->user()) ? '—' : ($m->reason ?? '—'),
             'sort' => $m->created_at,
             'date' => $m->created_at?->diffForHumans(),
             'lot_id' => $m->lot_id,
@@ -135,8 +139,9 @@ class ViewInventoryItem extends Page
 
     private function movementLocation(\App\Models\InventoryMovement $movement): string
     {
-        $from = $movement->fromLocation?->name;
-        $to = $movement->toLocation?->name;
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        $from = $visible === null || in_array((int) $movement->from_location_id, $visible, true) ? $movement->fromLocation?->name : null;
+        $to = $visible === null || in_array((int) $movement->to_location_id, $visible, true) ? $movement->toLocation?->name : null;
         if ($from && $to) return "{$from} → {$to}";
         return $to ?? $from ?? '—';
     }
@@ -156,6 +161,7 @@ class ViewInventoryItem extends Page
 
     public function getCostHistoryProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         $events = [];
 
         // Lots are the authoritative receipt/cost records. Keep them in history,
@@ -254,21 +260,25 @@ class ViewInventoryItem extends Page
 
     public function getCostBreakdownProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         return app(InventoryCostService::class)->getCostBreakdown($this->record);
     }
 
     public function getCostTrendProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         return app(InventoryCostService::class)->getCostTrend($this->record, 15);
     }
 
     public function getInventoryValueProperty(): float
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return (float) $this->record->stock->sum('quantity') * (float) $this->record->effectiveCost();
         return app(InventoryCostService::class)->calculateInventoryValue($this->record);
     }
 
     public function getCostMetricsProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         $breakdown = $this->getCostBreakdownProperty();
         $costs = array_values(array_filter(array_column($breakdown, 'average_cost'), fn ($cost) => $cost !== null && (float) $cost >= 0));
         if (empty($costs) && $this->record->unit_cost !== null) $costs[] = (float) $this->record->unit_cost;
@@ -286,6 +296,7 @@ class ViewInventoryItem extends Page
 
     public function getCostAnalysisProperty(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         $lots = $this->record->lots()->with('receivingSession.vendor')->get();
         $byVendor = [];
         $totalInvested = 0;

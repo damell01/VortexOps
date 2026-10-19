@@ -18,6 +18,20 @@ function renderFeedback(text, error = false) {
     }
     document.body.append(notice);
 }
+// Open whatever collapsed section holds the first error, and bring it into view.
+function revealFirstError() {
+    const error = document.querySelector('.fi-fo-field-wrp-error-message, [data-validation-error]');
+    if (!error) return;
+    for (let el = error.parentElement; el; el = el.parentElement) {
+        if (el.matches?.('.fi-section.fi-collapsed, .fi-collapsed')) el.querySelector('.fi-section-header')?.click();
+    }
+    setTimeout(() => {
+        const field = error.closest('.fi-fo-field-wrp') || error;
+        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        field.querySelector('input:not([type=hidden]), select, textarea')?.focus({ preventScroll: true });
+    }, 120);
+}
+
 function installFeedback() {
     if (installed || !window.Livewire) return;
     installed = true;
@@ -37,7 +51,21 @@ function installFeedback() {
             finished = true; clearTimeout(slow); pending = Math.max(0, pending - 1);
             if (pending === 0 && !notice?.classList.contains('is-error')) { notice?.remove(); notice = null; }
         };
-        succeed(finish);
+        succeed(({ json }) => {
+            finish();
+            // A form that didn't pass validation answers with a normal 200 and
+            // marks the fields — often far up a long form, out of sight of the
+            // Save button, so the button looked dead. Say so, and go there.
+            const errors = {};
+            for (const component of json?.components || []) {
+                try { Object.assign(errors, JSON.parse(component.snapshot)?.memo?.errors || {}); } catch (_) {}
+            }
+            const messages = Object.values(errors).flat().filter(Boolean);
+            if (!messages.length) return;
+            const count = Object.keys(errors).length;
+            renderFeedback(`Not saved \u2014 ${count === 1 ? '1 field needs' : count + ' fields need'} fixing: ${messages[0]}`, true);
+            setTimeout(revealFirstError, 60);
+        });
         // Livewire 4 only calls fail() when the network drops. A server error
         // (500) still "responds", so a save that blew up on the server showed
         // nothing at all and looked like a dead button.

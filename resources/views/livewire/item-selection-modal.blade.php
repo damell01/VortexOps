@@ -88,7 +88,10 @@
                 @else
                     <div class="grid gap-3">
                         @foreach($searchResults as $item)
-                            <button
+                            {{-- A div, not a button: the favourite star inside is a button, and a
+                                 button inside a button is invalid HTML the browser tears apart. --}}
+                            <div role="button" tabindex="0"
+                                @keydown.enter.self.prevent="$el.click()" @keydown.space.self.prevent="$el.click()"
                                 wire:click="selectItem({{ $item->id }})"
                                 class="group relative overflow-hidden rounded-lg border-2 px-4 py-4 text-left transition-all {{ $selectedItemId === $item->id ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' : 'border-gray-200 dark:border-gray-700 hover:border-blue-300' }}"
                             >
@@ -130,7 +133,7 @@
                                         </span>
                                     @endif
                                 </div>
-                            </button>
+                            </div>
                         @endforeach
                     </div>
                 @endif

@@ -197,6 +197,59 @@ class ShowAndStreamerActionsWorkTest extends TestCase
         $this->assertEqualsWithDelta(30.0, (float) $this->streamer->fresh()->payout_percentage, 0.01);
     }
 
+    public function test_a_streamer_with_inventory_locations_saves_and_keeps_them(): void
+    {
+        // Every streamer with a location failed to save ("The selected location
+        // is invalid"), and the repeater behind it would have deleted shared
+        // storage on a save. The section is read-only now.
+        $own = InventoryLocation::create(['name' => 'Tyler Shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $this->streamer->id]);
+        $shared = InventoryLocation::create(['name' => 'Main Storage', 'type' => 'main_storage', 'status' => 'active']);
+
+        Livewire::test(EditStreamer::class, ['record' => $this->streamer->id])
+            ->fillForm(['payout_percentage' => 35])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertEqualsWithDelta(35.0, (float) $this->streamer->fresh()->payout_percentage, 0.01);
+        $this->assertNotNull($own->fresh());
+        $this->assertNotNull($shared->fresh());
+    }
+
+    public function test_a_show_on_a_switched_off_channel_still_saves(): void
+    {
+        $this->channel->update(['status' => 'inactive']);
+
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['title' => 'Still Editable'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Still Editable', $this->show->fresh()->title);
+        $this->assertSame($this->channel->id, $this->show->fresh()->whatnot_channel_id);
+    }
+
+    public function test_a_switched_off_channel_cannot_be_newly_picked(): void
+    {
+        $off = WhatnotChannel::create(['name' => 'Old Channel', 'whatnot_username' => 'oldchannel', 'status' => 'inactive']);
+
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['whatnot_channel_id' => $off->id])
+            ->call('save')
+            ->assertHasFormErrors(['whatnot_channel_id']);
+    }
+
+    public function test_a_location_owned_by_an_archived_streamer_still_saves(): void
+    {
+        $location = InventoryLocation::create(['name' => 'Tyler Shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $this->streamer->id]);
+        $this->streamer->update(['status' => 'inactive']);
+
+        Livewire::test(\App\Filament\Resources\InventoryLocationResource\Pages\EditInventoryLocation::class, ['record' => $location->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($this->streamer->id, $location->fresh()->streamer_id);
+    }
+
     // ── The end-of-stream report, as the streamer ─────────────────────────────
 
     private function streamerUser(): User

@@ -222,31 +222,29 @@ class StreamerResource extends Resource
                         ->defaultItems(0),
                 ]),
 
-            Section::make('Inventory Access Control')
-                ->description('Control which inventory locations this team member can access when mapping items. Leave empty to allow access to all locations.')
+            // Read-only. This was a repeater saved through inventoryLocations(),
+            // which also returns the business's shared storage: every streamer
+            // failed to save on it ("The selected location is invalid" — its
+            // rows held a location's name, its options were keyed by id), and
+            // had it saved, removing a row would have deleted shared locations.
+            // Who can use a location is set on the location itself now.
+            Section::make('Inventory Access')
+                ->description('Locations this team member picks stock from. Set who can use a location on the location itself.')
                 ->collapsed()
                 ->columnSpanFull()
+                ->visible(fn (?Streamer $record) => (bool) $record)
                 ->schema([
-                    Repeater::make('inventoryLocations')
-                        ->label('Allowed Inventory Locations')
-                        ->relationship('inventoryLocations')
-                        ->schema([
-                            Select::make('name')
-                                ->label('Location')
-                                ->options(fn () => \App\Models\InventoryLocation::where('status', 'active')
-                                    ->orderBy('name')
-                                    ->pluck('name', 'id')
-                                    ->toArray())
-                                ->searchable()
-                                ->required(),
-                        ])
-                        ->columns(1)
-                        ->defaultItems(0)
-                        ->addActionLabel('Add Location')
-                        ->reorderable()
-                        ->collapsible()
-                        ->helperText('Streamers will see items from these locations first when mapping sold items.')
-                        ->columnSpanFull(),
+                    Placeholder::make('inventory_access')
+                        ->hiddenLabel()
+                        ->content(function (?Streamer $record): \Illuminate\Support\HtmlString {
+                            $names = $record ? $record->inventoryLocations()->orderBy('name')->pluck('name') : collect();
+                            $link = InventoryLocationResource::getUrl('index');
+
+                            return new \Illuminate\Support\HtmlString(
+                                ($names->isEmpty() ? 'No locations yet.' : e($names->join(', ')))
+                                . ' <a href="' . e($link) . '" class="text-primary-600 underline">Manage locations</a>'
+                            );
+                        }),
                 ]),
 
             Section::make('Status & Notes')->columnSpanFull()->schema([

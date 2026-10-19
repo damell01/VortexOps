@@ -257,4 +257,18 @@ class PokemonGamesTest extends TestCase
         $noon = VisitorCast::ambient(['top' => [], 'bottom' => ['snorlax']], CarbonImmutable::parse('2026-11-18 13:00'), null);
         $this->assertSame(['snorlax'], $noon['bottom']);
     }
+
+    public function test_my_pokedex_opens_for_a_role_whose_page_list_does_not_name_it(): void
+    {
+        // Roles & Permissions keeps an allow-list per role; an admin role with a
+        // list that predates the Pokédex was refused it with a 403.
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        \App\Support\NavVisibility::setVisibleForRole('admin', [\App\Filament\Pages\Shows::class]);
+
+        $this->assertFalse(\App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\MyPokedex::class, $admin));
+        $this->assertNotContains(\App\Filament\Pages\MyPokedex::class, \App\Filament\Resources\RoleResource::roleControlledPages());
+        $this->assertTrue(\App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\ProfitLoss::class, $admin), 'the role list itself still applies to other pages');
+    }
 }

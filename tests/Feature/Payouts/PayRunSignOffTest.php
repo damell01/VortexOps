@@ -86,7 +86,7 @@ class PayRunSignOffTest extends TestCase
             'streamer_id'            => $this->streamer->id,
             'payout_type'            => 'profit_share',
             'calculated_payout'      => 250.00,
-            'status'                 => 'pending',
+            'status'                 => 'draft',
         ]);
 
         return [$batch, $show];

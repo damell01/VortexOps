@@ -321,7 +321,7 @@ class CrudDeleteCompletenessTest extends TestCase
     {
         $this->actingAs($this->admin());
         $item     = InventoryItem::create(['sku' => 'SKU2', 'name' => 'Item', 'is_active' => true]);
-        $location = \App\Models\InventoryLocation::create(['name' => 'L', 'type' => 'warehouse', 'status' => 'active']);
+        $location = \App\Models\InventoryLocation::create(['name' => 'L', 'type' => 'main_storage', 'status' => 'active']);
         InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id, 'quantity' => 5]);
 
         $this->assertFalse(InventoryItemResource::canDelete($item));

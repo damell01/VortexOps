@@ -52,7 +52,7 @@ class WhatnotAnalyticsSeedTest extends TestCase
             'title'              => 'GRAIL HIGH END CLAIMS W/Tyler',
             'show_date'          => '2026-08-20',
             'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . self::UUID,
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $this->assertSame(self::UUID, $this->scraper()->seedLiveIdFor($this->channel));
@@ -69,7 +69,7 @@ class WhatnotAnalyticsSeedTest extends TestCase
             'title'              => 'Old show',
             'show_date'          => '2024-01-01',
             'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . $older,
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         Show::create([
@@ -77,7 +77,7 @@ class WhatnotAnalyticsSeedTest extends TestCase
             'title'              => 'Recent show',
             'show_date'          => '2026-08-20',
             'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . self::UUID,
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $this->assertSame(self::UUID, $this->scraper()->seedLiveIdFor($this->channel));
@@ -110,7 +110,7 @@ class WhatnotAnalyticsSeedTest extends TestCase
             'title'              => 'Manually added show',
             'show_date'          => '2026-08-20',
             'detail_url'         => 'https://www.whatnot.com/live/some-slug',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $this->assertNull($this->scraper()->seedLiveIdFor($this->channel));
@@ -127,7 +127,7 @@ class WhatnotAnalyticsSeedTest extends TestCase
             'title'              => 'Someone else show',
             'show_date'          => '2026-08-20',
             'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . self::UUID,
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $this->assertNull($this->scraper()->seedLiveIdFor($this->channel));
@@ -226,7 +226,7 @@ class WhatnotAnalyticsSeedTest extends TestCase
             'title'              => 'Older show',
             'show_date'          => '2026-08-01',
             'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . self::UUID,
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $this->assertSame(self::UUID, $this->scraper()->seedLiveIdFor($this->channel));

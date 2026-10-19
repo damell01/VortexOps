@@ -31,7 +31,7 @@ class ShowDataAuditTest extends TestCase
         return Show::create(array_merge([
             'title' => $title,
             'show_date' => today()->subDays(3)->toDateString(),
-            'created_by' => 1,
+            'created_by' => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ], $attrs));
     }
 

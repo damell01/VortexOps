@@ -100,7 +100,7 @@ class WhatnotAnalyticsCsvImporter
                     DB::transaction(function () use ($show, $channelId, $title, $date, $metrics, $metadata, $row, $status, $payload) {
                         $record = $show ? Show::query()->lockForUpdate()->findOrFail($show->id) : new Show([
                             'whatnot_channel_id' => $channelId, 'title' => $title, 'show_date' => $date->toDateString(),
-                            'status' => 'draft', 'import_source' => 'auto_whatnot', 'created_by' => auth()->id() ?? 1,
+                            'status' => 'draft', 'import_source' => 'auto_whatnot', 'created_by' => auth()->id(),
                         ]);
                         $before = $record->only(array_keys($metrics));
                         $raw = $record->raw_import_payload;

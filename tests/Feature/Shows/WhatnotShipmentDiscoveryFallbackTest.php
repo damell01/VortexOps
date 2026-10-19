@@ -47,7 +47,7 @@ class WhatnotShipmentDiscoveryFallbackTest extends TestCase
             'title'              => 'GRAIL HIGH END CLAIMS W/Tyler',
             'show_date'          => '2026-08-20',
             'detail_url'         => 'https://www.whatnot.com/dashboard/live/' . self::UUID,
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
     }
 
@@ -117,7 +117,7 @@ class WhatnotShipmentDiscoveryFallbackTest extends TestCase
             'title'              => 'Manually added, no livestream id',
             'show_date'          => '2026-08-19',
             'detail_url'         => 'https://www.whatnot.com/live/some-slug',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = Mockery::mock(WhatnotScraper::class);

@@ -71,7 +71,7 @@ class FulfillmentMembersTest extends TestCase
             'streamer_id' => $packer->id,
             'payout_type' => 'hourly',
             'amount'      => 180.00,
-            'status'      => 'pending',
+            'status'      => 'draft',
         ]);
 
         $this->assertSame($packer->id, $payout->fresh()->streamer_id);

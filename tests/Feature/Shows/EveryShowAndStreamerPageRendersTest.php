@@ -91,7 +91,7 @@ class EveryShowAndStreamerPageRendersTest extends TestCase
             'show_id'     => $this->show->id,
             'payout_type' => 'profit_share',
             'amount'      => 250.00,
-            'status'      => 'pending',
+            'status'      => 'draft',
         ]);
 
         StreamerLogEntry::create([

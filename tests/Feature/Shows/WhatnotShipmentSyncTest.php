@@ -37,7 +37,7 @@ class WhatnotShipmentSyncTest extends TestCase
             'title'      => 'Test Show',
             'show_date'  => '2026-07-01',
             'status'     => 'pending_review',
-            'created_by' => 1,
+            'created_by' => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ], $overrides));
     }
 

@@ -138,6 +138,7 @@ class InventoryMovement extends Model
             'opening' => 'Opening Stock',
             'transfer' => 'Transfer',
             'adjustment' => 'Inventory Correction',
+            'reconciliation' => 'Stocktake',
             'sale_deduction' => 'Sale Deduction',
             'show_sale' => 'Show Sale',
             'giveaway' => 'Giveaway',

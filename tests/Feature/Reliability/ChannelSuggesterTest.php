@@ -108,6 +108,14 @@ class ChannelSuggesterTest extends TestCase
         $this->assertSame(ChannelSuggester::MEDIUM, $s['level']);
     }
 
+    public function test_time_slot_uses_the_show_date_rather_than_the_date_attached_to_a_clock_value(): void
+    {
+        $host = $this->streamer('History host');
+        $this->history($host, $this->collects, 6, '2026-07-02 19:00:00');
+        $monday = $this->show(['title' => 'Untitled', 'show_date' => '2026-07-06', 'start_time' => '2026-07-02 19:30:00', 'channel_attribution_suspect' => true]);
+        $this->assertNull((new ChannelSuggester)->suggest($monday));
+    }
+
     public function test_suggestion_outside_the_imported_channels_is_downgraded(): void
     {
         $shop = WhatnotChannel::create(['name' => 'Vortex Shop', 'status' => 'active']);

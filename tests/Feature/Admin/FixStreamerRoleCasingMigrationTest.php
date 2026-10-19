@@ -61,12 +61,19 @@ class FixStreamerRoleCasingMigrationTest extends TestCase
         $this->runMigrationUp();
 
         $this->assertDatabaseHas('roles', ['name' => 'streamer']);
-        $this->assertDatabaseMissing('roles', ['name' => 'Streamer']);
+        $this->assertSame('streamer', \Illuminate\Support\Facades\DB::table('roles')->value('name'));
     }
 
     public function test_refuses_to_run_when_both_cased_roles_already_exist(): void
     {
         Role::create(['name' => 'Streamer', 'guard_name' => 'web']);
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'mysql') {
+            // The default MySQL collation prevents these two names from
+            // coexisting. SQLite permits them, so the migration guards it.
+            $this->expectException(\Spatie\Permission\Exceptions\RoleAlreadyExists::class);
+            Role::create(['name' => 'streamer', 'guard_name' => 'web']);
+            return;
+        }
         Role::create(['name' => 'streamer', 'guard_name' => 'web']);
 
         $this->expectException(\RuntimeException::class);

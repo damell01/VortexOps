@@ -50,3 +50,5 @@ No production records were edited, compensation rates changed, or paid history r
 - Updated regression coverage to exercise current report tabs, inventory cards, compensation overrides and bounded reporting schedules. Tests reject undeclared outbound HTTP requests. Full SQLite/MySQL CI remains required for deployment.
 
 Validation is recorded in the associated commit and CI run; no focused test total should be treated as a complete suite result. Export reconciliation, live role/channel checks and a production-backup restore remain open as listed above.
+
+MySQL validation also exposed a stocktake event absent from its movement enum, case-insensitive matching in the role-case migration, and hardcoded creator IDs in imports/demo fixtures. The cleanup appends the stocktake enum value without narrowing history, matches role names by exact bytes on MySQL, uses actual or system actors, and runs the frontend build in both database jobs. Backup tests restore the original database connection before transactional teardown; the help-content scan no longer depends on a libc-specific glob flag.

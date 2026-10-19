@@ -41,6 +41,7 @@ class DemoDataSeeder extends Seeder
         // self-sufficient — safe to run from the Demo Data button on a bare
         // deployment, not just as part of a full db:seed. Both are idempotent.
         $this->call(DefaultDataSeeder::class);
+        $demoActorId = User::where('email', 'admin@vortexbreaks.com')->value('id');
 
         // ── Streamers ────────────────────────────────────────────────────────
         $jordan = Streamer::firstOrCreate(['name' => 'Jordan'], [
@@ -269,7 +270,7 @@ class DemoDataSeeder extends Seeder
                 'unit_cost'         => $item->average_cost,
                 'movement_type'     => $type,
                 'reason'            => $reason,
-                'created_by'        => 1,
+                'created_by'        => $demoActorId,
             ]);
 
             // created_at isn't fillable, so it has to be set on the instance.
@@ -296,7 +297,7 @@ class DemoDataSeeder extends Seeder
                 'tips'               => 42.00,
                 'import_source'      => 'manual',
                 'status'             => 'reconciled',
-                'created_by'         => 1,
+                'created_by'         => $demoActorId,
             ]
         );
         $show1->streamers()->syncWithoutDetaching([$jordan->id => ['is_primary' => true]]);
@@ -306,9 +307,9 @@ class DemoDataSeeder extends Seeder
             [
                 'status'           => 'processed',
                 'ai_mapping_notes' => 'AI matched 2 line items with high confidence based on show title and streamer inventory.',
-                'approved_by'      => 1,
+                'approved_by'      => $demoActorId,
                 'approved_at'      => Carbon::now()->subDays(13),
-                'processed_by'     => 1,
+                'processed_by'     => $demoActorId,
                 'processed_at'     => Carbon::now()->subDays(13),
             ]
         );
@@ -350,7 +351,7 @@ class DemoDataSeeder extends Seeder
                 'reason'            => 'Approved deduction for show #' . $show1->id,
                 'reference_type'    => 'deduction_request',
                 'reference_id'      => $req1->id,
-                'created_by'        => 1,
+                'created_by'        => $demoActorId,
             ]);
             InventoryMovement::create([
                 'inventory_item_id' => $topps->id,
@@ -361,7 +362,7 @@ class DemoDataSeeder extends Seeder
                 'reason'            => 'Approved deduction for show #' . $show1->id,
                 'reference_type'    => 'deduction_request',
                 'reference_id'      => $req1->id,
-                'created_by'        => 1,
+                'created_by'        => $demoActorId,
             ]);
         }
 
@@ -384,7 +385,7 @@ class DemoDataSeeder extends Seeder
                     ['streamer_id' => $jordan->id, 'streamer_name' => 'Jordan', 'confidence' => 'high', 'reason' => 'Title matches Jordan\'s Hoops series'],
                     ['streamer_id' => $taylor->id, 'streamer_name' => 'Taylor', 'confidence' => 'medium', 'reason' => 'Taylor also does Football breaks'],
                 ],
-                'created_by'             => 1,
+                'created_by'             => $demoActorId,
             ]
         );
         $show2->streamers()->syncWithoutDetaching([
@@ -452,7 +453,7 @@ class DemoDataSeeder extends Seeder
                 'tips'               => 15.00,
                 'import_source'      => 'manual',
                 'status'             => 'pending_review',
-                'created_by'         => 1,
+                'created_by'         => $demoActorId,
             ]
         );
         $show3->streamers()->syncWithoutDetaching([$taylor->id => ['is_primary' => true]]);
@@ -472,7 +473,7 @@ class DemoDataSeeder extends Seeder
                 'tips'               => 20.00,
                 'import_source'      => 'manual',
                 'status'             => 'pending_review',
-                'created_by'         => 1,
+                'created_by'         => $demoActorId,
             ]
         );
         $show4->streamers()->syncWithoutDetaching([
@@ -488,8 +489,8 @@ class DemoDataSeeder extends Seeder
                 'week_end'     => Carbon::now()->subDays(14)->endOfWeek()->toDateString(),
                 'status'       => 'paid',
                 'total_payout' => 357.28,
-                'created_by'   => 1,
-                'finalized_by' => 1,
+                'created_by'   => $demoActorId,
+                'finalized_by' => $demoActorId,
                 'finalized_at' => Carbon::now()->subDays(11),
             ]
         );
@@ -514,7 +515,7 @@ class DemoDataSeeder extends Seeder
                 'week_end'     => Carbon::now()->subDays(3)->endOfWeek()->toDateString(),
                 'status'       => 'draft',
                 'total_payout' => 0,
-                'created_by'   => 1,
+                'created_by'   => $demoActorId,
             ]
         );
 
@@ -585,7 +586,7 @@ class DemoDataSeeder extends Seeder
                     'tips'               => $tips,
                     'import_source'      => 'manual',
                     'status'             => $showStatus,
-                    'created_by'         => 1,
+                    'created_by'         => $demoActorId,
                 ]
             );
             $historicShow->streamers()->syncWithoutDetaching([$streamer->id => ['is_primary' => true]]);
@@ -598,8 +599,8 @@ class DemoDataSeeder extends Seeder
                     'week_end'     => $batchStart->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),
                     'status'       => 'paid',
                     'total_payout' => 0,
-                    'created_by'   => 1,
-                    'finalized_by' => 1,
+                    'created_by'   => $demoActorId,
+                    'finalized_by' => $demoActorId,
                     'finalized_at' => $batchStart->copy()->addDays(4),
                 ]
             );
@@ -671,7 +672,7 @@ class DemoDataSeeder extends Seeder
                 'status'        => 'received',
                 'total_cost'    => 1575.00,
                 'notes'         => 'Demo pallet — baseball & TCG restocking order',
-                'created_by'    => 1,
+                'created_by'    => $demoActorId,
             ]
         );
 
@@ -710,7 +711,7 @@ class DemoDataSeeder extends Seeder
                 'vendor_id'  => $vendor2->id,
                 'status'     => 'open',
                 'notes'      => 'TCG restock — partially received, Yu-Gi-Oh line pending',
-                'created_by' => 1,
+                'created_by' => $demoActorId,
             ]
         );
 
@@ -834,7 +835,7 @@ class DemoDataSeeder extends Seeder
                     'gross_revenue'  => $show->gross_revenue,
                     'hours_streamed' => $show->show_duration ? round($show->show_duration / 60, 1) : null,
                     'reviewed_at'    => $status === 'admin_approved' ? Carbon::now()->subDays(10) : null,
-                    'reviewed_by'    => $status === 'admin_approved' ? 1 : null,
+                    'reviewed_by'    => $status === 'admin_approved' ? $demoActorId : null,
                 ],
             );
         }
@@ -848,7 +849,7 @@ class DemoDataSeeder extends Seeder
                 'vendor_id'  => $vendor->id,
                 'status'     => 'receiving',
                 'notes'      => 'Demo — scan the case barcodes (VX-CASE-0001 …) on the Receive page.',
-                'created_by' => 1,
+                'created_by' => $demoActorId,
             ],
         );
         if ($scanPallet->wasRecentlyCreated) {
@@ -892,7 +893,7 @@ class DemoDataSeeder extends Seeder
             ['invoice_number' => 'INV-DEMO-001'],
             [
                 'vendor_id'      => $vendor->id,
-                'received_by'    => 1,
+                'received_by'    => $demoActorId,
                 'purchase_order' => 'PO-DEMO-001',
                 'status'         => 'pending',
                 'notes'          => 'Demo — open this, choose "Import lines manually", and upload the Sample manifest to watch AI matching sort each line.',

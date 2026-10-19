@@ -62,7 +62,7 @@ class LoanRepaymentMatchesWhatWasWithheldTest extends TestCase
             'payout_type'            => 'profit_share',
             'calculated_payout'      => $amount,
             'total_due'              => $amount,
-            'status'                 => 'pending',
+            'status'                 => 'draft',
         ]);
 
         return [$batch, $payout];

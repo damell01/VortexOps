@@ -352,7 +352,7 @@ class ShowChannelRepair
             'detail_url' => $p['detail_url'] ?? 'https://www.whatnot.com/dashboard/live/'.$action['live_id'],
             'import_source' => 'auto_whatnot',
             'status' => ((int) ($p['units_sold'] ?? 0)) > 0 ? 'mapping' : 'draft',
-            'created_by' => auth()->id() ?? 1,
+            'created_by' => auth()->id(),
             'raw_import_payload' => $p + ['_split_from_show_id' => $from->id, '_split_at' => now()->toIso8601String()],
         ]);
         $show->detectStreamers();

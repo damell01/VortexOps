@@ -211,7 +211,7 @@ class WhatnotScraperTest extends TestCase
             'show_duration'      => 60,
             'import_source'      => 'auto_whatnot',
             'status'             => 'reconciled',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow([
@@ -253,7 +253,7 @@ class WhatnotScraperTest extends TestCase
             'gross_revenue'      => 1000.00,
             'import_source'      => 'auto_whatnot',
             'status'             => 'draft',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
         $this->assertCount(0, $existing->streamers);
 
@@ -285,7 +285,7 @@ class WhatnotScraperTest extends TestCase
             'units_sold'         => 20,
             'import_source'      => 'auto_whatnot',
             'status'             => 'reconciled',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow([
@@ -311,7 +311,7 @@ class WhatnotScraperTest extends TestCase
             'units_sold'         => 20,
             'import_source'      => 'auto_whatnot',
             'status'             => 'pending_review',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow([
@@ -338,7 +338,7 @@ class WhatnotScraperTest extends TestCase
             'units_sold'         => 40,
             'import_source'      => 'auto_whatnot',
             'status'             => 'reconciled',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         // Identical figures to the current row — no real revision, just a re-scrape.
@@ -367,7 +367,7 @@ class WhatnotScraperTest extends TestCase
             'import_source'      => 'auto_whatnot',
             'status'             => 'reconciled',
             'notes'              => 'Hand-written ops note',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
@@ -448,7 +448,7 @@ class WhatnotScraperTest extends TestCase
             'gross_revenue'      => 1000.00,
             'import_source'      => 'auto_whatnot',
             'status'             => 'draft',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow(['gross_revenue' => 1500.00])]));
@@ -502,7 +502,7 @@ class WhatnotScraperTest extends TestCase
             'units_sold'         => 20,
             'import_source'      => 'auto_whatnot',
             'status'             => 'draft',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow(['gross_revenue' => 1500.00])]));
@@ -553,7 +553,7 @@ class WhatnotScraperTest extends TestCase
             'show_date'          => '2026-06-15',
             'import_source'      => 'auto_whatnot',
             'status'             => 'draft',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         // Row carries only the identifying fields — nothing in the updatable
@@ -579,7 +579,7 @@ class WhatnotScraperTest extends TestCase
             'show_date'          => '2026-06-15',
             'import_source'      => 'auto_whatnot',
             'status'             => 'draft',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         // Now the same show is returned by an import running for $this->channel.
@@ -605,7 +605,7 @@ class WhatnotScraperTest extends TestCase
             'show_date'          => '2026-06-15',
             'import_source'      => 'auto_whatnot',
             'status'             => 'draft',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
@@ -623,7 +623,7 @@ class WhatnotScraperTest extends TestCase
             'show_date'     => '2026-06-15',
             'import_source' => 'auto_whatnot',
             'status'        => 'draft',
-            'created_by'    => 1,
+            'created_by'    => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
@@ -663,7 +663,7 @@ class WhatnotScraperTest extends TestCase
             'buyers_count'   => 10,
             'total_views'    => 100,
             'import_source'  => 'auto_whatnot',
-            'created_by'     => 1,
+            'created_by'     => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->mockScraper(0, json_encode([$this->showRow([
@@ -723,7 +723,7 @@ class WhatnotScraperTest extends TestCase
         $show = Show::create([
             'whatnot_channel_id' => $this->channel->id,
             'title'      => 'Guarded Show', 'show_date' => '2026-06-15',
-            'units_sold' => 10, 'import_source' => 'auto_whatnot', 'created_by' => 1,
+            'units_sold' => 10, 'import_source' => 'auto_whatnot', 'created_by' => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         // 10 expected → threshold is 10*2+100 = 120; 500 rows must be rejected.
@@ -740,7 +740,7 @@ class WhatnotScraperTest extends TestCase
         $show = Show::create([
             'whatnot_channel_id' => $this->channel->id,
             'title'      => 'Normal Show', 'show_date' => '2026-06-15',
-            'units_sold' => 10, 'import_source' => 'auto_whatnot', 'created_by' => 1,
+            'units_sold' => 10, 'import_source' => 'auto_whatnot', 'created_by' => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->scraperReturningOrders([$show->id => $this->fakeOrders(8)]);
@@ -757,7 +757,7 @@ class WhatnotScraperTest extends TestCase
         $show = Show::create([
             'whatnot_channel_id' => $this->channel->id,
             'title'      => 'Unknown Count Show', 'show_date' => '2026-06-15',
-            'units_sold' => 0, 'import_source' => 'auto_whatnot', 'created_by' => 1,
+            'units_sold' => 0, 'import_source' => 'auto_whatnot', 'created_by' => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $scraper = $this->scraperReturningOrders([$show->id => $this->fakeOrders(5)]);

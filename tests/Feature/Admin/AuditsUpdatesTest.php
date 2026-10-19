@@ -73,7 +73,7 @@ class AuditsUpdatesTest extends TestCase
         $batch = WeeklyPayoutBatch::create([
             'week_start' => now()->startOfWeek()->toDateString(),
             'week_end'   => now()->endOfWeek()->toDateString(),
-            'status'     => 'draft', 'created_by' => 1,
+            'status'     => 'draft', 'created_by' => (auth()->id() ?? \App\Models\User::factory()->create()->id),
         ]);
 
         $batch->update(['status' => 'finalized']);

@@ -220,7 +220,8 @@ final class ChannelSuggester
             return null;
         }
 
-        $start = $show->start_time->copy()->timezone(config('app.timezone'));
+        $start = $show->startsAt(config('app.timezone'));
+        if (! $start) return null;
 
         return $start->dayOfWeek.'-'.$start->hour;
     }
@@ -248,7 +249,8 @@ final class ChannelSuggester
 
     private function slotReason(Show $show, int $count, int $total, int $channelId): string
     {
-        $start = $show->start_time->copy()->timezone(config('app.timezone'));
+        $start = $show->startsAt(config('app.timezone'));
+        if (! $start) return 'No scheduled start time.';
 
         return $start->format('l g A').": {$count} of {$total} confirmed shows on ".$this->channelName($channelId).'.';
     }

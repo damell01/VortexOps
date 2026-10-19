@@ -22,7 +22,9 @@ return new class extends Migration
     public function up(): void
     {
         // Case-sensitive comparison for role name
-        $role = DB::table('roles')->where('name', 'Streamer')->first();
+        $exactName = DB::connection()->getDriverName() === 'mysql'
+            ? 'CAST(name AS BINARY) = ?' : 'name = ?';
+        $role = DB::table('roles')->whereRaw($exactName, ['Streamer'])->first();
 
         if (! $role) {
             return; // already fixed, or was never miscased on this environment
@@ -31,7 +33,7 @@ return new class extends Migration
         // Don't clobber a genuine pre-existing lowercase "streamer" role —
         // bail loudly rather than silently merging/losing data.
         $existingLowercase = DB::table('roles')
-            ->where('name', 'streamer')
+            ->whereRaw($exactName, ['streamer'])
             ->where('guard_name', $role->guard_name)
             ->exists();
 

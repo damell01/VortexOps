@@ -118,7 +118,7 @@ class InventoryReportScalesTest extends TestCase
             'quantity'          => 3,
             'quantity_before'   => 2,
             'quantity_after'    => 5,
-            'movement_type'     => 'receipt',
+            'movement_type'     => 'opening',
         ]);
 
         $snapshot = InventorySnapshot::generateCurrent();
@@ -137,7 +137,7 @@ class InventoryReportScalesTest extends TestCase
             'quantity'          => 3,
             'quantity_before'   => 2,
             'quantity_after'    => 5,
-            'movement_type'     => 'receipt',
+            'movement_type'     => 'opening',
         ]);
 
         $movement->forceFill(['created_at' => now()->subDays(45)])->saveQuietly();

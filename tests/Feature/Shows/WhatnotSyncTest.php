@@ -77,7 +77,7 @@ class WhatnotSyncTest extends TestCase
             'title'              => 'Test Show',
             'show_date'          => '2026-07-01',
             'status'             => 'pending_review',
-            'created_by'         => 1,
+            'created_by'         => (auth()->id() ?? \App\Models\User::factory()->create()->id),
             'whatnot_channel_id' => $channel->id,
             'detail_url'         => 'https://www.whatnot.com/live/x/11111111-1111-1111-1111-111111111111',
         ]);

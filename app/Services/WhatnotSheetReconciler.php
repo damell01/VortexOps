@@ -722,7 +722,7 @@ class WhatnotSheetReconciler
             'show_date' => $item['date'],
             'status' => 'draft',
             'import_source' => 'auto_whatnot',
-            'created_by' => auth()->id() ?? 1,
+            'created_by' => auth()->id(),
             'analytics_sync_status' => $this->csv->complete($item['metrics']) ? 'complete' : 'partial',
             'analytics_sync_note' => 'Created from the Whatnot Shows export (Whatnot Sheet Check).',
             'last_analytics_synced_at' => now(),

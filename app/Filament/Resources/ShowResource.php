@@ -261,7 +261,10 @@ class ShowResource extends Resource
 
                 Select::make('whatnot_channel_id')
                     ->label('Channel')
-                    ->options(WhatnotChannel::where('status', 'active')->pluck('name', 'id'))
+                    // Active channels, plus the show's own if it has since been switched off.
+                    ->options(fn (?Show $record) => WhatnotChannel::where('status', 'active')
+                        ->when($record?->whatnot_channel_id, fn ($q, $id) => $q->orWhere('id', $id))
+                        ->pluck('name', 'id'))
                     ->searchable()
                     ->nullable(),
 
@@ -298,7 +301,10 @@ class ShowResource extends Resource
 
                 MultiSelect::make('streamers')
                     ->label('Streamers')
-                    ->options(Streamer::where('status', 'active')->pluck('name', 'id'))
+                    // Active streamers, plus anyone already on the show who has since been archived.
+                    ->options(fn (?Show $record) => Streamer::where('status', 'active')
+                        ->when($record?->exists, fn ($q) => $q->orWhereIn('id', $record->streamers()->pluck('streamers.id')))
+                        ->pluck('name', 'id'))
                     ->relationship('streamers', 'name')
                     ->searchable()
                     ->preload()

@@ -72,6 +72,37 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         \App\Support\PokemonHooks::register();
+
+        // A value a record already has is always valid to keep. Dropdowns (and
+        // radio/toggle choices) list
+        // only what can be picked now (active channels, active streamers…), and
+        // Filament rejects anything not on the list — so a show on a channel that
+        // was switched off, or a location owned by an archived streamer, could
+        // not be saved at all, even with nothing changed: "The selected channel
+        // is invalid", reported up at the field while you pressed Save further
+        // down. A newly picked value still has to be a current option.
+        $keepSavedValue = function (\Filament\Forms\Components\Field $component): ?array {
+            if (method_exists($component, 'isMultiple') && $component->isMultiple()) {
+                return null;
+            }
+            $state = $component->getState();
+            $record = $component->getRecord();
+            if (blank($state) || is_array($state) || ! $record instanceof \Illuminate\Database\Eloquent\Model || ! $record->exists) {
+                return null;
+            }
+            $name = $component->getName();
+            if (! array_key_exists($name, $record->getAttributes())) {
+                return null;
+            }
+            $saved = $record->getOriginal($name);
+            $saved = $saved instanceof \BackedEnum ? $saved->value : $saved;
+            $value = $state instanceof \BackedEnum ? $state->value : $state;
+
+            return (string) $saved === (string) $value ? [$value] : null;
+        };
+        foreach ([\Filament\Forms\Components\Select::class, \Filament\Forms\Components\Radio::class, \Filament\Forms\Components\ToggleButtons::class] as $choice) {
+            $choice::configureUsing(fn ($component) => $component->in($keepSavedValue));
+        }
         // Times are stored in UTC and shown in the team's timezone (Central).
         // Filament applies this to date-time and time values only; plain dates
         // such as a show's date are never shifted.

@@ -254,7 +254,7 @@ class InventoryLocationResource extends Resource
                         ->afterStateHydrated(fn ($component, ?InventoryLocation $record) => $record ? $component->state(array_map('strval', $record->sharedBusinessIds())) : null),
                     Select::make('streamer_id')
                         ->label('Streamer')
-                        ->options(fn () => static::streamerOptions())
+                        ->options(fn (?\App\Models\InventoryLocation $record) => static::streamerOptions($record?->streamer_id))
                         ->required(fn ($get) => $get('audience') === 'streamer')
                         ->visible(fn ($get) => $get('audience') === 'streamer'),
                 ]),
@@ -277,11 +277,14 @@ class InventoryLocationResource extends Resource
     }
 
     /** "Jay · Estill" for the streamer picker, so two people's business is clear. */
-    public static function streamerOptions(): array
+    /** @param int|null $keep a saved owner to list even if they've since been archived */
+    public static function streamerOptions(?int $keep = null): array
     {
         $businesses = \App\Models\Business::pluck('short_name', 'id')->map(fn ($s, $id) => $s ?: \App\Models\Business::whereKey($id)->value('name'));
 
-        return \App\Models\Streamer::query()->streamers()->where('status', 'active')->orderBy('name')
+        return \App\Models\Streamer::query()->streamers()
+            ->where(fn ($q) => $q->where('status', 'active')->when($keep, fn ($q) => $q->orWhere('id', $keep)))
+            ->orderBy('name')
             ->get(['id', 'name', 'business_id'])
             ->mapWithKeys(fn ($s) => [$s->id => $s->name . ($s->business_id && isset($businesses[$s->business_id]) ? ' · ' . $businesses[$s->business_id] : '')])
             ->all();

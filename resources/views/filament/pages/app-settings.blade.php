@@ -102,8 +102,8 @@
         {{-- Demo / Showcase Mode --}}
         <div wire:key="section-demo-mode" x-data="{ open: true }" class="rounded-xl border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} overflow-hidden">
 
-            <button type="button" @click="open = !open"
-                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors">
+            <div role="button" tabindex="0" @click="open = !open"
+                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors" @keydown.enter.self.prevent="$el.click()" @keydown.space.self.prevent="$el.click()">
                 <div class="rounded-lg bg-amber-100 dark:bg-amber-900/50 p-2 shrink-0">
                     <x-heroicon-o-presentation-chart-bar class="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
@@ -130,7 +130,7 @@
                     </button>
                 </div>
                 <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
-            </button>
+            </div>
 
             <div x-show="open" class="px-6 py-4 border-t border-amber-200 dark:border-amber-800/60">
                 @if($demo_mode)

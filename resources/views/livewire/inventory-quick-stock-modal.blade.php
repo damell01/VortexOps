@@ -19,7 +19,7 @@
                     </button>
                 </div>
 
-                <form wire:submit="save" class="flex min-h-0 flex-1 flex-col">
+                <form wire:submit="save" class="flex min-h-0 flex-1 flex-col" novalidate>
                     <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
                         <label class="block">
                             <span class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">Location</span>

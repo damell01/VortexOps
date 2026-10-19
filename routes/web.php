@@ -37,6 +37,25 @@ Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(funct
         ->middleware('throttle:10,1')
         ->name('feedback.store');
 
+    // A button that was pressed but sent nothing (resources/js/action-feedback.js):
+    // the browser blocked it, or a script error ate the click. Logged so the
+    // cause can be read in Log Viewer instead of guessed at.
+    Route::post('client-diagnostic', function (\Illuminate\Http\Request $request) {
+        $data = $request->validate([
+            'what' => ['required', 'string', 'max:200'],
+            'detail' => ['nullable', 'string', 'max:2000'],
+            'page' => ['nullable', 'string', 'max:500'],
+        ]);
+        \Illuminate\Support\Facades\Log::warning('Client: ' . $data['what'], [
+            'detail' => $data['detail'] ?? null,
+            'page' => $data['page'] ?? null,
+            'user' => $request->user()->id,
+            'agent' => mb_substr((string) $request->userAgent(), 0, 300),
+        ]);
+
+        return response()->noContent();
+    })->middleware('throttle:20,1')->name('client-diagnostic');
+
     Route::get('ai-tasks/{task}/source', function (AiTask $task) {
         abort_unless($task->type === 'parse_pallet_slip', 404);
 

@@ -19,7 +19,7 @@
 
         {{-- ── Quick Add ────────────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-5">
-            <form wire:submit="addItem" class="flex flex-wrap items-end gap-3">
+            <form wire:submit="addItem" class="flex flex-wrap items-end gap-3" novalidate>
                 <div class="flex-1 min-w-[220px]">
                     <label for="inventory_item_id" class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Item</label>
                     <select

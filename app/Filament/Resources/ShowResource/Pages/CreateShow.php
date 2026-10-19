@@ -115,6 +115,7 @@ class CreateShow extends CreateRecord
     protected function afterCreate(): void
     {
         $show = $this->record;
+        $show->ensurePrimaryStreamer();
         if ($show->status !== 'draft') NotifyShowReady::dispatch($show->id);
 
         $inventoryRows = $this->data['inventory_items'] ?? [];

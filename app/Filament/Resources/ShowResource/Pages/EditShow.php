@@ -25,6 +25,11 @@ class EditShow extends EditRecord
         ])->findOrFail($key);
     }
 
+    protected function afterSave(): void
+    {
+        $this->record->ensurePrimaryStreamer();
+    }
+
     protected function getHeaderActions(): array
     {
         return [

@@ -31,7 +31,7 @@
     </section>
     <section x-show="tab==='details'" x-cloak class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
         @if($locked)<p class="mb-4 text-sm text-gray-500">This report is locked. Request reopening before making changes.</p>@endif
-        <form wire:submit="save" class="space-y-5">{{ $this->form }}@if(!$locked)<div class="flex flex-wrap gap-3">@foreach($this->getFormActions() as $action){{ $action }}@endforeach</div>@endif</form>
+        <form wire:submit="save" class="space-y-5" novalidate>{{ $this->form }}@if(!$locked)<div class="flex flex-wrap gap-3">@foreach($this->getFormActions() as $action){{ $action }}@endforeach</div>@endif</form>
     </section>
 </div>
 </x-filament-panels::page>

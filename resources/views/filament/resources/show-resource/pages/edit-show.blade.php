@@ -26,7 +26,7 @@
             <h1>Edit Show</h1>
             <p>Update show details, assignment, timing, and operational settings. Fields stack into a single phone-friendly flow.</p>
         </div>
-        <form wire:submit="save">
+        <form wire:submit="save" novalidate>
             {{ $this->form }}
             <div class="fi-form-actions mt-6 flex flex-wrap gap-3">
                 <x-filament::button type="submit">

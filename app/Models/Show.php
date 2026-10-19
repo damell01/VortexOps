@@ -305,6 +305,21 @@ class Show extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Make sure a show with streamers has one marked primary — the one its report
+     * and pay are filed under. Picking streamers on the show form saves them all
+     * as non-primary, which left the show looking unowned.
+     */
+    public function ensurePrimaryStreamer(): void
+    {
+        $ids = $this->streamers()->orderBy('show_streamer.created_at')->pluck('streamers.id');
+        if ($ids->isEmpty() || $this->streamers()->wherePivot('is_primary', true)->exists()) {
+            return;
+        }
+        $this->streamers()->updateExistingPivot($ids->first(), ['is_primary' => true]);
+        $this->unsetRelation('streamers');
+    }
+
     public function primaryStreamer(): ?Streamer
     {
         return $this->streamers()->wherePivot('is_primary', true)->first();

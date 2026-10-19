@@ -28,7 +28,7 @@
             </div>
         </div>
 
-        <form wire:submit="save">
+        <form wire:submit="save" novalidate>
             {{ $this->form }}
             <div class="sticky bottom-4 z-20 mt-6 flex items-center justify-between rounded-xl border border-gray-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-white/10 dark:bg-gray-900/95">
                 <div class="text-sm text-gray-500"><span x-show="dirty" x-cloak class="font-semibold text-warning-600">You have unsaved access changes.</span><span x-show="!dirty">Open a module, choose Manage / View only / Hidden, then save.</span></div>

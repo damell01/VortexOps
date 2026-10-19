@@ -21,6 +21,8 @@
 .vx-product-card{border-radius:.85rem}
 .vx-product-image{aspect-ratio:16/9}
 .vx-product-image img{padding:.4rem}
+/* A real photo fills the whole frame; only the logo placeholder sits centred. */
+.vx-product-card .vx-product-image.has-photo img{object-fit:cover!important;padding:0!important;width:100%!important;height:100%!important}
 .vx-product-card .vx-product-body{padding:.6rem .7rem;gap:.35rem}
 .vx-product-card .vx-product-title{font-size:.84rem;line-height:1.1rem}
 .vx-product-tags{justify-content:flex-start;gap:.3rem;flex-wrap:nowrap;min-width:0}.vx-product-tags .vx-product-meta{margin-left:auto}
@@ -111,7 +113,7 @@
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canBulkDelete && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canBulkDelete && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
-       <div class="vx-product-image"><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
+       <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
       </a>
       <div class="vx-product-body">
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>

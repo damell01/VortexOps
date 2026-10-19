@@ -11,6 +11,7 @@
         .vx-product-image{aspect-ratio:4/3;background:rgb(249 250 251);display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid rgb(243 244 246)}
         .dark .vx-product-image{background:rgb(31 41 55);border-color:rgb(55 65 81)}
         .vx-product-image img{width:100%;height:100%;object-fit:contain;padding:.65rem}
+        .vx-product-image.has-photo img{object-fit:cover;padding:0}
         .vx-product-body{padding:.8rem;display:flex;flex-direction:column;gap:.55rem;flex:1}
         .vx-product-title{font-weight:750;font-size:.875rem;line-height:1.2rem;color:rgb(17 24 39);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .dark .vx-product-title{color:white}
@@ -77,7 +78,7 @@
                     @endphp
                     <div class="vx-product-card">
                     <a href="{{ $this->itemUrl($item->id) }}" class="flex flex-1 flex-col">
-                        <div class="vx-product-image">
+                        <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])>
                             @if($item->imageUrl())<img loading="lazy" src="{{ $item->imageUrl() }}" alt="{{ $item->name }}" />@endif
                         </div>
                         <div class="vx-product-body">

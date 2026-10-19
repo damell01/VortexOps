@@ -11,10 +11,15 @@ class BackupDatabaseTest extends TestCase
 
     private string $dbPath;
     private string $backupDir;
+    private string $originalConnection;
+    private array $originalSqliteConfig;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->originalConnection = config('database.default');
+        $this->originalSqliteConfig = config('database.connections.sqlite');
 
         $this->dbPath    = storage_path('test-source.sqlite');
         $this->backupDir = storage_path('app/backups');
@@ -32,6 +37,9 @@ class BackupDatabaseTest extends TestCase
 
     protected function tearDown(): void
     {
+        // RefreshDatabase must roll back the connection it opened in setUp,
+        // rather than trying to open the SQLite fixture during MySQL teardown.
+        config(['database.default' => $this->originalConnection, 'database.connections.sqlite' => $this->originalSqliteConfig]);
         if (file_exists($this->dbPath)) {
             unlink($this->dbPath);
         }

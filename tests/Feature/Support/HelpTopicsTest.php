@@ -15,10 +15,12 @@ class HelpTopicsTest extends TestCase
 
     public function test_every_help_button_points_at_a_written_topic(): void
     {
-        $files = array_merge(
-            glob(base_path('app/{,*/,*/*/,*/*/*/,*/*/*/*/}*.php'), GLOB_BRACE),
-            glob(base_path('resources/views/{,*/,*/*/,*/*/*/,*/*/*/*/}*.blade.php'), GLOB_BRACE),
-        );
+        $files = [];
+        foreach ([app_path(), resource_path('views')] as $directory) {
+            foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                if ($file->isFile() && str_ends_with($file->getFilename(), '.php')) $files[] = $file->getPathname();
+            }
+        }
         $used = [];
         foreach ($files as $file) {
             $code = file_get_contents($file);

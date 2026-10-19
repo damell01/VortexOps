@@ -100,12 +100,19 @@ fi
 # server answers here, move the cache to it, but only after proving it can
 # write, read and lock; otherwise put .env back. Sessions and queues stay where
 # they are, so nobody is signed out. Opt out with VORTEX_REDIS_CACHE=off.
-env_value() { { grep -E "^$1=" .env || true; } | tail -n1 | cut -d= -f2- | tr -d "\"'"; }
+# Trimmed: a .env saved with Windows line endings or a trailing space would
+# otherwise read as "database\r" and never match.
+env_value() { { grep -E "^[[:space:]]*$1[[:space:]]*=" .env || true; } | tail -n1 | cut -d= -f2- | sed 's/[[:space:]]*#.*$//' | tr -d "\"'\r" | xargs; }
 set_env() {
-  if grep -qE "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else printf '\n%s=%s\n' "$1" "$2" >> .env; fi
+  if grep -qE "^[[:space:]]*$1[[:space:]]*=" .env; then sed -i "s#^[[:space:]]*$1[[:space:]]*=.*#$1=$2#" .env; else printf '\n%s=%s\n' "$1" "$2" >> .env; fi
 }
-CACHE_NOW="$(env_value CACHE_STORE)"
-if [ "$(env_value VORTEX_REDIS_CACHE)" != "off" ] && [ "${CACHE_NOW:-database}" = "database" ]; then
+CACHE_NOW="$(env_value CACHE_STORE)"; CACHE_NOW="${CACHE_NOW:-database}"
+echo "Cache store: $CACHE_NOW"
+if [ "$(env_value VORTEX_REDIS_CACHE)" = "off" ]; then
+  echo "VORTEX_REDIS_CACHE=off: leaving the cache where it is"
+elif [ "$CACHE_NOW" != "database" ] && [ "$CACHE_NOW" != "file" ]; then
+  echo "Cache already on $CACHE_NOW: nothing to switch"
+else
   REDIS_ADDR_HOST="$(env_value REDIS_HOST)"; REDIS_ADDR_HOST="${REDIS_ADDR_HOST:-127.0.0.1}"
   REDIS_ADDR_PORT="$(env_value REDIS_PORT)"; REDIS_ADDR_PORT="${REDIS_ADDR_PORT:-6379}"
   if timeout 3 bash -c "exec 3<>/dev/tcp/$REDIS_ADDR_HOST/$REDIS_ADDR_PORT" 2>/dev/null; then

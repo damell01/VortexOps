@@ -85,20 +85,8 @@ class AppServiceProvider extends ServiceProvider
             if (method_exists($component, 'isMultiple') && $component->isMultiple()) {
                 return null;
             }
-            $state = $component->getState();
-            $record = $component->getRecord();
-            if (blank($state) || is_array($state) || ! $record instanceof \Illuminate\Database\Eloquent\Model || ! $record->exists) {
-                return null;
-            }
-            $name = $component->getName();
-            if (! array_key_exists($name, $record->getAttributes())) {
-                return null;
-            }
-            $saved = $record->getOriginal($name);
-            $saved = $saved instanceof \BackedEnum ? $saved->value : $saved;
-            $value = $state instanceof \BackedEnum ? $state->value : $state;
 
-            return (string) $saved === (string) $value ? [$value] : null;
+            return \App\Support\SavedValue::unchanged($component) ? [$component->getState() instanceof \BackedEnum ? $component->getState()->value : $component->getState()] : null;
         };
         foreach ([\Filament\Forms\Components\Select::class, \Filament\Forms\Components\Radio::class, \Filament\Forms\Components\ToggleButtons::class] as $choice) {
             $choice::configureUsing(fn ($component) => $component->in($keepSavedValue));

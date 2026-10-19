@@ -285,6 +285,34 @@ class ShowAndStreamerActionsWorkTest extends TestCase
             ->assertHasFormErrors(['whatnot_channel_id']);
     }
 
+    public function test_a_show_holding_a_negative_unit_count_still_saves(): void
+    {
+        // Whatnot reports net units, which go below zero after refunds.
+        $this->show->forceFill(['units_sold' => -3])->saveQuietly();
+
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['title' => 'Refund Night'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Refund Night', $this->show->fresh()->title);
+    }
+
+    public function test_a_negative_unit_count_cannot_be_newly_typed(): void
+    {
+        Livewire::test(EditShow::class, ['record' => $this->show->id])
+            ->fillForm(['units_sold' => -5])
+            ->call('save')
+            ->assertHasFormErrors(['units_sold']);
+    }
+
+    public function test_edit_forms_leave_checking_to_the_server(): void
+    {
+        $this->get(\App\Filament\Resources\StreamerResource::getUrl('edit', ['record' => $this->streamer]))
+            ->assertOk()
+            ->assertSee('novalidate', false);
+    }
+
     public function test_a_location_owned_by_an_archived_streamer_still_saves(): void
     {
         $location = InventoryLocation::create(['name' => 'Tyler Shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $this->streamer->id]);

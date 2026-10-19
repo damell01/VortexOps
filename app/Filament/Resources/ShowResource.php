@@ -292,7 +292,7 @@ class ShowResource extends Resource
                     ->label('Units Sold')
                     ->numeric()
                     ->default(0)
-                    ->minValue(0),
+                    ->minValue(\App\Support\SavedValue::limit(0)),
 
                 TextInput::make('show_duration')
                     ->label('Duration (minutes)')
@@ -404,7 +404,7 @@ class ShowResource extends Resource
                 // streamer than their usual one.
                 TextInput::make('house_cut_override')
                     ->label('Business keeps (this show only)')
-                    ->numeric()->minValue(0)->maxValue(100)->step(0.01)
+                    ->numeric()->minValue(\App\Support\SavedValue::limit(0))->maxValue(\App\Support\SavedValue::limit(100))->step(0.01)
                     ->suffix('%')
                     ->placeholder('Streamer\'s usual %')
                     ->hint(\App\Support\HelpTopics::button('show.house_cut'))

@@ -11,7 +11,7 @@ use Livewire\Component;
 
 class StreamerLeaderboard extends Component
 {
-    public const PERIODS = ['today' => 'Today', 'week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month', 'last_month' => 'Last month', 'year' => 'This year'];
+    public const PERIODS = ['week' => 'This week', 'month' => 'This month'];
 
     public string $period = 'week';
     public int $shown = 5;
@@ -34,11 +34,7 @@ class StreamerLeaderboard extends Component
     {
         $now = Carbon::parse(BusinessTime::local()->toDateString());
         return match ($this->period) {
-            'today' => [$now->copy(), $now->copy()],
-            'last_week' => [$now->copy()->subWeek()->startOfWeek(), $now->copy()->startOfWeek()->subDay()],
             'month' => [$now->copy()->startOfMonth(), $now],
-            'last_month' => [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->subMonthNoOverflow()->endOfMonth()],
-            'year' => [$now->copy()->startOfYear(), $now],
             default => [$now->copy()->startOfWeek(), $now],
         };
     }

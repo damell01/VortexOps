@@ -98,7 +98,7 @@ class StreamerLeaderboardTest extends TestCase
         Livewire::test(StreamerLeaderboard::class)->assertSee('Your best show: #1')->assertSee('Cohosted');
     }
 
-    public function test_today_week_and_month_have_correct_boundaries_and_only_finished_shows(): void
+    public function test_week_and_month_have_correct_boundaries_and_only_finished_shows(): void
     {
         $this->show('Yesterday', 200);
         $this->show('Today complete', 300, extra: ['show_date' => '2026-10-20', 'start_time' => '08:00:00']);
@@ -107,7 +107,7 @@ class StreamerLeaderboardTest extends TestCase
         $this->show('Live now', 999, extra: ['show_date' => '2026-10-20', 'start_time' => '11:30:00']);
         $this->show('Cancelled', 999, extra: ['status' => 'cancelled']);
         $page = Livewire::test(StreamerLeaderboard::class)->assertSee('Yesterday')->assertSee('Today complete')->assertDontSee('Earlier show')->assertDontSee('Live now')->assertDontSee('Cancelled')->assertDontSee('Future');
-        $page->set('period', 'today')->assertSee('Today complete')->assertDontSee('Yesterday');
+        $page->assertDontSeeHtml('<option value="today">')->assertDontSeeHtml('<option value="year">');
         $page->set('period', 'month')->assertSee('Earlier show')->assertSee('Yesterday');
         $page->set('period', 'bad')->assertSet('period', 'week');
     }

@@ -15,9 +15,6 @@ class Show extends Model
 {
     use LogsActivity, AuditsUpdates;
 
-    /** A start before this hour belongs to the previous show date (a late-night stream). */
-    public const LATE_NIGHT_CUTOFF = 5;
-
     // AuditsUpdates records the real diff for status transitions; LogsActivity's
     // (empty) auto "updated" entry is suppressed. Scoped to status so frequent
     // metric re-imports don't flood the audit log.
@@ -1187,8 +1184,11 @@ class Show extends Model
     }
 
     /**
-     * Start and end as minutes from midnight of show_date; a late-night start
-     * (before LATE_NIGHT_CUTOFF) runs past 1440. End is null when unknown.
+     * Start and end as minutes from midnight of show_date. show_date is the
+     * calendar day the show starts, as Whatnot dates it: a 4:07 AM start on
+     * Oct 20 is 4:07 AM on Oct 20, not the late end of Oct 19 (reading it that
+     * way showed finished early-morning shows as a day away). A show running
+     * past midnight ends past 1440. End is null when unknown.
      *
      * @return array{0: ?int, 1: ?int}
      */
@@ -1196,9 +1196,8 @@ class Show extends Model
     {
         if (! $this->start_time) return [null, null];
         $start = $this->start_time->hour * 60 + $this->start_time->minute;
-        if ($this->start_time->hour < self::LATE_NIGHT_CUTOFF) $start += 1440;
         if ($this->end_time) {
-            $end = $this->end_time->hour * 60 + $this->end_time->minute + ($start >= 1440 ? 1440 : 0);
+            $end = $this->end_time->hour * 60 + $this->end_time->minute;
             while ($end <= $start) $end += 1440;
         } elseif ($this->show_duration > 0) {
             // show_duration is stored in minutes by the importer and the form.

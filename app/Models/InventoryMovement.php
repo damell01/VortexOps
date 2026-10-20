@@ -95,8 +95,9 @@ class InventoryMovement extends Model
     }
 
     public function getActivitylogOptions(): LogOptions { return LogOptions::defaults()->logAll(); }
-    /** Deleted products included: a movement's history still names what moved. */
-    public function item(): BelongsTo { return $this->belongsTo(Product::class, 'inventory_item_id')->withTrashed(); }
+    public function item(): BelongsTo { return $this->belongsTo(Product::class, 'inventory_item_id'); }
+    /** For the audit log only: names what moved even after the product was deleted. */
+    public function itemIncludingDeleted(): BelongsTo { return $this->belongsTo(Product::class, 'inventory_item_id')->withTrashed(); }
     public function lot(): BelongsTo { return $this->belongsTo(InventoryLot::class); }
     public function fromLocation(): BelongsTo { return $this->belongsTo(InventoryLocation::class, 'from_location_id'); }
     public function toLocation(): BelongsTo { return $this->belongsTo(InventoryLocation::class, 'to_location_id'); }

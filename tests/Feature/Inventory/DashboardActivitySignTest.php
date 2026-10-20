@@ -45,14 +45,16 @@ class DashboardActivitySignTest extends TestCase
         $this->assertFalse($rows['Corrected Box']['transfer']);
     }
 
-    public function test_a_deleted_product_keeps_its_name_in_the_activity(): void
+    public function test_a_deleted_product_leaves_the_dashboard_but_the_log_still_names_it(): void
     {
         $main = InventoryLocation::create(['name' => 'Main Warehouse']);
         $item = InventoryItem::create(['name' => 'Retired Box', 'is_active' => true]);
         InventoryMovement::create(['inventory_item_id' => $item->id, 'from_location_id' => $main->id, 'quantity' => 2, 'movement_type' => 'adjustment']);
         $item->delete();
 
-        $this->assertArrayHasKey('Retired Box (deleted)', $this->activity());
-        $this->assertSame('Retired Box', InventoryMovement::first()->item?->name);
+        $this->assertArrayNotHasKey('Retired Box', $this->activity());
+        $this->assertArrayNotHasKey('Inventory item', $this->activity());
+        $this->assertNull(InventoryMovement::first()->item);
+        $this->assertSame('Retired Box', InventoryMovement::first()->itemIncludingDeleted?->name);
     }
 }

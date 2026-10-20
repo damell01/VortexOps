@@ -73,30 +73,45 @@
         @endif
     </header>
 
-    {{-- Their numbers for a period, with the period picker alongside. --}}
-    <div class="vsh-stats">
-        @foreach ([
-            ['heroicon-o-calendar-days', 'violet', 'Shows ' . $n['label'], number_format($n['shows']), 'Shows you were on, dated in this period.'],
-            ['heroicon-o-currency-dollar', 'green', 'Gross sales ' . $n['label'], $money($n['gross']), 'Whatnot sales for your shows dated in this period.'],
-            ['heroicon-o-document-check', 'blue', 'Recorded paid', $money($n['paid']), 'Pay already paid out for shows in this period.'],
-            ['heroicon-o-clock', 'amber', 'Approved unpaid', $money($n['unpaid']), 'Pay approved on a pay run for shows in this period, not paid yet.'],
-        ] as [$icon, $tone, $label, $value, $tip])
-            <div class="vsh-stat">
-                <span class="vsh-stat-icon vsh-{{ $tone }}"><x-filament::icon :icon="$icon" class="h-5 w-5" /></span>
-                <div class="min-w-0">
-                    <p class="vsh-stat-label">{{ $label }} <span class="vsh-tip" title="{{ $tip }}" tabindex="0" aria-label="{{ $tip }}"><x-heroicon-o-information-circle class="h-4 w-4" /></span></p>
-                    <p class="vsh-stat-value">{{ $value }}</p>
+    <section class="vsh-performance" aria-labelledby="vsh-performance-title">
+        <div class="vsh-performance-head">
+            <div><h2 id="vsh-performance-title">Your performance</h2><p>{{ $n['dates'] }} · {{ \App\Support\BusinessTime::zone() }}</p></div>
+            <label class="vsh-period">
+                <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
+                <span class="sr-only">Performance period</span>
+                <select wire:model.live="period" aria-label="Performance period">
+                    @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                </select>
+            </label>
+        </div>
+        <div class="vsh-stats vsh-performance-stats" wire:loading.class="opacity-60" wire:target="period">
+            @foreach ([
+                ['heroicon-o-shopping-cart', 'violet', 'Gross sales', $money($n['gross']), 'Full sales of shows you hosted or cohosted. This is not your personal pay.'],
+                ['heroicon-o-document-check', 'green', 'Amount paid', $money($n['paid']), 'Your recorded paid payouts for shows dated in this period; not the bank transfer date.'],
+                ['heroicon-o-clock', 'blue', 'Approved unpaid', $money($n['unpaid']), 'Your approved pay for shows in this period, awaiting payment.'],
+                ['heroicon-o-calculator', 'amber', 'Draft pay estimate', $money($n['draft_pay']), 'Your calculated draft payouts, awaiting approval. Estimates can change; shows with no pay calculation are not included.'],
+                ['heroicon-o-calendar-days', 'violet', 'Shows', number_format($n['shows']), 'Shows you hosted or cohosted that have started in this period. Upcoming and cancelled shows are excluded.'],
+                ['heroicon-o-video-camera', 'blue', 'Streaming hours', number_format($n['hours'], 1).'h', 'Imported show duration, using your reported hours when duration is unavailable. This is not payroll hours worked.'],
+                ['heroicon-o-arrow-trending-up', 'green', 'Sales / streaming hour', $n['gross_per_hour'] === null ? '—' : $money($n['gross_per_hour']), 'Combined sales divided by matching streaming hours. Shows with no duration are excluded from both sides.'],
+                ['heroicon-o-banknotes', 'amber', 'Whatnot earnings', $n['earnings'] === null ? 'Pending' : $money($n['earnings']), 'Settled earnings where available, otherwise the Whatnot estimate, before product costs and pay. This is not your personal payout.'],
+            ] as [$icon, $tone, $label, $value, $tip])
+                <div class="vsh-stat">
+                    <span class="vsh-stat-icon vsh-{{ $tone }}"><x-filament::icon :icon="$icon" class="h-5 w-5" /></span>
+                    <div class="min-w-0">
+                        <p class="vsh-stat-label">{{ $label }} <span class="vsh-tip" title="{{ $tip }}" tabindex="0" aria-label="{{ $tip }}"><x-heroicon-o-information-circle class="h-4 w-4" /></span></p>
+                        <p class="vsh-stat-value">{{ $value }}</p>
+                    </div>
                 </div>
-            </div>
-        @endforeach
-        <label class="vsh-period vsh-period--stats">
-            <x-heroicon-o-calendar class="h-5 w-5 shrink-0" />
-            <span class="sr-only">Period</span>
-            <select wire:model.live="period">
-                @foreach (\App\Livewire\StreamerHome::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-            </select>
-        </label>
-    </div>
+            @endforeach
+        </div>
+        <div class="vsh-performance-summary">
+            <span><small>Average sales / show</small><b>{{ $n['gross_per_show'] === null ? '—' : $money($n['gross_per_show']) }}</b></span>
+            <span><small>Net units sold</small><b>{{ number_format($n['units']) }}</b></span>
+            <span class="vsh-performance-best"><small>Top show by sales</small><b>{{ $n['best_show'] ?? 'No shows yet' }}</b>@if ($n['best_gross'] !== null)<small>{{ $money($n['best_gross']) }}</small>@endif</span>
+        </div>
+        <p class="vsh-performance-note">Show sales and earnings include your cohosted shows. Pay totals include only your own payouts, grouped by show date. {{ $n['timed_shows'] }} of {{ $n['shows'] }} shows have streaming hours.@if ($n['earnings_pending']) {{ $n['earnings_pending'] }} shows are awaiting Whatnot earnings and excluded from the earnings total.@endif</p>
+        <p class="vsh-performance-note" wire:loading wire:target="period" role="status">Updating your performance…</p>
+    </section>
 
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
 
@@ -541,5 +556,18 @@
     .vsh-buddy-grid img { height:3rem; image-rendering:pixelated; }
     .vsh-buddy-icon { display:grid; place-items:center; height:3rem; font-size:1.6rem; color: var(--vsh-muted); }
     @media (prefers-reduced-motion: reduce) { .vsh-ball, .vsh-zzz i, .vsh-zzz b { animation:none; } }
+    .vsh-performance{display:grid;gap:12px;min-width:0}
+    .vsh-performance-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .vsh-performance-head h2{font-size:18px;font-weight:750;margin:0;color:var(--vxw-text,#111827)}
+    .vsh-performance-head p,.vsh-performance-note{font-size:12px;line-height:1.6;color:var(--vxw-muted,#64748b);margin:0}
+    .vsh .vsh-performance-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .vsh-performance-summary{display:grid;grid-template-columns:1fr 1fr 2fr;border:1px solid var(--vxw-border,#e5e7eb);border-radius:12px;background:var(--vxw-surface,#fff);overflow:hidden}
+    .vsh-performance-summary>span{padding:12px 16px;min-width:0;display:grid;align-content:start;gap:4px}
+    .vsh-performance-summary>span+span{border-left:1px solid var(--vxw-border,#e5e7eb)}
+    .vsh-performance-summary small{font-size:11px;color:var(--vxw-muted,#64748b)}
+    .vsh-performance-summary b{font-size:14px;color:var(--vxw-text,#111827);overflow-wrap:anywhere}
+    .vsh .vsh-performance-stats .vsh-stat-value{white-space:normal;overflow-wrap:anywhere}
+    @media(max-width:900px){.vsh .vsh-performance-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:540px){.vsh-performance-summary{grid-template-columns:1fr 1fr}.vsh-performance-summary .vsh-performance-best{grid-column:1/-1;border-left:0;border-top:1px solid var(--vxw-border,#e5e7eb)}.vsh-performance-head .vsh-period{min-height:44px}}
 </style>
 </div>

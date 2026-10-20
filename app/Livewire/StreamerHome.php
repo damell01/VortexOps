@@ -22,11 +22,11 @@ class StreamerHome extends Component
 
     public const TABS = ['to_complete' => 'To complete', 'changes' => 'Needs changes', 'submitted' => 'Submitted', 'upcoming' => 'Upcoming', 'all' => 'All shows'];
 
-    public const PERIODS = ['month' => 'This month', 'last_month' => 'Last month', 'year' => 'This year'];
+    public const PERIODS = ['week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month', 'last_month' => 'Last month', 'year' => 'This year', 'last_year' => 'Last year'];
 
     public const RANGES = ['' => 'All dates', 'this_month' => 'This month', 'last_month' => 'Last month', '30' => 'Last 30 days'];
 
-    public string $period = 'month';
+    public string $period = 'week';
 
     public string $tab = 'to_complete';
 
@@ -71,6 +71,7 @@ class StreamerHome extends Component
 
     public function updated(string $name): void
     {
+        if ($name === 'period' && ! array_key_exists($this->period, self::PERIODS)) $this->period = 'week';
         if (in_array($name, ['tab', 'search', 'range', 'perPage'], true)) {
             $this->resetPage();
         }
@@ -240,26 +241,67 @@ class StreamerHome extends Component
         $this->dispatch('vx-poke', kind: 'ask');
     }
 
-    /** @return array{shows:int, gross:float, paid:float, unpaid:float, label:string} */
-    public function numbers(): array
+    /** These figures are grouped by the show's local date, not bank transfer date. */
+    public function performanceDates(): array
     {
         $today = BusinessTime::local();
-        [$from, $to] = match ($this->period) {
+        return match ($this->period) {
+            'week' => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
+            'last_week' => [$today->copy()->subWeek()->startOfWeek(), $today->copy()->subWeek()->endOfWeek()],
             'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
             'year' => [$today->copy()->startOfYear(), $today->copy()->endOfYear()],
-            default => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+            'last_year' => [$today->copy()->subYear()->startOfYear(), $today->copy()->subYear()->endOfYear()],
+            'month' => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+            default => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
         };
+    }
+
+    public function numbers(): array
+    {
+        [$from, $to] = $this->performanceDates();
+        $now = BusinessTime::local();
         $between = [$from->toDateString(), $to->toDateString() . ' 23:59:59'];
-        $inPeriod = fn () => $this->shows()->whereBetween('show_date', $between);
-        $pay = fn () => Payout::where('streamer_id', $this->streamer()?->id ?? 0)
-            ->whereHas('show', fn ($q) => $q->whereBetween('show_date', $between));
+        $streamerId = $this->streamer()?->id ?? 0;
+        $started = fn (Show $s) => ! $s->startsAt(BusinessTime::zone())?->gt($now);
+        $shows = $this->shows()->whereBetween('show_date', $between)
+            ->whereDate('show_date', '<=', $now->toDateString())
+            ->with(['streamerLogEntry' => fn ($q) => $q->where('streamer_id', $streamerId)])
+            ->get()->filter($started);
+        // Resolve ownership from the payout itself: old paid shows remain in a
+        // person's pay totals even if their show assignment was later removed.
+        $pay = Payout::where('streamer_id', $streamerId)
+            ->whereHas('show', fn ($q) => $q->inChannelContext()->whereBetween('show_date', $between)
+                ->whereDate('show_date', '<=', $now->toDateString())->where('status', '!=', 'cancelled'))
+            ->with(['show', 'batch:id,status'])->get()->filter(fn ($p) => $started($p->show));
+        $isPaid = fn ($p) => $p->status === 'paid' || $p->batch?->status === 'paid';
+        $isApproved = fn ($p) => $p->status === 'approved' || in_array($p->batch?->status, ['finalized', 'submitted_to_adp'], true);
+        $paid = $pay->filter($isPaid);
+        $unpaid = $pay->reject($isPaid);
+        $approved = $unpaid->filter($isApproved);
+        $draft = $unpaid->reject($isApproved)->whereIn('status', ['draft', 'pending']);
+        $earnings = $shows->map(fn ($s) => \App\Support\ProfitShareFormula::earningsForShow($s));
+        $timed = $shows->map(function ($show) {
+            $hours = $show->show_duration > 0 ? (float) $show->show_duration / 60 : (float) ($show->streamerLogEntry?->hours_streamed ?? 0);
+            return ['hours' => $hours, 'gross' => (float) $show->gross_revenue];
+        })->filter(fn ($s) => $s['hours'] > 0);
+        $hours = (float) $timed->sum('hours');
+        $gross = (float) $shows->sum('gross_revenue');
+        $best = $shows->sortByDesc('gross_revenue')->first();
 
         return [
-            'shows' => $inPeriod()->count(),
-            'gross' => (float) $inPeriod()->sum('gross_revenue'),
-            'paid' => (float) $pay()->where('status', 'paid')->sum('calculated_payout'),
-            'unpaid' => (float) $pay()->whereNotIn('status', ['paid', 'draft'])->sum('calculated_payout'),
-            'label' => strtolower(self::PERIODS[$this->period] ?? 'this month'),
+            'shows' => $shows->count(), 'gross' => $gross,
+            'paid' => (float) $paid->sum('calculated_payout'),
+            'unpaid' => (float) $approved->sum('calculated_payout'),
+            'draft_pay' => (float) $draft->sum('calculated_payout'),
+            'earnings' => $earnings->contains(fn ($v) => $v !== null) ? (float) $earnings->sum() : null,
+            'earnings_pending' => $earnings->filter(fn ($v) => $v === null)->count(),
+            'hours' => round($hours, 2), 'timed_shows' => $timed->count(),
+            'gross_per_hour' => $hours > 0 ? round($timed->sum('gross') / $hours, 2) : null,
+            'gross_per_show' => $shows->isNotEmpty() ? round($gross / $shows->count(), 2) : null,
+            'units' => (int) $shows->sum('units_sold'),
+            'best_show' => $best?->title, 'best_gross' => $best ? (float) $best->gross_revenue : null,
+            'label' => strtolower(self::PERIODS[$this->period] ?? 'this week'),
+            'dates' => $from->format('M j').' – '.$to->format('M j, Y'),
         ];
     }
 

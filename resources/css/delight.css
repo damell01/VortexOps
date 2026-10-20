@@ -126,14 +126,14 @@ svg.fi-loading-indicator > * { opacity: 0; }
   .vx-catch { display: none; }
 }
 
-/* ── Pokémon sprites (public/img/pokemon, animated, pixel-crisp) ─────── */
+/* ── Pokémon sprites (public/img/pokemon3d, animated, pixel-crisp) ─────── */
 .vx-sprite { image-rendering: pixelated; image-rendering: crisp-edges; pointer-events: none; }
 
 /* Empty lists: a puzzled Psyduck; "all caught up": a napping Snorlax. */
 .vxr-empty::before, .vx-home-empty::before { width: 59px; height: 69px; border-radius: 0; box-shadow: none !important; transform: none;
-  background: url('/img/pokemon/psyduck.gif') center bottom / contain no-repeat; image-rendering: pixelated; animation: none; }
+  background: url('/img/pokemon3d/psyduck.gif') center bottom / contain no-repeat; image-rendering: pixelated; animation: none; }
 .vxr-empty.is-caught::before, .vx-home-empty.is-caught::before { width: 96px; height: 96px; border-radius: 0;
-  background: url('/img/pokemon/snorlax.gif') center bottom / contain no-repeat; image-rendering: pixelated; animation: none; }
+  background: url('/img/pokemon3d/snorlax.gif') center bottom / contain no-repeat; image-rendering: pixelated; animation: none; }
 
 /* Pikachu sits on the streamer's "Log your next show" button. */
 .vx-home-hero-cta { position: relative; overflow: visible; }
@@ -156,7 +156,7 @@ svg.fi-loading-indicator > * { opacity: 0; }
 .vx-zard { position: absolute; top: -34px; right: 14px; width: 64px; height: auto; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .25)); }
 .vxr-stat.vx-zard-perch { position: relative; overflow: visible; }
 .vxr-stat.vx-zard-perch::after { content: ''; position: absolute; top: -30px; right: 8px; width: 56px; height: 57px; pointer-events: none;
-  background: url('/img/pokemon/charizard.gif') center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .25)); }
+  background: url('/img/pokemon3d/charizard.gif') center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 4px 6px rgb(0 0 0 / .25)); }
 
 /* Performance: nothing animates while it cannot be seen. The pack-opening
    loader sits in every page, hidden, and its two dozen animations otherwise
@@ -320,8 +320,8 @@ thead.vx-head-lifted th { background: var(--vx-surface, #fff); box-shadow: 0 7px
 .fi-theme-switcher-btn[aria-label="Enable dark theme"] > svg { visibility: hidden; }
 .fi-theme-switcher-btn[aria-label="Enable light theme"],
 .fi-theme-switcher-btn[aria-label="Enable dark theme"] { background-position: center; background-repeat: no-repeat; background-size: auto 26px; image-rendering: pixelated; }
-.fi-theme-switcher-btn[aria-label="Enable light theme"] { background-image: url('/img/pokemon/espeon.gif'); }
-.fi-theme-switcher-btn[aria-label="Enable dark theme"] { background-image: url('/img/pokemon/umbreon.gif'); }
+.fi-theme-switcher-btn[aria-label="Enable light theme"] { background-image: url('/img/pokemon3d/espeon.gif'); }
+.fi-theme-switcher-btn[aria-label="Enable dark theme"] { background-image: url('/img/pokemon3d/umbreon.gif'); }
 
 @media (prefers-reduced-motion: reduce) {
   .vx-season-peek { animation: none !important; }

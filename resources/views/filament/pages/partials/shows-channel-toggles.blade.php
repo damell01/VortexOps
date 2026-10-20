@@ -5,7 +5,7 @@
     <div class="vx-legend" role="group" aria-label="Channels to show">
         @foreach($legend as $c)
             <span class="vx-ctog" wire:key="ctog-{{ $c['key'] }}">
-                <button type="button" wire:click="toggleChannel('{{ $c['key'] }}')" @class(['vx-chan', 'off' => $c['hidden']]) style="--c:{{ $c['color'] }}" aria-pressed="{{ $c['hidden'] ? 'false' : 'true' }}" title="{{ $c['hidden'] ? 'Show' : 'Hide' }} {{ $c['name'] }}">@if(! empty($c['mascot']))<img class="vx-mascot" src="/img/pokemon/{{ $c['mascot'] }}.gif" alt="" loading="lazy">@endif{{ $c['name'] }} <span class="n">{{ $c['count'] }}</span></button>
+                <button type="button" wire:click="toggleChannel('{{ $c['key'] }}')" @class(['vx-chan', 'off' => $c['hidden']]) style="--c:{{ $c['color'] }}" aria-pressed="{{ $c['hidden'] ? 'false' : 'true' }}" title="{{ $c['hidden'] ? 'Show' : 'Hide' }} {{ $c['name'] }}">@if(! empty($c['mascot']))<img class="vx-mascot" src="/img/pokemon3d/{{ $c['mascot'] }}.gif" alt="" loading="lazy">@endif{{ $c['name'] }} <span class="n">{{ $c['count'] }}</span></button>
                 @if($legend->count() > 1)<button type="button" class="vx-only" wire:click="onlyChannel('{{ $c['key'] }}')" aria-label="Show only {{ $c['name'] }}">only</button>@endif
             </span>
         @endforeach

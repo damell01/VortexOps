@@ -73,7 +73,7 @@ export function celebrate(event) {
     const mon = MON[detail?.kind] || MON.default;
     const catchBox = document.createElement('div');
     catchBox.className = 'vx-catch';
-    catchBox.innerHTML = `<div class="vx-catch-ball"></div><span class="vx-catch-star">★</span><img class="vx-catch-mon" src="/img/pokemon/${mon}.gif" alt="">`;
+    catchBox.innerHTML = `<div class="vx-catch-ball"></div><span class="vx-catch-star">★</span><img class="vx-catch-mon" src="/img/pokemon3d/${mon}.gif" alt="">`;
     document.body.appendChild(catchBox);
     setTimeout(() => catchBox.remove(), 2900);
     setTimeout(confetti, 1350);
@@ -109,7 +109,7 @@ export function pikaCheer(event) {
     const say = document.createElement('span');
     say.className = 'vx-pika-say';
     say.textContent = detail?.text || 'Pika pika!';
-    box.innerHTML = '<i class="vx-pika-bolt" aria-hidden="true">⚡</i><i class="vx-pika-bolt" aria-hidden="true">⚡</i><img class="vx-pika-mon" src="/img/pokemon/pikachu.gif" alt="">';
+    box.innerHTML = '<i class="vx-pika-bolt" aria-hidden="true">⚡</i><i class="vx-pika-bolt" aria-hidden="true">⚡</i><img class="vx-pika-mon" src="/img/pokemon3d/pikachu.gif" alt="">';
     box.prepend(say);
     document.body.appendChild(box);
     setTimeout(() => box.remove(), 3300);
@@ -137,7 +137,7 @@ function catchReveal(species, shiny, rarity, displayName, eventLabel, note = '')
     box.className = 'vx-gotcha' + (shiny ? ' is-shiny' : '') + (rarity === 'rare' || rarity === 'legendary' ? ' is-rare' : '') + (rarity === 'legendary' ? ' is-legendary' : '');
     box.setAttribute('role', 'status');
     const tag = [note || (eventLabel ? `${eventLabel} event!` : ''), shiny ? '✨ Shiny!' : '', rarity === 'legendary' ? '🌟 Legendary!' : rarity === 'rare' ? '★ Rare!' : rarity === 'uncommon' ? 'Uncommon' : ''].filter(Boolean).join(' · ');
-    box.innerHTML = `<div class="vx-gotcha-stage"><span class="vx-gotcha-ball"></span><img class="vx-gotcha-mon" src="/img/pokemon/${shiny ? 'shiny/' : ''}${species}.gif" alt=""></div>`
+    box.innerHTML = `<div class="vx-gotcha-stage"><span class="vx-gotcha-ball"></span><img class="vx-gotcha-mon" src="/img/pokemon3d/${shiny ? 'shiny/' : ''}${species}.gif" alt=""></div>`
         + `<div class="vx-gotcha-text"><b>Gotcha! ${name} was caught!</b>${tag ? `<i>${tag}</i>` : ''}<span>Added to your Pokédex</span></div>`;
     const close = () => { box.classList.add('is-out'); setTimeout(() => box.remove(), 300); };
     box.addEventListener('click', close);
@@ -257,7 +257,7 @@ function slowStart() {
             document.body.appendChild(el);
         }
         const [mon, line] = QUIPS[Math.floor(Math.random() * QUIPS.length)];
-        el.querySelector('img').src = `/img/pokemon/${mon}.gif`;
+        el.querySelector('img').src = `/img/pokemon3d/${mon}.gif`;
         el.querySelector('span').textContent = line;
         el.classList.add('is-on');
     }, 2000);
@@ -270,7 +270,7 @@ document.addEventListener('livewire:navigate', slowStart);
 document.addEventListener('livewire:navigated', slowStop);
 
 // ── Shiny visits: about one page in 50, every sprite is its shiny colours ──
-// Real shiny sprites live in /img/pokemon/shiny/. ?vxshiny=1 forces one.
+// Real shiny sprites live in /img/pokemon3d/shiny/. ?vxshiny=1 forces one.
 let shinyVisit = false, shinyRolledFor = null;
 function rollShiny() {
     if (shinyRolledFor === location.href) return; // boot can run twice for one page
@@ -280,12 +280,12 @@ function rollShiny() {
 }
 function shinySwap() {
     if (!shinyVisit) return;
-    document.querySelectorAll('img[src*="/img/pokemon/"]:not([src*="/shiny/"])').forEach((img) => {
-        img.src = img.getAttribute('src').replace('/img/pokemon/', '/img/pokemon/shiny/');
+    document.querySelectorAll('img[src*="/img/pokemon3d/"]:not([src*="/shiny/"])').forEach((img) => {
+        img.src = img.getAttribute('src').replace('/img/pokemon3d/', '/img/pokemon3d/shiny/');
     });
 }
 function announceShiny() {
-    if (calm.matches || !document.querySelector('img[src*="/img/pokemon/shiny/"]')) return;
+    if (calm.matches || !document.querySelector('img[src*="/img/pokemon3d/shiny/"]')) return;
     const note = document.createElement('div');
     note.className = 'vx-shiny-note'; note.setAttribute('role', 'status');
     note.textContent = '✨ A shiny appeared!';
@@ -365,7 +365,7 @@ function wildToast(w) {
     const box = document.createElement('div');
     box.className = 'vx-wild';
     box.setAttribute('role', 'status');
-    const mon = w.species ? `<img class="vx-wild-mon" src="/img/pokemon/${w.shiny ? 'shiny/' : ''}${w.species}.gif" alt="">` : '<span class="vx-wild-ball"></span>';
+    const mon = w.species ? `<img class="vx-wild-mon" src="/img/pokemon3d/${w.shiny ? 'shiny/' : ''}${w.species}.gif" alt="">` : '<span class="vx-wild-ball"></span>';
     box.innerHTML = `${mon}<div class="vx-wild-text"><b></b><span></span></div>${w.url ? '<a class="vx-wild-open">Open</a>' : ''}<button type="button" class="vx-wild-x" aria-label="Dismiss">×</button>`;
     box.querySelector('b').textContent = w.title;
     box.querySelector('.vx-wild-text span').textContent = w.body;
@@ -410,7 +410,7 @@ document.addEventListener('animationiteration', (e) => {
     const index = (Number(peek.dataset.vxVisitorIndex || 0) + 1) % cast.length;
     peek.dataset.vxVisitorIndex = String(index);
     const next = cast[index];
-    img.src = `/img/pokemon/${shinyVisit ? 'shiny/' : ''}${next}.gif`;
+    img.src = `/img/pokemon3d/${shinyVisit ? 'shiny/' : ''}${next}.gif`;
 });
 
 // The top bar's height, for anything that tucks underneath it (Gengar in October).

@@ -59,8 +59,8 @@ class PokemonCatchTest extends TestCase
     public function test_every_species_has_a_sprite_and_a_shiny(): void
     {
         foreach (array_keys(Pokedex::DEX) as $species) {
-            $this->assertFileExists(public_path("img/pokemon/{$species}.gif"), $species);
-            $this->assertFileExists(public_path("img/pokemon/shiny/{$species}.gif"));
+            $this->assertFileExists(public_path("img/pokemon3d/{$species}.gif"), $species);
+            $this->assertFileExists(public_path("img/pokemon3d/shiny/{$species}.gif"));
         }
     }
 

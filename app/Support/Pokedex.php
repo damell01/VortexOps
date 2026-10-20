@@ -19,8 +19,9 @@ class Pokedex
 {
     /**
      * species => [National Pokédex number, generation, rarity], in Pokédex order.
-     * Every one has an animated sprite and a shiny in public/img/pokemon: Gen 1–5
-     * are the Black & White pixel sprites, Gen 6–9 the newer animated ones.
+     * Every one has an animated sprite and a shiny in public/img/pokemon3d:
+     * the 3D-rendered Showdown animations (PokeAPI sprites, other/showdown)
+     * for every generation.
      */
     public const DEX = [
         'bulbasaur' => [1, 1, 'common'],

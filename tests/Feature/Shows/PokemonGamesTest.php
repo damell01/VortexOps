@@ -68,8 +68,8 @@ class PokemonGamesTest extends TestCase
             array_keys(PokemonData::EVOLUTIONS), array_merge(...array_values(PokemonData::EVOLUTIONS))));
         foreach ($all as $species) {
             $this->assertTrue(Pokedex::exists($species), "$species is a known species");
-            $this->assertFileExists(public_path("img/pokemon/{$species}.gif"));
-            $this->assertFileExists(public_path("img/pokemon/shiny/{$species}.gif"));
+            $this->assertFileExists(public_path("img/pokemon3d/{$species}.gif"));
+            $this->assertFileExists(public_path("img/pokemon3d/shiny/{$species}.gif"));
             $this->assertArrayHasKey($species, PokemonData::TYPES, "$species has types");
         }
         $this->assertSame([1, 2, 3], [PokemonData::stage('charmander'), PokemonData::stage('charmeleon'), PokemonData::stage('charizard')]);

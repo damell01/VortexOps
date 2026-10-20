@@ -13,9 +13,9 @@ class ErrorPagesTest extends TestCase
         foreach ([403, 404, 419, 500, 503] as $code) {
             $html = view("errors.$code", ['exception' => new HttpException($code, '')])->render();
 
-            $this->assertMatchesRegularExpression('#src="/img/pokemon/([a-z]+)\.gif"#', $html, "errors.$code has no Pokémon");
-            preg_match('#src="/img/pokemon/([a-z]+)\.gif"#', $html, $m);
-            $this->assertFileExists(public_path("img/pokemon/{$m[1]}.gif"), "errors.$code points at a missing sprite");
+            $this->assertMatchesRegularExpression('#src="/img/pokemon3d/([a-z]+)\.gif"#', $html, "errors.$code has no Pokémon");
+            preg_match('#src="/img/pokemon3d/([a-z]+)\.gif"#', $html, $m);
+            $this->assertFileExists(public_path("img/pokemon3d/{$m[1]}.gif"), "errors.$code points at a missing sprite");
             $this->assertStringContainsString('class="battle"', $html);
             $this->assertStringContainsString((string) $code, $html);
         }
@@ -26,7 +26,7 @@ class ErrorPagesTest extends TestCase
         $this->get('/admin/no-such-page-anywhere')
             ->assertNotFound()
             ->assertSee('Psyduck is confused', false)
-            ->assertSee('/img/pokemon/psyduck.gif', false);
+            ->assertSee('/img/pokemon3d/psyduck.gif', false);
     }
 
     public function test_the_403_page_still_says_which_rule_refused(): void

@@ -36,7 +36,7 @@ a:hover{background:#6D28D9}
 <body>
 <div class="wrap">
   @hasSection('mon')
-    <div class="mon" aria-hidden="true"><img src="/img/pokemon/{{ trim($__env->yieldContent('mon')) }}.gif" alt=""></div>
+    <div class="mon" aria-hidden="true"><img src="/img/pokemon3d/{{ trim($__env->yieldContent('mon')) }}.gif" alt=""></div>
   @endif
   <div class="code">@yield('code')</div>
   <h1>@yield('title')</h1>

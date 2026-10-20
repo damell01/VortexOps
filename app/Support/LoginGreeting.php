@@ -33,7 +33,7 @@ class LoginGreeting
         return [
             'period' => $period,
             'mon' => $mon,
-            'sprite' => '/img/pokemon/'.strtolower($mon).'.gif',
+            'sprite' => '/img/pokemon3d/'.strtolower($mon).'.gif',
             'bubble' => $crew['bubble'],
             'caption' => str_replace(':mon', $mon, $crew['caption']),
             'sleepy' => $period === 'late' && $mon === 'Snorlax',

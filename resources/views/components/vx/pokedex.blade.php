@@ -24,7 +24,7 @@
         </div>
         @if ($dex['latest'])
             <div class="vx-dex-latest" title="Caught {{ $dex['latest']->caught_at?->diffForHumans() }} · {{ \App\Support\PokemonGames::sourceLabel($dex['latest']->source ?? 'report') }}">
-                <img src="/img/pokemon/{{ $dex['latest']->shiny ? 'shiny/' : '' }}{{ $dex['latest']->species }}.gif" alt="">
+                <img src="/img/pokemon3d/{{ $dex['latest']->shiny ? 'shiny/' : '' }}{{ $dex['latest']->species }}.gif" alt="">
                 <span>Latest<br><b>{{ $dex['latest']->shiny ? '✨ ' : '' }}{{ \App\Support\Pokedex::name($dex['latest']->species) }}</b></span>
             </div>
         @endif
@@ -38,7 +38,7 @@
     <div class="vx-dex-badges" aria-label="Badges">
         @foreach ($dex['badges'] as $b)
             <span @class(['vx-dex-badge', 'is-earned' => $b['earned'], 'type-'.$b['key']]) title="{{ $b['label'] }} badge: {{ $b['have'] }} of {{ $b['need'] }} caught{{ $b['earned'] ? ' — earned!' : '' }}">
-                <img src="/img/pokemon/{{ $b['sprite'] }}.gif" alt="" loading="lazy"><b>{{ $b['label'] }}</b><small>{{ $b['earned'] ? '✓' : $b['have'].'/'.$b['need'] }}</small>
+                <img src="/img/pokemon3d/{{ $b['sprite'] }}.gif" alt="" loading="lazy"><b>{{ $b['label'] }}</b><small>{{ $b['earned'] ? '✓' : $b['have'].'/'.$b['need'] }}</small>
             </span>
         @endforeach
     </div>
@@ -48,7 +48,7 @@
         <div class="vx-dex-recent" aria-label="Recent catches">
             @foreach ($dex['recent'] as $c)
                 <span @class(['vx-dex-chip', 'is-shiny' => $c->shiny, 'is-'.\App\Support\Pokedex::rarity($c->species)]) title="{{ ($c->shiny ? 'Shiny ' : '').\App\Support\Pokedex::name($c->species) }} · {{ $c->caught_at?->format('M j') }} · {{ \App\Support\PokemonGames::sourceLabel($c->source ?? 'report') }}{{ $c->evolved_from ? ' · evolved from '.\App\Support\Pokedex::name($c->evolved_from) : '' }}">
-                    <img src="/img/pokemon/{{ $c->shiny ? 'shiny/' : '' }}{{ $c->species }}.gif" alt="" loading="lazy"><b>{{ \App\Support\Pokedex::name($c->species) }}</b>
+                    <img src="/img/pokemon3d/{{ $c->shiny ? 'shiny/' : '' }}{{ $c->species }}.gif" alt="" loading="lazy"><b>{{ \App\Support\Pokedex::name($c->species) }}</b>
                 </span>
             @endforeach
         </div>
@@ -64,7 +64,7 @@
                 @foreach ($ev['entries'] as $e)
                     <li @class(['vx-dex-cell', 'is-caught' => $e['count'] > 0, 'is-gold' => $e['count'] >= 10, 'is-'.$e['rarity']]) title="{{ $tip($e + ['shiny' => $e['shiny']]) }}">
                         <span class="vx-dex-no">#{{ str_pad((string) $e['number'], 3, '0', STR_PAD_LEFT) }}</span>
-                        <img src="/img/pokemon/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
+                        <img src="/img/pokemon3d/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
                         <span class="vx-dex-name">{{ $e['count'] > 0 ? \App\Support\Pokedex::name($e['species']) : '???' }}</span>
                         @if ($e['count'] > 0)<span class="vx-dex-n">×{{ $e['count'] }}@if ($e['shiny']) <b>✨</b>@endif</span>@endif
                         @if ($e['rarity'] !== 'common')<span class="vx-dex-rarity" aria-label="{{ ucfirst($e['rarity']) }}">{{ $stars[$e['rarity']] }}</span>@endif
@@ -85,7 +85,7 @@
                     @foreach ($list as $e)
                         <li @class(['vx-dex-cell', 'is-caught' => $e['count'] > 0, 'is-gold' => $e['count'] >= 10, 'is-'.$e['rarity']]) title="{{ $tip($e) }}">
                             <span class="vx-dex-no">#{{ str_pad((string) $e['number'], 3, '0', STR_PAD_LEFT) }}</span>
-                            <img src="/img/pokemon/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
+                            <img src="/img/pokemon3d/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
                             <span class="vx-dex-name">{{ $e['count'] > 0 ? \App\Support\Pokedex::name($e['species']) : '???' }}</span>
                             @if ($e['count'] > 0)<span class="vx-dex-n">×{{ $e['count'] }}@if ($e['shiny']) <b>✨</b>@endif</span>@endif
                             @if ($e['rarity'] !== 'common')<span class="vx-dex-rarity" title="{{ ucfirst($e['rarity']) }}" aria-label="{{ ucfirst($e['rarity']) }}">{{ $stars[$e['rarity']] }}</span>@endif
@@ -102,7 +102,7 @@
                 @foreach ($dex['earned'] as $e)
                     <li @class(['vx-dex-cell', 'is-caught' => $e['count'] > 0, 'is-gold' => $e['count'] >= 10, 'is-'.$e['rarity']]) title="{{ $tip($e) }}">
                         <span class="vx-dex-no">#{{ str_pad((string) $e['number'], 3, '0', STR_PAD_LEFT) }}</span>
-                        <img src="/img/pokemon/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
+                        <img src="/img/pokemon3d/{{ $e['shiny'] ? 'shiny/' : '' }}{{ $e['species'] }}.gif" alt="" loading="lazy">
                         <span class="vx-dex-name">{{ $e['count'] > 0 ? \App\Support\Pokedex::name($e['species']) : '???' }}</span>
                         @if ($e['count'] > 0)<span class="vx-dex-n">×{{ $e['count'] }}@if ($e['shiny']) <b>✨</b>@endif</span>@endif
                         @if ($e['rarity'] !== 'common')<span class="vx-dex-rarity" aria-label="{{ ucfirst($e['rarity']) }}">{{ $stars[$e['rarity']] }}</span>@endif

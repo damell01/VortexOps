@@ -40,7 +40,9 @@ class ShowStartTimeFromTextTest extends TestCase
 
     public function test_discovery_fills_a_missing_time_from_the_row_text_but_keeps_a_set_one(): void
     {
-        $this->actingAs(User::factory()->create());
+        // Discovery records user #1 as a new show's creator; MySQL keeps user
+        // ids counting across tests, so make sure #1 exists.
+        $this->actingAs(User::factory()->create(['id' => 1]));
         $channel = WhatnotChannel::create(['name' => 'Vortex Breaks', 'whatnot_username' => 'vortexbreaks', 'status' => 'active']);
         $kept = Show::create(['whatnot_channel_id' => $channel->id, 'title' => 'Hand timed', 'show_date' => '2026-10-11', 'start_time' => '2026-10-11 18:45:00', 'status' => 'draft', 'import_source' => 'auto_whatnot', 'whatnot_show_id' => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb']);
 

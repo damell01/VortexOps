@@ -21,9 +21,9 @@
                 <div class="vxl-podium">
                     @foreach ($visible->take(3) as $i => $row)
                         <article @class(['vxl-podium-card', 'vxl-place-'.($i + 1), 'vxl-podium-first' => $i === 0, 'vxl-is-mine' => $row['mine']]) wire:key="podium-{{ $row['show_id'] }}">
+                            @if ($i === 0)<svg class="vxl-crown" viewBox="0 0 32 24" aria-hidden="true"><path d="M3 5l7 6 6-9 6 9 7-6-4 17H7z" fill="currentColor" stroke="#c58b13" stroke-width="1.5"/></svg>@endif
                             <div class="vxl-scene vxl-effect-{{ $row['effect'] }}" style="--vxl-delay: {{ $i * 0.7 }}s">
                                 <span class="vxl-medal vxl-medal-{{ min($row['rank'], 4) }}">#{{ $row['rank'] }}</span>
-                                @if ($i === 0)<svg class="vxl-crown" viewBox="0 0 32 24" aria-hidden="true"><path d="M3 5l7 6 6-9 6 9 7-6-4 17H7z" fill="currentColor" stroke="#c58b13" stroke-width="1.5"/></svg>@endif
                                 <span class="vxl-attack" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
                                 <img class="vxl-fighter" src="{{ $sprite($row) }}" alt="" aria-hidden="true" loading="lazy" width="76" height="76">
                             </div>

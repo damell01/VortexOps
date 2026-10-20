@@ -310,7 +310,11 @@ class ShowResource extends Resource
                     ->searchable()
                     ->preload()
                     ->columnSpanFull()
-                    ->placeholder('Search and select streamers...'),
+                    ->placeholder('Search and select streamers...')
+                    // Why each streamer is here: a name or alias in the title, or a hand pick.
+                    ->helperText(fn (?Show $record) => $record?->exists && ($lines = \App\Support\StreamerMatchReason::lines($record))
+                        ? new \Illuminate\Support\HtmlString(collect($lines)->map(fn ($l) => e($l))->implode('<br>'))
+                        : null),
 
                 Select::make('fulfillmentUsers')
                     ->label('Fulfillment Team')

@@ -149,7 +149,7 @@ class InventoryMovementResource extends Resource
             ->emptyStateIcon('heroicon-o-arrows-right-left')
             ->columns([
                 TextColumn::make('created_at')->label('Date')->dateTime('M j, Y')->description(fn ($record) => $record->created_at?->format('g:i A'))->sortable(),
-                TextColumn::make('item.name')->label('Item')->searchable()->wrap()->description(fn ($record) => $record->item?->sku),
+                TextColumn::make('item.name')->label('Item')->searchable()->wrap()->description(fn ($record) => trim(($record->item?->sku ?? '').($record->item?->trashed() ? ' · deleted' : ''), ' ·') ?: null),
                 TextColumn::make('item.sku')->label('SKU')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('movement_type')->badge()->formatStateUsing(fn($state)=>InventoryMovement::movementTypeLabels()[$state]??$state)->color(fn($state)=>match($state){'opening'=>'info','transfer'=>'primary','adjustment'=>'warning','sale_deduction'=>'success','return'=>'gray','damaged'=>'danger',default=>'gray'}),
                 TextColumn::make('quantity')->label('Change')->state(fn(InventoryMovement $record)=>$record->changeLabel())->badge()->color(fn(InventoryMovement $record)=>$record->signedChange()>0?'success':($record->signedChange()<0?'danger':'gray'))->sortable(),

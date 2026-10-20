@@ -255,11 +255,16 @@ class DashboardImproved extends Dashboard
     private function recentInventoryActivity(): array
     {
         try {
-            return InventoryMovement::query()->with('item')->latest()->limit(5)->get()->map(function ($m) {
-                $qty = (float) ($m->quantity ?? 0);
+            // A deleted item's history is kept but not shown here, like
+            // Recent Movements: listing it reads as the delete not working.
+            return InventoryMovement::query()->with('item')->whereHas('item')->latest()->limit(5)->get()->map(function ($m) {
+                // Quantity is stored unsigned; the direction comes from the
+                // movement itself, the same rule the Inventory Log uses. A move
+                // between two locations changes no total, so it carries no sign.
                 return [
                     'name' => $m->item?->name ?: 'Inventory item',
-                    'qty' => $qty,
+                    'qty' => $m->signedChange(),
+                    'transfer' => $m->from_location_id && $m->to_location_id && $m->quantity_before === null,
                     'type' => ucfirst(str_replace('_', ' ', (string) $m->movement_type)),
                     'time' => $m->created_at?->diffForHumans(),
                 ];

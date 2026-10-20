@@ -83,7 +83,12 @@ class WhatnotReportingReconciler
                     'whatnot_show_id' => $liveId,
                     'title' => $title,
                     'show_date' => $date,
-                    'start_time' => $normalized['start_time'] ?? $raw['start_time'] ?? null,
+                    // Seller Hub rows usually carry the time only in their text;
+                    // read it from there when the scraper sent none. That
+                    // fallback only fills a missing time: one already on the
+                    // show (set by hand) stays.
+                    'start_time' => $normalized['start_time'] ?? $raw['start_time']
+                        ?? ($show?->start_time ? null : \App\Support\ShowTimeText::fromPayload($raw, $date, $title)),
                     'end_time' => $normalized['end_time'] ?? $raw['end_time'] ?? null,
                     'detail_url' => $raw['detail_url'] ?? $raw['open_url'] ?? ('https://www.whatnot.com/dashboard/live/'.$liveId),
                     'import_source' => 'auto_whatnot',

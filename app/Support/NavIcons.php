@@ -40,6 +40,7 @@ class NavIcons
         'Email Log' => 'heroicon-o-envelope',
         'Settings' => 'heroicon-o-cog-6-tooth',
         // Owner tools
+        'Messages & Announcements' => 'heroicon-o-chat-bubble-left-right',
         'Import Status' => 'heroicon-o-arrow-down-tray',
         'Show Data Audit' => 'heroicon-o-clipboard-document-check',
         'Show Ingestion Logs' => 'heroicon-o-queue-list',

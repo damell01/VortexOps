@@ -67,6 +67,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
  ['Roles & Permissions',\App\Filament\Resources\RoleResource::getUrl('index')],
  ...($user?->isOwner() ? [
+   ['Messages & Announcements',\App\Filament\Pages\Communications::getUrl(panel:'admin')],
    ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
    ['Show Ingestion Logs',\App\Filament\Resources\ShowIngestionLogResource::getUrl('index')],
@@ -95,7 +96,7 @@ foreach ($groups as $label => $links) {
     }));
     if ($groups[$label] === []) unset($groups[$label]);
 }
-$ownerLabels = ['Import Status','Show Data Audit','Show Ingestion Logs','Whatnot Scraper','Email Log'];
+$ownerLabels = ['Messages & Announcements','Import Status','Show Data Audit','Show Ingestion Logs','Whatnot Scraper','Email Log'];
 $ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? [], fn ($link) => in_array($link[0], $ownerLabels, true))) : [];
 if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
 @endphp

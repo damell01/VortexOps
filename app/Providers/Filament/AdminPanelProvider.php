@@ -275,6 +275,11 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,
+                fn () => \App\Services\TeamCommunications::canAccess(auth()->user())
+                    ? Blade::render("@livewire('announcement-preview')") : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::CONTENT_START,
                 fn () => ! auth()->check() ? '' : view('filament.components.clock-banner'),
             )
             ->renderHook(

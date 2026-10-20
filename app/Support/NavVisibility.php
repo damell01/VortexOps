@@ -8,6 +8,8 @@ class NavVisibility
 {
     /** Pages controlled by their own canAccess() rather than per-role nav allow-lists. */
     public const ALWAYS_AVAILABLE = [
+        // Owner-only preview, deliberately absent from non-owner role settings.
+        \App\Filament\Pages\Communications::class,
         \App\Filament\Pages\HelpCenter::class,
         \App\Filament\Pages\DashboardImproved::class,
         \App\Filament\Pages\EditProfile::class,

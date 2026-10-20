@@ -232,7 +232,7 @@ class DashboardImproved extends Dashboard
             if ($page::canAccess()) $today[] = ['label'=>$label,'count'=>$data[$key],'url'=>$page::getUrl()];
         }
         // Live is a minute-by-minute fact, so it is counted outside the cache above.
-        // Yesterday is included: a late-night stream belongs to the previous show date.
+        // Yesterday is included: a show that started last night can still be on air past midnight.
         if (\App\Filament\Pages\Shows::canAccess()) {
             $liveNow = Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])->whereNotNull('start_time')
                 ->whereDate('show_date', '>=', $local->copy()->subDay()->toDateString())->whereDate('show_date', '<=', $local->toDateString())

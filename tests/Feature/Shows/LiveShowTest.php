@@ -34,13 +34,14 @@ class LiveShowTest extends TestCase
         $this->assertSame('done', $show->scheduleStateAt(Carbon::parse('2026-10-14 20:01:00')));
     }
 
-    public function test_a_late_night_stream_is_live_after_midnight_on_its_show_date(): void
+    public function test_an_after_midnight_stream_is_live_on_the_day_it_starts(): void
     {
-        // Show date Oct 14, starting 1am — that is the night of the 14th, i.e. early on the 15th.
-        $show = $this->show(['show_date' => '2026-10-14', 'start_time' => '2026-10-14 01:00:00', 'show_duration' => 120]);
+        // Show date Oct 15 at 1am is 1am on the 15th: the calendar day the show
+        // starts, as Whatnot dates it (Seller Hub lists it as 10/15 · 1:00 AM).
+        $show = $this->show(['show_date' => '2026-10-15', 'start_time' => '2026-10-15 01:00:00', 'show_duration' => 120]);
 
         $this->assertTrue($show->isLive(Carbon::parse('2026-10-15 01:30:00')));
-        $this->assertFalse($show->isLive(Carbon::parse('2026-10-14 01:30:00')));
+        $this->assertFalse($show->isLive(Carbon::parse('2026-10-16 01:30:00')));
     }
 
     public function test_cancelled_and_untimed_shows_are_never_live(): void

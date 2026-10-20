@@ -127,15 +127,16 @@ class ShowsCalendarTest extends TestCase
             ->call('goToToday')->assertSet('anchor', '2026-10-07');
     }
 
-    public function test_after_midnight_shows_close_out_the_evening_they_belong_to(): void
+    public function test_a_day_lists_its_shows_in_the_order_they_start(): void
     {
+        // A midnight start is the start of its calendar day, as Whatnot dates it.
         $this->show('2026-10-07', '00:00', '01:30', 'Late Night');
         $this->show('2026-10-07', '22:30', '23:59', 'Ten Thirty');
         $this->show('2026-10-07', '14:00', '16:30', 'Afternoon');
 
         $titles = Livewire::test(Shows::class)->instance()->dayShows()->pluck('title')->all();
 
-        $this->assertSame(['Afternoon', 'Ten Thirty', 'Late Night'], $titles);
+        $this->assertSame(['Late Night', 'Afternoon', 'Ten Thirty'], $titles);
     }
 
     public function test_live_upcoming_and_completed_states(): void

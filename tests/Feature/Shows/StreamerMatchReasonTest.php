@@ -58,4 +58,16 @@ class StreamerMatchReasonTest extends TestCase
         $this->assertSame(['Jay: their name is in the title'], StreamerMatchReason::lines($show));
         Livewire::test(EditShow::class, ['record' => $show->id])->assertSee('Jay: their name is in the title');
     }
+
+    public function test_the_reason_the_importer_saved_is_shown(): void
+    {
+        $joshua = Streamer::create(['name' => 'Joshua Beaupre', 'status' => 'active']);
+        $show = $this->show('CHINESE SEALED STREAM GO! W/ JAY VCX', $joshua);
+        $show->updateQuietly(['ai_streamer_suggestion' => [['streamer_id' => $joshua->id, 'confidence' => 'high', 'reason' => 'Saved streamer alias @ese']]]);
+
+        $lines = StreamerMatchReason::lines($show->fresh());
+
+        $this->assertSame('Joshua Beaupre: matched automatically when imported (Saved streamer alias @ese)', $lines[0]);
+        $this->assertStringContainsString('The title names “JAY VCX”', $lines[1]);
+    }
 }

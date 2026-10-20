@@ -294,6 +294,9 @@ class DashboardImproved extends Dashboard
         try {
             $movements = InventoryMovement::query()
                 ->with('item')
+                // A deleted item's history is kept but not shown here, like
+                // Recent Movements: listing it reads as the delete not working.
+                ->whereHas('item')
                 ->latest()
                 ->limit(100)
                 ->get();
@@ -322,7 +325,7 @@ class DashboardImproved extends Dashboard
                     // locations changes no total, so it carries no sign.
                     $transfer = $m->from_location_id && $m->to_location_id && $m->quantity_before === null;
                     return [
-                        'name' => ($m->item?->name ?: 'Inventory item').($m->item?->trashed() ? ' (deleted)' : ''),
+                        'name' => $m->item?->name ?: 'Inventory item',
                         'qty' => (float) $group->sum(fn (InventoryMovement $row) => $row->signedChange()),
                         'transfer' => (bool) $transfer,
                         'type' => ucfirst(str_replace('_', ' ', (string) $m->movement_type)),

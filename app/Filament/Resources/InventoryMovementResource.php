@@ -111,7 +111,7 @@ class InventoryMovementResource extends Resource
 
         return InventoryMovement::query()
             ->fromSub($grouped->toBase(), 'inventory_movements')
-            ->with(['item','fromLocation','toLocation','createdByUser']);
+            ->with(['item','itemIncludingDeleted','fromLocation','toLocation','createdByUser']);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
@@ -128,7 +128,7 @@ class InventoryMovementResource extends Resource
                 Grid::make(2)->schema([
                     Placeholder::make('created_at')->label('Date & Time')->content(fn(InventoryMovement $record):string=>$record->created_at?->format('M j, Y g:i A')??'—'),
                     Placeholder::make('movement_type')->label('Movement Type')->content(fn(InventoryMovement $record):string=>InventoryMovement::movementTypeLabels()[$record->movement_type]??$record->movement_type),
-                    Placeholder::make('item')->label('Item')->content(fn(InventoryMovement $record):string=>$record->item?->name??'—'),
+                    Placeholder::make('item')->label('Item')->content(fn(InventoryMovement $record):string=>($record->itemIncludingDeleted?->name ?? '—').($record->itemIncludingDeleted?->trashed() ? ' (deleted)' : '')),
                     Placeholder::make('sku')->label('SKU')->content(fn(InventoryMovement $record):string=>$record->item?->sku??'—'),
                     Placeholder::make('quantity')->label('Quantity')->content(fn(InventoryMovement $record):string=>$record->changeLabel()),
                     Placeholder::make('created_by')->label('Created By')->content(fn(InventoryMovement $record):string=>$record->createdByUser?->name??'System'),
@@ -150,7 +150,7 @@ class InventoryMovementResource extends Resource
             ->emptyStateIcon('heroicon-o-arrows-right-left')
             ->columns([
                 TextColumn::make('created_at')->label('Date')->dateTime('M j, Y')->description(fn ($record) => $record->created_at?->format('g:i A'))->sortable(),
-                TextColumn::make('item.name')->label('Item')->searchable()->wrap()->description(fn ($record) => trim(($record->item?->sku ?? '').($record->item?->trashed() ? ' · deleted' : ''), ' ·') ?: null),
+                TextColumn::make('itemIncludingDeleted.name')->label('Item')->searchable()->wrap()->description(fn ($record) => trim(($record->itemIncludingDeleted?->sku ?? '').($record->itemIncludingDeleted?->trashed() ? ' · deleted' : ''), ' ·') ?: null),
                 TextColumn::make('item.sku')->label('SKU')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('movement_type')->badge()->formatStateUsing(fn($state)=>InventoryMovement::movementTypeLabels()[$state]??$state)->color(fn($state)=>match($state){'opening'=>'info','transfer'=>'primary','adjustment'=>'warning','sale_deduction'=>'success','return'=>'gray','damaged'=>'danger',default=>'gray'}),
                 TextColumn::make('quantity')->label('Change')->state(fn(InventoryMovement $record)=>$record->changeLabel())->badge()->color(fn(InventoryMovement $record)=>$record->signedChange()>0?'success':($record->signedChange()<0?'danger':'gray'))->sortable(),

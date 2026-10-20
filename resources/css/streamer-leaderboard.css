@@ -94,3 +94,25 @@
 .vxl-pagination button>span{display:none}
 .vxl-podium-card .vxl-you{font-size:8px;margin-left:2px}
 }
+
+/* A brief charge, turn and attack, staggered across the compact podium. */
+.vxl-scene{--vxl-energy:#d9a9ff;--vxl-delay:0s}
+.vxl-effect-electric{--vxl-energy:#ffd23f}
+.vxl-effect-fire{--vxl-energy:#ff874d}
+.vxl-effect-water{--vxl-energy:#60ccff}
+.vxl-effect-leaf{--vxl-energy:#83d478}
+.vxl-effect-aura{--vxl-energy:#c39aff}
+.vxl-scene>.vxl-fighter{position:relative;transform-origin:50% 85%;animation:vxl-tail-strike 7s ease-in-out 3;animation-delay:var(--vxl-delay)}
+.vxl-attack{position:absolute;left:50%;bottom:25px;width:1px;height:1px;pointer-events:none;z-index:2}
+.vxl-attack i{position:absolute;display:block;width:12px;height:12px;background:var(--vxl-energy);opacity:0;--vxl-x:52px;--vxl-y:-17px;filter:drop-shadow(0 0 3px var(--vxl-energy));clip-path:polygon(50% 0,62% 35%,100% 50%,62% 64%,50% 100%,36% 64%,0 50%,36% 35%);animation:vxl-energy-burst 7s ease-out 3;animation-delay:var(--vxl-delay)}
+.vxl-attack i:nth-child(2){--vxl-x:-48px;--vxl-y:-27px;width:9px;height:15px}
+.vxl-attack i:nth-child(3){--vxl-x:34px;--vxl-y:-46px;width:8px;height:10px}
+.vxl-attack i:nth-child(4){--vxl-x:-29px;--vxl-y:-49px;width:7px;height:9px}
+.vxl-effect-electric .vxl-attack i{width:14px;height:26px;clip-path:polygon(47% 0,100% 0,63% 39%,95% 39%,10% 100%,35% 55%,0 55%)}
+.vxl-effect-fire .vxl-attack i{clip-path:polygon(50% 0,90% 45%,100% 76%,70% 100%,25% 91%,0 63%,24% 38%,30% 65%);height:20px}
+.vxl-effect-water .vxl-attack i{clip-path:none;border-radius:50%;background:transparent;border:2px solid var(--vxl-energy)}
+.vxl-effect-leaf .vxl-attack i{clip-path:none;border-radius:100% 0 100% 0;transform:rotate(-30deg)}
+.vxl-effect-aura .vxl-attack i{clip-path:none;border-radius:50%;background:radial-gradient(circle,#fff,var(--vxl-energy));box-shadow:0 0 8px var(--vxl-energy)}
+@keyframes vxl-tail-strike{0%,10%,36%,100%{transform:translateY(0) rotate(0)}18%{transform:translateY(-3px) rotate(-9deg)}24%{transform:translateY(-5px) rotate(8deg)}30%{transform:translateY(-2px) rotate(-3deg)}}
+@keyframes vxl-energy-burst{0%,23%,43%,100%{opacity:0;transform:translate(0,0) scale(.3)}26%{opacity:.85;transform:translate(calc(var(--vxl-x) * .45),calc(var(--vxl-y) * .45)) scale(.9)}40%{opacity:0;transform:translate(var(--vxl-x),var(--vxl-y)) scale(.45)}}
+@media(prefers-reduced-motion:reduce){.vxl-scene>.vxl-fighter,.vxl-attack i{animation:none}.vxl-attack{display:none}}

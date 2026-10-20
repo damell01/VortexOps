@@ -143,6 +143,28 @@ class StreamerLeaderboardTest extends TestCase
         Livewire::test(StreamerLeaderboard::class)->assertForbidden();
     }
 
+    public function test_leaderboard_uses_selected_buddies_and_matching_attack_effects_with_safe_varied_fallbacks(): void
+    {
+        $rivalUser = User::factory()->create(['buddy' => 'blastoise']);
+        $this->rival->update(['user_id' => $rivalUser->id]);
+        $this->show('Electric show', 300);
+        $this->show('Water show', 200, $this->rival);
+        $this->show('Unlinked host', 100, $this->outside);
+        $rows = $this->rows()->keyBy('title');
+        $this->assertSame('pikachu', $rows['Electric show']['buddy']);
+        $this->assertSame('electric', $rows['Electric show']['effect']);
+        $this->assertSame('blastoise', $rows['Water show']['buddy']);
+        $this->assertSame('water', $rows['Water show']['effect']);
+        $fallback = $rows['Unlinked host']['buddy'];
+        $this->assertFileExists(public_path('img/pokemon3d/'.$fallback.'.gif'));
+        $this->assertSame($fallback, $this->rows()->keyBy('title')['Unlinked host']['buddy']);
+        Livewire::test(StreamerLeaderboard::class)->assertSeeHtml('vxl-effect-electric')->assertSeeHtml('vxl-effect-water')->assertSeeHtml('/img/pokemon3d/blastoise.gif');
+        $rivalUser->update(['buddy' => '../../invalid']);
+        $fallback = $this->rows()->keyBy('title')['Water show']['buddy'];
+        $this->assertMatchesRegularExpression('/^[a-z0-9-]+$/', $fallback);
+        $this->assertFileExists(public_path('img/pokemon3d/'.$fallback.'.gif'));
+    }
+
     public function test_dashboard_embeds_compact_leaderboard_and_pagination_keeps_my_result_visible(): void
     {
         for ($i = 0; $i < 8; $i++) $this->show('Rival show '.$i, 1000 - $i, $this->rival);

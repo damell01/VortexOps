@@ -46,13 +46,21 @@ class StreamerShowLeaderboard
                 $value = $earnings;
                 if ($value === null || ! $host) continue;
                 $buddy = $host->user?->buddy;
-                $buddy = is_string($buddy) && preg_match('/^[a-z0-9-]+$/', $buddy) && is_file(public_path('img/pokemon3d/'.$buddy.'.gif')) ? $buddy : 'pikachu';
+                $buddy = is_string($buddy) && preg_match('/^[a-z0-9-]+$/', $buddy) && is_file(public_path('img/pokemon3d/'.$buddy.'.gif')) ? $buddy : ['pikachu', 'charizard', 'blastoise', 'gengar', 'dragonite', 'eevee', 'snorlax', 'lucario'][$host->id % 8];
                 $rows->push([
                     'show_id' => $show->id, 'streamer_id' => $host->id, 'name' => $host->name,
                     'title' => $show->title ?: 'Show #'.$show->id, 'date' => $show->show_date->format('M j'),
                     'channel' => $show->channel?->name ?? 'No channel', 'hosts' => $show->streamers->pluck('name')->all(),
                     'cohosted' => $show->streamers_count > 1,
                     'hours' => $hours, 'value' => $value, 'buddy' => $buddy,
+                    'effect' => match ($buddy) {
+                        'pikachu', 'raichu', 'pichu', 'jolteon', 'zapdos', 'ampharos', 'luxray' => 'electric',
+                        'charmander', 'charmeleon', 'charizard', 'flareon', 'arcanine', 'vulpix', 'ninetales', 'moltres' => 'fire',
+                        'squirtle', 'wartortle', 'blastoise', 'vaporeon', 'gyarados', 'lapras', 'mudkip', 'piplup' => 'water',
+                        'bulbasaur', 'ivysaur', 'venusaur', 'leafeon', 'chikorita', 'sprigatito', 'petilil' => 'leaf',
+                        'gengar', 'gastly', 'haunter', 'mew', 'mewtwo', 'espeon', 'abra', 'alakazam', 'lucario' => 'aura',
+                        default => 'stars',
+                    },
                     'mine' => $viewer->streamer?->id === $host->id || $show->streamers->contains('id', $viewer->streamer?->id),
                     'estimated' => $show->completed_earnings === null,
                 ]);

@@ -101,11 +101,12 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
             }
         }
 
-        // fulfillment and timekeeping ship switched off, so their pages stay
-        // shut however the roles are configured.
+        // Owner-only tools, including the communications preview, stay closed
+        // even when a custom role is explicitly granted every page. Disabled
+        // fulfillment and timekeeping pages also stay closed.
         sort($denied);
         $this->assertSame([
-            'AppSettings', 'Businesses', 'ImportStatus', 'InventoryCount', 'InventoryImporter',
+            'AppSettings', 'Businesses', 'Communications', 'ImportStatus', 'InventoryCount', 'InventoryImporter',
             'NavigationManager', 'NoShowCleanup', 'PayRunBackfill', 'PaymentStructures',
             'PayrollOverview', 'PayrollSimulator', 'ShowDataAudit', 'TimeAttendance',
             'Timekeeping', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',

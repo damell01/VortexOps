@@ -125,15 +125,20 @@ class WhatnotSyncEngine
                 continue;
             }
 
-            $needle = '%' . strtolower($streamerAlias->alias) . '%';
+            // The alias as a whole word of the title, as every other match
+            // does. This was a substring search of the title and the whole raw
+            // import (links, the show's UUID), so a short alias turned up
+            // inside unrelated text and put the wrong streamer on a show.
+            $key = StreamerAlias::normalize($streamerAlias->alias);
+            if ($key === '') {
+                continue;
+            }
             $shows = Show::query()
                 ->where('whatnot_channel_id', $channel->id)
                 ->whereDoesntHave('streamers')
-                ->where(function ($query) use ($needle) {
-                    $query->whereRaw('LOWER(COALESCE(title, \'\')) LIKE ?', [$needle])
-                        ->orWhereRaw('LOWER(CAST(raw_import_payload AS CHAR)) LIKE ?', [$needle]);
-                })
-                ->get();
+                ->whereRaw('LOWER(COALESCE(title, \'\')) LIKE ?', ['%'.strtolower($streamerAlias->alias).'%'])
+                ->get()
+                ->filter(fn (Show $show) => preg_match('/(?:^| )'.preg_quote($key, '/').'(?: |$)/', StreamerAlias::normalize($show->title)) === 1);
 
             foreach ($shows as $show) {
                 $show->streamers()->syncWithoutDetaching([

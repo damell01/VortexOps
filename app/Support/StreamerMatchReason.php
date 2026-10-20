@@ -19,7 +19,7 @@ class StreamerMatchReason
         $title = StreamerAlias::normalize($show->title);
         $streamers = $show->streamers()->with('aliases')->get();
         $lines = [];
-        $matchedAny = false;
+        $titleMatched = false;
 
         foreach ($streamers as $streamer) {
             $hit = null;
@@ -33,12 +33,18 @@ class StreamerMatchReason
                     }
                 }
             }
-            $matchedAny = $matchedAny || $hit !== null;
+            $titleMatched = $titleMatched || $hit !== null;
+            // What the importer that attached them wrote down at the time.
+            $hit ??= collect(is_array($show->ai_streamer_suggestion) ? $show->ai_streamer_suggestion : [])
+                ->first(fn ($s) => (int) ($s['streamer_id'] ?? 0) === $streamer->id && filled($s['reason'] ?? null))['reason'] ?? null;
+            if ($hit !== null && ! str_starts_with($hit, 'their') && ! str_starts_with($hit, 'the alias')) {
+                $hit = 'matched automatically when imported ('.$hit.')';
+            }
             $lines[] = $streamer->name.': '.($hit ?? 'picked by hand — the title doesn’t name them');
         }
 
         $host = self::hostInTitle($show->title);
-        if ($host && $streamers->isNotEmpty() && ! $matchedAny) {
+        if ($host && $streamers->isNotEmpty() && ! $titleMatched) {
             $lines[] = "The title names “{$host}”, which isn’t on any of these streamers’ profiles.";
         }
 

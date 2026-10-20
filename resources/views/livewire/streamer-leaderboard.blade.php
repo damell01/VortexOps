@@ -7,7 +7,7 @@
 @endphp
 <section class="vxl" aria-labelledby="vxl-title-{{ $this->getId() }}" data-vx-page="streamer-leaderboard">
     <div class="vxl-head">
-        <div class="vxl-heading"><x-filament::icon icon="heroicon-o-trophy" /><div><h2 id="vxl-title-{{ $this->getId() }}">Top Net Shows</h2><p>{{ $from->format('M j') }}–{{ $to->format('M j, Y') }} · {{ \App\Support\BusinessTime::zone() }}</p></div></div>
+        <div class="vxl-heading"><x-filament::icon icon="heroicon-o-trophy" /><div><h2 id="vxl-title-{{ $this->getId() }}">Top Net Shows</h2><p>{{ $from->format('M j') }}–{{ $to->format('M j, Y') }}</p></div></div>
         <div class="vxl-controls" role="group" aria-label="Leaderboard period">
             @foreach ($this::PERIODS as $value => $label)
                 <button type="button" wire:click="$set('period', '{{ $value }}')" aria-pressed="{{ $period === $value ? 'true' : 'false' }}" wire:loading.attr="disabled">{{ $label }}</button>

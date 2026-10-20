@@ -19,7 +19,7 @@ class Buddy
 
     public const NONE = 'none';
 
-    /** Every sprite in public/img/pokemon that can be picked, in picker order. */
+    /** Every sprite in public/img/pokemon3d that can be picked, in picker order. */
     public const CHOICES = ['pikachu', 'eevee', 'bulbasaur', 'charmander', 'squirtle', 'charizard', 'mew', 'gengar', 'snorlax', 'psyduck', 'meowth', 'espeon', 'umbreon', 'clefairy'];
 
     /** The sprite to show, or null when they switched the buddy off. */

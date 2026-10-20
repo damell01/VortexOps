@@ -9,7 +9,7 @@
     <div class="vxr" data-vx-page="reports-overview">
         <div class="vxr-head">
             <div>
-                <h1 class="vxr-title">Reports Overview<img class="vx-sprite vx-mew" src="/img/pokemon/mew.gif" alt="" aria-hidden="true"></h1>
+                <h1 class="vxr-title">Reports Overview<img class="vx-sprite vx-mew" src="/img/pokemon3d/mew.gif" alt="" aria-hidden="true"></h1>
                 <p class="vxr-subtitle">Business performance and financial reporting in one place.</p>
             </div>
             <div class="vxr-actions">

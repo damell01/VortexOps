@@ -201,7 +201,7 @@ function anchor() {
 function img(species, cls) {
     const el = new Image();
     el.className = cls; el.alt = ''; el.decoding = 'async';
-    el.src = `/img/pokemon/${Math.random() < 0.02 ? 'shiny/' : ''}${species}.gif`;
+    el.src = `/img/pokemon3d/${Math.random() < 0.02 ? 'shiny/' : ''}${species}.gif`;
     return el;
 }
 function el(tag, cls, text) {

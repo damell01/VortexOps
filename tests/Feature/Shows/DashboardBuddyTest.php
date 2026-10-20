@@ -35,7 +35,7 @@ class DashboardBuddyTest extends TestCase
             ->assertSee('Choose your dashboard buddy')
             ->call('chooseBuddy', 'gengar')
             ->assertDontSee('Choose your dashboard buddy')
-            ->assertSeeHtml('/img/pokemon/gengar.gif');
+            ->assertSeeHtml('/img/pokemon3d/gengar.gif');
 
         $this->assertSame('gengar', $this->user->fresh()->buddy);
     }
@@ -53,7 +53,7 @@ class DashboardBuddyTest extends TestCase
         $this->user->forceFill(['buddy' => 'snorlax'])->save();
         $this->actingAs($this->user->fresh());
 
-        Livewire::test(StreamerHome::class)->assertDontSee('Choose your dashboard buddy')->assertSeeHtml('/img/pokemon/snorlax.gif');
+        Livewire::test(StreamerHome::class)->assertDontSee('Choose your dashboard buddy')->assertSeeHtml('/img/pokemon3d/snorlax.gif');
     }
 
     public function test_none_hides_the_buddy_and_random_is_steady_for_a_day(): void
@@ -78,7 +78,7 @@ class DashboardBuddyTest extends TestCase
     public function test_every_choice_has_a_sprite(): void
     {
         foreach (Buddy::CHOICES as $buddy) {
-            $this->assertFileExists(public_path("img/pokemon/{$buddy}.gif"));
+            $this->assertFileExists(public_path("img/pokemon3d/{$buddy}.gif"));
         }
     }
 

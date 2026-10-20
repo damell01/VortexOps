@@ -65,7 +65,7 @@
             {{-- Its reactions live in resources/js/buddy.js; wire:ignore.self keeps where it is standing across updates. --}}
             <button type="button" class="vsh-hero-mon" wire:ignore.self data-buddy data-name="{{ $first }}"
                     @if ($next && $nextStart) data-show-at="{{ $nextStart->getTimestampMs() }}" data-show-id="{{ $next->id }}" @endif
-                    title="Say hi to {{ \App\Support\Buddy::name($buddy) }}"><span class="vsh-mon-body"><img src="/img/pokemon/{{ $buddy }}.gif" alt="Your buddy, {{ \App\Support\Buddy::name($buddy) }}"></span></button>
+                    title="Say hi to {{ \App\Support\Buddy::name($buddy) }}"><span class="vsh-mon-body"><img src="/img/pokemon3d/{{ $buddy }}.gif" alt="Your buddy, {{ \App\Support\Buddy::name($buddy) }}"></span></button>
             <div class="vsh-bubble" wire:ignore.self role="status" aria-live="polite" hidden>
                 <span class="vsh-bubble-text" wire:ignore></span>
                 <button type="button" class="vsh-bubble-change" wire:click="openBuddyPicker">Change buddy</button>
@@ -197,7 +197,7 @@
                     };
                 @endphp
                 <div @class(['vsh-empty', 'is-sleepy' => $emptyMon === 'snorlax'])>
-                    <img src="/img/pokemon/{{ $emptyMon }}.gif" alt="" aria-hidden="true">
+                    <img src="/img/pokemon3d/{{ $emptyMon }}.gif" alt="" aria-hidden="true">
                     @if ($emptyMon === 'snorlax')<span class="vsh-zzz" aria-hidden="true">z<i>z</i><b>z</b></span>@endif
                     <p class="font-semibold">{{ $emptyTitle }}</p>
                     <p class="vsh-meta">{{ $emptyText }}</p>
@@ -237,7 +237,7 @@
             <div class="vsh-buddy-grid">
                 @foreach (\App\Support\Buddy::CHOICES as $choice)
                     <button type="button" wire:click="chooseBuddy('{{ $choice }}')" @class(['is-current' => auth()->user()?->buddy === $choice])>
-                        <img src="/img/pokemon/{{ $choice }}.gif" alt="" aria-hidden="true">
+                        <img src="/img/pokemon3d/{{ $choice }}.gif" alt="" aria-hidden="true">
                         <span>{{ \App\Support\Buddy::name($choice) }}</span>
                     </button>
                 @endforeach

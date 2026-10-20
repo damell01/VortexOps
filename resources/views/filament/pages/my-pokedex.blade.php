@@ -13,7 +13,7 @@
             @forelse ($eggs as $egg)
                 <div class="vxp-egg-row">
                     @if ($egg->hatched_at && $egg->hatched)
-                        <img src="/img/pokemon/{{ $egg->hatched->shiny ? 'shiny/' : '' }}{{ $egg->hatched->species }}.gif" alt="" class="vxp-egg-mon">
+                        <img src="/img/pokemon3d/{{ $egg->hatched->shiny ? 'shiny/' : '' }}{{ $egg->hatched->species }}.gif" alt="" class="vxp-egg-mon">
                         <span><b>Hatched {{ \App\Support\Pokedex::name($egg->hatched->species) }}</b><small>{{ $egg->hatched_at->diffForHumans() }}</small></span>
                     @else
                         <span class="vxp-egg" aria-hidden="true"></span>
@@ -37,7 +37,7 @@
         </div>
         @foreach ($trades['incoming'] as $t)
             <div class="vxp-trade is-in">
-                <img src="/img/pokemon/{{ $t->offered?->species }}.gif" alt=""><span class="vxp-arrow" aria-hidden="true">⇄</span><img src="/img/pokemon/{{ $t->requested?->species }}.gif" alt="">
+                <img src="/img/pokemon3d/{{ $t->offered?->species }}.gif" alt=""><span class="vxp-arrow" aria-hidden="true">⇄</span><img src="/img/pokemon3d/{{ $t->requested?->species }}.gif" alt="">
                 <span class="min-w-0 flex-1"><b>{{ $t->proposer?->name }}</b> offers {{ \App\Support\Pokedex::name($t->offered?->species ?? '') }} for your {{ \App\Support\Pokedex::name($t->requested?->species ?? '') }}</span>
                 <button type="button" class="vxp-btn primary" wire:click="answerTrade({{ $t->id }}, true)">Accept</button>
                 <button type="button" class="vxp-btn" wire:click="answerTrade({{ $t->id }}, false)">Decline</button>
@@ -45,7 +45,7 @@
         @endforeach
         @foreach ($trades['outgoing'] as $t)
             <div class="vxp-trade">
-                <img src="/img/pokemon/{{ $t->offered?->species }}.gif" alt=""><span class="vxp-arrow" aria-hidden="true">⇄</span><img src="/img/pokemon/{{ $t->requested?->species }}.gif" alt="">
+                <img src="/img/pokemon3d/{{ $t->offered?->species }}.gif" alt=""><span class="vxp-arrow" aria-hidden="true">⇄</span><img src="/img/pokemon3d/{{ $t->requested?->species }}.gif" alt="">
                 <span class="min-w-0 flex-1">Waiting on <b>{{ $t->recipient?->name }}</b>: your {{ \App\Support\Pokedex::name($t->offered?->species ?? '') }} for their {{ \App\Support\Pokedex::name($t->requested?->species ?? '') }}</span>
                 <button type="button" class="vxp-btn" wire:click="answerTrade({{ $t->id }}, false)">Cancel</button>
             </div>

@@ -7,7 +7,7 @@ namespace App\Support;
  * types, regions, evolution lines, the species you can only earn (never
  * roll from a report), and the little pools visitors are drawn from.
  *
- * Every species named here has a sprite and a shiny in public/img/pokemon.
+ * Every species named here has a sprite and a shiny in public/img/pokemon3d.
  */
 class PokemonData
 {

@@ -7,7 +7,7 @@
         {{-- Their birthday: their buddy (or Pikachu) visits all day in a party hat. --}}
         <div class="vx-bday" title="Happy birthday, {{ \Illuminate\Support\Str::before($me->name, ' ') ?: $me->name }}!">
             <span class="vx-bday-hat" aria-hidden="true"></span>
-            <img src="/img/pokemon/{{ \App\Support\Buddy::chosen($me) ? \App\Support\Buddy::visitor($me) : 'pikachu' }}.gif" alt="">
+            <img src="/img/pokemon3d/{{ \App\Support\Buddy::chosen($me) ? \App\Support\Buddy::visitor($me) : 'pikachu' }}.gif" alt="">
             <span class="vx-bday-say">Happy birthday, {{ \Illuminate\Support\Str::before($me->name, ' ') ?: $me->name }}!</span>
         </div>
     @endif
@@ -20,7 +20,7 @@
             <button type="button" class="vx-season-peek {{ $class }}" tabindex="-1" data-vx-visitors='@json($visitors[$side])'
                     title="{{ $season['title'] ?? 'Hi!' }} (click to send them away)"
                     @click="gone = true; try { sessionStorage.setItem('vx-season-gone', '1') } catch (e) {}">
-                <img src="/img/pokemon/{{ $visitors[$side][0] }}.gif" alt="">
+                <img src="/img/pokemon3d/{{ $visitors[$side][0] }}.gif" alt="">
                 @if($side === 'top' && $visit['rare'])<span style="position:absolute;right:-8px;bottom:0;font-size:15px" aria-hidden="true">✨</span>@endif
             </button>
         @endforeach

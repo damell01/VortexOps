@@ -142,14 +142,14 @@ class CelebrationsTest extends TestCase
         foreach (Season::EVENTS as $key => $event) {
             $names = [...array_keys($event['species']), ...$event['boost'], ...array_values($event['swap']), ...$event['pool']];
             foreach (array_unique($names) as $species) {
-                $this->assertFileExists(public_path("img/pokemon/{$species}.gif"), "{$key}: {$species}");
-                $this->assertFileExists(public_path("img/pokemon/shiny/{$species}.gif"), "{$key}: shiny {$species}");
+                $this->assertFileExists(public_path("img/pokemon3d/{$species}.gif"), "{$key}: {$species}");
+                $this->assertFileExists(public_path("img/pokemon3d/shiny/{$species}.gif"), "{$key}: shiny {$species}");
             }
             foreach ($event['boost'] as $species) $this->assertArrayHasKey($species, Pokedex::DEX, "{$key} boosts {$species}, which must be in the Pokédex");
             foreach (array_keys($event['species']) as $species) $this->assertArrayNotHasKey($species, Pokedex::DEX, "{$species} is event-only");
         }
         foreach (['chansey', 'machamp', 'kangaskhan', 'porygon', 'bronzong', 'smeargle', 'hoothoot', 'noctowl', 'alakazam', 'kadabra', 'slowbro', 'slowking', 'swablu', 'unown', 'bidoof', 'pelipper', 'wingull', 'voltorb', 'sudowoodo', 'chatot', 'sableye', 'machoke'] as $species) {
-            $this->assertFileExists(public_path("img/pokemon/{$species}.gif"), "celebration sprite {$species}");
+            $this->assertFileExists(public_path("img/pokemon3d/{$species}.gif"), "celebration sprite {$species}");
         }
     }
 
@@ -232,7 +232,7 @@ class CelebrationsTest extends TestCase
 
         foreach (['2026-09-10', '2026-10-20', '2026-11-12', '2026-12-24', '2027-02-14', '2027-04-02', '2027-07-04'] as $day) {
             foreach (Season::visitors(CarbonImmutable::parse($day)) as $cast) {
-                foreach ($cast as $mon) $this->assertFileExists(public_path("img/pokemon/{$mon}.gif"), "{$day}: {$mon}");
+                foreach ($cast as $mon) $this->assertFileExists(public_path("img/pokemon3d/{$mon}.gif"), "{$day}: {$mon}");
             }
         }
     }

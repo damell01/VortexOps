@@ -32,7 +32,7 @@ function sprite(species, cls) {
     img.className = cls;
     img.alt = '';
     // About one in fifty is shiny, like a catch.
-    img.src = `/img/pokemon/${Math.random() < 0.02 ? 'shiny/' : ''}${species}.gif`;
+    img.src = `/img/pokemon3d/${Math.random() < 0.02 ? 'shiny/' : ''}${species}.gif`;
     return img;
 }
 function layer(cls, ms) {

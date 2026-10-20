@@ -32,7 +32,7 @@ class PokemonTouchesTest extends TestCase
         $this->assertSame('pokemon-day', Season::current(CarbonImmutable::create(2027, 2, 27)));
 
         foreach (Season::SEASONS as $season) {
-            $this->assertFileExists(public_path("img/pokemon/{$season['mon']}.gif"));
+            $this->assertFileExists(public_path("img/pokemon3d/{$season['mon']}.gif"));
         }
     }
 
@@ -52,8 +52,8 @@ class PokemonTouchesTest extends TestCase
 
     public function test_every_sprite_has_a_shiny_twin(): void
     {
-        foreach (glob(public_path('img/pokemon/*.gif')) as $sprite) {
-            $this->assertFileExists(public_path('img/pokemon/shiny/'.basename($sprite)), basename($sprite).' has no shiny');
+        foreach (glob(public_path('img/pokemon3d/*.gif')) as $sprite) {
+            $this->assertFileExists(public_path('img/pokemon3d/shiny/'.basename($sprite)), basename($sprite).' has no shiny');
         }
     }
 
@@ -72,13 +72,13 @@ class PokemonTouchesTest extends TestCase
 
         $this->assertStringContainsString('vx-tip-pl-breakdown', $html);
         $this->assertStringContainsString('Click any show.', $html);
-        $this->assertStringContainsString('/img/pokemon/rotom.gif', $html);
+        $this->assertStringContainsString('/img/pokemon3d/rotom.gif', $html);
     }
 
     public function test_every_buddy_has_a_sprite(): void
     {
         foreach (Buddy::CHOICES as $buddy) {
-            $this->assertFileExists(public_path("img/pokemon/{$buddy}.gif"));
+            $this->assertFileExists(public_path("img/pokemon3d/{$buddy}.gif"));
         }
     }
 

@@ -98,7 +98,7 @@ function rest(container) {
     const box = document.createElement('div');
     box.className = 'vx-rest';
     box.setAttribute('aria-hidden', 'true');
-    box.innerHTML = `<span class="vx-rest-ball"></span><img class="vx-rest-mon" alt="" src="/img/pokemon/${mon}.gif"><i class="vx-rest-z">z z</i>`;
+    box.innerHTML = `<span class="vx-rest-ball"></span><img class="vx-rest-mon" alt="" src="/img/pokemon3d/${mon}.gif"><i class="vx-rest-z">z z</i>`;
     container.prepend(box);
 }
 function emptyIn(scope) {

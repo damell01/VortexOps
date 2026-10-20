@@ -81,6 +81,6 @@ html .fi-body button.fi-toggle {
     content: ''; position: absolute; right: 14px; bottom: 10px; width: 34px; height: 34px; pointer-events: none;
     background: center / contain no-repeat; image-rendering: pixelated; opacity: .9;
 }
-.fi-no-database .fi-no-notification.fi-status-success::after { background-image: url('/img/pokemon/pikachu.gif'); }
-.fi-no-database .fi-no-notification:is(.fi-status-warning, .fi-status-danger)::after { background-image: url('/img/pokemon/psyduck.gif'); }
+.fi-no-database .fi-no-notification.fi-status-success::after { background-image: url('/img/pokemon3d/pikachu.gif'); }
+.fi-no-database .fi-no-notification:is(.fi-status-warning, .fi-status-danger)::after { background-image: url('/img/pokemon3d/psyduck.gif'); }
 @media (max-width: 640px) { .fi-no-database .fi-no-notification::after { width: 26px; height: 26px; right: 10px; bottom: 8px; } }

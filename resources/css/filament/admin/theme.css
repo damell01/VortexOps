@@ -2,6 +2,7 @@
 @import '../../components.css';
 @import '../../workflow.css';
 @import '../../reports.css';
+@import '../../streamer-leaderboard.css';
 
 @source '../../../../app/Filament/**/*.php';
 @source '../../../views/**/*.blade.php';

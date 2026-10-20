@@ -79,7 +79,7 @@ class StreamerPerformanceKpisTest extends TestCase
     public function test_week_month_and_year_views_have_exact_show_date_and_pay_boundaries(): void
     {
         foreach (['2026-10-19', '2026-10-12', '2026-09-25', '2026-01-10', '2025-12-30'] as $date) $this->pay($this->show($date), 10, 'paid');
-        $page = Livewire::test(StreamerHome::class);
+        $page = Livewire::test(StreamerHome::class)->assertSet('period', 'week');
         foreach (['week' => 1, 'last_week' => 1, 'month' => 2, 'last_month' => 1, 'year' => 4, 'last_year' => 1] as $period => $count) {
             $page->set('period', $period)->assertOk();
             $n = $page->instance()->numbers();

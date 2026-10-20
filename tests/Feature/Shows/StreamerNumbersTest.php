@@ -72,7 +72,7 @@ class StreamerNumbersTest extends TestCase
         Payout::create(['show_id' => $b->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 45.5, 'gross_show_revenue' => 500, 'status' => 'draft']);
         Payout::create(['show_id' => $c->id, 'streamer_id' => $this->streamer->id, 'payout_type' => 'profit_share', 'calculated_payout' => 30, 'gross_show_revenue' => 1000, 'status' => 'approved']);
 
-        $n = Livewire::test(StreamerHome::class)->instance()->numbers();
+        $n = Livewire::test(StreamerHome::class)->set('period', 'month')->instance()->numbers();
 
         $this->assertSame(3, $n['shows']);
         $this->assertSame(2500.0, $n['gross']);

@@ -128,7 +128,7 @@ class StreamerLeaderboardTest extends TestCase
         $page = Livewire::test(StreamerLeaderboard::class)->assertSee('Team show')->assertSee('Other show');
         $emptyChannel = WhatnotChannel::create(['name' => 'Empty channel', 'status' => 'active']);
         ChannelContext::setActive($emptyChannel->id);
-        Livewire::test(StreamerLeaderboard::class)->assertSee('The league is warming up')->assertDontSee('Team show');
+        Livewire::test(StreamerLeaderboard::class)->assertSee('No shows on the board yet')->assertDontSee('Team show');
     }
 
     public function test_missing_profile_and_unrelated_roles_cannot_open_leaderboard(): void
@@ -143,11 +143,28 @@ class StreamerLeaderboardTest extends TestCase
         Livewire::test(StreamerLeaderboard::class)->assertForbidden();
     }
 
-    public function test_dashboard_embeds_leaderboard_and_pagination_keeps_my_result_outside_top_five(): void
+    public function test_dashboard_embeds_compact_leaderboard_and_pagination_keeps_my_result_visible(): void
     {
         for ($i = 0; $i < 8; $i++) $this->show('Rival show '.$i, 1000 - $i, $this->rival);
         $this->show('My best', 100);
-        Livewire::test(StreamerLeaderboard::class)->assertSee('Your best show: #9')->assertSee('5 of 9 shows')->call('showMore')->assertSee('9 of 9 shows');
-        Livewire::test(\App\Filament\Pages\DashboardImproved::class)->assertSee('Top Net Shows')->assertSee('Vortex League');
+        Livewire::test(StreamerLeaderboard::class)
+            ->assertSee('Your best show: #9')
+            ->assertSee('Showing 1–6 of 9 shows')
+            ->assertSee('Rival show 5')
+            ->assertDontSee('Rival show 6')
+            ->call('goToPage', 2)
+            ->assertSee('Showing 7–9 of 9 shows')
+            ->assertSee('Rival show 6')
+            ->assertSee('My best')
+            ->assertDontSee('Rival show 5')
+            ->assertDontSee('Rival show 0')
+            ->set('period', 'month')
+            ->assertSet('page', 1)
+            ->assertSee('Showing 1–6 of 9 shows')
+            ->call('goToPage', 999)
+            ->assertSet('page', 2)
+            ->call('goToPage', -1)
+            ->assertSet('page', 1);
+        Livewire::test(\App\Filament\Pages\DashboardImproved::class)->assertSee('Top Net Shows')->assertSee('This week')->assertSee('This month');
     }
 }

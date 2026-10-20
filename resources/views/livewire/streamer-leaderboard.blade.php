@@ -1,51 +1,71 @@
 @php
     $money = fn ($v) => ($v < 0 ? '-$' : '$').number_format(abs($v), 2);
-    $visible = $rows->take(min(max(5, $shown), 100));
     $mine = $rows->firstWhere('mine', true);
     $leader = $rows->first();
     $sprite = fn ($row) => '/img/pokemon3d/'.$row['buddy'].'.gif';
+    $pageNumbers = collect([1, $page - 1, $page, $page + 1, $pages])->filter(fn ($n) => $n >= 1 && $n <= $pages)->unique()->sort()->values();
 @endphp
 <section class="vxl" aria-labelledby="vxl-title-{{ $this->getId() }}" data-vx-page="streamer-leaderboard">
     <div class="vxl-head">
-        <div><span class="vxl-kicker"><x-filament::icon icon="heroicon-o-trophy" /> Vortex League</span><h2 id="vxl-title-{{ $this->getId() }}">Top Net Shows</h2><p>{{ $from->format('M j') }}–{{ $to->format('M j, Y') }} · {{ \App\Support\BusinessTime::zone() }}</p></div>
-        <div class="vxl-controls">
-            <label><span class="sr-only">Leaderboard period</span><select wire:model.live="period" aria-label="Leaderboard period">@foreach ($this::PERIODS as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></label>
+        <div class="vxl-heading"><x-filament::icon icon="heroicon-o-trophy" /><div><h2 id="vxl-title-{{ $this->getId() }}">Top Net Shows</h2><p>{{ $from->format('M j') }}–{{ $to->format('M j, Y') }} · {{ \App\Support\BusinessTime::zone() }}</p></div></div>
+        <div class="vxl-controls" role="group" aria-label="Leaderboard period">
+            @foreach ($this::PERIODS as $value => $label)
+                <button type="button" wire:click="$set('period', '{{ $value }}')" aria-pressed="{{ $period === $value ? 'true' : 'false' }}" wire:loading.attr="disabled">{{ $label }}</button>
+            @endforeach
         </div>
     </div>
-    <div class="vxl-toolbar"><p>Shows ranked by Whatnot net earnings · highest first</p></div>
-    <div wire:loading role="status" class="vxl-loading">Updating league standings…</div>
-    <div wire:loading.class="vxl-updating" wire:target="period">
+    <div wire:loading role="status" class="vxl-loading">Updating standings…</div>
+    <div wire:loading.class="vxl-updating">
         @if ($leader)
-            <div class="vxl-podium">
-                @foreach ($rows->take(3) as $i => $row)
-                    <article @class(['vxl-podium-card', 'vxl-podium-first' => $i === 0, 'vxl-is-mine' => $row['mine']]) wire:key="podium-{{ $row['show_id'] }}-{{ $row['streamer_id'] }}">
-                        <span class="vxl-medal vxl-medal-{{ min($row['rank'], 4) }}">#{{ $row['rank'] }}</span>
-                        <span class="vxl-title-badge">{{ $row['rank'] === 1 ? 'League Champion' : ($row['rank'] <= 3 ? 'Elite Trainer' : 'Challenger') }}</span>
-                        <img src="{{ $sprite($row) }}" alt="" aria-hidden="true" loading="lazy" width="80" height="80">
-                        <h3>{{ implode(' + ', $row['hosts']) }}@if ($row['mine'])<span class="vxl-you">You</span>@endif</h3>
-                        <p class="vxl-show">{{ $row['title'] }}</p>
-                        <strong @class(['vxl-score', 'vxl-loss' => $row['value'] < 0])>{{ $money($row['value']) }}</strong>
-                        <p class="vxl-meta">{{ $row['channel'] }} · {{ $row['date'] }}@if ($row['hours']) · {{ number_format($row['hours'], 1) }}h @endif</p>
-                        <p class="vxl-meta">@if ($row['cohosted'])Cohosted show · @endif{{ $row['estimated'] ? 'Estimated net' : 'Settled net' }}</p>
-                    </article>
-                @endforeach
-            </div>
+            @if ($page === 1)
+                <div class="vxl-podium">
+                    @foreach ($visible->take(3) as $i => $row)
+                        <article @class(['vxl-podium-card', 'vxl-place-'.($i + 1), 'vxl-podium-first' => $i === 0, 'vxl-is-mine' => $row['mine']]) wire:key="podium-{{ $row['show_id'] }}">
+                            <div class="vxl-scene">
+                                <span class="vxl-medal vxl-medal-{{ min($row['rank'], 4) }}">#{{ $row['rank'] }}</span>
+                                @if ($i === 0)<svg class="vxl-crown" viewBox="0 0 32 24" aria-hidden="true"><path d="M3 5l7 6 6-9 6 9 7-6-4 17H7z" fill="currentColor" stroke="#c58b13" stroke-width="1.5"/></svg>@endif
+                                <img src="{{ $sprite($row) }}" alt="" aria-hidden="true" loading="lazy" width="76" height="76">
+                            </div>
+                            <div class="vxl-podium-copy">
+                                <h3 title="{{ implode(' + ', $row['hosts']) }}">{{ implode(' + ', $row['hosts']) }}@if ($row['mine'])<span class="vxl-you">You</span>@endif</h3>
+                                <p class="vxl-show" title="{{ $row['title'] }}">{{ $row['title'] }}</p>
+                                <strong @class(['vxl-score', 'vxl-loss' => $row['value'] < 0])>{{ $money($row['value']) }}</strong>
+                                <p class="vxl-meta">{{ $row['estimated'] ? 'Estimated net' : 'Settled net' }}@if ($row['cohosted']) · Cohosted @endif</p>
+                                <p class="vxl-meta vxl-channel" title="{{ $row['channel'] }}">{{ $row['channel'] }} · {{ $row['date'] }}@if ($row['hours']) · {{ number_format($row['hours'], 1) }}h @endif</p>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
             @if ($mine)
-                <div class="vxl-your-rank"><x-filament::icon icon="heroicon-o-bolt" /><span><b>Your best show: #{{ $mine['rank'] }}</b>@if ($mine['rank'] === 1) · You’re sharing or holding the top spot!@else · {{ $money(max(0, $leader['value'] - $mine['value'])) }} behind the leader @endif</span></div>
-            @elseif (auth()->user()?->isStreamer())<p class="vxl-note">No qualifying show for you in this selection yet. Your result will appear when its data is available.</p>@endif
+                <div class="vxl-your-rank"><x-filament::icon icon="heroicon-o-bolt" /><span><b>Your best show: #{{ $mine['rank'] }}</b>@if ($mine['rank'] === 1) · At the top! @else · {{ $money(max(0, $leader['value'] - $mine['value'])) }} behind #1 @endif</span></div>
+            @endif
             <div class="vxl-list">
-                @foreach ($visible->slice(3) as $row)
-                    <article @class(['vxl-row', 'vxl-is-mine' => $row['mine']]) wire:key="standing-{{ $row['show_id'] }}-{{ $row['streamer_id'] }}">
-                        <span class="vxl-medal vxl-medal-{{ min($row['rank'], 4) }}">{{ $row['rank'] }}</span>
-                        <div class="vxl-row-copy"><b>{{ implode(' + ', $row['hosts']) }}@if ($row['mine'])<span class="vxl-you">You</span>@endif</b><span>{{ $row['title'] }}</span><small>{{ $row['channel'] }} · {{ $row['date'] }}@if ($row['cohosted']) · Cohosted @endif</small></div>
+                @foreach (($page === 1 ? $visible->slice(3) : $visible) as $row)
+                    <article @class(['vxl-row', 'vxl-is-mine' => $row['mine']]) wire:key="standing-{{ $row['show_id'] }}">
+                        <span class="vxl-medal">{{ $row['rank'] }}</span>
+                        <img class="vxl-row-avatar" src="{{ $sprite($row) }}" alt="" aria-hidden="true" loading="lazy" width="38" height="38">
+                        <div class="vxl-row-copy"><b>{{ implode(' + ', $row['hosts']) }}@if ($row['mine'])<span class="vxl-you">You</span>@endif</b><span title="{{ $row['title'] }}">{{ $row['title'] }}</span><small>{{ $row['channel'] }} · {{ $row['date'] }}@if ($row['cohosted']) · Cohosted @endif</small></div>
                         <div class="vxl-row-value"><strong @class(['vxl-loss' => $row['value'] < 0])>{{ $money($row['value']) }}</strong><small>{{ $row['estimated'] ? 'Estimated net' : 'Settled net' }}</small></div>
                     </article>
                 @endforeach
             </div>
-            <div class="vxl-footer"><span>{{ $visible->count() }} of {{ $rows->count() }} shows · Equal scores share a rank</span>@if ($rows->count() > $visible->count() && $visible->count() < 100)<button type="button" wire:click="showMore" wire:loading.attr="disabled">Show 10 more</button>@endif</div>
+            <div class="vxl-footer">
+                <span>Showing {{ ($page - 1) * $this::PER_PAGE + 1 }}–{{ ($page - 1) * $this::PER_PAGE + $visible->count() }} of {{ $rows->count() }} shows</span>
+                @if ($pages > 1)
+                    <nav class="vxl-pagination" aria-label="Leaderboard pages">
+                        <button type="button" wire:click="goToPage({{ $page - 1 }})" @disabled($page === 1) wire:loading.attr="disabled" aria-label="Previous leaderboard page">‹ <span>Previous</span></button>
+                        @foreach ($pageNumbers as $n)
+                            @if ($loop->index > 0 && $n > $pageNumbers[$loop->index - 1] + 1)<span aria-hidden="true">…</span>@endif
+                            <button type="button" wire:click="goToPage({{ $n }})" @if ($page === $n) aria-current="page" @endif aria-label="Leaderboard page {{ $n }}" wire:loading.attr="disabled">{{ $n }}</button>
+                        @endforeach
+                        <button type="button" wire:click="goToPage({{ $page + 1 }})" @disabled($page === $pages) wire:loading.attr="disabled" aria-label="Next leaderboard page"><span>Next</span> ›</button>
+                    </nav>
+                @endif
+            </div>
         @else
-            <div class="vxl-empty"><img src="/img/pokemon3d/eevee.gif" alt="" width="72" height="72"><h3>The league is warming up</h3><p>No qualifying results yet. Try another period while shows are awaiting their net earnings.</p></div>
+            <div class="vxl-empty"><img src="/img/pokemon3d/eevee.gif" alt="" width="56" height="56"><h3>No shows on the board yet</h3><p>Results appear once a finished show has net earnings.</p></div>
         @endif
     </div>
-    <p class="vxl-note">Across all streamers{{ \App\Support\ChannelContext::current() ? ' on '.\App\Support\ChannelContext::current()->name : '' }}. Each show appears once, with cohosts credited together. Net means Whatnot earnings after its fees, before product costs and pay. Shows awaiting earnings are excluded. Estimates can change as shows settle.</p>
+    <p class="vxl-note" title="Whatnot earnings after platform fees, before product costs and pay. Each show appears once with cohosts credited together. Equal scores share a rank.">Whatnot net · Across all streamers · Estimates update as shows settle</p>
 </section>

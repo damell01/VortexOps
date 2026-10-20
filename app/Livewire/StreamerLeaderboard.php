@@ -13,8 +13,10 @@ class StreamerLeaderboard extends Component
 {
     public const PERIODS = ['week' => 'This week', 'month' => 'This month'];
 
+    public const PER_PAGE = 6;
+
     public string $period = 'week';
-    public int $shown = 5;
+    public int $page = 1;
 
     public static function canView(): bool
     {
@@ -24,10 +26,10 @@ class StreamerLeaderboard extends Component
 
     public function mount(): void { abort_unless(static::canView(), 403); }
 
-    public function updated(): void
+    public function updatedPeriod(): void
     {
         if (! array_key_exists($this->period, self::PERIODS)) $this->period = 'week';
-        $this->shown = 5;
+        $this->page = 1;
     }
 
     public function dates(): array
@@ -39,13 +41,16 @@ class StreamerLeaderboard extends Component
         };
     }
 
-    public function showMore(): void { $this->shown = min(max(5, $this->shown) + 10, 100); }
+    public function goToPage(int $page): void { $this->page = max(1, $page); }
 
     public function render()
     {
         abort_unless(static::canView(), 403);
         [$from, $to] = $this->dates();
         $rows = app(StreamerShowLeaderboard::class)->rows(auth()->user(), $from, $to, ChannelContext::currentId());
-        return view('livewire.streamer-leaderboard', compact('rows', 'from', 'to'));
+        $pages = max(1, (int) ceil($rows->count() / self::PER_PAGE));
+        $this->page = min(max(1, $this->page), $pages);
+        $visible = $rows->slice(($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
+        return view('livewire.streamer-leaderboard', compact('rows', 'visible', 'pages', 'from', 'to'));
     }
 }

@@ -265,14 +265,16 @@ class StreamerHome extends Component
         $started = fn (Show $s) => ! $s->startsAt(BusinessTime::zone())?->gt($now);
         $shows = $this->shows()->whereBetween('show_date', $between)
             ->whereDate('show_date', '<=', $now->toDateString())
-            ->with(['streamerLogEntry' => fn ($q) => $q->where('streamer_id', $streamerId)])
+            ->select(['id', 'title', 'show_date', 'start_time', 'end_time', 'show_duration', 'gross_revenue', 'whatnot_net', 'completed_earnings', 'analytics_sync_status', 'units_sold'])
+            ->with(['streamerLogEntry' => fn ($q) => $q->where('streamer_id', $streamerId)->select('id', 'show_id', 'streamer_id', 'hours_streamed')])
             ->get()->filter($started);
         // Resolve ownership from the payout itself: old paid shows remain in a
         // person's pay totals even if their show assignment was later removed.
         $pay = Payout::where('streamer_id', $streamerId)
             ->whereHas('show', fn ($q) => $q->inChannelContext()->whereBetween('show_date', $between)
                 ->whereDate('show_date', '<=', $now->toDateString())->where('status', '!=', 'cancelled'))
-            ->with(['show', 'batch:id,status'])->get()->filter(fn ($p) => $started($p->show));
+            ->select(['id', 'show_id', 'streamer_id', 'weekly_payout_batch_id', 'status', 'calculated_payout'])
+            ->with(['show:id,show_date,start_time,end_time,show_duration', 'batch:id,status'])->get()->filter(fn ($p) => $started($p->show));
         $isPaid = fn ($p) => $p->status === 'paid' || $p->batch?->status === 'paid';
         $isApproved = fn ($p) => $p->status === 'approved' || in_array($p->batch?->status, ['finalized', 'submitted_to_adp'], true);
         $paid = $pay->filter($isPaid);

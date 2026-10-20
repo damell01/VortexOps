@@ -316,9 +316,15 @@ class DashboardImproved extends Dashboard
                 ->map(function ($group) {
                     /** @var InventoryMovement $m */
                     $m = $group->first();
+                    // Quantity is stored unsigned; the direction comes from the
+                    // movement itself (before/after, or which way it moved), the
+                    // same rule the Inventory Log uses. A move between two
+                    // locations changes no total, so it carries no sign.
+                    $transfer = $m->from_location_id && $m->to_location_id && $m->quantity_before === null;
                     return [
-                        'name' => $m->item?->name ?: 'Inventory item',
-                        'qty' => (float) $group->sum(fn (InventoryMovement $row) => (float) ($row->quantity ?? 0)),
+                        'name' => ($m->item?->name ?: 'Inventory item').($m->item?->trashed() ? ' (deleted)' : ''),
+                        'qty' => (float) $group->sum(fn (InventoryMovement $row) => $row->signedChange()),
+                        'transfer' => (bool) $transfer,
                         'type' => ucfirst(str_replace('_', ' ', (string) $m->movement_type)),
                         'time' => $m->created_at?->diffForHumans(),
                         '_at' => $m->created_at,

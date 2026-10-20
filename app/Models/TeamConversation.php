@@ -14,6 +14,7 @@ class TeamConversation extends Model
     {
         return $this->belongsToMany(User::class, 'team_conversation_members', 'conversation_id', 'user_id')->withPivot('last_read_message_id')->withTimestamps();
     }
+    public function latestMessage(): \Illuminate\Database\Eloquent\Relations\HasOne { return $this->hasOne(TeamMessage::class, 'conversation_id')->latestOfMany(); }
     public function messages(): HasMany { return $this->hasMany(TeamMessage::class, 'conversation_id'); }
     public function labelFor(User $viewer): string
     {

@@ -9,7 +9,7 @@ class TeamAnnouncement extends Model
     protected $guarded = ['id'];
     protected function casts(): array
     {
-        return ['role_ids' => 'array', 'user_ids' => 'array', 'show_banner' => 'boolean', 'email_requested' => 'boolean', 'push_requested' => 'boolean', 'is_preview' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'published_at' => 'datetime'];
+        return ['in_app_requested' => 'boolean', 'dismissible' => 'boolean', 'role_ids' => 'array', 'user_ids' => 'array', 'show_banner' => 'boolean', 'email_requested' => 'boolean', 'push_requested' => 'boolean', 'is_preview' => 'boolean', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'published_at' => 'datetime'];
     }
     public function phase(): string
     {

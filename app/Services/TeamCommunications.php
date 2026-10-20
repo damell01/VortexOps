@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -24,6 +25,21 @@ class TeamCommunications
     {
         $this->authorize($user);
         return TeamConversation::where('is_preview', true)->whereHas('members', fn ($q) => $q->where('users.id', $user->id));
+    }
+
+    public function inbox(User $user, string $search = '', string $filter = 'all'): Builder
+    {
+        $query = $this->conversations($user)->with(['members:id,name', 'latestMessage' => fn ($q) => $q->select('team_messages.id', 'team_messages.conversation_id', 'team_messages.body', 'team_messages.created_at')])->withCount('messages');
+        $unread = fn ($q) => $q->where(fn ($sender) => $sender->where('sender_id', '!=', $user->id)->orWhereNull('sender_id'))
+            ->whereRaw('team_messages.id > COALESCE((SELECT last_read_message_id FROM team_conversation_members WHERE conversation_id = team_messages.conversation_id AND user_id = ?), 0)', [$user->id]);
+        $query->withCount(['messages as unread_count' => $unread]);
+        if ($filter === 'unread') $query->whereHas('messages', $unread);
+        if ($filter === 'groups') $query->where('kind', 'group');
+        $search = mb_substr(trim($search), 0, 100);
+        if ($search !== '') $query->where(fn ($q) => $q->where('title', 'like', '%'.$search.'%')
+            ->orWhereHas('members', fn ($m) => $m->where('name', 'like', '%'.$search.'%')->where('users.id', '!=', $user->id))
+            ->orWhereHas('messages', fn ($m) => $m->where('body', 'like', '%'.$search.'%')));
+        return $query;
     }
 
     public function conversation(User $user, int $id): TeamConversation
@@ -57,23 +73,42 @@ class TeamCommunications
         });
     }
 
-    public function send(User $user, int $conversation, string $body, string $clientKey): TeamMessage
+    public function send(User $user, int $conversation, string $body, string $clientKey, array $uploads = []): TeamMessage
     {
         $this->authorize($user);
-        $data = Validator::make(['body' => trim($body), 'client_key' => $clientKey], ['body' => 'required|string|max:5000', 'client_key' => 'required|uuid'])->validate();
-        return DB::transaction(function () use ($user, $conversation, $data) {
-            $thread = $this->conversations($user)->lockForUpdate()->findOrFail($conversation);
-            $message = $thread->messages()->firstOrCreate(['client_key' => $data['client_key']], ['sender_id' => $user->id, 'body' => $data['body']]);
-            if ($message->wasRecentlyCreated) $thread->update(['last_message_at' => now()]);
-            $thread->members()->updateExistingPivot($user->id, ['last_read_message_id' => $message->id]);
-            // Intentionally no notifications, emails, pushes or broadcast events in preview.
-            return $message;
-        });
+        $this->conversation($user, $conversation);
+        $data = Validator::make(['body' => trim($body), 'client_key' => $clientKey, 'uploads' => $uploads], [
+            'body' => 'required_without:uploads|string|max:5000', 'client_key' => 'required|uuid',
+            'uploads' => 'array|max:3', 'uploads.*' => 'file|max:10240|mimes:pdf,png,jpg,jpeg,webp,txt,csv|extensions:pdf,png,jpg,jpeg,webp,txt,csv',
+        ])->validate();
+        $stored = [];
+        try {
+            return DB::transaction(function () use ($user, $conversation, $data, $uploads, &$stored) {
+                $thread = $this->conversations($user)->lockForUpdate()->findOrFail($conversation);
+                if ($existing = $thread->messages()->where('client_key', $data['client_key'])->first()) return $existing;
+                $message = $thread->messages()->create(['client_key' => $data['client_key'], 'sender_id' => $user->id, 'body' => $data['body']]);
+                foreach ($uploads as $upload) {
+                    $path = $upload->store('communications/'.$conversation, 'local');
+                    if (! is_string($path) || $path === '') throw new \RuntimeException('The attachment could not be stored. Please try again.');
+                    $stored[] = $path;
+                    $name = mb_substr(preg_replace('/[\x00-\x1F\x7F]/', '', basename(str_replace('\\', '/', $upload->getClientOriginalName()))), 0, 180) ?: 'attachment';
+                    $message->attachments()->create(['path' => $path, 'name' => $name, 'mime' => $upload->getMimeType() ?: 'application/octet-stream', 'size' => $upload->getSize()]);
+                }
+                $thread->update(['last_message_at' => now()]);
+                $thread->members()->updateExistingPivot($user->id, ['last_read_message_id' => $message->id]);
+                // Preview creates no recipient alerts, email, push or broadcasts.
+                return $message;
+            });
+        } catch (\Throwable $e) {
+            Storage::disk('local')->delete($stored);
+            throw $e;
+        }
     }
 
     public function saveAnnouncement(User $user, array $data, ?int $id = null): TeamAnnouncement
     {
         $this->authorize($user);
+        $data += ['in_app_requested' => true, 'dismissible' => true];
         $data['title'] = trim($data['title'] ?? '');
         $data['body'] = trim($data['body'] ?? '');
         $data = Validator::make($data, [
@@ -82,7 +117,7 @@ class TeamCommunications
             'audience' => ['required', Rule::in(['all', 'roles', 'users'])],
             'role_ids' => 'present|array|max:50', 'role_ids.*' => ['integer', 'distinct', Rule::exists('roles', 'id')->where('guard_name', 'web')],
             'user_ids' => 'present|array|max:500', 'user_ids.*' => 'integer|distinct|exists:users,id',
-            'show_banner' => 'required|boolean', 'email_requested' => 'required|boolean', 'push_requested' => 'required|boolean',
+            'in_app_requested' => 'required|boolean', 'dismissible' => 'required|boolean', 'show_banner' => 'required|boolean', 'email_requested' => 'required|boolean', 'push_requested' => 'required|boolean',
             'starts_at' => 'required|date_format:Y-m-d\TH:i', 'ends_at' => 'required|date_format:Y-m-d\TH:i|after:starts_at',
         ])->validate();
         if ($data['audience'] !== 'roles') $data['role_ids'] = [];
@@ -103,6 +138,7 @@ class TeamCommunications
         $record = TeamAnnouncement::where('is_preview', true)->findOrFail($id);
         if ($record->ends_at->lte(now())) throw ValidationException::withMessages(['announcement' => 'Choose an end time in the future before activating this preview.']);
         $record->update(['status' => 'published', 'published_at' => now()]);
+        session()->forget('communications.dismissed.'.$id);
     }
 
     public function archive(User $user, int $id): void

@@ -193,6 +193,92 @@ class CommunicationsPreviewTest extends TestCase
         $this->service->publishPreview($this->owner, $a->id);
     }
 
+    public function test_inbox_search_groups_and_unread_counts_use_membership_and_read_markers(): void
+    {
+        $direct = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);
+        $group = $this->service->start($this->owner, ['kind' => 'group', 'title' => 'Inventory crew', 'members' => [$this->person->id]]);
+        foreach (['Needle one', 'Needle two'] as $body) $direct->messages()->create(['sender_id' => $this->person->id, 'body' => $body, 'client_key' => (string) Str::uuid()]);
+        $this->assertSame(2, $this->service->inbox($this->owner)->find($direct->id)->unread_count);
+        $this->assertSame([$direct->id], $this->service->inbox($this->owner, 'Needle')->pluck('id')->all());
+        $this->assertSame([$direct->id], $this->service->inbox($this->owner, '', 'unread')->pluck('id')->all());
+        $this->assertSame([$group->id], $this->service->inbox($this->owner, '', 'groups')->pluck('id')->all());
+        Livewire::test(Communications::class)->assertSeeHtml('aria-label="2 unread messages"')->call('selectConversation', $direct->id)->assertDontSeeHtml('aria-label="2 unread messages"')
+            ->set('messageSearch', 'Needle one')->assertSee('Needle one');
+        $this->assertSame(0, $this->service->inbox($this->owner, '', 'unread')->count());
+        $this->actingAs($this->person);
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->service->inbox($this->person, 'Needle')->get();
+    }
+
+    public function test_attachments_can_be_saved_without_text_and_downloads_require_owner_and_membership(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $chat = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);
+        $upload = \Illuminate\Http\UploadedFile::fake()->create('payroll-review.pdf', 20, 'application/pdf');
+        $key = (string) Str::uuid();
+        $message = $this->service->send($this->owner, $chat->id, '', $key, [$upload]);
+        $file = $message->attachments()->firstOrFail();
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists($file->path);
+        $this->assertSame('payroll-review.pdf', $file->name);
+        $this->service->send($this->owner, $chat->id, '', $key, [$upload]);
+        $this->assertDatabaseCount('team_message_attachments', 1);
+        $this->get(route('communications.attachment', $file->id))->assertOk()->assertDownload('payroll-review.pdf')->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->actingAs($this->person);
+        $this->get(route('communications.attachment', $file->id))->assertForbidden();
+        $this->actingAs($this->owner);
+        $chat->members()->detach($this->owner->id);
+        $this->get(route('communications.attachment', $file->id))->assertNotFound();
+        Notification::assertNothingSent(); Mail::assertNothingOutgoing(); Queue::assertNothingPushed();
+    }
+
+    public function test_attachment_validation_rejects_executable_types_oversized_files_and_too_many_files(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $chat = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);
+        foreach ([
+            [\Illuminate\Http\UploadedFile::fake()->create('attack.html', 1, 'text/html')],
+            [\Illuminate\Http\UploadedFile::fake()->create('huge.pdf', 10241, 'application/pdf')],
+            array_fill(0, 4, \Illuminate\Http\UploadedFile::fake()->create('notes.txt', 1, 'text/plain')),
+        ] as $files) {
+            try { $this->service->send($this->owner, $chat->id, 'Files', (string) Str::uuid(), $files); $this->fail('Unsafe upload accepted'); }
+            catch (ValidationException) { $this->assertDatabaseCount('team_messages', 0); }
+        }
+        $this->assertSame([], \Illuminate\Support\Facades\Storage::disk('local')->allFiles());
+    }
+
+    public function test_livewire_can_attach_and_remove_a_file_before_sending(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $chat = $this->service->start($this->owner, ['kind' => 'direct', 'members' => [$this->person->id]]);
+        $file = \Illuminate\Http\UploadedFile::fake()->create('notes.txt', 2, 'text/plain');
+        Livewire::test(Communications::class)->call('selectConversation', $chat->id)->set('attachments', [$file])->assertHasNoErrors()
+            ->call('removeAttachment', 0)->assertSet('attachments', [])->set('attachments', [$file])->call('sendMessage')->assertHasNoErrors()->assertSee('notes.txt')->assertSet('attachments', []);
+        $this->assertDatabaseCount('team_message_attachments', 1);
+    }
+
+    public function test_announcement_filters_preview_activation_and_dismissal_are_persisted(): void
+    {
+        $a = $this->draft(['title' => 'Scheduled message', 'starts_at' => '2026-10-20T11:30', 'ends_at' => '2026-10-20T12:30']);
+        $this->service->publishPreview($this->owner, $a->id);
+        $active = $this->draft(['title' => 'Active message', 'dismissible' => true, 'in_app_requested' => false]);
+        $this->service->publishPreview($this->owner, $active->id);
+        Livewire::test(Communications::class)->call('changeTab', 'announcements')->set('announcementFilter', 'scheduled')->assertSee('Scheduled message')->assertDontSee('Active message');
+        Livewire::test(AnnouncementPreview::class)->assertSee('Active message')->call('dismiss', $active->id)->assertDontSee('Active message');
+        $this->service->publishPreview($this->owner, $active->id);
+        Livewire::test(AnnouncementPreview::class)->assertSee('Active message');
+        Livewire::test(Communications::class)->call('editAnnouncement', $active->id)->assertSet('announcement.dismissible', true)->assertSet('announcement.in_app_requested', false)
+            ->set('announcement.title', 'Preview from editor')->call('saveAnnouncement', true)->assertHasNoErrors();
+        $this->assertSame('published', $active->fresh()->status);
+        Notification::assertNothingSent(); Mail::assertNothingOutgoing(); Queue::assertNothingPushed();
+    }
+
+    public function test_non_dismissible_banner_rejects_dismissal(): void
+    {
+        $a = $this->draft(['dismissible' => false]);
+        $this->service->publishPreview($this->owner, $a->id);
+        Livewire::test(AnnouncementPreview::class)->call('dismiss', $a->id)->assertForbidden();
+    }
+
     public function test_preview_banner_is_not_rendered_or_queried_on_non_owner_dashboard(): void
     {
         $a = $this->draft(['title' => 'Hidden preview banner']);

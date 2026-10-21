@@ -17,7 +17,7 @@
 
     const scannerRoot = () => document.querySelector('[data-vx-page="inventory-scanner"]');
     const scanSheetOpen = () => !!document.querySelector('.vx-scan-sheet-backdrop');
-    const scanInput = () => scannerRoot()?.querySelector('input[wire\\:model\\.live\\.debounce\\.300ms="scanInput"]');
+    const scanInput = () => scannerRoot()?.querySelector('input[wire\\:model="scanInput"]');
     const lookupIsActive = () => {
         const root = scannerRoot();
         if (!root) return false;
@@ -88,7 +88,7 @@
 
     const clearHardwareInput = input => {
         input.value = '';
-        input.dispatchEvent(new Event('input', {bubbles: true}));
+        // Explicit barcodeScanned() owns the server submission.
     };
 
     // Hardware/Bluetooth scanners normally send Enter after the code. Capture
@@ -104,7 +104,7 @@
 
         event.preventDefault();
         event.stopImmediatePropagation();
-        verifyCandidate(barcode);
+        clearTimeout(candidateTimer);
         clearHardwareInput(target);
         void submitBarcodeOnce(barcode);
     }, true);
@@ -119,7 +119,7 @@
 
         event.preventDefault?.();
         event.stopImmediatePropagation();
-        verifyCandidate(barcode);
+        clearTimeout(candidateTimer);
         void submitBarcodeOnce(barcode);
     }, true);
 

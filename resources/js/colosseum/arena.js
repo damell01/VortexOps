@@ -144,13 +144,10 @@ export class Arena {
         this.loop = this.loop.bind(this);
         this.ro = new ResizeObserver(this.resize);
         this.ro.observe(host);
-        this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; if (e.isIntersecting) this.wake(); });
-        // A settled podium stops drawing after a moment (the last frame stays on
-        // screen) and only comes alive again while the pointer is over it.
-        this.onEnter = () => { this.hovered = true; this.wake(); };
-        this.onLeave = () => { this.hovered = false; this.settledAt = performance.now(); };
-        host.addEventListener('pointerenter', this.onEnter);
-        host.addEventListener('pointerleave', this.onLeave);
+        // A settled podium draws for a moment, then stops for good (the last
+        // frame stays on screen). Nothing here wakes it while the page scrolls:
+        // only a replay, a resize or new standings do.
+        this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; });
         this.io.observe(host);
         this.onVis = () => this.clock.reset();
         document.addEventListener('visibilitychange', this.onVis);
@@ -450,7 +447,7 @@ export class Arena {
     loop(now) {
         if (!this.running) return;
         // Asleep: a settled podium nobody is pointing at needs no more frames.
-        if (this.state === 'settled' && !this.hovered && now - this.settledAt > 2200) { this.running = false; return; }
+        if (this.state === 'settled' && now - this.settledAt > 1500) { this.running = false; return; }
         requestAnimationFrame(this.loop);
         if (!this.visible || document.hidden) return;
         // Settled scenes only need a gentle idle: 30 fps is plenty.
@@ -564,8 +561,6 @@ export class Arena {
         this.ro.disconnect();
         this.io.disconnect();
         document.removeEventListener('visibilitychange', this.onVis);
-        this.host.removeEventListener('pointerenter', this.onEnter);
-        this.host.removeEventListener('pointerleave', this.onLeave);
         this.fx.clear();
         Object.values(this.actors).forEach((a) => a.dispose());
         this.scene.traverse((o) => { o.geometry?.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m?.map?.dispose(); m?.dispose(); }); });

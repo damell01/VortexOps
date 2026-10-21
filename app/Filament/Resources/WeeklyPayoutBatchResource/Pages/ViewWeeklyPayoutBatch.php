@@ -159,6 +159,55 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     ->send();
             });
 
+        $tyBurden = Action::make('ty_burden_addback')
+            ->label('Ty Burden +$250')
+            ->icon('heroicon-o-banknotes')
+            ->visible(fn () => $this->record->status === 'draft'
+                && $this->record->payouts()->whereHas('streamer', fn ($q) => $q->where('name', 'Ty Ramirez'))->exists())
+            ->requiresConfirmation()
+            ->modalHeading('Add Ty Ramirez monthly burden payment')
+            ->modalDescription('Adds $250 once to this draft pay run. Maximum four payments per calendar month. Apply after recalculating the pay run.')
+            ->action(function (): void {
+                try {
+                    \Illuminate\Support\Facades\DB::transaction(function () {
+                        $batch = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                        if ($batch->status !== 'draft') {
+                            throw new \RuntimeException('Only draft pay runs can be adjusted.');
+                        }
+                        $ty = \App\Models\Streamer::query()->where('name', 'Ty Ramirez')->firstOrFail();
+                        $month = \Illuminate\Support\Carbon::parse($batch->week_end)->format('Y-m');
+                        $marker = '[TY_BURDEN_ADDBACK:' . $month . ']';
+                        if ($batch->payouts()->where('streamer_id', $ty->id)->where('calculation_notes', 'like', '%' . $marker . '%')->exists()) {
+                            throw new \RuntimeException('This pay run already includes Ty’s burden payment.');
+                        }
+                        $count = \App\Models\Payout::query()
+                            ->where('streamer_id', $ty->id)
+                            ->where('calculation_notes', 'like', '%' . $marker . '%')
+                            ->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))
+                            ->count();
+                        if ($count >= 4) {
+                            throw new \RuntimeException('Four burden payments have already been finalized for ' . $month . '.');
+                        }
+                        $payout = $batch->payouts()->where('streamer_id', $ty->id)->orderBy('id')->first();
+                        if (! $payout) {
+                            throw new \RuntimeException('Ty Ramirez is not included in this pay run.');
+                        }
+                        $payout->update([
+                            'calculated_payout' => round((float) $payout->calculated_payout + 250, 2),
+                            'calculation_notes' => trim(($payout->calculation_notes ?? '') . "\n" . $marker . ' +$250 monthly burden add-back (admin confirmed)'),
+                        ]);
+                        $batch->recalculateTotal();
+                        activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
+                            ->withProperties(['pay_run_id' => $batch->id, 'month' => $month, 'amount' => 250])
+                            ->log('Ty Ramirez monthly burden add-back applied');
+                    });
+                    $this->record->refresh();
+                    Notification::make()->title('Ty burden add-back applied: +$250')->success()->send();
+                } catch (\Throwable $e) {
+                    Notification::make()->title('Burden add-back not applied')->body($e->getMessage())->danger()->send();
+                }
+            });
+
         $markSubmitted = Action::make('mark_submitted')->label('Mark Submitted to ADP')->icon('heroicon-o-arrow-up-tray')->color('info')
             ->visible(fn () => $this->record->status === 'finalized')->requiresConfirmation()->action(function () {
                 $this->record->update(['status' => 'submitted_to_adp']); $this->record->refresh();
@@ -187,7 +236,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
                 ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
 
-            $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

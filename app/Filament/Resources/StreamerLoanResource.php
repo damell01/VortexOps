@@ -29,7 +29,7 @@ class StreamerLoanResource extends Resource
     protected static ?string $model = StreamerLoan::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
-    public static function getNavigationGroup(): string|\UnitEnum|null  { return AdminModules::navigationGroupFor('operations'); }
+    public static function getNavigationGroup(): string|\UnitEnum|null  { return 'Payroll'; }
     public static function getNavigationSort(): ?int                     { return 3; }
     public static function getModelLabel(): string                       { return 'Streamer Loan'; }
     public static function getPluralModelLabel(): string                 { return 'Streamer Loans'; }

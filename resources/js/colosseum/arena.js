@@ -166,7 +166,8 @@ export class Arena {
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         // Narrow screens pull back to fit; the wide dashboard strip moves in closer.
-        this.zoom = Math.max(1, 1.5 / this.camera.aspect) * (this.compact && this.camera.aspect > 2.2 ? 0.78 : 1);
+        this.zoom = Math.max(1, 1.5 / this.camera.aspect);
+        this.final = this.finalShot(this.camera.aspect);
     }
 
     async load(lineup) {
@@ -244,8 +245,6 @@ export class Arena {
         this.t = 0;
         this.fx.clear();
         this.crown.visible = false;
-        this.labelsShown = false;
-        this.onLabels?.(null);
         this.events = this.buildEvents();
         for (const [rank, a] of Object.entries(this.actors)) {
             a.root.position.copy(gateSpot(+rank));
@@ -278,7 +277,6 @@ export class Arena {
         this.setState('settled');
         this.settledAt = performance.now();
         this.start();
-        this.labelsShown = true;
     }
 
     /** One-off moments: sounds, clips, effects. */
@@ -472,7 +470,6 @@ export class Arena {
             }
             this.choreograph(this.t);
             this.applyLights(this.t);
-            if (this.t >= 7.2 && !this.labelsShown) this.labelsShown = true;
             if (this.t >= END) { this.settle(); }
         }
 
@@ -503,10 +500,16 @@ export class Arena {
         this.flashPower = (this.flashPower || 0) * Math.pow(0.02, dt);
         this.set.fxLight.intensity = this.flashPower;
 
-        const [camPos, look, fov] = cameraAt(this.state === 'playing' ? this.t : END);
+        // Directed shots during the fight, then glide into the resting framing.
+        const T = this.state === 'playing' ? this.t : END, F = this.final;
+        let [camPos, look, fov] = cameraAt(Math.min(T, 6.4));
+        camPos = look.clone().add(camPos.sub(look).multiplyScalar(this.zoom));
+        const k = ease(span(T, 6.4, 7.7));
+        camPos.lerp(F.pos, k);
+        look.lerp(F.look, k);
+        fov += (F.fov - fov) * k;
         if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
-        const dir = camPos.clone().sub(look).multiplyScalar(this.zoom);
-        this.camera.position.copy(look).add(dir);
+        this.camera.position.copy(camPos);
         if (this.shake > 0) {
             this.camera.position.add(V((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake, 0));
             this.shake = Math.max(0, this.shake - dt * 1.2);
@@ -516,16 +519,32 @@ export class Arena {
         if (this.post) this.post.render(wall, { bloom: 0.5 + this.punch * 0.9 + (this.flashPower || 0) / 160, fringe: this.punch * 1.4 });
         else this.renderer.render(this.scene, this.camera);
 
-        if (this.labelsShown && this.onLabels) {
-            const w = this.host.clientWidth, h = this.host.clientHeight;
-            const at = {};
+        // Tell the page where each podium landed so its details sit right under it.
+        if (this.onLabels && (this.state === 'settled' || T >= 6.4)) {
+            const w = this.host.clientWidth, at = {};
             for (const rank of [1, 2, 3]) {
                 if (!this.actors[rank]) continue;
-                const p = podiumSpot(rank).add(V(0, -PODIUM[rank].h * 0.45, 0.95)).project(this.camera);
-                at[rank] = { x: (p.x * 0.5 + 0.5) * w, y: (-p.y * 0.5 + 0.5) * h };
+                const p = podiumSpot(rank).project(this.camera);
+                at[rank] = { x: (p.x * 0.5 + 0.5) * w };
             }
             this.onLabels(at, this.picks);
         }
+    }
+
+    /**
+     * The resting camera, solved for this stage's shape: close enough that the
+     * podiums sit at about 21% / 50% / 79% of the width (over their details),
+     * never so close that a tall champion's crown leaves the frame.
+     */
+    finalShot(aspect) {
+        const fov = 40, tanH = Math.tan((fov / 2) * Math.PI / 180);
+        const look = V(0, 1.42, 0.3);
+        const across = PODIUM[3].x / (0.58 * tanH * aspect);
+        // Keep the crown inside the solid middle of the faded stage.
+        const tall = 2.25 / tanH;
+        const dz = Math.max(across, tall);
+        const tilt = 0.2;
+        return { look, fov, pos: look.clone().add(V(0, Math.sin(tilt), Math.cos(tilt)).multiplyScalar(dz)) };
     }
 
     /** Height of the podium a fighter is standing on, once it has risen. */

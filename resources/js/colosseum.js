@@ -1,7 +1,9 @@
-// Show Leaderboard page only. This file is tiny on purpose: the 3D arena
-// (Three.js, models, effects) is fetched the first time someone presses
-// "Enter arena", so no other page — and no visit that never presses it — pays
-// for it. Controls and names stay ordinary page elements outside the canvas.
+// The Vortex Colosseum at the top of the leaderboard (Show Leaderboard page and
+// dashboards). This file is tiny on purpose: the 3D arena (Three.js, models,
+// effects) is fetched only once the board is on screen and the page is idle.
+// A new champion gets the 3-second battle; otherwise the settled podium shows.
+// Names, amounts and show details are ordinary page elements under each
+// podium, placed from where the camera actually puts it.
 const roots = new WeakSet();
 
 function webglOk() {
@@ -13,145 +15,168 @@ function webglOk() {
     }
 }
 
-function readLineup(root) {
-    const el = root.closest('.vxl')?.querySelector('script[data-vxa-lineup]');
-    try { return el ? JSON.parse(el.textContent) : null; } catch { return null; }
-}
-
 const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 
+const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+};
+
+// Where each place sits before the camera reports back:
+// #2 left, #1 centre, #3 right — the same spread the final camera aims for.
+const DEFAULT_X = { 1: 0.5, 2: 0.21, 3: 0.79 };
+
 function mount(root) {
     if (roots.has(root)) return;
     roots.add(root);
-    if (!webglOk()) { root.hidden = true; return; }
+    const section = root.closest('.vxl');
+    const lineupOf = () => {
+        try { return JSON.parse(section?.querySelector('script[data-vxa-lineup]')?.textContent || 'null'); } catch { return null; }
+    };
+    // Without 3D the old top-three cards come back. Livewire re-renders reset
+    // the board's classes, so the flag is re-applied after each one.
+    let fallback = false;
+    const fallBack = () => { fallback = true; section?.classList.add('vxa-fallback'); };
+    if (!webglOk()) {
+        fallBack();
+        if (section) new MutationObserver(() => section.classList.add('vxa-fallback')).observe(section, { childList: true, subtree: true });
+        return;
+    }
 
-    const $ = (s) => root.querySelector(s);
-    const stage = $('[data-vxa-stage]'), labels = $('[data-vxa-labels]'), note = $('[data-vxa-note]');
-    const enter = $('[data-vxa-enter]'), skip = $('[data-vxa-skip]'), replay = $('[data-vxa-replay]'), mute = $('[data-vxa-mute]');
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const stage = root.querySelector('[data-vxa-stage]'), details = root.querySelector('[data-vxa-details]');
     const compact = root.dataset.mode === 'compact';
-    let arena = null, lineup = readLineup(root), muted = true;
-
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let arena = null, lineup = lineupOf(), muted = true, busy = false;
     const seenKey = () => 'vxa-champion-' + (lineup?.period || 'week');
-    const refreshEnter = () => {
-        if (!lineup?.rows?.length) { root.hidden = true; return; }
-        root.hidden = false;
-        const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
-        enter.querySelector('span').textContent = reduced ? 'Show 3D podium' : fresh ? 'New champion — enter arena' : 'Enter arena';
-        enter.classList.toggle('is-new', fresh && !reduced);
-    };
 
-    const drawLabels = (at, picks) => {
-        if (!at) { labels.replaceChildren(); return; }
-        if (labels.childElementCount !== (picks?.length || 0)) {
-            labels.replaceChildren(...picks.map((p) => {
-                const d = document.createElement('div');
-                d.className = 'vxa-label vxa-label-' + p.rank;
-                const b = document.createElement('b'); b.textContent = '#' + p.rank;
-                const n = document.createElement('span'); n.textContent = p.name;
-                const v = document.createElement('strong'); v.textContent = p.value;
-                d.append(b, n, v);
-                if (p.standIn) {
-                    const s = document.createElement('small');
-                    s.textContent = 'Arena stand-in for ' + (p.buddyName || 'their buddy');
-                    d.append(s);
-                }
-                d.dataset.rank = p.rank;
-                return d;
-            }));
-            requestAnimationFrame(() => labels.classList.add('is-in'));
-        }
-        for (const d of labels.children) {
+    /** The three detail blocks under the podiums, #2 · #1 · #3. */
+    function drawDetails() {
+        const rows = lineup?.rows || [];
+        details.replaceChildren(...rows.map((p) => {
+            const d = el(p.url ? 'a' : 'div', 'vxa-detail vxa-detail-' + p.rank + (p.mine ? ' is-mine' : ''));
+            if (p.url) d.href = p.url;
+            d.dataset.rank = p.rank;
+            d.style.left = (DEFAULT_X[p.rank] * 100) + '%';
+            const name = el('b', 'vxa-name');
+            name.append(el('i', 'vxa-medal', '#' + p.rank), el('span', null, p.name));
+            if (p.mine) name.append(el('em', 'vxa-you', 'You'));
+            d.append(name, el('span', 'vxa-show', p.title), el('strong', 'vxa-score' + (p.loss ? ' is-loss' : ''), p.value), el('small', 'vxa-meta', p.meta));
+            d.title = p.title;
+            return d;
+        }));
+    }
+
+    /** Line each block up under its podium (the arena reports where they landed). */
+    function placeDetails(at) {
+        if (!at) return;
+        const w = stage.clientWidth || 1;
+        for (const d of details.children) {
             const p = at[d.dataset.rank];
-            if (p) d.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, 0)`;
+            if (p) d.style.left = ((p.x / w) * 100).toFixed(2) + '%';
         }
-    };
+        // Each block is as wide as the gap to its neighbour, so they never overlap.
+        const xs = Object.values(at).map((p) => p.x).sort((a, b) => a - b);
+        const gap = Math.min(...xs.slice(1).map((x, i) => x - xs[i]));
+        if (Number.isFinite(gap)) {
+            const width = Math.round(Math.max(84, gap * 0.94)) + 'px';
+            if (details.style.getPropertyValue('--vxa-w') !== width) details.style.setProperty('--vxa-w', width);
+        }
+    }
+
+    const setMuteUi = () => section?.querySelectorAll('[data-vxa-mute]').forEach((b) => {
+        if (b.getAttribute('aria-pressed') !== String(!muted)) b.setAttribute('aria-pressed', String(!muted));
+        b.title = muted ? 'Sound off' : 'Sound on';
+    });
 
     const onState = (s) => {
         root.dataset.state = s;
-        skip.hidden = s !== 'playing';
-        replay.hidden = s !== 'settled' || reduced;
-        enter.hidden = s !== 'idle' || compact;
-        mute.hidden = compact && (s === 'idle' || s === 'loading');
-        note.textContent = s === 'loading' ? 'Loading the arena…' : '';
-        root.classList.toggle('is-active', s !== 'idle');
-        // A plain class on the board (not a :has() rule) hides the 2D sprites,
-        // so moving labels never make the browser re-check the whole section.
-        root.closest('.vxl')?.classList.toggle('vxa-on', s !== 'idle');
-        if (s === 'settled' && lineup?.rows?.length) store.set(seenKey(), String(lineup.rows[0].id));
+        if (s === 'settled') {
+            delete root.dataset.pending;
+            busy = false;
+            if (lineup?.rows?.length) store.set(seenKey(), String(lineup.rows[0].id));
+        }
     };
 
-    // Every run is the 3-second battle; 'podium' shows the settled podium only.
-    async function start(mode = 'quick') {
-        stage.hidden = false;
-        onState('loading');
+    async function start(mode) {
+        if (busy) return;
+        busy = true;
+        if (mode === 'quick') root.dataset.pending = '1';
         try {
             if (!arena) {
                 const { Arena } = await import('./colosseum/arena.js');
-                arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: drawLabels, onState, compact });
+                arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: placeDetails, onState, compact });
                 arena.setMuted(muted);
                 root.vxaArena = arena; // for browser checks
             }
-            labels.classList.remove('is-in');
-            drawLabels(null);
-            if (mode === 'podium') await arena.showPodium(); else await arena.play(mode);
+            if (mode === 'podium') await arena.showPodium(); else await arena.play('quick');
         } catch (e) {
             console.warn('[colosseum]', e);
-            stage.hidden = true;
-            onState('idle');
-            note.textContent = 'The 3D arena could not load here; the standings below are unchanged.';
+            busy = false;
+            delete root.dataset.pending;
+            fallBack();
         }
     }
 
-    enter.addEventListener('click', () => start('quick'));
-    replay.addEventListener('click', () => start('quick'));
-    skip.addEventListener('click', () => arena?.skip());
-    mute.addEventListener('click', () => {
-        muted = !muted;
-        mute.setAttribute('aria-pressed', String(!muted));
-        mute.querySelector('span').textContent = muted ? 'Sound off' : 'Sound on';
-        arena?.setMuted(muted);
+    // The controls sit in the board's header, which Livewire re-renders, so
+    // listen on the board itself.
+    const onClick = (e) => {
+        if (e.target.closest('[data-vxa-replay]')) { if (arena && !busy && !reduced) start('quick'); return; }
+        if (e.target.closest('[data-vxa-mute]')) { muted = !muted; arena?.setMuted(muted); setMuteUi(); }
+    };
+    section?.addEventListener('click', onClick);
+
+    // Clicking a Pokémon opens its show, like clicking its details.
+    stage.addEventListener('click', (e) => {
+        if (root.dataset.state !== 'settled') return;
+        const r = stage.getBoundingClientRect(), x = (e.clientX - r.left) / r.width;
+        let best = null, dist = 1;
+        for (const d of details.children) {
+            const dx = Math.abs(parseFloat(d.style.left) / 100 - x);
+            if (dx < dist) { dist = dx; best = d; }
+        }
+        if (best?.href && dist < 0.16) window.location.href = best.href;
     });
 
-    // Period / page changes re-render the lineup next to this (ignored) block:
-    // swap the podium in place instead of replaying the fight.
-    const section = root.closest('.vxl');
+    // Period / page changes re-render the lineup beside this block: redraw the
+    // details and swap the podium in place, without replaying the fight.
     let last = JSON.stringify(lineup);
     const mo = new MutationObserver(() => {
-        const next = readLineup(root);
-        const key = JSON.stringify(next);
-        section.classList.toggle('vxa-on', root.classList.contains('is-active'));
+        setMuteUi();
+        if (fallback) section.classList.add('vxa-fallback');
+        const next = lineupOf(), key = JSON.stringify(next);
         if (key === last) return;
         last = key;
         lineup = next;
-        refreshEnter();
-        if (arena && next?.rows?.length) { labels.classList.remove('is-in'); drawLabels(null); arena.setLineup(next.rows); }
+        if (!lineup?.rows?.length) return;
+        drawDetails();
+        if (arena && !busy) arena.setLineup(lineup.rows);
     });
     if (section) mo.observe(section, { childList: true, subtree: true, characterData: true });
 
-    const teardown = () => { mo.disconnect(); arena?.destroy(); arena = null; };
-    document.addEventListener('livewire:navigating', teardown, { once: true });
-    refreshEnter();
+    document.addEventListener('livewire:navigating', () => {
+        mo.disconnect();
+        section?.removeEventListener('click', onClick);
+        arena?.destroy();
+        arena = null;
+    }, { once: true });
 
-    // Dashboards: nothing loads until the board is on screen and the page has
-    // finished its own work; then a new champion gets the 3-second battle and
-    // anyone else sees the settled 3D podium.
-    if (compact && lineup?.rows?.length) {
-        mute.hidden = true;
-        const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600));
-        const io = new IntersectionObserver(([e]) => {
-            if (!e.isIntersecting) return;
-            io.disconnect();
-            idle(() => {
-                const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
-                start(fresh && !reduced ? 'quick' : 'podium');
-            }, { timeout: 2500 });
-        }, { rootMargin: '120px' });
-        io.observe(root);
-    }
+    if (!lineup?.rows?.length) return;
+    drawDetails();
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600));
+    const io = new IntersectionObserver(([e]) => {
+        if (!e.isIntersecting) return;
+        io.disconnect();
+        idle(() => {
+            const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
+            start(fresh && !reduced ? 'quick' : 'podium');
+        }, { timeout: 2500 });
+    }, { rootMargin: '120px' });
+    io.observe(root);
 }
 
 function scan() { document.querySelectorAll('[data-vxa]').forEach(mount); }

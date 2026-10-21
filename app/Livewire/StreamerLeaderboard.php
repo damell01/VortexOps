@@ -77,6 +77,12 @@ class StreamerLeaderboard extends Component
                 'buddy' => $row['buddy'],
                 'buddyName' => \Illuminate\Support\Str::headline($row['buddy']),
                 'seed' => $row['streamer_id'],
+                'title' => $row['title'],
+                'meta' => ($row['estimated'] ? 'Estimated net' : 'Settled net').($row['cohosted'] ? ' · Cohosted' : '').' · '.$row['channel'].' · '.$row['date'],
+                'mine' => (bool) $row['mine'],
+                'loss' => $row['value'] < 0,
+                // Streamers can open only their own shows; admins any.
+                'url' => (auth()->user()?->isAdmin() || $row['mine']) ? \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $row['show_id']]) : null,
             ])->all(),
         ];
     }

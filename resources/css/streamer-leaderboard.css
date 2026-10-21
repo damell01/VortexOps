@@ -117,57 +117,69 @@
 @keyframes vxl-energy-burst{0%,23%,43%,100%{opacity:0;transform:translate(0,0) scale(.3)}26%{opacity:.85;transform:translate(calc(var(--vxl-x) * .45),calc(var(--vxl-y) * .45)) scale(.9)}40%{opacity:0;transform:translate(var(--vxl-x),var(--vxl-y)) scale(.45)}}
 @media(prefers-reduced-motion:reduce){.vxl-scene>.vxl-fighter,.vxl-attack i{animation:none}.vxl-attack{display:none}}
 
-/* Vortex Colosseum (Show Leaderboard page only). The arena replaces the 2D
-   sprites on the podium cards while it runs; names and amounts stay as text. */
-.vxa{padding:0 18px 6px;display:grid;gap:10px}
-.vxa[hidden]{display:none}
-.vxa-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.vxa-enter{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 18px;border-radius:999px;font-size:13.5px;font-weight:750;color:#fff;background:linear-gradient(135deg,#8b5cf6,#6d28d9);box-shadow:0 6px 16px #6d28d933;transition:transform .15s,box-shadow .15s}
-.vxa-enter:hover{transform:translateY(-1px);box-shadow:0 9px 20px #6d28d944}
-.vxa-enter svg,.vxa-btn svg{width:16px;height:16px}
-.vxa-enter.is-new{background:linear-gradient(135deg,#f5b82e,#d97706 45%,#7c3aed);animation:vxa-glow 2.4s ease-in-out 3}
-@keyframes vxa-glow{50%{box-shadow:0 6px 22px #f5b82e66}}
-.vxa-btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:9px;border:1px solid var(--vxl-border);background:var(--vxl-surface);font-size:12.5px;font-weight:650;color:var(--vxl-text)}
-.vxa-btn[hidden]{display:none}
-.vxa-btn[aria-pressed=true]{color:var(--vxl-accent);border-color:#c4a8f5}
-.vxa-note{font-size:12px;color:var(--vxl-muted)}
-.vxa-stage{position:relative;aspect-ratio:16/8;max-height:460px;width:100%;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#2a1d55,#120d26 70%);box-shadow:inset 0 0 0 1px #ffffff14,0 10px 30px #1a12360f}
-.vxa-stage[hidden]{display:none}
-.vxa-compact .vxa-stage{aspect-ratio:16/6.2;max-height:300px}
-.vxa-compact .vxa-bar{order:2;justify-content:flex-end}
-.vxa-compact .vxa-btn{min-height:30px;padding:0 10px;font-size:12px}
-.vxl.vxa-on .vxl-podium:after{display:none}
+/* Vortex Colosseum: the top of the board. The stage fades into the board at
+   its edges and the details under each podium are ordinary page text, so the
+   battle happens inside the leaderboard rather than in a player above it. The
+   stage and details rows have fixed sizes from first paint: nothing jumps. */
+.vxl-controls{margin-left:auto}
+.vxa-mini{display:flex;gap:4px}
+.vxa-mini button{width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--vxl-border);border-radius:10px;color:var(--vxl-muted);background:var(--vxl-surface)}
+.vxa-mini button:hover{color:var(--vxl-accent);border-color:#c4a8f5}
+.vxa-mini svg{width:17px;height:17px}
+.vxa-mini [data-vxa-mute] .vxa-ico-on,.vxa-mini [data-vxa-mute][aria-pressed=true] .vxa-ico-off{display:none}
+.vxa-mini [data-vxa-mute][aria-pressed=true] .vxa-ico-on{display:block}
+.vxa-mini [data-vxa-mute][aria-pressed=true]{color:var(--vxl-accent)}
+.vxa-wrap{padding:0 18px}
+.vxa-wrap[hidden]{display:none}
+.vxa{position:relative}
+.vxa-stage{position:relative;width:100%;aspect-ratio:16/6.6;max-height:430px;overflow:hidden;cursor:default;background:radial-gradient(ellipse 70% 90% at 50% 62%,#2c1f5a,#140e2b 62%,#1a1236 100%);-webkit-mask-image:radial-gradient(ellipse 58% 78% at 50% 56%,#000 52%,transparent 100%);mask-image:radial-gradient(ellipse 58% 78% at 50% 56%,#000 52%,transparent 100%)}
+.vxa[data-state=settled] .vxa-stage{cursor:pointer}
+.vxa-compact .vxa-stage{aspect-ratio:16/6.4;max-height:320px}
 .vxa-canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
-.vxa-labels{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s}
-.vxa-labels.is-in{opacity:1}
-.vxa-label{position:absolute;left:0;top:0;display:grid;justify-items:center;gap:1px;min-width:0;max-width:30%;padding:5px 11px 6px;border-radius:10px;background:#120d26e6;border:1px solid #ffffff22;color:#fff;text-align:center;white-space:nowrap;will-change:transform}
-.vxa-label b{font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;background:#8b5cf6}
-.vxa-label-1 b{background:linear-gradient(135deg,#fde68a,#f5b82e);color:#5c3a00}
-.vxa-label-2 b{background:linear-gradient(135deg,#eef0f7,#b9bfd6);color:#2f3550}
-.vxa-label-3 b{background:linear-gradient(135deg,#f6d3c2,#d98f6c);color:#5a260e}
-.vxa-label span{font-size:12.5px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.vxa-label strong{font-size:13px;font-weight:800;color:#e9dcff;font-variant-numeric:tabular-nums}
-.vxa-label small{font-size:10px;color:#cbb8f5}
+.vxa-details{position:relative;height:118px;margin-top:-34px;z-index:1}
+.vxa-detail{position:absolute;top:0;left:50%;width:min(var(--vxa-w,30%),250px);transform:translateX(-50%);display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;gap:1px;min-width:0;padding:8px 10px 9px;border-radius:12px;text-align:center;color:inherit;text-decoration:none;transition:left .45s ease,opacity .45s ease,transform .45s ease,background .2s}
+a.vxa-detail:hover{background:var(--vxl-soft)}
+a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1px}
+.vxa[data-pending] .vxa-detail,.vxa[data-state=playing] .vxa-detail{opacity:0;transform:translate(-50%,8px)}
+.vxa-name{display:flex;align-items:center;justify-content:center;gap:6px;max-width:100%;font-size:14px;font-weight:750;line-height:1.35}
+.vxa-name span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vxa-medal{flex:none;font-style:normal;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:999px;background:#ede5ff;color:#5b21b6}
+.vxa-detail-1 .vxa-medal{background:linear-gradient(135deg,#fde68a,#f5b82e);color:#5c3a00}
+.vxa-detail-2 .vxa-medal{background:linear-gradient(135deg,#eef0f7,#b9bfd6);color:#2f3550}
+.vxa-detail-3 .vxa-medal{background:linear-gradient(135deg,#f6d3c2,#d98f6c);color:#5a260e}
+.vxa-you{flex:none;font-style:normal;font-size:10px;font-weight:750;padding:1px 6px;border-radius:999px;background:var(--vxl-accent);color:#fff}
+.vxa-show,.vxa-meta{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--vxl-muted)}
+.vxa-show{font-size:11.5px;line-height:1.45}
+.vxa-meta{font-size:10.5px;line-height:1.5}
+.vxa-score{font-size:20px;line-height:1.25;font-weight:800;color:var(--vxl-accent);font-variant-numeric:tabular-nums}
+.vxa-detail-1 .vxa-score{font-size:24px}
+.vxa-score.is-loss{color:#dc2626}
 .vxa-bars{position:absolute;inset:0;pointer-events:none;z-index:1}
-.vxa-bars i{position:absolute;left:0;right:0;height:9%;background:#05030c;transition:transform .7s cubic-bezier(.6,0,.2,1)}
+.vxa-bars i{position:absolute;left:0;right:0;height:8%;background:#05030c;transition:transform .6s cubic-bezier(.6,0,.2,1)}
 .vxa-bars i:first-child{top:0;transform:translateY(-100%)}
 .vxa-bars i:last-child{bottom:0;transform:translateY(100%)}
 .vxa[data-state=playing] .vxa-bars i{transform:none}
-.vxa-labels{z-index:2}
-.vxa-loader{position:absolute;inset:0;display:none;place-items:center}
-.vxa[data-state=loading] .vxa-loader{display:grid}
-.vxa-loader i{width:34px;height:34px;border-radius:50%;border:3px solid #ffffff26;border-top-color:#a78bfa;animation:vxa-spin .8s linear infinite}
+.vxa-loader{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.vxa[data-state=settled] .vxa-loader,.vxa[data-state=playing] .vxa-loader{display:none}
+.vxa-loader i{width:30px;height:30px;border-radius:50%;border:3px solid #ffffff22;border-top-color:#a78bfa;animation:vxa-spin .8s linear infinite}
 @keyframes vxa-spin{to{transform:rotate(360deg)}}
-.vxl.vxa-on .vxl-scene>img,.vxl.vxa-on .vxl-attack,.vxl.vxa-on .vxl-crown{visibility:hidden}
+/* The separate top-three cards are only the fallback for browsers without 3D. */
+.vxl-podium-fallback{display:none}
+.vxl.vxa-fallback .vxl-podium-fallback{display:grid}
+.vxl.vxa-fallback .vxa-wrap,.vxl.vxa-fallback .vxa-mini{display:none}
 @media (max-width:640px){
-  .vxa{padding:0 12px 6px}
-  .vxa-stage{aspect-ratio:4/3.4}
-  .vxa-label{padding:3px 6px 4px;max-width:32%;gap:0}
-  .vxa-label span,.vxa-label small{display:none}
-  .vxa-label b{font-size:10px}
-  .vxa-label strong{font-size:11px}
+  .vxa-wrap{padding:0 6px}
+  .vxa-stage,.vxa-compact .vxa-stage{aspect-ratio:4/3.1}
+  .vxa-details{height:96px;margin-top:-26px}
+  .vxa-detail{width:min(var(--vxa-w,32%),32%);padding:6px 2px}
+  .vxa-name{font-size:12px;gap:4px}
+  .vxa-medal{font-size:9.5px;padding:1px 5px}
+  .vxa-you,.vxa-meta{display:none}
+  .vxa-show{font-size:10.5px}
+  .vxa-score,.vxa-detail-1 .vxa-score{font-size:15px}
+  .vxa-mini button{width:36px;height:36px}
 }
-@media (prefers-reduced-motion:reduce){.vxa-enter.is-new{animation:none}}
+@media (prefers-reduced-motion:reduce){.vxa-detail{transition:none}}
 
 /* Podium battle (dashboard and leaderboard): #2 and #3 wind up and charge, #1
    strikes, a shockwave crosses the podium, both challengers are knocked over

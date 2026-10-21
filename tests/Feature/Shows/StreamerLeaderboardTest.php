@@ -214,7 +214,7 @@ class StreamerLeaderboardTest extends TestCase
         $this->show('Fourth', 100, $this->rival);
 
         $page = $this->get(\App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin'))->assertOk()
-            ->assertSee('data-vxa', false)->assertSee('Enter arena');
+            ->assertSee('data-vxa', false)->assertSee('Replay the battle')->assertSee('vxl-podium-fallback', false);
         preg_match('#<script type="application/json" data-vxa-lineup>(.*?)</script>#s', $page->getContent(), $m);
         $lineup = json_decode($m[1] ?? 'null', true);
         $this->assertSame('week', $lineup['period']);
@@ -222,6 +222,11 @@ class StreamerLeaderboardTest extends TestCase
         $this->assertSame(['Alex', 'Jordan', 'Outside Team'], array_column($lineup['rows'], 'name'));
         $this->assertSame('$900.00', $lineup['rows'][0]['value']);
         $this->assertSame('charizard', $lineup['rows'][0]['buddy']);
+        $this->assertSame('Champion', $lineup['rows'][0]['title']);
+        // A streamer opens only their own show from the podium.
+        $this->assertStringEndsWith('/shows/'.$lineup['rows'][0]['id'], (string) $lineup['rows'][0]['url']);
+        $this->assertTrue($lineup['rows'][0]['mine']);
+        $this->assertNull($lineup['rows'][1]['url']);
 
         // Embedded plainly (no flag) there is no arena at all.
         Livewire::test(StreamerLeaderboard::class)->assertDontSee('data-vxa', false);

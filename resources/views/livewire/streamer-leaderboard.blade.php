@@ -17,10 +17,9 @@
     @if ($lineup)
         {{-- Vortex Colosseum: the arena keeps its own canvas across re-renders; the
              lineup beside it re-renders so a period change swaps the podium in place. --}}
-        <div class="vxa" data-vxa data-models="{{ asset('models/colosseum') }}/" wire:ignore hidden>
+        <div @class(['vxa', 'vxa-compact' => ! $arena]) data-vxa data-mode="{{ $arena ? 'full' : 'compact' }}" data-models="{{ asset('models/colosseum') }}/" wire:ignore hidden>
             <div class="vxa-bar">
-                <button type="button" class="vxa-enter" data-vxa-enter><x-filament::icon icon="heroicon-m-play" /><span>Enter arena</span></button>
-                <button type="button" class="vxa-btn" data-vxa-quick><x-filament::icon icon="heroicon-m-bolt" /><span>Quick (3s)</span></button>
+                <button type="button" class="vxa-enter" data-vxa-enter @if (! $arena) hidden @endif><x-filament::icon icon="heroicon-m-play" /><span>Enter arena</span></button>
                 <button type="button" class="vxa-btn" data-vxa-skip hidden><x-filament::icon icon="heroicon-m-forward" />Skip</button>
                 <button type="button" class="vxa-btn" data-vxa-replay hidden><x-filament::icon icon="heroicon-m-arrow-path" />Replay</button>
                 <button type="button" class="vxa-btn" data-vxa-mute aria-pressed="false"><x-filament::icon icon="heroicon-m-speaker-wave" /><span>Sound off</span></button>
@@ -38,9 +37,16 @@
     <div wire:loading.class="vxl-updating">
         @if ($leader)
             @if ($page === 1)
-                <div class="vxl-podium">
+                {{-- A two-second sprite battle on the podium: plays once per new champion
+                     (per period), replays from the button on #1. CSS transforms only. --}}
+                <div class="vxl-podium" wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
+                     x-data="{ go: false, play() { this.go = false; requestAnimationFrame(() => requestAnimationFrame(() => this.go = true)); } }"
+                     x-init="if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !(@js((bool) $lineup) && window.WebGLRenderingContext)) { const k = 'vxl-battle-' + @js($period) + '-' + @js($leader['show_id']); let seen = null; try { seen = localStorage.getItem('vxl-battle'); localStorage.setItem('vxl-battle', k); } catch (e) {} if (seen !== k) play(); }"
+                     :class="{ 'vxl-battle': go }"
+                     x-on:animationend="if ($event.animationName === 'vxlb-crown') go = false">
                     @foreach ($visible->take(3) as $i => $row)
                         <article @class(['vxl-podium-card', 'vxl-place-'.($i + 1), 'vxl-podium-first' => $i === 0, 'vxl-is-mine' => $row['mine']]) wire:key="podium-{{ $row['show_id'] }}">
+                            @if ($i === 0)<button type="button" class="vxl-replay" x-on:click="play()" aria-label="Replay the podium battle" title="Replay the battle"></button>@endif
                             @if ($i === 0)<svg class="vxl-crown" viewBox="0 0 32 24" aria-hidden="true"><path d="M3 5l7 6 6-9 6 9 7-6-4 17H7z" fill="currentColor" stroke="#c58b13" stroke-width="1.5"/></svg>@endif
                             <div class="vxl-scene vxl-effect-{{ $row['effect'] }}" style="--vxl-delay: {{ $i * 0.7 }}s">
                                 <span class="vxl-medal vxl-medal-{{ min($row['rank'], 4) }}">#{{ $row['rank'] }}</span>

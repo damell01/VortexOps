@@ -97,16 +97,18 @@ export class Arena {
      * @param {HTMLElement} host   element the canvas goes in (labels are added beside it)
      * @param {Array} lineup       [{ rank, name, value, buddy, seed }] for places 1–3
      */
-    constructor(host, lineup, { base = '/models/colosseum/', onLabels, onState } = {}) {
+    constructor(host, lineup, { base = '/models/colosseum/', onLabels, onState, compact = false } = {}) {
         this.host = host;
         this.base = base;
         this.onLabels = onLabels;
         this.onState = onState;
-        this.lite = matchMedia('(max-width: 768px)').matches || (navigator.hardwareConcurrency || 8) <= 4;
+        // Dashboards use the light path everywhere: no bloom, no shadows, 1× pixels.
+        this.compact = compact;
+        this.lite = compact || matchMedia('(max-width: 768px)').matches || (navigator.hardwareConcurrency || 8) <= 4;
         this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         this.renderer = new THREE.WebGLRenderer({ antialias: !this.lite, powerPreference: 'high-performance' });
-        this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.lite ? 1.25 : 1.75));
+        this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, compact ? 1 : this.lite ? 1.25 : 1.75));
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.05;
@@ -142,7 +144,13 @@ export class Arena {
         this.loop = this.loop.bind(this);
         this.ro = new ResizeObserver(this.resize);
         this.ro.observe(host);
-        this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; });
+        this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; if (e.isIntersecting) this.wake(); });
+        // A settled podium stops drawing after a moment (the last frame stays on
+        // screen) and only comes alive again while the pointer is over it.
+        this.onEnter = () => { this.hovered = true; this.wake(); };
+        this.onLeave = () => { this.hovered = false; this.settledAt = performance.now(); };
+        host.addEventListener('pointerenter', this.onEnter);
+        host.addEventListener('pointerleave', this.onLeave);
         this.io.observe(host);
         this.onVis = () => this.clock.reset();
         document.addEventListener('visibilitychange', this.onVis);
@@ -151,12 +159,14 @@ export class Arena {
     }
 
     resize() {
+        this.wake?.();
         const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
         this.renderer.setSize(w, h, false);
         this.post?.setSize(w, h, this.renderer.getPixelRatio());
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
-        this.zoom = Math.max(1, 1.5 / this.camera.aspect);
+        // Narrow screens pull back to fit; the wide dashboard strip moves in closer.
+        this.zoom = Math.max(1, 1.5 / this.camera.aspect) * (this.compact && this.camera.aspect > 2.2 ? 0.78 : 1);
     }
 
     async load(lineup) {
@@ -216,6 +226,12 @@ export class Arena {
         }
     }
 
+    /** Draw again for a while (settled scenes sleep to keep the page light). */
+    wake() {
+        this.settledAt = performance.now();
+        if (this.state !== 'idle' && this.state !== 'loading') this.start();
+    }
+
     /** New standings: swap fighters straight onto the podium, no replay. */
     async setLineup(lineup) {
         this.lineup = lineup;
@@ -260,6 +276,8 @@ export class Arena {
         this.crown.visible = !!this.actors[1];
         this.applyLights(END);
         this.setState('settled');
+        this.settledAt = performance.now();
+        this.start();
         this.labelsShown = true;
     }
 
@@ -433,6 +451,8 @@ export class Arena {
 
     loop(now) {
         if (!this.running) return;
+        // Asleep: a settled podium nobody is pointing at needs no more frames.
+        if (this.state === 'settled' && !this.hovered && now - this.settledAt > 2200) { this.running = false; return; }
         requestAnimationFrame(this.loop);
         if (!this.visible || document.hidden) return;
         // Settled scenes only need a gentle idle: 30 fps is plenty.
@@ -525,6 +545,8 @@ export class Arena {
         this.ro.disconnect();
         this.io.disconnect();
         document.removeEventListener('visibilitychange', this.onVis);
+        this.host.removeEventListener('pointerenter', this.onEnter);
+        this.host.removeEventListener('pointerleave', this.onLeave);
         this.fx.clear();
         Object.values(this.actors).forEach((a) => a.dispose());
         this.scene.traverse((o) => { o.geometry?.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m?.map?.dispose(); m?.dispose(); }); });

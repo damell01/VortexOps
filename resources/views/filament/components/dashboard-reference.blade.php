@@ -80,6 +80,6 @@
         <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\UpcomingShowsWidget::make(['limit'=>3])]" :columns="1" /></div>
         @include('filament.components.dashboard-channel-performance')
     </div>
-    @if (\App\Livewire\StreamerLeaderboard::canView())<livewire:streamer-leaderboard :key="'admin-dashboard-leaderboard'" />@endif
+    @if (\App\Livewire\StreamerLeaderboard::canView())@vite('resources/js/colosseum.js')<livewire:streamer-leaderboard :arena-compact="true" :key="'admin-dashboard-leaderboard'" />@endif
     <details class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900"><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">Recent shows</summary><div class="mt-4"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\RecentShowsWidget::class]" :columns="1" /></div></details>
 </div>

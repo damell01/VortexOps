@@ -223,8 +223,13 @@ class StreamerLeaderboardTest extends TestCase
         $this->assertSame('$900.00', $lineup['rows'][0]['value']);
         $this->assertSame('charizard', $lineup['rows'][0]['buddy']);
 
-        // The dashboard embeds the same board without the arena or its script.
+        // Embedded plainly (no flag) there is no arena at all.
         Livewire::test(StreamerLeaderboard::class)->assertDontSee('data-vxa', false);
+
+        // Dashboards get the light 3D podium: no Enter arena button, the same lineup.
+        Livewire::test(StreamerLeaderboard::class, ['arenaCompact' => true])
+            ->assertSee('data-mode="compact"', false)
+            ->assertSee('data-vxa-lineup', false);
     }
 
     public function test_every_colosseum_fighter_has_its_model_on_disk_and_a_credit(): void

@@ -39,8 +39,16 @@ function canvasTexture(w, h, draw, repeat) {
 
 /** A normal map from a texture's brightness: dark grout reads as recessed. */
 function normalFrom(tex, strength = 2.2) {
-    const src = tex.userData.canvas, w = src.width, h = src.height;
-    const px = src.getContext('2d').getImageData(0, 0, w, h).data;
+    // Bump detail reads the same at 512 px and costs a quarter of the work.
+    let src = tex.userData.canvas;
+    if (src.width > 512) {
+        const small = document.createElement('canvas');
+        small.width = small.height = 512;
+        small.getContext('2d').drawImage(src, 0, 0, 512, 512);
+        src = small;
+    }
+    const w = src.width, h = src.height;
+    const px = src.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
     const out = document.createElement('canvas');
     out.width = w;
     out.height = h;

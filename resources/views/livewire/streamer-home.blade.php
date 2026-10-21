@@ -116,7 +116,7 @@
     <livewire:clock-widget :compact="true" :key="'streamer-home-clock'" />
 
     @if (\App\Livewire\StreamerLeaderboard::canView())
-        <livewire:streamer-leaderboard :key="'streamer-home-leaderboard'" />
+        @vite('resources/js/colosseum.js')<livewire:streamer-leaderboard :arena-compact="true" :key="'streamer-home-leaderboard'" />
     @endif
 
     {{-- Every report, as cards. --}}

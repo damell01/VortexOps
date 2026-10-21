@@ -30,8 +30,9 @@ function mount(root) {
 
     const $ = (s) => root.querySelector(s);
     const stage = $('[data-vxa-stage]'), labels = $('[data-vxa-labels]'), note = $('[data-vxa-note]');
-    const enter = $('[data-vxa-enter]'), quick = $('[data-vxa-quick]'), skip = $('[data-vxa-skip]'), replay = $('[data-vxa-replay]'), mute = $('[data-vxa-mute]');
+    const enter = $('[data-vxa-enter]'), skip = $('[data-vxa-skip]'), replay = $('[data-vxa-replay]'), mute = $('[data-vxa-mute]');
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const compact = root.dataset.mode === 'compact';
     let arena = null, lineup = readLineup(root), muted = true;
 
     const seenKey = () => 'vxa-champion-' + (lineup?.period || 'week');
@@ -73,27 +74,30 @@ function mount(root) {
         root.dataset.state = s;
         skip.hidden = s !== 'playing';
         replay.hidden = s !== 'settled' || reduced;
-        enter.hidden = s !== 'idle';
-        quick.hidden = (s !== 'idle' && s !== 'settled') || reduced;
-        quick.querySelector('span').textContent = s === 'settled' ? 'Quick replay' : 'Quick (3s)';
+        enter.hidden = s !== 'idle' || compact;
+        mute.hidden = compact && (s === 'idle' || s === 'loading');
         note.textContent = s === 'loading' ? 'Loading the arena…' : '';
         root.classList.toggle('is-active', s !== 'idle');
+        // A plain class on the board (not a :has() rule) hides the 2D sprites,
+        // so moving labels never make the browser re-check the whole section.
+        root.closest('.vxl')?.classList.toggle('vxa-on', s !== 'idle');
         if (s === 'settled' && lineup?.rows?.length) store.set(seenKey(), String(lineup.rows[0].id));
     };
 
-    async function start(mode = 'full') {
+    // Every run is the 3-second battle; 'podium' shows the settled podium only.
+    async function start(mode = 'quick') {
         stage.hidden = false;
         onState('loading');
         try {
             if (!arena) {
                 const { Arena } = await import('./colosseum/arena.js');
-                arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: drawLabels, onState });
+                arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: drawLabels, onState, compact });
                 arena.setMuted(muted);
                 root.vxaArena = arena; // for browser checks
             }
             labels.classList.remove('is-in');
             drawLabels(null);
-            await arena.play(mode);
+            if (mode === 'podium') await arena.showPodium(); else await arena.play(mode);
         } catch (e) {
             console.warn('[colosseum]', e);
             stage.hidden = true;
@@ -102,9 +106,8 @@ function mount(root) {
         }
     }
 
-    enter.addEventListener('click', () => start('full'));
-    quick.addEventListener('click', () => start('quick'));
-    replay.addEventListener('click', () => start('full'));
+    enter.addEventListener('click', () => start('quick'));
+    replay.addEventListener('click', () => start('quick'));
     skip.addEventListener('click', () => arena?.skip());
     mute.addEventListener('click', () => {
         muted = !muted;
@@ -120,6 +123,7 @@ function mount(root) {
     const mo = new MutationObserver(() => {
         const next = readLineup(root);
         const key = JSON.stringify(next);
+        section.classList.toggle('vxa-on', root.classList.contains('is-active'));
         if (key === last) return;
         last = key;
         lineup = next;
@@ -131,6 +135,23 @@ function mount(root) {
     const teardown = () => { mo.disconnect(); arena?.destroy(); arena = null; };
     document.addEventListener('livewire:navigating', teardown, { once: true });
     refreshEnter();
+
+    // Dashboards: nothing loads until the board is on screen and the page has
+    // finished its own work; then a new champion gets the 3-second battle and
+    // anyone else sees the settled 3D podium.
+    if (compact && lineup?.rows?.length) {
+        mute.hidden = true;
+        const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600));
+        const io = new IntersectionObserver(([e]) => {
+            if (!e.isIntersecting) return;
+            io.disconnect();
+            idle(() => {
+                const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
+                start(fresh && !reduced ? 'quick' : 'podium');
+            }, { timeout: 2500 });
+        }, { rootMargin: '120px' });
+        io.observe(root);
+    }
 }
 
 function scan() { document.querySelectorAll('[data-vxa]').forEach(mount); }

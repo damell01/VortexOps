@@ -23,6 +23,9 @@ class StreamerLeaderboard extends Component
     /** The 3D Colosseum is offered on the Show Leaderboard page only, never on dashboards. */
     public bool $arena = false;
 
+    /** Dashboards: a light 3D podium that plays the 3-second battle for a new champion. */
+    public bool $arenaCompact = false;
+
     public static function canView(): bool
     {
         $user = auth()->user();
@@ -57,7 +60,7 @@ class StreamerLeaderboard extends Component
         $pages = max(1, (int) ceil($rows->count() / self::PER_PAGE));
         $this->page = min(max(1, $this->page), $pages);
         $visible = $rows->slice(($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
-        $lineup = $this->arena ? $this->arenaLineup($rows) : null;
+        $lineup = ($this->arena || $this->arenaCompact) ? $this->arenaLineup($rows) : null;
         return view('livewire.streamer-leaderboard', compact('rows', 'visible', 'pages', 'from', 'to', 'lineup'));
     }
 

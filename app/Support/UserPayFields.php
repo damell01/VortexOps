@@ -18,7 +18,7 @@ class UserPayFields
     public const STREAMER = ['payout_percentage', 'house_cut_percentage', 'hourly_rate'];
 
     /** Also on the form when a streamer is paid hourly + shipments + profit share. */
-    public const SHIFT_SHARE = ['pwe_rate', 'label_rate', 'burden_rate_value'];
+    public const SHIFT_SHARE = ['pwe_rate', 'label_rate', 'burden_rate_value', 'monthly_burden_addback', 'monthly_burden_payments'];
 
     /** The ways a streamer can be paid from this form. */
     public const MODELS = ['profit_share', 'sales_split', 'shift_share'];

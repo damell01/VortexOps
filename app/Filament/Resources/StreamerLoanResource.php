@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Cache;
 
 class StreamerLoanResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess { canAccess as protected moduleCanAccess; }
 
     protected static string $moduleSlug  = 'payouts';
     protected static ?string $model = StreamerLoan::class;
@@ -41,6 +41,11 @@ class StreamerLoanResource extends Resource
     }
 
     public static function getNavigationBadgeColor(): ?string { return 'warning'; }
+
+    public static function canAccess(): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && static::moduleCanAccess();
+    }
 
     public static function canCreate(): bool         { return auth()->user()?->isAdmin() ?? false; }
     public static function canEdit($r): bool         { return auth()->user()?->isAdmin() ?? false; }

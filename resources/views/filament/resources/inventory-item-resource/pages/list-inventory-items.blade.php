@@ -59,6 +59,12 @@
    </div>
   </div>
  </section>
+ @if(auth()->user()?->isAdmin())
+ <div class="flex flex-wrap items-center gap-2">
+  <a href="{{ route('export.inventory-prices') }}" class="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-700 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-arrow-down-tray class="h-4 w-4"/>Inventory & Prices (.xlsx)</a>
+  @if(\App\Services\InventoryCountReset::canReset(auth()->user()))<x-filament::button color="danger" size="sm" outlined icon="heroicon-o-arrow-path" wire:click="mountAction('resetAllCounts')">Reset all stock</x-filament::button>@endif
+ </div>
+ @endif
  <div class="vx-health-grid">
   @foreach($this->getStats() as $stat)
    @if($stat['key'])<button type="button" wire:click="filterStock('{{ $stat['key'] }}')" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>
@@ -81,9 +87,9 @@
  </section>
 
  <div class="vx-catalog-view {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}">
-  @php $canBulkDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny(); @endphp
+  @php $canBulkDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny(); $canResetStock = \App\Services\InventoryCountReset::canReset(auth()->user()); $canSelectStock = $canBulkDelete || $canResetStock; @endphp
   @if($this->catalogItems->isNotEmpty())
-   @if($canBulkDelete)
+   @if($canSelectStock)
     @php $filterLabel = match($stockHealth) { 'in' => 'in-stock', 'low' => 'low-stock', 'out' => 'out-of-stock', default => '' }; @endphp
     <div class="vx-select-row">
      <span class="vxw-meta">
@@ -110,8 +116,8 @@
      @php
       $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
      @endphp
-     <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canBulkDelete && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
-      @if($canBulkDelete && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
+     <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
+      @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
        <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
       </a>
@@ -138,12 +144,13 @@
      </article>
     @endforeach
    </div>
-   @if($canBulkDelete)
+   @if($canSelectStock)
     <div class="vx-bulk-bar" @unless($selectAllMatching) x-show="$wire.selectedItems.length" x-cloak @endunless x-transition.opacity.duration.150ms role="region" aria-label="Bulk actions">
      <span class="text-sm font-semibold">@if($selectAllMatching){{ number_format($this->catalogTotal) }} selected @else<span x-text="$wire.selectedItems.length"></span> selected @endif</span>
      <div class="flex gap-2">
       <button type="button" class="vxw-btn vxw-btn--ghost vxw-btn--sm" wire:click="clearSelection">Clear</button>
-      <button type="button" class="vxw-btn vxw-btn--sm" style="background:#e11d48;border-color:transparent;color:#fff" wire:click="mountAction('bulkDeleteItems')" wire:loading.attr="disabled" wire:target="mountAction"><x-heroicon-o-trash class="h-4 w-4" /> Delete selected</button>
+      @if($canResetStock)<button type="button" class="vxw-btn vxw-btn--sm" wire:click="mountAction('resetSelectedCounts')" wire:loading.attr="disabled" wire:target="mountAction"><x-heroicon-o-arrow-path class="h-4 w-4" /> Reset selected stock</button>@endif
+      @if($canBulkDelete)<button type="button" class="vxw-btn vxw-btn--sm" style="background:#e11d48;border-color:transparent;color:#fff" wire:click="mountAction('bulkDeleteItems')" wire:loading.attr="disabled" wire:target="mountAction"><x-heroicon-o-trash class="h-4 w-4" /> Delete selected</button>@endif
      </div>
     </div>
    @endif

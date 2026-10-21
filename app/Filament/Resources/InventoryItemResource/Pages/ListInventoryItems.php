@@ -58,6 +58,9 @@ class ListInventoryItems extends ListRecords
     /** Card-view selection for bulk delete. Ids as strings: that is what checkbox wire:model sends. */
     public array $selectedItems = [];
 
+    #[\Livewire\Attributes\Locked]
+    public array $stockResetProductIds = [];
+
     /**
      * "Select all" means every item matching the current search and stock
      * filter — not just the cards loaded so far. Resolved from the query when
@@ -443,6 +446,40 @@ class ListInventoryItems extends ListRecords
     public function itemHistoryAction(): Action
     {
         return \App\Support\InventoryHistory::action();
+    }
+
+    public function resetAllCountsAction(): Action { return $this->stockResetAction(true); }
+    public function resetSelectedCountsAction(): Action { return $this->stockResetAction(false); }
+
+    private function stockResetAction(bool $all): Action
+    {
+        $confirmation = $all ? \App\Services\InventoryCountReset::CONFIRMATION : \App\Services\InventoryCountReset::SELECTED_CONFIRMATION;
+        return Action::make($all ? 'resetAllCounts' : 'resetSelectedCounts')->label($all ? 'Reset all stock' : 'Reset selected stock')->icon('heroicon-o-arrow-path')->color('danger')
+            ->visible(fn () => \App\Services\InventoryCountReset::canReset(auth()->user()))
+            ->requiresConfirmation()->modalHeading(fn () => $all ? 'Reset ALL stock to zero?' : 'Reset stock for '.count($this->stockResetProductIds).' selected products?')
+            ->modalDescription($all
+                ? 'All non-deleted products at EVERY location and channel, including inactive products. Page filters do not limit this reset. Products, prices, receipts and past show/payroll records are kept. Each change is recorded in Inventory History.'
+                : 'Only the products selected when you opened this confirmation will be reset, across all their locations. Other products are not changed. Products, prices and history are kept.')
+            ->modalSubmitActionLabel($all ? 'Reset all stock to 0' : 'Reset selected stock to 0')
+            ->mountUsing(function (\Filament\Schemas\Schema $form) use ($all): void {
+                abort_unless(\App\Services\InventoryCountReset::canReset(auth()->user()), 403);
+                $this->stockResetProductIds = $all ? [] : $this->bulkTargetIds();
+                if (! $all && ! $this->stockResetProductIds) throw \Illuminate\Validation\ValidationException::withMessages(['selection' => 'Select at least one product first.']);
+                $form->fill();
+            })
+            ->schema([
+                Textarea::make('reason')->label('Reason for reset')->required()->minLength(3)->maxLength(500)->rows(2),
+                TextInput::make('confirmation')->label('Type '.$confirmation.' to confirm')->required()->rule('in:'.$confirmation)->autocomplete(false),
+            ])
+            ->action(function (array $data) use ($all): void {
+                abort_unless(\App\Services\InventoryCountReset::canReset(auth()->user()), 403);
+                $result = app(\App\Services\InventoryCountReset::class)->reset(auth()->user(), $data['confirmation'], $data['reason'], $all ? null : $this->stockResetProductIds);
+                $this->statsMemo = null;
+                $this->clearSelection();
+                unset($this->catalogItems, $this->catalogTotal);
+                $this->resetTable();
+                Notification::make()->title('Stock counts reset')->body($result['rows'].' stock rows across '.$result['locations'].' locations are now zero. Products and prices were kept.')->success()->send();
+            });
     }
 
     protected function getHeaderActions(): array

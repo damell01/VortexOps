@@ -144,8 +144,9 @@ class InventoryService
         string $movementType = 'adjustment',
         ?string $referenceType = null,
         ?int $referenceId = null,
+        bool $notify = true,
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId) {
+        return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId, $notify) {
             $stock = $this->lockedStock($item, $location);
 
             $diff = $newQuantity - (float) $stock->quantity;
@@ -187,7 +188,7 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
-            $this->notifyIfLowStock($item);
+            if ($notify) $this->notifyIfLowStock($item);
             return $movement;
         });
     }

@@ -1442,6 +1442,19 @@ class InventoryItemResource extends Resource
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),
+                    \Filament\Actions\BulkAction::make('reset_selected_stock')
+                        ->label('Reset selected stock')->icon('heroicon-o-arrow-path')->color('danger')
+                        ->visible(fn () => \App\Services\InventoryCountReset::canReset(auth()->user()))
+                        ->requiresConfirmation()->modalHeading('Reset selected products’ stock to zero?')
+                        ->modalDescription('Resets only selected products, across all their locations. Products, prices and history are kept.')
+                        ->schema([
+                            Textarea::make('reason')->label('Reason for reset')->required()->minLength(3)->maxLength(500),
+                            TextInput::make('confirmation')->label('Type RESET SELECTED STOCK to confirm')->required()->rule('in:RESET SELECTED STOCK'),
+                        ])
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
+                            $result = app(\App\Services\InventoryCountReset::class)->reset(auth()->user(), $data['confirmation'], $data['reason'], $records->modelKeys());
+                            Notification::make()->title('Selected stock reset')->body($result['rows'].' stock rows reset to zero.')->success()->send();
+                        })->deselectRecordsAfterCompletion(),
                     \Filament\Actions\BulkAction::make('delete_selected')
                         ->label('Delete selected')
                         ->icon('heroicon-o-trash')

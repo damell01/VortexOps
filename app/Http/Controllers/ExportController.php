@@ -17,6 +17,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
 {
+    public function inventoryPriceList()
+    {
+        abort_unless(auth()->user()?->isAdmin() && \App\Filament\Resources\InventoryItemResource::canAccess(), 403);
+        return Excel::download(new \App\Exports\InventoryPriceListExport(), 'inventory-and-prices-'.\App\Support\BusinessTime::local()->format('Y-m-d-His').'.xlsx');
+    }
+
     public function inventoryItems(): StreamedResponse
     {
         abort_unless(auth()->user()?->isAdmin(), 403);

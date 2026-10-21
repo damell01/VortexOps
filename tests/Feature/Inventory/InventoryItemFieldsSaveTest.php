@@ -208,6 +208,8 @@ class InventoryItemFieldsSaveTest extends TestCase
             // The Add Stock sheet (entry type, received date, barcode check)
             // and the Delete action's write-off switch.
             'movement_type', 'received_at', 'barcode_check', 'write_off',
+            // Typed confirmation for the stock-reset bulk action, never product data.
+            'confirmation',
         ];
 
         $orphans = [];

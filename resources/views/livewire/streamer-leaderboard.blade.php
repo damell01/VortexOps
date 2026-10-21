@@ -15,7 +15,7 @@
         </div>
         @if ($lineup)
             <div class="vxa-mini" role="group" aria-label="Arena">
-                <button type="button" data-vxa-replay aria-label="Replay the battle" title="Replay the battle"><x-filament::icon icon="heroicon-m-arrow-path" /></button>
+                <button type="button" class="vxa-replay-btn" data-vxa-replay title="Replay the battle"><x-filament::icon icon="heroicon-m-arrow-path" /><span class="vxa-long">Replay animation</span><span class="vxa-short">Replay</span></button>
                 <button type="button" data-vxa-mute aria-pressed="false" aria-label="Arena sound" title="Sound off"><x-filament::icon icon="heroicon-m-speaker-x-mark" class="vxa-ico-off" /><x-filament::icon icon="heroicon-m-speaker-wave" class="vxa-ico-on" /></button>
             </div>
         @endif

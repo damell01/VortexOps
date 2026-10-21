@@ -214,7 +214,7 @@ class StreamerLeaderboardTest extends TestCase
         $this->show('Fourth', 100, $this->rival);
 
         $page = $this->get(\App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin'))->assertOk()
-            ->assertSee('data-vxa', false)->assertSee('Replay the battle')->assertSee('vxl-podium-fallback', false);
+            ->assertSee('data-vxa', false)->assertSee('Replay the battle')->assertSee('Replay animation')->assertSee('vxl-podium-fallback', false);
         preg_match('#<script type="application/json" data-vxa-lineup>(.*?)</script>#s', $page->getContent(), $m);
         $lineup = json_decode($m[1] ?? 'null', true);
         $this->assertSame('week', $lineup['period']);

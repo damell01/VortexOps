@@ -1,7 +1,7 @@
 // The Vortex Colosseum at the top of the leaderboard (Show Leaderboard page and
 // dashboards). This file is tiny on purpose: the 3D arena (Three.js, models,
 // effects) is fetched only once the board is on screen and the page is idle.
-// A new champion gets the 3-second battle; otherwise the settled podium shows.
+// Each visit opens with the 3-second battle once the board is on screen.
 // Names, amounts and show details are ordinary page elements under each
 // podium, placed from where the camera actually puts it.
 const roots = new WeakSet();
@@ -14,11 +14,6 @@ function webglOk() {
         return false;
     }
 }
-
-const store = {
-    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
-};
 
 const el = (tag, cls, text) => {
     const e = document.createElement(tag);
@@ -51,7 +46,6 @@ function mount(root) {
     const stage = root.querySelector('[data-vxa-stage]'), details = root.querySelector('[data-vxa-details]');
     const compact = root.dataset.mode === 'compact';
     let arena = null, lineup = lineupOf(), muted = true, busy = false;
-    const seenKey = () => 'vxa-champion-' + (lineup?.period || 'week');
 
     /** The three detail blocks under the podiums, #2 · #1 · #3. */
     function drawDetails() {
@@ -97,7 +91,6 @@ function mount(root) {
         if (s === 'settled') {
             delete root.dataset.pending;
             busy = false;
-            if (lineup?.rows?.length) store.set(seenKey(), String(lineup.rows[0].id));
         }
     };
 
@@ -178,8 +171,8 @@ function mount(root) {
     const io = new IntersectionObserver(([e]) => {
         if (!e.isIntersecting) return;
         io.disconnect();
-        const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
-        start(fresh ? 'quick' : 'podium');
+        // Every visit opens with the battle, once, when the board comes on screen.
+        start('quick');
     }, { threshold: 0.35 });
     io.observe(root);
 }

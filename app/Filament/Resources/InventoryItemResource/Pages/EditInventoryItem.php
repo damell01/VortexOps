@@ -16,13 +16,6 @@ class EditInventoryItem extends EditRecord
         return 'filament.resources.inventory-item-resource.pages.edit-inventory-item';
     }
 
-    public function mount(string|int $record): void
-    {
-        $this->record = $this->resolveRecord($record);
-        $this->record->load('stock.location');
-        parent::mount($record);
-    }
-
     public function getSubheading(): ?string
     {
         return 'Edit product details, barcode, case/container contents, sourcing, pricing, and reorder settings. Use Move or correct stock for quantity changes.';

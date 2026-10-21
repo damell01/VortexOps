@@ -203,7 +203,7 @@
             @if(in_array($mode, ['lookup', 'quickadd'], true))
                 <div class="relative mt-3 border-t border-gray-200/70 pt-3 dark:border-gray-700/70">
                     <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">No barcode? Find it by name</label>
-                    <input type="text" wire:model.live.debounce.300ms="keywordSearch" autocomplete="off"
+                    <input type="text" wire:model.live.debounce.500ms="keywordSearch" autocomplete="off"
                         placeholder="Search by item name, SKU or barcode…"
                         class="mt-2 min-h-11 w-full rounded-lg border-gray-300 bg-white px-3 text-base dark:border-gray-600 dark:bg-gray-900" />
 

@@ -167,20 +167,21 @@ class ListInventoryItems extends ListRecords
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
 
-        // Keep the stock_sum_quantity alias produced by withSum(). Calling
-        // count() on this builder can strip the select that defines that alias,
-        // which makes HAVING stock_sum_quantity invalid on MySQL. Hydrate only
-        // the two tiny fields these cards need and count in memory instead.
-        $items = InventoryItemResource::getEloquentQuery()
-            ->get(['products.id', 'products.reorder_level']);
-        $total = $items->count();
-        $out = $items->filter(fn ($item) => (float) ($item->stock_sum_quantity ?? 0) <= 0)->count();
-        $low = $items->filter(function ($item): bool {
-            $onHand = (float) ($item->stock_sum_quantity ?? 0);
-            return $onHand > 0
-                && $item->reorder_level !== null
-                && $onHand <= (float) $item->reorder_level;
-        })->count();
+        // Aggregate stock health in SQL instead of hydrating every inventory item
+        // and its stock sum on every Livewire refresh.
+        $base = InventoryItemResource::getEloquentQuery()
+            ->reorder()
+            ->select('products.id', 'products.reorder_level')
+            ->toBase();
+        $rows = \Illuminate\Support\Facades\DB::query()
+            ->fromSub($base, 'inventory_health')
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN COALESCE(stock_sum_quantity, 0) <= 0 THEN 1 ELSE 0 END) as out_count')
+            ->selectRaw('SUM(CASE WHEN stock_sum_quantity > 0 AND reorder_level IS NOT NULL AND stock_sum_quantity <= reorder_level THEN 1 ELSE 0 END) as low_count')
+            ->first();
+        $total = (int) ($rows->total ?? 0);
+        $out = (int) ($rows->out_count ?? 0);
+        $low = (int) ($rows->low_count ?? 0);
         $in = max(0, $total - $out - $low);
         $percentage = fn (int $count): string => $total > 0
             ? number_format(($count / $total) * 100, 1) . '%'

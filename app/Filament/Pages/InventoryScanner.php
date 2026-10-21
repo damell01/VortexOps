@@ -299,7 +299,9 @@ class InventoryScanner extends Page
         $this->errorMessage = null;
         $this->adjustMode   = false;
         $this->result       = $this->buildResultFromItem($item);
-        $this->costWarnings = $this->generateCostWarnings($item);
+        // Cost analysis is not needed to identify a scanned SKU. Keep the
+        // scan response fast; detailed costs remain in the item result.
+        $this->costWarnings = null;
     }
 
     public function openAdjust(): void

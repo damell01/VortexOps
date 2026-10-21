@@ -197,6 +197,8 @@ function normalizeWhatnotFinancialLabels(root = document.body) {
         const node = walker.currentNode;
         const current = node.nodeValue?.trim();
         if (! current) continue;
+        // A control whose short label is deliberate (Gross / Net / Per hour).
+        if (node.parentElement?.closest('[data-vx-keep-label]')) continue;
 
         const replacement = WHATNOT_FINANCIAL_LABELS.get(current);
         if (replacement) {

@@ -47,8 +47,7 @@ class StreamerShowLeaderboard
             foreach ($hosts as $host) {
                 $value = $earnings;
                 if ($value === null || ! $host) continue;
-                $buddy = $host->user?->buddy;
-                $buddy = is_string($buddy) && preg_match('/^[a-z0-9-]+$/', $buddy) && is_file(public_path('img/pokemon3d/'.$buddy.'.gif')) ? $buddy : ['pikachu', 'charizard', 'blastoise', 'gengar', 'dragonite', 'eevee', 'snorlax', 'lucario'][$host->id % 8];
+                $buddy = self::buddyFor($host->user?->buddy, $host->id);
                 $rows->push([
                     'show_id' => $show->id, 'streamer_id' => $host->id, 'name' => $host->name,
                     'title' => $show->title ?: 'Show #'.$show->id, 'date' => $show->show_date->format('M j'),
@@ -76,5 +75,13 @@ class StreamerShowLeaderboard
             $previous = $row['value'];
             return $row + ['rank' => $rank];
         });
+    }
+
+    /** The streamer's chosen buddy sprite, or a steady stand-in when they have none. */
+    public static function buddyFor(?string $buddy, int $streamerId): string
+    {
+        return is_string($buddy) && preg_match('/^[a-z0-9-]+$/', $buddy) && is_file(public_path('img/pokemon3d/'.$buddy.'.gif'))
+            ? $buddy
+            : ['pikachu', 'charizard', 'blastoise', 'gengar', 'dragonite', 'eevee', 'snorlax', 'lucario'][$streamerId % 8];
     }
 }

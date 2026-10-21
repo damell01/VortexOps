@@ -6,6 +6,7 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
+use App\Services\StreamerShowLeaderboard;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
 use App\Support\NavVisibility;
@@ -143,21 +144,36 @@ class StreamerAnalytics extends Page
 
     /** Streamer card grid: search, sort and page. */
     public string $cardSearch = '';
-    public string $cardSort = 'gross';
+    public string $cardSort = 'net';
     public int $cardPage = 1;
 
-    public const CARDS_PER_PAGE = 12;
+    /** Top streamers bars: net | gross | sph. */
+    public string $topMetric = 'net';
+
+    /** The every-figure table opens on request, below the cards. */
+    public bool $showComparison = false;
+
+    public const CARDS_PER_PAGE = 6;
+
+    /** Points on each card's sparkline, spread evenly across the range. */
+    public const SPARK_POINTS = 12;
 
     /** @var array<string, string> sort key => label */
     public const CARD_SORTS = [
-        'gross'  => 'Gross revenue',
-        'net'    => 'Whatnot est. earnings',
-        'shows'  => 'Total shows',
+        'net'    => 'Net earnings',
+        'gross'  => 'Gross sales',
+        'shows'  => 'Shows',
         'hours'  => 'Show hours',
-        'sph'    => 'Revenue / show hour',
+        'sph'    => 'Sales / hour',
         'payout' => 'Recorded payouts',
         'name'   => 'Name',
     ];
+
+    /** @var array<string, string> */
+    public const TOP_METRICS = ['gross' => 'Gross', 'net' => 'Net', 'sph' => 'Per hour'];
+
+    /** @var array<string, string> */
+    public const RANGES = ['month' => 'This month', '30' => 'Last 30 days', '90' => 'Last 90 days', 'year' => 'This year', 'last_year' => 'Last year'];
 
     public function mount(): void
     {
@@ -196,6 +212,48 @@ class StreamerAnalytics extends Page
         $this->cardPage = 1;
     }
 
+    public function setRange(string $preset): void
+    {
+        $today = now();
+        [$from, $to] = match ($preset) {
+            'month' => [$today->copy()->startOfMonth(), $today],
+            '30' => [$today->copy()->subDays(29), $today],
+            '90' => [$today->copy()->subDays(89), $today],
+            'last_year' => [$today->copy()->subYear()->startOfYear(), $today->copy()->subYear()->endOfYear()],
+            default => [$today->copy()->startOfYear(), $today],
+        };
+        $this->dateFrom = $from->toDateString();
+        $this->dateTo = $to->toDateString();
+        $this->cardPage = 1;
+    }
+
+    /** "Oct 1 – 21, 2026", "Sep 3 – Oct 21, 2026" or across years in full. */
+    public function rangeLabel(): string
+    {
+        try {
+            $a = Carbon::parse($this->dateFrom ?: now()->startOfYear());
+            $b = Carbon::parse($this->dateTo ?: now());
+        } catch (\Throwable) {
+            return 'Pick dates';
+        }
+        if ($a->year !== $b->year) return $a->format('M j, Y').' – '.$b->format('M j, Y');
+        if ($a->month === $b->month) return $a->format('M j').' – '.$b->format('j, Y');
+
+        return $a->format('M j').' – '.$b->format('M j, Y');
+    }
+
+    public function updatedTopMetric(): void
+    {
+        if (! array_key_exists($this->topMetric, self::TOP_METRICS)) $this->topMetric = 'net';
+    }
+
+    /** "View analytics" on a card: the whole page narrows to that streamer. */
+    public function focusStreamer(int $id): void
+    {
+        $this->selectedStreamers = [$id];
+        $this->cardPage = 1;
+    }
+
     public function clearSelectedStreamers(): void
     {
         $this->selectedStreamers = [];
@@ -216,11 +274,6 @@ class StreamerAnalytics extends Page
     {
         $rows = collect($this->analyticsRows);
 
-        $needle = mb_strtolower(trim($this->cardSearch));
-        if ($needle !== '') {
-            $rows = $rows->filter(fn ($r) => str_contains(mb_strtolower((string) $r['name']), $needle));
-        }
-
         $field = [
             'gross'  => 'gross_revenue',
             'net'    => 'net_revenue',
@@ -233,6 +286,13 @@ class StreamerAnalytics extends Page
         $rows = $field
             ? $rows->sortBy([[$field, 'desc'], ['name', 'asc']])
             : $rows->sortBy(fn ($r) => mb_strtolower((string) $r['name']));
+        // Rank before the search narrows the list, so a found card keeps its place.
+        $rows = $rows->values()->map(fn ($r, $i) => $r + ['rank' => $field ? $i + 1 : null]);
+
+        $needle = mb_strtolower(trim($this->cardSearch));
+        if ($needle !== '') {
+            $rows = $rows->filter(fn ($r) => str_contains(mb_strtolower((string) $r['name']), $needle));
+        }
 
         $total = $rows->count();
         $pages = max(1, (int) ceil($total / self::CARDS_PER_PAGE));
@@ -249,12 +309,15 @@ class StreamerAnalytics extends Page
         ];
     }
 
-    /** Up to five streamers with the most gross revenue in the range. */
-    public function getTopByGrossProperty(): array
+    /** Up to five streamers with the most of the chosen figure in the range. */
+    public function getTopStreamersProperty(): array
     {
+        $field = ['gross' => 'gross_revenue', 'sph' => 'gmv_per_hour'][$this->topMetric] ?? 'net_revenue';
+
         return collect($this->analyticsRows)
-            ->filter(fn ($r) => $r['gross_revenue'] > 0)
-            ->sortByDesc('gross_revenue')
+            ->filter(fn ($r) => $r[$field] > 0)
+            ->map(fn ($r) => $r + ['top_value' => $r[$field]])
+            ->sortByDesc($field)
             ->take(5)
             ->values()
             ->all();
@@ -320,7 +383,7 @@ class StreamerAnalytics extends Page
      */
     public function getAnalyticsRowsProperty(): array
     {
-        return Cache::remember($this->cacheKey('rows'), 60, fn () => $this->buildAnalyticsRows());
+        return Cache::remember($this->cacheKey('rows-v2'), 60, fn () => $this->buildAnalyticsRows());
     }
 
     /**
@@ -348,6 +411,8 @@ class StreamerAnalytics extends Page
                     $q->select(['id', 'show_id', 'streamer_id', 'tips_included', 'calculated_payout', 'status'])
                         ->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
                 },
+                'business:id,name',
+                'user:id,buddy',
                 'streamerLogEntries' => function ($q) use ($from, $toBound) {
                     $q->select(['id', 'show_id', 'streamer_id', 'hours_streamed', 'gross_revenue'])
                         ->whereHas('show', fn ($s) => $s->whereBetween('show_date', [$from, $toBound]));
@@ -367,6 +432,8 @@ class StreamerAnalytics extends Page
         $priorGrossByStreamer = $this->priorPeriodGrossByStreamer($from, $to);
 
         $rows = [];
+        $sparkFrom = Carbon::parse($from)->startOfDay();
+        $sparkSpan = max(1, $sparkFrom->diffInDays(Carbon::parse($to)->endOfDay()));
 
         foreach ($query->get() as $streamer) {
             $shows   = $streamer->shows;
@@ -402,9 +469,19 @@ class StreamerAnalytics extends Page
             $priorGross = (float) ($priorGrossByStreamer[$streamer->id] ?? 0);
             $trendGross = $priorGross > 0 ? round((($grossRevenue - $priorGross) / $priorGross) * 100, 1) : null;
 
+            // Whatnot net over the range, in even slices, for the card's sparkline.
+            $spark = array_fill(0, self::SPARK_POINTS, 0.0);
+            foreach ($shows as $show) {
+                $slot = (int) floor($sparkFrom->diffInDays($show->show_date) / $sparkSpan * self::SPARK_POINTS);
+                $spark[min(self::SPARK_POINTS - 1, max(0, $slot))] += (float) $show->whatnot_net;
+            }
+
             $rows[] = [
                 'streamer_id'  => $streamer->id,
                 'name'         => $streamer->name,
+                'business'     => $streamer->business?->name,
+                'buddy'        => StreamerShowLeaderboard::buddyFor($streamer->user?->buddy, $streamer->id),
+                'spark'        => array_map(fn ($v) => round($v, 2), $spark),
                 'payout_type'  => $streamer->payout_type,
                 'show_count'   => $showCount,
                 'total_hours'  => $totalHours,
@@ -482,6 +559,11 @@ class StreamerAnalytics extends Page
             ->whereBetween('show_date', [$from, $toBound])
             ->inChannelContext()
             ->with('streamerLogEntry:id,show_id,hours_streamed')
+            // Comparing a few streamers narrows the trend and weekly table too.
+            ->when(
+                ! empty($this->selectedStreamers),
+                fn ($q) => $q->whereHas('streamers', fn ($s) => $s->whereIn('streamers.id', $this->selectedStreamers)),
+            )
             ->when(
                 $this->visibleStreamerIds() !== null,
                 // Without this the weekly table was every show in the business,

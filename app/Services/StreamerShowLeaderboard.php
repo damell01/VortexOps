@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Filament\Pages\Shows;
 use App\Models\Show;
 use App\Models\User;
 use App\Support\BusinessTime;
+use App\Support\RoleAccess;
 use App\Support\ProfitShareFormula;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -14,8 +16,8 @@ class StreamerShowLeaderboard
 {
     public function rows(User $viewer, Carbon $from, Carbon $to, ?int $channel = null): Collection
     {
-        if (! $viewer->isAdmin() && ! $viewer->isStreamer()) return collect();
-        if (! $viewer->isAdmin() && ! $viewer->streamer) return collect();
+        $granted = RoleAccess::grants(Shows::class, $viewer);
+        if (! $viewer->isAdmin() && ! $granted && ! ($viewer->isStreamer() && $viewer->streamer)) return collect();
         $now = BusinessTime::local();
         $shows = Show::query()->where('is_operational', true)->where('status', '!=', 'cancelled')->whereDate('show_date', '<=', $now->toDateString())
             ->whereBetween('show_date', [$from->toDateString(), $to->toDateString().' 23:59:59'])

@@ -13,6 +13,7 @@ class NavIcons
         // Shows
         'Shows Overview' => 'heroicon-o-tv',
         'Show Calendar' => 'heroicon-o-calendar-days',
+        'Show Leaderboard' => 'heroicon-o-trophy',
         'Log a Show' => 'heroicon-o-pencil-square',
         'Channel Review' => 'heroicon-o-signal',
         'Stream Review' => 'heroicon-o-user-group',

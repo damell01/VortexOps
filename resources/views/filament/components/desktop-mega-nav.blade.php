@@ -15,11 +15,13 @@ elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $nav
 if($streamerOnly){
  if(\App\Filament\Pages\Shows::canAccess()) $groups['Shows']=array_values(array_filter([
   ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
+  \App\Filament\Pages\ShowLeaderboard::canAccess() ? ['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')] : null,
   \App\Filament\Pages\EndOfStreamForm::canAccess() ? ['Log a Show',\App\Filament\Pages\EndOfStreamForm::getUrl(panel:'admin')] : null,
   \App\Filament\Pages\Timekeeping::canAccess() ? ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')] : null,
  ]));
 }elseif(\App\Support\AdminModules::isEnabled('streams') && \App\Filament\Pages\Shows::canAccess()) $groups['Shows']=[
  ['Shows Overview',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
+ ...(\App\Filament\Pages\ShowLeaderboard::canAccess() ? [['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')]] : []),
  ...($user?->isAdmin() ? [['Channel Review',\App\Filament\Resources\ShowResource::getUrl('channel-review')]] : []),
  ...(\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? [['Stream Review',\App\Filament\Resources\ShowResource::getUrl('stream-review')]] : []),
  ...($user?->isOwner() ? [['Whatnot Sheet Check',\App\Filament\Pages\WhatnotSheetCheck::getUrl(panel:'admin')]] : []),

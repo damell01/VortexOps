@@ -189,4 +189,19 @@ class StreamerLeaderboardTest extends TestCase
             ->assertSet('page', 1);
         Livewire::test(\App\Filament\Pages\DashboardImproved::class)->assertSee('Top Net Shows')->assertSee('This week')->assertSee('This month');
     }
+
+    public function test_leaderboard_has_its_own_page_linked_under_shows_for_everyone_with_the_tab(): void
+    {
+        $this->show('Page winner', 300);
+        $url = \App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin');
+        $this->get($url)->assertOk()->assertSee('Top Net Shows')->assertSee('Page winner');
+        $this->get(\App\Filament\Pages\Shows::getUrl(panel: 'admin'))->assertOk()->assertSee('Show Leaderboard')->assertSee($url, false);
+
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::findOrCreate('admin', 'web'));
+        $this->actingAs($admin)->get($url)->assertOk()->assertSee('Page winner');
+        $this->get(\App\Filament\Pages\Shows::getUrl(panel: 'admin'))->assertSee($url, false);
+
+        $this->actingAs(User::factory()->create())->get($url)->assertForbidden();
+    }
 }

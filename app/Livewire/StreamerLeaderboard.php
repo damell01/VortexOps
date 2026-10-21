@@ -2,10 +2,12 @@
 
 namespace App\Livewire;
 
+use App\Filament\Pages\Shows;
 use App\Services\StreamerShowLeaderboard;
 use App\Support\AdminModules;
 use App\Support\BusinessTime;
 use App\Support\ChannelContext;
+use App\Support\RoleAccess;
 use Illuminate\Support\Carbon;
 use Livewire\Component;
 
@@ -21,7 +23,8 @@ class StreamerLeaderboard extends Component
     public static function canView(): bool
     {
         $user = auth()->user();
-        return AdminModules::isEnabled('streams') && (bool) ($user?->isAdmin() || ($user?->isStreamer() && $user->streamer));
+        // Everyone with the Shows tab: admins, streamers, and roles granted Shows.
+        return AdminModules::isEnabled('streams') && (bool) ($user?->isAdmin() || ($user?->isStreamer() && $user->streamer) || ($user && RoleAccess::grants(Shows::class, $user)));
     }
 
     public function mount(): void { abort_unless(static::canView(), 403); }

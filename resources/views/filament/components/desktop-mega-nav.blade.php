@@ -86,9 +86,16 @@ foreach ($groups as $label => $links) {
     $groups[$label] = array_values(array_filter($links, function ($link) use ($user) {
         if ($link[1] === '#') return true;
         try {
-            $request = \Illuminate\Http\Request::create($link[1]);
-            $route = app('router')->getRoutes()->match($request);
-            $class = $route->getAction('controller');
+            // Reuse the URL -> controller resolution when the same link is
+            // represented more than once in the menu. Authorization remains
+            // checked for each render and is never cached across users.
+            static $controllers = [];
+            if (! array_key_exists($link[1], $controllers)) {
+                $request = \Illuminate\Http\Request::create($link[1]);
+                $route = app('router')->getRoutes()->match($request);
+                $controllers[$link[1]] = $route->getAction('controller');
+            }
+            $class = $controllers[$link[1]];
             $class = is_string($class) ? explode('@', $class)[0] : null;
             if ($class && method_exists($class, 'canAccess')) {
                 return $class::canAccess() && ! \App\Support\NavVisibility::isHiddenForUser($class, $user);

@@ -14,9 +14,10 @@ const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const templates = new Map();
 
 /** Load (once) and measure a roster model. */
-export function loadTemplate(slug, base) {
+export function loadTemplate(slug, base, version = '') {
     if (!templates.has(slug)) {
-        templates.set(slug, loader.loadAsync(base + ROSTER[slug].file).then((gltf) => {
+        // Same URL as the login warm-up fetched, so it comes straight from cache.
+        templates.set(slug, loader.loadAsync(base + ROSTER[slug].file + (version ? '?v=' + version : '')).then((gltf) => {
             const box = new THREE.Box3().setFromObject(gltf.scene, true);
             return { gltf, box };
         }));

@@ -48,6 +48,8 @@ self.addEventListener('fetch', event => {
         url.pathname.startsWith('/fonts/') ||
         url.pathname.startsWith('/icons/') ||
         url.pathname.startsWith('/media/') ||
+        // Colosseum models: versioned URLs (?v=), kept on the device once warmed.
+        url.pathname.startsWith('/models/') ||
         /\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|otf)$/i.test(url.pathname)
     ) {
         event.respondWith(cacheFirst(req));

@@ -26,7 +26,7 @@
              re-renders never tear down the canvas; a period change swaps the podium
              in place. Fixed height from first paint, so nothing jumps. --}}
         <div class="vxa-wrap" @if ($page !== 1 || ! $leader) hidden @endif>
-            <div @class(['vxa', 'vxa-compact' => ! $arena]) data-vxa data-mode="{{ $arena ? 'full' : 'compact' }}" data-models="{{ asset('models/colosseum') }}/" wire:ignore>
+            <div @class(['vxa', 'vxa-compact' => ! $arena]) data-vxa data-mode="{{ $arena ? 'full' : 'compact' }}" data-models="{{ asset('models/colosseum') }}/" data-models-v="{{ \App\Support\ColosseumAssets::version() }}" wire:ignore>
                 <div class="vxa-stage" data-vxa-stage>
                     <div class="vxa-bars" aria-hidden="true"><i></i><i></i></div>
                     <div class="vxa-loader" aria-hidden="true"><i></i></div>

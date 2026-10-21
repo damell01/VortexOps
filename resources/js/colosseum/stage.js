@@ -262,12 +262,18 @@ export function buildStage(scene, { lite }) {
         top.position.y = y + 0.375;
         scene.add(top);
     }
+    // The crowd: head-and-shoulders figures (one instanced mesh each for bodies
+    // and heads) with a purple rim light so they read against the dark stone.
     const crowdCount = lite ? 160 : 340;
-    const crowd = new THREE.InstancedMesh(
-        new THREE.CapsuleGeometry(0.17, 0.32, 3, 6),
-        new THREE.MeshStandardMaterial({ color: 0x2a2350, roughness: 1 }),
-        crowdCount,
-    );
+    const crowdMat = new THREE.MeshStandardMaterial({ color: 0x2a2350, roughness: 1 });
+    crowdMat.onBeforeCompile = (shader) => {
+        shader.fragmentShader = shader.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+            float vxRim = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+            totalEmissiveRadiance += vec3(0.42, 0.2, 0.85) * pow(vxRim, 3.2) * 0.38;`);
+    };
+    const crowd = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.2, 0.2, 3, 8), crowdMat, crowdCount);
+    const heads = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 10, 8), crowdMat, crowdCount);
+    set.heads = heads;
     const m = new THREE.Matrix4();
     crowd.userData.base = [];
     for (let i = 0; i < crowdCount; i++) {
@@ -276,10 +282,29 @@ export function buildStage(scene, { lite }) {
         crowd.userData.base.push([Math.cos(a) * r, y, Math.sin(a) * r, Math.random() * 6]);
         m.makeTranslation(Math.cos(a) * r, y, Math.sin(a) * r);
         crowd.setMatrixAt(i, m);
-        crowd.setColorAt(i, new THREE.Color().setHSL(0.72 + Math.random() * 0.08, 0.35, 0.16 + Math.random() * 0.1));
+        const tone = new THREE.Color().setHSL(0.72 + Math.random() * 0.08, 0.35, 0.16 + Math.random() * 0.1);
+        crowd.setColorAt(i, tone);
+        heads.setColorAt(i, tone);
     }
-    scene.add(crowd);
+    scene.add(crowd, heads);
     set.crowd = crowd;
+    set.cheers = [];
+
+    // Glowsticks and phone lights held up in the stands.
+    const lights = lite ? 45 : 110, lpos = new Float32Array(lights * 3), lcol = new Float32Array(lights * 3);
+    set.sticks = [];
+    const purple = new THREE.Color(0xb48cff), white = new THREE.Color(0xf4f0ff), pink = new THREE.Color(0xff8ad8);
+    for (let i = 0; i < lights; i++) {
+        const who = (Math.random() * crowdCount) | 0;
+        set.sticks.push([who, Math.random() * 6, 0.45 + Math.random() * 0.15]);
+        const c = [purple, purple, white, pink][i % 4];
+        lcol.set([c.r, c.g, c.b], i * 3);
+    }
+    const lg = new THREE.BufferGeometry();
+    lg.setAttribute('position', new THREE.BufferAttribute(lpos, 3));
+    lg.setAttribute('color', new THREE.BufferAttribute(lcol, 3));
+    set.stickPoints = new THREE.Points(lg, new THREE.PointsMaterial({ map: set.glow, size: 0.22, vertexColors: true, transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending }));
+    scene.add(set.stickPoints);
 
     // Three gates with lights inside, and banners between them.
     const gateTex = stoneTexture([1, 2]);
@@ -486,8 +511,8 @@ function addDetail(scene, set, { lite, R, gateMat }) {
 
     // Camera flashes popping in the crowd.
     set.flashes = [];
-    if (!lite) {
-        for (let i = 0; i < 10; i++) {
+    {
+        for (let i = 0; i < (lite ? 6 : 12); i++) {
             const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: set.glow, color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
             sp.scale.setScalar(0.5);
             scene.add(sp);
@@ -509,11 +534,30 @@ function addDetail(scene, set, { lite, R, gateMat }) {
 export function animateStage(set, t) {
     const m = new THREE.Matrix4();
     const crowd = set.crowd;
+    // Cheers fade over about a second; while one runs the stands jump.
+    let cheer = 0;
+    for (const at of set.cheers) if (t >= at) cheer += Math.exp(-(t - at) * 2.2);
+    cheer = Math.min(1, cheer);
+    set.cheers = set.cheers.filter((at) => t - at < 3);
+    const lift = [];
     crowd.userData.base.forEach(([x, y, z, p], i) => {
-        m.makeTranslation(x, y + Math.max(0, Math.sin(t * 2.2 + p)) * 0.05, z);
+        const dy = Math.max(0, Math.sin(t * 2.2 + p)) * 0.05 + cheer * Math.abs(Math.sin(t * 9 + p * 3)) * 0.24;
+        lift[i] = dy;
+        m.makeTranslation(x, y + dy, z);
         crowd.setMatrixAt(i, m);
+        m.makeTranslation(x, y + dy + 0.34, z);
+        set.heads.setMatrixAt(i, m);
     });
     crowd.instanceMatrix.needsUpdate = true;
+    set.heads.instanceMatrix.needsUpdate = true;
+    const sp = set.stickPoints.geometry.attributes.position, base = crowd.userData.base;
+    set.sticks.forEach(([who, ph, up], i) => {
+        const [x, y, z] = base[who];
+        const sway = Math.sin(t * (1.6 + cheer * 4) + ph) * (0.12 + cheer * 0.12);
+        sp.setXYZ(i, x + sway, y + lift[who] + up + cheer * 0.18, z);
+    });
+    sp.needsUpdate = true;
+    set.stickPoints.material.size = 0.22 + cheer * 0.08;
     for (const b of set.banners) b.rotation.z = Math.sin(t * 1.3 + b.userData.phase) * 0.035;
     set.motes.position.y = Math.sin(t * 0.3) * 0.15;
     set.motes.rotation.y = t * 0.02;
@@ -543,4 +587,10 @@ export function animateStage(set, t) {
         }
         if (f.life > 0) { f.life -= 0.12; f.sp.material.opacity = Math.max(0, f.life); }
     }
+}
+
+/** The crowd erupts: a jump that fades over a second (call at time t). */
+export function cheer(set, t, flashes = false) {
+    set.cheers.push(t);
+    if (flashes) for (const f of set.flashes) { f.life = 0; f.next = Math.random() * 0.45; }
 }

@@ -354,3 +354,33 @@ const scanFlipbooks = () => {
 };
 new MutationObserver(scanFlipbooks).observe(document.documentElement, { childList: true, subtree: true });
 scanFlipbooks();
+
+// Vortex Colosseum warm-up. The first page after login (once it is idle) quietly
+// downloads the 3D engine and the fighter models at low priority, so the
+// leaderboard arena never waits on a download. Done once per version per
+// device; skipped on data-saver connections. The service worker keeps the
+// models and the browser keeps the engine chunk.
+function warmColosseum() {
+    const meta = document.querySelector('meta[name="vortex-arena-warm"]');
+    if (!meta) return;
+    let warm;
+    try { warm = JSON.parse(meta.content); } catch { return; }
+    if (navigator.connection?.saveData) return;
+    let done = null;
+    try { done = localStorage.getItem('vxa-warm'); } catch { /* private mode */ }
+    if (done === warm.v + (warm.chunk || '')) return;
+    if (warm.chunk && !document.querySelector(`link[href="${warm.chunk}"]`)) {
+        const l = document.createElement('link');
+        l.rel = 'prefetch';
+        l.href = warm.chunk;
+        document.head.append(l);
+    }
+    // One model at a time, so the warm-up never competes with the page itself.
+    (async () => {
+        for (const url of warm.models || []) {
+            try { await fetch(url, { priority: 'low', credentials: 'same-origin' }); } catch { return; }
+        }
+        try { localStorage.setItem('vxa-warm', warm.v + (warm.chunk || '')); } catch { /* private mode */ }
+    })();
+}
+window.addEventListener('load', () => (window.requestIdleCallback || ((fn) => setTimeout(fn, 1500)))(warmColosseum, { timeout: 5000 }), { once: true });

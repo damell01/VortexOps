@@ -4,7 +4,7 @@
 // rather than simulated, so every run reads the same and Skip can jump to the
 // end state exactly.
 import * as THREE from 'three';
-import { buildStage, animateStage, PODIUM, GATES } from './stage.js';
+import { buildStage, animateStage, cheer, PODIUM, GATES } from './stage.js';
 import { Effects, buildCrown } from './effects.js';
 import { Actor, loadTemplate } from './actor.js';
 import { ROSTER, fighterFor } from './roster.js';
@@ -97,9 +97,10 @@ export class Arena {
      * @param {HTMLElement} host   element the canvas goes in (labels are added beside it)
      * @param {Array} lineup       [{ rank, name, value, buddy, seed }] for places 1–3
      */
-    constructor(host, lineup, { base = '/models/colosseum/', onLabels, onState, compact = false } = {}) {
+    constructor(host, lineup, { base = '/models/colosseum/', version = '', onLabels, onState, compact = false } = {}) {
         this.host = host;
         this.base = base;
+        this.version = version;
         this.onLabels = onLabels;
         this.onState = onState;
         // Dashboards use the light path everywhere: no bloom, no shadows, 1× pixels.
@@ -183,7 +184,7 @@ export class Arena {
 
     async build(picks, key) {
         if (this.state === 'idle') this.setState('loading');
-        const templates = await Promise.all(picks.map((p) => loadTemplate(p.slug, this.base)));
+        const templates = await Promise.all(picks.map((p) => loadTemplate(p.slug, this.base, this.version)));
         for (const a of Object.values(this.actors)) { a.dispose(); a.blob?.removeFromParent(); }
         this.actors = {};
         picks.forEach((p, i) => {
@@ -298,6 +299,7 @@ export class Arena {
         const chest = (a) => V(a.root.position.x, a.root.position.y + a.cfg.height * 0.55, a.root.position.z);
         const impact = () => {
             this.sound.impact();
+            cheer(this.set, this.wall ?? 0);
             // With Reduce Motion on, the battle still plays but without the shake and flash.
             this.shake = this.reduced ? 0 : 0.32;
             this.punch = this.reduced ? 0 : 1;
@@ -343,7 +345,7 @@ export class Arena {
             [4.1, () => challengers.forEach((a) => a.play('down_start', { fade: 0.1 }))],
             [4.55, () => challengers.forEach((a) => { this.fx.dust(a.root.position, 1.3); a.play('down_loop', { loop: true, fade: 0.1 }); })],
             [5.0, () => champ?.play('roar') || champ?.play('glad')],
-            [5.2, () => { this.crown.visible = true; this.sound.sparkle(); }],
+            [5.2, () => { this.crown.visible = true; this.sound.sparkle(); cheer(this.set, this.wall ?? 0, true); }],
             [5.25, () => challengers.forEach((a) => a.play('down_end', { fade: 0.15 }))],
             [5.6, () => {
                 this.fx.burst(champ.headTop().add(V(0, 0.3, 0)), { color: 0xffd24a, count: 34, speed: 1.6, up: 1.4, gravity: -1.8, size: 0.12, life: 1.4 });
@@ -471,6 +473,7 @@ export class Arena {
         this.clock.update(now);
         const dt = Math.min(0.05, this.clock.getDelta());
         const wall = this.clock.getElapsed();
+        this.wall = wall;
 
         let rate = 1;
         if (this.state === 'playing') {

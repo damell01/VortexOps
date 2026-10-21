@@ -252,4 +252,18 @@ class StreamerLeaderboardTest extends TestCase
             $this->assertContains($must.'.glb', $m[1]);
         }
     }
+
+    public function test_pages_carry_the_colosseum_warm_up_with_versioned_model_urls(): void
+    {
+        $warm = \App\Support\ColosseumAssets::warm();
+        $this->assertNotEmpty($warm['models']);
+        foreach ($warm['models'] as $url) {
+            $this->assertMatchesRegularExpression('#/models/colosseum/[a-z0-9-]+\.glb\?v='.$warm['v'].'$#', $url);
+        }
+
+        // Any page after login (here the calendar) tells the browser what to warm.
+        $this->get(\App\Filament\Pages\Shows::getUrl(panel: 'admin'))->assertOk()->assertSee('name="vortex-arena-warm"', false);
+        // The arena asks for the same versioned URLs, so they come from cache.
+        $this->get(\App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin'))->assertSee('data-models-v="'.$warm['v'].'"', false);
+    }
 }

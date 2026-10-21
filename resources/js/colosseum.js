@@ -99,7 +99,7 @@ function mount(root) {
     let ready = null;
     const prepare = () => ready ??= (async () => {
         const { Arena } = await import('./colosseum/arena.js');
-        arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: placeDetails, onState, compact });
+        arena = new Arena(stage, lineup.rows, { base: root.dataset.models, version: root.dataset.modelsV, onLabels: placeDetails, onState, compact });
         arena.setMuted(muted);
         root.vxaArena = arena; // for browser checks
         await arena.prepare();

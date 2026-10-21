@@ -137,6 +137,14 @@ class AdminPanelProvider extends PanelProvider
                     ? ''
                     : '<meta name="vortex-brand-logo" content="' . htmlspecialchars(static::resolveBrandLogo(ChannelContext::current(), $logoPath) ?? '', ENT_QUOTES) . '">',
             )
+            // Colosseum warm-up: what the first page after login quietly downloads so
+            // the leaderboard arena is already on the device (resources/js/app.js).
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => $isAuthenticatedAdminView() && \App\Livewire\StreamerLeaderboard::canView()
+                    ? '<meta name="vortex-arena-warm" content="'.e(json_encode(\App\Support\ColosseumAssets::warm())).'">'
+                    : '',
+            )
             // Desktop mega navigation is rendered as presentation only, rather than
             // replacing Filament's navigation builder. This keeps route discovery,
             // permissions, and mobile navigation on Filament's stable native path.

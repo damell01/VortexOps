@@ -204,4 +204,42 @@ class StreamerLeaderboardTest extends TestCase
 
         $this->actingAs(User::factory()->create())->get($url)->assertForbidden();
     }
+
+    public function test_colosseum_is_offered_on_the_leaderboard_page_only_with_the_top_three(): void
+    {
+        $this->viewer->update(['buddy' => 'charizard']);
+        $this->show('Champion', 900);
+        $this->show('Second', 500, $this->rival);
+        $this->show('Third', 300, $this->outside);
+        $this->show('Fourth', 100, $this->rival);
+
+        $page = $this->get(\App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin'))->assertOk()
+            ->assertSee('data-vxa', false)->assertSee('Enter arena');
+        preg_match('#<script type="application/json" data-vxa-lineup>(.*?)</script>#s', $page->getContent(), $m);
+        $lineup = json_decode($m[1] ?? 'null', true);
+        $this->assertSame('week', $lineup['period']);
+        $this->assertSame([1, 2, 3], array_column($lineup['rows'], 'rank'));
+        $this->assertSame(['Alex', 'Jordan', 'Outside Team'], array_column($lineup['rows'], 'name'));
+        $this->assertSame('$900.00', $lineup['rows'][0]['value']);
+        $this->assertSame('charizard', $lineup['rows'][0]['buddy']);
+
+        // The dashboard embeds the same board without the arena or its script.
+        Livewire::test(StreamerLeaderboard::class)->assertDontSee('data-vxa', false);
+    }
+
+    public function test_every_colosseum_fighter_has_its_model_on_disk_and_a_credit(): void
+    {
+        $roster = file_get_contents(resource_path('js/colosseum/roster.js'));
+        preg_match_all("/file: '([a-z0-9-]+\\.glb)'/", $roster, $m);
+        $this->assertNotEmpty($m[1]);
+        $credits = file_get_contents(public_path('models/colosseum/CREDITS.md'));
+        foreach ($m[1] as $file) {
+            $this->assertFileExists(public_path('models/colosseum/'.$file));
+            $this->assertLessThan(1024 * 1024, filesize(public_path('models/colosseum/'.$file)), "$file should stay under 1 MB");
+            $this->assertStringContainsString('| '.$file.' |', $credits, "$file needs a row in CREDITS.md");
+        }
+        foreach (['pikachu', 'charizard', 'mewtwo'] as $must) {
+            $this->assertContains($must.'.glb', $m[1]);
+        }
+    }
 }

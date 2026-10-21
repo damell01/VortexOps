@@ -14,6 +14,24 @@
             @endforeach
         </div>
     </div>
+    @if ($lineup)
+        {{-- Vortex Colosseum: the arena keeps its own canvas across re-renders; the
+             lineup beside it re-renders so a period change swaps the podium in place. --}}
+        <div class="vxa" data-vxa data-models="{{ asset('models/colosseum') }}/" wire:ignore hidden>
+            <div class="vxa-bar">
+                <button type="button" class="vxa-enter" data-vxa-enter><x-filament::icon icon="heroicon-m-play" /><span>Enter arena</span></button>
+                <button type="button" class="vxa-btn" data-vxa-skip hidden><x-filament::icon icon="heroicon-m-forward" />Skip</button>
+                <button type="button" class="vxa-btn" data-vxa-replay hidden><x-filament::icon icon="heroicon-m-arrow-path" />Replay</button>
+                <button type="button" class="vxa-btn" data-vxa-mute aria-pressed="false"><x-filament::icon icon="heroicon-m-speaker-wave" /><span>Sound off</span></button>
+                <span class="vxa-note" data-vxa-note role="status"></span>
+            </div>
+            <div class="vxa-stage" data-vxa-stage hidden>
+                <div class="vxa-labels" data-vxa-labels aria-hidden="true"></div>
+                <div class="vxa-loader" aria-hidden="true"><i></i></div>
+            </div>
+        </div>
+        <script type="application/json" data-vxa-lineup>@json($lineup)</script>
+    @endif
     <div wire:loading role="status" class="vxl-loading">Updating standings…</div>
     <div wire:loading.class="vxl-updating">
         @if ($leader)

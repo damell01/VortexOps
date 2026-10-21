@@ -20,6 +20,9 @@ class StreamerLeaderboard extends Component
     public string $period = 'week';
     public int $page = 1;
 
+    /** The 3D Colosseum is offered on the Show Leaderboard page only, never on dashboards. */
+    public bool $arena = false;
+
     public static function canView(): bool
     {
         $user = auth()->user();
@@ -54,6 +57,24 @@ class StreamerLeaderboard extends Component
         $pages = max(1, (int) ceil($rows->count() / self::PER_PAGE));
         $this->page = min(max(1, $this->page), $pages);
         $visible = $rows->slice(($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
-        return view('livewire.streamer-leaderboard', compact('rows', 'visible', 'pages', 'from', 'to'));
+        $lineup = $this->arena ? $this->arenaLineup($rows) : null;
+        return view('livewire.streamer-leaderboard', compact('rows', 'visible', 'pages', 'from', 'to', 'lineup'));
+    }
+
+    /** The top three as the arena needs them: who, how much, and which buddy fights. */
+    private function arenaLineup(\Illuminate\Support\Collection $rows): array
+    {
+        return [
+            'period' => $this->period,
+            'rows' => $rows->take(3)->values()->map(fn ($row, $i) => [
+                'id' => $row['show_id'],
+                'rank' => $i + 1,
+                'name' => implode(' + ', $row['hosts']),
+                'value' => ($row['value'] < 0 ? '-$' : '$').number_format(abs($row['value']), 2),
+                'buddy' => $row['buddy'],
+                'buddyName' => \Illuminate\Support\Str::headline($row['buddy']),
+                'seed' => $row['streamer_id'],
+            ])->all(),
+        ];
     }
 }

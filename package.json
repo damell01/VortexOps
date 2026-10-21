@@ -26,6 +26,7 @@
         "html2canvas": "^1.4.1",
         "page-flip": "^2.0.7",
         "pdfjs-dist": "^4.10.38",
-        "quagga": "^0.12.1"
+        "quagga": "^0.12.1",
+        "three": "0.186.1"
     }
 }

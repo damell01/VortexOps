@@ -17,12 +17,16 @@ export class Effects {
     }
 
     update(dt) {
-        this.items = this.items.filter((it) => {
+        // Effects spawned during a tick (an orb's trail sparks) land in the new
+        // list; filtering in place used to drop them, leaving them frozen mid-air.
+        const current = this.items;
+        this.items = [];
+        for (const it of current) {
             it.age += dt;
-            if (it.age >= it.life) { it.dispose(); return false; }
+            if (it.age >= it.life) { it.dispose(); continue; }
             it.tick(it.age / it.life, dt);
-            return true;
-        });
+            this.items.push(it);
+        }
     }
 
     add(obj, life, tick) {

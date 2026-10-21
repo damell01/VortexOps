@@ -120,6 +120,7 @@ class NavVisibility
             \App\Filament\Pages\AppSettings::class,
             \App\Filament\Pages\NotificationSettings::class,
             \App\Filament\Resources\UserResource::class,
+            \App\Filament\Resources\StreamerLoanResource::class,
             \App\Filament\Resources\ActivityLogResource::class,
             \App\Filament\Resources\InventoryMovementResource::class,
             \App\Filament\Resources\InventoryItemResource::class,

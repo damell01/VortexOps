@@ -327,6 +327,120 @@ class UserResource extends Resource
                         ->dehydrated(false)
                         ->visible(fn (Get $get): bool => static::payMemberType($get) === 'streamer' && static::payModel($get) === 'shift_share'),
 
+                    TextInput::make(UserPayFields::key('monthly_burden_addback'))
+                        ->label('Monthly burden add-back — amount per payday')
+                        ->numeric()->minValue(0)->step(0.01)->prefix('
+                        ->label('Flat / package rate')
+                        ->numeric()->minValue(0)->step(0.01)->prefix('$')
+                        ->placeholder(fn (Get $get) => UserPayFields::defaultHint('fulfillment', 'package_rate', $get(UserPayFields::BUSINESS)))
+                        ->dehydrated(false)
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'fulfillment'),
+                ]),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->emptyStateHeading('No team members yet')
+            ->emptyStateDescription('Add a user and assign the role that matches their job.')
+            ->emptyStateIcon('heroicon-o-users')
+            ->deferLoading()
+            ->columns([
+                TextColumn::make('name')
+                    ->label('Team member')
+                    ->description(fn (User $record): string => $record->email)
+                    ->searchable(['name', 'email'])
+                    ->sortable()
+                    ->weight('semibold'),
+                TextColumn::make('roles.name')
+                    ->label('Role')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'super_admin' => 'warning',
+                        'admin' => 'danger',
+                        'fulfillment_admin' => 'success',
+                        'fulfillment' => 'success',
+                        'streamer' => 'info',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => str($state)->replace('_', ' ')->title())
+                    ->separator(', '),
+                TextColumn::make('streamer.member_type')
+                    ->label('Team profile')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state === 'fulfillment' ? 'Fulfillment' : ($state === 'streamer' ? 'Streamer' : '—'))
+                    ->default('—')
+                    ->placeholder('—'),
+                TextColumn::make('streamer.streamer_type')
+                    ->label('Streamer type')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state ? (Streamer::streamerTypeLabels()[$state] ?? $state) : '—')
+                    ->placeholder('—'),
+                TextColumn::make('created_at')
+                    ->label('Joined')
+                    ->date('M j, Y')
+                    ->description(fn (User $record): string => $record->created_at?->diffForHumans() ?? '')
+                    ->sortable(),
+            ])
+            ->persistFiltersInSession()
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([8, 16, 32]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(8))
+            ->defaultSort('name')
+            ->actions([
+                static::impersonateAction(),
+                ViewAction::make()->iconButton()->tooltip('View user'),
+                EditAction::make()->iconButton()->tooltip('Edit user'),
+                DeleteAction::make()->iconButton()->tooltip('Delete user')
+                    ->visible(fn (User $record) => static::canDelete($record)),
+            ])
+            ->bulkActions([]);
+    }
+
+    /** Sign in as this user to see what they see; a banner brings you back. */
+    public static function impersonateAction(): Action
+    {
+        return Action::make('impersonate')
+            ->label('Log in as')
+            ->icon('heroicon-o-arrow-right-end-on-rectangle')
+            ->iconButton()
+            ->tooltip(fn (User $record) => 'Log in as '.$record->name)
+            ->color('gray')
+            ->visible(fn (User $record) => Impersonation::canImpersonate(auth()->user(), $record))
+            ->requiresConfirmation()
+            ->modalHeading(fn (User $record) => 'Log in as '.$record->name.'?')
+            ->modalDescription('You will see the app exactly as they do. A banner at the top of every page brings you back to your own account.')
+            ->modalSubmitActionLabel('Log in as user')
+            ->action(function (User $record) {
+                Impersonation::start(auth()->user(), $record);
+
+                return redirect()->to('/admin');
+            });
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index'  => Pages\ListUsers::route('/'),
+            'create' => Pages\CreateUser::route('/create'),
+            'view'   => Pages\ViewUser::route('/{record}'),
+            'edit'   => Pages\EditUser::route('/{record}/edit'),
+        ];
+    }
+}
+)
+                        ->helperText('Added to pay once per approved payday, not per show. Leave blank to disable.')
+                        ->dehydrated(false)
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'streamer' && static::payModel($get) === 'shift_share'),
+
+                    TextInput::make(UserPayFields::key('monthly_burden_payments'))
+                        ->label('Maximum burden payments per calendar month')
+                        ->numeric()->integer()->minValue(1)->maxValue(5)
+                        ->placeholder('4')
+                        ->helperText('Maximum number of approved add-backs per month. Admin confirms each pay run.')
+                        ->dehydrated(false)
+                        ->visible(fn (Get $get): bool => static::payMemberType($get) === 'streamer' && static::payModel($get) === 'shift_share'),
+
                     TextInput::make(UserPayFields::key('package_rate'))
                         ->label('Flat / package rate')
                         ->numeric()->minValue(0)->step(0.01)->prefix('$')

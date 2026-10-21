@@ -9,6 +9,8 @@ import { Effects, buildCrown } from './effects.js';
 import { Actor, loadTemplate } from './actor.js';
 import { ROSTER, fighterFor } from './roster.js';
 import { Sound } from './sound.js';
+import { Post } from './post.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 const END = 8;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
@@ -16,6 +18,8 @@ const ease = (k) => k * k * (3 - 2 * k);
 const easeOut = (k) => 1 - (1 - k) ** 3;
 const span = (t, a, b) => clamp((t - a) / (b - a));
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// A camera mark; 'hN' in it means N × the champion's height (see ref()).
+const M = (x, y, z) => ({ x, y, z });
 
 // Where each place stands during the fight.
 const BATTLE = { 1: V(0, 0, -0.7), 2: V(-2.2, 0, 0.9), 3: V(2.2, 0, 0.9) };
@@ -23,24 +27,66 @@ const KNOCKED = { 2: V(-3.4, 0, 1.25), 3: V(3.4, 0, 1.25) };
 const gateSpot = (rank) => V(Math.cos(GATES[rank]) * 6.1, 0, Math.sin(GATES[rank]) * 6.1);
 const podiumSpot = (rank) => V(PODIUM[rank].x, PODIUM[rank].h, 0.3);
 
-// Camera path: [time, position, look-at].
+// Camera direction, shot by shot: [time, position, look-at, field of view].
+// Interpolated as a smooth spline so moves ease through each mark like a
+// dolly/crane rather than snapping between them.
 const CAMERA = [
-    [0, V(0, 7.4, 15.5), V(0, 0.6, -1)],
-    [1, V(0, 3.8, 10.8), V(0, 1, -0.6)],
-    [2.1, V(0, 2.7, 8.4), V(0, 1, 0)],
-    [3.0, V(1.2, 2.5, 7.4), V(0, 1.1, -0.3)],
-    [4.0, V(0.3, 2.7, 8.1), V(0, 1, 0.2)],
-    [5.0, V(-0.5, 2.6, 7.4), V(0, 1.4, -0.6)],
-    [6.1, V(0, 2.9, 8.6), V(0, 1.3, 0)],
-    [7.7, V(0, 3.2, 9.6), V(0, 1.35, 0.2)],
+    [0, M(0, 9.5, 17.5), M(0, 0.4, -2.2), 30],      // establishing crane, high over the stands
+    [1.0, M(5.8, 3.4, 9.6), M(0, 1, -0.6), 36],     // sweep round as the gates light
+    [2.0, M(1.2, 2.1, 7.9), M(0, 1, 0), 40],        // fighters land
+    [2.55, M(0.8, 0.75, 3.4), M(0, 'h0.9', -0.7), 33], // low hero angle on the champion
+    [3.05, M(1.7, 1.3, 4.3), M(0, 'h0.8', -0.5), 36],  // wind-up
+    [3.6, M(6.6, 2.3, 3.4), M(0, 1, 0.3), 42],      // wide side as the attack crosses
+    [4.15, M(3.4, 1.3, 5.6), M(-0.6, 0.7, 1), 40],  // follow the knockdowns
+    [4.9, M(1.2, 'h1.0', 4.4), M(0, 'h0.95', -0.7), 34], // champion rises to celebrate
+    [5.65, M(0.1, 'h1.3', 2.8), M(0, 'h1.15', -0.7), 30], // push in as the crown lands
+    [6.4, M(-1.5, 2.6, 7.2), M(0, 1.3, 0), 36],     // pull away as podiums rise
+    [7.7, M(0, 3.2, 9.6), M(0, 1.35, 0.2), 40],     // final framing (matches the settled view)
 ];
 
+// 'hN' in a mark means N × the champion's height, so close-ups frame a
+// Pikachu and a Charizard alike.
+let champHeight = 1.4;
+const ref = (v) => (typeof v === 'string' ? parseFloat(v.slice(1)) * champHeight : v);
+const mark = (v) => new THREE.Vector3(ref(v.x), ref(v.y), ref(v.z));
+
+const cat = (p0, p1, p2, p3, u) => {
+    const u2 = u * u, u3 = u2 * u;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u2 + (-p0 + 3 * p1 - 3 * p2 + p3) * u3);
+};
+const catV = (a, b, c, d, u) => {
+    [a, b, c, d] = [a, b, c, d].map(mark);
+    return V(cat(a.x, b.x, c.x, d.x, u), cat(a.y, b.y, c.y, d.y, u), cat(a.z, b.z, c.z, d.z, u));
+};
+
 function cameraAt(t) {
+    const n = CAMERA.length;
+    if (t >= CAMERA[n - 1][0]) return [mark(CAMERA[n - 1][1]), mark(CAMERA[n - 1][2]), CAMERA[n - 1][3]];
     let i = 0;
-    while (i < CAMERA.length - 2 && t > CAMERA[i + 1][0]) i++;
-    const [t0, p0, l0] = CAMERA[i], [t1, p1, l1] = CAMERA[Math.min(i + 1, CAMERA.length - 1)];
-    const k = ease(span(t, t0, t1));
-    return [p0.clone().lerp(p1, k), l0.clone().lerp(l1, k)];
+    while (i < n - 2 && t > CAMERA[i + 1][0]) i++;
+    const k = (j) => CAMERA[Math.max(0, Math.min(n - 1, j))];
+    const u = ease(span(t, CAMERA[i][0], CAMERA[i + 1][0]));
+    return [
+        catV(k(i - 1)[1], k(i)[1], k(i + 1)[1], k(i + 2)[1], u),
+        catV(k(i - 1)[2], k(i)[2], k(i + 1)[2], k(i + 2)[2], u),
+        k(i)[3] + (k(i + 1)[3] - k(i)[3]) * u,
+    ];
+}
+
+// Playback speed by moment. Full: real time, with slow motion through the
+// hit. Quick (about 3 s): skips the entrance, stays near real time for the
+// attack and slow-mo hit, then races through the crowning and podiums.
+function rateAt(t, mode) {
+    if (mode === 'quick') {
+        if (t < 2.9) return 3.2;
+        if (t < 3.82) return 1.25;
+        if (t < 4.2) return 0.5;
+        if (t < 5.05) return 2.4;
+        if (t < 6.05) return 3.2;
+        return 3.4;
+    }
+    if (t >= 3.82 && t < 4.2) return 0.32;
+    return 1;
 }
 
 const yawTo = (from, to) => Math.atan2(to.x - from.x, to.z - from.z);
@@ -72,6 +118,12 @@ export class Arena {
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 80);
         this.set = buildStage(this.scene, { lite: this.lite });
+        // Soft studio reflections on stone, gold and the fighters.
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        this.scene.environmentIntensity = 0.24;
+        pmrem.dispose();
+        this.post = this.lite ? null : new Post(this.renderer, this.scene, this.camera);
         this.fx = new Effects(this.scene, this.set.glow, { lite: this.lite });
         this.crown = buildCrown();
         this.scene.add(this.crown);
@@ -101,6 +153,7 @@ export class Arena {
     resize() {
         const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
         this.renderer.setSize(w, h, false);
+        this.post?.setSize(w, h, this.renderer.getPixelRatio());
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.zoom = Math.max(1, 1.5 / this.camera.aspect);
@@ -110,15 +163,20 @@ export class Arena {
         this.setState('loading');
         const picks = lineup.slice(0, 3).map((row) => ({ ...row, ...fighterFor(row.buddy, row.seed) }));
         const templates = await Promise.all(picks.map((p) => loadTemplate(p.slug, this.base)));
-        for (const a of Object.values(this.actors)) a.dispose();
+        for (const a of Object.values(this.actors)) { a.dispose(); a.blob?.removeFromParent(); }
         this.actors = {};
         picks.forEach((p, i) => {
             const actor = new Actor(p.slug, templates[i], { lite: this.lite });
             actor.row = p;
+            actor.blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: this.set.blob, transparent: true, depthWrite: false }));
+            actor.blob.rotation.x = -Math.PI / 2;
+            actor.blob.renderOrder = 1;
+            this.scene.add(actor.blob);
             this.actors[p.rank] = actor;
             this.scene.add(actor.root);
         });
         this.picks = picks;
+        champHeight = this.actors[1]?.cfg.height || 1.4;
         // Upload every texture and shader now, so no fighter appears untextured mid-fight.
         this.scene.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k of ['map', 'emissiveMap', 'normalMap']) if (m[k]) this.renderer.initTexture(m[k]); });
         await this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
@@ -126,12 +184,19 @@ export class Arena {
 
     setState(s) { this.state = s; this.onState?.(s); }
 
-    /** Run the battle from the top. */
-    async play() {
+    /** Run the battle from the top: mode 'full' (~8.5 s) or 'quick' (~3 s). */
+    async play(mode = 'full') {
         this.sound.unlock();
         await this.load(this.lineup);
         if (this.reduced) return this.settle();
+        this.mode = mode;
         this.reset();
+        if (mode === 'quick') {
+            // Start with everyone already squared up in the lit arena.
+            this.t = 2.06;
+            this.events = this.events.filter(([at]) => at >= 2.06);
+            for (const [rank, a] of Object.entries(this.actors)) a.root.position.copy(BATTLE[rank]);
+        }
         this.setState('playing');
         this.start();
     }
@@ -172,6 +237,7 @@ export class Arena {
             a.root.scale.setScalar(1);
             a.rest_();
         }
+        this.mode = this.mode || 'full';
         for (const p of Object.values(this.set.podiums)) p.position.y = -p.userData.h - 0.05;
     }
 
@@ -206,6 +272,7 @@ export class Arena {
         const impact = () => {
             this.sound.impact();
             this.shake = 0.32;
+            this.punch = 1;
             this.flash(cfg.color, 2.2);
             for (const a of challengers) {
                 const at = chest(a);
@@ -251,7 +318,7 @@ export class Arena {
             [5.2, () => { this.crown.visible = true; this.sound.sparkle(); }],
             [5.25, () => challengers.forEach((a) => a.play('down_end', { fade: 0.15 }))],
             [5.6, () => {
-                this.fx.burst(V(champ.root.position.x, champ.top + 0.3, champ.root.position.z), { color: 0xffd24a, count: 34, speed: 1.6, up: 1.4, gravity: -1.8, size: 0.12, life: 1.4 });
+                this.fx.burst(champ.headTop().add(V(0, 0.3, 0)), { color: 0xffd24a, count: 34, speed: 1.6, up: 1.4, gravity: -1.8, size: 0.12, life: 1.4 });
                 this.sound.fanfare();
             }],
             [6.0, () => Object.values(A).forEach((a) => a.rest_())],
@@ -375,8 +442,10 @@ export class Arena {
         const dt = Math.min(0.05, this.clock.getDelta());
         const wall = this.clock.getElapsed();
 
+        let rate = 1;
         if (this.state === 'playing') {
-            this.t += dt;
+            rate = rateAt(this.t, this.mode);
+            this.t += dt * rate;
             while (this.events.length && this.events[0][0] <= this.t) {
                 const [, fn] = this.events.shift();
                 try { fn(); } catch (e) { console.warn('[colosseum]', e); }
@@ -387,8 +456,16 @@ export class Arena {
             if (this.t >= END) { this.settle(); }
         }
 
-        for (const a of Object.values(this.actors)) a.update(dt, wall);
-        this.fx.update(dt);
+        for (const a of Object.values(this.actors)) {
+            a.update(dt * rate, wall);
+            // Contact shadow: shrinks and fades as the fighter leaves the ground.
+            const air = Math.max(0, a.root.position.y - (this.podiumTop(a) || 0));
+            const r = a.cfg.height * 0.75 * (1 - Math.min(0.6, air * 0.35));
+            a.blob.scale.set(r, r, 1);
+            a.blob.position.set(a.root.position.x, (this.podiumTop(a) || 0) + 0.015, a.root.position.z);
+            a.blob.material.opacity = 1 - Math.min(0.8, air * 0.5);
+        }
+        this.fx.update(dt * rate);
         animateStage(this.set, wall);
 
         // Crown floats over the champion's head.
@@ -397,14 +474,17 @@ export class Arena {
             const drop = this.state === 'playing' ? 1 - easeOut(span(this.t, 5.2, 5.7)) : 0;
             const s = Math.max(0.75, Math.min(1.5, champ.cfg.height * 0.8));
             this.crown.scale.setScalar(s);
-            this.crown.position.set(champ.root.position.x, champ.top + 0.22 * s + drop * 2.2 + Math.sin(wall * 2) * 0.05, champ.root.position.z);
+            // Sit on the head itself (its bone), not above wing tips or ears.
+            const head = champ.headTop();
+            this.crown.position.set(head.x, head.y + 0.08 * s + drop * 2.2 + Math.sin(wall * 2) * 0.04, head.z);
             this.crown.rotation.y = wall * 0.8;
         }
 
         this.flashPower = (this.flashPower || 0) * Math.pow(0.02, dt);
         this.set.fxLight.intensity = this.flashPower;
 
-        const [camPos, look] = cameraAt(this.state === 'playing' ? this.t : END);
+        const [camPos, look, fov] = cameraAt(this.state === 'playing' ? this.t : END);
+        if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
         const dir = camPos.clone().sub(look).multiplyScalar(this.zoom);
         this.camera.position.copy(look).add(dir);
         if (this.shake > 0) {
@@ -412,7 +492,9 @@ export class Arena {
             this.shake = Math.max(0, this.shake - dt * 1.2);
         }
         this.camera.lookAt(look);
-        this.renderer.render(this.scene, this.camera);
+        this.punch = Math.max(0, (this.punch || 0) - dt * 1.6);
+        if (this.post) this.post.render(wall, { bloom: 0.5 + this.punch * 0.9 + (this.flashPower || 0) / 160, fringe: this.punch * 1.4 });
+        else this.renderer.render(this.scene, this.camera);
 
         if (this.labelsShown && this.onLabels) {
             const w = this.host.clientWidth, h = this.host.clientHeight;
@@ -426,6 +508,16 @@ export class Arena {
         }
     }
 
+    /** Height of the podium a fighter is standing on, once it has risen. */
+    podiumTop(a) {
+        const rank = +Object.keys(this.actors).find((r) => this.actors[r] === a);
+        const p = this.set.podiums[rank];
+        if (!p) return 0;
+        const top = p.position.y + p.userData.h;
+        const onIt = Math.abs(a.root.position.x - p.position.x) < 0.8 && Math.abs(a.root.position.z - p.position.z) < 0.8;
+        return onIt && top > 0 ? top : 0;
+    }
+
     setMuted(m) { this.sound.setMuted(m); }
 
     destroy() {
@@ -436,6 +528,8 @@ export class Arena {
         this.fx.clear();
         Object.values(this.actors).forEach((a) => a.dispose());
         this.scene.traverse((o) => { o.geometry?.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m?.map?.dispose(); m?.dispose(); }); });
+        this.post?.dispose();
+        this.scene.environment?.dispose();
         this.renderer.dispose();
         this.renderer.domElement.remove();
         this.sound.close();

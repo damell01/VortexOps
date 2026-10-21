@@ -27,6 +27,7 @@ function canvasTexture(w, h, draw, repeat) {
     c.height = h;
     draw(c.getContext('2d'), w, h);
     const t = new THREE.CanvasTexture(c);
+    t.userData.canvas = c;
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     if (repeat) {
@@ -34,6 +35,46 @@ function canvasTexture(w, h, draw, repeat) {
         t.repeat.set(repeat[0], repeat[1]);
     }
     return t;
+}
+
+/** A normal map from a texture's brightness: dark grout reads as recessed. */
+function normalFrom(tex, strength = 2.2) {
+    const src = tex.userData.canvas, w = src.width, h = src.height;
+    const px = src.getContext('2d').getImageData(0, 0, w, h).data;
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const ctx = out.getContext('2d'), img = ctx.createImageData(w, h);
+    const lum = (x, y) => { const i = (((y + h) % h) * w + ((x + w) % w)) * 4; return (px[i] + px[i + 1] + px[i + 2]) / 765; };
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const dx = (lum(x + 1, y) - lum(x - 1, y)) * strength, dy = (lum(x, y + 1) - lum(x, y - 1)) * strength;
+            const len = Math.hypot(dx, dy, 1), i = (y * w + x) * 4;
+            img.data[i] = (-dx / len * 0.5 + 0.5) * 255;
+            img.data[i + 1] = (-dy / len * 0.5 + 0.5) * 255;
+            img.data[i + 2] = (1 / len * 0.5 + 0.5) * 255;
+            img.data[i + 3] = 255;
+        }
+    }
+    ctx.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(out);
+    t.wrapS = tex.wrapS;
+    t.wrapT = tex.wrapT;
+    t.repeat.copy(tex.repeat);
+    return t;
+}
+
+/** Polished centre, rougher outer stone. */
+function floorRoughness() {
+    return canvasTexture(256, 256, (ctx, w, h) => {
+        const g = ctx.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, w / 2);
+        g.addColorStop(0, '#3a3a3a');
+        g.addColorStop(0.34, '#5a5a5a');
+        g.addColorStop(0.42, '#e6e6e6');
+        g.addColorStop(1, '#f2f2f2');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+    });
 }
 
 function noise(ctx, w, h, n, alpha) {
@@ -175,16 +216,20 @@ export function buildStage(scene, { lite }) {
     scene.fog = new THREE.Fog(0x1a1236, 13, 30);
 
     // Floor.
+    const floorMap = floorTexture();
+    const floorRough = floorRoughness();
+    floorRough.colorSpace = THREE.NoColorSpace;
     const floor = new THREE.Mesh(
         new THREE.CircleGeometry(R, 72),
-        new THREE.MeshStandardMaterial({ map: floorTexture(), roughness: 0.92, metalness: 0.02 }),
+        new THREE.MeshStandardMaterial({ map: floorMap, normalMap: lite ? null : normalFrom(floorMap, 3), normalScale: new THREE.Vector2(0.9, 0.9), roughnessMap: floorRough, roughness: 1, metalness: 0.05, envMapIntensity: 0.9 }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
 
     // Low wall with a glowing purple trim.
-    const wallMat = new THREE.MeshStandardMaterial({ map: stoneTexture([16, 1]), roughness: 0.95, side: THREE.DoubleSide });
+    const wallTex = stoneTexture([16, 1]);
+    const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, normalMap: lite ? null : normalFrom(wallTex, 4), roughness: 0.95, side: THREE.DoubleSide });
     const wall = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.15, R + 0.15, 1.1, 72, 1, true), wallMat);
     wall.position.y = 0.55;
     scene.add(wall);
@@ -229,7 +274,8 @@ export function buildStage(scene, { lite }) {
     set.crowd = crowd;
 
     // Three gates with lights inside, and banners between them.
-    const gateMat = new THREE.MeshStandardMaterial({ map: stoneTexture([1, 2]), color: 0xb8b0c8, roughness: 0.9 });
+    const gateTex = stoneTexture([1, 2]);
+    const gateMat = new THREE.MeshStandardMaterial({ map: gateTex, normalMap: lite ? null : normalFrom(gateTex, 4), color: 0xb8b0c8, roughness: 0.9 });
     const darkMat = new THREE.MeshBasicMaterial({ color: 0x07050f });
     for (const rank of [1, 2, 3]) {
         const a = GATES[rank];
@@ -303,7 +349,7 @@ export function buildStage(scene, { lite }) {
 
     // Lights: lavender fill, a key light with soft shadows, three spotlights
     // on the floor and a warm champion light that comes up at the end.
-    scene.add(new THREE.HemisphereLight(0xc9b8ff, 0x231a3d, 0.55));
+    scene.add(new THREE.HemisphereLight(0xc9b8ff, 0x231a3d, 0.42));
     const key = new THREE.DirectionalLight(0xffffff, 1.4);
     key.position.set(3, 9, 6);
     if (!lite) {
@@ -342,7 +388,113 @@ export function buildStage(scene, { lite }) {
     set.motes = new THREE.Points(motes, new THREE.PointsMaterial({ map: set.glow, size: 0.09, transparent: true, opacity: 0.45, color: 0xd9c8ff, depthWrite: false, blending: THREE.AdditiveBlending }));
     scene.add(set.motes);
 
+    addDetail(scene, set, { lite, R, gateMat });
     return set;
+}
+
+/**
+ * The cinematic layer: columns with arches behind the wall, flaming braziers
+ * with flickering light and embers, soft light shafts under the spotlights and
+ * camera flashes popping in the crowd.
+ */
+function addDetail(scene, set, { lite, R, gateMat }) {
+    // Columns between the stands, on the camera's far side.
+    const colGeo = new THREE.CylinderGeometry(0.26, 0.3, 3.8, 14);
+    const capGeo = new THREE.BoxGeometry(0.75, 0.22, 0.75);
+    const archMat = gateMat.clone();
+    archMat.color = new THREE.Color(0xa59cb8);
+    for (let i = 0; i < 12; i++) {
+        const a = Math.PI / 2 + 0.75 + (i / 11) * (Math.PI * 2 - 1.5);
+        const x = Math.cos(a) * (R + 4.6), z = Math.sin(a) * (R + 4.6);
+        const col = new THREE.Mesh(colGeo, archMat);
+        col.position.set(x, 3.6, z);
+        const cap = new THREE.Mesh(capGeo, archMat);
+        cap.position.set(x, 5.6, z);
+        scene.add(col, cap);
+    }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R + 4.6, 0.16, 6, 90, Math.PI * 2 - 1.5), archMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.rotation.z = Math.PI / 2 + 0.75;
+    ring.position.y = 5.75;
+    scene.add(ring);
+
+    // Braziers on the wall: bowl, layered flame sprites, a flickering light.
+    set.braziers = [];
+    const bowlMat = new THREE.MeshStandardMaterial({ color: 0x3b3248, metalness: 0.7, roughness: 0.4 });
+    const angles = [-Math.PI / 2 - 0.48, -Math.PI / 2 + 0.48, -Math.PI / 2 - 1.45, -Math.PI / 2 + 1.45, 0.28, Math.PI - 0.28];
+    angles.forEach((a, i) => {
+        const g = new THREE.Group();
+        g.position.set(Math.cos(a) * (R + 0.15), 1.12, Math.sin(a) * (R + 0.15));
+        const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.12, 0.2, 14, 1, true), bowlMat);
+        bowl.material.side = THREE.DoubleSide;
+        bowl.position.y = 0.1;
+        g.add(bowl);
+        const flames = [0, 1, 2].map((k) => {
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: set.glow, color: k ? 0xff9a2e : 0xffe0a0, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+            sp.position.y = 0.28 + k * 0.1;
+            g.add(sp);
+            return sp;
+        });
+        let light = null;
+        if (!lite && i < 4) {
+            light = new THREE.PointLight(0xff9a40, 4, 6, 1.8);
+            light.position.y = 0.55;
+            g.add(light);
+        }
+        scene.add(g);
+        set.braziers.push({ g, flames, light, phase: i * 1.7 });
+    });
+
+    // Embers rising from the braziers.
+    const n = lite ? 30 : 80, pos = new Float32Array(n * 3);
+    set.embers = { n, seeds: [] };
+    for (let i = 0; i < n; i++) {
+        const b = set.braziers[i % set.braziers.length].g.position;
+        set.embers.seeds.push([b.x, b.z, Math.random() * 3, 0.3 + Math.random() * 0.5]);
+    }
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    set.embers.points = new THREE.Points(eg, new THREE.PointsMaterial({ map: set.glow, color: 0xffa040, size: 0.07, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    scene.add(set.embers.points);
+
+    // Light shafts: soft additive cones under each spotlight.
+    const shaftMat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        uniforms: { uColor: { value: new THREE.Color(0xb48cff) }, uPower: { value: 0 } },
+        vertexShader: 'varying float vY; varying vec3 vN; varying vec3 vV; void main(){ vY = uv.y; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform vec3 uColor; uniform float uPower; varying float vY; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(abs(dot(vN, vV)), 1.6); gl_FragColor = vec4(uColor, uPower * 0.11 * rim * smoothstep(0.0, 0.9, vY)); }',
+    });
+    set.shafts = [];
+    for (const s of set.spots) {
+        const h = s.position.y;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(Math.tan(s.angle) * h, h, 32, 1, true), shaftMat.clone());
+        const mid = s.position.clone().add(s.target.position).multiplyScalar(0.5);
+        cone.position.copy(mid);
+        cone.lookAt(s.target.position);
+        cone.rotateX(-Math.PI / 2);
+        scene.add(cone);
+        set.shafts.push(cone);
+    }
+
+    // Camera flashes popping in the crowd.
+    set.flashes = [];
+    if (!lite) {
+        for (let i = 0; i < 10; i++) {
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: set.glow, color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+            sp.scale.setScalar(0.5);
+            scene.add(sp);
+            set.flashes.push({ sp, next: Math.random() * 3, life: 0 });
+        }
+    }
+
+    // Soft contact shadows for fighters (always on, so phones get grounding too).
+    set.blob = canvasTexture(64, 64, (ctx) => {
+        const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+        g.addColorStop(0, 'rgba(10,4,25,.75)');
+        g.addColorStop(1, 'rgba(10,4,25,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 64, 64);
+    });
 }
 
 /** Gentle ambient motion: crowd sway, banner flutter, drifting motes. */
@@ -357,4 +509,30 @@ export function animateStage(set, t) {
     for (const b of set.banners) b.rotation.z = Math.sin(t * 1.3 + b.userData.phase) * 0.035;
     set.motes.position.y = Math.sin(t * 0.3) * 0.15;
     set.motes.rotation.y = t * 0.02;
+
+    for (const b of set.braziers) {
+        const f = 0.85 + Math.sin(t * 13 + b.phase) * 0.08 + Math.sin(t * 7.3 + b.phase * 2) * 0.07;
+        b.flames.forEach((sp, k) => {
+            sp.scale.set(0.42 - k * 0.09, (0.55 - k * 0.1) * f, 1);
+            sp.position.x = Math.sin(t * 5 + k + b.phase) * 0.02;
+        });
+        if (b.light) b.light.intensity = 3.2 * f;
+    }
+    const e = set.embers, p = e.points.geometry.attributes.position;
+    e.seeds.forEach(([x, z, o, sp], i) => {
+        const k = ((t * sp + o) % 3) / 3;
+        p.setXYZ(i, x + Math.sin(t + i) * 0.15 * k, 1.5 + k * 2.6, z + Math.cos(t * 0.8 + i) * 0.15 * k);
+    });
+    p.needsUpdate = true;
+    for (const sh of set.shafts) sh.material.uniforms.uPower.value = set.spots[0].intensity / 70;
+    for (const f of set.flashes) {
+        f.next -= 1 / 60;
+        if (f.next <= 0 && f.life <= 0) {
+            const base = set.crowd.userData.base[(Math.random() * set.crowd.userData.base.length) | 0];
+            f.sp.position.set(base[0], base[1] + 0.25, base[2]);
+            f.life = 1;
+            f.next = 0.6 + Math.random() * 2.5;
+        }
+        if (f.life > 0) { f.life -= 0.12; f.sp.material.opacity = Math.max(0, f.life); }
+    }
 }

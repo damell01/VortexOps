@@ -30,7 +30,7 @@ function mount(root) {
 
     const $ = (s) => root.querySelector(s);
     const stage = $('[data-vxa-stage]'), labels = $('[data-vxa-labels]'), note = $('[data-vxa-note]');
-    const enter = $('[data-vxa-enter]'), skip = $('[data-vxa-skip]'), replay = $('[data-vxa-replay]'), mute = $('[data-vxa-mute]');
+    const enter = $('[data-vxa-enter]'), quick = $('[data-vxa-quick]'), skip = $('[data-vxa-skip]'), replay = $('[data-vxa-replay]'), mute = $('[data-vxa-mute]');
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let arena = null, lineup = readLineup(root), muted = true;
 
@@ -74,12 +74,14 @@ function mount(root) {
         skip.hidden = s !== 'playing';
         replay.hidden = s !== 'settled' || reduced;
         enter.hidden = s !== 'idle';
+        quick.hidden = (s !== 'idle' && s !== 'settled') || reduced;
+        quick.querySelector('span').textContent = s === 'settled' ? 'Quick replay' : 'Quick (3s)';
         note.textContent = s === 'loading' ? 'Loading the arena…' : '';
         root.classList.toggle('is-active', s !== 'idle');
         if (s === 'settled' && lineup?.rows?.length) store.set(seenKey(), String(lineup.rows[0].id));
     };
 
-    async function start() {
+    async function start(mode = 'full') {
         stage.hidden = false;
         onState('loading');
         try {
@@ -91,7 +93,7 @@ function mount(root) {
             }
             labels.classList.remove('is-in');
             drawLabels(null);
-            await arena.play();
+            await arena.play(mode);
         } catch (e) {
             console.warn('[colosseum]', e);
             stage.hidden = true;
@@ -100,8 +102,9 @@ function mount(root) {
         }
     }
 
-    enter.addEventListener('click', start);
-    replay.addEventListener('click', async () => { labels.classList.remove('is-in'); drawLabels(null); arena?.reset(); await arena?.play(); });
+    enter.addEventListener('click', () => start('full'));
+    quick.addEventListener('click', () => start('quick'));
+    replay.addEventListener('click', () => start('full'));
     skip.addEventListener('click', () => arena?.skip());
     mute.addEventListener('click', () => {
         muted = !muted;

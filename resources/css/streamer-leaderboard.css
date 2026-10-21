@@ -144,6 +144,12 @@
 .vxa-label span{font-size:12.5px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .vxa-label strong{font-size:13px;font-weight:800;color:#e9dcff;font-variant-numeric:tabular-nums}
 .vxa-label small{font-size:10px;color:#cbb8f5}
+.vxa-bars{position:absolute;inset:0;pointer-events:none;z-index:1}
+.vxa-bars i{position:absolute;left:0;right:0;height:9%;background:#05030c;transition:transform .7s cubic-bezier(.6,0,.2,1)}
+.vxa-bars i:first-child{top:0;transform:translateY(-100%)}
+.vxa-bars i:last-child{bottom:0;transform:translateY(100%)}
+.vxa[data-state=playing] .vxa-bars i{transform:none}
+.vxa-labels{z-index:2}
 .vxa-loader{position:absolute;inset:0;display:none;place-items:center}
 .vxa[data-state=loading] .vxa-loader{display:grid}
 .vxa-loader i{width:34px;height:34px;border-radius:50%;border:3px solid #ffffff26;border-top-color:#a78bfa;animation:vxa-spin .8s linear infinite}

@@ -77,6 +77,15 @@ export class Actor {
 
     get top() { return this.root.position.y + this.cfg.height * this.root.scale.y; }
 
+    /** World position of the top of the head: the head bone lifted by a head's height. */
+    headTop() {
+        const head = this.bones.head;
+        if (!head) return new THREE.Vector3(this.root.position.x, this.top, this.root.position.z);
+        const p = head.getWorldPosition(new THREE.Vector3());
+        p.y += this.cfg.height * (this.cfg.crownLift ?? 0.14);
+        return p;
+    }
+
     has(name) { return this.clips.has(name); }
 
     /** Play a clip; returns false when the model doesn't have it. */

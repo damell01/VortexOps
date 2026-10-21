@@ -86,8 +86,12 @@ function mount(root) {
         b.title = muted ? 'Sound off' : 'Sound on';
     });
 
+    let lostTimer = null;
     const onState = (s) => {
         root.dataset.state = s;
+        // A dropped 3D canvas that does not come back within 3 s: show the cards.
+        clearTimeout(lostTimer);
+        if (s === 'lost') lostTimer = setTimeout(() => fallBack(), 3000);
         if (s === 'settled') {
             delete root.dataset.pending;
             busy = false;

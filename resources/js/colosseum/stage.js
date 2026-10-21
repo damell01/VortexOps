@@ -427,8 +427,7 @@ export function buildStage(scene, { lite }) {
 
 /**
  * The cinematic layer: columns with arches behind the wall, flaming braziers
- * with flickering light and embers, soft light shafts under the spotlights and
- * camera flashes popping in the crowd.
+ * with flickering light and embers and camera flashes popping in the crowd.
  */
 function addDetail(scene, set, { lite, R, gateMat }) {
     // Columns between the stands, on the camera's far side.
@@ -489,25 +488,6 @@ function addDetail(scene, set, { lite, R, gateMat }) {
     eg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     set.embers.points = new THREE.Points(eg, new THREE.PointsMaterial({ map: set.glow, color: 0xffa040, size: 0.07, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     scene.add(set.embers.points);
-
-    // Light shafts: soft additive cones under each spotlight.
-    const shaftMat = new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-        uniforms: { uColor: { value: new THREE.Color(0xb48cff) }, uPower: { value: 0 } },
-        vertexShader: 'varying float vY; varying vec3 vN; varying vec3 vV; void main(){ vY = uv.y; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
-        fragmentShader: 'uniform vec3 uColor; uniform float uPower; varying float vY; varying vec3 vN; varying vec3 vV; void main(){ float rim = pow(abs(dot(vN, vV)), 1.6); gl_FragColor = vec4(uColor, uPower * 0.11 * rim * smoothstep(0.0, 0.9, vY)); }',
-    });
-    set.shafts = [];
-    for (const s of set.spots) {
-        const h = s.position.y;
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(Math.tan(s.angle) * h, h, 32, 1, true), shaftMat.clone());
-        const mid = s.position.clone().add(s.target.position).multiplyScalar(0.5);
-        cone.position.copy(mid);
-        cone.lookAt(s.target.position);
-        cone.rotateX(-Math.PI / 2);
-        scene.add(cone);
-        set.shafts.push(cone);
-    }
 
     // Camera flashes popping in the crowd.
     set.flashes = [];
@@ -576,7 +556,6 @@ export function animateStage(set, t) {
         p.setXYZ(i, x + Math.sin(t + i) * 0.15 * k, 1.5 + k * 2.6, z + Math.cos(t * 0.8 + i) * 0.15 * k);
     });
     p.needsUpdate = true;
-    for (const sh of set.shafts) sh.material.uniforms.uPower.value = set.spots[0].intensity / 70;
     for (const f of set.flashes) {
         f.next -= 1 / 60;
         if (f.next <= 0 && f.life <= 0) {

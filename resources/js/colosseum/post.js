@@ -41,7 +41,7 @@ export class Post {
     constructor(renderer, scene, camera) {
         this.composer = new EffectComposer(renderer);
         this.composer.addPass(new RenderPass(scene, camera));
-        this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 256), 0.55, 0.6, 0.82);
+        this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 256), 0.32, 0.55, 0.9);
         this.composer.addPass(this.bloom);
         this.film = new ShaderPass(FilmShader);
         this.composer.addPass(this.film);
@@ -50,9 +50,8 @@ export class Post {
 
     setSize(w, h, ratio) {
         this.composer.setPixelRatio(ratio);
+        // Sizes every pass to the canvas; the bloom pass halves its own targets.
         this.composer.setSize(w, h);
-        // Bloom at half resolution keeps it cheap.
-        this.bloom.resolution.set(Math.round(w / 2), Math.round(h / 2));
     }
 
     render(time, { bloom = 0.55, fringe = 0 } = {}) {

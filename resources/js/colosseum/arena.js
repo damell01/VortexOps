@@ -117,6 +117,13 @@ export class Arena {
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.domElement.className = 'vxa-canvas';
         host.prepend(this.renderer.domElement);
+        // If the browser drops the 3D canvas (Edge and laptops switching graphics
+        // do this), rebuild once it is restored; if it never is, the page falls
+        // back to the regular top-three cards.
+        this.onLost = (e) => { e.preventDefault(); this.lost = true; this.onState?.('lost'); };
+        this.onRestored = () => { this.lost = false; this.resize(); this.loadedKey = null; this.load(this.lineup).then(() => this.settle()); };
+        this.renderer.domElement.addEventListener('webglcontextlost', this.onLost);
+        this.renderer.domElement.addEventListener('webglcontextrestored', this.onRestored);
 
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 80);
@@ -159,6 +166,7 @@ export class Arena {
     resize() {
         this.wake?.();
         const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
+        this.sized = [w, h];
         this.renderer.setSize(w, h, false);
         this.post?.setSize(w, h, this.renderer.getPixelRatio());
         this.camera.aspect = w / h;
@@ -367,7 +375,7 @@ export class Arena {
         const on = ease(span(t, 0, 1.1)), soft = 1 - span(t, 6.2, 7.6) * 0.3;
         this.set.gateLights.forEach((l, i) => { l.intensity = 9 * ease(span(t, 0.1 + i * 0.12, 0.7 + i * 0.12)) * (1 - span(t, 6, 7.5) * 0.6); });
         this.set.spots.forEach((s) => { s.intensity = 70 * on * soft; });
-        this.set.champLight.intensity = 140 * ease(span(t, 5, 6.2));
+        this.set.champLight.intensity = 55 * ease(span(t, 5, 6.2));
         this.set.trim.material.emissiveIntensity = 0.4 + 1.4 * on;
     }
 
@@ -466,7 +474,10 @@ export class Arena {
         // Asleep: a settled podium nobody is pointing at needs no more frames.
         if (this.state === 'settled' && now - this.settledAt > 1500) { this.running = false; return; }
         requestAnimationFrame(this.loop);
-        if (!this.visible || document.hidden) return;
+        if (!this.visible || document.hidden || this.lost) return;
+        // A resize the observer missed (scaling change, scrollbar) would leave
+        // the scene drawn into part of the canvas: check before every frame.
+        if (this.sized?.[0] !== this.host.clientWidth || this.sized?.[1] !== this.host.clientHeight) this.resize();
         // Settled scenes only need a gentle idle: 30 fps is plenty.
         if (this.state === 'settled' && now - this.lastFrame < 32) return;
         this.lastFrame = now;
@@ -531,8 +542,10 @@ export class Arena {
         }
         this.camera.lookAt(look);
         this.punch = Math.max(0, (this.punch || 0) - dt * 1.6);
-        if (this.post) this.post.render(wall, { bloom: 0.5 + this.punch * 0.9 + (this.flashPower || 0) / 160, fringe: this.punch * 1.4 });
+        if (this.post) this.post.render(wall, { bloom: 0.32 + this.punch * 0.8 + (this.flashPower || 0) / 180, fringe: this.punch * 1.4 });
         else this.renderer.render(this.scene, this.camera);
+        // The canvas stays hidden until its first full-size frame is on it.
+        if (!this.shown) { this.shown = true; this.renderer.domElement.classList.add('is-drawn'); }
 
         // Tell the page where each podium landed so its details sit right under it.
         if (this.onLabels && (this.state === 'settled' || T >= 6.4)) {
@@ -582,6 +595,8 @@ export class Arena {
         this.fx.clear();
         Object.values(this.actors).forEach((a) => a.dispose());
         this.scene.traverse((o) => { o.geometry?.dispose(); (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m?.map?.dispose(); m?.dispose(); }); });
+        this.renderer.domElement.removeEventListener('webglcontextlost', this.onLost);
+        this.renderer.domElement.removeEventListener('webglcontextrestored', this.onRestored);
         this.post?.dispose();
         this.scene.environment?.dispose();
         this.renderer.dispose();

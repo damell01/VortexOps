@@ -224,26 +224,8 @@ class InventoryScanner extends Page
 
     // ── Unified scan entry point ──────────────────────────────────────────────
 
-    /**
-     * Auto-runs the lookup once the scan input settles (the model is debounced
-     * 300ms). Scanners that do not send a trailing Enter previously left the
-     * code sitting in the box until Look Up was clicked.
-     *
-     * Lookup only: it is read-only. Quick Add stays explicit so a half-typed
-     * code cannot silently book stock in.
-     */
-    public function updatedScanInput(): void
-    {
-        if ($this->mode !== 'lookup') {
-            return;
-        }
-
-        if (mb_strlen(trim($this->scanInput)) < 3) {
-            return;
-        }
-
-        $this->submitScan();
-    }
+    // Each scan is submitted explicitly rather than triggering another
+    // Livewire request as the barcode input synchronizes.
 
     /**
      * A code read by the camera, which arrives as a Livewire event rather than

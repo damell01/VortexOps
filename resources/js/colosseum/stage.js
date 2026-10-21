@@ -387,7 +387,7 @@ export function buildStage(scene, { lite }) {
     key.position.set(3, 9, 6);
     if (!lite) {
         key.castShadow = true;
-        key.shadow.mapSize.set(1024, 1024);
+        key.shadow.mapSize.set(2048, 2048);
         Object.assign(key.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 1, far: 22 });
         key.shadow.radius = 4;
         key.shadow.bias = -0.0008;

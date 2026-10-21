@@ -108,8 +108,10 @@ export class Arena {
         this.lite = compact || matchMedia('(max-width: 768px)').matches || (navigator.hardwareConcurrency || 8) <= 4;
         this.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        this.renderer = new THREE.WebGLRenderer({ antialias: !this.lite, powerPreference: 'high-performance' });
-        this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, compact ? 1 : this.lite ? 1.25 : 1.75));
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        // Sharp while it moves; the resting frame is redrawn even sharper (rest()).
+        this.ratio = Math.min(devicePixelRatio || 1, this.lite ? 1.5 : 2);
+        this.renderer.setPixelRatio(this.ratio);
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.05;
@@ -155,7 +157,8 @@ export class Arena {
         // A settled podium draws for a moment, then stops for good (the last
         // frame stays on screen). Nothing here wakes it while the page scrolls:
         // only a replay, a resize or new standings do.
-        this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; });
+        // Back on screen with a cleared canvas (it was resized while away): redraw.
+        this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; if (e.isIntersecting && this.needsDraw) this.wake(); });
         this.io.observe(host);
         this.onVis = () => this.clock.reset();
         document.addEventListener('visibilitychange', this.onVis);
@@ -169,6 +172,7 @@ export class Arena {
         this.sized = [w, h];
         this.renderer.setSize(w, h, false);
         this.post?.setSize(w, h, this.renderer.getPixelRatio());
+        this.needsDraw = true;
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         // Narrow screens pull back to fit; the wide dashboard strip moves in closer.
@@ -196,7 +200,7 @@ export class Arena {
         for (const a of Object.values(this.actors)) { a.dispose(); a.blob?.removeFromParent(); }
         this.actors = {};
         picks.forEach((p, i) => {
-            const actor = new Actor(p.slug, templates[i], { lite: this.lite });
+            const actor = new Actor(p.slug, templates[i], { lite: this.lite, anisotropy: this.renderer.capabilities.getMaxAnisotropy() });
             actor.row = p;
             actor.blob = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: this.set.blob, transparent: true, depthWrite: false }));
             actor.blob.rotation.x = -Math.PI / 2;
@@ -221,6 +225,7 @@ export class Arena {
         this.sound.unlock();
         await this.load(this.lineup);
         this.mode = mode;
+        this.normalRes();
         this.reset();
         if (mode === 'quick') {
             // Start with everyone already squared up in the lit arena.
@@ -247,8 +252,44 @@ export class Arena {
         }
     }
 
+    /**
+     * The podium people look at is a still: before going to sleep, draw that
+     * one frame again at up to 3x resolution, so the resting stage is near 4K.
+     * One heavy frame, then nothing; any wake goes back to the normal ratio.
+     */
+    restFrame() {
+        if (this.lost || !this.visible) return;
+        const hi = Math.min((devicePixelRatio || 1) * (this.lite ? 1.5 : 2), this.lite ? 2.5 : 3);
+        if (hi <= this.ratio) return;
+        // Supersampled already: skip multisampling, which at this size would
+        // eat enough graphics memory to make a laptop drop the canvas.
+        this.post?.setSamples(0);
+        this.setRatio(hi);
+        if (this.post) this.post.render(this.wall || 0, { bloom: 0.32, fringe: 0 });
+        else this.renderer.render(this.scene, this.camera);
+        this.needsDraw = false;
+        this.hiRes = true;
+    }
+
+    setRatio(r) {
+        const w = this.host.clientWidth || 1, h = this.host.clientHeight || 1;
+        this.renderer.setPixelRatio(r);
+        this.renderer.setSize(w, h, false);
+        this.post?.setSize(w, h, r);
+        this.needsDraw = true;
+    }
+
     /** Draw again for a while (settled scenes sleep to keep the page light). */
+    /** Back from the resting 3x frame to the normal ratio (and multisampling). */
+    normalRes() {
+        if (!this.hiRes) return;
+        this.hiRes = false;
+        this.post?.setSamples(4);
+        this.setRatio(this.ratio);
+    }
+
     wake() {
+        this.normalRes();
         this.settledAt = performance.now();
         if (this.state !== 'idle' && this.state !== 'loading') this.start();
     }
@@ -472,7 +513,7 @@ export class Arena {
     loop(now) {
         if (!this.running) return;
         // Asleep: a settled podium nobody is pointing at needs no more frames.
-        if (this.state === 'settled' && now - this.settledAt > 1500) { this.running = false; return; }
+        if (this.state === 'settled' && now - this.settledAt > 1500) { this.running = false; this.restFrame(); return; }
         requestAnimationFrame(this.loop);
         if (!this.visible || document.hidden || this.lost) return;
         // A resize the observer missed (scaling change, scrollbar) would leave
@@ -544,6 +585,7 @@ export class Arena {
         this.punch = Math.max(0, (this.punch || 0) - dt * 1.6);
         if (this.post) this.post.render(wall, { bloom: 0.32 + this.punch * 0.8 + (this.flashPower || 0) / 180, fringe: this.punch * 1.4 });
         else this.renderer.render(this.scene, this.camera);
+        this.needsDraw = false;
         // The canvas stays hidden until its first full-size frame is on it.
         if (!this.shown) { this.shown = true; this.renderer.domElement.classList.add('is-drawn'); }
 

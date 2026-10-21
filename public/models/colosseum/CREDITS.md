@@ -9,7 +9,7 @@ Every file here came from the Pokémon 3D API asset collection
 (https://github.com/Pokemon-3D-api/assets, MIT for the collection), and was then
 cut down for the arena: only the battle clips are kept (renamed to idle,
 battle, attack, hit, down_start, down_loop, down_end, roar), textures are
-resized to at most 512 px WebP, and meshes are meshopt-compressed.
+kept at up to 1024 px WebP, and meshes are meshopt-compressed.
 
 | File | Model | Author | Licence | Source |
 |------|-------|--------|---------|--------|

@@ -13,7 +13,7 @@ const FilmShader = {
         tDiffuse: { value: null },
         uTime: { value: 0 },
         uVignette: { value: 0.9 },
-        uGrain: { value: 0.045 },
+        uGrain: { value: 0.01 },
         uFringe: { value: 0 },
     },
     vertexShader: /* glsl */`
@@ -39,7 +39,10 @@ const FilmShader = {
 
 export class Post {
     constructor(renderer, scene, camera) {
-        this.composer = new EffectComposer(renderer);
+        // A multisampled target: the film pipeline gets the same smooth edges the
+        // browser gives a plain canvas (render targets have no anti-aliasing).
+        const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+        this.composer = new EffectComposer(renderer, target);
         this.composer.addPass(new RenderPass(scene, camera));
         this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 256), 0.32, 0.55, 0.9);
         this.composer.addPass(this.bloom);
@@ -52,6 +55,13 @@ export class Post {
         this.composer.setPixelRatio(ratio);
         // Sizes every pass to the canvas; the bloom pass halves its own targets.
         this.composer.setSize(w, h);
+    }
+
+    /** Multisampling on or off (the 3x resting frame is supersampled already). */
+    setSamples(n) {
+        for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+            if (rt.samples !== n) { rt.samples = n; rt.dispose(); }
+        }
     }
 
     render(time, { bloom = 0.55, fringe = 0 } = {}) {

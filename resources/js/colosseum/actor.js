@@ -46,7 +46,7 @@ function findBones(model, cfg) {
 }
 
 export class Actor {
-    constructor(slug, template, { lite }) {
+    constructor(slug, template, { lite, anisotropy = 4 }) {
         this.slug = slug;
         this.cfg = ROSTER[slug];
         this.root = new THREE.Group();
@@ -62,6 +62,8 @@ export class Actor {
         this.model.traverse((o) => {
             if (o.isMesh) {
                 o.castShadow = !lite;
+                // Keep textures crisp when seen at an angle.
+                for (const m of [].concat(o.material || [])) for (const k of ['map', 'normalMap', 'emissiveMap']) if (m[k]) m[k].anisotropy = anisotropy;
                 o.frustumCulled = false;
             }
         });

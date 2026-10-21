@@ -40,6 +40,7 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Payroll']=[
  ['Payroll Overview',\App\Filament\Pages\PayrollOverview::getUrl(panel:'admin')],
  ['Pay Run History',\App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index')],
+ ...(\App\Filament\Resources\StreamerLoanResource::canAccess() ? [['Streamer Loans',\App\Filament\Resources\StreamerLoanResource::getUrl('index')]] : []),
  ['Payment Structures',\App\Filament\Pages\PaymentStructures::getUrl(panel:'admin')],
  ['Businesses',\App\Filament\Pages\Businesses::getUrl(panel:'admin')],
  ['Payroll Simulator',\App\Filament\Pages\PayrollSimulator::getUrl(panel:'admin')],

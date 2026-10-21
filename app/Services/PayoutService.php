@@ -992,21 +992,20 @@ class PayoutService
                     . implode(' ', $problems));
             }
 
-            // Monthly add-backs are manually selected per run. Serialize Ty's
-            // finalizations so two draft runs cannot both become a fifth payment.
-            $ty = Streamer::query()->where('name', 'Ty Ramirez')->lockForUpdate()->first();
-            if ($ty) {
-                $adjustments = $locked->payouts()->where('streamer_id', $ty->id)
-                    ->where('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:%')->get();
-                foreach ($adjustments as $adjustment) {
-                    if (preg_match('/\[TY_BURDEN_ADDBACK:(\d{4}-\d{2})\]/', (string) $adjustment->calculation_notes, $match)) {
-                        $prior = Payout::query()->where('streamer_id', $ty->id)
-                            ->where('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $match[1] . ']%')
-                            ->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
-                        if ($prior >= 4) {
-                            throw new \RuntimeException('Ty Ramirez already has four finalized burden payments for ' . $match[1] . '. Remove this draft adjustment before finalizing.');
-                        }
-                    }
+            // Lock each participating streamer to serialize concurrent finalizations.
+            $adjustments = $locked->payouts()
+                ->where('calculation_notes', 'like', '%[MONTHLY_BURDEN_ADDBACK:%')->get();
+            foreach ($adjustments as $adjustment) {
+                if (! preg_match('/\[MONTHLY_BURDEN_ADDBACK:(\d+):(\d{4}-\d{2})\]/', (string) $adjustment->calculation_notes, $match)) {
+                    continue;
+                }
+                $person = Streamer::query()->lockForUpdate()->findOrFail((int) $match[1]);
+                $marker = '[MONTHLY_BURDEN_ADDBACK:' . $person->id . ':' . $match[2] . ']';
+                $used = Payout::query()->where('streamer_id', $person->id)
+                    ->where('calculation_notes', 'like', '%' . $marker . '%')
+                    ->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                if ($used >= (int) ($person->monthly_burden_payments ?: 4)) {
+                    throw new \RuntimeException('Monthly burden payment limit reached for ' . $person->name . ' in ' . $match[2] . '.');
                 }
             }
 

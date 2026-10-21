@@ -8,7 +8,7 @@
             useScan(event) {
                 const value = event?.detail?.value;
                 if (!value) return;
-                $wire.set('scanInput', value).then(() => $wire.submitScan());
+                $wire.barcodeScanned(value);
             }
         }"
         x-on:barcode-scanned.window="useScan($event)"
@@ -194,7 +194,7 @@
         <section class="rounded-xl border-2 @if($mode === 'lookup') border-primary-300 bg-primary-50/40 dark:border-primary-800 dark:bg-primary-950/20 @elseif($mode === 'receive') border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-950/20 @else border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20 @endif p-4 sm:rounded-2xl sm:p-5">
             <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
             <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <input wire:model.live.debounce.300ms="scanInput" wire:keydown.enter="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
+                <input wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
                 <button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
                 <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 @if($mode === 'lookup') bg-primary-600 @elseif($mode === 'receive') bg-amber-600 @else bg-emerald-600 @endif"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
             </div>

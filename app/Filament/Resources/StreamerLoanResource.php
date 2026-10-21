@@ -53,8 +53,15 @@ class StreamerLoanResource extends Resource
             Section::make()->columns(2)->columnSpanFull()->schema([
                 Select::make('streamer_id')
                     ->label('Streamer')
-                    ->relationship('streamer', 'name')
+                    ->options(fn (): array => \App\Models\Streamer::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
                     ->searchable()
+                    ->native(false)
+                    ->preload()
+                    ->placeholder('Search or select a streamer')
+                    ->helperText('Tap to choose a streamer, or type their name to filter the list.')
                     ->required(),
 
                 TextInput::make('label')

@@ -992,6 +992,24 @@ class PayoutService
                     . implode(' ', $problems));
             }
 
+            // Monthly add-backs are manually selected per run. Serialize Ty's
+            // finalizations so two draft runs cannot both become a fifth payment.
+            $ty = Streamer::query()->where('name', 'Ty Ramirez')->lockForUpdate()->first();
+            if ($ty) {
+                $adjustments = $locked->payouts()->where('streamer_id', $ty->id)
+                    ->where('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:%')->get();
+                foreach ($adjustments as $adjustment) {
+                    if (preg_match('/\[TY_BURDEN_ADDBACK:(\d{4}-\d{2})\]/', (string) $adjustment->calculation_notes, $match)) {
+                        $prior = Payout::query()->where('streamer_id', $ty->id)
+                            ->where('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $match[1] . ']%')
+                            ->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                        if ($prior >= 4) {
+                            throw new \RuntimeException('Ty Ramirez already has four finalized burden payments for ' . $match[1] . '. Remove this draft adjustment before finalizing.');
+                        }
+                    }
+                }
+            }
+
             $this->applyLoanRepayments($batch);
 
             $batch->recalculateTotal();

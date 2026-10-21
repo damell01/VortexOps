@@ -168,8 +168,21 @@ export class Arena {
     }
 
     async load(lineup) {
-        this.setState('loading');
         const picks = lineup.slice(0, 3).map((row) => ({ ...row, ...fighterFor(row.buddy, row.seed) }));
+        // Already loaded (prepare() ran while the page opened): nothing to fetch.
+        const key = JSON.stringify(picks.map((p) => [p.rank, p.slug, p.id]));
+        if (key === this.loadedKey && Object.keys(this.actors).length) return;
+        if (this.loadingKey === key) return this.loadingPromise;
+        this.loadingKey = key;
+        this.loadingPromise = this.build(picks, key);
+        return this.loadingPromise;
+    }
+
+    /** Load all fighters and warm up the scene without drawing anything. */
+    prepare() { return this.load(this.lineup); }
+
+    async build(picks, key) {
+        if (this.state === 'idle') this.setState('loading');
         const templates = await Promise.all(picks.map((p) => loadTemplate(p.slug, this.base)));
         for (const a of Object.values(this.actors)) { a.dispose(); a.blob?.removeFromParent(); }
         this.actors = {};
@@ -188,6 +201,8 @@ export class Arena {
         // Upload every texture and shader now, so no fighter appears untextured mid-fight.
         this.scene.traverse((o) => { for (const m of [].concat(o.material || [])) for (const k of ['map', 'emissiveMap', 'normalMap']) if (m[k]) this.renderer.initTexture(m[k]); });
         await this.renderer.compileAsync(this.scene, this.camera).catch(() => {});
+        this.loadedKey = key;
+        this.loadingKey = null;
     }
 
     setState(s) { this.state = s; this.onState?.(s); }
@@ -196,7 +211,6 @@ export class Arena {
     async play(mode = 'full') {
         this.sound.unlock();
         await this.load(this.lineup);
-        if (this.reduced) return this.settle();
         this.mode = mode;
         this.reset();
         if (mode === 'quick') {
@@ -284,8 +298,9 @@ export class Arena {
         const chest = (a) => V(a.root.position.x, a.root.position.y + a.cfg.height * 0.55, a.root.position.z);
         const impact = () => {
             this.sound.impact();
-            this.shake = 0.32;
-            this.punch = 1;
+            // With Reduce Motion on, the battle still plays but without the shake and flash.
+            this.shake = this.reduced ? 0 : 0.32;
+            this.punch = this.reduced ? 0 : 1;
             this.flash(cfg.color, 2.2);
             for (const a of challengers) {
                 const at = chest(a);

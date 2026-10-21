@@ -23,10 +23,18 @@
     <If "%{REQUEST_URI} =~ m#^/icons/.*\.(png|svg)$#">
         Header set Cache-Control "public, max-age=31536000, immutable"
     </If>
+    # Colosseum 3D models: a month (re-exported files get new names if needed).
+    <If "%{REQUEST_URI} =~ m#^/models/.*\.glb$#">
+        Header set Cache-Control "public, max-age=2592000"
+    </If>
     # Sprites, logos and handbook screenshots: a week, revalidated after.
     <If "%{REQUEST_URI} =~ m#^/(img|images|guide)/#">
         Header set Cache-Control "public, max-age=604800"
     </If>
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType model/gltf-binary .glb
 </IfModule>
 
 # Compress text responses (HTML, CSS, JS, JSON, SVG).

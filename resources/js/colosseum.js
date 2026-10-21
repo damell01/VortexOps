@@ -50,7 +50,6 @@ function mount(root) {
 
     const stage = root.querySelector('[data-vxa-stage]'), details = root.querySelector('[data-vxa-details]');
     const compact = root.dataset.mode === 'compact';
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let arena = null, lineup = lineupOf(), muted = true, busy = false;
     const seenKey = () => 'vxa-champion-' + (lineup?.period || 'week');
 
@@ -102,17 +101,23 @@ function mount(root) {
         }
     };
 
+    // Start fetching the 3D and the three fighters as soon as the page opens, so
+    // the arena is ready by the time anyone scrolls to it.
+    let ready = null;
+    const prepare = () => ready ??= (async () => {
+        const { Arena } = await import('./colosseum/arena.js');
+        arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: placeDetails, onState, compact });
+        arena.setMuted(muted);
+        root.vxaArena = arena; // for browser checks
+        await arena.prepare();
+    })();
+
     async function start(mode) {
         if (busy) return;
         busy = true;
         if (mode === 'quick') root.dataset.pending = '1';
         try {
-            if (!arena) {
-                const { Arena } = await import('./colosseum/arena.js');
-                arena = new Arena(stage, lineup.rows, { base: root.dataset.models, onLabels: placeDetails, onState, compact });
-                arena.setMuted(muted);
-                root.vxaArena = arena; // for browser checks
-            }
+            await prepare();
             if (mode === 'podium') await arena.showPodium(); else await arena.play('quick');
         } catch (e) {
             console.warn('[colosseum]', e);
@@ -125,7 +130,8 @@ function mount(root) {
     // The controls sit in the board's header, which Livewire re-renders, so
     // listen on the board itself.
     const onClick = (e) => {
-        if (e.target.closest('[data-vxa-replay]')) { if (arena && !busy && !reduced) start('quick'); return; }
+        // An explicit Replay always plays, Reduce Motion or not.
+        if (e.target.closest('[data-vxa-replay]')) { if (!busy) start('quick'); return; }
         if (e.target.closest('[data-vxa-mute]')) { muted = !muted; arena?.setMuted(muted); setMuteUi(); }
     };
     section?.addEventListener('click', onClick);
@@ -167,15 +173,14 @@ function mount(root) {
 
     if (!lineup?.rows?.length) return;
     drawDetails();
-    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600));
+    prepare().catch(() => {});
+    // The battle itself waits until the board is on screen, so nobody misses it.
     const io = new IntersectionObserver(([e]) => {
         if (!e.isIntersecting) return;
         io.disconnect();
-        idle(() => {
-            const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
-            start(fresh && !reduced ? 'quick' : 'podium');
-        }, { timeout: 2500 });
-    }, { rootMargin: '120px' });
+        const fresh = store.get(seenKey()) !== String(lineup.rows[0].id);
+        start(fresh ? 'quick' : 'podium');
+    }, { threshold: 0.35 });
     io.observe(root);
 }
 

@@ -37,6 +37,9 @@ function mount(root) {
     observer.observe(root);
     return;
   }
+  // Hide the static podium as soon as 3D is supported, before preload completes.
+  root.classList.add('vxl-3d-active');
+  root.classList.remove('vxl-3d-settled');
   const prepare = () => {
     if (!promise) promise = (async () => {
       const { Arena } = await import('./colosseum/arena.js');

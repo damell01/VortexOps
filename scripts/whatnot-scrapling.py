@@ -26,7 +26,7 @@ PROFILE = os.getenv("WHATNOT_USER_DATA_DIR", "").strip()
 CHROME = os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "").strip()
 # Tips probes are commonly run from SSH without an X server.
 # Preserve the existing headed default for other scraper modes.
-HEADLESS = os.getenv("WHATNOT_HEADLESS", "true" if MODE == "tips-probe" else "false").strip().lower() not in {"false", "0", "no", "off"}
+HEADLESS = os.getenv("WHATNOT_HEADLESS", "true" if MODE in ("tips-probe", "tips-sync") else "false").strip().lower() not in {"false", "0", "no", "off"}
 LIMIT = max(1, min(500, int(os.getenv("WHATNOT_LIMIT", "50"))))
 START_UUID = os.getenv("WHATNOT_START_UUID", "").strip()
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
@@ -811,6 +811,7 @@ def tips_probe(session: DynamicSession):
                   wait_until="domcontentloaded", timeout=30000)
         check_login(page)
         ids = set()
+        tip_rows = []
         total_cents = 0
         after = None
         pages = 0
@@ -848,6 +849,7 @@ def tips_probe(session: DynamicSession):
                     fail("TIPS_AMOUNT_INVALID: unexpected currency or amount")
                 ids.add(tip_id)
                 total_cents += money["amount"]
+                tip_rows.append({"id": tip_id, "amount_cents": money["amount"], "currency": "USD", "created_at": tip.get("createdAt"), "surface": tip.get("surface")})
             pages += 1
             if pages > 100:
                 fail("TIPS_PAGINATION_LIMIT: more than 100 pages")
@@ -858,11 +860,14 @@ def tips_probe(session: DynamicSession):
             if not cursor or cursor == after:
                 fail("TIPS_PAGINATION_STALLED")
             after = cursor
+        if type(expected) is not int or len(ids) != expected:
+            fail(f"TIPS_COUNT_MISMATCH expected={expected} actual={len(ids)}")
         result.update({
             "livestream_id": live_id, "reported_count": expected,
             "unique_tips": len(ids), "total_cents": total_cents,
             "total_usd": f"{total_cents / 100:.2f}", "pages": pages,
-            "read_only": True,
+            "read_only": MODE == "tips-probe",
+            **({"tips": tip_rows} if MODE == "tips-sync" else {}),
         })
 
     session.fetch(f"{BASE}/dashboard/home", page_action=action, timeout=60000,
@@ -873,7 +878,7 @@ def tips_probe(session: DynamicSession):
 def main():
     if not PROFILE:
         fail("WHATNOT_USER_DATA_DIR is required")
-    # The Scrapling StealthySession backend can discover its own Chrome binary.\n    # Preserve the explicit executable requirement for legacy modes.\n    if not CHROME and MODE != "tips-probe":\n        fail("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is required")
+    # The Scrapling StealthySession backend can discover its own Chrome binary.\n    # Preserve the explicit executable requirement for legacy modes.\n    if not CHROME and MODE not in ("tips-probe", "tips-sync"):\n        fail("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is required")
     Path(PROFILE).mkdir(parents=True, exist_ok=True)
     info(f"engine=Scrapling DynamicSession mode={MODE} profile={PROFILE}")
     with DynamicSession(
@@ -895,7 +900,7 @@ def main():
             result = batch(session, True)
         elif MODE == 'ledger':
             result = ledger(session)
-        elif MODE == 'tips-probe':
+        elif MODE in ('tips-probe', 'tips-sync'):
             result = tips_probe(session)
         elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index')):
             result = globals()['reconcile_index'](session)

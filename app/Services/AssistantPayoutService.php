@@ -34,7 +34,7 @@ class AssistantPayoutService
                 ->where('calculation_notes', 'like', '%'.$marker.'%')->first();
 
             if ($existing) {
-                throw new \RuntimeException('Assistant payout already exists; review it before re-syncing.');
+                continue;
             }
 
             Payout::create([

@@ -4883,6 +4883,52 @@ async function extractLedgerFromPage(page) {
       return;
     }
 
+    // ── Mode: tips-probe (read only) ──────────────────────────────────────────
+    // Uses the authenticated seller browser context; never persists financial data.
+    if (MODE === 'tips-probe') {
+      const liveId = (process.env.WHATNOT_TIPS_LIVESTREAM_ID || '').trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(liveId)) {
+        exitAfterStderr('WHATNOT_TIPS_LIVESTREAM_ID must be a livestream UUID\\n', 1);
+      }
+      await page.goto('https://www.whatnot.com/dashboard/tips?first=100&source=' + encodeURIComponent(liveId),
+        { waitUntil: 'domcontentloaded', timeout: 30000 });
+      const query = 'query GetTipsTable($before:String,$after:String,$first:Int,$last:Int,$isLivestreamSource:Boolean!,$livestreamId:ID!,$surface:TipSurface){me@skip(if:$isLivestreamSource){id tips(before:$before,after:$after,first:$first,last:$last,direction:RECEIVED,surface:$surface){...TipsTableConnection}}liveStream(id:$livestreamId)@include(if:$isLivestreamSource){id tips(before:$before,after:$after,first:$first,last:$last){...TipsTableConnection}}}fragment TipsTableRow on TipNode{id value{amount currency} surface createdAt}fragment TipsTableConnection on TipNodeConnection{pageInfo{hasNextPage endCursor}totalCount edges{node{...TipsTableRow}cursor}}';
+      let after = null;
+      const ids = new Set();
+      let totalCents = 0, pages = 0, reportedCount = null;
+      do {
+        const variables = { after, before: null, first: 100, last: null, isLivestreamSource: true, livestreamId: liveId, surface: null };
+        const result = await page.evaluate(async ({ query, variables }) => {
+          const response = await fetch('/services/graphql/?operationName=GetTipsTable&ssr=0', {
+            method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ operationName: 'GetTipsTable', query, variables }),
+          });
+          return { status: response.status, body: await response.json() };
+        }, { query, variables });
+        if (result.status !== 200 || result.body.errors?.length) {
+          throw new Error('GetTipsTable failed: HTTP ' + result.status + ' ' + JSON.stringify(result.body.errors || []).slice(0, 300));
+        }
+        const stream = result.body.data?.liveStream;
+        if (!stream || stream.id !== liveId || !stream.tips) throw new Error('GetTipsTable returned no matching livestream');
+        const connection = stream.tips;
+        reportedCount = connection.totalCount;
+        for (const edge of connection.edges || []) {
+          const tip = edge.node;
+          if (!tip?.id || ids.has(tip.id)) continue;
+          if (tip.value?.currency !== 'USD' || !Number.isInteger(tip.value?.amount)) throw new Error('Unexpected tip currency or amount');
+          ids.add(tip.id);
+          totalCents += tip.value.amount;
+        }
+        pages++;
+        if (pages > 100) throw new Error('Tip pagination exceeded 100 pages');
+        if (!connection.pageInfo?.hasNextPage) break;
+        if (!connection.pageInfo.endCursor || connection.pageInfo.endCursor === after) throw new Error('Tip pagination cursor stalled');
+        after = connection.pageInfo.endCursor;
+      } while (true);
+      writeJsonAndExit({ livestream_id: liveId, reported_count: reportedCount, unique_tips: ids.size, total_cents: totalCents, total_usd: (totalCents / 100).toFixed(2), pages, read_only: true });
+      return;
+    }
+
     // ── Mode: ledger ──────────────────────────────────────────────────────────
     // Scrape the Whatnot financial ledger (/dashboard/ledger/overview) for a date
     // window (<=31 days, enforced by Whatnot). Sets the Start/End dates via the

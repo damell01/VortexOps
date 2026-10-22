@@ -21,6 +21,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
@@ -352,42 +353,43 @@ class UserResource extends Resource
             ->emptyStateDescription('Add a user and assign the role that matches their job.')
             ->emptyStateIcon('heroicon-o-users')
             ->deferLoading()
+            ->contentGrid(['default' => 1, 'md' => 2, 'xl' => 3])
             ->columns([
-                TextColumn::make('name')
-                    ->label('Team member')
-                    ->description(fn (User $record): string => $record->email)
-                    ->searchable(['name', 'email'])
-                    ->sortable()
-                    ->weight('semibold'),
-                TextColumn::make('roles.name')
-                    ->label('Role')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'super_admin' => 'warning',
-                        'admin' => 'danger',
-                        'fulfillment_admin' => 'success',
-                        'fulfillment' => 'success',
-                        'streamer' => 'info',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => str($state)->replace('_', ' ')->title())
-                    ->separator(', '),
-                TextColumn::make('streamer.member_type')
-                    ->label('Team profile')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state): string => $state === 'fulfillment' ? 'Fulfillment' : ($state === 'streamer' ? 'Streamer' : '—'))
-                    ->default('—')
-                    ->placeholder('—'),
-                TextColumn::make('streamer.streamer_type')
-                    ->label('Streamer type')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state): string => $state ? (Streamer::streamerTypeLabels()[$state] ?? $state) : '—')
-                    ->placeholder('—'),
-                TextColumn::make('created_at')
-                    ->label('Joined')
-                    ->date('M j, Y')
-                    ->description(fn (User $record): string => $record->created_at?->diffForHumans() ?? '')
-                    ->sortable(),
+                Stack::make([
+                    TextColumn::make('name')
+                        ->label('Team member')
+                        ->description(fn (User $record): string => $record->email)
+                        ->searchable(['name', 'email'])
+                        ->sortable()
+                        ->weight('bold')
+                        ->size('lg'),
+                    TextColumn::make('roles.name')
+                        ->label('Role')
+                        ->badge()
+                        ->color(fn (string $state): string => match ($state) {
+                            'super_admin' => 'warning',
+                            'admin' => 'danger',
+                            'fulfillment_admin', 'fulfillment' => 'success',
+                            'streamer' => 'info',
+                            default => 'gray',
+                        })
+                        ->formatStateUsing(fn (string $state): string => str($state)->replace('_', ' ')->title())
+                        ->separator(', '),
+                    TextColumn::make('streamer.member_type')
+                        ->label('Team profile')
+                        ->badge()
+                        ->formatStateUsing(fn (?string $state): string => match ($state) {
+                            'fulfillment' => 'Fulfillment',
+                            'streamer' => 'Streamer',
+                            'assistant' => 'Assistant',
+                            default => 'Team member',
+                        })
+                        ->default('Team member'),
+                    TextColumn::make('created_at')
+                        ->label('Joined')
+                        ->date('M j, Y')
+                        ->sortable(),
+                ])->space(2),
             ])
             ->persistFiltersInSession()
             ->paginationPageOptions(\App\Support\MobileTablePagination::options([8, 16, 32]))

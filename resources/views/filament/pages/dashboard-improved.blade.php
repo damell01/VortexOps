@@ -2,7 +2,7 @@
     @if(($roleMode ?? null) === 'admin')
         @include('filament.components.dashboard-reference')
     @else
-    @if(($roleMode ?? null) !== 'streamer')<x-dashboard-shortcuts />@endif
+    @if(! in_array(($roleMode ?? null), ['streamer', 'assistant'], true))<x-dashboard-shortcuts />@endif
     @php
         $pageMode = $roleMode ?? 'user';
     @endphp

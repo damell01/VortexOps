@@ -1,0 +1,46 @@
+name: Export Vortex cinematic backdrop
+on:
+  workflow_dispatch:
+  push:
+    branches: [Production]
+    paths:
+      - 'scripts/export-colosseum.mjs'
+      - 'resources/js/colosseum/export.js'
+      - 'public/arena-export.html'
+      - '.github/workflows/export-colosseum.yml'
+permissions:
+  contents: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Production
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start Vite for local render
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/vite-export.log 2>&1 &
+          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:5173/arena-export.html >/dev/null && break; sleep 2; done
+      - name: Capture original 3D arena
+        run: node scripts/export-colosseum.mjs
+      - name: Encode 1.5 second silent cinematic
+        run: |
+          mkdir -p public/video
+          ffmpeg -hide_banner -loglevel error -y -framerate 24 -i storage/app/cinematic-frames/%03d.png -c:v libx264 -pix_fmt yuv420p -preset slow -crf 30 -movflags +faststart public/video/vortex-colosseum-intro.mp4
+          ls -lh public/video/vortex-colosseum-intro.mp4
+      - name: Commit generated video to Production
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/video/vortex-colosseum-intro.mp4
+          if ! git diff --cached --quiet; then
+            git commit -m "Add rendered Vortex colosseum cinematic backdrop"
+            git push origin HEAD:Production
+          fi

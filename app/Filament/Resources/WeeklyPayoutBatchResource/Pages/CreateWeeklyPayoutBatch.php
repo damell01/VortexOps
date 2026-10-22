@@ -161,7 +161,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             if ($end->lt($start)) {
                 throw ValidationException::withMessages(['data.week_end' => 'End date must be on or after start date.']);
             }
-            $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
+            $overlap = $kind === 'other' ? null : WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
             if ($overlap) {
                 throw ValidationException::withMessages(['data.week_start' => 'These dates overlap ' . $overlap->kindLabel() . ' Pay Run #' . $overlap->id . '. Open that run or choose different dates.']);
             }

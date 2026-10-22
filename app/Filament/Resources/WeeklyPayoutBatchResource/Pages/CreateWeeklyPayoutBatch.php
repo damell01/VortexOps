@@ -26,6 +26,17 @@ class CreateWeeklyPayoutBatch extends CreateRecord
     public function form(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
+            Section::make('Choose your pay run')->description('Start with normal payroll or a standalone one-time payment.')->schema([
+                \Filament\Forms\Components\Radio::make('run_mode')
+                    ->label('Pay run')
+                    ->options(['normal' => 'Normal payroll', 'other' => 'Other — one-time payments'])
+                    ->default('normal')->inline()->live()
+                    ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set): void {
+                        $set('pay_run_type_id', null);
+                        $set('kind', $state === 'other' ? 'other' : '');
+                        $set('dates_mode', 'custom');
+                    }),
+            ]),
             Section::make('1. Set up the run')->description('Choose the business and what to pay. This creates a draft for review.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Select::make('business_id')
                     ->label('Business')
@@ -38,6 +49,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->columnSpanFull(),
 
                 \Filament\Forms\Components\Select::make('pay_run_type_id')
+                    ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') !== 'other')
                     ->label('Pay run type')
                     ->options(fn () => \App\Models\PayRunType::where('active', true)->orderBy('name')->pluck('name', 'id'))
                     ->placeholder('One-off custom run')
@@ -66,13 +78,14 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         $set('dates_mode', 'custom');
                     }),
                 \Filament\Forms\Components\Select::make('kind')
-                    ->label('What this run pays')
+                    ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') !== 'other')
+                    ->label('Payment category (choose Other Payment for bonuses or one-off amounts)')
                     ->options(['' => 'All pay at once (wages + profit share)'] + \App\Support\PayRunSchedules::KINDS)
                     ->default(fn () => self::presetType()?->kind ?? '')
                     ->selectablePlaceholder(false)
                     ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => filled($get('pay_run_type_id')))
                     ->dehydrated()
-                    ->helperText('Wages and profit share are always separate lines.'),
+                    ->helperText('Select Other Payment (one-off) to enter individual recipients, amounts, and descriptions without generating regular wages.'),
             ]),
             Section::make('2. Choose the dates')->description('Use any start and end dates, or your saved type’s optional schedule.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Radio::make('dates_mode')
@@ -93,10 +106,10 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. One-off payments')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other')->schema([
+            Section::make('3. Other Payments — choose recipients and amounts')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')->schema([
                 \Filament\Forms\Components\Repeater::make('other_payments')->schema([
-                    \Filament\Forms\Components\Select::make('streamer_id')->label('Recipient')
-                        ->options(fn () => \App\Models\Streamer::query()->whereNotNull('user_id')->pluck('name', 'id')->all())->searchable()->required(),
+                    \Filament\Forms\Components\Select::make('streamer_id')->label('Streamer, assistant or fulfillment employee')
+                        ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Streamer::query()->whereNotNull('user_id')->when(filled($get('../../business_id')), fn ($q) => $q->where('business_id', (int) $get('../../business_id')))->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
                     \Filament\Forms\Components\TextInput::make('amount')->numeric()->minValue(0.01)->required(),
                     Textarea::make('description')->required(),
                 ])->minItems(1)->defaultItems(1),
@@ -132,7 +145,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             if (filled($data['pay_run_type_id'] ?? null) && ! $type) {
                 throw ValidationException::withMessages(['data.pay_run_type_id' => 'Choose an available pay run type.']);
             }
-            $kind = $type ? $type->kind : (filled($data['kind'] ?? null) ? $data['kind'] : null);
+            $kind = ($data['run_mode'] ?? 'normal') === 'other' ? 'other' : ($type ? $type->kind : (filled($data['kind'] ?? null) ? $data['kind'] : null));
             if ($kind !== null && ! array_key_exists($kind, \App\Support\PayRunSchedules::KINDS)) {
                 throw ValidationException::withMessages(['data.kind' => 'Choose what this run pays.']);
             }
@@ -148,7 +161,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             if ($end->lt($start)) {
                 throw ValidationException::withMessages(['data.week_end' => 'End date must be on or after start date.']);
             }
-            $overlap = WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
+            $overlap = $kind === 'other' ? null : WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
             if ($overlap) {
                 throw ValidationException::withMessages(['data.week_start' => 'These dates overlap ' . $overlap->kindLabel() . ' Pay Run #' . $overlap->id . '. Open that run or choose different dates.']);
             }
@@ -159,7 +172,13 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                 'status' => 'draft', 'notes' => $data['notes'] ?? null, 'created_by' => auth()->id(),
             ]);
             if ($kind === 'other') {
+                if (empty($data['other_payments'])) {
+                    throw ValidationException::withMessages(['data.other_payments' => 'Add at least one payment recipient.']);
+                }
                 foreach (($data['other_payments'] ?? []) as $row) {
+                    if (! is_numeric($row['amount'] ?? null) || round((float) $row['amount'], 2) <= 0 || trim((string) ($row['description'] ?? '')) === '') {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Every recipient needs a positive amount and description.']);
+                    }
                     $person = \App\Models\Streamer::query()->whereKey($row['streamer_id'])
                         ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
                         ->whereNotNull('user_id')->firstOrFail();

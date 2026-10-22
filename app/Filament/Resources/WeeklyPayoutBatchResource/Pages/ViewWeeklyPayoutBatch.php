@@ -247,7 +247,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
                 ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
 
-            $resolveBlockers, $finalize, $override, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, \App\Filament\Actions\OtherPaymentAction::make($this->record), $tyBurden, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

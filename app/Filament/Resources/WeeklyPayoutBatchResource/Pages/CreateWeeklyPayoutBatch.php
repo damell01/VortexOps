@@ -26,6 +26,17 @@ class CreateWeeklyPayoutBatch extends CreateRecord
     public function form(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
+            Section::make('Choose your pay run')->description('Start with normal payroll or a standalone one-time payment.')->schema([
+                \Filament\Forms\Components\Radio::make('run_mode')
+                    ->label('Pay run')
+                    ->options(['normal' => 'Normal payroll', 'other' => 'Other — one-time payments'])
+                    ->default('normal')->inline()->live()
+                    ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set): void {
+                        $set('pay_run_type_id', null);
+                        $set('kind', $state === 'other' ? 'other' : '');
+                        $set('dates_mode', 'custom');
+                    }),
+            ]),
             Section::make('1. Set up the run')->description('Choose the business and what to pay. This creates a draft for review.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Select::make('business_id')
                     ->label('Business')
@@ -38,6 +49,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->columnSpanFull(),
 
                 \Filament\Forms\Components\Select::make('pay_run_type_id')
+                    ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') !== 'other')
                     ->label('Pay run type')
                     ->options(fn () => \App\Models\PayRunType::where('active', true)->orderBy('name')->pluck('name', 'id'))
                     ->placeholder('One-off custom run')
@@ -66,6 +78,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         $set('dates_mode', 'custom');
                     }),
                 \Filament\Forms\Components\Select::make('kind')
+                    ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') !== 'other')
                     ->label('Payment category (choose Other Payment for bonuses or one-off amounts)')
                     ->options(['' => 'All pay at once (wages + profit share)'] + \App\Support\PayRunSchedules::KINDS)
                     ->default(fn () => self::presetType()?->kind ?? '')
@@ -93,7 +106,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. Other Payments — choose recipients and amounts')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other')->schema([
+            Section::make('3. Other Payments — choose recipients and amounts')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')->schema([
                 \Filament\Forms\Components\Repeater::make('other_payments')->schema([
                     \Filament\Forms\Components\Select::make('streamer_id')->label('Streamer, assistant or fulfillment employee')
                         ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Streamer::query()->whereNotNull('user_id')->when(filled($get('../../business_id')), fn ($q) => $q->where('business_id', (int) $get('../../business_id')))->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
@@ -132,7 +145,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             if (filled($data['pay_run_type_id'] ?? null) && ! $type) {
                 throw ValidationException::withMessages(['data.pay_run_type_id' => 'Choose an available pay run type.']);
             }
-            $kind = $type ? $type->kind : (filled($data['kind'] ?? null) ? $data['kind'] : null);
+            $kind = ($data['run_mode'] ?? 'normal') === 'other' ? 'other' : ($type ? $type->kind : (filled($data['kind'] ?? null) ? $data['kind'] : null));
             if ($kind !== null && ! array_key_exists($kind, \App\Support\PayRunSchedules::KINDS)) {
                 throw ValidationException::withMessages(['data.kind' => 'Choose what this run pays.']);
             }

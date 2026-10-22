@@ -17,7 +17,7 @@ class UserTeamProfileService
     {
         $memberType = $user->hasRole('streamer')
             ? 'streamer'
-            : ($user->hasRole('fulfillment') ? 'fulfillment' : null);
+            : ($user->hasRole('streamer_assistant') ? 'assistant' : ($user->hasRole('fulfillment') ? 'fulfillment' : null));
 
         if (! $memberType) {
             return $user->streamer;

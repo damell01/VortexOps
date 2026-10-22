@@ -1139,6 +1139,16 @@ class PayoutService
                     break;
                 }
 
+                // One deduction per configured calendar period, even when a
+                // streamer appears in multiple pay runs during that period.
+                $periodEnd = \Illuminate\Support\Carbon::parse($batch->week_end);
+                $periodStart = ($loan->repayment_frequency === 'monthly')
+                    ? $periodEnd->copy()->startOfMonth()
+                    : $periodEnd->copy()->startOfWeek(\Illuminate\Support\Carbon::MONDAY);
+                if ($loan->last_repayment_period && $loan->last_repayment_period->toDateString() >= $periodStart->toDateString()) {
+                    continue;
+                }
+
                 $repayment = round(min(
                     (float) $loan->weekly_repayment,
                     (float) $loan->remaining_balance,
@@ -1153,6 +1163,7 @@ class PayoutService
 
                 $loan->update([
                     'remaining_balance' => $newBalance,
+                    'last_repayment_period' => $periodStart->toDateString(),
                     'status'            => $newBalance <= 0 ? 'paid_off' : 'active',
                 ]);
 

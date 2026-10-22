@@ -58,6 +58,9 @@ class ProfitLoss extends Page
     #[Url(as: 'tab')]
     public string $showFilter = 'all';
 
+    #[Url(as: 'tips')]
+    public bool $onlyWithTips = false;
+
     /** The show open in the detail panel. */
     public ?int $selected = null;
 
@@ -243,6 +246,9 @@ class ProfitLoss extends Page
     public function showRows(): Collection
     {
         $rows = $this->rows();
+        if ($this->onlyWithTips) {
+            $rows = $rows->filter(fn ($r) => ($r['tips_amount'] ?? 0) > 0);
+        }
         $rows = match ($this->showFilter) {
             'losing' => $rows->filter(fn($r) => $r['incomplete'] === [] && ($r['pay_completed'] ?? false) && $r['profit'] < 0),
             'paid' => $rows->filter(fn($r)=>$r['incomplete'] === [] && ($r['pay_completed'] ?? false)),

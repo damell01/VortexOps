@@ -10,7 +10,7 @@ use Symfony\Component\Process\Process;
 
 class SyncWhatnotShowTips extends Command
 {
-    protected $signature = 'whatnot:sync-show-tips {--channel= : Whatnot channel username} {--show-id= : Local show ID} {--limit=1 : Number of recent shows} {--apply : Persist verified totals}';
+    protected $signature = 'whatnot:sync-show-tips {--channel= : Whatnot channel username} {--show-id= : Local show ID} {--livestream-id= : Exact Whatnot livestream UUID} {--limit=1 : Number of recent shows} {--apply : Persist verified totals}';
     protected $description = 'Preview or sync exact per-livestream Whatnot tips via Scrapling';
 
     public function handle(): int
@@ -23,6 +23,9 @@ class SyncWhatnotShowTips extends Command
         }
         $query = Show::query()->where('whatnot_channel_id', $channel->id)
             ->whereNotNull('whatnot_show_id')->where('whatnot_show_id', '!=', '');
+        if ($this->option('livestream-id')) {
+            $query->where('whatnot_show_id', strtolower(trim((string) $this->option('livestream-id'))));
+        }
         if ($this->option('show-id')) {
             $query->whereKey((int) $this->option('show-id'));
         } else {
@@ -117,6 +120,7 @@ class SyncWhatnotShowTips extends Command
                 }
                 $stale->delete();
                 $show->tips = $amount;
+                $show->tips_verified_at = now();
                 $show->save();
             });
             $this->info('Saved show '.$show->id);

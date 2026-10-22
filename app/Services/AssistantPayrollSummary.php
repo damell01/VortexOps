@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\LedgerEntry;
+use App\Models\Streamer;
 use App\Models\TimeEntry;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -11,23 +12,24 @@ class AssistantPayrollSummary
 {
     public function hours(string $start, string $end): Collection
     {
-        return User::role('streamer_assistant')->get()->map(function (User $user) use ($start, $end) {
+        $rates = Streamer::query()->whereNotNull('user_id')->get(['user_id', 'hourly_rate'])->keyBy('user_id');
+
+        return User::role('streamer_assistant')->get()->map(function (User $user) use ($start, $end, $rates) {
             $entries = TimeEntry::query()->where('user_id', $user->id)
                 ->whereDate('clocked_in_at', '>=', $start)
                 ->whereDate('clocked_in_at', '<=', $end)
                 ->whereNotNull('clocked_out_at')->get();
 
-            $minutes = $entries->sum(function (TimeEntry $entry) {
-                if ($entry->status === 'approved') {
-                    return max(0, (int) ($entry->approved_minutes ?? $entry->duration_minutes));
-                }
-                return $entry->status === 'ok' ? max(0, (int) $entry->duration_minutes) : 0;
-            });
+            $minutes = $entries->sum(fn (TimeEntry $entry) => $entry->payableMinutes());
+            $rate = $rates->get($user->id)?->hourly_rate;
+            $hours = round($minutes / 60, 2);
 
             return [
                 'user_id' => $user->id,
                 'name' => $user->name,
-                'hours' => round($minutes / 60, 2),
+                'hours' => $hours,
+                'hourly_rate' => $rate === null ? null : (float) $rate,
+                'estimated_pay' => $rate === null ? null : round($minutes * (float) $rate / 60, 2),
                 'pending_review' => $entries->where('status', 'flagged')->count(),
             ];
         });

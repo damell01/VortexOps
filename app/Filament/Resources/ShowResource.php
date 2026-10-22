@@ -820,6 +820,13 @@ class ShowResource extends Resource
                         ? 'Completed earnings from Whatnot'
                         : 'Estimated Whatnot net')
                     ->extraCellAttributes(['class' => 'vx-nowrap']),
+                TextColumn::make('tips')
+                    ->label('Tips')
+                    ->money('USD')
+                    ->color(fn (Show $record): string => (float) ($record->tips ?? 0) > 0 ? 'success' : 'gray')
+                    ->tooltip('Tips received for this show')
+                    ->toggleable(),
+
                 TextColumn::make('net_margin')
                     ->label('Net Margin')
                     ->state(fn (Show $record): float => $record->profitAndLoss()['margin'])
@@ -951,6 +958,16 @@ class ShowResource extends Resource
                     ->label('Channel')
                     ->relationship('channel', 'name')
                     ->multiple(),
+
+                TernaryFilter::make('has_tips')
+                    ->label('Tips received')
+                    ->placeholder('All shows')
+                    ->trueLabel('Has tips')
+                    ->falseLabel('No tips')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('tips', '>', 0),
+                        false: fn (Builder $query): Builder => $query->where(fn (Builder $q): Builder => $q->whereNull('tips')->orWhere('tips', '<=', 0)),
+                    ),
 
                 TernaryFilter::make('channel_attribution_suspect')
                     ->label('Channel attribution')

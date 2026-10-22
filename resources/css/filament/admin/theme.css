@@ -959,3 +959,13 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .vx-mobile-submenu a svg.vx-mm-link-icon{width:18px!important;height:18px!important;color:#7c3aed;flex:none}
 .dark .vx-mobile-submenu a svg.vx-mm-link-icon{color:#a78bfa}
 .dark .vx-mega-menu a.has-icon .vx-mega-link-icon{color:#a78bfa}
+
+/* Consistent, spacious application dialogs on desktop. Keep compact confirmation
+   dialogs compact, and leave phone dialogs within the viewport. */
+@media (min-width: 768px) {
+  .fi-modal-window:not(:has(.fi-modal-content:empty)) {
+    width: min(94vw, 1320px) !important;
+    max-width: min(94vw, 1320px) !important;
+  }
+  .fi-modal-window .fi-modal-content { max-height: min(78vh, 900px); overflow-y: auto; }
+}

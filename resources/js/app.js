@@ -1,6 +1,7 @@
 import './action-feedback.js';
 import './delight.js';
 import './buddy.js';
+import './leaderboard-3d.js';
 import './help.js';
 import '../css/delight.css';
 import '../css/page-layout-fixes.css';

@@ -326,3 +326,12 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
  background:linear-gradient(180deg,#f9f5ffb0,#f3edffdf 82%,#faf8ff);
 }
 @media(max-width:640px){.vxl .vxl-arena-still{opacity:.18;background-position:center}}
+
+/* Optional WebGL scene sits behind live, accessible HTML podium content. */
+.vxl .vxl-3d-stage{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;overflow:hidden;transition:opacity .3s ease}
+.vxl .vxl-3d-stage canvas{display:block;width:100%!important;height:100%!important}
+.vxl .vxl-podium.vxl-3d-active .vxl-3d-stage{opacity:.52}
+.vxl .vxl-podium.vxl-3d-active .vxl-arena-still{opacity:0}
+.vxl .vxl-podium-card{position:relative;z-index:1}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-card{background:linear-gradient(180deg,#fbfaff26,#f8f3ffb8 48%,#faf8fff0)}
+@media(max-width:640px),(prefers-reduced-motion:reduce){.vxl .vxl-3d-stage{display:none!important}}

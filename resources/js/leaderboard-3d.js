@@ -1,4 +1,4 @@
-// Render the original 3D colosseum only after the leaderboard scrolls into view.
+// Prewarm the original 3D colosseum after page load; play only on scroll.
 // Real names, money and links stay in the HTML podium; WebGL is decorative.
 const mounted = new WeakSet();
 function canRender() {
@@ -21,32 +21,46 @@ function scan() {
       io.observe(root);
       return;
     }
-    let arena, started = false, loading = false, destroyed = false;
+    let arena, started = false, loading = false, destroyed = false, preparing = null;
     const readLineup = () => { try { return JSON.parse(lineupNode.textContent); } catch { return []; } };
+    // Warm models and shaders on page arrival, but don't start the battle.
+    // Promise shared with the viewport trigger so no duplicate downloads occur.
+    const prepare = () => preparing ??= (async () => {
+      const { Arena } = await import('./colosseum/arena.js');
+      if (destroyed || !root.isConnected) return null;
+      const instance = new Arena(stage, readLineup(), {
+        base: '/models/colosseum/', compact: true,
+        onState: state => { if (state === 'settled') root.classList.add('vxl-3d-settled'); },
+      });
+      arena = instance;
+      instance.setMuted(true);
+      await instance.prepare();
+      if (destroyed || !root.isConnected) return null;
+      return instance;
+    })().catch(error => {
+      console.warn('[leaderboard 3D] preload failed:', error);
+      arena?.destroy(); arena = null;
+      throw error;
+    });
     const start = async (replay = false) => {
-      if (loading || destroyed) return;
-      if (started && !replay) return;
+      if (loading || destroyed || (started && !replay)) return;
       loading = true;
       try {
-        if (!arena) {
-          const { Arena } = await import('./colosseum/arena.js');
-          if (destroyed || !root.isConnected) return;
-          arena = new Arena(stage, readLineup(), {
-            base: '/models/colosseum/', compact: true,
-            onState: state => { if (state === 'settled') root.classList.add('vxl-3d-settled'); },
-          });
-          arena.setMuted(true);
-        }
+        const ready = await prepare();
+        if (!ready || destroyed || !root.isConnected) return;
         root.classList.add('vxl-3d-active');
-        await arena.play('quick');
+        await ready.play('quick');
         started = true;
       } catch (error) {
         console.warn('[leaderboard 3D] CSS fallback:', error);
         root.classList.remove('vxl-3d-active');
-        arena?.destroy(); arena = null;
         window.Alpine?.$data(root)?.play?.();
       } finally { loading = false; }
     };
+    // Start downloading as soon as the page is ready, without blocking navigation.
+    // Idle callback lets more important dashboard work paint first.
+    if ('requestIdleCallback' in window) requestIdleCallback(() => { if (!destroyed) prepare().catch(() => {}); }, { timeout: 1200 });
+    else setTimeout(() => { if (!destroyed) prepare().catch(() => {}); }, 150);
     root.vxlReplay3d = () => { if (!arena || loading) return false; start(true); return true; };
     const observer = new IntersectionObserver(entries => {
       if (!entries[0]?.isIntersecting) return;

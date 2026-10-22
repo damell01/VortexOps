@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -26,10 +27,12 @@ class CreateWeeklyPayoutBatch extends CreateRecord
     public function form(Schema $schema): Schema
     {
         return $schema->columns(1)->components([
+            Grid::make(['default' => 1, 'xl' => 3])->schema([
+                Grid::make(1)->columnSpan(['default' => 1, 'xl' => 2])->schema([
             Section::make('Choose your pay run')->description('Start with normal payroll or a standalone one-time payment.')->schema([
                 \Filament\Forms\Components\Radio::make('run_mode')
                     ->label('Pay run')
-                    ->options(['normal' => 'Normal payroll', 'other' => 'Other — one-time payments'])
+                    ->options(['normal' => 'Normal payroll · Wages and profit share', 'other' => 'Other payment · Custom amounts'])
                     ->default('normal')->inline()->live()
                     ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set): void {
                         $set('pay_run_type_id', null);
@@ -106,14 +109,28 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. Other Payments — choose recipients and amounts')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')->schema([
-                \Filament\Forms\Components\Repeater::make('other_payments')->schema([
-                    \Filament\Forms\Components\Select::make('streamer_id')->label('Streamer, assistant or fulfillment employee')
-                        ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Streamer::query()->whereNotNull('user_id')->when(filled($get('../../business_id')), fn ($q) => $q->where('business_id', (int) $get('../../business_id')))->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
-                    \Filament\Forms\Components\TextInput::make('amount')->numeric()->minValue(0.01)->required(),
-                    Textarea::make('description')->required(),
-                ])->minItems(1)->defaultItems(1),
-            ]),
+            Section::make('3. Recipients and payment amounts')
+                ->description('Search any team member, add one-time amounts, and give each payment a reason.')
+                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')
+                ->schema([
+                    \Filament\Forms\Components\Repeater::make('other_payments')
+                        ->label('Recipients')
+                        ->schema([
+                            \Filament\Forms\Components\Select::make('user_id')
+                                ->label('Team member')
+                                ->options(fn () => \App\Models\User::query()->orderBy('name')->get()
+                                    ->mapWithKeys(fn ($user) => [$user->id => $user->name.' ('.$user->email.')'])->all())
+                                ->searchable()->preload()->required()->live(),
+                            \Filament\Forms\Components\TextInput::make('amount')
+                                ->label('Amount')->prefix('$')->numeric()->minValue(0.01)->required(),
+                            Textarea::make('description')
+                                ->label('Payment description')->placeholder('Performance bonus, show support, extra shift…')
+                                ->rows(2)->maxLength(500)->required(),
+                        ])
+                        ->columns(['default' => 1, 'lg' => 3])
+                        ->defaultItems(1)->minItems(1)->addActionLabel('Add recipient')
+                        ->reorderable(false)->cloneable(false),
+                ]),
             Section::make('4. Add a note')->columnSpanFull()->schema([
                 Textarea::make('notes')
                     ->label('Notes (optional)')
@@ -122,6 +139,22 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->columnSpanFull(),
             ]),
 
+                ]),
+                Section::make('Pay run summary')
+                    ->columnSpan(['default' => 1, 'xl' => 1])
+                    ->description('Draft preview — no payments are sent')
+                    ->schema([
+                        \Filament\Forms\Components\Placeholder::make('payment_count')
+                            ->label('Selected recipients')
+                            ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                collect($get('other_payments') ?? [])->filter(fn ($row) => filled($row['user_id'] ?? null))->count()),
+                        \Filament\Forms\Components\Placeholder::make('payment_total')
+                            ->label('Total one-time payments')
+                            ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                '$'.number_format(collect($get('other_payments') ?? [])
+                                    ->sum(fn ($row) => (float) ($row['amount'] ?? 0)), 2)),
+                    ]),
+            ]),
         ]);
     }
 
@@ -175,16 +208,23 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                 if (empty($data['other_payments'])) {
                     throw ValidationException::withMessages(['data.other_payments' => 'Add at least one payment recipient.']);
                 }
+                $seenRecipients = [];
                 foreach (($data['other_payments'] ?? []) as $row) {
+                    if (in_array((int) ($row['user_id'] ?? 0), $seenRecipients, true)) {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Select each recipient only once per pay run.']);
+                    }
+                    $seenRecipients[] = (int) ($row['user_id'] ?? 0);
                     if (! is_numeric($row['amount'] ?? null) || round((float) $row['amount'], 2) <= 0 || trim((string) ($row['description'] ?? '')) === '') {
                         throw ValidationException::withMessages(['data.other_payments' => 'Every recipient needs a positive amount and description.']);
                     }
-                    $person = \App\Models\Streamer::query()->whereKey($row['streamer_id'])
-                        ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
-                        ->whereNotNull('user_id')->firstOrFail();
+                    $user = \App\Models\User::query()->findOrFail($row['user_id']);
+                    $person = app(\App\Services\UserTeamProfileService::class)->sync($user);
+                    if (! $person) {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Unable to create payroll profile for selected recipient.']);
+                    }
                     \App\Models\Payout::create([
                         'streamer_id' => $person->id, 'weekly_payout_batch_id' => $batch->id,
-                        'payout_type' => 'other_payment', 'calculated_payout' => (float) $row['amount'],
+                        'payout_type' => 'other_payment', 'calculated_payout' => round((float) $row['amount'], 2),
                         'gross_show_revenue' => 0, 'owner_fee_deducted' => 0,
                         'tips_included' => 0, 'status' => 'draft',
                         'calculation_notes' => '[OTHER_PAYMENT] '.trim($row['description']),

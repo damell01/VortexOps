@@ -35,7 +35,9 @@ test('payroll workspace, full-width creation and persistent clock reminder', asy
         const form = el.closest('form');
         return { section: section?.getBoundingClientRect().width || 0, form: form?.getBoundingClientRect().width || 0 };
     });
-    expect(widths.section).toBeGreaterThan(widths.form * 0.85);
+    // The redesigned desktop workspace reserves a right-hand column for the live draft summary.
+    expect(widths.section).toBeGreaterThan(widths.form * 0.55);
+    await expect(page.getByText('Pay run summary')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create draft pay run', exact: true })).toBeVisible();
     await page.screenshot({ path: `tests/Browser/screenshots/payroll-workspace/create-${testInfo.project.name}.png`, fullPage: true });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2);

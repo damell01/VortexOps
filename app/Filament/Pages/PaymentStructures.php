@@ -38,6 +38,9 @@ class PaymentStructures extends Page
     public ?int $editing_member_id = null;
     public array $member_override_enabled = [];
     public array $member_override_values = [];
+    public bool $member_burden_addback_enabled = false;
+    public float $member_burden_addback_amount = 250;
+    public int $member_burden_addback_max = 4;
     public bool $show_archived = false;
     public int $payroll_week_start_day = 1;
 
@@ -335,6 +338,10 @@ class PaymentStructures extends Page
         $member = Streamer::findOrFail($id);
         $resolved = PaymentStructure::resolve($member);
         $this->editing_member_id = $id;
+        $addback = json_decode((string) Setting::get('payroll_addback_streamer_' . $id), true) ?: [];
+        $this->member_burden_addback_enabled = (bool) ($addback['enabled'] ?? false);
+        $this->member_burden_addback_amount = (float) ($addback['amount'] ?? 250);
+        $this->member_burden_addback_max = (int) ($addback['max_per_month'] ?? 4);
         $this->member_override_enabled = [];
         $this->member_override_values = [];
         $fields = $member->isFulfillment()
@@ -377,6 +384,8 @@ class PaymentStructures extends Page
             if (trim((string) ($overrides['custom_payout_formula'] ?? '')) !== '') $overrides['payout_type'] = 'custom_formula';
             $overrides['payout_cadence'] = 'weekly';
         }
+        $this->validate(['member_burden_addback_amount' => 'required|numeric|min:0|max:100000', 'member_burden_addback_max' => 'required|integer|min:1|max:5']);
+        Setting::set('payroll_addback_streamer_' . $member->id, json_encode(['enabled' => $this->member_burden_addback_enabled, 'amount' => $this->member_burden_addback_amount, 'max_per_month' => $this->member_burden_addback_max]));
         PaymentStructure::saveOverrides($member, $overrides);
         $this->closeMemberEditor();
         Notification::make()->title('Individual compensation saved')->success()->send();

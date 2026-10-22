@@ -992,6 +992,22 @@ class PayoutService
                     . implode(' ', $problems));
             }
 
+            // Lock each configured recipient while enforcing the monthly cap at finalization.
+            $addbacks = $locked->payouts()->where('calculation_notes', 'like', '%[BURDEN_ADDBACK:%')->get();
+            foreach ($addbacks as $adjustment) {
+                if (!preg_match('/\[BURDEN_ADDBACK:(\d+):(\d{4}-\d{2})\]/', (string) $adjustment->calculation_notes, $match)) continue;
+                $streamer = Streamer::query()->lockForUpdate()->findOrFail((int) $match[1]);
+                $config = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true) ?: [];
+                $limit = max(1, (int) ($config['max_per_month'] ?? 4));
+                $marker = '[BURDEN_ADDBACK:' . $streamer->id . ':' . $match[2] . ']';
+                $prior = Payout::query()->where('streamer_id', $streamer->id)
+                    ->where(function ($q) use ($marker, $streamer, $match) {
+                        $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                        if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $match[2] . ']%');
+                    })->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                if ($prior >= $limit) throw new \RuntimeException($streamer->name . ' already reached the monthly burden add-back limit for ' . $match[2] . '.');
+            }
+
             // Monthly add-backs are manually selected per run. Serialize Ty's
             // finalizations so two draft runs cannot both become a fifth payment.
             $ty = Streamer::query()->where('name', 'Ty Ramirez')->lockForUpdate()->first();

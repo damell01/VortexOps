@@ -301,3 +301,14 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
 @media(prefers-reduced-motion:reduce){
  .vxl .vxl-reveal .vxl-podium-card,.vxl .vxl-reveal .vxl-scene>.vxl-fighter,.vxl .vxl-reveal .vxl-crown{animation:none!important}
 }
+
+/* Hybrid cinematic layer: entirely optional. Standings and sprites render
+   before any video request; the CSS arena remains the fallback/poster. */
+.vxl .vxl-cinematic-video{
+ position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+ z-index:-1;pointer-events:none;opacity:.32;mix-blend-mode:multiply;
+}
+.vxl .vxl-podium[data-vxl-cinematic="1"]{isolation:isolate}
+@media(prefers-reduced-motion:reduce){
+ .vxl .vxl-cinematic-video{display:none}
+}

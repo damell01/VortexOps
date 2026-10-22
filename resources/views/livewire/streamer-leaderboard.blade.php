@@ -3,6 +3,8 @@
     $mine = $rows->firstWhere('mine', true);
     $leader = $rows->first();
     $sprite = fn ($row) => '/img/pokemon3d/'.$row['buddy'].'.gif';
+    $cinematicVideo = public_path('video/vortex-colosseum-intro.mp4');
+    $hasCinematicVideo = is_file($cinematicVideo);
     $pageNumbers = collect([1, $page - 1, $page, $page + 1, $pages])->filter(fn ($n) => $n >= 1 && $n <= $pages)->unique()->sort()->values();
 @endphp
 <section class="vxl" aria-labelledby="vxl-title-{{ $this->getId() }}" data-vx-page="streamer-leaderboard">
@@ -22,11 +24,14 @@
         @if ($leader)
             @if ($page === 1)
                 {{-- Compact shared Vortex arena: sprite podium reveal, no 3D engine. --}}
-                <div class="vxl-podium" wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
-                     x-data="{ go: false, play() { this.go = false; requestAnimationFrame(() => requestAnimationFrame(() => this.go = true)); } }"
+                <div class="vxl-podium" data-vxl-cinematic="{{ $hasCinematicVideo ? '1' : '0' }}" wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
+                     x-data="{ go: false, video: null, play() { this.go = false; this.video = this.$refs.arenaVideo || null; if (this.video && !matchMedia('(prefers-reduced-motion: reduce)').matches) { if (!this.video.src && this.video.dataset.src) this.video.src = this.video.dataset.src; this.video.currentTime = 0; this.video.play().catch(() => {}); } requestAnimationFrame(() => requestAnimationFrame(() => this.go = true)); } }"
                      x-init="if (!matchMedia('(prefers-reduced-motion: reduce)').matches  ) { const k = 'vxl-arena-' + @js($period) + '-' + @js($leader['show_id']); let seen = null; try { seen = localStorage.getItem('vxl-battle'); localStorage.setItem('vxl-battle', k); } catch (e) {} if (seen !== k) play(); }"
                      :class="{ 'vxl-reveal': go }"
                      x-on:animationend="if ($event.animationName === 'vxlr-crown') go = false">
+                    @if ($hasCinematicVideo)
+                        <video class="vxl-cinematic-video" x-ref="arenaVideo" muted playsinline preload="none" aria-hidden="true" tabindex="-1" poster="" data-src="{{ asset('video/vortex-colosseum-intro.mp4') }}?v={{ filemtime($cinematicVideo) }}"></video>
+                    @endif
                     @foreach ($visible->take(3) as $i => $row)
                         <article @class(['vxl-podium-card', 'vxl-place-'.($i + 1), 'vxl-podium-first' => $i === 0, 'vxl-is-mine' => $row['mine']]) wire:key="podium-{{ $row['show_id'] }}">
                             @if ($i === 0)<button type="button" class="vxl-replay" x-on:click="play()" aria-label="Replay the podium reveal" title="Replay the animation"></button>@endif

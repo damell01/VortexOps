@@ -184,6 +184,426 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 Notification::make()->title($count.' assistant payout(s) added')->success()->send();
             });
 
+        $otherPayment = Action::make('other_payment')
+            ->label('Other Payment')
+            ->icon('heroicon-o-plus-circle')
+            ->visible(fn () => $this->record->status === 'draft' && $this->record->payouts()->exists())
+            ->schema([
+                Select::make('payout_id')->label('Employee payout')
+                    ->options(fn () => $this->record->payouts()->with('streamer')->get()
+                        ->mapWithKeys(fn ($p) => [$p->id => ($p->streamer?->name ?? 'Unknown').' #'.$p->id])->all())
+                    ->searchable()->required(),
+                TextInput::make('amount')->label('Other payment amount')->prefix('
+            ->label('Burden Add-Back')
+            ->icon('heroicon-o-banknotes')
+            ->visible(fn () => $this->record->status === 'draft')
+            ->form([
+                Select::make('streamer_id')->label('Streamer')->required()->options(function () {
+                    return $this->record->payouts()->with('streamer')->get()->pluck('streamer')->filter()
+                        ->unique('id')->filter(function ($streamer) {
+                            $settings = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true);
+                            return (bool) ($settings['enabled'] ?? false);
+                        })->mapWithKeys(fn ($streamer) => [$streamer->id => $streamer->name])->all();
+                })->searchable(),
+            ])
+            ->modalDescription('Adds the configured positive burden allowance once to this draft run, subject to the monthly payday cap.')
+            ->action(function (array $data): void {
+                try {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+                        $batch = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                        if ($batch->status !== 'draft') throw new \RuntimeException('Only draft pay runs can be adjusted.');
+                        $streamer = \App\Models\Streamer::query()->lockForUpdate()->findOrFail((int) $data['streamer_id']);
+                        $config = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true) ?: [];
+                        if (!($config['enabled'] ?? false)) throw new \RuntimeException('Enable the burden add-back in Individual Overrides first.');
+                        $amount = round((float) ($config['amount'] ?? 0), 2);
+                        $limit = (int) ($config['max_per_month'] ?? 4);
+                        if ($amount <= 0 || $limit < 1) throw new \RuntimeException('Invalid burden add-back settings.');
+                        $month = \Illuminate\Support\Carbon::parse($batch->week_end)->format('Y-m');
+                        $marker = '[BURDEN_ADDBACK:' . $streamer->id . ':' . $month . ']';
+                        $payout = $batch->payouts()->where('streamer_id', $streamer->id)->orderBy('id')->first();
+                        if (!$payout) throw new \RuntimeException('Streamer is not included in this pay run.');
+                        if ($batch->payouts()->where('streamer_id', $streamer->id)->where(function ($q) use ($marker, $month, $streamer) {
+                            $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                            if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $month . ']%');
+                        })->exists()) throw new \RuntimeException('This pay run already includes the burden add-back.');
+                        $count = \App\Models\Payout::query()->where('streamer_id', $streamer->id)
+                            ->where(function ($q) use ($marker, $month, $streamer) {
+                                $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                                if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $month . ']%');
+                            })->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                        if ($count >= $limit) throw new \RuntimeException('Monthly burden add-back limit reached for ' . $month . '.');
+                        $payout->update(['calculated_payout' => round((float) $payout->calculated_payout + $amount, 2),
+                            'calculation_notes' => trim(($payout->calculation_notes ?? '') . "\n" . $marker . ' +$' . number_format($amount, 2) . ' monthly burden add-back')]);
+                        $batch->recalculateTotal();
+                        activity('pay_run')->causedBy(auth()->user())->performedOn($payout)->withProperties(['pay_run_id' => $batch->id, 'month' => $month, 'amount' => $amount])->log('Monthly burden add-back applied');
+                    });
+                    $this->record->refresh();
+                    Notification::make()->title('Burden add-back applied')->success()->send();
+                } catch (\Throwable $e) {
+                    Notification::make()->title('Burden add-back not applied')->body($e->getMessage())->danger()->send();
+                }
+            });
+
+        $markSubmitted = Action::make('mark_submitted')->label('Mark Submitted to ADP')->icon('heroicon-o-arrow-up-tray')->color('info')
+            ->visible(fn () => $this->record->status === 'finalized')->requiresConfirmation()->action(function () {
+                $this->record->update(['status' => 'submitted_to_adp']); $this->record->refresh();
+                Notification::make()->title('Marked as submitted to ADP.')->success()->send();
+            });
+
+        $markPaid = Action::make('mark_paid')->label('Mark Paid')->icon('heroicon-o-check-badge')->color('success')
+            ->visible(fn () => $this->record->status === 'submitted_to_adp')->requiresConfirmation()->action(function () {
+                app(PayoutService::class)->markBatchPaid($this->record);
+                Notification::make()->title('Pay run marked as paid — team balances updated.')->success()->send();
+                // The last of this week's runs to be paid gets the big one; otherwise Pikachu cheers.
+                if (\App\Support\Celebrations::allPaidFor($this->record)) \App\Support\Celebrations::fire($this, 'all_paid');
+                else $this->dispatch('vx-pika-cheer', text: 'Pika pika! Everyone\'s paid!');
+                $this->refreshFormData(['status']); $this->record->refresh();
+            });
+
+        $exportAdp = Action::make('export_adp')->label('Export ADP CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
+            ->visible(fn () => in_array($this->record->status, ['finalized', 'submitted_to_adp', 'paid'], true))
+            ->action(function (): StreamedResponse {
+                $service = app(AdpExportService::class); $csv = $service->exportBatchCsv($this->record); $filename = $service->exportFilename($this->record);
+                activity('pay_run')->causedBy(auth()->user())->performedOn($this->record)->log('ADP CSV exported');
+                return response()->streamDownload(fn () => print($csv), $filename, ['Content-Type' => 'text/csv']);
+            });
+
+        return [
+            Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
+                ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
+
+            $resolveBlockers, $finalize, $override, $syncAssistants, $otherPayment, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            ActionGroup::make([
+                Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
+                    ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())
+                    ->requiresConfirmation()->modalHeading('Split this Pay Run by business')
+                    ->modalDescription('Each business gets its own Pay Run for these dates, holding only its own people, so one can be finalized and paid without the other. Pay for anyone not in a business yet is taken out until they are assigned.')
+                    ->action(function () {
+                        try {
+                            $result = app(PayRunAutomationService::class)->splitByBusiness($this->record, \App\Support\BusinessContext::currentId());
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not split this Pay Run')->body($e->getMessage())->danger()->send();
+                            return;
+                        }
+                        $runs = collect($result['runs'])->map(fn ($run) => '#' . $run->id . ' ' . $run->businessLabel())->implode(', ');
+                        Notification::make()->title('Pay Run split by business')
+                            ->body('Runs: ' . $runs . ($result['unassigned'] !== [] ? '. Not in a business yet (taken out): ' . implode(', ', $result['unassigned']) : ''))
+                            ->success()->persistent()->send();
+                        $this->record->refresh();
+                    }),
+                Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
+                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates eligible pay lines in this run’s date range. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
+                    ->action(function () {
+                        $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start, true, $this->record->business_id, $this->record->kind); $this->record->refresh();
+                        $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];
+                        if (($result['payouts_detached'] ?? 0) > 0) $parts[] = $result['payouts_detached'] . ' blocked payout(s) removed';
+                        $parts[] = count($result['warnings']) . ' warning(s)'; $parts[] = 'total $' . number_format((float)$this->record->total_payout, 2);
+                        Notification::make()->title('Pay Run recalculated')->body(implode(' · ', $parts))->success()->send();
+                    }),
+                Action::make('validate_run')->label('Validate Readiness')->icon('heroicon-o-shield-check')->visible(fn () => $this->record->status === 'draft')->modalHeading('Pay Run readiness')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalDescription(function () { $p = app(PayRunReadinessService::class)->problems($this->record); return $p === [] ? 'Ready to finalize.' : "Needs attention:\n\n• " . implode("\n• ", $p); }),
+                Action::make('preview')->label('Preview Pay Run')->icon('heroicon-o-eye')->visible(fn () => $this->record->status === 'draft')->modalHeading('Payout preview')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalContent(fn () => view('filament.payout-preview', ['preview' => app(PayoutService::class)->previewFinalization($this->record)])),
+                EditAction::make()->label('Edit Details')->visible(fn () => $this->record->status === 'draft'),
+                DeleteAction::make()->label('Delete Draft')->visible(fn () => $this->record->status === 'draft'),
+            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible(fn () => $this->record->status === 'draft'),
+        ];
+    }
+}
+)->numeric()->minValue(0.01)->required(),
+                Textarea::make('description')->label('Description')->required()->maxLength(500),
+            ])
+            ->action(function (array $data): void {
+                $run = $this->record->fresh();
+                if ($run->status !== 'draft') {
+                    throw new \RuntimeException('Only draft pay runs can be adjusted.');
+                }
+                $payout = $run->payouts()->findOrFail($data['payout_id']);
+                $amount = round((float) $data['amount'], 2);
+                $description = trim((string) $data['description']);
+                if ($amount <= 0 || $description === '') {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Amount and description required.']);
+                }
+                $before = (float) $payout->calculated_payout;
+                $payout->update([
+                    'calculated_payout' => round($before + $amount, 2),
+                    'calculation_notes' => trim(($payout->calculation_notes ?: '')."\\nOther payment: ".$description.' +
+            ->label('Burden Add-Back')
+            ->icon('heroicon-o-banknotes')
+            ->visible(fn () => $this->record->status === 'draft')
+            ->form([
+                Select::make('streamer_id')->label('Streamer')->required()->options(function () {
+                    return $this->record->payouts()->with('streamer')->get()->pluck('streamer')->filter()
+                        ->unique('id')->filter(function ($streamer) {
+                            $settings = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true);
+                            return (bool) ($settings['enabled'] ?? false);
+                        })->mapWithKeys(fn ($streamer) => [$streamer->id => $streamer->name])->all();
+                })->searchable(),
+            ])
+            ->modalDescription('Adds the configured positive burden allowance once to this draft run, subject to the monthly payday cap.')
+            ->action(function (array $data): void {
+                try {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+                        $batch = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                        if ($batch->status !== 'draft') throw new \RuntimeException('Only draft pay runs can be adjusted.');
+                        $streamer = \App\Models\Streamer::query()->lockForUpdate()->findOrFail((int) $data['streamer_id']);
+                        $config = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true) ?: [];
+                        if (!($config['enabled'] ?? false)) throw new \RuntimeException('Enable the burden add-back in Individual Overrides first.');
+                        $amount = round((float) ($config['amount'] ?? 0), 2);
+                        $limit = (int) ($config['max_per_month'] ?? 4);
+                        if ($amount <= 0 || $limit < 1) throw new \RuntimeException('Invalid burden add-back settings.');
+                        $month = \Illuminate\Support\Carbon::parse($batch->week_end)->format('Y-m');
+                        $marker = '[BURDEN_ADDBACK:' . $streamer->id . ':' . $month . ']';
+                        $payout = $batch->payouts()->where('streamer_id', $streamer->id)->orderBy('id')->first();
+                        if (!$payout) throw new \RuntimeException('Streamer is not included in this pay run.');
+                        if ($batch->payouts()->where('streamer_id', $streamer->id)->where(function ($q) use ($marker, $month, $streamer) {
+                            $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                            if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $month . ']%');
+                        })->exists()) throw new \RuntimeException('This pay run already includes the burden add-back.');
+                        $count = \App\Models\Payout::query()->where('streamer_id', $streamer->id)
+                            ->where(function ($q) use ($marker, $month, $streamer) {
+                                $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                                if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $month . ']%');
+                            })->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                        if ($count >= $limit) throw new \RuntimeException('Monthly burden add-back limit reached for ' . $month . '.');
+                        $payout->update(['calculated_payout' => round((float) $payout->calculated_payout + $amount, 2),
+                            'calculation_notes' => trim(($payout->calculation_notes ?? '') . "\n" . $marker . ' +$' . number_format($amount, 2) . ' monthly burden add-back')]);
+                        $batch->recalculateTotal();
+                        activity('pay_run')->causedBy(auth()->user())->performedOn($payout)->withProperties(['pay_run_id' => $batch->id, 'month' => $month, 'amount' => $amount])->log('Monthly burden add-back applied');
+                    });
+                    $this->record->refresh();
+                    Notification::make()->title('Burden add-back applied')->success()->send();
+                } catch (\Throwable $e) {
+                    Notification::make()->title('Burden add-back not applied')->body($e->getMessage())->danger()->send();
+                }
+            });
+
+        $markSubmitted = Action::make('mark_submitted')->label('Mark Submitted to ADP')->icon('heroicon-o-arrow-up-tray')->color('info')
+            ->visible(fn () => $this->record->status === 'finalized')->requiresConfirmation()->action(function () {
+                $this->record->update(['status' => 'submitted_to_adp']); $this->record->refresh();
+                Notification::make()->title('Marked as submitted to ADP.')->success()->send();
+            });
+
+        $markPaid = Action::make('mark_paid')->label('Mark Paid')->icon('heroicon-o-check-badge')->color('success')
+            ->visible(fn () => $this->record->status === 'submitted_to_adp')->requiresConfirmation()->action(function () {
+                app(PayoutService::class)->markBatchPaid($this->record);
+                Notification::make()->title('Pay run marked as paid — team balances updated.')->success()->send();
+                // The last of this week's runs to be paid gets the big one; otherwise Pikachu cheers.
+                if (\App\Support\Celebrations::allPaidFor($this->record)) \App\Support\Celebrations::fire($this, 'all_paid');
+                else $this->dispatch('vx-pika-cheer', text: 'Pika pika! Everyone\'s paid!');
+                $this->refreshFormData(['status']); $this->record->refresh();
+            });
+
+        $exportAdp = Action::make('export_adp')->label('Export ADP CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
+            ->visible(fn () => in_array($this->record->status, ['finalized', 'submitted_to_adp', 'paid'], true))
+            ->action(function (): StreamedResponse {
+                $service = app(AdpExportService::class); $csv = $service->exportBatchCsv($this->record); $filename = $service->exportFilename($this->record);
+                activity('pay_run')->causedBy(auth()->user())->performedOn($this->record)->log('ADP CSV exported');
+                return response()->streamDownload(fn () => print($csv), $filename, ['Content-Type' => 'text/csv']);
+            });
+
+        return [
+            Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
+                ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
+
+            $resolveBlockers, $finalize, $override, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            ActionGroup::make([
+                Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
+                    ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())
+                    ->requiresConfirmation()->modalHeading('Split this Pay Run by business')
+                    ->modalDescription('Each business gets its own Pay Run for these dates, holding only its own people, so one can be finalized and paid without the other. Pay for anyone not in a business yet is taken out until they are assigned.')
+                    ->action(function () {
+                        try {
+                            $result = app(PayRunAutomationService::class)->splitByBusiness($this->record, \App\Support\BusinessContext::currentId());
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not split this Pay Run')->body($e->getMessage())->danger()->send();
+                            return;
+                        }
+                        $runs = collect($result['runs'])->map(fn ($run) => '#' . $run->id . ' ' . $run->businessLabel())->implode(', ');
+                        Notification::make()->title('Pay Run split by business')
+                            ->body('Runs: ' . $runs . ($result['unassigned'] !== [] ? '. Not in a business yet (taken out): ' . implode(', ', $result['unassigned']) : ''))
+                            ->success()->persistent()->send();
+                        $this->record->refresh();
+                    }),
+                Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
+                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates eligible pay lines in this run’s date range. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
+                    ->action(function () {
+                        $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start, true, $this->record->business_id, $this->record->kind); $this->record->refresh();
+                        $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];
+                        if (($result['payouts_detached'] ?? 0) > 0) $parts[] = $result['payouts_detached'] . ' blocked payout(s) removed';
+                        $parts[] = count($result['warnings']) . ' warning(s)'; $parts[] = 'total $' . number_format((float)$this->record->total_payout, 2);
+                        Notification::make()->title('Pay Run recalculated')->body(implode(' · ', $parts))->success()->send();
+                    }),
+                Action::make('validate_run')->label('Validate Readiness')->icon('heroicon-o-shield-check')->visible(fn () => $this->record->status === 'draft')->modalHeading('Pay Run readiness')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalDescription(function () { $p = app(PayRunReadinessService::class)->problems($this->record); return $p === [] ? 'Ready to finalize.' : "Needs attention:\n\n• " . implode("\n• ", $p); }),
+                Action::make('preview')->label('Preview Pay Run')->icon('heroicon-o-eye')->visible(fn () => $this->record->status === 'draft')->modalHeading('Payout preview')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalContent(fn () => view('filament.payout-preview', ['preview' => app(PayoutService::class)->previewFinalization($this->record)])),
+                EditAction::make()->label('Edit Details')->visible(fn () => $this->record->status === 'draft'),
+                DeleteAction::make()->label('Delete Draft')->visible(fn () => $this->record->status === 'draft'),
+            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible(fn () => $this->record->status === 'draft'),
+        ];
+    }
+}
+.number_format($amount, 2)),
+                ]);
+                activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
+                    ->withProperties(['pay_run_id' => $run->id, 'amount' => $amount, 'description' => $description])
+                    ->log('Other payment added');
+                $run->recalculateTotal();
+                $this->record->refresh();
+                Notification::make()->title('Other payment added')->success()->send();
+            });
+
+        $tyBurden = Action::make('monthly_burden_addback')
+            ->label('Burden Add-Back')
+            ->icon('heroicon-o-banknotes')
+            ->visible(fn () => $this->record->status === 'draft')
+            ->form([
+                Select::make('streamer_id')->label('Streamer')->required()->options(function () {
+                    return $this->record->payouts()->with('streamer')->get()->pluck('streamer')->filter()
+                        ->unique('id')->filter(function ($streamer) {
+                            $settings = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true);
+                            return (bool) ($settings['enabled'] ?? false);
+                        })->mapWithKeys(fn ($streamer) => [$streamer->id => $streamer->name])->all();
+                })->searchable(),
+            ])
+            ->modalDescription('Adds the configured positive burden allowance once to this draft run, subject to the monthly payday cap.')
+            ->action(function (array $data): void {
+                try {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+                        $batch = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                        if ($batch->status !== 'draft') throw new \RuntimeException('Only draft pay runs can be adjusted.');
+                        $streamer = \App\Models\Streamer::query()->lockForUpdate()->findOrFail((int) $data['streamer_id']);
+                        $config = json_decode((string) \App\Models\Setting::get('payroll_addback_streamer_' . $streamer->id), true) ?: [];
+                        if (!($config['enabled'] ?? false)) throw new \RuntimeException('Enable the burden add-back in Individual Overrides first.');
+                        $amount = round((float) ($config['amount'] ?? 0), 2);
+                        $limit = (int) ($config['max_per_month'] ?? 4);
+                        if ($amount <= 0 || $limit < 1) throw new \RuntimeException('Invalid burden add-back settings.');
+                        $month = \Illuminate\Support\Carbon::parse($batch->week_end)->format('Y-m');
+                        $marker = '[BURDEN_ADDBACK:' . $streamer->id . ':' . $month . ']';
+                        $payout = $batch->payouts()->where('streamer_id', $streamer->id)->orderBy('id')->first();
+                        if (!$payout) throw new \RuntimeException('Streamer is not included in this pay run.');
+                        if ($batch->payouts()->where('streamer_id', $streamer->id)->where(function ($q) use ($marker, $month, $streamer) {
+                            $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                            if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $month . ']%');
+                        })->exists()) throw new \RuntimeException('This pay run already includes the burden add-back.');
+                        $count = \App\Models\Payout::query()->where('streamer_id', $streamer->id)
+                            ->where(function ($q) use ($marker, $month, $streamer) {
+                                $q->where('calculation_notes', 'like', '%' . $marker . '%');
+                                if ($streamer->name === 'Ty Ramirez') $q->orWhere('calculation_notes', 'like', '%[TY_BURDEN_ADDBACK:' . $month . ']%');
+                            })->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                        if ($count >= $limit) throw new \RuntimeException('Monthly burden add-back limit reached for ' . $month . '.');
+                        $payout->update(['calculated_payout' => round((float) $payout->calculated_payout + $amount, 2),
+                            'calculation_notes' => trim(($payout->calculation_notes ?? '') . "\n" . $marker . ' +$' . number_format($amount, 2) . ' monthly burden add-back')]);
+                        $batch->recalculateTotal();
+                        activity('pay_run')->causedBy(auth()->user())->performedOn($payout)->withProperties(['pay_run_id' => $batch->id, 'month' => $month, 'amount' => $amount])->log('Monthly burden add-back applied');
+                    });
+                    $this->record->refresh();
+                    Notification::make()->title('Burden add-back applied')->success()->send();
+                } catch (\Throwable $e) {
+                    Notification::make()->title('Burden add-back not applied')->body($e->getMessage())->danger()->send();
+                }
+            });
+
+        $markSubmitted = Action::make('mark_submitted')->label('Mark Submitted to ADP')->icon('heroicon-o-arrow-up-tray')->color('info')
+            ->visible(fn () => $this->record->status === 'finalized')->requiresConfirmation()->action(function () {
+                $this->record->update(['status' => 'submitted_to_adp']); $this->record->refresh();
+                Notification::make()->title('Marked as submitted to ADP.')->success()->send();
+            });
+
+        $markPaid = Action::make('mark_paid')->label('Mark Paid')->icon('heroicon-o-check-badge')->color('success')
+            ->visible(fn () => $this->record->status === 'submitted_to_adp')->requiresConfirmation()->action(function () {
+                app(PayoutService::class)->markBatchPaid($this->record);
+                Notification::make()->title('Pay run marked as paid — team balances updated.')->success()->send();
+                // The last of this week's runs to be paid gets the big one; otherwise Pikachu cheers.
+                if (\App\Support\Celebrations::allPaidFor($this->record)) \App\Support\Celebrations::fire($this, 'all_paid');
+                else $this->dispatch('vx-pika-cheer', text: 'Pika pika! Everyone\'s paid!');
+                $this->refreshFormData(['status']); $this->record->refresh();
+            });
+
+        $exportAdp = Action::make('export_adp')->label('Export ADP CSV')->icon('heroicon-o-arrow-down-tray')->color('gray')
+            ->visible(fn () => in_array($this->record->status, ['finalized', 'submitted_to_adp', 'paid'], true))
+            ->action(function (): StreamedResponse {
+                $service = app(AdpExportService::class); $csv = $service->exportBatchCsv($this->record); $filename = $service->exportFilename($this->record);
+                activity('pay_run')->causedBy(auth()->user())->performedOn($this->record)->log('ADP CSV exported');
+                return response()->streamDownload(fn () => print($csv), $filename, ['Content-Type' => 'text/csv']);
+            });
+
+        return [
+            Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
+                ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
+
+            $resolveBlockers, $finalize, $override, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            ActionGroup::make([
+                Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
+                    ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())
+                    ->requiresConfirmation()->modalHeading('Split this Pay Run by business')
+                    ->modalDescription('Each business gets its own Pay Run for these dates, holding only its own people, so one can be finalized and paid without the other. Pay for anyone not in a business yet is taken out until they are assigned.')
+                    ->action(function () {
+                        try {
+                            $result = app(PayRunAutomationService::class)->splitByBusiness($this->record, \App\Support\BusinessContext::currentId());
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not split this Pay Run')->body($e->getMessage())->danger()->send();
+                            return;
+                        }
+                        $runs = collect($result['runs'])->map(fn ($run) => '#' . $run->id . ' ' . $run->businessLabel())->implode(', ');
+                        Notification::make()->title('Pay Run split by business')
+                            ->body('Runs: ' . $runs . ($result['unassigned'] !== [] ? '. Not in a business yet (taken out): ' . implode(', ', $result['unassigned']) : ''))
+                            ->success()->persistent()->send();
+                        $this->record->refresh();
+                    }),
+                Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
+                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates eligible pay lines in this run’s date range. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
+                    ->action(function () {
+                        $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start, true, $this->record->business_id, $this->record->kind); $this->record->refresh();
+                        $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];
+                        if (($result['payouts_detached'] ?? 0) > 0) $parts[] = $result['payouts_detached'] . ' blocked payout(s) removed';
+                        $parts[] = count($result['warnings']) . ' warning(s)'; $parts[] = 'total $' . number_format((float)$this->record->total_payout, 2);
+                        Notification::make()->title('Pay Run recalculated')->body(implode(' · ', $parts))->success()->send();
+                    }),
+                Action::make('validate_run')->label('Validate Readiness')->icon('heroicon-o-shield-check')->visible(fn () => $this->record->status === 'draft')->modalHeading('Pay Run readiness')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalDescription(function () { $p = app(PayRunReadinessService::class)->problems($this->record); return $p === [] ? 'Ready to finalize.' : "Needs attention:\n\n• " . implode("\n• ", $p); }),
+                Action::make('preview')->label('Preview Pay Run')->icon('heroicon-o-eye')->visible(fn () => $this->record->status === 'draft')->modalHeading('Payout preview')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalContent(fn () => view('filament.payout-preview', ['preview' => app(PayoutService::class)->previewFinalization($this->record)])),
+                EditAction::make()->label('Edit Details')->visible(fn () => $this->record->status === 'draft'),
+                DeleteAction::make()->label('Delete Draft')->visible(fn () => $this->record->status === 'draft'),
+            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible(fn () => $this->record->status === 'draft'),
+        ];
+    }
+}
+)
+                    ->numeric()->minValue(0.01)->required(),
+                Textarea::make('description')->label('What is this payment for?')
+                    ->required()->maxLength(500),
+            ])
+            ->action(function (array $data): void {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+                    $run = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                    if ($run->status !== 'draft') {
+                        throw new \RuntimeException('Only draft pay runs can be adjusted.');
+                    }
+                    $payout = $run->payouts()->whereKey((int) $data['payout_id'])->lockForUpdate()->firstOrFail();
+                    $amount = round((float) $data['amount'], 2);
+                    $description = trim((string) $data['description']);
+                    if ($amount <= 0 || $description === '') {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'amount' => 'A positive amount and description are required.',
+                        ]);
+                    }
+                    $before = (float) $payout->calculated_payout;
+                    $payout->update([
+                        'calculated_payout' => round($before + $amount, 2),
+                        'calculation_notes' => trim(($payout->calculation_notes ?: '')."\\n[OTHER_PAYMENT] +$".number_format($amount, 2).': '.$description),
+                    ]);
+                    activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
+                        ->withProperties(['pay_run_id' => $run->id, 'amount' => $amount, 'description' => $description, 'previous_amount' => $before])
+                        ->log('Other payment added');
+                    $run->recalculateTotal();
+                });
+                $this->record->refresh();
+                Notification::make()->title('Other payment added')->success()->send();
+            });
+
         $tyBurden = Action::make('monthly_burden_addback')
             ->label('Burden Add-Back')
             ->icon('heroicon-o-banknotes')

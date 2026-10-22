@@ -822,7 +822,6 @@ class ShowResource extends Resource
                     ->extraCellAttributes(['class' => 'vx-nowrap']),
                 TextColumn::make('tips')
                     ->label('Tips')
-                    ->money('USD')
                     ->placeholder('—')
                     ->color(fn (Show $record): string => (float) ($record->tips ?? 0) > 0 ? 'success' : 'gray')
                     ->formatStateUsing(fn ($state): string => (float) $state > 0 ? '

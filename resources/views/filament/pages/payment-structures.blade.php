@@ -37,7 +37,7 @@
         @media(max-width:900px){.vx-rates-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-roster-table{display:none}.vx-roster-mobile{display:block}.vx-roster-filters{grid-template-columns:1fr}.vx-rates-stat{padding:14px;gap:10px}.vx-rates-stat strong{font-size:20px}.vx-rates-stat-icon{width:38px;height:38px}}
         @media(min-width:768px){.vx-rates select.vx-native-picker{display:block!important}.vx-rates .vx-picker-trigger{display:none!important}}@media(max-width:767px){.vx-rates select.vx-native-picker{display:none!important}.vx-rates .vx-picker-trigger{display:flex!important}}.vx-rates .vx-type-title button{color:#dc2626!important;background:transparent!important}
         .vx-ps-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px 16px;background:rgb(3 7 18 / .5);overflow-y:auto}
-        .vx-ps-modal-panel{width:100%;max-width:920px;border-radius:18px;padding:24px;background:var(--vxw-surface,#fff);color:var(--vxw-text,#111827);box-shadow:0 24px 60px rgb(0 0 0 / .3)}
+        .vx-ps-modal-panel{width:100%;max-width:min(1440px,96vw);border-radius:18px;padding:24px;background:var(--vxw-surface,#fff);color:var(--vxw-text,#111827);box-shadow:0 24px 60px rgb(0 0 0 / .3)}
         .vx-ps-modal-panel .vx-card{padding:0!important;border:0!important;box-shadow:none!important;background:transparent!important}
         .vx-ps-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
         .vx-ps-modal-foot{position:sticky;bottom:-24px;display:flex;justify-content:flex-end;gap:10px;margin:20px -24px -24px;padding:14px 24px;border-top:1px solid var(--vx-border,#e5e7eb);background:var(--vxw-surface,#fff);border-radius:0 0 18px 18px}
@@ -128,6 +128,16 @@
                     </p>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.pwe_rate">Pay per envelope (PWE)</span><input wire:model="member_override_values.pwe_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
                     <label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.label_rate">Pay per package</span><input wire:model="member_override_values.label_rate" type="number" step=".01" min="0" class="mt-2 w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></label>
+                    <div class="rounded-xl border border-sky-200 bg-sky-50/50 p-4 md:col-span-2 dark:border-sky-900 dark:bg-sky-950/20">
+                        <label class="flex items-center gap-2 text-sm font-bold"><input type="checkbox" wire:model.live="member_burden_addback_enabled"> Weekly burden add-back (positive pay)</label>
+                        <p class="mt-1 text-xs text-gray-500">Separate from the per-show burden deduction below. Adds a fixed amount once per eligible pay run, capped by calendar month. Apply the add-back from the draft pay run before finalizing.</p>
+                        @if($member_burden_addback_enabled)
+                            <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label class="text-sm font-semibold">Amount per payday ($)<input type="number" min="0" step=".01" wire:model="member_burden_addback_amount" class="mt-1 w-full rounded-lg border-gray-300 dark:bg-gray-800"></label>
+                                <label class="text-sm font-semibold">Maximum paydays per month<input type="number" min="1" max="5" step="1" wire:model="member_burden_addback_max" class="mt-1 w-full rounded-lg border-gray-300 dark:bg-gray-800"></label>
+                            </div>
+                        @endif
+                    </div>
                     <label class="rounded-lg border p-3 md:col-span-2"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.burden_rate_value">Burden taken off before the share</span>
                         <div class="mt-2 flex gap-2"><select wire:model="member_override_values.burden_rate_type" class="rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"><option value="flat">$ per show</option><option value="percentage">% of net sales</option></select><input wire:model="member_override_values.burden_rate_value" type="number" step=".01" min="0" placeholder="None" class="w-full rounded-[10px] border-[var(--vx-border)] bg-gray-50 dark:bg-gray-800"></div>
                         <span class="mt-1 block text-xs text-gray-500">Leave blank or 0 for no burden.</span></label>

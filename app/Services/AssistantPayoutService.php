@@ -5,12 +5,15 @@ namespace App\Services;
 use App\Models\Payout;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
+use Illuminate\Support\Facades\DB;
 
 class AssistantPayoutService
 {
     public function sync(WeeklyPayoutBatch $batch): int
     {
-        if ($batch->fresh()->status !== 'draft') {
+        return DB::transaction(function () use ($batch): int {
+        $batch = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($batch->id);
+        if ($batch->status !== 'draft') {
             throw new \RuntimeException('Only draft pay runs can be synced.');
         }
 
@@ -54,5 +57,6 @@ class AssistantPayoutService
 
         $batch->recalculateTotal();
         return $count;
+        });
     }
 }

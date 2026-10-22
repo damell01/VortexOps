@@ -16,7 +16,7 @@ function mount(root) {
   try { rows = JSON.parse(data.textContent); } catch { return; }
   if (!Array.isArray(rows) || rows.length === 0) return;
   const fallback = () => {
-    root.classList.remove('vxl-3d-active');
+    root.classList.remove('vxl-3d-active', 'vxl-3d-settled');
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) window.Alpine?.$data(root)?.play?.();
   };
   let arena = null, promise = null, playing = false, played = false, disposed = false;
@@ -66,6 +66,8 @@ function mount(root) {
   const play = async (replay = false) => {
     if (disposed || playing || (played && !replay)) return;
     playing = true;
+    // Hide results throughout the battle, including on replay.
+    root.classList.remove('vxl-3d-settled');
     try {
       const ready = await prepare();
       if (!ready || disposed || !root.isConnected) return;

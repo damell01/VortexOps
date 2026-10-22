@@ -214,3 +214,9 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
 @keyframes vxlb-crown{0%,58%{opacity:0;transform:translateY(-34px) rotate(-12deg)}74%{opacity:1;transform:translateY(0) rotate(4deg)}84%{transform:translateY(-3px)}100%{opacity:1;transform:none}}
 .vxl-place-1 .vxl-scene:after{content:'';position:absolute;left:50%;top:50%;width:70px;height:70px;margin:-35px 0 0 -35px;border-radius:50%;background:radial-gradient(circle,#fff 0,#fde68a 30%,#a78bfa66 55%,transparent 70%);opacity:0;pointer-events:none;z-index:1}
 @media(prefers-reduced-motion:reduce){.vxl-battle *,.vxl-battle:after{animation:none!important}}
+
+/* 2D podium is the primary leaderboard presentation; no WebGL stage needed. */
+.vxl .vxl-podium{display:grid}
+.vxl .vxa-mini{margin-left:auto}
+.vxl .vxl-scene>.vxl-fighter{animation-iteration-count:1}
+@media (prefers-reduced-motion:reduce){.vxl .vxl-scene>.vxl-fighter,.vxl .vxl-attack i{animation:none!important}}

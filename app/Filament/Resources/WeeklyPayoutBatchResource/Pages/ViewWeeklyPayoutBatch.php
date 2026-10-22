@@ -184,16 +184,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 Notification::make()->title($count.' assistant payout(s) added')->success()->send();
             });
 
-        $otherPayment = Action::make('other_payment')
-            ->label('Other Payment')
-            ->icon('heroicon-o-plus-circle')
-            ->visible(fn () => $this->record->status === 'draft' && $this->record->payouts()->exists())
-            ->schema([
-                Select::make('payout_id')->label('Employee payout')
-                    ->options(fn () => $this->record->payouts()->with('streamer')->get()
-                        ->mapWithKeys(fn ($p) => [$p->id => ($p->streamer?->name ?? 'Unknown').' #'.$p->id])->all())
-                    ->searchable()->required(),
-                TextInput::make('amount')->prefix('
+        $tyBurden = Action::make('monthly_burden_addback')
             ->label('Burden Add-Back')
             ->icon('heroicon-o-banknotes')
             ->visible(fn () => $this->record->status === 'draft')
@@ -272,7 +263,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
                 ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
 
-            $resolveBlockers, $finalize, $override, $syncAssistants, $otherPayment, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, $syncAssistants, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

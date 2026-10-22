@@ -87,9 +87,7 @@
         <div class="vsh-stats vsh-performance-stats" wire:loading.class="opacity-60" wire:target="period">
             @foreach ([
                 ['heroicon-o-shopping-cart', 'violet', 'Gross sales', $money($n['gross']), 'Full sales of shows you hosted or cohosted. This is not your personal pay.'],
-                ['heroicon-o-document-check', 'green', 'Amount paid', $money($n['paid']), 'Your recorded paid payouts for shows dated in this period; not the bank transfer date.'],
-                ['heroicon-o-clock', 'blue', 'Approved unpaid', $money($n['unpaid']), 'Your approved pay for shows in this period, awaiting payment.'],
-                ['heroicon-o-calculator', 'amber', 'Draft pay estimate', $money($n['draft_pay']), 'Your calculated draft payouts, awaiting approval. Estimates can change; shows with no pay calculation are not included.'],
+                ['heroicon-o-document-check', 'green', 'Paid pay runs', $money($n['paid']), 'Only payouts marked paid, grouped by show date rather than payment date.'],
                 ['heroicon-o-calendar-days', 'violet', 'Shows', number_format($n['shows']), 'Shows you hosted or cohosted that have started in this period. Upcoming and cancelled shows are excluded.'],
                 ['heroicon-o-video-camera', 'blue', 'Streaming hours', number_format($n['hours'], 1).'h', 'Imported show duration, using your reported hours when duration is unavailable. This is not payroll hours worked.'],
                 ['heroicon-o-arrow-trending-up', 'green', 'Sales / streaming hour', $n['gross_per_hour'] === null ? '—' : $money($n['gross_per_hour']), 'Combined sales divided by matching streaming hours. Shows with no duration are excluded from both sides.'],
@@ -109,7 +107,7 @@
             <span><small>Net units sold</small><b>{{ number_format($n['units']) }}</b></span>
             <span class="vsh-performance-best"><small>Top show by sales</small><b>{{ $n['best_show'] ?? 'No shows yet' }}</b>@if ($n['best_gross'] !== null)<small>{{ $money($n['best_gross']) }}</small>@endif</span>
         </div>
-        <p class="vsh-performance-note">Show sales and earnings include your cohosted shows. Pay totals include only your own payouts, grouped by show date. {{ $n['timed_shows'] }} of {{ $n['shows'] }} shows have streaming hours.@if ($n['earnings_pending']) {{ $n['earnings_pending'] }} shows are awaiting Whatnot earnings and excluded from the earnings total.@endif</p>
+        <p class="vsh-performance-note">Show sales and earnings include your cohosted shows. Paid pay totals include only your own payouts marked paid, grouped by show date. {{ $n['timed_shows'] }} of {{ $n['shows'] }} shows have streaming hours.@if ($n['earnings_pending']) {{ $n['earnings_pending'] }} shows are awaiting Whatnot earnings and excluded from the earnings total.@endif</p>
         <p class="vsh-performance-note" wire:loading wire:target="period" role="status">Updating your performance…</p>
     </section>
 
@@ -188,7 +186,10 @@
                         <div><dt>Sales</dt><dd>{{ $gross > 0 ? $money($gross) : '—' }}</dd></div>
                         <div><dt>Whatnot net</dt><dd>{{ $net !== null && ($gross > 0 || (float) $net != 0) ? $money($net) : '—' }}</dd></div>
                         @if ($pay->isNotEmpty())
-                            <div><dt>Your pay</dt><dd class="vsh-paid">{{ $money($pay->sum('calculated_payout')) }}</dd><p class="vsh-meta">{{ $pay->every(fn ($p) => $p->status === 'paid') ? 'Paid' : 'Awaiting payment' }}</p></div>
+                            @php $paidShowPayouts = $pay->filter(fn ($p) => $p->status === 'paid' || $p->batch?->status === 'paid'); @endphp
+                            @if ($paidShowPayouts->isNotEmpty())
+                                <div><dt>Paid</dt><dd class="vsh-paid">{{ $money($paidShowPayouts->sum('calculated_payout')) }}</dd><p class="vsh-meta">Marked paid</p></div>
+                            @endif
                         @endif
                     </dl>
                     <p class="vsh-counts"><span>Items logged <b>{{ number_format($items) }}</b></span><span aria-hidden="true">·</span><span>Giveaways <b>{{ number_format($gives) }}</b></span>@if ($saved)<span class="vsh-saved">Saved {{ $saved->diffForHumans() }}</span>@endif</p>

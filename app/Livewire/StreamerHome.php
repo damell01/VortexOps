@@ -163,7 +163,7 @@ class StreamerHome extends Component
             ->when($from, fn ($q) => $q->whereBetween('show_date', [$from->toDateString(), $to->toDateString() . ' 23:59:59']))
             ->with(['channel', 'streamerLogEntry' => fn ($q) => $q->withCount('items')
                 ->withSum(['items as giveaway_quantity' => fn ($i) => $i->where('disposition', 'giveaway')], 'quantity'),
-                'payouts' => fn ($q) => $q->where('streamer_id', $streamerId)->select('id', 'show_id', 'streamer_id', 'status', 'calculated_payout')])
+                'payouts' => fn ($q) => $q->where('streamer_id', $streamerId)->select('id', 'show_id', 'streamer_id', 'weekly_payout_batch_id', 'status', 'calculated_payout')->with('batch:id,status')])
             ->when($this->tab === 'upcoming', fn ($q) => $q->reorder()->orderBy('show_date')->orderBy('start_time'), fn ($q) => $q->orderByDesc('show_date')->orderByDesc('start_time'))
             ->paginate(in_array($this->perPage, [6, 12, 24], true) ? $this->perPage : 6);
     }
@@ -280,7 +280,6 @@ class StreamerHome extends Component
         $paid = $pay->filter($isPaid);
         $unpaid = $pay->reject($isPaid);
         $approved = $unpaid->filter($isApproved);
-        $draft = $unpaid->reject($isApproved)->whereIn('status', ['draft', 'pending']);
         $earnings = $shows->map(fn ($s) => \App\Support\ProfitShareFormula::earningsForShow($s));
         $timed = $shows->map(function ($show) {
             $hours = $show->show_duration > 0 ? (float) $show->show_duration / 60 : (float) ($show->streamerLogEntry?->hours_streamed ?? 0);
@@ -294,7 +293,6 @@ class StreamerHome extends Component
             'shows' => $shows->count(), 'gross' => $gross,
             'paid' => (float) $paid->sum('calculated_payout'),
             'unpaid' => (float) $approved->sum('calculated_payout'),
-            'draft_pay' => (float) $draft->sum('calculated_payout'),
             'earnings' => $earnings->contains(fn ($v) => $v !== null) ? (float) $earnings->sum() : null,
             'earnings_pending' => $earnings->filter(fn ($v) => $v === null)->count(),
             'hours' => round($hours, 2), 'timed_shows' => $timed->count(),

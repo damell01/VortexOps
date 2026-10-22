@@ -11,7 +11,16 @@ function scan() {
     mounted.add(root);
     const stage = root.querySelector('[data-vxl-3d-stage]');
     const lineupNode = root.querySelector('[data-vxl-3d-lineup]');
-    if (!stage || !lineupNode || !canRender()) return;
+    if (!stage || !lineupNode) return;
+    if (!canRender()) {
+      const io = new IntersectionObserver(entries => {
+        if (!entries[0]?.isIntersecting) return;
+        io.disconnect();
+        if (!matchMedia('(prefers-reduced-motion: reduce)').matches) window.Alpine?.$data(root)?.play?.();
+      }, { threshold: .3 });
+      io.observe(root);
+      return;
+    }
     let arena, started = false, loading = false, destroyed = false;
     const readLineup = () => { try { return JSON.parse(lineupNode.textContent); } catch { return []; } };
     const start = async (replay = false) => {
@@ -35,7 +44,7 @@ function scan() {
         console.warn('[leaderboard 3D] CSS fallback:', error);
         root.classList.remove('vxl-3d-active');
         arena?.destroy(); arena = null;
-        root.dispatchEvent(new CustomEvent('vxl-3d-fallback'));
+        window.Alpine?.$data(root)?.play?.();
       } finally { loading = false; }
     };
     root.vxlReplay3d = () => { if (!arena || loading) return false; start(true); return true; };

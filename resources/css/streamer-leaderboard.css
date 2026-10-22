@@ -220,3 +220,84 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
 .vxl .vxa-mini{margin-left:auto}
 .vxl .vxl-scene>.vxl-fighter{animation-iteration-count:1}
 @media (prefers-reduced-motion:reduce){.vxl .vxl-scene>.vxl-fighter,.vxl .vxl-attack i{animation:none!important}}
+
+/* Shared, compact Vortex championship stage. The real streamer data and sprite
+   assets stay intact; no canvas, video, WebGL, or extra network requests. */
+.vxl .vxl-podium{
+  position:relative;isolation:isolate;gap:0;padding:26px 20px 12px;
+  align-items:end;overflow:hidden;
+  background:
+    radial-gradient(ellipse 65% 55% at 50% 88%,#bda4fa40,transparent 75%),
+    repeating-radial-gradient(ellipse 58% 58% at 50% 92%,transparent 0 45px,#9564d612 46px 49px,transparent 50px 92px),
+    linear-gradient(180deg,#fbfaff 0%,#f3edff 76%,#faf8ff 100%);
+  border-top:1px solid #eee7ff;border-bottom:1px solid #e9defc;
+}
+.vxl .vxl-podium:before{
+  content:"";position:absolute;inset:12px 3% 42%;z-index:-1;pointer-events:none;
+  border-radius:50% 50% 12px 12px / 70% 70% 12px 12px;
+  border-top:2px solid #bda1ef55;
+  background:repeating-linear-gradient(90deg,transparent 0 12%,#b79bed12 12.2% 12.8%,transparent 13% 24%);
+}
+.vxl .vxl-podium-card{
+  background:transparent;border:0;border-radius:0;box-shadow:none;
+  text-align:center;transform:none;min-width:0;
+}
+.vxl .vxl-place-1{z-index:3}
+.vxl .vxl-place-2,.vxl .vxl-place-3{z-index:2}
+.vxl .vxl-scene{
+  height:114px;max-width:100%;overflow:visible;border-radius:0;
+  background:none!important;display:flex;align-items:end;justify-content:center;
+}
+.vxl .vxl-scene:before,.vxl .vxl-scene:after{display:none}
+.vxl .vxl-scene>.vxl-fighter{
+  width:98px;height:98px;max-width:88%;object-fit:contain;
+  filter:drop-shadow(0 5px 5px #41247633);animation:none;
+}
+.vxl .vxl-place-1 .vxl-scene{height:132px}
+.vxl .vxl-place-1 .vxl-scene>.vxl-fighter{width:116px;height:116px}
+.vxl .vxl-scene>.vxl-medal{display:none}
+.vxl .vxl-podium-card:before{
+  content:"2";display:grid;place-items:center;height:29px;
+  margin:0 3px;border-radius:12px 12px 3px 3px;
+  background:linear-gradient(135deg,#e9e7f3,#bfc0d7);
+  border:1px solid #b5b4cd;color:#514d78;font-weight:850;font-size:18px;
+  box-shadow:0 4px 0 #a9a5c2,0 8px 12px #55428a1c;
+  position:absolute;left:0;right:0;top:114px;
+}
+.vxl .vxl-place-1:before{content:"1";top:132px;height:38px;background:linear-gradient(135deg,#fff2b5,#e9b64d);border-color:#d9ab4b;color:#835515;box-shadow:0 5px 0 #c99b43,0 9px 16px #9b702333}
+.vxl .vxl-place-3:before{content:"3";background:linear-gradient(135deg,#f8e0d2,#d6a58b);border-color:#c9997b;color:#80513d;box-shadow:0 4px 0 #bb896d,0 8px 12px #55428a1c}
+.vxl .vxl-podium-copy{padding:43px 6px 9px;gap:2px}
+.vxl .vxl-place-1 .vxl-podium-copy{padding-top:52px}
+.vxl .vxl-podium-card h3{font-size:13px}
+.vxl .vxl-score{font-size:clamp(17px,2vw,24px)}
+.vxl .vxl-crown{top:1px;width:30px;height:23px;left:calc(50% - 15px);filter:drop-shadow(0 2px 3px #b7862b66)}
+.vxl .vxl-replay{height:132px}
+.vxl .vxl-podium:after{display:none}
+.vxl .vxl-reveal .vxl-podium-card{animation:vxlr-rise .55s cubic-bezier(.2,.8,.2,1) both}
+.vxl .vxl-reveal .vxl-place-2{animation-delay:.08s}
+.vxl .vxl-reveal .vxl-place-3{animation-delay:.14s}
+.vxl .vxl-reveal .vxl-scene>.vxl-fighter{animation:vxlr-pop .45s cubic-bezier(.2,1.5,.5,1) .45s both}
+.vxl .vxl-reveal .vxl-place-2 .vxl-fighter{animation-delay:.5s}
+.vxl .vxl-reveal .vxl-place-3 .vxl-fighter{animation-delay:.55s}
+.vxl .vxl-reveal .vxl-crown{animation:vxlr-crown 1.5s ease-out both}
+@keyframes vxlr-rise{from{opacity:.65;translate:0 20px}to{opacity:1;translate:0 0}}
+@keyframes vxlr-pop{0%{opacity:0;scale:.7;translate:0 15px}75%{opacity:1;scale:1.08;translate:0 -3px}100%{opacity:1;scale:1;translate:0 0}}
+@keyframes vxlr-crown{0%,55%{opacity:0;translate:0 -25px;rotate:-12deg}75%{opacity:1;translate:0 3px;rotate:5deg}90%{translate:0 -2px}100%{opacity:1;translate:0 0;rotate:0deg}}
+@media(max-width:640px){
+ .vxl .vxl-podium{padding:17px 5px 8px}
+ .vxl .vxl-scene{height:75px}
+ .vxl .vxl-place-1 .vxl-scene{height:90px}
+ .vxl .vxl-scene>.vxl-fighter{width:65px;height:65px}
+ .vxl .vxl-place-1 .vxl-scene>.vxl-fighter{width:80px;height:80px}
+ .vxl .vxl-podium-card:before{top:75px;height:24px}
+ .vxl .vxl-place-1:before{top:90px;height:29px}
+ .vxl .vxl-podium-copy{padding:35px 3px 5px}
+ .vxl .vxl-place-1 .vxl-podium-copy{padding-top:40px}
+ .vxl .vxl-podium-card h3{font-size:10px}
+ .vxl .vxl-score{font-size:clamp(12px,3.3vw,18px)}
+ .vxl .vxl-crown{top:-4px}
+ .vxl .vxl-replay{height:95px}
+}
+@media(prefers-reduced-motion:reduce){
+ .vxl .vxl-reveal .vxl-podium-card,.vxl .vxl-reveal .vxl-scene>.vxl-fighter,.vxl .vxl-reveal .vxl-crown{animation:none!important}
+}

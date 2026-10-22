@@ -130,13 +130,6 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         ->columns(['default' => 1, 'lg' => 3])
                         ->defaultItems(1)->minItems(1)->addActionLabel('Add recipient')
                         ->reorderable(false)->cloneable(false)->live(),
-                    \Filament\Forms\Components\Placeholder::make('payment_summary')
-                        ->label('Draft payment summary')
-                        ->content(function (\Filament\Schemas\Components\Utilities\Get $get): string {
-                            $rows = collect($get('other_payments') ?? []);
-                            $total = $rows->sum(fn ($row) => is_numeric($row['amount'] ?? null) ? max(0, (float) $row['amount']) : 0);
-                            $count = $rows->filter(fn ($row) => filled($row['user_id'] ?? null))->count();
-                            return $count.' recipient(s) · 
                 ]),
             Section::make('4. Internal note')->columnSpanFull()->schema([
                 Textarea::make('notes')

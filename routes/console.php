@@ -145,3 +145,25 @@ Schedule::command('inventory:snapshot-value')->dailyAt('23:50')->name('inventory
 
 Schedule::command('shows:auto-assign-streamers')->everyFifteenMinutes()->name('automatic-streamer-assignment')->withoutOverlapping(10)->appendOutputTo(storage_path('logs/streamer-auto-assignment.log'));
 
+
+
+// Exact livestream tips: small, serialized batches using the existing Scrapling
+// browser lock. Verified zero-tip shows are not rechecked indefinitely.
+// Recent shows are revisited after 24 hours; history is checked once.
+Schedule::command('whatnot:sync-tips-batch --mode=recent --limit=2 --apply')
+    ->appendOutputTo(storage_path('logs/whatnot-tips-sync.log'))
+    ->skip($whatnotPaused)
+    ->dailyAt('06:20')
+    ->timezone('America/Chicago')
+    ->name('whatnot-tips-recent')
+    ->withoutOverlapping(180)
+    ->runInBackground();
+
+Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
+    ->appendOutputTo(storage_path('logs/whatnot-tips-sync.log'))
+    ->skip($whatnotPaused)
+    ->dailyAt('12:20')
+    ->timezone('America/Chicago')
+    ->name('whatnot-tips-history')
+    ->withoutOverlapping(180)
+    ->runInBackground();

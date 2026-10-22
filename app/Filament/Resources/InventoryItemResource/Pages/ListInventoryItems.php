@@ -40,6 +40,24 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'q')]
     public string $catalogSearch = '';
 
+    #[Url(as: 'location')]
+    public ?int $inventoryLocationId = null;
+
+    public function inventoryLocationOptions(): array
+    {
+        $allowed = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        return InventoryLocation::query()->where('is_active', true)
+            ->when($allowed !== null, fn ($query) => $query->whereIn('id', $allowed))
+            ->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function updatedInventoryLocationId(): void
+    {
+        $this->catalogVisible = 40;
+        $this->clearSelection();
+        unset($this->catalogItems, $this->catalogTotal);
+    }
+
     #[Url(as: 'sort')]
     public string $catalogSort = 'name';
 
@@ -89,6 +107,11 @@ class ListInventoryItems extends ListRecords
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = $this->getFilteredTableQuery()->with(['stock.location'])->reorder();
+        $allowed = $this->inventoryLocationOptions();
+        if ($this->inventoryLocationId && array_key_exists($this->inventoryLocationId, $allowed)) {
+            $locationId = $this->inventoryLocationId;
+            $query->whereHas('stock', fn ($stock) => $stock->where('inventory_location_id', $locationId)->where('quantity', '>', 0));
+        }
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';

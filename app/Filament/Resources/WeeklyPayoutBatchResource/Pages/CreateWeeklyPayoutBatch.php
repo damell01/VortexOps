@@ -32,7 +32,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             Section::make('Choose your pay run')->description('Start with normal payroll or a standalone one-time payment.')->schema([
                 \Filament\Forms\Components\Radio::make('run_mode')
                     ->label('Pay run')
-                    ->options(['normal' => 'Normal payroll', 'other' => 'Other — one-time payments'])
+                    ->options(['normal' => 'Normal payroll · Wages and profit share', 'other' => 'Other payment · Custom amounts'])
                     ->default('normal')->inline()->live()
                     ->afterStateUpdated(function ($state, \Filament\Schemas\Components\Utilities\Set $set): void {
                         $set('pay_run_type_id', null);
@@ -144,6 +144,10 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->columnSpan(['default' => 1, 'xl' => 1])
                     ->description('Draft preview — no payments are sent')
                     ->schema([
+                        \Filament\Forms\Components\Placeholder::make('payment_count')
+                            ->label('Selected recipients')
+                            ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                collect($get('other_payments') ?? [])->filter(fn ($row) => filled($row['user_id'] ?? null))->count()),
                         \Filament\Forms\Components\Placeholder::make('payment_total')
                             ->label('Total one-time payments')
                             ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) =>

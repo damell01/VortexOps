@@ -169,12 +169,11 @@ class ListInventoryItems extends ListRecords
 
         // Aggregate stock health in SQL instead of hydrating every inventory item
         // and its stock sum on every Livewire refresh.
-        $base = InventoryItemResource::getEloquentQuery()
-            ->reorder()
-            ->select('products.id', 'products.reorder_level')
-            ->toBase();
+        // Keep the withSum projection intact: selecting columns after withSum
+        // can drop stock_sum_quantity and cause a SQL 500 in the stats query.
+        $base = InventoryItemResource::getEloquentQuery()->reorder();
         $rows = \Illuminate\Support\Facades\DB::query()
-            ->fromSub($base, 'inventory_health')
+            ->fromSub($base->toBase(), 'inventory_health')
             ->selectRaw('COUNT(*) as total')
             ->selectRaw('SUM(CASE WHEN COALESCE(stock_sum_quantity, 0) <= 0 THEN 1 ELSE 0 END) as out_count')
             ->selectRaw('SUM(CASE WHEN stock_sum_quantity > 0 AND reorder_level IS NOT NULL AND stock_sum_quantity <= reorder_level THEN 1 ELSE 0 END) as low_count')

@@ -42,7 +42,7 @@ class SyncWhatnotTipsBatch extends Command
                 $this->warn('No eligible channels.');
                 return self::SUCCESS;
             }
-            $today = Carbon::now('America/Chicago')->toDateString();
+            $today = Carbon::now('America/Chicago')->subDay()->toDateString();
             $cutoff = Carbon::now('America/Chicago')->subDays(14)->toDateString();
             $freshness = now()->subHours($mode === 'recent' ? 24 : 24 * 365 * 10);
             $query = Show::query()

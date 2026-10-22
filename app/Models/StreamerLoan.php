@@ -12,6 +12,8 @@ class StreamerLoan extends Model
         'label',
         'original_amount',
         'weekly_repayment',
+        'repayment_frequency',
+        'last_repayment_period',
         'remaining_balance',
         'deduct_from_payout',
         'status',
@@ -23,6 +25,7 @@ class StreamerLoan extends Model
         'weekly_repayment'    => 'decimal:2',
         'remaining_balance'   => 'decimal:2',
         'deduct_from_payout'  => 'boolean',
+        'last_repayment_period' => 'date',
     ];
 
     public function streamer(): BelongsTo

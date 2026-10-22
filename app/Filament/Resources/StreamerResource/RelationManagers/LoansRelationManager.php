@@ -42,8 +42,15 @@ class LoansRelationManager extends RelationManager
                     ->minValue(0.01)
                     ->required(),
 
+                Select::make('repayment_frequency')
+                    ->label('Repayment Schedule')
+                    ->options(['weekly' => 'Weekly', 'monthly' => 'Monthly'])
+                    ->default('weekly')
+                    ->required()
+                    ->native(false),
+
                 TextInput::make('weekly_repayment')
-                    ->label('Weekly Repayment ($)')
+                    ->label('Repayment Amount ($)')
                     ->numeric()
                     ->minValue(0.01)
                     ->required(),
@@ -61,7 +68,7 @@ class LoansRelationManager extends RelationManager
                     ->required(),
 
                 Toggle::make('deduct_from_payout')
-                    ->label('Deduct from weekly payout')
+                    ->label('Auto-deduct from payout')
                     ->helperText('On: deducted from calculated payout at finalization. Off: balance tracked, payout unchanged.')
                     ->columnSpanFull(),
 
@@ -86,7 +93,7 @@ class LoansRelationManager extends RelationManager
                     ->money('USD'),
 
                 TextColumn::make('weekly_repayment')
-                    ->label('Weekly')
+                    ->label('Repayment')
                     ->money('USD'),
 
                 TextColumn::make('remaining_balance')
@@ -94,6 +101,11 @@ class LoansRelationManager extends RelationManager
                     ->money('USD')
                     ->weight('bold')
                     ->color(fn ($record) => (float) $record->remaining_balance <= 0 ? 'success' : 'warning'),
+
+                TextColumn::make('repayment_frequency')
+                    ->label('Schedule')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ucfirst($state ?: 'weekly')),
 
                 IconColumn::make('deduct_from_payout')
                     ->label('Deducted from Payout')

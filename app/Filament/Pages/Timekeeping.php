@@ -357,7 +357,7 @@ class Timekeeping extends Page
         $time = app(TimeTrackingService::class);
         $label = fn ($show) => ($show->show_date?->format('D M j') ?? '') . ($show->start_time ? ' ' . $show->start_time->format('g:i A') : '') . ' · ' . ($show->title ?: 'Show #' . $show->id);
         $mine = $time->linkableShows($user, $currentShowId)->mapWithKeys(fn ($show) => ['show:' . $show->id => $label($show)])->all();
-        $others = $time->isReviewer(auth()->user())
+        $others = ($time->isReviewer(auth()->user()) || auth()->user()?->hasRole('streamer_assistant'))
             ? $time->linkableShows(auth()->user(), $currentShowId, true)->reject(fn ($show) => isset($mine['show:' . $show->id]))->mapWithKeys(fn ($show) => ['show:' . $show->id => $label($show)])->all()
             : [];
         $reasons = collect(TimeEntry::REASONS)->mapWithKeys(fn ($l, $key) => ['reason:' . $key => $l])->all();

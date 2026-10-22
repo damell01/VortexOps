@@ -185,7 +185,7 @@ class PaymentStructures extends Page
 
     public function setMemberFilter(string $filter): void
     {
-        $this->member_filter = in_array($filter, ['streamer', 'fulfillment'], true) ? $filter : 'streamer';
+        $this->member_filter = in_array($filter, ['streamer', 'fulfillment', 'assistant'], true) ? $filter : 'streamer';
         $this->member_page = 1;
         $this->closeMemberEditor();
     }
@@ -270,9 +270,14 @@ class PaymentStructures extends Page
 
     public function getFilteredMembersProperty()
     {
-        return $this->members->filter(fn (Streamer $member) => $this->member_filter === 'fulfillment'
-            ? $member->isFulfillment()
-            : ! $member->isFulfillment())->filter(fn (Streamer $member) => $this->pay_method_filter === '' || ($member->effectiveCompensation()['effective']['payout_type'] ?? null) === $this->pay_method_filter);
+        return $this->members->filter(function (Streamer $member): bool {
+            $assistant = $member->user?->hasRole('streamer_assistant') ?? false;
+            return match ($this->member_filter) {
+                'assistant' => $assistant,
+                'fulfillment' => $member->isFulfillment() && ! $assistant,
+                default => ! $member->isFulfillment() && ! $assistant,
+            };
+        })->filter(fn (Streamer $member) => $this->pay_method_filter === '' || ($member->effectiveCompensation()['effective']['payout_type'] ?? null) === $this->pay_method_filter);
     }
 
     public function updatedMemberSearch(): void { $this->member_page = 1; }

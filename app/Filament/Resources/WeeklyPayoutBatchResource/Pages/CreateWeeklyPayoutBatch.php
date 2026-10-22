@@ -93,7 +93,15 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. Add a note')->columnSpanFull()->schema([
+            Section::make('3. One-off payments')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other')->schema([
+                \Filament\Forms\Components\Repeater::make('other_payments')->schema([
+                    \Filament\Forms\Components\Select::make('streamer_id')->label('Recipient')
+                        ->options(fn () => \App\Models\Streamer::query()->whereNotNull('user_id')->pluck('name', 'id')->all())->searchable()->required(),
+                    \Filament\Forms\Components\TextInput::make('amount')->numeric()->minValue(0.01)->required(),
+                    Textarea::make('description')->required(),
+                ])->minItems(1)->defaultItems(1),
+            ]),
+            Section::make('4. Add a note')->columnSpanFull()->schema([
                 Textarea::make('notes')
                     ->label('Notes (optional)')
                     ->rows(2)
@@ -150,6 +158,22 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                 'week_start' => $start->toDateString(), 'week_end' => $end->toDateString(),
                 'status' => 'draft', 'notes' => $data['notes'] ?? null, 'created_by' => auth()->id(),
             ]);
+            if ($kind === 'other') {
+                foreach (($data['other_payments'] ?? []) as $row) {
+                    $person = \App\Models\Streamer::query()->whereKey($row['streamer_id'])
+                        ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
+                        ->whereNotNull('user_id')->firstOrFail();
+                    \App\Models\Payout::create([
+                        'streamer_id' => $person->id, 'weekly_payout_batch_id' => $batch->id,
+                        'payout_type' => 'other_payment', 'calculated_payout' => (float) $row['amount'],
+                        'gross_show_revenue' => 0, 'owner_fee_deducted' => 0,
+                        'tips_included' => 0, 'status' => 'draft',
+                        'calculation_notes' => '[OTHER_PAYMENT] '.trim($row['description']),
+                    ]);
+                }
+                $batch->recalculateTotal();
+                return $batch;
+            }
             $result = app(\App\Services\PayRunAutomationService::class)->syncWeek($start, true, $businessId, $kind);
             Notification::make()->title($batch->kindLabel() . ' pay run created')
                 ->body($result['payouts_attached'] . ' pay line(s) added.' . ($result['warnings'] ? ' Review items needing attention on the run.' : ''))

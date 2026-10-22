@@ -46,17 +46,18 @@ class InventoryVisibility
             return null;
         }
 
-        if (! $user->isStreamer()) {
+        if (! $user->isStreamer() && ! $user->hasRole('streamer_assistant')) {
             return null;
         }
 
         $override = static::overrideForStreamer($user->streamer?->id);
         if ($override !== null) {
-            return $override;
+            return array_values(array_unique([...$override, ...static::mainStorageIds()]));
         }
 
         return array_values(array_unique([
             ...static::configuredForStreamers(),
+            ...static::mainStorageIds(),
             ...static::ownLocationIds($user),
         ]));
     }
@@ -86,11 +87,17 @@ class InventoryVisibility
     public static function reportLocationIdsForStreamer(?int $streamerId): array
     {
         $override = static::overrideForStreamer($streamerId);
-        if ($override !== null) return $override;
+        if ($override !== null) return array_values(array_unique([...$override, ...static::mainStorageIds()]));
         return array_values(array_unique([
             ...static::configuredForStreamers(),
             ...InventoryLocation::where('streamer_id', $streamerId)->whereNotNull('streamer_id')->pluck('id')->map(fn ($id) => (int) $id)->all(),
         ]));
+    }
+
+    /** Main warehouse stock remains visible even when a streamer has a custom location override. */
+    private static function mainStorageIds(): array
+    {
+        return array_map('intval', array_keys(InventoryLocation::activeOptionsByType('main_storage')));
     }
 
     /** Whether this user's view of stock is limited at all. */

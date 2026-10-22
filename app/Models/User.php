@@ -134,6 +134,12 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Streamer::class);
     }
 
+    /** Streamers this assistant supports; assignments never transfer payroll ownership. */
+    public function assistedStreamers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Streamer::class, 'streamer_assistant_assignments')->withTimestamps();
+    }
+
     /** Shows this user is assigned to work in the Fulfillment Center. */
     public function assignedFulfillmentShows(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {

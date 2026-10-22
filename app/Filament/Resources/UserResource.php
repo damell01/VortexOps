@@ -170,6 +170,14 @@ class UserResource extends Resource
                     ->columnSpanFull(),
             ]),
 
+            Section::make('Assistant assignments')->columnSpanFull()
+                ->description('Assign this assistant to one or more streamers. Payroll and time remain on the assistant account.')
+                ->schema([
+                    Select::make('assistedStreamers')
+                        ->label('Assigned streamers')
+                        ->multiple()->relationship('assistedStreamers', 'name')
+                        ->searchable()->preload(),
+                ]),
             Section::make('Roles & Access')->columnSpanFull()->schema([
                 Select::make('roles')
                     ->multiple()

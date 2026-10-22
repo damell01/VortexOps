@@ -14,6 +14,7 @@ class PayRunSchedules
         'wages' => 'Hourly & wages',
         'share' => 'Profit share',
         'tips' => 'Tips',
+        'other' => 'Other Payment (one-off)',
     ];
 
     public const FREQUENCIES = [
@@ -41,9 +42,10 @@ class PayRunSchedules
     {
         return match ($kind) {
             'tips' => $query->whereIn('payout_type', self::TIP_TYPES),
+            'other' => $query->where('payout_type', 'other_payment'),
             'share' => $query->whereIn('payout_type', self::SHARE_TYPES),
-            'wages' => $query->whereNotIn('payout_type', [...self::SHARE_TYPES, ...self::TIP_TYPES]),
-            default => $query->whereNotIn('payout_type', self::TIP_TYPES),
+            'wages' => $query->whereNotIn('payout_type', [...self::SHARE_TYPES, ...self::TIP_TYPES, 'other_payment']),
+            default => $query->whereNotIn('payout_type', [...self::TIP_TYPES, 'other_payment']),
         };
     }
 
@@ -62,6 +64,7 @@ class PayRunSchedules
     public static function kindOfType(?string $payoutType): string
     {
         return match (true) {
+            $payoutType === 'other_payment' => 'other',
             in_array($payoutType, self::TIP_TYPES, true) => 'tips',
             in_array($payoutType, self::SHARE_TYPES, true) => 'share',
             default => 'wages',

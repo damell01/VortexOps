@@ -159,50 +159,56 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     ->send();
             });
 
-        $tyBurden = Action::make('ty_burden_addback')
-            ->label('Ty Burden +$250')
+        $monthlyBurden = Action::make('monthly_burden_addback')
+            ->label('Monthly Burden Add-back')
             ->icon('heroicon-o-banknotes')
-            ->visible(fn () => $this->record->status === 'draft'
-                && $this->record->payouts()->whereHas('streamer', fn ($q) => $q->where('name', 'Ty Ramirez'))->exists())
-            ->requiresConfirmation()
-            ->modalHeading('Add Ty Ramirez monthly burden payment')
-            ->modalDescription('Adds $250 once to this draft pay run. Maximum four payments per calendar month. Apply after recalculating the pay run.')
-            ->action(function (): void {
+            ->visible(fn () => $this->record->status === 'draft' && $this->record->payouts()
+                ->whereHas('streamer', fn ($q) => $q->where('monthly_burden_addback', '>', 0))->exists())
+            ->schema([
+                Select::make('streamer_id')->label('Team Member')->required()->searchable()
+                    ->options(fn () => $this->record->payouts()->with('streamer')->get()
+                        ->filter(fn ($p) => (float) ($p->streamer?->monthly_burden_addback ?? 0) > 0)
+                        ->mapWithKeys(fn ($p) => [$p->streamer_id => $p->streamer?->name])
+                        ->all()),
+            ])
+            ->modalDescription('Adds the individual configured amount once to this draft run. Apply after recalculating. Skip weeks when no burden is due.')
+            ->action(function (array $data): void {
                 try {
-                    \Illuminate\Support\Facades\DB::transaction(function () {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
                         $batch = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
                         if ($batch->status !== 'draft') {
                             throw new \RuntimeException('Only draft pay runs can be adjusted.');
                         }
-                        $ty = \App\Models\Streamer::query()->where('name', 'Ty Ramirez')->firstOrFail();
+                        $person = \App\Models\Streamer::query()->lockForUpdate()->findOrFail((int) $data['streamer_id']);
+                        $amount = round((float) $person->monthly_burden_addback, 2);
+                        $limit = (int) ($person->monthly_burden_payments ?: 4);
+                        if ($amount <= 0 || $limit < 1) {
+                            throw new \RuntimeException('Configure this person’s monthly burden amount in Users → Pay Settings first.');
+                        }
                         $month = \Illuminate\Support\Carbon::parse($batch->week_end)->format('Y-m');
-                        $marker = '[TY_BURDEN_ADDBACK:' . $month . ']';
-                        if ($batch->payouts()->where('streamer_id', $ty->id)->where('calculation_notes', 'like', '%' . $marker . '%')->exists()) {
-                            throw new \RuntimeException('This pay run already includes Ty’s burden payment.');
+                        $marker = '[MONTHLY_BURDEN_ADDBACK:' . $person->id . ':' . $month . ']';
+                        if ($batch->payouts()->where('streamer_id', $person->id)
+                            ->where('calculation_notes', 'like', '%' . $marker . '%')->exists()) {
+                            throw new \RuntimeException('This run already has the monthly burden add-back.');
                         }
-                        $count = \App\Models\Payout::query()
-                            ->where('streamer_id', $ty->id)
+                        $used = \App\Models\Payout::query()->where('streamer_id', $person->id)
                             ->where('calculation_notes', 'like', '%' . $marker . '%')
-                            ->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))
-                            ->count();
-                        if ($count >= 4) {
-                            throw new \RuntimeException('Four burden payments have already been finalized for ' . $month . '.');
+                            ->whereHas('batch', fn ($q) => $q->where('status', '!=', 'draft'))->count();
+                        if ($used >= $limit) {
+                            throw new \RuntimeException('Monthly burden payment limit already reached.');
                         }
-                        $payout = $batch->payouts()->where('streamer_id', $ty->id)->orderBy('id')->first();
-                        if (! $payout) {
-                            throw new \RuntimeException('Ty Ramirez is not included in this pay run.');
-                        }
+                        $payout = $batch->payouts()->where('streamer_id', $person->id)->orderBy('id')->firstOrFail();
                         $payout->update([
-                            'calculated_payout' => round((float) $payout->calculated_payout + 250, 2),
-                            'calculation_notes' => trim(($payout->calculation_notes ?? '') . "\n" . $marker . ' +$250 monthly burden add-back (admin confirmed)'),
+                            'calculated_payout' => round((float) $payout->calculated_payout + $amount, 2),
+                            'calculation_notes' => trim(($payout->calculation_notes ?? '') . "\n" . $marker . ' +$' . number_format($amount, 2) . ' monthly burden add-back'),
                         ]);
                         $batch->recalculateTotal();
                         activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
-                            ->withProperties(['pay_run_id' => $batch->id, 'month' => $month, 'amount' => 250])
-                            ->log('Ty Ramirez monthly burden add-back applied');
+                            ->withProperties(['pay_run_id' => $batch->id, 'month' => $month, 'amount' => $amount])
+                            ->log('Individual monthly burden add-back applied');
                     });
                     $this->record->refresh();
-                    Notification::make()->title('Ty burden add-back applied: +$250')->success()->send();
+                    Notification::make()->title('Monthly burden add-back applied')->success()->send();
                 } catch (\Throwable $e) {
                     Notification::make()->title('Burden add-back not applied')->body($e->getMessage())->danger()->send();
                 }
@@ -236,7 +242,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
                 ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
 
-            $resolveBlockers, $finalize, $override, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, $monthlyBurden, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

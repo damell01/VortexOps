@@ -31,6 +31,8 @@ class PaymentStructure
         'custom_payout_formula',
         'burden_rate_type',
         'burden_rate_value',
+        'monthly_burden_addback',
+        'monthly_burden_payments',
     ];
 
     /**
@@ -258,8 +260,11 @@ class PaymentStructure
 
     private static function normalize(string $field, mixed $value): mixed
     {
-        if (in_array($field, ['payout_percentage', 'house_cut_percentage', 'package_rate', 'hourly_rate', 'pwe_rate', 'label_rate', 'burden_rate_value'], true)) {
+        if (in_array($field, ['payout_percentage', 'house_cut_percentage', 'package_rate', 'hourly_rate', 'pwe_rate', 'label_rate', 'burden_rate_value', 'monthly_burden_addback'], true)) {
             return $value === null || $value === '' ? null : (float) $value;
+        }
+        if ($field === 'monthly_burden_payments') {
+            return $value === null || $value === '' ? null : (int) $value;
         }
         if ($field === 'include_tips') {
             return (bool) $value;

@@ -36,7 +36,7 @@ class Streamer extends Model
     protected $fillable = [
         'user_id', 'whatnot_channel_id', 'business_id', 'name', 'legal_name', 'email', 'phone',
         'payout_type', 'payout_cadence', 'payout_percentage', 'house_cut_percentage', 'sales_split_basis', 'package_rate', 'hourly_rate',
-        'custom_payout_formula', 'pwe_rate', 'label_rate', 'burden_rate_type', 'burden_rate_value',
+        'custom_payout_formula', 'pwe_rate', 'label_rate', 'burden_rate_type', 'burden_rate_value', 'monthly_burden_addback', 'monthly_burden_payments',
         'include_tips', 'adp_employee_id', 'owner_fee_type', 'owner_fee_value',
         'owner_fee_deduct_from_payout', 'total_earnings_due', 'total_earnings_paid',
         'channel_routing_rules', 'status', 'member_type', 'streamer_type', 'pay_rate_effective_at', 'compensation_override_fields', 'notes',
@@ -45,7 +45,7 @@ class Streamer extends Model
     protected $casts = [
         'include_tips' => 'boolean', 'payout_percentage' => 'decimal:2', 'house_cut_percentage' => 'decimal:2', 'package_rate' => 'decimal:2',
         'hourly_rate' => 'decimal:2', 'pwe_rate' => 'decimal:4', 'label_rate' => 'decimal:4',
-        'burden_rate_value' => 'decimal:4', 'owner_fee_value' => 'decimal:2',
+        'burden_rate_value' => 'decimal:4', 'monthly_burden_addback' => 'decimal:2', 'monthly_burden_payments' => 'integer', 'owner_fee_value' => 'decimal:2',
         'owner_fee_deduct_from_payout' => 'boolean', 'total_earnings_due' => 'decimal:2',
         'total_earnings_paid' => 'decimal:2', 'channel_routing_rules' => 'array',
         'compensation_override_fields' => 'array', 'pay_rate_effective_at' => 'date',

@@ -46,7 +46,7 @@ class InventoryVisibility
             return null;
         }
 
-        if (! $user->isStreamer()) {
+        if (! $user->isStreamer() && ! $user->hasRole('streamer_assistant')) {
             return null;
         }
 

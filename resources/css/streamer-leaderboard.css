@@ -312,3 +312,17 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
 @media(prefers-reduced-motion:reduce){
  .vxl .vxl-cinematic-video{display:none}
 }
+
+/* Optional real colosseum still: static image only, no video or WebGL.
+   The HTML podium, sprites, names and earnings remain in the foreground. */
+.vxl .vxl-arena-still{
+ position:absolute;inset:0;z-index:-1;pointer-events:none;
+ background-position:center 40%;background-repeat:no-repeat;background-size:cover;
+ opacity:.25;filter:saturate(.9);
+ -webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 58%,transparent 94%);
+ mask-image:linear-gradient(to bottom,#000 0%,#000 58%,transparent 94%);
+}
+.vxl .vxl-podium[data-vxl-still="1"]{
+ background:linear-gradient(180deg,#f9f5ffb0,#f3edffdf 82%,#faf8ff);
+}
+@media(max-width:640px){.vxl .vxl-arena-still{opacity:.18;background-position:center}}

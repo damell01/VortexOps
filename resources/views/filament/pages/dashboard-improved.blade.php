@@ -24,9 +24,12 @@
                 <div class="mt-5 grid gap-3 sm:grid-cols-3">
                     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">View inventory →</a>
                     <a href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">My hours &amp; shows →</a>
-                    <a href="{{ \App\Filament\Pages\ShowPerformance::getUrl() }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">Show leaderboard →</a>
+                    <div class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">Show leaderboard ↓</div>
                 </div>
             </section>
+            @if (\App\Livewire\StreamerLeaderboard::canView())
+                <livewire:streamer-leaderboard :arena-compact="true" :key="'assistant-home-leaderboard'" />
+            @endif
         @elseif($pageMode === 'fulfillment')
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">

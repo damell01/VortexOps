@@ -10,4 +10,5 @@ for(let i=0;i<36;i++){
  const data=await page.evaluate(i=>window.renderExportFrame(i),i);
  await writeFile('storage/app/cinematic-frames/'+String(i).padStart(3,'0')+'.png',Buffer.from(data.split(',')[1],'base64'));
 }
+await writeFile('storage/app/colosseum-still.png',Buffer.from((await page.evaluate(()=>window.renderExportFrame(35))).split(',')[1],'base64'));
 await browser.close();

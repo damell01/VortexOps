@@ -149,7 +149,7 @@
                 </div>
             </div>
 
-            <div class="vxw-rows" wire:loading.class="opacity-60" wire:target="peopleSearch,previousPeoplePage,nextPeoplePage" style="transition:opacity 150ms">
+            <div class="vxw-rows vx-payroll-people-cards" wire:loading.class="opacity-60" wire:target="peopleSearch,previousPeoplePage,nextPeoplePage" style="transition:opacity 150ms">
                 @forelse($visiblePeople as $streamerId => $rows)
                     @php
                         $person = $rows->first()->streamer;
@@ -159,7 +159,7 @@
                         $pwe = (int) $rows->sum('pwe_count');
                         $personShows = $rows->pluck('show_id')->filter()->unique()->count();
                     @endphp
-                    <details class="vxw-disclose" wire:key="pay-person-{{ $streamerId ?: 'none' }}" style="border-top:1px solid var(--vxw-border)">
+                    <details class="vxw-disclose vx-payroll-person-card" wire:key="pay-person-{{ $streamerId ?: 'none' }}">
                         <summary class="vxw-row" style="border-top:0">
                             <div class="vxw-row-main">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -177,9 +177,9 @@
                                 <x-filament::icon icon="heroicon-m-chevron-down" class="vxw-chevron" />
                             </div>
                         </summary>
-                        <div class="vxw-disclose-body">
+                        <div class="vxw-disclose-body vx-payroll-line-cards">
                             @foreach($rows as $payout)
-                                <div class="vxw-subrow">
+                                <article class="vx-payroll-line-card">
                                     <div>
                                         <div class="truncate font-semibold text-[var(--vxw-text)]">{{ $payout->show?->title ?? 'General payroll line' }}</div>
                                         <div class="vxw-meta">{{ \App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? '')) }}@if($payout->show?->show_date) · {{ $payout->show->show_date->format('M j') }}@endif</div>
@@ -189,7 +189,7 @@
                                     <div><div class="vxw-fig-label">Labels</div><div class="vxw-num">{{ number_format((int)$payout->label_count) }}</div></div>
                                     <div><div class="vxw-fig-label">PWE</div><div class="vxw-num">{{ number_format((int)$payout->pwe_count) }}</div></div>
                                     <div class="text-right max-[900px]:text-left"><div class="vxw-fig-label">Amount</div><div class="vxw-fig-value">{{ $money($payout->calculated_payout) }}</div></div>
-                                </div>
+                                </article>
                             @endforeach
                         </div>
                     </details>

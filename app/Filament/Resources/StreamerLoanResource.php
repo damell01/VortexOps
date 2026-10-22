@@ -89,8 +89,15 @@ class StreamerLoanResource extends Resource
                     ->required()
                     ->minValue(0),
 
+                Select::make('repayment_frequency')
+                    ->label('Repayment Schedule')
+                    ->options(['weekly' => 'Weekly', 'monthly' => 'Monthly'])
+                    ->default('weekly')
+                    ->required()
+                    ->native(false),
+
                 TextInput::make('weekly_repayment')
-                    ->label('Weekly Repayment')
+                    ->label('Repayment Amount')
                     ->numeric()
                     ->prefix('$')
                     ->nullable()
@@ -104,7 +111,7 @@ class StreamerLoanResource extends Resource
                 Toggle::make('deduct_from_payout')
                     ->label('Auto-deduct from payout')
                     ->default(true)
-                    ->helperText('PayoutService will deduct the weekly amount from each generated payout.'),
+                    ->helperText('Deducts the configured amount once per weekly or monthly period at pay run finalization.'),
 
                 Textarea::make('notes')
                     ->rows(3)
@@ -143,9 +150,14 @@ class StreamerLoanResource extends Resource
                     ->color(fn ($state) => (float) $state > 0 ? 'warning' : 'success'),
 
                 TextColumn::make('weekly_repayment')
-                    ->label('Weekly')
+                    ->label('Repayment')
                     ->money('USD')
                     ->placeholder('—'),
+
+                TextColumn::make('repayment_frequency')
+                    ->label('Schedule')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ucfirst($state ?: 'weekly')),
 
                 IconColumn::make('deduct_from_payout')
                     ->label('Auto-deduct')

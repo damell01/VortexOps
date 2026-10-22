@@ -28,7 +28,7 @@ class RoleResource extends Resource
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-shield-check'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Settings'; }
     public static function getNavigationSort(): ?int { return 5; }
-    public static function canAccess(): bool { return \App\Support\RoleAccess::grants(static::class) || (auth()->user()?->isOwner() ?? false); }
+    public static function canAccess(): bool { return auth()->user()?->isOwner() ?? false; }
     public static function shouldRegisterNavigation(): bool { return static::canAccess(); }
 
     public static function form(Schema $schema): Schema

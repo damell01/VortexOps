@@ -126,7 +126,111 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         ])
                         ->columns(['default' => 1, 'lg' => 3])
                         ->defaultItems(1)->minItems(1)->addActionLabel('Add recipient')
-                        ->reorderable(false)->cloneable(false),
+                        ->reorderable(false)->cloneable(false)->live(),
+                    \Filament\Forms\Components\Placeholder::make('payment_summary')
+                        ->label('Draft payment summary')
+                        ->content(function (\Filament\Schemas\Components\Utilities\Get $get): string {
+                            $rows = collect($get('other_payments') ?? []);
+                            $total = $rows->sum(fn ($row) => is_numeric($row['amount'] ?? null) ? max(0, (float) $row['amount']) : 0);
+                            $count = $rows->filter(fn ($row) => filled($row['user_id'] ?? null))->count();
+                            return $count.' recipient(s) · 
+                ]),
+            Section::make('4. Add a note')->columnSpanFull()->schema([
+                Textarea::make('notes')
+                    ->label('Notes (optional)')
+                    ->rows(2)
+                    ->placeholder('e.g. Holiday week, bonus included…')
+                    ->columnSpanFull(),
+            ]),
+
+        ]);
+    }
+
+    private static function presetType(): ?\App\Models\PayRunType
+    {
+        $id = request()->integer('pay_run_type_id');
+        return $id ? \App\Models\PayRunType::where('active', true)->find($id) : null;
+    }
+
+    protected function getCreateFormAction(): \Filament\Actions\Action
+    {
+        return parent::getCreateFormAction()->label('Create draft pay run');
+    }
+
+    protected function handleRecordCreation(array $data): Model
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+            $businessId = filled($data['business_id'] ?? null) ? (int) $data['business_id'] : null;
+            $type = filled($data['pay_run_type_id'] ?? null)
+                ? \App\Models\PayRunType::where('active', true)->find($data['pay_run_type_id']) : null;
+            if (filled($data['pay_run_type_id'] ?? null) && ! $type) {
+                throw ValidationException::withMessages(['data.pay_run_type_id' => 'Choose an available pay run type.']);
+            }
+            $kind = ($data['run_mode'] ?? 'normal') === 'other' ? 'other' : ($type ? $type->kind : (filled($data['kind'] ?? null) ? $data['kind'] : null));
+            if ($kind !== null && ! array_key_exists($kind, \App\Support\PayRunSchedules::KINDS)) {
+                throw ValidationException::withMessages(['data.kind' => 'Choose what this run pays.']);
+            }
+            if (($data['dates_mode'] ?? 'custom') === 'schedule') {
+                if (! $type?->schedule_enabled) {
+                    throw ValidationException::withMessages(['data.dates_mode' => 'This type has no schedule. Choose custom dates.']);
+                }
+                [$start, $end] = \App\Support\PayRunSchedules::standardPeriod($kind ?? 'wages', $data['week_start'], $type->scheduleConfig());
+            } else {
+                $start = Carbon::parse($data['week_start'])->startOfDay();
+                $end = Carbon::parse($data['week_end'])->startOfDay();
+            }
+            if ($end->lt($start)) {
+                throw ValidationException::withMessages(['data.week_end' => 'End date must be on or after start date.']);
+            }
+            $overlap = $kind === 'other' ? null : WeeklyPayoutBatch::overlapping($start->toDateString(), $end->toDateString(), null, $businessId, $kind);
+            if ($overlap) {
+                throw ValidationException::withMessages(['data.week_start' => 'These dates overlap ' . $overlap->kindLabel() . ' Pay Run #' . $overlap->id . '. Open that run or choose different dates.']);
+            }
+            $batch = WeeklyPayoutBatch::create([
+                'business_id' => $businessId, 'kind' => $kind,
+                'pay_run_type_id' => $type?->id, 'pay_run_type_name' => $type?->name,
+                'week_start' => $start->toDateString(), 'week_end' => $end->toDateString(),
+                'status' => 'draft', 'notes' => $data['notes'] ?? null, 'created_by' => auth()->id(),
+            ]);
+            if ($kind === 'other') {
+                if (empty($data['other_payments'])) {
+                    throw ValidationException::withMessages(['data.other_payments' => 'Add at least one payment recipient.']);
+                }
+                foreach (($data['other_payments'] ?? []) as $row) {
+                    if (! is_numeric($row['amount'] ?? null) || round((float) $row['amount'], 2) <= 0 || trim((string) ($row['description'] ?? '')) === '') {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Every recipient needs a positive amount and description.']);
+                    }
+                    $user = \App\Models\User::query()->findOrFail($row['user_id']);
+                    $person = app(\App\Services\UserTeamProfileService::class)->sync($user);
+                    if (! $person) {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Unable to create payroll profile for selected recipient.']);
+                    }
+                    \App\Models\Payout::create([
+                        'streamer_id' => $person->id, 'weekly_payout_batch_id' => $batch->id,
+                        'payout_type' => 'other_payment', 'calculated_payout' => (float) $row['amount'],
+                        'gross_show_revenue' => 0, 'owner_fee_deducted' => 0,
+                        'tips_included' => 0, 'status' => 'draft',
+                        'calculation_notes' => '[OTHER_PAYMENT] '.trim($row['description']),
+                    ]);
+                }
+                $batch->recalculateTotal();
+                return $batch;
+            }
+            $result = app(\App\Services\PayRunAutomationService::class)->syncWeek($start, true, $businessId, $kind);
+            Notification::make()->title($batch->kindLabel() . ' pay run created')
+                ->body($result['payouts_attached'] . ' pay line(s) added.' . ($result['warnings'] ? ' Review items needing attention on the run.' : ''))
+                ->success()->send();
+            return $result['batch'];
+        });
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->record]);
+    }
+}
+.number_format($total, 2).' total · Draft only — no payments sent';
+                        }),
                 ]),
             Section::make('4. Add a note')->columnSpanFull()->schema([
                 Textarea::make('notes')

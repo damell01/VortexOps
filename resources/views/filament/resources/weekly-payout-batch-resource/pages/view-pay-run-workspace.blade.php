@@ -46,6 +46,40 @@
 @endphp
 
 <div class="vxw" data-vx-page="pay-run">
+<section class="vxw-card mb-4" aria-label="Assistant hours and channel tips">
+    <div class="vxw-card-body">
+        <h3 class="text-lg font-semibold">Assistant hours and channel tips</h3>
+        <p class="text-sm opacity-70">Review-only figures. Assistant amounts are not included in payout totals yet; ledger tips are not added to payroll.</p>
+        <div class="grid gap-5 md:grid-cols-2 mt-4">
+            <div>
+                <h4 class="font-semibold mb-2">Streamer assistants</h4>
+                @forelse ($assistantRows as $assistant)
+                    <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                        <span>{{ $assistant['name'] }} @if ($assistant['pending_review']) <span class="text-amber-600">({{ $assistant['pending_review'] }} to review)</span> @endif</span>
+                        <strong>{{ number_format($assistant['hours'], 2) }} h</strong>
+                    </div>
+                @empty
+                    <p class="text-sm opacity-70">No assistants configured.</p>
+                @endforelse
+            </div>
+            <div>
+                <h4 class="font-semibold mb-2">Ledger tips by channel</h4>
+                @forelse ($tipRows['channels'] as $channelId => $amount)
+                    <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                        <span>{{ $channelNames[$channelId] ?? ('Channel #'.$channelId) }}</span>
+                        <strong>{{ $money($amount) }}</strong>
+                    </div>
+                @empty
+                    <p class="text-sm opacity-70">No channel-attributed ledger tips for this period.</p>
+                @endforelse
+                <div class="flex justify-between gap-3 py-2">
+                    <span>Unassigned tips</span><strong>{{ $money($tipRows['unassigned']) }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
     <section class="vxw-card">
         <div class="vxw-card-body grid gap-5">
             <div class="vxw-hero">

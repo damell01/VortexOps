@@ -820,6 +820,484 @@ class ShowResource extends Resource
                         ? 'Completed earnings from Whatnot'
                         : 'Estimated Whatnot net')
                     ->extraCellAttributes(['class' => 'vx-nowrap']),
+                TextColumn::make('tips')
+                    ->label('Tips')
+                    ->placeholder('—')
+                    ->color(fn (Show $record): string => (float) ($record->tips ?? 0) > 0 ? 'success' : 'gray')
+                    ->formatStateUsing(fn ($state): string => (float) $state > 0 ? '
+                    ->label('Net Margin')
+                    ->state(fn (Show $record): float => $record->profitAndLoss()['margin'])
+                    ->money('USD')
+                    ->color(fn (float $state): string => $state >= 0 ? 'success' : 'danger')
+                    ->tooltip(fn (Show $record): string => 'Profit after COGS and payouts — ' . $record->profitAndLoss()['margin_pct'] . '% margin')
+                    ->sortable(false)
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('units_sold')
+                    ->label('Units')
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => StatusColor::for($state)),
+
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Show $record): string => match ($record->status) {
+                        'pending_review' => 'Map items to inventory',
+                        'mapping' => 'Continue mapping → Review approval',
+                        'pending_approval' => 'Review & approve costs',
+                        'reconciled' => 'Calculate payout',
+                        'closed' => 'Done',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (Show $record): string => match ($record->status) {
+                        'pending_review', 'mapping' => 'warning',
+                        'pending_approval' => 'info',
+                        'reconciled' => 'warning',
+                        'closed' => 'success',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('latestDeductionRequest.status')
+                    ->label('Approval')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? (DeductionRequest::statusLabels()[$state] ?? $state) : 'Not started')
+                    ->color(fn ($state) => match ($state) {
+                        'pending' => 'warning',
+                        'approved' => 'info',
+                        'processed' => 'success',
+                        'rejected' => 'danger',
+                        default => 'gray',
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('import_source')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Show::importSourceLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'manual' => 'gray',
+                        'auto_whatnot' => 'info',
+                        default => 'gray',
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('buyers_count')
+                    ->label('Buyers')
+                    ->numeric()
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('total_views')
+                    ->label('Views')
+                    ->numeric()
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('avg_order_rating')
+                    ->label('Rating')
+                    ->numeric(decimalPlaces: 2)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('detail_url')
+                    ->label('Source')
+                    ->formatStateUsing(fn ($state) => $state ? 'View ↗' : null)
+                    ->url(fn ($record) => $record->detail_url, shouldOpenInNewTab: true)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('created_at')
+                    ->dateTime('M j, Y g:i A')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions(\App\Support\MobileTablePagination::options([10, 25, 50]))
+            ->defaultPaginationPageOption(\App\Support\MobileTablePagination::defaultPageSize(25))
+            ->deferLoading()
+            ->defaultSort('show_date', 'desc')
+            ->emptyStateIcon('heroicon-o-video-camera')
+            ->emptyStateHeading('No shows yet')
+            ->emptyStateDescription('Shows import automatically from Whatnot. Connect a channel and run your first import to see them here.')
+            ->emptyStateActions([
+                TableAction::make('go_import')
+                    ->label('Import from Whatnot')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn () => WhatnotChannelResource::getUrl('index'))
+                    ->visible(fn () => auth()->user()?->isAdmin() ?? false),
+            ])
+            ->filters([
+                // Active by default: the scraper imports upcoming/scheduled shows
+                // too, but day-to-day work happens on shows that already streamed.
+                // Untick the filter to see future-dated shows.
+                Filter::make('hide_upcoming')
+                    ->label('Hide upcoming shows')
+                    ->toggle()
+                    ->default()
+                    ->query(fn (Builder $query): Builder => $query->where(
+                        fn (Builder $q) => $q
+                            ->whereNull('show_date')
+                            ->orWhere('show_date', '<=', now()->endOfDay())
+                    )),
+
+                SelectFilter::make('status')
+                    ->options(Show::statusLabels())
+                    ->multiple(),
+
+                SelectFilter::make('whatnot_channel_id')
+                    ->label('Channel')
+                    ->relationship('channel', 'name')
+                    ->multiple(),
+
+                TernaryFilter::make('has_tips')
+                    ->label('Shows with tips')
+                    ->placeholder('All shows')
+                    ->trueLabel('Has tips')
+                    ->falseLabel('No tips')
+                    ->queries(
+                        true: fn (Builder $query): Builder => $query->where('tips', '>', 0),
+                        false: fn (Builder $query): Builder => $query->where(fn (Builder $q): Builder => $q->whereNull('tips')->orWhere('tips', '<=', 0)),
+                    ),
+
+                TernaryFilter::make('channel_attribution_suspect')
+                    ->label('Channel attribution')
+                    ->placeholder('All shows')
+                    ->trueLabel('Needs channel review')
+                    ->falseLabel('Attribution OK'),
+
+                TernaryFilter::make('financials_revised_after_lock')
+                    ->label('Financials revised')
+                    ->placeholder('All shows')
+                    ->trueLabel('Revised after lock — needs review')
+                    ->falseLabel('Not revised'),
+
+                SelectFilter::make('show_format')
+                    ->label('Format')
+                    ->options(Show::formatLabels() + ['__none__' => 'Unclassified'])
+                    ->query(function (Builder $query, array $data) {
+                        $value = $data['value'] ?? null;
+
+                        // Finding what still needs classifying is the whole
+                        // point of a report grouped by classification.
+                        return match (true) {
+                            $value === null || $value === '' => $query,
+                            $value === '__none__'            => $query->whereNull('show_format'),
+                            default                          => $query->where('show_format', $value),
+                        };
+                    }),
+
+                QueryBuilder::make()
+                    ->label('Advanced Filters')
+                    // Full-width controls; one column of a three-column
+                    // filter dialog is not enough room for a rule.
+                    ->columnSpanFull()
+                    ->constraintPickerColumns(2)
+                    ->constraints([
+                        DateConstraint::make('show_date')->label('Show Date'),
+                        NumberConstraint::make('gross_revenue')->label('Gross Revenue ($)'),
+                        NumberConstraint::make('whatnot_net')->label('Whatnot Net ($)'),
+                        NumberConstraint::make('units_sold')->label('Units Sold'),
+                        SelectConstraint::make('status')
+                            ->options(Show::statusLabels())
+                            ->multiple(),
+                        SelectConstraint::make('import_source')
+                            ->label('Import Source')
+                            ->options(Show::importSourceLabels()),
+                        TextConstraint::make('title')->label('Show Title'),
+                    ]),
+            ])
+            ->actions([
+                // One obvious, status-driven "what do I do with this show" button so
+                // admins scanning the list don't have to open each row to find it.
+                // pending_review/mapping route into the show itself, where the actual
+                // map/raise-deduction actions already live (ViewShow) — kept there
+                // rather than duplicated here so the logic has one home. Everything
+                // past that (pending_approval onward) has a real approval request to
+                // review, so it goes straight there instead.
+                TableAction::make('next_step')
+                    ->label(fn (Show $record) => match ($record->status) {
+                        'pending_review'   => 'Map Items',
+                        'mapping'          => 'Continue Mapping',
+                        'pending_approval' => 'Review Approval',
+                        'reconciled', 'closed' => 'View Approval',
+                        default => 'Review',
+                    })
+                    ->icon(fn (Show $record) => $record->status === 'pending_approval'
+                        ? 'heroicon-o-clipboard-document-check'
+                        : 'heroicon-o-arrow-right-circle')
+                    ->color(fn (Show $record) => match ($record->status) {
+                        'pending_review', 'mapping' => 'warning',
+                        'pending_approval' => 'info',
+                        default => 'gray',
+                    })
+                    ->visible(fn (Show $record) => (auth()->user()?->isAdmin() ?? false)
+                        && in_array($record->status, ['pending_review', 'mapping', 'pending_approval', 'reconciled', 'closed']))
+                    ->url(fn (Show $record) => in_array($record->status, ['pending_approval', 'reconciled', 'closed'])
+                        ? DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $record->id])
+                        : ShowResource::getUrl('view', ['record' => $record])),
+
+                // Everything past the one prominent next-step button lives in
+                // an overflow menu. As labelled buttons they made the actions
+                // column 342px wide, which squeezed Show Title down to 104px
+                // and wrapped every row to ~142px tall.
+                ActionGroup::make([
+                TableAction::make('cancel_show')
+                    ->label('Cancel')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('danger')
+                    ->visible(fn () => auth()->user()?->isAdmin())
+                    ->requiresConfirmation()
+                    ->modalHeading('Cancel Show')
+                    ->modalDescription('Are you sure you want to cancel this show? This cannot be undone.')
+                    ->action(fn (Show $record) => $record->update(['status' => 'cancelled'])),
+
+                TableAction::make('confirm_channel')
+                    ->label('Confirm Channel')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('warning')
+                    ->visible(fn (Show $record) => (bool) $record->channel_attribution_suspect
+                        && (auth()->user()?->isAdmin() ?? false))
+                    ->modalHeading('Confirm channel attribution')
+                    ->modalDescription('This show was also scraped under another channel, so its attribution may be wrong. Confirm the correct channel to clear the review flag.')
+                    ->modalSubmitActionLabel('Confirm & clear flag')
+                    ->schema([
+                        Select::make('whatnot_channel_id')
+                            ->label('Correct channel')
+                            ->options(fn () => WhatnotChannel::orderBy('name')->pluck('name', 'id'))
+                            ->default(fn (Show $record) => $record->whatnot_channel_id)
+                            ->required(),
+                    ])
+                    ->action(function (Show $record, array $data): void {
+                        $record->update([
+                            'whatnot_channel_id'          => $data['whatnot_channel_id'],
+                            'channel_attribution_suspect' => false,
+                        ]);
+                        Notification::make()->title('Channel confirmed')->success()->send();
+                    }),
+
+                TableAction::make('acknowledge_revision')
+                    ->label('Review Revision')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('danger')
+                    ->visible(fn (Show $record) => (bool) $record->financials_revised_after_lock
+                        && (auth()->user()?->isAdmin() ?? false))
+                    ->modalHeading('Financials changed after this show was locked in')
+                    ->modalDescription(fn (Show $record) => new \Illuminate\Support\HtmlString(
+                        'A later Whatnot sync brought back different numbers for this show after it moved past Pending Review — deduction lines or payouts may already be based on the old figures. Recalculate anything downstream before clearing this flag.<br><br><strong>Changes:</strong><br>' . nl2br(e($record->revision_notes ?? '—'))
+                    ))
+                    ->modalSubmitActionLabel('Clear flag — reviewed')
+                    ->action(function (Show $record): void {
+                        $record->update(['financials_revised_after_lock' => false]);
+                        Notification::make()->title('Revision flag cleared')->success()->send();
+                    }),
+
+                TableAction::make('request_edit')
+                    ->label('Request Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('warning')
+                    ->visible(fn (Show $record) => (bool) auth()->user()?->streamer
+                        && in_array($record->status, ['reconciled', 'closed', 'cancelled']))
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Why do you need to edit this show?')
+                            ->placeholder('Explain what items need to be added or corrected...')
+                            ->rows(3)
+                            ->nullable(),
+                    ])
+                    ->action(function (Show $record, array $data): void {
+                        $user = auth()->user();
+                        $streamer = $user->streamer;
+
+                        if (! $streamer) {
+                            Notification::make()
+                                ->title('Error')
+                                ->body('Could not find your streamer profile.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        // Check if there's already a pending request
+                        $existing = $record->reopeningRequests()
+                            ->where('streamer_id', $streamer->id)
+                            ->where('status', 'pending')
+                            ->first();
+
+                        if ($existing) {
+                            Notification::make()
+                                ->title('Already requested')
+                                ->body('You already have a pending edit request for this show.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $request = $record->reopeningRequests()->create([
+                            'streamer_id' => $streamer->id,
+                            'reason' => $data['reason'] ?? null,
+                            'status' => 'pending',
+                        ]);
+
+                        // Notify admins
+                        $showTitle = $record->title ?? ('Show #' . $record->id);
+                        \App\Services\Notifier::send('report_reopen_requested', new \App\Notifications\VortexAlert(
+                            event: 'report_reopen_requested',
+                            title: 'Show Reopening Requested',
+                            body: "{$streamer->name} requested to edit {$showTitle}",
+                            tone: 'warning',
+                            links: ['Review' => ShowResource::getUrl('view', ['record' => $record])],
+                        ));
+
+                        Notification::make()
+                            ->title('Request sent')
+                            ->body('Admins have been notified of your edit request.')
+                            ->success()
+                            ->send();
+                    }),
+
+                TableAction::make('open_log')
+                    ->label('Log')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->visible(fn () => auth()->check())
+                    ->action(fn (Show $record) => null)
+                    ->iconButton(),
+
+                EditAction::make(),
+                DeleteAction::make()
+                    ->visible(fn (Show $record) => static::canDelete($record))
+                    ->tooltip(fn (Show $record) => static::canDelete($record)
+                        ? null
+                        : 'Has orders, deduction requests, payouts, or streamers attached — only an empty draft show can be deleted.'),
+                ]),
+
+                ViewAction::make()->iconButton(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                    BulkAction::make('clear_attribution_flag')
+                        ->label('Clear channel-review flag')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('warning')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Clear the channel-review flag on the selected shows, keeping their current channel.')
+                        ->action(fn (Collection $records) => $records->each->update(['channel_attribution_suspect' => false]))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('clear_revision_flag')
+                        ->label('Clear revision flag')
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->color('danger')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Clear the financials-revised flag on the selected shows without further action.')
+                        ->action(fn (Collection $records) => $records->each->update(['financials_revised_after_lock' => false]))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('detect_streamers')
+                        ->label('Detect Streamers')
+                        ->icon('heroicon-o-user-circle')
+                        ->color('gray')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Matches each selected show\'s title against the active streamer roster and attaches any high-confidence match. Shows that already have a streamer attached are skipped.')
+                        ->action(function (Collection $records): void {
+                            $matched = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $show) {
+                                if ($show->streamers()->count() > 0) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                $suggestions = $show->detectStreamers();
+                                if (collect($suggestions)->contains('confidence', 'high')) {
+                                    $matched++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Streamer detection complete')
+                                ->body("{$matched} show(s) matched. " . ($skipped > 0 ? "{$skipped} already had a streamer and were skipped." : 'None already had a streamer assigned.'))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('mark_reconciled')
+                        ->label('Mark as Reconciled')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Mark the selected shows as reconciled.')
+                        ->action(fn (Collection $records) => $records->each->update(['status' => 'reconciled']))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('mark_closed')
+                        ->label('Mark as Closed')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Mark the selected shows as closed.')
+                        ->action(fn (Collection $records) => $records->each->update(['status' => 'closed']))
+                        ->deselectRecordsAfterCompletion(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Show $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' show(s) deleted')
+                                    ->body("{$blocked} skipped — not an empty draft show.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' show(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            OrdersRelationManager::class,
+            ChangeLogsRelationManager::class,
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index'     => Pages\ListShows::route('/'),
+            'channel-review' => Pages\ReviewShowChannels::route('/channel-review'),
+            'stream-review' => Pages\ReviewShowStreamers::route('/stream-review'),
+            'create'    => Pages\CreateShow::route('/create'),
+            'view'      => Pages\ViewShow::route('/{record}'),
+            'edit'      => Pages\EditShow::route('/{record}/edit'),
+            'inventory' => Pages\ShowInventoryBreakdown::route('/{record}/inventory'),
+            'add-items' => Pages\AddShowItems::route('/{record}/add-items'),
+        ];
+    }
+}
+.number_format((float) $state, 2) : '—')
+                    ->tooltip('Tips recorded for this show; separate from Whatnot net')
+                    ->toggleable(),
+
                 TextColumn::make('net_margin')
                     ->label('Net Margin')
                     ->state(fn (Show $record): float => $record->profitAndLoss()['margin'])

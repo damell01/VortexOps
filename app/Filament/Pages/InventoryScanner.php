@@ -1522,59 +1522,14 @@ class InventoryScanner extends Page
         $item->load(['stock.location', 'movements' => fn ($q) => $q->with('toLocation')->latest()->limit(5)]);
 
         $costService = app(InventoryCostService::class);
-        $totalQty = $item->totalQuantity();
-        $inventoryValue = $costService->calculateInventoryValue($item);
+        $totalQty = (float) $item->stock->sum('quantity');
+        $inventoryValue = $totalQty * (float) ($item->costBasis() ?? 0);
 
-        // Get cost breakdown and check for pricing anomalies
-        $costBreakdown = $costService->getCostBreakdown($item);
+        // A barcode lookup must not load every historic pallet receipt just
+        // to identify an item. Full vendor pricing belongs in item details.
         $pricingAnomaly = null;
         $vendorCosts = [];
-
-        if (!empty($costBreakdown)) {
-            $costs = array_column($costBreakdown, 'average_cost');
-            if (!empty($costs)) {
-                $minCost = min($costs);
-                $maxCost = max($costs);
-                if ($minCost > 0) {
-                    $variance = (($maxCost - $minCost) / $minCost) * 100;
-                    if ($variance > 20) {
-                        $pricingAnomaly = [
-                            'variance_pct' => round($variance, 1),
-                            'min_cost' => (float) $minCost,
-                            'max_cost' => (float) $maxCost,
-                        ];
-                    }
-                }
-            }
-
-            // Format vendor costs for display
-            foreach ($costBreakdown as $key => $data) {
-                $vendorCosts[] = [
-                    'vendor_name' => $data['vendor_name'],
-                    'avg_cost' => (float) $data['average_cost'],
-                    'qty' => (int) $data['total_qty'],
-                ];
-            }
-        }
-
-        // Get cost trend (last 10 receipts)
-        $costTrend = $costService->getCostTrend($item, 10);
-        $formattedCostTrend = array_map(function ($ct) {
-            $date = $ct['date'];
-            if (is_string($date)) {
-                $dateStr = \Carbon\Carbon::parse($date)->format('M d, Y');
-            } elseif ($date instanceof \Carbon\Carbon) {
-                $dateStr = $date->format('M d, Y');
-            } else {
-                $dateStr = '—';
-            }
-            return [
-                'date' => $dateStr,
-                'vendor' => $ct['vendor'],
-                'cost' => (float) $ct['unit_cost'],
-                'qty' => (int) $ct['quantity'],
-            ];
-        }, $costTrend);
+        $formattedCostTrend = [];
 
         $stockByLocation = $item->stock->map(fn ($s) => [
             'location'    => $s->location?->name ?? 'Unknown',

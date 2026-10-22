@@ -398,3 +398,21 @@ button.vxw-tile:active, a.vxw-tile:active { transform: scale(.99); }
   .vxw *, .vxw-sheet-wrap *, .vxw-actionbar * { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
   .vxw-spin { animation: none; border-right-color: currentColor; opacity: .6; }
 }
+
+/* Payroll review cards share the same layout on desktop and mobile. */
+.vx-payroll-show-cards, .vx-payroll-people-cards { gap: 12px; padding: 16px; }
+.vx-payroll-show-cards > .vxw-row, .vx-payroll-person-card { min-width: 0; border: 1px solid var(--vxw-border); border-radius: var(--vxw-radius-sm); background: var(--vxw-surface); }
+.vx-payroll-show-cards > .vxw-row:first-child { border-top: 1px solid var(--vxw-border); }
+.vx-payroll-show-cards .vxw-row-title { white-space: normal; overflow-wrap: anywhere; }
+.vx-payroll-show-cards .vxw-row-side { flex-wrap: wrap; }
+.vx-payroll-people-cards { align-items: start; }
+.vx-payroll-person-card > summary { border-radius: var(--vxw-radius-sm); }
+.vx-payroll-line-cards { display: grid; gap: 10px; }
+.vx-payroll-line-card { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 14px; min-width: 0; border: 1px solid var(--vxw-border); border-radius: var(--vxw-radius-sm); background: var(--vxw-surface-2); font-size: 13px; }
+.vx-payroll-line-card > :first-child { grid-column: 1 / -1; min-width: 0; }
+.vx-payroll-line-card > :first-child > :first-child { white-space: normal; overflow-wrap: anywhere; }
+.vx-payroll-line-card > :last-child { text-align: left; }
+@media (max-width: 600px) {
+  .vx-payroll-show-cards, .vx-payroll-people-cards { padding: 12px; }
+  .vx-payroll-line-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

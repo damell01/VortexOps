@@ -1,50 +1,40 @@
 @php
     $p = $preview;
+    $money = fn ($value) => '$' . number_format((float) $value, 2);
 @endphp
-<div class="space-y-4">
+<div class="vxw space-y-4">
     <p class="text-sm text-gray-500 dark:text-gray-400">
-        What each streamer will receive if you finalize this pay run now, after loan
+        What each team member will receive if you finalize this pay run now, after loan
         repayments. Nothing is saved — this is a preview.
     </p>
 
-    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-white/10">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 dark:bg-white/5 text-xs uppercase text-gray-500 dark:text-gray-400">
-                <tr>
-                    <th class="px-3 py-2 text-left font-medium">Streamer</th>
-                    <th class="px-3 py-2 text-right font-medium">Gross</th>
-                    <th class="px-3 py-2 text-right font-medium">Loan</th>
-                    <th class="px-3 py-2 text-right font-medium">Net Pay</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-white/5">
-                @forelse ($p['rows'] as $row)
-                    <tr>
-                        <td class="px-3 py-2 text-gray-900 dark:text-gray-100">{{ $row['streamer'] }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-300">${{ number_format($row['gross'], 2) }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums {{ $row['loan'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">
-                            {{ $row['loan'] > 0 ? '−$' . number_format($row['loan'], 2) : '—' }}
-                        </td>
-                        <td class="px-3 py-2 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">${{ number_format($row['net'], 2) }}</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="4" class="px-3 py-6 text-center text-gray-400">No payouts in this batch yet.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-            @if (! empty($p['rows']))
-                <tfoot class="bg-gray-50 dark:bg-white/5 font-semibold">
-                    <tr>
-                        <td class="px-3 py-2 text-gray-900 dark:text-gray-100">Total ({{ count($p['rows']) }})</td>
-                        <td class="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-300">${{ number_format($p['gross'], 2) }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums {{ $p['loan'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400' }}">
-                            {{ $p['loan'] > 0 ? '−$' . number_format($p['loan'], 2) : '—' }}
-                        </td>
-                        <td class="px-3 py-2 text-right tabular-nums text-primary-600 dark:text-primary-400">${{ number_format($p['net'], 2) }}</td>
-                    </tr>
-                </tfoot>
-            @endif
-        </table>
+    <div class="grid gap-3" aria-label="Payout preview by person">
+        @forelse ($p['rows'] as $row)
+            <article class="vxw-card">
+                <div class="vxw-card-body">
+                    <h3 class="vxw-h2 break-words">{{ $row['streamer'] }}</h3>
+                    <dl class="grid grid-cols-2 gap-3 mt-3">
+                        <div><dt class="vxw-fig-label">Gross pay</dt><dd class="vxw-fig-value">{{ $money($row['gross']) }}</dd></div>
+                        <div><dt class="vxw-fig-label">Loan repayment</dt><dd class="vxw-fig-value {{ $row['loan'] > 0 ? 'vxw-tone-warn' : '' }}">{{ $row['loan'] > 0 ? '−' . $money($row['loan']) : '—' }}</dd></div>
+                        <div class="col-span-2"><dt class="vxw-fig-label">Net pay</dt><dd class="vxw-stat-value">{{ $money($row['net']) }}</dd></div>
+                    </dl>
+                </div>
+            </article>
+        @empty
+            <p class="vxw-empty">No payouts in this batch yet.</p>
+        @endforelse
     </div>
+
+    @if (! empty($p['rows']))
+        <section class="vxw-card" aria-label="Payout preview totals">
+            <div class="vxw-card-body">
+                <h3 class="vxw-h2">Total ({{ count($p['rows']) }})</h3>
+                <dl class="vxw-dl mt-2">
+                    <div><dt>Gross pay</dt><dd>{{ $money($p['gross']) }}</dd></div>
+                    <div><dt>Loan repayment</dt><dd>{{ $p['loan'] > 0 ? '−' . $money($p['loan']) : '—' }}</dd></div>
+                    <div><dt><strong>Net pay</strong></dt><dd><strong>{{ $money($p['net']) }}</strong></dd></div>
+                </dl>
+            </div>
+        </section>
+    @endif
 </div>

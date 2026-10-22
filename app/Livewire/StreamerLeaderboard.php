@@ -30,7 +30,7 @@ class StreamerLeaderboard extends Component
     {
         $user = auth()->user();
         // Everyone with the Shows tab: admins, streamers, and roles granted Shows.
-        return AdminModules::isEnabled('streams') && (bool) ($user?->isAdmin() || ($user?->isStreamer() && $user->streamer) || ($user && RoleAccess::grants(Shows::class, $user)));
+        return AdminModules::isEnabled('streams') && (bool) ($user?->isAdmin() || (($user?->isStreamer() || $user?->hasRole('streamer_assistant')) && $user->streamer) || ($user && RoleAccess::grants(Shows::class, $user)));
     }
 
     public function mount(): void { abort_unless(static::canView(), 403); }

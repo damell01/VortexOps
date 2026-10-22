@@ -236,6 +236,12 @@ class InventoryItemResource extends Resource
     // streamers a link even with the inventory module off, which canAccess()
     // refuses. The trait derives the link from canAccess() for everyone.
 
+    protected static function passesModuleAccessCheck(): bool
+    {
+        $user = auth()->user();
+        return (bool) ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer());
+    }
+
     public static function canCreate(): bool
     {
         $user = auth()->user();

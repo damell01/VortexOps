@@ -172,7 +172,13 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                 'status' => 'draft', 'notes' => $data['notes'] ?? null, 'created_by' => auth()->id(),
             ]);
             if ($kind === 'other') {
+                if (empty($data['other_payments'])) {
+                    throw ValidationException::withMessages(['data.other_payments' => 'Add at least one payment recipient.']);
+                }
                 foreach (($data['other_payments'] ?? []) as $row) {
+                    if (! is_numeric($row['amount'] ?? null) || round((float) $row['amount'], 2) <= 0 || trim((string) ($row['description'] ?? '')) === '') {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Every recipient needs a positive amount and description.']);
+                    }
                     $person = \App\Models\Streamer::query()->whereKey($row['streamer_id'])
                         ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
                         ->whereNotNull('user_id')->firstOrFail();

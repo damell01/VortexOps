@@ -871,8 +871,7 @@ def tips_probe(session: DynamicSession):
 def main():
     if not PROFILE:
         fail("WHATNOT_USER_DATA_DIR is required")
-    if not CHROME:
-        fail("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is required")
+    # The Scrapling StealthySession backend can discover its own Chrome binary.\n    # Preserve the explicit executable requirement for legacy modes.\n    if not CHROME and MODE != "tips-probe":\n        fail("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is required")
     Path(PROFILE).mkdir(parents=True, exist_ok=True)
     info(f"engine=Scrapling DynamicSession mode={MODE} profile={PROFILE}")
     with DynamicSession(

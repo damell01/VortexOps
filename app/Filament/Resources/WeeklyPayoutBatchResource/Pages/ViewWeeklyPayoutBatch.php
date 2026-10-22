@@ -172,6 +172,18 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     ->send();
             });
 
+        $syncAssistants = Action::make('sync_assistant_pay')
+            ->label('Add Assistant Hours')
+            ->icon('heroicon-o-clock')
+            ->visible(fn () => $this->record->status === 'draft')
+            ->requiresConfirmation()
+            ->modalDescription('Add hourly payouts for assistants with linked employee profiles and rates. Existing assistant payouts will not be duplicated.')
+            ->action(function (): void {
+                $count = app(\App\Services\AssistantPayoutService::class)->sync($this->record);
+                $this->record->refresh();
+                Notification::make()->title($count.' assistant payout(s) added')->success()->send();
+            });
+
         $otherPayment = Action::make('other_payment')
             ->label('Other Payment')
             ->icon('heroicon-o-plus-circle')
@@ -260,7 +272,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
                 ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
 
-            $resolveBlockers, $finalize, $override, $otherPayment, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize, $override, $syncAssistants, $otherPayment, $tyBurden, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

@@ -61,6 +61,19 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         return "{$status} · {$entries} payout " . ($entries === 1 ? 'entry' : 'entries') . " · {$total} total";
     }
 
+    /** Read-only review figures; these are not payable until payroll integration is complete. */
+    public function assistantAndTipSummary(): array
+    {
+        $summary = app(\App\Services\AssistantPayrollSummary::class);
+        $start = $this->record->week_start->toDateString();
+        $end = $this->record->week_end->toDateString();
+
+        return [
+            'assistants' => $summary->hours($start, $end)->all(),
+            'tips' => $summary->tipsByChannel($start, $end),
+        ];
+    }
+
     protected function getHeaderWidgets(): array { return []; }
     public function getWidgetData(): array { return ['record' => $this->record]; }
 

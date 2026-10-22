@@ -1521,7 +1521,6 @@ class InventoryScanner extends Page
     {
         $item->load(['stock.location', 'movements' => fn ($q) => $q->with('toLocation')->latest()->limit(5)]);
 
-        $costService = app(InventoryCostService::class);
         $totalQty = (float) $item->stock->sum('quantity');
         $inventoryValue = $totalQty * (float) ($item->costBasis() ?? 0);
 

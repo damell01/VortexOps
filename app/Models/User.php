@@ -119,11 +119,6 @@ class User extends Authenticatable implements FilamentUser
 
     protected static function booted(): void
     {
-        static::created(function (self $user): void {
-            \Illuminate\Support\Facades\DB::afterCommit(function () use ($user): void {
-                app(\App\Services\UserTeamProfileService::class)->sync($user->fresh());
-            });
-        });
         // A deleted login takes its pay profile off payroll with it, so the
         // person stops showing on Rates & Adjustments and in new Pay Runs.
         // Profiles with past shows or pay are archived, not deleted.

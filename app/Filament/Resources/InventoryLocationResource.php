@@ -52,7 +52,7 @@ class InventoryLocationResource extends Resource
     {
         $user = auth()->user();
 
-        return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer()) ?? false;
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer() || $user?->hasRole('streamer_assistant')) ?? false;
     }
 
     // No canAccess() override here on purpose. Overriding it bypasses

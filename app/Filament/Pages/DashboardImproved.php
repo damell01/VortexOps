@@ -69,6 +69,10 @@ class DashboardImproved extends Dashboard
 
         $user = auth()->user();
 
+        if ($user?->hasRole('streamer_assistant') && ! $user->isAdmin() && ! $user->isOwner()) {
+            return [];
+        }
+
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
             return [
                 StreamerOverviewWidget::class,
@@ -111,7 +115,9 @@ class DashboardImproved extends Dashboard
             $data['dashboardOverview'] = $this->dashboardOverview();
         }
 
-        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        if ($user?->hasRole('streamer_assistant') && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            $data['roleMode'] = 'assistant';
+        } elseif ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $data['roleMode'] = 'streamer';
             $streamerId = $user->streamer?->id ?? 0;
             $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();

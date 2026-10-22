@@ -75,6 +75,15 @@
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
   <div class="vx-inv-toolbar">
     <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.500ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
+    <label class="flex min-w-[180px] flex-col gap-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+      Location
+      <select wire:model.live="inventoryLocationId" class="vx-inv-input" aria-label="Filter inventory by location">
+        <option value="">All accessible locations</option>
+        @foreach($this->inventoryLocationOptions() as $locationId => $locationName)
+          <option value="{{ $locationId }}">{{ $locationName }}</option>
+        @endforeach
+      </select>
+    </label>
    @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
    <div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>
@@ -114,7 +123,7 @@
    <div class="vx-catalog-grid">
     @foreach($this->catalogItems as $item)
      @php
-      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
+      $onHand=$this->inventoryLocationId && array_key_exists($this->inventoryLocationId, $this->inventoryLocationOptions()) ? (float)$item->stock->where('inventory_location_id', $this->inventoryLocationId)->sum('quantity') : (float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif

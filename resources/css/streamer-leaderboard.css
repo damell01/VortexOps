@@ -335,3 +335,51 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
 .vxl .vxl-podium-card{position:relative;z-index:1}
 .vxl .vxl-podium.vxl-3d-active .vxl-podium-card{background:linear-gradient(180deg,#fbfaff26,#f8f3ffb8 48%,#faf8fff0)}
 @media(max-width:640px),(prefers-reduced-motion:reduce){.vxl .vxl-3d-stage{display:none!important}}
+
+/* 3D mode is ONE integrated scene, not the old sprite podium overlaid on it.
+   Keep only accessible names/earnings as a compact bottom HUD. */
+.vxl .vxl-podium.vxl-3d-active{
+ min-height:340px;
+ padding:0 14px 12px;
+ align-items:end;
+ background:#eee9f7;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-3d-stage{
+ opacity:1;
+ inset:0;
+ z-index:0;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-arena-still{display:none}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-card{
+ position:relative;
+ z-index:2;
+ min-height:0;
+ padding:0 4px;
+ background:none!important;
+ border:0!important;
+ box-shadow:none!important;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-card:before,
+.vxl .vxl-podium.vxl-3d-active .vxl-scene,
+.vxl .vxl-podium.vxl-3d-active .vxl-crown{
+ display:none!important;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-copy,
+.vxl .vxl-podium.vxl-3d-active .vxl-place-1 .vxl-podium-copy{
+ padding:9px 8px 7px;
+ gap:2px;
+ background:linear-gradient(180deg,#faf8ffed,#f6f1fffa);
+ border:1px solid #e8def8;
+ border-radius:11px;
+ box-shadow:0 3px 12px #3b235b14;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-card h3{font-size:12px}
+.vxl .vxl-podium.vxl-3d-active .vxl-score{font-size:clamp(15px,1.8vw,21px)}
+.vxl .vxl-podium.vxl-3d-active .vxl-replay{
+ position:absolute;inset:0;z-index:3;
+ width:100%;height:100%;background:transparent;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium:after{display:none}
+@media(min-width:641px){
+ .vxl .vxl-podium.vxl-3d-active{min-height:340px}
+}

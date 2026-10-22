@@ -6,10 +6,29 @@ use App\Filament\Resources\UserResource;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Spatie\Permission\Models\Role;
+use Livewire\WithPagination;
 
 class ListUsers extends ListRecords
 {
     use \App\Filament\Concerns\DownloadsTableCsv;
+    use WithPagination;
+
+    public string $memberSearch = '';
+
+    public function updatedMemberSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function getMemberCards(): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return UserResource::getEloquentQuery()
+            ->when(trim($this->memberSearch) !== '', function ($query): void {
+                $term = '%'.trim($this->memberSearch).'%';
+                $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
+            })
+            ->orderBy('name')->paginate(12);
+    }
 
     protected static string $resource = UserResource::class;
 

@@ -250,9 +250,6 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             $resolveBlockers, $finalize, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 $override,
-                \App\Filament\Actions\AssistantHoursAction::make($this->record),
-                \App\Filament\Actions\OtherPaymentAction::make($this->record),
-                $tyBurden,
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())
                     ->requiresConfirmation()->modalHeading('Split this Pay Run by business')

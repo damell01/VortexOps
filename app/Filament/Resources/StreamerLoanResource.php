@@ -7,6 +7,7 @@ use App\Filament\Resources\StreamerLoanResource\Pages;
 use App\Models\StreamerLoan;
 use App\Support\AdminModules;
 use Filament\Actions\EditAction;
+use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -189,6 +190,12 @@ class StreamerLoanResource extends Resource
                         default => 'gray',
                     }),
 
+                TextColumn::make('latest_payment_date')
+                    ->label('Last Payment')
+                    ->state(fn (StreamerLoan $record) => $record->payments()->max('payment_date'))
+                    ->date('M j, Y')
+                    ->placeholder('—'),
+
                 TextColumn::make('created_at')
                     ->dateTime('M j, Y')
                     ->sortable()
@@ -204,6 +211,18 @@ class StreamerLoanResource extends Resource
                     ->relationship('streamer', 'name'),
             ])
             ->actions([
+                Action::make('record_payment')
+                    ->label('Record Payment')->icon('heroicon-o-banknotes')->color('success')
+                    ->visible(fn (StreamerLoan $record) => $record->status === 'active')
+                    ->form([
+                        TextInput::make('amount')->label('Amount ($)')->numeric()->minValue(0.01)->required(),
+                        \Filament\Forms\Components\DatePicker::make('payment_date')->label('Payment Date')->default(now())->maxDate(now())->required(),
+                        Textarea::make('note')->label('Note (optional)'),
+                    ])
+                    ->action(function (StreamerLoan $record, array $data): void {
+                        $record->recordManualPayment((float) $data['amount'], (string) $data['payment_date'], $data['note'] ?? null);
+                        \Filament\Notifications\Notification::make()->title('Loan payment recorded')->success()->send();
+                    }),
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
                 \Filament\Actions\DeleteAction::make()->iconButton(),

@@ -783,6 +783,91 @@ def ledger(session: DynamicSession):
     return output
 
 
+
+def tips_probe(session: DynamicSession):
+    """Read-only show-specific tips via authenticated Scrapling browser."""
+    live_id = os.getenv("WHATNOT_TIPS_LIVESTREAM_ID", "").strip()
+    if not UUID_RE.fullmatch(live_id):
+        fail("WHATNOT_TIPS_LIVESTREAM_ID must be a valid livestream UUID")
+    result = {}
+
+    query = (
+        "query GetTipsTable($before:String,$after:String,$first:Int,$last:Int,"
+        "$isLivestreamSource:Boolean!,$livestreamId:ID!,$surface:TipSurface)"
+        "{me@skip(if:$isLivestreamSource){id tips(before:$before,after:$after,first:$first,"
+        "last:$last,direction:RECEIVED,surface:$surface){...TipsTableConnection}}"
+        "liveStream(id:$livestreamId)@include(if:$isLivestreamSource)"
+        "{id tips(before:$before,after:$after,first:$first,last:$last){...TipsTableConnection}}}"
+        "fragment TipsTableRow on TipNode{id value{amount currency} surface createdAt}"
+        "fragment TipsTableConnection on TipNodeConnection{pageInfo{hasNextPage endCursor}"
+        "totalCount edges{node{...TipsTableRow}cursor}}"
+    )
+
+    def action(page):
+        prepare(page)
+        page.goto(f"{BASE}/dashboard/tips?first=100&source={live_id}",
+                  wait_until="domcontentloaded", timeout=30000)
+        check_login(page)
+        ids = set()
+        total_cents = 0
+        after = None
+        pages = 0
+        expected = None
+        while True:
+            variables = {
+                "after": after, "before": None, "first": 100, "last": None,
+                "isLivestreamSource": True, "livestreamId": live_id, "surface": None,
+            }
+            response = page.evaluate(
+                """async ({query, variables}) => {
+                    const r = await fetch('/services/graphql/?operationName=GetTipsTable&ssr=0', {
+                        method:'POST', credentials:'include',
+                        headers:{'content-type':'application/json'},
+                        body:JSON.stringify({operationName:'GetTipsTable',query,variables})
+                    });
+                    return {status:r.status,body:await r.json()};
+                }""",
+                {"query": query, "variables": variables},
+            )
+            if response.get("status") != 200 or response.get("body", {}).get("errors"):
+                fail(f"TIPS_GRAPHQL_FAILED status={response.get('status')} errors={str(response.get('body', {}).get('errors', []))[:250]}")
+            stream = (response.get("body", {}).get("data") or {}).get("liveStream")
+            if not stream or stream.get("id") != live_id or not stream.get("tips"):
+                fail("TIPS_SHOW_MISMATCH: API did not return the requested livestream")
+            conn = stream["tips"]
+            expected = conn.get("totalCount")
+            for edge in conn.get("edges") or []:
+                tip = edge.get("node") or {}
+                tip_id = tip.get("id")
+                if not tip_id or tip_id in ids:
+                    continue
+                money = tip.get("value") or {}
+                if money.get("currency") != "USD" or type(money.get("amount")) is not int:
+                    fail("TIPS_AMOUNT_INVALID: unexpected currency or amount")
+                ids.add(tip_id)
+                total_cents += money["amount"]
+            pages += 1
+            if pages > 100:
+                fail("TIPS_PAGINATION_LIMIT: more than 100 pages")
+            info(f"tips-probe: page={pages} unique={len(ids)}")
+            if not (conn.get("pageInfo") or {}).get("hasNextPage"):
+                break
+            cursor = conn["pageInfo"].get("endCursor")
+            if not cursor or cursor == after:
+                fail("TIPS_PAGINATION_STALLED")
+            after = cursor
+        result.update({
+            "livestream_id": live_id, "reported_count": expected,
+            "unique_tips": len(ids), "total_cents": total_cents,
+            "total_usd": f"{total_cents / 100:.2f}", "pages": pages,
+            "read_only": True,
+        })
+
+    session.fetch(f"{BASE}/dashboard/home", page_action=action, timeout=60000,
+                  network_idle=False, google_search=False)
+    return result
+
+
 def main():
     if not PROFILE:
         fail("WHATNOT_USER_DATA_DIR is required")
@@ -809,6 +894,8 @@ def main():
             result = batch(session, True)
         elif MODE == 'ledger':
             result = ledger(session)
+        elif MODE == 'tips-probe':
+            result = tips_probe(session)
         elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index')):
             result = globals()['reconcile_index'](session)
         elif MODE == 'reconcile-index' and callable(globals().get('reconcile_index_handler')):

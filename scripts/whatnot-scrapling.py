@@ -24,7 +24,9 @@ MODE = os.getenv("WHATNOT_MODE", "analytics").strip()
 CHANNEL = os.getenv("WHATNOT_CHANNEL_NAME", "").strip()
 PROFILE = os.getenv("WHATNOT_USER_DATA_DIR", "").strip()
 CHROME = os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "").strip()
-# Tips probes are commonly run from SSH without an X server. Preserve the\n# existing headed default for other scraper modes.\nHEADLESS = os.getenv("WHATNOT_HEADLESS", "true" if MODE == "tips-probe" else "false").strip().lower() not in {"false", "0", "no", "off"}
+# Tips probes are commonly run from SSH without an X server.
+# Preserve the existing headed default for other scraper modes.
+HEADLESS = os.getenv("WHATNOT_HEADLESS", "true" if MODE == "tips-probe" else "false").strip().lower() not in {"false", "0", "no", "off"}
 LIMIT = max(1, min(500, int(os.getenv("WHATNOT_LIMIT", "50"))))
 START_UUID = os.getenv("WHATNOT_START_UUID", "").strip()
 UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)

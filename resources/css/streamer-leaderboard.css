@@ -326,19 +326,3 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
  background:linear-gradient(180deg,#f9f5ffb0,#f3edffdf 82%,#faf8ff);
 }
 @media(max-width:640px){.vxl .vxl-arena-still{opacity:.18;background-position:center}}
-
-/* Lazy 3D colosseum: the animated scene is decorative behind real HTML data. */
-.vxl .vxl-3d-stage{
- position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;
- transition:opacity .4s ease;overflow:hidden;
-}
-.vxl .vxl-3d-stage canvas{width:100%!important;height:100%!important;display:block}
-.vxl .vxl-podium.vxl-3d-active .vxl-3d-stage{opacity:.44}
-.vxl .vxl-podium.vxl-3d-active .vxl-arena-still{opacity:0}
-.vxl .vxl-podium-card{position:relative;z-index:1}
-.vxl .vxl-podium.vxl-3d-active .vxl-podium-card{
- background:linear-gradient(180deg,#fbfaff24,#f8f3ffcf 45%,#faf8fff2);
-}
-@media(max-width:640px),(prefers-reduced-motion:reduce){
- .vxl .vxl-3d-stage{display:none!important}
-}

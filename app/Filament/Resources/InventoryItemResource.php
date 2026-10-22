@@ -239,38 +239,14 @@ class InventoryItemResource extends Resource
     public static function canCreate(): bool
     {
         $user = auth()->user();
-        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        // "Can Edit" on Roles & Permissions, which used to be a checkbox
-        // nothing read.
-        if (\App\Support\RoleAccess::allowsEditing(static::class)) {
-            return true;
-        }
-
-        $user = auth()->user();
-
-        // Admins and owners can always edit
-        if ($user?->isAdmin() || $user?->isOwner()) {
-            return true;
-        }
-
-        // Streamers can only edit items in their assigned inventory locations
-        if ($user?->isStreamer()) {
-            $streamer = $user->streamer;
-            if (!$streamer) {
-                return false;
-            }
-
-            $streamerLocationIds = $streamer->inventoryLocations()->pluck('id');
-            return $record->stock()
-                ->whereIn('inventory_location_id', $streamerLocationIds)
-                ->exists();
-        }
-
-        return false;
+        // Inventory maintenance is admin-only. Streamers may view stock and
+        // select existing products in their show reports, not edit stock.
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

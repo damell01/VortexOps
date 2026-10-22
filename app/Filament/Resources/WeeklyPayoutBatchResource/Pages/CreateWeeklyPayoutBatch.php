@@ -102,7 +102,8 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         ->schema([
                             \Filament\Forms\Components\Select::make('streamer_id')
                                 ->label('Employee')
-                                ->options(fn () => \App\Models\Streamer::query()->whereNotNull('user_id')
+                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Streamer::query()->whereNotNull('user_id')
+                                    ->when(filled($get('../../business_id')), fn ($q) => $q->where('business_id', (int) $get('../../business_id')))
                                     ->orderBy('name')->pluck('name', 'id')->all())
                                 ->searchable()->required(),
                             \Filament\Forms\Components\TextInput::make('amount')

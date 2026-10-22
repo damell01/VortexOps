@@ -35,7 +35,7 @@ function scan() {
         console.warn('[leaderboard 3D] CSS fallback:', error);
         root.classList.remove('vxl-3d-active');
         arena?.destroy(); arena = null;
-        root.querySelector('.vxl-replay')?.click();
+        root.dispatchEvent(new CustomEvent('vxl-3d-fallback'));
       } finally { loading = false; }
     };
     root.vxlReplay3d = () => { if (!arena || loading) return false; start(true); return true; };

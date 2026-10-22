@@ -49,6 +49,11 @@ class LedgerEntry extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function signedAmount(): float
+    {
+        return (float) $this->amount * ($this->direction === 'debit' ? -1 : 1);
+    }
+
     public static function typeLabels(): array
     {
         return [

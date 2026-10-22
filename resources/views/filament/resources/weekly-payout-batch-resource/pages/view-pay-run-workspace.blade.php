@@ -1,7 +1,7 @@
 <x-filament-panels::page>
 @php
     $run = $this->record;
-    $run->loadMissing(['payouts.streamer','payouts.show','createdBy','finalizedBy']);
+    $run->loadMissing(['payouts.streamer.user','payouts.show','createdBy','finalizedBy']);
     $payouts = $run->payouts;
     $problems = $run->status === 'draft' ? app(\App\Services\PayRunReadinessService::class)->problems($run) : [];
     $allPeople = $payouts->groupBy('streamer_id');
@@ -10,8 +10,16 @@
     if ($peopleSearch !== '') {
         $byPerson = $byPerson->filter(fn($rows) => str_contains(strtolower((string)($rows->first()?->streamer?->name ?? '')), strtolower($peopleSearch)));
     }
-    // Largest payouts first: that is the order a reviewer checks them in.
+    // Review team members by payroll role, then largest payout within each role.
+    $payRole = function ($rows): string {
+        $person = $rows->first()?->streamer;
+        if ($person?->user?->hasRole('streamer_assistant') || $person?->member_type === 'assistant') return 'Streamer assistants';
+        if ($person?->isFulfillment()) return 'Fulfillment';
+        if ($person?->member_type === 'streamer') return 'Streamers';
+        return 'Other team members';
+    };
     $byPerson = $byPerson->sortByDesc(fn ($rows) => (float) $rows->sum('calculated_payout'));
+    $byPerson = $byPerson->sortBy(fn ($rows) => array_search($payRole($rows), ['Streamers','Fulfillment','Streamer assistants','Other team members'], true));
     $peopleTotal = $byPerson->count();
     $peopleLastPage = max(1, (int) ceil($peopleTotal / $this::PEOPLE_PER_PAGE));
     $peoplePage = min(max(1, $this->peoplePage), $peopleLastPage);
@@ -38,48 +46,19 @@
     $money = fn ($v) => '$' . number_format((float) $v, 2);
 @endphp
 
-@if($run->kind !== 'other')
-@php
-    $assistantReport = $this->assistantAndTipSummary();
-    $assistantRows = $assistantReport['assistants'];
-    $tipRows = $assistantReport['tips'];
-    $channelNames = \App\Models\WhatnotChannel::query()->pluck('name', 'id')->all();
-@endphp
-
 <div class="vxw" data-vx-page="pay-run">
-<section class="vxw-card mb-4" aria-label="Assistant hours and channel tips">
-    <div class="vxw-card-body">
-        <h3 class="text-lg font-semibold">Assistant hours and channel tips</h3>
-        <p class="text-sm opacity-70">Review-only figures. Assistant amounts are not included in payout totals yet; ledger tips are not added to payroll.</p>
-        <div class="grid gap-5 md:grid-cols-2 mt-4">
-            <div>
-                <h4 class="font-semibold mb-2">Streamer assistants</h4>
-                @forelse ($assistantRows as $assistant)
-                    <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span>{{ $assistant['name'] }} @if ($assistant['pending_review']) <span class="text-amber-600">({{ $assistant['pending_review'] }} to review)</span> @endif</span>
-                        <span class="text-right"><strong>{{ number_format($assistant['hours'], 2) }} h</strong><span class="block text-xs opacity-70">@if ($assistant['hourly_rate'] !== null) {{ $money($assistant['hourly_rate']) }}/hr · estimated {{ $money($assistant['estimated_pay']) }} @else Hourly rate not configured @endif</span></span>
-                    </div>
-                @empty
-                    <p class="text-sm opacity-70">No assistants configured.</p>
-                @endforelse
-            </div>
-            <div>
-                <h4 class="font-semibold mb-2">Ledger tips by channel</h4>
-                @forelse ($tipRows['channels'] as $channelId => $amount)
-                    <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span>{{ $channelNames[$channelId] ?? ('Channel #'.$channelId) }}</span>
-                        <strong>{{ $money($amount) }}</strong>
-                    </div>
-                @empty
-                    <p class="text-sm opacity-70">No channel-attributed ledger tips for this period.</p>
-                @endforelse
-                <div class="flex justify-between gap-3 py-2">
-                    <span>Unassigned tips</span><strong>{{ $money($tipRows['unassigned']) }}</strong>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+@php
+    $tipSummary = $run->kind !== 'other' ? $this->assistantAndTipSummary()['tips'] : null;
+    $tipTotal = $tipSummary ? array_sum($tipSummary['channels']) + (float) $tipSummary['unassigned'] : 0;
+@endphp
+@if($tipSummary && $tipTotal > 0)
+    <details class="vxw-card mb-4">
+        <summary class="vxw-card-head cursor-pointer">
+            <h3 class="vxw-h2">Ledger tips (reference only)</h3>
+            <strong>{{ $money($tipTotal) }}</strong>
+        </summary>
+        <div class="vxw-card-body text-sm opacity-75">These tips are not included in this pay run's payout totals.</div>
+    </details>
 @endif
 
     <section class="vxw-card">
@@ -143,7 +122,7 @@
             <div class="vxw-card-head">
                 <div>
                     <h3 class="vxw-h2">People in this run</h3>
-                    <p class="vxw-sub">Largest payouts first. Open a person to see the show lines behind their total.</p>
+                    <p class="vxw-sub">Grouped by team role. Open a person to review the lines behind their total.</p>
                 </div>
                 <div class="vxw-search w-full sm:w-56">
                     <x-filament::icon icon="heroicon-m-magnifying-glass" />
@@ -153,6 +132,9 @@
 
             <div class="vxw-rows" wire:loading.class="opacity-60" wire:target="peopleSearch,previousPeoplePage,nextPeoplePage" style="transition:opacity 150ms">
                 @forelse($visiblePeople as $streamerId => $rows)
+                    @if($loop->first || $payRole($rows) !== $payRole($visiblePeople->values()[$loop->index - 1]))
+                        <div class="px-4 py-3 text-xs font-bold uppercase tracking-wide text-violet-600 bg-violet-50 dark:bg-violet-950/20">{{ $payRole($rows) }}</div>
+                    @endif
                     @php
                         $person = $rows->first()->streamer;
                         $personTotal = (float) $rows->sum('calculated_payout');
@@ -166,7 +148,7 @@
                             <div class="vxw-row-main">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="vxw-row-title" style="white-space:normal">{{ $person?->name ?? 'Unassigned team member' }}</span>
-                                    <span class="vxw-pill {{ $person?->isFulfillment() ? 'vxw-pill--info' : 'vxw-pill--accent' }}" style="height:20px;font-size:11px">{{ $person?->isFulfillment() ? 'Fulfillment' : 'Streamer' }}</span>
+                                    <span class="vxw-pill {{ $person?->isFulfillment() ? 'vxw-pill--info' : 'vxw-pill--accent' }}" style="height:20px;font-size:11px">{{ $payRole($rows) === 'Streamers' ? 'Streamer' : ($payRole($rows) === 'Streamer assistants' ? 'Assistant' : ($payRole($rows) === 'Other team members' ? 'Other' : 'Fulfillment')) }}</span>
                                 </div>
                                 <div class="vxw-row-line">
                                     <span>{{ $personShows }} {{ \Illuminate\Support\Str::plural('show', $personShows) }}</span>
@@ -242,8 +224,13 @@
                 </div>
                 <div class="vxw-card-body">
                     @if($problems)
-                        <ul class="vxw-issues">@foreach($problems as $problem)<li>{{ $problem }}</li>@endforeach</ul>
-                        <a href="{{ $blockedUrl }}" class="vxw-btn vxw-btn--sm vxw-btn--block mt-3">Open blocked shows</a>
+                        <p class="vxw-meta">Review the outstanding issues before finalizing. Only the first few are shown here.</p>
+                        <details class="mt-3">
+                            <summary class="cursor-pointer text-sm font-semibold text-violet-600">View {{ count($problems) }} issues</summary>
+                            <ul class="vxw-issues mt-3 max-h-64 overflow-y-auto">@foreach(array_slice($problems, 0, 8) as $problem)<li>{{ $problem }}</li>@endforeach</ul>
+                            @if(count($problems) > 8)<p class="vxw-meta mt-2">+ {{ count($problems) - 8 }} more issues. Open blocked shows for the full list.</p>@endif
+                        </details>
+                        <a href="{{ $blockedUrl }}" class="vxw-btn vxw-btn--sm vxw-btn--block mt-3">Review blocked shows →</a>
                     @else
                         <div class="vxw-meta vxw-tone-ok">{{ $run->status === 'draft' ? 'Nothing blocks this run.' : 'Checks passed when this run was finalized.' }}</div>
                     @endif

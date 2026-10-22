@@ -209,14 +209,15 @@ class InventoryOverview extends Page
     public function categoryBreakdown(): Collection
     {
         return InventoryItemResource::getEloquentQuery()
-            ->get(['products.id', 'products.category'])
-            ->groupBy(fn ($item) => filled($item->category) ? $item->category : 'Other')
-            ->map(fn ($rows, $name) => [
-                'name' => $name,
-                'count' => $rows->count(),
-            ])
-            ->sortByDesc('count')
-            ->values();
+            ->reorder()
+            ->selectRaw("COALESCE(NULLIF(TRIM(products.category), ''), 'Other') AS category_name, COUNT(DISTINCT products.id) AS item_count")
+            ->groupByRaw("COALESCE(NULLIF(TRIM(products.category), ''), 'Other')")
+            ->orderByDesc('item_count')
+            ->get()
+            ->map(fn ($row) => [
+                'name' => $row->category_name,
+                'count' => (int) $row->item_count,
+            ]);
     }
 
     #[Computed]

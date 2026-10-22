@@ -139,33 +139,13 @@ class LoansRelationManager extends RelationManager
                     ->color('success')
                     ->visible(fn (StreamerLoan $record) => $record->status === 'active')
                     ->form([
-                        TextInput::make('amount')
-                            ->label('Payment Amount ($)')
-                            ->numeric()
-                            ->minValue(0.01)
-                            ->required(),
-                        Textarea::make('note')
-                            ->label('Note (optional)')
-                            ->rows(2),
+                        TextInput::make('amount')->label('Payment Amount ($)')->numeric()->minValue(0.01)->required(),
+                        \Filament\Forms\Components\DatePicker::make('payment_date')->label('Payment Date')->default(now())->required()->maxDate(now()),
+                        Textarea::make('note')->label('Note (optional)')->rows(2),
                     ])
                     ->action(function (StreamerLoan $record, array $data): void {
-                        $amount     = (float) $data['amount'];
-                        $newBalance = max(0, round((float) $record->remaining_balance - $amount, 2));
-
-                        $noteAppend = $data['note']
-                            ? " | Payment of \${$amount} recorded: {$data['note']}"
-                            : " | Payment of \${$amount} recorded manually";
-
-                        $record->update([
-                            'remaining_balance' => $newBalance,
-                            'status'            => $newBalance <= 0 ? 'paid_off' : 'active',
-                            'notes'             => ($record->notes ?? '') . $noteAppend,
-                        ]);
-
-                        Notification::make()
-                            ->title('Payment recorded — balance updated to $' . number_format($newBalance, 2))
-                            ->success()
-                            ->send();
+                        $record->recordManualPayment((float) $data['amount'], (string) $data['payment_date'], $data['note'] ?? null);
+                        Notification::make()->title('Payment recorded — balance updated to $' . number_format((float) $record->remaining_balance, 2))->success()->send();
                     }),
 
                 Action::make('adjust_balance')

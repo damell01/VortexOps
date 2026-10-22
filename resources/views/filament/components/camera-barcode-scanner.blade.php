@@ -169,7 +169,7 @@ function cameraScanner() {
                         name: 'Live',
                         type: 'LiveStream',
                         target: readerDiv,
-                        area: { top: '25%', right: '8%', left: '8%', bottom: '25%' },
+                        area: { top: '30%', right: '5%', left: '5%', bottom: '30%' },
                         constraints: {
                             facingMode: 'environment',
                             width: { ideal: 1280 },
@@ -179,8 +179,8 @@ function cameraScanner() {
                     decoder: { readers: ['code_128_reader','ean_reader','ean_8_reader','upc_reader','upc_e_reader'] },
                     locator: { patchSize: 'medium', halfSample: true },
                     locate: true,
-                    frequency: 12,
-                    numOfWorkers: Math.min(navigator.hardwareConcurrency || 2, 4),
+                    frequency: 20,
+                    numOfWorkers: Math.min(Math.max((navigator.hardwareConcurrency || 2) - 1, 1), 2),
                     multiple: false
                 }, err => {
                     if (err) {

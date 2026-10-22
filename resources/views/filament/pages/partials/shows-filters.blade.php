@@ -9,5 +9,6 @@
     @else
         <span></span>
     @endif
+    <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" wire:model.live="filterHasTips" style="width:auto"> Only shows with tips</label>
     <button type="button" class="vx-btn" wire:click="clearFilters" @disabled(! $this->activeFilterCount())>Reset</button>
 </div>

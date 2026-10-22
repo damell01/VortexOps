@@ -69,6 +69,10 @@ class DashboardImproved extends Dashboard
 
         $user = auth()->user();
 
+        if ($user?->hasRole('streamer_assistant') && ! $user->isAdmin() && ! $user->isOwner()) {
+            return [];
+        }
+
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
             return [
                 StreamerOverviewWidget::class,

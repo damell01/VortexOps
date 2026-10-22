@@ -204,7 +204,12 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                 if (empty($data['other_payments'])) {
                     throw ValidationException::withMessages(['data.other_payments' => 'Add at least one payment recipient.']);
                 }
+                $seenRecipients = [];
                 foreach (($data['other_payments'] ?? []) as $row) {
+                    if (in_array((int) ($row['user_id'] ?? 0), $seenRecipients, true)) {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Select each recipient only once per pay run.']);
+                    }
+                    $seenRecipients[] = (int) ($row['user_id'] ?? 0);
                     if (! is_numeric($row['amount'] ?? null) || round((float) $row['amount'], 2) <= 0 || trim((string) ($row['description'] ?? '')) === '') {
                         throw ValidationException::withMessages(['data.other_payments' => 'Every recipient needs a positive amount and description.']);
                     }
@@ -215,7 +220,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     }
                     \App\Models\Payout::create([
                         'streamer_id' => $person->id, 'weekly_payout_batch_id' => $batch->id,
-                        'payout_type' => 'other_payment', 'calculated_payout' => (float) $row['amount'],
+                        'payout_type' => 'other_payment', 'calculated_payout' => round((float) $row['amount'], 2),
                         'gross_show_revenue' => 0, 'owner_fee_deducted' => 0,
                         'tips_included' => 0, 'status' => 'draft',
                         'calculation_notes' => '[OTHER_PAYMENT] '.trim($row['description']),

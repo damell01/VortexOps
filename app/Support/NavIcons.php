@@ -28,6 +28,7 @@ class NavIcons
         // Payroll
         'Payroll Overview' => 'heroicon-o-wallet',
         'Pay Run History' => 'heroicon-o-banknotes',
+        'Streamer Loans' => 'heroicon-o-credit-card',
         'Payment Structures' => 'heroicon-o-adjustments-horizontal',
         'Businesses' => 'heroicon-o-building-office-2',
         'Payroll Simulator' => 'heroicon-o-calculator',

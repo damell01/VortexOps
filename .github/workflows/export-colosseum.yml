@@ -30,15 +30,15 @@ jobs:
           for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:5173/arena-export.html >/dev/null 2>&1; then exit 0; fi; sleep 2; done; cat /tmp/vite-export.log; exit 1
       - name: Capture original 3D arena
         run: node scripts/export-colosseum.mjs
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
       - name: Encode colosseum still image
         run: |
           ffmpeg -hide_banner -loglevel error -y -i storage/app/colosseum-still.png -frames:v 1 -q:v 75 public/img/vortex-colosseum-still.webp
-      - name: Encode 1.5 second silent cinematic
-        run: |
-          mkdir -p public/video
-          ffmpeg -hide_banner -loglevel error -y -framerate 24 -i storage/app/cinematic-frames/%03d.png -c:v libx264 -pix_fmt yuv420p -preset slow -crf 30 -movflags +faststart public/video/vortex-colosseum-intro.mp4
-          ls -lh public/video/vortex-colosseum-intro.mp4
-      - name: Commit generated video to Production
+      - name: Commit generated still to Production
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

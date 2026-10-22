@@ -95,7 +95,7 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             ]),
             Section::make('3. One-off payments')
                 ->description('Select recipients and enter a separate amount and description for each.')
-                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other' && blank($get('pay_run_type_id')))
+                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other')
                 ->schema([
                     \Filament\Forms\Components\Repeater::make('other_payments')
                         ->label('Recipients')

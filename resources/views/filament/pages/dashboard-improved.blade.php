@@ -10,23 +10,23 @@
     <div
         class="space-y-3 sm:space-y-5"
         @if($pageMode === 'streamer') data-vx-page="streamer-dashboard"
-        @elseif($pageMode === 'assistant')
-            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-7">
-                <div class="text-xs font-bold uppercase tracking-widest text-violet-600">Streamer assistant</div>
-                <h1 class="mt-2 text-2xl font-bold text-gray-950 dark:text-white">Your workspace</h1>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Find upcoming shows, check the stock you are allowed to see, and explore the show leaderboard.</p>
-                <div class="mt-5 grid gap-3 sm:grid-cols-3">
-                    <a href="{{ \\App\\Filament\\Resources\\InventoryItemResource::getUrl('index') }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 hover:border-violet-400 dark:border-gray-700 dark:text-violet-300">View inventory →<span class="mt-1 block text-xs font-normal text-gray-500">Read-only stock by location</span></a>
-                    <a href="{{ \\App\\Filament\\Pages\\Timekeeping::getUrl() }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 hover:border-violet-400 dark:border-gray-700 dark:text-violet-300">My hours & shows →<span class="mt-1 block text-xs font-normal text-gray-500">See available shows and timekeeping</span></a>
-                    <a href="{{ \\App\\Filament\\Pages\\ShowPerformance::getUrl() }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 hover:border-violet-400 dark:border-gray-700 dark:text-violet-300">Show leaderboard →<span class="mt-1 block text-xs font-normal text-gray-500">Explore top-performing shows</span></a>
-                </div>
-            </section>
         @elseif($pageMode === 'fulfillment') data-vx-page="fulfillment-dashboard"
         @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
         @endif
     >
         @if($pageMode === 'streamer')
             <livewire:streamer-home :key="'streamer-home'" />
+        @elseif($pageMode === 'assistant')
+            <section class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-7">
+                <div class="text-xs font-bold uppercase tracking-widest text-violet-600">Streamer assistant</div>
+                <h1 class="mt-2 text-2xl font-bold text-gray-950 dark:text-white">Your workspace</h1>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Find upcoming shows, check the inventory you can access, and explore the show leaderboard.</p>
+                <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                    <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">View inventory →</a>
+                    <a href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">My hours &amp; shows →</a>
+                    <a href="{{ \App\Filament\Pages\ShowPerformance::getUrl() }}" class="rounded-xl border border-gray-200 p-4 font-semibold text-violet-700 dark:border-gray-700 dark:text-violet-300">Show leaderboard →</a>
+                </div>
+            </section>
         @elseif($pageMode === 'fulfillment')
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">

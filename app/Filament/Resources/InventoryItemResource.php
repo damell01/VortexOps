@@ -1189,7 +1189,7 @@ class InventoryItemResource extends Resource
                     ]),
             ])
             ->actions([
-                \App\Support\InventoryHistory::action(),
+                \App\Support\InventoryHistory::action()->visible(fn () => auth()->user()?->isAdmin() ?? false),
                 // Only rendered for containers, so it sits alongside view/edit
                 // as a third icon rather than adding a column to every row.
                 TableAction::make('contents')
@@ -1280,6 +1280,7 @@ class InventoryItemResource extends Resource
                     ->size('sm')
                     ->iconButton(),
                 EditAction::make()
+                    ->visible(fn () => auth()->user()?->isAdmin() ?? false)
                     ->size('sm')
                     ->iconButton(),
                 // Everything past view/edit lives behind the overflow menu, so
@@ -1419,7 +1420,7 @@ class InventoryItemResource extends Resource
                         ->action(fn (InventoryItem $record, $livewire) => $livewire->startBarcodeScan($record->getKey())),
                     static::deleteItemAction(),
                     static::restoreItemAction(),
-                ]),
+                ])->visible(fn () => auth()->user()?->isAdmin() ?? false),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

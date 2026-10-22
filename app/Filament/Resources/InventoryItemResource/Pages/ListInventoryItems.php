@@ -46,7 +46,7 @@ class ListInventoryItems extends ListRecords
     public function inventoryLocationOptions(): array
     {
         $allowed = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
-        return InventoryLocation::query()->where('is_active', true)
+        return InventoryLocation::query()->where('status', 'active')
             ->when($allowed !== null, fn ($query) => $query->whereIn('id', $allowed))
             ->orderBy('name')->pluck('name', 'id')->all();
     }

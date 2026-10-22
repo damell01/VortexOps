@@ -66,13 +66,13 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                         $set('dates_mode', 'custom');
                     }),
                 \Filament\Forms\Components\Select::make('kind')
-                    ->label('What this run pays')
+                    ->label('Payment category (choose Other Payment for bonuses or one-off amounts)')
                     ->options(['' => 'All pay at once (wages + profit share)'] + \App\Support\PayRunSchedules::KINDS)
                     ->default(fn () => self::presetType()?->kind ?? '')
                     ->selectablePlaceholder(false)
                     ->disabled(fn (\Filament\Schemas\Components\Utilities\Get $get) => filled($get('pay_run_type_id')))
                     ->dehydrated()
-                    ->helperText('Wages and profit share are always separate lines.'),
+                    ->helperText('Select Other Payment (one-off) to enter individual recipients, amounts, and descriptions without generating regular wages.'),
             ]),
             Section::make('2. Choose the dates')->description('Use any start and end dates, or your saved type’s optional schedule.')->columnSpanFull()->columns(['default' => 1, 'md' => 2])->schema([
                 \Filament\Forms\Components\Radio::make('dates_mode')
@@ -93,10 +93,10 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. One-off payments')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other')->schema([
+            Section::make('3. Other Payments — choose recipients and amounts')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('kind') === 'other')->schema([
                 \Filament\Forms\Components\Repeater::make('other_payments')->schema([
-                    \Filament\Forms\Components\Select::make('streamer_id')->label('Recipient')
-                        ->options(fn () => \App\Models\Streamer::query()->whereNotNull('user_id')->pluck('name', 'id')->all())->searchable()->required(),
+                    \Filament\Forms\Components\Select::make('streamer_id')->label('Streamer, assistant or fulfillment employee')
+                        ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Streamer::query()->whereNotNull('user_id')->when(filled($get('../../business_id')), fn ($q) => $q->where('business_id', (int) $get('../../business_id')))->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
                     \Filament\Forms\Components\TextInput::make('amount')->numeric()->minValue(0.01)->required(),
                     Textarea::make('description')->required(),
                 ])->minItems(1)->defaultItems(1),

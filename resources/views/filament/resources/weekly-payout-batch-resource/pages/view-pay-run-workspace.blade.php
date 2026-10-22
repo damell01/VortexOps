@@ -56,7 +56,7 @@
                 @forelse ($assistantRows as $assistant)
                     <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
                         <span>{{ $assistant['name'] }} @if ($assistant['pending_review']) <span class="text-amber-600">({{ $assistant['pending_review'] }} to review)</span> @endif</span>
-                        <strong>{{ number_format($assistant['hours'], 2) }} h</strong>
+                        <span class="text-right"><strong>{{ number_format($assistant['hours'], 2) }} h</strong><span class="block text-xs opacity-70">@if ($assistant['hourly_rate'] !== null) {{ $money($assistant['hourly_rate']) }}/hr · estimated {{ $money($assistant['estimated_pay']) }} @else Hourly rate not configured @endif</span></span>
                     </div>
                 @empty
                     <p class="text-sm opacity-70">No assistants configured.</p>

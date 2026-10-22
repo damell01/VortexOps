@@ -383,3 +383,36 @@ a.vxa-detail:focus-visible{outline:2px solid var(--vxl-accent);outline-offset:1p
 @media(min-width:641px){
  .vxl .vxl-podium.vxl-3d-active{min-height:340px}
 }
+
+/* Cinematic reveal: keep the stage unobstructed until the 3D battle settles.
+   Replay hides the results again, then fades them back in on the winner. */
+.vxl .vxl-podium.vxl-3d-active:not(.vxl-3d-settled) .vxl-podium-card{
+ opacity:0!important;
+ visibility:hidden;
+ pointer-events:none;
+ transform:translateY(12px);
+}
+.vxl .vxl-podium.vxl-3d-active.vxl-3d-settled .vxl-podium-card{
+ opacity:1;
+ visibility:visible;
+ transform:translateY(0);
+ transition:opacity .42s ease,transform .42s cubic-bezier(.2,.8,.2,1);
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-copy,
+.vxl .vxl-podium.vxl-3d-active .vxl-place-1 .vxl-podium-copy{
+ padding:7px 9px 6px;
+ background:linear-gradient(180deg,#fbfaffdf,#f8f4ffec);
+ border:1px solid #e7def4b8;
+ border-radius:10px;
+ box-shadow:0 2px 9px #27113b13;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-podium-card h3{font-size:11px;line-height:1.15}
+.vxl .vxl-podium.vxl-3d-active .vxl-show{
+ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.vxl .vxl-podium.vxl-3d-active .vxl-meta{font-size:10px;line-height:1.2}
+.vxl .vxl-podium.vxl-3d-active .vxl-score{font-size:clamp(15px,1.7vw,20px);line-height:1.15}
+.vxl .vxl-podium.vxl-3d-active{padding-bottom:8px}
+@media(prefers-reduced-motion:reduce){
+ .vxl .vxl-podium.vxl-3d-active.vxl-3d-settled .vxl-podium-card{transition:none}
+}

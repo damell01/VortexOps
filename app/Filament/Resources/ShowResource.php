@@ -950,6 +950,11 @@ class ShowResource extends Resource
                             ->orWhere('show_date', '<=', now()->endOfDay())
                     )),
 
+                Filter::make('has_tips')
+                    ->label('Shows with tips')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->where('tips', '>', 0)),
+
                 SelectFilter::make('status')
                     ->options(Show::statusLabels())
                     ->multiple(),

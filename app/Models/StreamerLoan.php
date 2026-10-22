@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StreamerLoan extends Model
 {
@@ -31,6 +32,11 @@ class StreamerLoan extends Model
     public function streamer(): BelongsTo
     {
         return $this->belongsTo(Streamer::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(StreamerLoanPayment::class)->orderByDesc('payment_date');
     }
 
     public static function statusLabels(): array

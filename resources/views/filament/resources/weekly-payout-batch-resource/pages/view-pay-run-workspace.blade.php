@@ -38,6 +38,7 @@
     $money = fn ($v) => '$' . number_format((float) $v, 2);
 @endphp
 
+@if($run->kind !== 'other')
 @php
     $assistantReport = $this->assistantAndTipSummary();
     $assistantRows = $assistantReport['assistants'];
@@ -79,6 +80,7 @@
         </div>
     </div>
 </section>
+@endif
 
     <section class="vxw-card">
         <div class="vxw-card-body grid gap-5">

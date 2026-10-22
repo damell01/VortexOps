@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/barcode-scanner.js',
                 'resources/js/colosseum.js',
+                'resources/js/leaderboard-3d.js',
             ],
             refresh: true,
         }),

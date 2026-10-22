@@ -462,7 +462,7 @@ class TimeTrackingService
     public function linkableShows(User $user, ?int $include = null, bool $all = false): Collection
     {
         $streamerId = $user->streamer?->id;
-        $all = $all && $this->isReviewer($user);
+        $all = $all && ($this->isReviewer($user) || $user->hasRole('streamer_assistant'));
 
         $shows = Show::query()
             ->where('status', '!=', 'cancelled')
@@ -491,7 +491,7 @@ class TimeTrackingService
     public function pickerShows(User $user, ?int $include = null): array
     {
         $mine = $this->linkableShows($user, $include)->pluck('id')->all();
-        $shows = $this->isReviewer($user) ? $this->linkableShows($user, $include, true) : $this->linkableShows($user, $include);
+        $shows = ($this->isReviewer($user) || $user->hasRole('streamer_assistant')) ? $this->linkableShows($user, $include, true) : $this->linkableShows($user, $include);
         $today = \App\Support\BusinessTime::local()->toDateString();
 
         // Today first, then what is coming up soonest, then earlier shows newest first.
@@ -542,7 +542,7 @@ class TimeTrackingService
             throw ValidationException::withMessages(['reason' => 'Pick a reason from the list.']);
         }
         if ($showId) {
-            $allowed = $this->isReviewer($actor ?? $user)
+            $allowed = ($this->isReviewer($actor ?? $user) || ($actor ?? $user)->hasRole('streamer_assistant'))
                 ? Show::whereKey($showId)->exists()
                 : $this->linkableShows($user)->contains('id', $showId) || TimeEntry::where('user_id', $user->id)->where('show_id', $showId)->exists();
             if (! $allowed) {

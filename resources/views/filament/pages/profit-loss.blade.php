@@ -50,6 +50,7 @@
         <button type="button" wire:click="today" class="vxr-btn vxr-btn--sm" style="height:40px">Today</button>
         <select wire:model.live="channel" class="vxr-select" aria-label="Channel"><option value="">All channels</option>@foreach ($opts['channels'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
         <select wire:model.live="business" class="vxr-select" aria-label="Business"><option value="">All businesses</option>@foreach ($opts['businesses'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+        <label style="display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-size:13px"><input type="checkbox" wire:model.live="onlyWithTips" style="width:auto"> Shows with tips</label>
         <select wire:model.live="streamer" class="vxr-select" aria-label="Streamer"><option value="">All streamers</option>@foreach ($opts['streamers'] as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
     </div>
 

@@ -60,6 +60,7 @@ class Shows extends Page
     #[Url(as: 'streamer')] public string $filterStreamer = '';
     #[Url(as: 'channel')] public string $filterChannel = '';
     #[Url(as: 'q')] public string $searchQuery = '';
+    #[Url(as: 'tips')] public bool $filterHasTips = false;
     /** Channels switched off with the pills above the calendar: ids, and "none" for shows with no channel. */
     #[Url(as: 'hide')] public string $hiddenChannels = '';
 
@@ -242,7 +243,7 @@ class Shows extends Page
 
     public function activeFilterCount(): int
     {
-        return (int) ($this->filterStatus !== 'all') + (int) ($this->filterStreamer !== '') + (int) ($this->filterChannel !== '') + (int) (trim($this->searchQuery) !== '');
+        return (int) ($this->filterStatus !== 'all') + (int) ($this->filterStreamer !== '') + (int) ($this->filterChannel !== '') + (int) (trim($this->searchQuery) !== '') + (int) $this->filterHasTips;
     }
 
     public function clearFilters(): void
@@ -251,6 +252,7 @@ class Shows extends Page
         $this->filterStreamer = '';
         $this->filterChannel = '';
         $this->searchQuery = '';
+        $this->filterHasTips = false;
         $this->resetData();
     }
 
@@ -330,6 +332,7 @@ class Shows extends Page
         if ($this->filterStatus !== 'all') $q->where('status', $this->filterStatus);
         if ($this->filterStreamer !== '' && auth()->user()?->isAdmin()) $q->whereHas('streamers', fn ($x) => $x->where('streamers.id', (int) $this->filterStreamer));
         if ($this->filterChannel !== '') $q->where('whatnot_channel_id', (int) $this->filterChannel);
+        if ($this->filterHasTips) $q->where('tips', '>', 0);
         if ($hidden = $this->hiddenChannelKeys()) {
             $ids = array_map('intval', array_filter($hidden, fn ($k) => $k !== 'none'));
             $hideNone = in_array('none', $hidden, true);

@@ -14,6 +14,7 @@ class SyncWhatnotTipsBatch extends Command
     protected $signature = 'whatnot:sync-tips-batch
         {--mode=recent : recent or history}
         {--limit=2 : Maximum shows per run}
+        {--since=2026-06-01 : Earliest show date for historical backfill}
         {--channel= : Restrict to a Whatnot username}
         {--apply : Persist verified tips; without this, preview only}';
 
@@ -26,7 +27,13 @@ class SyncWhatnotTipsBatch extends Command
             $this->error('Mode must be recent or history.');
             return self::FAILURE;
         }
-        $limit = min(10, max(1, (int) $this->option('limit')));
+        $limit = min(50, max(1, (int) $this->option('limit')));
+        try {
+            $since = Carbon::parse((string) $this->option('since'))->toDateString();
+        } catch (\Throwable $e) {
+            $this->error('Invalid --since date. Use YYYY-MM-DD.');
+            return self::FAILURE;
+        }
         $lock = Cache::lock('whatnot:tips-batch', 14400);
         if (! $lock->get()) {
             $this->warn('A tips batch is already running; skipping.');
@@ -50,6 +57,7 @@ class SyncWhatnotTipsBatch extends Command
                 ->whereNotNull('whatnot_show_id')
                 ->where('whatnot_show_id', '!=', '')
                 ->whereDate('show_date', '<=', $today)
+                ->whereDate('show_date', '>=', $since)
                 ->where(function ($q) use ($freshness) {
                     $q->whereNull('tips_verified_at')->orWhere('tips_verified_at', '<', $freshness);
                 });
@@ -63,16 +71,17 @@ class SyncWhatnotTipsBatch extends Command
                     ->orderByDesc('show_date');
             }
             // A bounded candidate pool avoids repeatedly choosing the same channel.
-            $candidates = $query->limit(250)->get();
+            $candidates = $query->limit(5000)->get();
             $selected = [];
             $perChannel = [];
+            $maxPerChannel = $mode === 'history' ? $limit : 1;
             foreach ($candidates as $show) {
                 $channelId = (int) $show->whatnot_channel_id;
-                if (($perChannel[$channelId] ?? 0) >= 1) {
+                if (($perChannel[$channelId] ?? 0) >= $maxPerChannel) {
                     continue;
                 }
                 $selected[] = $show;
-                $perChannel[$channelId] = 1;
+                $perChannel[$channelId] = ($perChannel[$channelId] ?? 0) + 1;
                 if (count($selected) >= $limit) {
                     break;
                 }

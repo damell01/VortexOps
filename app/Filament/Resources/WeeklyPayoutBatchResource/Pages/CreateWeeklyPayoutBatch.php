@@ -106,14 +106,28 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     ->afterOrEqual('week_start'),
 
             ]),
-            Section::make('3. Other Payments — choose recipients and amounts')->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')->schema([
-                \Filament\Forms\Components\Repeater::make('other_payments')->schema([
-                    \Filament\Forms\Components\Select::make('streamer_id')->label('Streamer, assistant or fulfillment employee')
-                        ->options(fn (\Filament\Schemas\Components\Utilities\Get $get) => \App\Models\Streamer::query()->whereNotNull('user_id')->when(filled($get('../../business_id')), fn ($q) => $q->where('business_id', (int) $get('../../business_id')))->orderBy('name')->pluck('name', 'id')->all())->searchable()->required(),
-                    \Filament\Forms\Components\TextInput::make('amount')->numeric()->minValue(0.01)->required(),
-                    Textarea::make('description')->required(),
-                ])->minItems(1)->defaultItems(1),
-            ]),
+            Section::make('3. Recipients and payment amounts')
+                ->description('Search any team member, add one-time amounts, and give each payment a reason.')
+                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get) => $get('run_mode') === 'other' || $get('kind') === 'other')
+                ->schema([
+                    \Filament\Forms\Components\Repeater::make('other_payments')
+                        ->label('Recipients')
+                        ->schema([
+                            \Filament\Forms\Components\Select::make('user_id')
+                                ->label('Team member')
+                                ->options(fn () => \App\Models\User::query()->orderBy('name')->get()
+                                    ->mapWithKeys(fn ($user) => [$user->id => $user->name.' ('.$user->email.')'])->all())
+                                ->searchable()->preload()->required()->live(),
+                            \Filament\Forms\Components\TextInput::make('amount')
+                                ->label('Amount')->prefix('$')->numeric()->minValue(0.01)->required(),
+                            Textarea::make('description')
+                                ->label('Payment description')->placeholder('Performance bonus, show support, extra shift…')
+                                ->rows(2)->maxLength(500)->required(),
+                        ])
+                        ->columns(['default' => 1, 'lg' => 3])
+                        ->defaultItems(1)->minItems(1)->addActionLabel('Add recipient')
+                        ->reorderable(false)->cloneable(false),
+                ]),
             Section::make('4. Add a note')->columnSpanFull()->schema([
                 Textarea::make('notes')
                     ->label('Notes (optional)')
@@ -179,9 +193,11 @@ class CreateWeeklyPayoutBatch extends CreateRecord
                     if (! is_numeric($row['amount'] ?? null) || round((float) $row['amount'], 2) <= 0 || trim((string) ($row['description'] ?? '')) === '') {
                         throw ValidationException::withMessages(['data.other_payments' => 'Every recipient needs a positive amount and description.']);
                     }
-                    $person = \App\Models\Streamer::query()->whereKey($row['streamer_id'])
-                        ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
-                        ->whereNotNull('user_id')->firstOrFail();
+                    $user = \App\Models\User::query()->findOrFail($row['user_id']);
+                    $person = app(\App\Services\UserTeamProfileService::class)->sync($user);
+                    if (! $person) {
+                        throw ValidationException::withMessages(['data.other_payments' => 'Unable to create payroll profile for selected recipient.']);
+                    }
                     \App\Models\Payout::create([
                         'streamer_id' => $person->id, 'weekly_payout_batch_id' => $batch->id,
                         'payout_type' => 'other_payment', 'calculated_payout' => (float) $row['amount'],

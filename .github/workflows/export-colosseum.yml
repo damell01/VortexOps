@@ -26,10 +26,13 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Start Vite for local render
         run: |
-          npm run dev -- --host 127.0.0.1 > /tmp/vite-export.log 2>&1 &
-          for i in $(seq 1 40); do curl -fsS http://127.0.0.1:5173/arena-export.html >/dev/null && break; sleep 2; done
+          npx vite --config vite.colosseum-export.config.js > /tmp/vite-export.log 2>&1 &
+          for i in $(seq 1 30); do if curl -fsS http://127.0.0.1:5173/arena-export.html >/dev/null 2>&1; then exit 0; fi; sleep 2; done; cat /tmp/vite-export.log; exit 1
       - name: Capture original 3D arena
         run: node scripts/export-colosseum.mjs
+      - name: Encode colosseum still image
+        run: |
+          ffmpeg -hide_banner -loglevel error -y -i storage/app/colosseum-still.png -frames:v 1 -q:v 75 public/img/vortex-colosseum-still.webp
       - name: Encode 1.5 second silent cinematic
         run: |
           mkdir -p public/video
@@ -39,8 +42,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/video/vortex-colosseum-intro.mp4
+          git add public/img/vortex-colosseum-still.webp
           if ! git diff --cached --quiet; then
-            git commit -m "Add rendered Vortex colosseum cinematic backdrop"
+            git commit -m "Add rendered Vortex colosseum still background"
             git push origin HEAD:Production
           fi

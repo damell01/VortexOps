@@ -24,17 +24,19 @@
         @if ($leader)
             @if ($page === 1)
                 {{-- Compact shared Vortex arena: sprite podium reveal, no 3D engine. --}}
-                <div class="vxl-podium" data-vxl-still="{{ $hasArenaStill ? '1' : '0' }}" wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
+                <div class="vxl-podium" data-vxl-still="{{ $hasArenaStill ? '1' : '0' }}" data-vxl-3d wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
                      x-data="{ go: false, play() { this.go = false; requestAnimationFrame(() => requestAnimationFrame(() => this.go = true)); } }"
-                     x-init="if (!matchMedia('(prefers-reduced-motion: reduce)').matches  ) { const k = 'vxl-arena-' + @js($period) + '-' + @js($leader['show_id']); let seen = null; try { seen = localStorage.getItem('vxl-battle'); localStorage.setItem('vxl-battle', k); } catch (e) {} if (seen !== k) play(); }"
+                     x-init=""
                      :class="{ 'vxl-reveal': go }"
                      x-on:animationend="if ($event.animationName === 'vxlr-crown') go = false">
+                    <div class="vxl-3d-stage" data-vxl-3d-stage aria-hidden="true"></div>
+                    <script type="application/json" data-vxl-3d-lineup>@json($visible->take(3)->values()->map(fn ($row) => ['rank' => $row['rank'], 'id' => $row['show_id'], 'buddy' => $row['buddy'], 'seed' => $row['show_id']]))</script>
                     @if ($hasArenaStill)
                         <div class="vxl-arena-still" aria-hidden="true" style="background-image:url('{{ asset('img/vortex-colosseum-still.webp') }}?v={{ filemtime($arenaStill) }}')"></div>
                     @endif
                     @foreach ($visible->take(3) as $i => $row)
                         <article @class(['vxl-podium-card', 'vxl-place-'.($i + 1), 'vxl-podium-first' => $i === 0, 'vxl-is-mine' => $row['mine']]) wire:key="podium-{{ $row['show_id'] }}">
-                            @if ($i === 0)<button type="button" class="vxl-replay" x-on:click="play()" aria-label="Replay the podium reveal" title="Replay the animation"></button>@endif
+                            @if ($i === 0)<button type="button" class="vxl-replay" x-on:click="if (!$el.closest('.vxl-podium').vxlReplay3d?.()) play()" aria-label="Replay the podium reveal" title="Replay the animation"></button>@endif
                             @if ($i === 0)<svg class="vxl-crown" viewBox="0 0 32 24" aria-hidden="true"><path d="M3 5l7 6 6-9 6 9 7-6-4 17H7z" fill="currentColor" stroke="#c58b13" stroke-width="1.5"/></svg>@endif
                             <div class="vxl-scene vxl-effect-{{ $row['effect'] }}" style="--vxl-delay: {{ $i * 0.7 }}s">
                                 <span class="vxl-medal vxl-medal-{{ min($row['rank'], 4) }}">#{{ $row['rank'] }}</span>
@@ -84,3 +86,7 @@
     </div>
     <p class="vxl-note" title="Whatnot earnings after platform fees, before product costs and pay. Each show appears once with cohosts credited together. Equal scores share a rank.">Whatnot net · Across all streamers · Estimates update as shows settle</p>
 </section>
+
+@once
+    @vite('resources/js/leaderboard-3d.js')
+@endonce

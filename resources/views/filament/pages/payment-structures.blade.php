@@ -77,6 +77,7 @@
             <div class="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
                 <button wire:click="setMemberFilter('streamer')" class="rounded-lg px-4 py-2 text-sm font-bold {{$member_filter==='streamer'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900 dark:text-primary-300':'text-gray-500'}}">Streamers</button>
                 <button wire:click="setMemberFilter('fulfillment')" class="rounded-lg px-4 py-2 text-sm font-bold {{$member_filter==='fulfillment'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900 dark:text-primary-300':'text-gray-500'}}">Fulfillment</button>
+                <button wire:click="setMemberFilter('assistant')" class="rounded-lg px-4 py-2 text-sm font-bold {{$member_filter==='assistant'?'bg-white text-primary-700 shadow-sm dark:bg-gray-900 dark:text-primary-300':'text-gray-500'}}">Streamer Assistants</button>
             </div>
             </div>
         </div>

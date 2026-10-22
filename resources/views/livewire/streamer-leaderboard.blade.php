@@ -13,29 +13,10 @@
                 <button type="button" wire:click="$set('period', '{{ $value }}')" aria-pressed="{{ $period === $value ? 'true' : 'false' }}" wire:loading.attr="disabled">{{ $label }}</button>
             @endforeach
         </div>
-        @if ($lineup)
-            <div class="vxa-mini" role="group" aria-label="Arena">
-                <button type="button" class="vxa-replay-btn" data-vxa-replay title="Replay the battle"><x-filament::icon icon="heroicon-m-arrow-path" /><span class="vxa-long">Replay animation</span><span class="vxa-short">Replay</span></button>
-                <button type="button" data-vxa-mute aria-pressed="false" aria-label="Arena sound" title="Sound off"><x-filament::icon icon="heroicon-m-speaker-x-mark" class="vxa-ico-off" /><x-filament::icon icon="heroicon-m-speaker-wave" class="vxa-ico-on" /></button>
-            </div>
-        @endif
-    </div>
-    @if ($lineup)
-        {{-- Vortex Colosseum: the top of the board. The stage and the details under
-             each podium live in one ignored block (built from the lineup below), so
-             re-renders never tear down the canvas; a period change swaps the podium
-             in place. Fixed height from first paint, so nothing jumps. --}}
-        <div class="vxa-wrap" @if ($page !== 1 || ! $leader) hidden @endif>
-            <div @class(['vxa', 'vxa-compact' => ! $arena]) data-vxa data-mode="{{ $arena ? 'full' : 'compact' }}" data-models="{{ asset('models/colosseum') }}/" data-models-v="{{ \App\Support\ColosseumAssets::version() }}" wire:ignore>
-                <div class="vxa-stage" data-vxa-stage>
-                    <div class="vxa-bars" aria-hidden="true"><i></i><i></i></div>
-                    <div class="vxa-loader" aria-hidden="true"><i></i></div>
-                </div>
-                <div class="vxa-details" data-vxa-details></div>
-            </div>
+        <div class="vxa-mini" role="group" aria-label="Leaderboard animation">
+            <button type="button" class="vxa-replay-btn" x-data x-on:click="$el.closest('.vxl').querySelector('.vxl-replay')?.click()" title="Replay the podium animation"><x-filament::icon icon="heroicon-m-arrow-path" /><span class="vxa-long">Replay animation</span><span class="vxa-short">Replay</span></button>
         </div>
-        <script type="application/json" data-vxa-lineup>@json($lineup)</script>
-    @endif
+    </div>
     <div wire:loading role="status" class="vxl-loading">Updating standings…</div>
     <div wire:loading.class="vxl-updating">
         @if ($leader)
@@ -43,9 +24,9 @@
                 {{-- A two-second sprite battle on the podium: plays once per new champion
                      (per period), replays from the button on #1. CSS transforms only. --}}
                 {{-- With the 3D stage this is only the fallback for browsers without 3D. --}}
-                <div @class(['vxl-podium', 'vxl-podium-fallback' => (bool) $lineup]) wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
+                <div class="vxl-podium" wire:key="podium-{{ $period }}-{{ $leader['show_id'] }}"
                      x-data="{ go: false, play() { this.go = false; requestAnimationFrame(() => requestAnimationFrame(() => this.go = true)); } }"
-                     x-init="if (!matchMedia('(prefers-reduced-motion: reduce)').matches && !(@js((bool) $lineup) && window.WebGLRenderingContext)) { const k = 'vxl-battle-' + @js($period) + '-' + @js($leader['show_id']); let seen = null; try { seen = localStorage.getItem('vxl-battle'); localStorage.setItem('vxl-battle', k); } catch (e) {} if (seen !== k) play(); }"
+                     x-init="if (!matchMedia('(prefers-reduced-motion: reduce)').matches  ) { const k = 'vxl-battle-' + @js($period) + '-' + @js($leader['show_id']); let seen = null; try { seen = localStorage.getItem('vxl-battle'); localStorage.setItem('vxl-battle', k); } catch (e) {} if (seen !== k) play(); }"
                      :class="{ 'vxl-battle': go }"
                      x-on:animationend="if ($event.animationName === 'vxlb-crown') go = false">
                     @foreach ($visible->take(3) as $i => $row)

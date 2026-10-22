@@ -11,7 +11,7 @@ const { spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
-const scraplingModes = new Set(['shows', 'seller-shows', 'analytics', 'historical-analytics', 'reconcile-index', 'orders-batch', 'shipments-batch', 'ledger', 'tips-probe']);
+const scraplingModes = new Set(['shows', 'seller-shows', 'analytics', 'historical-analytics', 'reconcile-index', 'orders-batch', 'shipments-batch', 'ledger', 'tips-probe', 'tips-sync']);
 const explicitBackendRaw = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
 const explicitBackend = explicitBackendRaw === 'scrapling' ? 'scrapling-stealthy' : explicitBackendRaw;
 const legacyLocal = explicitBackend === 'local';

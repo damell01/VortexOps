@@ -83,6 +83,7 @@ class ProfitLossReport
 
             return [
                 'id' => $show->id,
+                'tips_amount' => (float) ($show->tips ?? 0),
                 'date' => $show->show_date?->copy(),
                 'start' => $show->start_time?->copy(),
                 'title' => $show->title ?: 'Show #'.$show->id,

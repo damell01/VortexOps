@@ -239,7 +239,7 @@ class InventoryItemResource extends Resource
     protected static function passesModuleAccessCheck(): bool
     {
         $user = auth()->user();
-        return (bool) ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer());
+        return (bool) ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer() || $user?->hasRole('streamer_assistant'));
     }
 
     public static function canCreate(): bool

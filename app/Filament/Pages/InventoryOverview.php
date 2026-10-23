@@ -346,7 +346,8 @@ class InventoryOverview extends Page
 
     public function quickAddUrl(): string
     {
-        return InventoryItemResource::getUrl('quick-add');
+        // Restock existing items (scan/search + qty). New SKUs stay on Add Item.
+        return QuickAddStock::getUrl();
     }
 
     public function addItemUrl(): string

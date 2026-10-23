@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\RespectsRoleVisibility;
 use App\Models\Product;
 use App\Models\InventoryLocation;
-use App\Models\InventoryLot;
 use App\Services\InventoryService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -27,13 +26,6 @@ class QuickAddStock extends Page
     // ── Keyword search (no barcode at hand) ──────────────────────────────────
     public string $productSearch = '';
     public ?array $productOptions = null;
-
-    private InventoryService $inventoryService;
-
-    public function mount(): void
-    {
-        $this->inventoryService = app(InventoryService::class);
-    }
 
     public function getLocationsProperty()
     {
@@ -178,18 +170,11 @@ class QuickAddStock extends Page
         try {
             $location = InventoryLocation::findOrFail($this->locationId);
 
-            InventoryLot::create([
-                'product_id' => $this->product->id,
-                'quantity' => $this->quantity,
-                'remaining_quantity' => $this->quantity,
-                'unit_cost' => $this->unitCost ?? 0,
-                'source' => InventoryLot::SOURCE_ADJUSTMENT,
-                'status' => InventoryLot::STATUS_ACTIVE,
-                'received_at' => now(),
-                'received_by' => auth()->id(),
-            ]);
-
-            $this->inventoryService->addStock(
+            // Resolve per-request — Livewire does not rehydrate private
+            // properties, so a mounted service would be gone on wire:click.
+            // Route only through InventoryService so stock, movements, and
+            // FIFO lots stay consistent (no parallel InventoryLot::create).
+            app(InventoryService::class)->addStock(
                 $this->product,
                 $location,
                 $this->quantity,

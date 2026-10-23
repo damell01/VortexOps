@@ -58,6 +58,9 @@ test('camera bounds follow the barcode through object-fit cropping', async () =>
     const { scanner, callbacks, overlay } = scannerFixture();
     await scanner.open();
     assert.equal(callbacks.config.inputStream.area.top, '30%');
+    assert.equal(callbacks.config.inputStream.area.left, '15%');
+    assert.equal(callbacks.config.inputStream.area.right, '15%');
+    assert.equal(callbacks.config.locator.patchSize, 'small');
     assert.equal(callbacks.config.inputStream.constraints.width.ideal, 960);
     assert.deepEqual(Array.from(callbacks.config.decoder.readers), ['upc_reader', 'ean_reader', 'ean_8_reader', 'upc_e_reader', 'code_128_reader']);
     callbacks.ready(null);

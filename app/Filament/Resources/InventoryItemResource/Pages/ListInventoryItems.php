@@ -27,6 +27,7 @@ use Livewire\Attributes\Url;
 class ListInventoryItems extends ListRecords
 {
     use \App\Filament\Concerns\DownloadsTableCsv;
+    use \App\Filament\Concerns\FiltersInventoryLocation;
 
     protected static string $resource = InventoryItemResource::class;
     protected ?array $statsMemo = null;
@@ -76,7 +77,11 @@ class ListInventoryItems extends ListRecords
     protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder
     {
         $query = parent::getTableQuery();
+        if ($query) $query = $this->filterInventoryItemsByLocation($query);
         if (! $query || ! $this->stockHealth) return $query;
+
+        // HAVING on the stock-total alias needs a grouped query on SQLite.
+        $query->groupBy('products.id');
 
         return match ($this->stockHealth) {
             'out' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0'),
@@ -88,7 +93,8 @@ class ListInventoryItems extends ListRecords
 
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        $query = $this->getFilteredTableQuery()->with(['stock.location'])->reorder();
+        $query = $this->getFilteredTableQuery()->reorder();
+        if ($this->inventoryLocation === '') $query->with(['stock.location']);
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';
@@ -121,7 +127,8 @@ class ListInventoryItems extends ListRecords
     #[Computed]
     public function catalogTotal(): int
     {
-        return $this->catalogQuery()->count();
+        return \Illuminate\Support\Facades\DB::query()
+            ->fromSub($this->catalogQuery()->reorder()->toBase(), 'matching_inventory')->count();
     }
 
     public function filterStock(?string $status): void
@@ -171,7 +178,7 @@ class ListInventoryItems extends ListRecords
         // and its stock sum on every Livewire refresh.
         // Keep the withSum projection intact: selecting columns after withSum
         // can drop stock_sum_quantity and cause a SQL 500 in the stats query.
-        $base = InventoryItemResource::getEloquentQuery()->reorder();
+        $base = $this->filterInventoryItemsByLocation(InventoryItemResource::getEloquentQuery())->reorder();
         $rows = \Illuminate\Support\Facades\DB::query()
             ->fromSub($base->toBase(), 'inventory_health')
             ->selectRaw('COUNT(*) as total')

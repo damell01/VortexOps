@@ -33,6 +33,7 @@
                     </div>
                 </div>
 
+                <div x-show="focusBox" x-cloak class="pointer-events-none absolute z-10 rounded-lg border-[3px] border-emerald-400 shadow-[0_0_0_2px_rgba(0,0,0,.5),0_0_18px_rgba(52,211,153,.75)] transition-all duration-100" :style="focusBox || ''"></div>
                 <div class="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
                     <div class="rounded-full bg-black/65 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur" x-text="statusText || 'Point the camera at a barcode'"></div>
                 </div>
@@ -110,6 +111,7 @@ function cameraScanner() {
         // identical reads — see onBarcodeDetected.
         votes: {},
         lastVoteTime: 0,
+        focusBox: null,
 
         // How many quality-checked reads of the same code end a scan. Two,
         // because the error gate below has already thrown out the reads that
@@ -140,6 +142,7 @@ function cameraScanner() {
             this.lastDetectedBarcode = null;
             this.votes = {};
             this.lastVoteTime = 0;
+            this.focusBox = null;
             if (this.$refs.manualInput) this.$refs.manualInput.value = '';
             await this.$nextTick();
             await this.startScanner();
@@ -169,17 +172,17 @@ function cameraScanner() {
                         name: 'Live',
                         type: 'LiveStream',
                         target: readerDiv,
-                        area: { top: '30%', right: '5%', left: '5%', bottom: '30%' },
+                        area: { top: '24%', right: '4%', left: '4%', bottom: '24%' },
                         constraints: {
                             facingMode: 'environment',
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
+                            width: { ideal: 960 },
+                            height: { ideal: 540 }
                         }
                     },
                     decoder: { readers: ['code_128_reader','ean_reader','ean_8_reader','upc_reader','upc_e_reader'] },
                     locator: { patchSize: 'medium', halfSample: true },
                     locate: true,
-                    frequency: 20,
+                    frequency: 12,
                     numOfWorkers: Math.min(Math.max((navigator.hardwareConcurrency || 2) - 1, 1), 2),
                     multiple: false
                 }, err => {
@@ -193,7 +196,10 @@ function cameraScanner() {
                     Quagga.start();
                     this.detectedCallback = result => {
                         const value = result?.codeResult?.code;
-                        if (value) this.onBarcodeDetected(value, this.decodeError(result));
+                        if (value) {
+                            this.updateFocusBox(result);
+                            this.onBarcodeDetected(value, this.decodeError(result));
+                        }
                     };
                     Quagga.onDetected(this.detectedCallback);
                     this.statusText = 'Ready — center the barcode in the box';
@@ -220,6 +226,22 @@ function cameraScanner() {
          * library gives us nothing to judge by, which is treated as "cannot
          * tell" rather than "bad".
          */
+        updateFocusBox(result) {
+            const points = result?.box;
+            const stage = this.$refs.readerDiv;
+            const canvas = stage?.querySelector('canvas.drawingBuffer');
+            if (!Array.isArray(points) || !points.length || !stage || !canvas?.width || !canvas?.height) return;
+            const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
+            const left = Math.max(0, Math.min(...xs)), top = Math.max(0, Math.min(...ys));
+            const width = Math.max(...xs) - left, height = Math.max(...ys) - top;
+            if (width < 10 || height < 4) return;
+            const rect = stage.getBoundingClientRect();
+            const scale = Math.max(rect.width / canvas.width, rect.height / canvas.height);
+            const offsetX = (rect.width - canvas.width * scale) / 2;
+            const offsetY = (rect.height - canvas.height * scale) / 2;
+            this.focusBox = `left:${Math.max(0, left * scale + offsetX - 8)}px;top:${Math.max(0, top * scale + offsetY - 8)}px;width:${Math.min(rect.width, width * scale + 16)}px;height:${Math.min(rect.height, height * scale + 16)}px;`;
+        },
+
         decodeError(result) {
             const codes = result?.codeResult?.decodedCodes;
             if (!Array.isArray(codes)) return null;

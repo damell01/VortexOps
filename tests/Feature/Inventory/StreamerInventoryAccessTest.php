@@ -108,12 +108,14 @@ class StreamerInventoryAccessTest extends TestCase
 
     public function test_an_empty_selection_is_a_decision_and_is_honoured(): void
     {
-        // Distinct from unset. Ticking nothing means "their own shelf only",
-        // and quietly reopening the main store would ignore an explicit choice.
+        // Distinct from unset: ticking nothing adds no extra locations. The
+        // shared main store stays visible regardless — streamers pull from it.
         Setting::set(InventoryVisibility::SETTING_KEY, json_encode([]));
 
         $this->assertSame([], InventoryVisibility::configuredForStreamers());
-        $this->assertSame([$this->mine->id], InventoryVisibility::locationIdsFor($this->streamerUser));
+        $visible = InventoryVisibility::locationIdsFor($this->streamerUser);
+        sort($visible);
+        $this->assertSame([$this->main->id, $this->mine->id], $visible);
     }
 
     public function test_their_own_location_is_visible_however_it_is_configured(): void

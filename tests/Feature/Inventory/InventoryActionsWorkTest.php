@@ -345,14 +345,37 @@ class InventoryActionsWorkTest extends TestCase
 
     public function test_quick_add_stock_books_units_in(): void
     {
+        // Press the button, as the Tools tab does: only opening the page let a
+        // crash on Add slip through (it handed the service a Product).
         Livewire::test(QuickAddStock::class)
-            ->assertOk();
+            ->call('handleBarcodeScan', '012345678905')
+            ->assertSet('product.id', $this->item->id)
+            ->set('locationId', $this->back->id)
+            ->set('quantity', 5)
+            ->set('unitCost', 90)
+            ->call('addStock')
+            ->assertSet('product', null)
+            ->assertCount('recentAdds', 1);
 
-        // Only that it opens and lists the item: the booking itself is covered
-        // above through the scanner and the pallet, which is how stock actually
-        // arrives. Asserting it twice through a third screen would pin the
-        // screen rather than the behaviour.
         $this->assertEqualsWithDelta(20.0, $this->stockAt($this->main), 0.01);
+        $this->assertEqualsWithDelta(5.0, $this->stockAt($this->back), 0.01);
+        $this->assertSame(5.0, (float) InventoryMovement::where('inventory_item_id', $this->item->id)
+            ->where('to_location_id', $this->back->id)->value('quantity'));
+        $this->assertSame(1, \App\Models\InventoryLot::where('product_id', $this->item->id)->where('unit_cost', 90)->count(),
+            'one cost lot for the restock, not two');
+    }
+
+    public function test_quick_add_stock_found_by_name_search_books_units_in(): void
+    {
+        Livewire::test(QuickAddStock::class)
+            ->set('productSearch', 'Chrome Hob')
+            ->assertCount('productOptions', 1)
+            ->call('selectSearchResult', $this->item->id)
+            ->set('locationId', $this->main->id)
+            ->set('quantity', 3)
+            ->call('addStock');
+
+        $this->assertEqualsWithDelta(23.0, $this->stockAt($this->main), 0.01);
     }
 
     public function test_the_transfer_page_opens_with_both_locations(): void

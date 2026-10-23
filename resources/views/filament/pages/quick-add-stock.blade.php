@@ -1,12 +1,21 @@
 <x-filament-panels::page>
-    <div class="max-w-2xl mx-auto space-y-6" data-vx-touch-page>
+    {{-- The shared camera scanner (the one Scan Inventory uses) announces a
+         read with a window event; hand it straight to the page. --}}
+    <div class="max-w-2xl mx-auto space-y-6" data-vx-touch-page
+        x-data
+        x-on:barcode-scanned.window="$event.detail?.value && $wire.handleBarcodeScan($event.detail.value)">
         <x-touch-mode-toggle />
         {{-- Product Scanner Section --}}
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Scan Product</h2>
 
-            {{-- Camera Component --}}
-            <livewire:barcode-scanner lazy-loading />
+            <button type="button"
+                x-on:click="window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Scan product', helper: 'Hold the barcode inside the frame. The product loads automatically.' } }))"
+                class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-6 py-3 font-semibold text-white transition hover:bg-primary-500 active:opacity-75 touch-manipulation"
+                style="min-height: 48px;">
+                <x-heroicon-o-camera class="h-5 w-5" />
+                Scan with camera
+            </button>
 
             {{-- Manual Barcode Input --}}
             <div class="mt-4 space-y-2">
@@ -14,7 +23,9 @@
                 <div class="flex gap-2">
                     <input
                         wire:model="barcode"
+                        wire:keydown.enter="scanBarcode"
                         type="text"
+                        autocomplete="off"
                         placeholder="Enter barcode or SKU"
                         class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         style="min-height: 44px;"
@@ -99,18 +110,18 @@
                 </div>
 
                 {{-- Unit Cost --}}
-                @if($unitCost !== null)
                 <div class="border-t border-green-200 dark:border-green-700 pt-4">
-                    <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-2">Unit Cost</label>
+                    <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-2">Unit Cost <span class="font-normal text-green-700/70 dark:text-green-300/70">(optional)</span></label>
                     <input
                         wire:model.number="unitCost"
                         type="number"
                         step="0.01"
                         class="w-full px-4 py-2 rounded-lg border border-green-300 dark:border-green-600 bg-white dark:bg-gray-700 text-green-900 dark:text-green-100"
+                        min="0"
+                        placeholder="0.00"
                         style="min-height: 44px;"
                     />
                 </div>
-                @endif
 
                 {{-- Location Selector --}}
                 <div class="border-t border-green-200 dark:border-green-700 pt-4">
@@ -135,10 +146,12 @@
                 {{-- Add Button --}}
                 <button
                     wire:click="addStock"
+                    wire:loading.attr="disabled"
+                    wire:target="addStock"
                     class="w-full mt-4 px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition active:opacity-75 touch-manipulation text-lg"
                     style="min-height: 52px;"
                 >
-                    Add {{ (int)$quantity }} Unit{{ $quantity !== 1 ? 's' : '' }} to Stock
+                    Add {{ (int) $quantity }} Unit{{ (int) $quantity === 1 ? '' : 's' }} to Stock
                 </button>
             </div>
         </div>

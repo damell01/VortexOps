@@ -15,6 +15,10 @@ class UserTeamProfileService
      */
     public function sync(User $user, string $streamerType = 'in_house', ?array $aliases = null): ?Streamer
     {
+        // Callers include a migration walking every user, where nothing is
+        // eager-loaded and lazy loading is off outside production.
+        $user->loadMissing(['roles', 'streamer']);
+
         $memberType = $user->hasRole('streamer')
             ? 'streamer'
             : ($user->hasRole('streamer_assistant') ? 'assistant' : ($user->hasRole('fulfillment') ? 'fulfillment' : null));

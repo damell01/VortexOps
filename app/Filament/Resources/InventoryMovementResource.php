@@ -77,9 +77,13 @@ class InventoryMovementResource extends Resource
         // implementation wrote one movement per case. Collapse only pallet
         // receipt rows by pallet/line reason; every other movement keeps its own
         // id as its group key and therefore remains one row per action.
+        // SQLite (tests) has no CONCAT() and no SIGNED type; MySQL is production.
+        $sqlite = \Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite';
+        $concat = fn (string ...$parts): string => $sqlite ? '(' . implode(' || ', $parts) . ')' : 'CONCAT(' . implode(',', $parts) . ')';
         $groupKey = "CASE WHEN movement_type = 'opening' AND reason LIKE 'Received via pallet #%'
-            THEN CONCAT('receipt|', COALESCE(inventory_item_id,0),'|',COALESCE(to_location_id,0),'|',COALESCE(reason,''))
-            ELSE CONCAT('row|',id) END";
+            THEN " . $concat("'receipt|'", 'COALESCE(inventory_item_id,0)', "'|'", 'COALESCE(to_location_id,0)', "'|'", "COALESCE(reason,'')") . "
+            ELSE " . $concat("'row|'", 'id') . " END";
+        $minId = $sqlite ? 'CAST(MIN(id) AS INTEGER)' : 'CAST(MIN(id) AS SIGNED)';
 
         // Build the aggregate as an inner query, then expose it as
         // `inventory_movements` to Filament. Filament adds the model primary key
@@ -88,7 +92,7 @@ class InventoryMovementResource extends Resource
         // inventory_movements.id. Ordering the outer query instead makes `id`
         // refer to our MIN(id) aggregate and keeps pallet receipt collapsing intact.
         $grouped = parent::getEloquentQuery()
-            ->selectRaw("CAST(MIN(id) AS SIGNED) as id,
+            ->selectRaw("{$minId} as id,
                 inventory_item_id,
                 MIN(lot_id) as lot_id,
                 from_location_id,

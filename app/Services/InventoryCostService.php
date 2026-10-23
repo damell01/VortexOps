@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
 use App\Models\PalletLine;
@@ -54,7 +55,7 @@ class InventoryCostService
      * to null because Pallet uses SoftDeletes. Filtering them here prevents the
      * inventory scanner from dereferencing a missing pallet.
      */
-    public function getCostBreakdown(InventoryItem $item): array
+    public function getCostBreakdown(Product $item): array
     {
         $lines = PalletLine::where('inventory_item_id', $item->id)
             ->whereHas('pallet')
@@ -111,7 +112,7 @@ class InventoryCostService
     /**
      * Compare cost trends for an item across time.
      */
-    public function getCostTrend(InventoryItem $item, int $limit = 10): array
+    public function getCostTrend(Product $item, int $limit = 10): array
     {
         $lines = PalletLine::where('inventory_item_id', $item->id)
             ->whereHas('pallet')
@@ -146,7 +147,7 @@ class InventoryCostService
      * never received showed $0.00 of value on every screen that calls this,
      * while the item's own pages showed a real number for the same item.
      */
-    public function calculateInventoryValue(InventoryItem $item): float
+    public function calculateInventoryValue(Product $item): float
     {
         return $item->totalQuantity() * (float) ($item->costBasis() ?? 0);
     }

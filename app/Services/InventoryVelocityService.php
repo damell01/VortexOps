@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use Illuminate\Support\Carbon;
@@ -62,17 +63,20 @@ class InventoryVelocityService
      * Calculate velocity metrics for an item over a time period.
      * Returns movement rate, turnover ratio, and classification.
      */
-    public function calculateItemVelocity(InventoryItem $item, int $daysPeriod = 30): array
+    public function calculateItemVelocity(Product $item, int $daysPeriod = 30): array
     {
-        $startDate = now()->subDays($daysPeriod);
-
-        // Get movements in period
-        $movements = InventoryMovement::query()
+        $movements = (float) InventoryMovement::query()
             ->where('inventory_item_id', $item->id)
-            ->where('created_at', '>=', $startDate)
+            ->where('created_at', '>=', now()->subDays($daysPeriod))
             ->where('movement_type', '!=', 'adjustment')
             ->sum('quantity');
 
+        return $this->velocityRow($item, $movements, $daysPeriod);
+    }
+
+    /** One item's velocity from its movement total — shared by the single and bulk paths. */
+    private function velocityRow(Product $item, float $movements, int $daysPeriod): array
+    {
         $currentStock = $item->totalQuantity();
         $avgCost = (float) $item->average_cost;
 
@@ -96,7 +100,7 @@ class InventoryVelocityService
             'avg_cost'          => $avgCost,
             'inventory_value'   => $currentStock * $avgCost,
             'period_days'       => $daysPeriod,
-            'total_movement'    => (float) $movements,
+            'total_movement'    => $movements,
             'daily_velocity'    => round($dailyVelocity, 2),
             'turnover_ratio'    => round($turnover, 2),
             'days_stock'        => (int) $daysRemaining,
@@ -104,19 +108,35 @@ class InventoryVelocityService
         ];
     }
 
+    /** @var array<int, array> ranked rows per period, for this instance */
+    private array $ranked = [];
+
     /**
      * Get all items ranked by velocity (fast movers first).
+     *
+     * One grouped movement query and the stock eager-loaded, instead of two
+     * queries per item; and kept for the life of this instance, because the
+     * fast/slow/dead/summary panels each ask for the same ranking.
      */
     public function getRankedByVelocity(int $daysPeriod = 30): array
     {
-        $items = InventoryItem::query()->get();
+        return $this->ranked[$daysPeriod] ??= (function () use ($daysPeriod) {
+            $totals = InventoryMovement::query()
+                ->where('created_at', '>=', now()->subDays($daysPeriod))
+                ->where('movement_type', '!=', 'adjustment')
+                ->whereNotNull('inventory_item_id')
+                ->groupBy('inventory_item_id')
+                ->selectRaw('inventory_item_id, SUM(quantity) as total')
+                ->pluck('total', 'inventory_item_id');
 
-        $velocities = $items->map(fn ($item) => $this->calculateItemVelocity($item, $daysPeriod))
-            ->sortByDesc('daily_velocity')
-            ->values()
-            ->toArray();
-
-        return $velocities;
+            return InventoryItem::query()
+                ->with('stock:id,inventory_item_id,inventory_location_id,quantity')
+                ->get()
+                ->map(fn ($item) => $this->velocityRow($item, (float) ($totals[$item->id] ?? 0), $daysPeriod))
+                ->sortByDesc('daily_velocity')
+                ->values()
+                ->toArray();
+        })();
     }
 
     /**

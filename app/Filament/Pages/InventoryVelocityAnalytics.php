@@ -59,33 +59,41 @@ class InventoryVelocityAnalytics extends Page
 
     // ── Computed Properties ────────────────────────────────────────────────
 
+    private ?InventoryVelocityService $velocityService = null;
+
+    /** One instance per request, so its ranking is computed once for every panel. */
+    private function velocity(): InventoryVelocityService
+    {
+        return $this->velocityService ??= app(InventoryVelocityService::class);
+    }
+
     public function getSummaryProperty(): array
     {
-        return app(InventoryVelocityService::class)->getSummary(30);
+        return $this->velocity()->getSummary(30);
     }
 
     public function getFastMoversProperty(): array
     {
-        return app(InventoryVelocityService::class)->getFastMovers(30, 10);
+        return $this->velocity()->getFastMovers(30, 10);
     }
 
     public function getSlowMoversProperty(): array
     {
-        return app(InventoryVelocityService::class)->getSlowMovers(30, 10);
+        return $this->velocity()->getSlowMovers(30, 10);
     }
 
     public function getDeadStockProperty(): array
     {
-        return app(InventoryVelocityService::class)->getDeadStock(30, 10);
+        return $this->velocity()->getDeadStock(30, 10);
     }
 
     public function getHighValueFastMoversProperty(): array
     {
-        return app(InventoryVelocityService::class)->getHighValueFastMovers(30, 10);
+        return $this->velocity()->getHighValueFastMovers(30, 10);
     }
 
     public function getAllRankedProperty(): array
     {
-        return app(InventoryVelocityService::class)->getRankedByVelocity(30);
+        return $this->velocity()->getRankedByVelocity(30);
     }
 }

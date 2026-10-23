@@ -101,14 +101,15 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
             }
         }
 
-        // Owner-only tools, including the communications preview, stay closed
-        // even when a custom role is explicitly granted every page. Disabled
+        // Owner-only tools, including the communications preview and role
+        // management, stay closed; loans are never grantable. These
+        // stay shut even when a custom role is explicitly granted every page. Disabled
         // fulfillment and timekeeping pages also stay closed.
         sort($denied);
         $this->assertSame([
             'AppSettings', 'Businesses', 'Communications', 'ImportStatus', 'InventoryCount', 'InventoryImporter',
             'NavigationManager', 'NoShowCleanup', 'PayRunBackfill', 'PaymentStructures',
-            'PayrollOverview', 'PayrollSimulator', 'ShowDataAudit', 'TimeAttendance',
+            'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
             'Timekeeping', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
         ], $denied);
     }

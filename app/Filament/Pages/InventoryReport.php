@@ -212,12 +212,23 @@ class InventoryReport extends Page
             ->withMax(['movements' => fn ($q) => $q->inChannelContext()], 'created_at')
             ->get();
 
-        $items = $products->map(function (Product $product) {
-            $quantity = max(0, (float) $product->stock->sum('quantity'));
+        $now = time();
+        $items = $products->map(function (Product $product) use ($now) {
+            // Plain loops: this runs once per product in the catalogue, and the
+            // collection pipelines it replaces were most of the page's time.
+            $quantity = 0.0;
+            $inStockAt = [];
+            $allAt = [];
+            foreach ($product->stock as $stock) {
+                $quantity += (float) $stock->quantity;
+                $name = $stock->location?->name;
+                if ($name === null || $name === '') continue;
+                $allAt[$name] = true;
+                if ((float) $stock->quantity > 0) $inStockAt[$name] = true;
+            }
+            $quantity = max(0, $quantity);
             $cost = (float) ($product->costBasis() ?? 0);
-            $locations = $product->stock
-                ->filter(fn ($stock) => (float) $stock->quantity > 0)
-                ->pluck('location.name')->filter()->unique()->values();
+            $lastMoved = $product->movements_max_created_at ?? $product->created_at;
 
             return [
                 'id' => $product->id,
@@ -232,10 +243,10 @@ class InventoryReport extends Page
                 'reorder_level' => (float) ($product->reorder_level ?? 0),
                 'is_low_stock' => $quantity > 0 && $product->reorder_level !== null && $quantity <= (float) $product->reorder_level,
                 'is_out_stock' => $quantity <= 0,
-                'locations' => $locations->implode(', ') ?: '—',
-                'location_names' => $product->stock->pluck('location.name')->filter()->unique()->values()->all(),
+                'locations' => implode(', ', array_keys($inStockAt)) ?: '—',
+                'location_names' => array_keys($allAt),
                 'updated_at' => $product->updated_at,
-                'idle_days' => (int) max(0, \Illuminate\Support\Carbon::parse($product->movements_max_created_at ?? $product->created_at ?? now())->diffInDays(now())),
+                'idle_days' => $lastMoved ? (int) max(0, intdiv($now - strtotime((string) $lastMoved), 86400)) : 0,
             ];
         });
 
@@ -255,12 +266,13 @@ class InventoryReport extends Page
                 'value' => (float) $snapshot->total_value,
             ]);
 
-        $stockRows = InventoryStock::query()->inChannelContext()
-            ->whereIn('inventory_item_id', $products->pluck('id'))
-            ->when($this->reportLocation !== '', fn ($q) => $q->whereHas('location', fn ($l) => $l->where('name', $this->reportLocation)))
-            ->with(['item', 'location'])
-            ->where('quantity', '>', 0)
-            ->get()
+        // The same stock rows the products above were loaded with (same
+        // channel and location constraints) — re-querying them, with every
+        // product again, cost as much as the first load.
+        $stockRows = $products
+            ->flatMap(fn (Product $product) => $product->stock
+                ->filter(fn ($stock) => (float) $stock->quantity > 0)
+                ->each(fn ($stock) => $stock->setRelation('item', $product)))
             ->groupBy(fn ($stock) => $stock->location?->name ?: 'Unknown');
 
         $locationsByItem = $stockRows->map(fn ($rows) => $rows->map(fn ($stock) => [
@@ -574,19 +586,27 @@ class InventoryReport extends Page
 
     // ── Velocity Analysis ────────────────────────────────────────────
 
+    private ?InventoryVelocityService $velocityService = null;
+
+    /** One instance per request, so its ranking is computed once for every panel. */
+    private function velocity(): InventoryVelocityService
+    {
+        return $this->velocityService ??= app(InventoryVelocityService::class);
+    }
+
     public function getFastMoversProperty(): array
     {
-        return app(InventoryVelocityService::class)->getFastMovers(30, 10);
+        return $this->velocity()->getFastMovers(30, 10);
     }
 
     public function getSlowMoversProperty(): array
     {
-        return app(InventoryVelocityService::class)->getSlowMovers(30, 10);
+        return $this->velocity()->getSlowMovers(30, 10);
     }
 
     public function getDeadStockProperty(): array
     {
-        return app(InventoryVelocityService::class)->getDeadStock(30, 10);
+        return $this->velocity()->getDeadStock(30, 10);
     }
 
     // ── ABC Analysis ────────────────────────────────────────────
@@ -818,7 +838,9 @@ class InventoryReport extends Page
     public function getAgingInventoryProperty(): array
     {
         $now = now();
-        $inventoryItems = Product::with(['stock', 'lots' => fn ($q) => $q->orderBy('received_at')])
+        // Age is the oldest lot still holding units. Eager-loaded: this used
+        // to query each item's lots again inside the loop.
+        $inventoryItems = Product::with(['stock', 'lots' => fn ($q) => $q->where('remaining_quantity', '>', 0)->orderBy('received_at')])
             ->where('is_active', true)
             ->get();
 
@@ -828,8 +850,9 @@ class InventoryReport extends Page
         $ninetyDays = [];
 
         foreach ($inventoryItems as $item) {
-            $oldestLot = $item->lots()->orderBy('received_at')->first();
-            $daysOld = $oldestLot ? $now->diffInDays($oldestLot->received_at) : 0;
+            $oldestLot = $item->lots->first();
+            // Carbon 3 diffs are signed; past → now keeps it positive.
+            $daysOld = $oldestLot?->received_at ? (int) $oldestLot->received_at->diffInDays($now) : 0;
 
             $qty = (float) $item->totalQuantity();
             $cost = (float) $item->average_cost;
@@ -926,14 +949,15 @@ class InventoryReport extends Page
     public function getLotAgingProperty(): array
     {
         $now = now();
-        $lots = \App\Models\InventoryLot::with(['item', 'receivingSession.vendor'])
+        $lots = \App\Models\InventoryLot::with(['product', 'receivingSession.vendor'])
             ->where('status', 'active')
             ->where('remaining_quantity', '>', 0)
             ->get();
 
         $aging = [];
         foreach ($lots as $lot) {
-            $daysOld = $now->diffInDays($lot->received_at);
+            $receivedAt = $lot->received_at ?? $lot->created_at;
+            $daysOld = (int) $receivedAt->diffInDays($now);
             $ageGroup = match (true) {
                 $daysOld <= 30 => 'fresh',
                 $daysOld <= 60 => 'aging_30',
@@ -943,10 +967,10 @@ class InventoryReport extends Page
 
             $aging[] = [
                 'id' => $lot->id,
-                'item_name' => $lot->item?->name ?? 'Unknown',
-                'sku' => $lot->item?->sku ?? '—',
+                'item_name' => $lot->product?->name ?? 'Unknown',
+                'sku' => $lot->product?->sku ?? '—',
                 'vendor' => $lot->receivingSession?->vendor?->name ?? 'Unknown',
-                'received_at' => $lot->received_at->format('M d, Y'),
+                'received_at' => $receivedAt->format('M d, Y'),
                 'days_old' => $daysOld,
                 'quantity' => (float) $lot->remaining_quantity,
                 'unit_cost' => (float) $lot->unit_cost,

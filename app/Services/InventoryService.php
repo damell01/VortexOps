@@ -113,10 +113,16 @@ class InventoryService
             $before = (float) $fromStock->quantity;
             $fromStock->decrement('quantity', $quantity);
 
-            $toStock = InventoryStock::firstOrCreate(
+            InventoryStock::firstOrCreate(
                 ['inventory_item_id' => $item->id, 'inventory_location_id' => $to->id],
                 ['quantity' => 0]
             );
+            // Re-read under lock so concurrent transfers cannot both miss the
+            // same destination row between firstOrCreate and increment.
+            $toStock = InventoryStock::where('inventory_item_id', $item->id)
+                ->where('inventory_location_id', $to->id)
+                ->lockForUpdate()
+                ->first();
             $toStock->increment('quantity', $quantity);
 
             $movement = InventoryMovement::create([

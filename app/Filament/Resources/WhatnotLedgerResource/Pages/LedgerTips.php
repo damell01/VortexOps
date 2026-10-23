@@ -14,6 +14,7 @@ use Filament\Resources\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LedgerTips extends Page
 {
@@ -106,6 +107,38 @@ class LedgerTips extends Page
         [$from, $until] = $this->range();
 
         return app(LedgerTipReport::class)->between($from->toDateString(), $until->toDateString(), $this->channel, $this->business);
+    }
+
+    public function resetFilters(): void
+    {
+        $this->period = 'week';
+        $this->channel = 'all';
+        $this->business = 'all';
+        $this->from = null;
+        $this->until = null;
+        $this->payRun = null;
+        $this->resetValidation();
+    }
+
+    public function exportCsv(): ?StreamedResponse
+    {
+        $report = $this->report();
+        if ($report === null) {
+            return null;
+        }
+
+        [$from, $until] = $this->range();
+
+        return response()->streamDownload(function () use ($report) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['Week starting', 'Channel', 'Business', 'Tip credits', 'Tip debits / corrections', 'Net ledger tips', 'Transactions', 'Pending / processing', 'Missing amounts']);
+            foreach ($report['weeks'] as $row) {
+                fputcsv($output, [$row['week'], $row['channel'], $row['business'],
+                    number_format($row['credits'] / 100, 2, '.', ''), number_format($row['debits'] / 100, 2, '.', ''),
+                    number_format($row['net'] / 100, 2, '.', ''), $row['entries'], $row['pending'], $row['missing_amounts']]);
+            }
+            fclose($output);
+        }, 'ledger-tip-totals-'.$from->toDateString().'-'.$until->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function channels(): array

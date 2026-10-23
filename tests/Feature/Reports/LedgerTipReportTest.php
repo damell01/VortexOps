@@ -93,6 +93,7 @@ class LedgerTipReportTest extends TestCase
         $this->tip(15);
         $report = $this->report((string) $this->business->id);
         $this->assertSame(5000, $report['total']['net']);
+        $this->assertSame([5000], array_column($report['days'], 'net'));
         $this->assertCount(1, $report['rows']);
         $this->assertSame(1500, $report['unassigned_total']['net']);
         $this->assertSame(1500, $this->report('unassigned')['total']['net']);
@@ -157,6 +158,8 @@ class LedgerTipReportTest extends TestCase
         $report = $this->report();
         $this->assertSame(['2026-09-25', '2026-10-02'], array_column($report['weeks'], 'week'));
         $this->assertSame([1000, 2000], array_column($report['weeks'], 'net'));
+        $this->assertSame(['2026-10-01', '2026-10-02'], array_column($report['days'], 'day'));
+        $this->assertSame([1000, 2000], array_column($report['days'], 'net'));
     }
 
     public function test_page_renders_filters_and_totals_and_rejects_invalid_custom_range(): void
@@ -164,10 +167,12 @@ class LedgerTipReportTest extends TestCase
         $this->tip(40);
         $page = Livewire::test(LedgerTips::class)
             ->set('from', '2026-10-01')->set('until', '2026-10-31')
-            ->assertSee('Net ledger tips')->assertSee('$40.00')->assertSee('Weekly breakdown')
+            ->assertSee('Net ledger tips')->assertSee('$40.00')->assertSee('Daily trend')
+            ->assertSee('Tip credits by channel')->assertSee('Weekly breakdown')->assertSee('Export CSV')
             ->assertSee('Unassigned business');
         $page->set('until', '2026-09-01')->assertHasErrors('until')->assertDontSee('Net ledger tips');
-        $page->set('until', '2026-10-31')->assertSee('$40.00');
+        $page->set('until', '2026-10-31')->assertSee('$40.00')
+            ->call('resetFilters')->assertSet('period', 'week')->assertSet('from', null);
         $this->withoutVite()->get(WhatnotLedgerResource::getUrl('index'))->assertOk()->assertSee('Tip totals');
     }
 
@@ -185,6 +190,16 @@ class LedgerTipReportTest extends TestCase
         Livewire::withQueryParams(['period' => 'pay_period', 'payRun' => $run->id, 'business' => (string) $this->business->id])
             ->test(LedgerTips::class)->assertSee('Oct 19, 2026')->assertSee('Oct 25, 2026')->assertSee('$50.00');
         $this->assertSame(1, Payout::count());
+    }
+
+    public function test_filtered_weekly_breakdown_can_be_downloaded(): void
+    {
+        $this->tip(40);
+        Livewire::test(LedgerTips::class)
+            ->set('from', '2026-10-01')->set('until', '2026-10-31')
+            ->set('channel', (string) $this->channel->id)
+            ->call('exportCsv')
+            ->assertFileDownloaded('ledger-tip-totals-2026-10-01-2026-10-31.csv');
     }
 
     public function test_regular_user_cannot_open_tip_report(): void

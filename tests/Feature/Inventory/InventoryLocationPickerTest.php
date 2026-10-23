@@ -31,7 +31,7 @@ class InventoryLocationPickerTest extends TestCase
         $this->enableAdminModules();
         $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
         $this->main = InventoryLocation::create(['name' => 'Picker Warehouse', 'type' => 'main_storage', 'status' => 'active']);
-        $this->second = InventoryLocation::create(['name' => 'Picker Shelf', 'type' => 'streamer', 'status' => 'active']);
+        $this->second = InventoryLocation::create(['name' => 'Picker Shelf', 'type' => 'streamer_inventory', 'status' => 'active']);
         $this->shared = InventoryItem::create(['name' => 'Shared picker product', 'sku' => 'PICK-SHARED', 'is_active' => true, 'reorder_level' => 4]);
         $this->elsewhere = InventoryItem::create(['name' => 'Shelf only product', 'sku' => 'PICK-SHELF', 'is_active' => true]);
         foreach ([[$this->shared, $this->main, 3], [$this->shared, $this->second, 90], [$this->elsewhere, $this->second, 12]] as [$item, $location, $quantity]) {
@@ -59,8 +59,11 @@ class InventoryLocationPickerTest extends TestCase
     {
         $page = Livewire::test(ListInventoryItems::class)->set('selectedItems', [(string) $this->shared->id])
             ->set('selectAllMatching', true)->set('catalogVisible', 120)
+            ->set('selectedTableRecords', [(string) $this->shared->id])->set('isTrackingDeselectedTableRecords', true)
             ->set('inventoryLocation', (string) $this->main->id)
-            ->assertSet('selectedItems', [])->assertSet('selectAllMatching', false)->assertSet('catalogVisible', 40);
+            ->assertSet('selectedItems', [])->assertSet('selectAllMatching', false)->assertSet('catalogVisible', 40)
+            ->assertSet('selectedTableRecords', [])->assertSet('isTrackingDeselectedTableRecords', false)
+            ->assertDispatched('deselectAllTableRecords');
         $page->set('catalogSearch', 'Shelf only')->assertSee('No matching inventory');
     }
 

@@ -26,6 +26,11 @@ trait FiltersInventoryLocation
     public function updatedInventoryLocation(): void
     {
         $this->clearSelection();
+        $this->selectedTableRecords = [];
+        $this->deselectedTableRecords = [];
+        $this->isTrackingDeselectedTableRecords = false;
+        unset($this->cachedSelectedTableRecords);
+        $this->deselectAllTableRecords();
         $this->resetPage();
         $this->catalogVisible = 40;
         $this->statsMemo = null;

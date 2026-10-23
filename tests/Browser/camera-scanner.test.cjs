@@ -8,12 +8,18 @@ const view = fs.readFileSync(path.join(__dirname, '../../resources/views/filamen
 const script = view.match(/@verbatim\s*<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(script, 'scanner script is available');
 
-function scannerFixture() {
+function scannerFixture({ flashSupported = true } = {}) {
     const events = [];
-    const tracks = [];
+    const flashConstraints = [];
+    const track = {
+        getCapabilities() { return { torch: flashSupported }; },
+        async applyConstraints(value) { flashConstraints.push(value); },
+        stop() {},
+    };
+    const tracks = [track];
     const timers = [];
     const callbacks = {};
-    const video = { videoWidth: 640, videoHeight: 480, srcObject: { getTracks: () => tracks } };
+    const video = { videoWidth: 640, videoHeight: 480, srcObject: { getTracks: () => tracks, getVideoTracks: () => tracks } };
     const canvas = { width: 640, height: 480 };
     const overlay = { clientWidth: 0, clientHeight: 0, setAttribute(name, value) { this[name] = value; } };
     const readerDiv = {
@@ -45,7 +51,7 @@ function scannerFixture() {
     const scanner = vm.runInContext('cameraScanner()', context);
     scanner.$refs = { readerDiv, barcodeOverlay: overlay, manualInput: { value: '' } };
     scanner.$nextTick = async callback => callback?.();
-    return { scanner, callbacks, events, timers, overlay };
+    return { scanner, callbacks, events, timers, overlay, flashConstraints };
 }
 
 test('camera bounds follow the barcode through object-fit cropping', async () => {
@@ -90,4 +96,23 @@ test('closing while the scanner initializes cannot restart the camera', async ()
     await scanner.close();
     callbacks.ready(null);
     assert.equal(callbacks.started, undefined);
+});
+
+test('flash appears only for supported cameras and toggles the light', async () => {
+    const { scanner, callbacks, flashConstraints } = scannerFixture();
+    await scanner.open();
+    callbacks.ready(null);
+    assert.equal(scanner.flashAvailable, true);
+    await scanner.toggleFlash();
+    assert.equal(scanner.flashOn, true);
+    await scanner.toggleFlash();
+    assert.equal(scanner.flashOn, false);
+    assert.deepEqual(flashConstraints.map(value => value.advanced[0].torch), [true, false]);
+    await scanner.close();
+    assert.equal(scanner.flashAvailable, false);
+
+    const unsupported = scannerFixture({ flashSupported: false });
+    await unsupported.scanner.open();
+    unsupported.callbacks.ready(null);
+    assert.equal(unsupported.scanner.flashAvailable, false);
 });

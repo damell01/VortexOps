@@ -6,14 +6,17 @@
         x-on:keydown.escape.window="close()"
         style="display:none"
     >
-        <section class="flex h-[100dvh] w-full flex-col overflow-hidden bg-gray-950 sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl sm:bg-white sm:shadow-2xl dark:sm:bg-gray-900">
-            <header class="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-gray-950 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] text-white sm:border-gray-200 sm:bg-white sm:py-3 sm:text-gray-950 dark:sm:border-gray-700 dark:sm:bg-gray-900 dark:sm:text-white">
-                <div class="min-w-0">
-                    <div class="text-sm font-semibold" x-text="titleText"></div>
-                    <div class="mt-0.5 truncate text-[10px] text-gray-400 sm:text-xs" x-text="helperText"></div>
+        <section class="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#080f1d] text-white sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl sm:shadow-2xl">
+            <header class="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#080f1d] px-4 pb-4 pt-[max(.75rem,env(safe-area-inset-top))] sm:py-4">
+                <button type="button" x-on:click="close()" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white" aria-label="Close scanner">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
+                </button>
+                <div class="min-w-0 flex-1">
+                    <div class="text-base font-semibold" x-text="titleText"></div>
+                    <div class="mt-0.5 text-xs leading-4 text-slate-400" x-text="helperText"></div>
                 </div>
-                <button type="button" x-on:click="close()" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white sm:bg-gray-100 sm:text-gray-600 dark:sm:bg-gray-800 dark:sm:text-gray-300" aria-label="Close scanner">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                <button type="button" x-cloak x-show="flashAvailable" x-on:click="toggleFlash()" x-bind:aria-label="flashOn ? 'Turn flash off' : 'Turn flash on'" x-bind:aria-pressed="flashOn" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white" title="Flash">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m13 2-8 11h6l-1 9 9-12h-6l1-8Z" /></svg>
                 </button>
             </header>
 
@@ -21,21 +24,21 @@
                 <div x-ref="readerDiv" id="html5-qr-reader"></div>
 
                 <div class="pointer-events-none absolute inset-x-[5%] top-[30%] h-[40%]">
-                    <div class="vx-scan-frame relative h-full w-full overflow-hidden rounded-2xl border-2 border-white/70 shadow-[0_0_0_999px_rgba(0,0,0,.28)]" x-show="!barcodeOutline" x-cloak>
-                        <span class="absolute -left-0.5 -top-0.5 h-8 w-8 rounded-tl-2xl border-l-4 border-t-4 border-violet-400"></span>
-                        <span class="absolute -right-0.5 -top-0.5 h-8 w-8 rounded-tr-2xl border-r-4 border-t-4 border-violet-400"></span>
-                        <span class="absolute -bottom-0.5 -left-0.5 h-8 w-8 rounded-bl-2xl border-b-4 border-l-4 border-violet-400"></span>
-                        <span class="absolute -bottom-0.5 -right-0.5 h-8 w-8 rounded-br-2xl border-b-4 border-r-4 border-violet-400"></span>
-                        <div class="vx-scan-line absolute inset-x-3 h-0.5 rounded-full bg-violet-300 shadow-[0_0_10px_rgba(196,181,253,.95)]"></div>
+                    <div class="vx-scan-frame relative h-full w-full rounded-2xl shadow-[0_0_0_999px_rgba(0,0,0,.24)]" x-show="!barcodeOutline" x-cloak>
+                        <span class="vx-scan-corner absolute -left-0.5 -top-0.5 h-9 w-9 rounded-tl-2xl border-l-4 border-t-4 border-sky-400"></span>
+                        <span class="vx-scan-corner absolute -right-0.5 -top-0.5 h-9 w-9 rounded-tr-2xl border-r-4 border-t-4 border-sky-400"></span>
+                        <span class="vx-scan-corner absolute -bottom-0.5 -left-0.5 h-9 w-9 rounded-bl-2xl border-b-4 border-l-4 border-sky-400"></span>
+                        <span class="vx-scan-corner absolute -bottom-0.5 -right-0.5 h-9 w-9 rounded-br-2xl border-b-4 border-r-4 border-sky-400"></span>
+                        <div class="vx-scan-line absolute inset-x-1 h-0.5 rounded-full bg-sky-300 shadow-[0_0_12px_3px_rgba(56,189,248,.8)]"></div>
                     </div>
                 </div>
 
                 <svg x-ref="barcodeOverlay" x-show="barcodeOutline" x-cloak aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none">
-                    <polygon x-bind:points="barcodeOutline" fill="rgba(139,92,246,.12)" stroke="#c4b5fd" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+                    <polygon class="vx-detected-outline" x-bind:points="barcodeOutline" fill="rgba(56,189,248,.12)" stroke="#38bdf8" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
                 </svg>
 
                 <div class="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-                    <div class="rounded-full bg-black/65 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur" x-text="statusText || 'Point the camera at a barcode'"></div>
+                    <div class="rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur" x-text="statusText || 'Center barcode in the frame'"></div>
                 </div>
 
                 <div x-show="detected" x-transition class="pointer-events-none absolute inset-0 flex items-center justify-center bg-green-500/35" style="display:none">
@@ -47,18 +50,18 @@
                 </div>
             </div>
 
-            <footer class="min-h-0 flex-1 shrink-0 space-y-3 overflow-y-auto bg-gray-950 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 text-white sm:flex-none sm:bg-white sm:pb-4 sm:text-gray-950 dark:sm:bg-gray-900 dark:sm:text-white">
+            <footer class="min-h-0 flex-1 shrink-0 space-y-4 overflow-y-auto bg-[#080f1d] px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-4 text-white sm:flex-none sm:pb-4">
                 <div x-show="error" x-text="error" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 sm:text-red-600" style="display:none"></div>
 
-                <div>
-                    <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Manual barcode entry</div>
+                <div class="rounded-2xl border border-white/10 bg-white/5 p-3 shadow-lg">
+                    <div class="mb-2 text-sm font-semibold text-white">Manual entry</div>
                     <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                        <input type="text" x-ref="manualInput" x-on:keydown.enter.prevent="submitManual()" inputmode="numeric" autocomplete="off" placeholder="Type or scan barcode…" class="min-h-11 min-w-0 rounded-lg border border-white/20 bg-white/10 px-3 font-mono text-base text-white placeholder:text-gray-500 sm:border-gray-300 sm:bg-white sm:text-gray-950 dark:sm:border-gray-600 dark:sm:bg-gray-800 dark:sm:text-white" />
-                        <button type="button" x-on:click="submitManual()" class="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Use Code</button>
+                        <input type="text" x-ref="manualInput" x-on:keydown.enter.prevent="submitManual()" inputmode="numeric" autocomplete="off" aria-label="Manual barcode entry" placeholder="Type or scan barcode…" class="min-h-11 min-w-0 rounded-lg border border-white/20 bg-white/5 px-3 font-mono text-base text-white placeholder:text-slate-500" />
+                        <button type="button" x-on:click="submitManual()" class="min-h-11 rounded-lg bg-blue-500 px-4 text-sm font-semibold text-white">Use Code</button>
                     </div>
                 </div>
 
-                <p class="text-center text-[10px] leading-4 text-gray-500 sm:text-xs">Camera scans submit automatically. Manual entry and USB/Bluetooth scanners also work.</p>
+                <p class="text-center text-xs leading-4 text-slate-400">Camera scans automatically. Manual entry and USB/Bluetooth scanners also work.</p>
             </footer>
         </section>
     </div>
@@ -70,13 +73,15 @@
     .vx-scanner-stage #html5-qr-reader video,
     .vx-scanner-stage #html5-qr-reader canvas { position:absolute; inset:0; width:100% !important; height:100% !important; object-fit:cover; }
     .vx-scanner-stage #html5-qr-reader canvas.drawingBuffer { display:none !important; }
+    .vx-scan-corner, .vx-detected-outline { filter: drop-shadow(0 0 6px rgba(56, 189, 248, .95)); }
 
     @keyframes vxBarcodeScanLine {
         0% { top: 12%; opacity: .35; }
         50% { top: 82%; opacity: 1; }
         100% { top: 12%; opacity: .35; }
     }
-    .vx-scan-line { animation: vxBarcodeScanLine 1.7s ease-in-out infinite; }
+    .vx-scan-line { animation: vxBarcodeScanLine 1.4s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .vx-scan-line { animation: none; top: 50%; } }
     body.vx-camera-scanner-open .vx-tour-launcher { display: none !important; }
 </style>
 
@@ -116,6 +121,9 @@ function cameraScanner() {
         processedCallback: null,
         closeTimer: null,
         scanSession: 0,
+        flashAvailable: false,
+        flashOn: false,
+        flashTrack: null,
 
         // How many quality-checked reads of the same code end a scan. Two,
         // because the error gate below has already thrown out the reads that
@@ -149,6 +157,9 @@ function cameraScanner() {
             this.lastVoteTime = 0;
             this.barcodeOutline = '';
             this.outlineTime = 0;
+            this.flashAvailable = false;
+            this.flashOn = false;
+            this.flashTrack = null;
             clearTimeout(this.closeTimer);
             if (this.$refs.manualInput) this.$refs.manualInput.value = '';
             await this.$nextTick();
@@ -209,6 +220,7 @@ function cameraScanner() {
                     }
 
                     Quagga.start();
+                    this.updateFlashAvailability();
                     this.detectedCallback = result => {
                         const value = result?.codeResult?.code;
                         if (value) this.onBarcodeDetected(value, this.decodeError(result), result.box);
@@ -229,6 +241,30 @@ function cameraScanner() {
             this.error = message;
             this.statusText = '';
             this.$nextTick(() => setTimeout(() => this.$refs.manualInput?.focus(), 100));
+        },
+
+        updateFlashAvailability() {
+            const track = this.$refs.readerDiv?.querySelector('video')?.srcObject?.getVideoTracks?.()[0];
+            try {
+                if (track?.getCapabilities?.().torch === true) {
+                    this.flashTrack = track;
+                    this.flashAvailable = true;
+                }
+            } catch (e) {
+                this.flashAvailable = false;
+            }
+        },
+
+        async toggleFlash() {
+            if (!this.flashAvailable || !this.flashTrack) return;
+            const next = !this.flashOn;
+            try {
+                await this.flashTrack.applyConstraints({ advanced: [{ torch: next }] });
+                this.flashOn = next;
+            } catch (e) {
+                this.flashAvailable = false;
+                this.flashOn = false;
+            }
         },
 
         /**
@@ -372,6 +408,9 @@ function cameraScanner() {
             this.error = null;
             this.statusText = '';
             this.barcodeOutline = '';
+            this.flashAvailable = false;
+            this.flashOn = false;
+            this.flashTrack = null;
             clearTimeout(this.closeTimer);
 
             try {

@@ -63,13 +63,14 @@ class StreamerPerformanceKpisTest extends TestCase
         $this->pay($show, 50, 'approved');
         $this->pay($show, 25, 'draft');
         $this->pay($show, 9999, 'paid', $this->other);
-        $page = Livewire::test(StreamerHome::class)->assertSee('Your performance')->assertSee('Amount paid')->assertSee('Sales / streaming hour');
+        $page = Livewire::test(StreamerHome::class)->assertSee('Your performance')->assertSee('Paid pay runs')->assertDontSee('Draft pay estimate')->assertSee('Sales / streaming hour');
         $n = $page->instance()->numbers();
         $this->assertSame(1, $n['shows']);
         $this->assertSame(1000.0, $n['gross']);
         $this->assertSame(100.0, $n['paid']);
         $this->assertSame(50.0, $n['unpaid']);
-        $this->assertSame(25.0, $n['draft_pay']);
+        // Drafts are no longer shown to streamers at all (#253).
+        $this->assertArrayNotHasKey('draft_pay', $n);
         $this->assertSame(600.0, $n['earnings']);
         $this->assertSame(2.0, $n['hours']);
         $this->assertSame(500.0, $n['gross_per_hour']);
@@ -140,7 +141,6 @@ class StreamerPerformanceKpisTest extends TestCase
         $this->assertSame(1, $n['shows']);
         $this->assertSame(1000.0, $n['gross']);
         $this->assertSame(0.0, $n['paid']);
-        $this->assertSame(0.0, $n['draft_pay']);
     }
 
     public function test_paid_history_remains_visible_after_assignment_removed_but_missing_profiles_see_nothing(): void

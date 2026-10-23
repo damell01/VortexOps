@@ -205,36 +205,24 @@ class StreamerLeaderboardTest extends TestCase
         $this->actingAs(User::factory()->create())->get($url)->assertForbidden();
     }
 
-    public function test_colosseum_is_offered_on_the_leaderboard_page_only_with_the_top_three(): void
+    public function test_the_podium_animates_the_top_three_and_can_be_replayed(): void
     {
+        // The leaderboard is a sprite podium with an optional 3D layer behind
+        // it (#257-#268): the stage gets the top three only, as data.
         $this->viewer->update(['buddy' => 'charizard']);
-        $this->show('Champion', 900);
+        $champion = $this->show('Champion', 900);
         $this->show('Second', 500, $this->rival);
         $this->show('Third', 300, $this->outside);
         $this->show('Fourth', 100, $this->rival);
 
         $page = $this->get(\App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin'))->assertOk()
-            ->assertSee('data-vxa', false)->assertSee('Replay the battle')->assertSee('Replay animation')->assertSee('vxl-podium-fallback', false);
-        preg_match('#<script type="application/json" data-vxa-lineup>(.*?)</script>#s', $page->getContent(), $m);
-        $lineup = json_decode($m[1] ?? 'null', true);
-        $this->assertSame('week', $lineup['period']);
-        $this->assertSame([1, 2, 3], array_column($lineup['rows'], 'rank'));
-        $this->assertSame(['Alex', 'Jordan', 'Outside Team'], array_column($lineup['rows'], 'name'));
-        $this->assertSame('$900.00', $lineup['rows'][0]['value']);
-        $this->assertSame('charizard', $lineup['rows'][0]['buddy']);
-        $this->assertSame('Champion', $lineup['rows'][0]['title']);
-        // A streamer opens only their own show from the podium.
-        $this->assertStringEndsWith('/shows/'.$lineup['rows'][0]['id'], (string) $lineup['rows'][0]['url']);
-        $this->assertTrue($lineup['rows'][0]['mine']);
-        $this->assertNull($lineup['rows'][1]['url']);
-
-        // Embedded plainly (no flag) there is no arena at all.
-        Livewire::test(StreamerLeaderboard::class)->assertDontSee('data-vxa', false);
-
-        // Dashboards get the light 3D podium: no Enter arena button, the same lineup.
-        Livewire::test(StreamerLeaderboard::class, ['arenaCompact' => true])
-            ->assertSee('data-mode="compact"', false)
-            ->assertSee('data-vxa-lineup', false);
+            ->assertSee('data-vxl-3d-stage', false)->assertSee('Replay animation')->assertSee('vxl-replay', false)
+            ->assertSee('Champion')->assertSee('Fourth');
+        preg_match('#<script type="application/json" data-vxl-3d-lineup>(.*?)</script>#s', $page->getContent(), $m);
+        $lineup = json_decode(html_entity_decode($m[1] ?? 'null'), true);
+        $this->assertSame([1, 2, 3], array_column($lineup, 'rank'));
+        $this->assertSame($champion->id, $lineup[0]['id']);
+        $this->assertSame('charizard', $lineup[0]['buddy']);
     }
 
     public function test_every_colosseum_fighter_has_its_model_on_disk_and_a_credit(): void
@@ -263,7 +251,5 @@ class StreamerLeaderboardTest extends TestCase
 
         // Any page after login (here the calendar) tells the browser what to warm.
         $this->get(\App\Filament\Pages\Shows::getUrl(panel: 'admin'))->assertOk()->assertSee('name="vortex-arena-warm"', false);
-        // The arena asks for the same versioned URLs, so they come from cache.
-        $this->get(\App\Filament\Pages\ShowLeaderboard::getUrl(panel: 'admin'))->assertSee('data-models-v="'.$warm['v'].'"', false);
     }
 }

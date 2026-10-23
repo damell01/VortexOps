@@ -54,24 +54,19 @@ function scannerFixture({ flashSupported = true } = {}) {
     return { scanner, callbacks, events, timers, overlay, flashConstraints };
 }
 
-test('camera bounds follow the barcode through object-fit cropping', async () => {
-    const { scanner, callbacks, overlay } = scannerFixture();
+test('restored scanner uses the earlier camera resolution and wider scan area', async () => {
+    const { scanner, callbacks } = scannerFixture();
     await scanner.open();
     assert.equal(callbacks.config.inputStream.area.top, '30%');
-    assert.equal(callbacks.config.inputStream.area.left, '15%');
-    assert.equal(callbacks.config.inputStream.area.right, '15%');
-    assert.equal(callbacks.config.locator.patchSize, 'small');
-    assert.equal(callbacks.config.inputStream.constraints.width.ideal, 960);
-    assert.deepEqual(Array.from(callbacks.config.decoder.readers), ['upc_reader', 'ean_reader', 'ean_8_reader', 'upc_e_reader', 'code_128_reader']);
+    assert.equal(callbacks.config.inputStream.area.left, '5%');
+    assert.equal(callbacks.config.inputStream.area.right, '5%');
+    assert.equal(callbacks.config.locator.patchSize, 'medium');
+    assert.equal(callbacks.config.inputStream.constraints.width.ideal, 1280);
+    assert.deepEqual(Array.from(callbacks.config.decoder.readers), ['code_128_reader', 'ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader']);
     callbacks.ready(null);
     assert.equal(callbacks.started, true);
 
-    const box = [[200, 180], [440, 180], [440, 300], [200, 300]];
-    callbacks.processed({ boxes: [box] });
-    assert.equal(scanner.barcodeOutline, '', 'unread label edges do not trigger a false outline');
-    callbacks.processed({ box, codeResult: { code: '012345678905' } });
-    assert.equal(scanner.barcodeOutline, '40.0,180.0 280.0,180.0 280.0,300.0 40.0,300.0');
-    assert.equal(overlay.viewBox, '0 0 320 480');
+    assert.equal(callbacks.processed, undefined, 'scan registration does not depend on overlay processing');
 });
 
 test('two clean reads submit once and release the camera promptly', async () => {
@@ -87,11 +82,11 @@ test('two clean reads submit once and release the camera promptly', async () => 
     callbacks.detected(result);
     callbacks.detected(result);
     assert.deepEqual(events.map(event => event.detail.value), ['012345678905']);
-    assert.equal(timers.at(-1).duration, 120);
+    assert.equal(timers.at(-1).duration, 500);
 
     timers.at(-1).callback();
     assert.equal(callbacks.stopped, true);
-    assert.equal(scanner.barcodeOutline, '');
+    assert.equal(scanner.isOpen, false);
 });
 
 test('closing while the scanner initializes cannot restart the camera', async () => {
@@ -102,23 +97,15 @@ test('closing while the scanner initializes cannot restart the camera', async ()
     assert.equal(callbacks.started, undefined);
 });
 
-test('flash appears only for supported cameras and toggles the light', async () => {
-    const { scanner, callbacks, flashConstraints } = scannerFixture();
+test('manual barcode submission reaches the page and releases the camera', async () => {
+    const { scanner, callbacks, events } = scannerFixture();
     await scanner.open();
     callbacks.ready(null);
-    assert.equal(scanner.flashAvailable, true);
-    await scanner.toggleFlash();
-    assert.equal(scanner.flashOn, true);
-    await scanner.toggleFlash();
-    assert.equal(scanner.flashOn, false);
-    assert.deepEqual(flashConstraints.map(value => value.advanced[0].torch), [true, false]);
-    await scanner.close();
-    assert.equal(scanner.flashAvailable, false);
-
-    const unsupported = scannerFixture({ flashSupported: false });
-    await unsupported.scanner.open();
-    unsupported.callbacks.ready(null);
-    assert.equal(unsupported.scanner.flashAvailable, false);
+    scanner.$refs.manualInput.value = '012345678905';
+    scanner.submitManual();
+    assert.deepEqual(events.map(event => event.detail.value), ['012345678905']);
+    assert.equal(scanner.isOpen, false);
+    assert.equal(callbacks.stopped, true);
 });
 
 test('concurrent scanner library requests wait for the same script load', async () => {

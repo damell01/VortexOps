@@ -6,39 +6,35 @@
         x-on:keydown.escape.window="close()"
         style="display:none"
     >
-        <section class="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#080f1d] text-white sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl sm:shadow-2xl">
-            <header class="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#080f1d] px-4 pb-4 pt-[max(.75rem,env(safe-area-inset-top))] sm:py-4">
-                <button type="button" x-on:click="close()" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white" aria-label="Close scanner">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6" /></svg>
-                </button>
-                <div class="min-w-0 flex-1">
-                    <div class="text-base font-semibold" x-text="titleText"></div>
-                    <div class="mt-0.5 text-xs leading-4 text-slate-400" x-text="helperText"></div>
+        <section class="flex h-[100dvh] w-full flex-col overflow-hidden bg-gray-950 sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-2xl sm:bg-white sm:shadow-2xl dark:sm:bg-gray-900">
+            <header class="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-gray-950 px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))] text-white sm:border-gray-200 sm:bg-white sm:py-3 sm:text-gray-950 dark:sm:border-gray-700 dark:sm:bg-gray-900 dark:sm:text-white">
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold" x-text="titleText"></div>
+                    <div class="mt-0.5 truncate text-[10px] text-gray-400 sm:text-xs" x-text="helperText"></div>
                 </div>
-                <button type="button" x-cloak x-show="flashAvailable" x-on:click="toggleFlash()" x-bind:aria-label="flashOn ? 'Turn flash off' : 'Turn flash on'" x-bind:aria-pressed="flashOn" class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white" title="Flash">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m13 2-8 11h6l-1 9 9-12h-6l1-8Z" /></svg>
+                <button type="button" x-on:click="close()" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white sm:bg-gray-100 sm:text-gray-600 dark:sm:bg-gray-800 dark:sm:text-gray-300" aria-label="Close scanner">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                 </button>
             </header>
 
             <div class="relative h-[46dvh] min-h-[18rem] max-h-[30rem] shrink-0 overflow-hidden bg-black sm:aspect-[4/3] sm:h-auto sm:min-h-0 sm:max-h-none vx-scanner-stage">
                 <div x-ref="readerDiv" id="html5-qr-reader"></div>
 
-                <div class="pointer-events-none absolute inset-x-[5%] top-[30%] h-[40%]">
-                    <div class="vx-scan-frame relative h-full w-full rounded-2xl shadow-[0_0_0_999px_rgba(0,0,0,.24)]" x-show="!barcodeOutline" x-cloak>
-                        <span class="vx-scan-corner absolute -left-0.5 -top-0.5 h-9 w-9 rounded-tl-2xl border-l-4 border-t-4 border-sky-400"></span>
-                        <span class="vx-scan-corner absolute -right-0.5 -top-0.5 h-9 w-9 rounded-tr-2xl border-r-4 border-t-4 border-sky-400"></span>
-                        <span class="vx-scan-corner absolute -bottom-0.5 -left-0.5 h-9 w-9 rounded-bl-2xl border-b-4 border-l-4 border-sky-400"></span>
-                        <span class="vx-scan-corner absolute -bottom-0.5 -right-0.5 h-9 w-9 rounded-br-2xl border-b-4 border-r-4 border-sky-400"></span>
-                        <div class="vx-scan-line absolute inset-x-1 h-0.5 rounded-full bg-sky-300 shadow-[0_0_12px_3px_rgba(56,189,248,.8)]"></div>
+                <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-5">
+                    <div class="vx-scan-frame relative h-28 w-full max-w-[22rem] overflow-hidden rounded-2xl border-2 border-white/90 shadow-[0_0_0_999px_rgba(0,0,0,.42)] sm:h-36">
+                        <span class="absolute -left-0.5 -top-0.5 h-8 w-8 rounded-tl-2xl border-l-4 border-t-4 border-violet-400"></span>
+                        <span class="absolute -right-0.5 -top-0.5 h-8 w-8 rounded-tr-2xl border-r-4 border-t-4 border-violet-400"></span>
+                        <span class="absolute -bottom-0.5 -left-0.5 h-8 w-8 rounded-bl-2xl border-b-4 border-l-4 border-violet-400"></span>
+                        <span class="absolute -bottom-0.5 -right-0.5 h-8 w-8 rounded-br-2xl border-b-4 border-r-4 border-violet-400"></span>
+                        <div class="vx-scan-line absolute inset-x-3 h-0.5 rounded-full bg-violet-300 shadow-[0_0_10px_rgba(196,181,253,.95)]"></div>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <span class="rounded-full bg-black/55 px-3 py-1 text-[10px] font-semibold uppercase tracking-[.14em] text-white/90">Place barcode here</span>
+                        </div>
                     </div>
                 </div>
 
-                <svg x-ref="barcodeOverlay" x-show="barcodeOutline" x-cloak aria-hidden="true" class="pointer-events-none absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none">
-                    <polygon class="vx-detected-outline" x-bind:points="barcodeOutline" fill="rgba(56,189,248,.12)" stroke="#38bdf8" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
-                </svg>
-
                 <div class="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-                    <div class="rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur" x-text="statusText || 'Center barcode in the frame'"></div>
+                    <div class="rounded-full bg-black/65 px-3 py-1.5 text-[11px] font-medium text-white backdrop-blur" x-text="statusText || 'Point the camera at a barcode'"></div>
                 </div>
 
                 <div x-show="detected" x-transition class="pointer-events-none absolute inset-0 flex items-center justify-center bg-green-500/35" style="display:none">
@@ -50,18 +46,18 @@
                 </div>
             </div>
 
-            <footer class="min-h-0 flex-1 shrink-0 space-y-4 overflow-y-auto bg-[#080f1d] px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-4 text-white sm:flex-none sm:pb-4">
+            <footer class="min-h-0 flex-1 shrink-0 space-y-3 overflow-y-auto bg-gray-950 px-4 pb-[max(.85rem,env(safe-area-inset-bottom))] pt-3 text-white sm:flex-none sm:bg-white sm:pb-4 sm:text-gray-950 dark:sm:bg-gray-900 dark:sm:text-white">
                 <div x-show="error" x-text="error" class="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 sm:text-red-600" style="display:none"></div>
 
-                <div class="rounded-2xl border border-white/10 bg-white/5 p-3 shadow-lg">
-                    <div class="mb-2 text-sm font-semibold text-white">Manual entry</div>
+                <div>
+                    <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:text-xs">Manual barcode entry</div>
                     <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-                        <input type="text" x-ref="manualInput" x-on:keydown.enter.prevent="submitManual()" inputmode="numeric" autocomplete="off" aria-label="Manual barcode entry" placeholder="Type or scan barcode…" class="min-h-11 min-w-0 rounded-lg border border-white/20 bg-white/5 px-3 font-mono text-base text-white placeholder:text-slate-500" />
-                        <button type="button" x-on:click="submitManual()" class="min-h-11 rounded-lg bg-blue-500 px-4 text-sm font-semibold text-white">Use Code</button>
+                        <input type="text" x-ref="manualInput" x-on:keydown.enter.prevent="submitManual()" inputmode="numeric" autocomplete="off" placeholder="Type or scan barcode…" class="min-h-11 min-w-0 rounded-lg border border-white/20 bg-white/10 px-3 font-mono text-base text-white placeholder:text-gray-500 sm:border-gray-300 sm:bg-white sm:text-gray-950 dark:sm:border-gray-600 dark:sm:bg-gray-800 dark:sm:text-white" />
+                        <button type="button" x-on:click="submitManual()" class="min-h-11 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Use Code</button>
                     </div>
                 </div>
 
-                <p class="text-center text-xs leading-4 text-slate-400">Camera scans automatically. Manual entry and USB/Bluetooth scanners also work.</p>
+                <p class="text-center text-[10px] leading-4 text-gray-500 sm:text-xs">Camera scans submit automatically after confirmation. Manual entry and USB/Bluetooth scanners also work.</p>
             </footer>
         </section>
     </div>
@@ -73,15 +69,13 @@
     .vx-scanner-stage #html5-qr-reader video,
     .vx-scanner-stage #html5-qr-reader canvas { position:absolute; inset:0; width:100% !important; height:100% !important; object-fit:cover; }
     .vx-scanner-stage #html5-qr-reader canvas.drawingBuffer { display:none !important; }
-    .vx-scan-corner, .vx-detected-outline { filter: drop-shadow(0 0 6px rgba(56, 189, 248, .95)); }
 
     @keyframes vxBarcodeScanLine {
         0% { top: 12%; opacity: .35; }
         50% { top: 82%; opacity: 1; }
         100% { top: 12%; opacity: .35; }
     }
-    .vx-scan-line { animation: vxBarcodeScanLine 1.4s ease-in-out infinite; }
-    @media (prefers-reduced-motion: reduce) { .vx-scan-line { animation: none; top: 50%; } }
+    .vx-scan-line { animation: vxBarcodeScanLine 1.7s ease-in-out infinite; }
     body.vx-camera-scanner-open .vx-tour-launcher { display: none !important; }
 </style>
 
@@ -116,14 +110,8 @@ function cameraScanner() {
         // identical reads — see onBarcodeDetected.
         votes: {},
         lastVoteTime: 0,
-        barcodeOutline: '',
-        outlineTime: 0,
-        processedCallback: null,
-        closeTimer: null,
         scanSession: 0,
-        flashAvailable: false,
-        flashOn: false,
-        flashTrack: null,
+        closeTimer: null,
 
         // How many quality-checked reads of the same code end a scan. Two,
         // because the error gate below has already thrown out the reads that
@@ -148,6 +136,7 @@ function cameraScanner() {
             this.targetInput = document.activeElement?.tagName === 'INPUT' ? document.activeElement : null;
             this.isOpen = true;
             const session = ++this.scanSession;
+            clearTimeout(this.closeTimer);
             document.body?.classList.add('vx-camera-scanner-open');
             this.detected = false;
             this.error = null;
@@ -155,12 +144,6 @@ function cameraScanner() {
             this.lastDetectedBarcode = null;
             this.votes = {};
             this.lastVoteTime = 0;
-            this.barcodeOutline = '';
-            this.outlineTime = 0;
-            this.flashAvailable = false;
-            this.flashOn = false;
-            this.flashTrack = null;
-            clearTimeout(this.closeTimer);
             if (this.$refs.manualInput) this.$refs.manualInput.value = '';
             await this.$nextTick();
             if (this.isOpen && session === this.scanSession) await this.startScanner(session);
@@ -181,7 +164,6 @@ function cameraScanner() {
                 }
             }
 
-            // The library can finish loading after the user has closed the modal.
             if (!this.isOpen || session !== this.scanSession) return;
 
             try { if (window.QuaggaInitialized) Quagga.stop(); } catch (e) {}
@@ -194,20 +176,15 @@ function cameraScanner() {
                         name: 'Live',
                         type: 'LiveStream',
                         target: readerDiv,
-                        // The preview crops the landscape camera on a phone.
-                        // Limit work to the central region visible in its guide.
-                        area: { top: '30%', right: '15%', left: '15%', bottom: '30%' },
+                        area: { top: '30%', right: '5%', left: '5%', bottom: '30%' },
                         constraints: {
                             facingMode: 'environment',
-                            width: { ideal: 960 },
-                            height: { ideal: 540 }
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
                         }
                     },
-                    // Quagga stops at the first matching reader. Most product
-                    // labels are UPC/EAN; keep Code 128 for warehouse labels.
-                    decoder: { readers: ['upc_reader','ean_reader','ean_8_reader','upc_e_reader','code_128_reader'] },
-                    // Small retail labels need a denser locator grid.
-                    locator: { patchSize: 'small', halfSample: true },
+                    decoder: { readers: ['code_128_reader','ean_reader','ean_8_reader','upc_reader','upc_e_reader'] },
+                    locator: { patchSize: 'medium', halfSample: true },
                     locate: true,
                     frequency: 20,
                     numOfWorkers: Math.min(Math.max((navigator.hardwareConcurrency || 2) - 1, 1), 2),
@@ -225,13 +202,10 @@ function cameraScanner() {
                     }
 
                     Quagga.start();
-                    this.updateFlashAvailability();
                     this.detectedCallback = result => {
                         const value = result?.codeResult?.code;
-                        if (value) this.onBarcodeDetected(value, this.decodeError(result), result.box);
+                        if (value) this.onBarcodeDetected(value, this.decodeError(result));
                     };
-                    this.processedCallback = result => this.showBarcodeOutline(result);
-                    Quagga.onProcessed(this.processedCallback);
                     Quagga.onDetected(this.detectedCallback);
                     this.statusText = 'Ready — center the barcode in the box';
                 });
@@ -246,30 +220,6 @@ function cameraScanner() {
             this.error = message;
             this.statusText = '';
             this.$nextTick(() => setTimeout(() => this.$refs.manualInput?.focus(), 100));
-        },
-
-        updateFlashAvailability() {
-            const track = this.$refs.readerDiv?.querySelector('video')?.srcObject?.getVideoTracks?.()[0];
-            try {
-                if (track?.getCapabilities?.().torch === true) {
-                    this.flashTrack = track;
-                    this.flashAvailable = true;
-                }
-            } catch (e) {
-                this.flashAvailable = false;
-            }
-        },
-
-        async toggleFlash() {
-            if (!this.flashAvailable || !this.flashTrack) return;
-            const next = !this.flashOn;
-            try {
-                await this.flashTrack.applyConstraints({ advanced: [{ torch: next }] });
-                this.flashOn = next;
-            } catch (e) {
-                this.flashAvailable = false;
-                this.flashOn = false;
-            }
         },
 
         /**
@@ -291,46 +241,6 @@ function cameraScanner() {
             return errors.reduce((a, b) => a + b, 0) / errors.length;
         },
 
-        // Quagga's points use the camera canvas, which can be cropped by the
-        // video element's object-fit: cover. Project them onto the visible
-        // preview so the outline follows the actual code on a phone screen.
-        showBarcodeOutline(result) {
-            if (!this.isOpen || this.detected) return;
-            const now = Date.now();
-            // Locator candidates can include label text and edges. Only draw
-            // a box after Quagga actually decoded a barcode inside it.
-            const box = result?.codeResult ? result.box : null;
-            const video = this.$refs.readerDiv?.querySelector('video');
-            const overlay = this.$refs.barcodeOverlay;
-            if (!box || !video?.videoWidth || !video?.videoHeight || !overlay) {
-                if (now - this.outlineTime > 250) this.barcodeOutline = '';
-                return;
-            }
-
-            // The SVG is hidden until a read exists, so measure its visible
-            // parent rather than its own zero-sized hidden box.
-            const stage = this.$refs.readerDiv.parentElement;
-            const width = stage?.clientWidth;
-            const height = stage?.clientHeight;
-            const canvas = this.$refs.readerDiv.querySelector('canvas.drawingBuffer');
-            const sourceWidth = canvas?.width || video.videoWidth;
-            const sourceHeight = canvas?.height || video.videoHeight;
-            if (!width || !height || !sourceWidth || !sourceHeight) return;
-
-            const scale = Math.max(width / sourceWidth, height / sourceHeight);
-            const left = (width - sourceWidth * scale) / 2;
-            const top = (height - sourceHeight * scale) / 2;
-            const points = box.map(point => {
-                if (!Array.isArray(point) || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) return null;
-                return `${(left + point[0] * scale).toFixed(1)},${(top + point[1] * scale).toFixed(1)}`;
-            });
-            if (points.length !== 4 || points.includes(null)) return;
-
-            overlay.setAttribute('viewBox', `0 0 ${width} ${height}`);
-            this.barcodeOutline = points.join(' ');
-            this.outlineTime = now;
-        },
-
         /**
          * Accept a code once enough good reads agree on it.
          *
@@ -341,19 +251,18 @@ function cameraScanner() {
          * happened in about a second and occasionally took half a minute.
          * That was the thirty-second scan.
          *
-         * Bad reads are rejected on their decode error. The two surviving
-         * reads need not be consecutive, so a stray frame does not restart
-         * the scan.
+         * Two changes. Bad reads are rejected on their decode error instead
+         * of being out-voted by repetition, and the votes that survive are
+         * tallied rather than required to be consecutive, so one stray frame
+         * costs nothing instead of starting over.
          */
-        onBarcodeDetected(value, error = null, box = null) {
+        onBarcodeDetected(value, error = null) {
             const cleaned = String(value || '').trim();
             if (!cleaned || this.detected) return;
 
             if (error !== null && error > this.MAX_DECODE_ERROR) {
                 return;
             }
-
-            if (box) this.showBarcodeOutline({ box, codeResult: { code: cleaned } });
 
             const now = Date.now();
 
@@ -376,7 +285,7 @@ function cameraScanner() {
             this.statusText = 'Barcode scanned';
             if (navigator.vibrate) navigator.vibrate([80, 45, 80]);
             this.fillInput(cleaned);
-            this.closeTimer = setTimeout(() => this.close(), 120);
+            this.closeTimer = setTimeout(() => this.close(), 500);
         },
 
         submitManual() {
@@ -407,22 +316,16 @@ function cameraScanner() {
 
         async close() {
             ++this.scanSession;
+            clearTimeout(this.closeTimer);
             this.isOpen = false;
             document.body?.classList.remove('vx-camera-scanner-open');
             this.detected = false;
             this.error = null;
             this.statusText = '';
-            this.barcodeOutline = '';
-            this.flashAvailable = false;
-            this.flashOn = false;
-            this.flashTrack = null;
-            clearTimeout(this.closeTimer);
 
             try {
                 if (this.detectedCallback && typeof Quagga !== 'undefined') Quagga.offDetected(this.detectedCallback);
-                if (this.processedCallback && typeof Quagga !== 'undefined') Quagga.offProcessed(this.processedCallback);
                 this.detectedCallback = null;
-                this.processedCallback = null;
                 if (typeof Quagga !== 'undefined') Quagga.stop();
             } catch (e) {}
 

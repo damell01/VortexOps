@@ -4,9 +4,7 @@
 @endphp
 
 <x-filament-panels::page>
-    {{-- Camera scans land in whichever field is focused; the component
-         dispatches barcode-scanned, which the inputs below listen for. --}}
-    @include('filament.components.camera-barcode-scanner')
+    {{-- The panel's shared camera scanner dispatches barcode-scanned here. --}}
 
     <x-touch-mode-toggle />
     <div class="vx-cs" data-vx-touch-page

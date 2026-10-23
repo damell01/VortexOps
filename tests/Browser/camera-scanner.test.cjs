@@ -59,6 +59,7 @@ test('camera bounds follow the barcode through object-fit cropping', async () =>
     await scanner.open();
     assert.equal(callbacks.config.inputStream.area.top, '30%');
     assert.equal(callbacks.config.inputStream.constraints.width.ideal, 960);
+    assert.deepEqual(Array.from(callbacks.config.decoder.readers), ['upc_reader', 'ean_reader', 'ean_8_reader', 'upc_e_reader', 'code_128_reader']);
     callbacks.ready(null);
     assert.equal(callbacks.started, true);
 
@@ -115,4 +116,45 @@ test('flash appears only for supported cameras and toggles the light', async () 
     await unsupported.scanner.open();
     unsupported.callbacks.ready(null);
     assert.equal(unsupported.scanner.flashAvailable, false);
+});
+
+test('concurrent scanner library requests wait for the same script load', async () => {
+    const app = fs.readFileSync(path.join(__dirname, '../../resources/js/app.js'), 'utf8');
+    const loader = app.match(/const vxScriptLoads = new Map\(\);[\s\S]*?(?=\/\/ Some Filament)/)?.[0];
+    assert.ok(loader);
+    const scripts = [];
+    const window = {};
+    const document = {
+        getElementById(id) { return scripts.find(script => script.id === id) || null; },
+        createElement() { return { remove() { scripts.splice(scripts.indexOf(this), 1); } }; },
+        head: { appendChild(script) { scripts.push(script); } },
+    };
+    vm.runInNewContext(loader, { window, document, Map, Promise });
+    const first = window.vxLoadScriptOnce('/vendor/quagga.min.js', 'vx-quagga');
+    const second = window.vxLoadScriptOnce('/vendor/quagga.min.js', 'vx-quagga');
+    assert.equal(first, second);
+    assert.equal(scripts.length, 1);
+    scripts[0].onload();
+    await Promise.all([first, second]);
+});
+
+test('failed scanner library loads can be retried', async () => {
+    const app = fs.readFileSync(path.join(__dirname, '../../resources/js/app.js'), 'utf8');
+    const loader = app.match(/const vxScriptLoads = new Map\(\);[\s\S]*?(?=\/\/ Some Filament)/)?.[0];
+    const scripts = [];
+    const window = {};
+    const document = {
+        getElementById(id) { return scripts.find(script => script.id === id) || null; },
+        createElement() { return { remove() { scripts.splice(scripts.indexOf(this), 1); } }; },
+        head: { appendChild(script) { scripts.push(script); } },
+    };
+    vm.runInNewContext(loader, { window, document, Map, Promise });
+    const first = window.vxLoadScriptOnce('/vendor/quagga.min.js', 'vx-quagga');
+    scripts[0].onerror(new Error('network interruption'));
+    await assert.rejects(first);
+    assert.equal(scripts.length, 0);
+    const retry = window.vxLoadScriptOnce('/vendor/quagga.min.js', 'vx-quagga');
+    assert.equal(scripts.length, 1);
+    scripts[0].onload();
+    await retry;
 });

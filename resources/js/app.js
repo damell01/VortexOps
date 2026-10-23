@@ -151,8 +151,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 // scanners, etc.). The promise is cached so repeat opens never redownload it.
 const vxScriptLoads = new Map();
 window.vxLoadScriptOnce = function (src, id) {
-    if (id && document.getElementById(id)) return Promise.resolve();
     if (vxScriptLoads.has(src)) return vxScriptLoads.get(src);
+    if (id && document.getElementById(id)) return Promise.resolve();
 
     const promise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -160,7 +160,10 @@ window.vxLoadScriptOnce = function (src, id) {
         script.src = src;
         script.defer = true;
         script.onload = resolve;
-        script.onerror = reject;
+        script.onerror = (error) => {
+            script.remove();
+            reject(error);
+        };
         document.head.appendChild(script);
     }).catch((error) => {
         vxScriptLoads.delete(src);

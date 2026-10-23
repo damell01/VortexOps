@@ -201,7 +201,9 @@ function cameraScanner() {
                             height: { ideal: 540 }
                         }
                     },
-                    decoder: { readers: ['code_128_reader','ean_reader','ean_8_reader','upc_reader','upc_e_reader'] },
+                    // Quagga stops at the first matching reader. Most product
+                    // labels are UPC/EAN; keep Code 128 for warehouse labels.
+                    decoder: { readers: ['upc_reader','ean_reader','ean_8_reader','upc_e_reader','code_128_reader'] },
                     locator: { patchSize: 'medium', halfSample: true },
                     locate: true,
                     frequency: 20,

@@ -71,6 +71,7 @@ class WhatnotLedgerResource extends Resource
     {
         return [
             'index' => Pages\ListWhatnotLedgerEntries::route('/'),
+            'tips' => Pages\LedgerTips::route('/tips'),
         ];
     }
 }

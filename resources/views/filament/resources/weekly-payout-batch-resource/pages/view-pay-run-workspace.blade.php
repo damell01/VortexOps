@@ -42,15 +42,14 @@
     $assistantReport = $this->assistantAndTipSummary();
     $assistantRows = $assistantReport['assistants'];
     $tipRows = $assistantReport['tips'];
-    $channelNames = \App\Models\WhatnotChannel::query()->pluck('name', 'id')->all();
 @endphp
 
 <div class="vxw" data-vx-page="pay-run">
-<section class="vxw-card mb-4" aria-label="Assistant hours and channel tips">
+<section class="vxw-card mb-4" aria-label="Assistant hours">
     <div class="vxw-card-body">
-        <h3 class="text-lg font-semibold">Assistant hours and channel tips</h3>
-        <p class="text-sm opacity-70">Review-only figures. Assistant amounts are not included in payout totals yet; ledger tips are not added to payroll.</p>
-        <div class="grid gap-5 md:grid-cols-2 mt-4">
+        <h3 class="text-lg font-semibold">Assistant hours</h3>
+        <p class="text-sm opacity-70">Hours and estimated wages for review. Check each person’s payout lines for the amounts included in this run.</p>
+        <div class="grid gap-5 mt-4">
             <div>
                 <h4 class="font-semibold mb-2">Streamer assistants</h4>
                 @forelse ($assistantRows as $assistant)
@@ -62,23 +61,25 @@
                     <p class="text-sm opacity-70">No assistants configured.</p>
                 @endforelse
             </div>
-            <div>
-                <h4 class="font-semibold mb-2">Ledger tips by channel</h4>
-                @forelse ($tipRows['channels'] as $channelId => $amount)
-                    <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span>{{ $channelNames[$channelId] ?? ('Channel #'.$channelId) }}</span>
-                        <strong>{{ $money($amount) }}</strong>
-                    </div>
-                @empty
-                    <p class="text-sm opacity-70">No channel-attributed ledger tips for this period.</p>
-                @endforelse
-                <div class="flex justify-between gap-3 py-2">
-                    <span>Unassigned tips</span><strong>{{ $money($tipRows['unassigned']) }}</strong>
-                </div>
-            </div>
+
         </div>
     </div>
 </section>
+
+
+    @include('filament.reports.ledger-tip-summary', ['tipReport' => $tipRows])
+    <section class="vxw-card">
+        <div class="vxw-card-body grid gap-2">
+            @php
+                $tipsInRun = $payouts->sum('tips_included');
+            @endphp
+            <strong>Tips recorded in this run: {{ $money($tipsInRun) }}</strong>
+            <p class="vxw-meta">All channels for this run's business and dates. Includes embedded tips and separate show-tip lines already recorded in payroll. Custom formulas and manual overrides may require review. Ledger totals use transaction created dates; payroll tips use show dates and the configured tip split, so a difference is not automatically an amount owed. These figures do not change payouts.</p>
+            @if (\App\Filament\Resources\WhatnotLedgerResource::canAccess())
+                <a class="vxw-btn vxw-btn--ghost vxw-btn--sm" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips', ['period' => 'pay_period', 'payRun' => $run->id, 'business' => $run->business_id ? (string) $run->business_id : 'all']) }}">Review tip totals and weekly breakdown</a>
+            @endif
+        </div>
+    </section>
 
     <section class="vxw-card">
         <div class="vxw-card-body grid gap-5">

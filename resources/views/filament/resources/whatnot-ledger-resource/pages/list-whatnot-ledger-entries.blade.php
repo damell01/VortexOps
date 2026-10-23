@@ -60,6 +60,7 @@
             <p class="vxr-subtitle">Reconcile credits, debits and transaction status by channel.</p>
         </div>
         <div class="vxr-actions">
+            <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
             @if ($canDelete && count($checked))
                 <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
                     wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">

@@ -66,7 +66,13 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $summary = app(\App\Services\AssistantPayrollSummary::class);
         return [
             'assistants' => $summary->hours($this->record->week_start->toDateString(), $this->record->week_end->toDateString())->all(),
-            'tips' => $summary->tipsByChannel($this->record->week_start->toDateString(), $this->record->week_end->toDateString()),
+            'tips' => app(\App\Services\LedgerTipReport::class)->between(
+                $this->record->week_start->toDateString(),
+                $this->record->week_end->toDateString(),
+                'all',
+                $this->record->business_id ? (string) $this->record->business_id : 'all',
+                false, // A pay run covers its whole business across channels.
+            ),
         ];
     }
 

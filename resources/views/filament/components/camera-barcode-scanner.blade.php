@@ -194,7 +194,9 @@ function cameraScanner() {
                         name: 'Live',
                         type: 'LiveStream',
                         target: readerDiv,
-                        area: { top: '30%', right: '5%', left: '5%', bottom: '30%' },
+                        // The preview crops the landscape camera on a phone.
+                        // Limit work to the central region visible in its guide.
+                        area: { top: '30%', right: '15%', left: '15%', bottom: '30%' },
                         constraints: {
                             facingMode: 'environment',
                             width: { ideal: 960 },
@@ -204,7 +206,8 @@ function cameraScanner() {
                     // Quagga stops at the first matching reader. Most product
                     // labels are UPC/EAN; keep Code 128 for warehouse labels.
                     decoder: { readers: ['upc_reader','ean_reader','ean_8_reader','upc_e_reader','code_128_reader'] },
-                    locator: { patchSize: 'medium', halfSample: true },
+                    // Small retail labels need a denser locator grid.
+                    locator: { patchSize: 'small', halfSample: true },
                     locate: true,
                     frequency: 20,
                     numOfWorkers: Math.min(Math.max((navigator.hardwareConcurrency || 2) - 1, 1), 2),

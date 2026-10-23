@@ -51,7 +51,7 @@ class LedgerTipReport
 
         $channels = WhatnotChannel::query()->pluck('name', 'id');
         $businesses = Business::query()->pluck('name', 'id');
-        $rows = $weeks = $unassigned = [];
+        $rows = $weeks = $days = $unassigned = [];
         $total = $this->emptyTotals();
         $unassignedTotal = $this->emptyTotals();
         foreach ($daily as $day) {
@@ -78,13 +78,15 @@ class LedgerTipReport
             $rows[$key] ??= $labels + $this->emptyTotals();
             $this->add($rows[$key], $day);
             $this->add($total, $day);
+            $days[$day->day] ??= ['day' => $day->day] + $this->emptyTotals();
+            $this->add($days[$day->day], $day);
             $week = Carbon::parse($day->day)->startOfWeek(PaySchedule::startDay())->toDateString();
             $weekKey = $week.':'.$key;
             $weeks[$weekKey] ??= ['week' => $week] + $labels + $this->emptyTotals();
             $this->add($weeks[$weekKey], $day);
         }
 
-        return ['rows' => array_values($rows), 'weeks' => array_values($weeks), 'total' => $total,
+        return ['rows' => array_values($rows), 'weeks' => array_values($weeks), 'days' => array_values($days), 'total' => $total,
             'unassigned' => array_values($unassigned), 'unassigned_total' => $unassignedTotal];
     }
 

@@ -3,6 +3,45 @@
    stat cards with a round icon, tabs, data tables and a side drawer.
    Built on the vxw tokens in workflow.css, so dark mode comes for free. */
 
+/* Ledger tip dashboard */
+.vxt { max-width: 1500px; }
+.vxt .vxw-hero { align-items: center; }
+.vxt .vxw-hero .vxw-sub { margin-top: 0; }
+.vxt .vxw-hero .vxw-meta { margin-top: 6px; }
+.vxt-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.vxt-filter { display: grid; gap: 5px; flex: 1 1 190px; min-width: 160px; font-size: 12px; font-weight: 600; color: var(--vxw-muted); }
+.vxt-filter .vxw-select, .vxt-filter .vxw-input { width: 100%; color: var(--vxw-text); }
+.vxt-filters > button { flex: 0 0 auto; }
+.vxt-error { padding: 0 18px 14px; color: var(--vxw-bad); font-size: 13px; }
+.vxt-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.vxt-stats .vxr-stat { min-height: 106px; }
+.vxt-stats .vxr-stat-icon { border-radius: 12px; font-size: 26px; font-weight: 650; }
+.vxt-channels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.vxt-channel { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--vxw-border); border-radius: 12px; min-width: 0; }
+.vxt-channel-mark { flex: none; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 11px; background: var(--vxt-color); color: #fff; font-size: 23px; font-weight: 700; }
+.vxt-channel > div { display: grid; gap: 2px; min-width: 0; }
+.vxt-channel strong { font-size: 14px; overflow-wrap: anywhere; }
+.vxt-channel b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.vxt-charts { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; }
+.vxt-trend svg { width: 100%; height: 180px; display: block; overflow: visible; }
+.vxt-grid { stroke: var(--vxw-border); stroke-width: 1; }
+.vxt-zero { stroke: var(--vxw-border-strong); stroke-width: 1.5; }
+.vxt-line { fill: none; stroke: var(--vxw-accent); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.vxt-trend-labels { display: flex; justify-content: space-between; padding: 0 3px 0 4.5%; font-size: 12px; color: var(--vxw-muted); }
+.vxt-share { display: flex; align-items: center; gap: 20px; min-height: 215px; }
+.vxt-donut { flex: none; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; }
+.vxt-donut > span { width: 104px; height: 104px; border-radius: 50%; display: grid; align-content: center; justify-items: center; background: var(--vxw-surface); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vxt-donut small { display: block; font-size: 11px; color: var(--vxw-muted); font-weight: 400; }
+.vxt-legend { flex: 1; min-width: 0; }
+.vxt-legend > div { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--vxw-border); font-size: 12px; }
+.vxt-legend > div:last-child { border-bottom: 0; }
+.vxt-legend i { width: 9px; height: 9px; border-radius: 3px; background: var(--vxt-color); }
+.vxt-legend span:nth-of-type(1) { overflow-wrap: anywhere; }
+.vxt-legend span:nth-of-type(2) { color: var(--vxw-muted); }
+.vxt-legend strong { font-variant-numeric: tabular-nums; }
+@media (max-width: 1150px) { .vxt-stats, .vxt-channels { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vxt-charts { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .vxt-stats, .vxt-channels { grid-template-columns: 1fr; } .vxt-share { flex-wrap: wrap; } .vxt-filter { flex-basis: 100%; } }
+
 .vxr { display: grid; gap: 18px; width: 100%; max-width: 1400px; margin-inline: auto; color: var(--vxw-text); min-width: 0; }
 .vxr-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; }
 .vxr-title { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 750; letter-spacing: -.025em; }

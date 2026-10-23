@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\RespectsRoleVisibility;
 use App\Models\Product;
 use App\Models\InventoryLocation;
-use App\Models\InventoryLot;
 use App\Services\InventoryService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -28,16 +27,21 @@ class QuickAddStock extends Page
     public string $productSearch = '';
     public ?array $productOptions = null;
 
-    private InventoryService $inventoryService;
-
     public function mount(): void
     {
-        $this->inventoryService = app(InventoryService::class);
+        // Preselect where stock usually lands so a restock is scan → qty → add.
+        $ids = $this->locations->pluck('id');
+        $default = InventoryLocation::defaultReceivingId();
+        $this->locationId = $ids->contains($default) ? $default : ($ids->count() === 1 ? $ids->first() : null);
     }
 
     public function getLocationsProperty()
     {
-        return InventoryLocation::orderBy('name')->get(['id', 'name', 'type']);
+        return InventoryLocation::query()
+            ->where('status', 'active')
+            ->inChannelContext()
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
     }
 
     #[On('barcodeScanned')]
@@ -166,6 +170,15 @@ class QuickAddStock extends Page
             return;
         }
 
+        if ($this->quantity <= 0) {
+            Notification::make()
+                ->title('Quantity Required')
+                ->body('Enter how many units to add')
+                ->warning()
+                ->send();
+            return;
+        }
+
         if (!$this->locationId) {
             Notification::make()
                 ->title('Location Required')
@@ -176,20 +189,14 @@ class QuickAddStock extends Page
         }
 
         try {
-            $location = InventoryLocation::findOrFail($this->locationId);
+            $location = $this->locations->firstWhere('id', (int) $this->locationId)
+                ?? throw new \RuntimeException('That location is not available.');
 
-            InventoryLot::create([
-                'product_id' => $this->product->id,
-                'quantity' => $this->quantity,
-                'remaining_quantity' => $this->quantity,
-                'unit_cost' => $this->unitCost ?? 0,
-                'source' => InventoryLot::SOURCE_ADJUSTMENT,
-                'status' => InventoryLot::STATUS_ACTIVE,
-                'received_at' => now(),
-                'received_by' => auth()->id(),
-            ]);
-
-            $this->inventoryService->addStock(
+            // Resolve per-request — Livewire does not rehydrate private
+            // properties, so a mounted service would be gone on wire:click.
+            // Route only through InventoryService so stock, movements, and
+            // FIFO lots stay consistent (no parallel InventoryLot::create).
+            app(InventoryService::class)->addStock(
                 $this->product,
                 $location,
                 $this->quantity,
@@ -215,7 +222,8 @@ class QuickAddStock extends Page
             $this->barcode = '';
             $this->quantity = 1;
             $this->unitCost = null;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            report($e);
             Notification::make()
                 ->title('Error')
                 ->body($e->getMessage())

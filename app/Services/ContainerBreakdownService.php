@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\InventoryItem;
+use App\Models\Product;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +29,7 @@ class ContainerBreakdownService
      *
      * @return array{container: string, containers_broken: int, produced: array<int, array{name: string, quantity: int}>}
      */
-    public function break(InventoryItem $container, InventoryLocation $location, int $count = 1): array
+    public function break(Product $container, InventoryLocation $location, int $count = 1): array
     {
         if ($count < 1) {
             throw new RuntimeException('Break at least one container.');
@@ -121,7 +121,7 @@ class ContainerBreakdownService
      * @param  \Illuminate\Support\Collection  $contents
      * @return array<int, float|null> content line id => unit cost
      */
-    private function allocateCost(InventoryItem $container, $contents, int $count): array
+    private function allocateCost(Product $container, $contents, int $count): array
     {
         $totalCost = $this->containerUnitCost($container) * $count;
 
@@ -171,7 +171,7 @@ class ContainerBreakdownService
     }
 
     /** What one container is carried at — its average, or the price paid. */
-    private function containerUnitCost(InventoryItem $container): float
+    private function containerUnitCost(Product $container): float
     {
         return (float) ($container->average_cost ?: $container->unit_cost ?: 0);
     }

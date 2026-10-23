@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\InventoryItem;
+use App\Models\Product;
 
 class BarcodeService
 {
@@ -28,7 +28,7 @@ class BarcodeService
     /**
      * Generate barcode for an inventory item (uses SKU or ID)
      */
-    public function barcodeForItem(InventoryItem $item): string
+    public function barcodeForItem(Product $item): string
     {
         // Prefer SKU, fall back to ID
         $code = $item->barcode ?? $item->sku ?? "ITEM-{$item->id}";
@@ -38,7 +38,7 @@ class BarcodeService
     /**
      * Generate printable label HTML for a single item
      */
-    public function generateItemLabel(InventoryItem $item, array $options = []): string
+    public function generateItemLabel(Product $item, array $options = []): string
     {
         $width = $options['width'] ?? 4; // inches
         $height = $options['height'] ?? 2; // inches

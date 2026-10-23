@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use Illuminate\Support\Facades\DB;
@@ -20,13 +21,13 @@ class InventoryItemDeleter
     public function __construct(private InventoryService $inventory) {}
 
     /** Units on hand across every location. */
-    public function onHand(InventoryItem $item): float
+    public function onHand(Product $item): float
     {
         return (float) $item->stock()->where('quantity', '>', 0)->sum('quantity');
     }
 
     /** @return array<string, float> location name => units, for the confirmation */
-    public function stockByLocation(InventoryItem $item): array
+    public function stockByLocation(Product $item): array
     {
         return $item->stock()->where('quantity', '>', 0)->with('location:id,name')->get()
             ->mapWithKeys(fn ($s) => [($s->location?->name ?? 'Unknown location') => (float) $s->quantity])->all();
@@ -37,7 +38,7 @@ class InventoryItemDeleter
      *
      * @throws \DomainException when the item holds stock and write-off was not chosen
      */
-    public function delete(InventoryItem $item, bool $writeOffStock = false, ?string $reason = null): float
+    public function delete(Product $item, bool $writeOffStock = false, ?string $reason = null): float
     {
         $onHand = $this->onHand($item);
         if ($onHand > 0 && ! $writeOffStock) {

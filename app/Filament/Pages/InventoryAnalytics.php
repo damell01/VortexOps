@@ -88,7 +88,14 @@ class InventoryAnalytics extends Page
      * Get inventory location IDs accessible to current user
      * Streamers only see their own locations, admins see all
      */
+    private ?\Illuminate\Support\Collection $locationIdsMemo = null;
+
     protected function getAccessibleLocationIds()
+    {
+        return $this->locationIdsMemo ??= $this->resolveAccessibleLocationIds();
+    }
+
+    private function resolveAccessibleLocationIds()
     {
         $user = auth()->user();
 
@@ -97,13 +104,27 @@ class InventoryAnalytics extends Page
             return InventoryLocation::where('status', 'active')->pluck('id');
         }
 
-        // Streamers only see their own locations
+        // Streamers only see their own locations — narrowed again by any
+        // personal override, which InventoryStock applies as a global scope
+        // and the summed queries here would otherwise step around.
         if ($user?->isStreamer()) {
             $streamer = $user->streamer;
-            return $streamer ? $streamer->inventoryLocations()->pluck('id') : collect();
+            $ids = $streamer ? $streamer->inventoryLocations()->pluck('id') : collect();
+            $visible = \App\Support\InventoryVisibility::locationIdsFor($user);
+
+            return $visible === null ? $ids : $ids->intersect($visible)->values();
         }
 
         return collect();
+    }
+
+    /** Units on hand per item across the locations this viewer can see. */
+    protected function onHandByItem(): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('inventory_stock')
+            ->whereIn('inventory_location_id', $this->getAccessibleLocationIds())
+            ->groupBy('inventory_item_id')
+            ->selectRaw('inventory_item_id as item_id, SUM(quantity) as qty');
     }
 
     /**
@@ -147,12 +168,16 @@ class InventoryAnalytics extends Page
         }
 
         $locationIds = $this->getAccessibleLocationIds();
-        $stocks = InventoryStock::with(['item', 'location'])
-            ->whereIn('inventory_location_id', $locationIds)
-            ->get();
+        // Summed in the database: loading every stock row with its product
+        // just to multiply two columns was most of this page's time.
+        $totals = DB::table('inventory_stock')
+            ->join('products', fn ($j) => $j->on('products.id', '=', 'inventory_stock.inventory_item_id')->whereNull('products.deleted_at'))
+            ->whereIn('inventory_stock.inventory_location_id', $locationIds)
+            ->selectRaw('COALESCE(SUM(inventory_stock.quantity), 0) as units, COALESCE(SUM(inventory_stock.quantity * COALESCE(products.average_cost, 0)), 0) as value')
+            ->first();
 
-        $totalValue = $stocks->sum(fn ($s) => $s->quantity * ($s->item->average_cost ?? 0));
-        $totalUnits = $stocks->sum('quantity');
+        $totalValue = (float) $totals->value;
+        $totalUnits = (float) $totals->units;
         $totalItems = InventoryItem::whereHas('stock', fn ($q) =>
             $q->whereIn('inventory_location_id', $locationIds)
         )->where('is_active', true)->count();
@@ -185,24 +210,21 @@ class InventoryAnalytics extends Page
      */
     public function getLowStockItems(): array
     {
-        $locationIds = $this->getAccessibleLocationIds();
         $items = InventoryItem::where('is_active', true)
             ->whereNotNull('reorder_level')
-            ->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $locationIds)])
-            ->get()
-            ->filter(function ($item) {
-                $total = $item->stock->sum('quantity');
-                return $total <= $item->reorder_level;
-            })
+            ->joinSub($this->onHandByItem(), 'on_hand', 'on_hand.item_id', '=', 'products.id', 'left')
+            ->whereRaw('COALESCE(on_hand.qty, 0) <= products.reorder_level')
+            ->orderBy('products.id')
+            ->limit(10)
+            ->get(['products.id', 'products.name', 'products.sku', 'products.reorder_level', DB::raw('COALESCE(on_hand.qty, 0) as on_hand_qty')])
             ->map(fn ($item) => [
                 'id' => $item->id,
                 'name' => $item->name,
                 'sku' => $item->sku,
-                'current' => (int) $item->stock->sum('quantity'),
+                'current' => (int) $item->on_hand_qty,
                 'reorder' => $item->reorder_level,
-                'status' => $item->stock->sum('quantity') == 0 ? 'out_of_stock' : 'low_stock',
+                'status' => (float) $item->on_hand_qty == 0 ? 'out_of_stock' : 'low_stock',
             ])
-            ->take(10)
             ->values()
             ->toArray();
 
@@ -239,15 +261,23 @@ class InventoryAnalytics extends Page
     public function getLocationHealth(): array
     {
         $locationIds = $this->getAccessibleLocationIds();
+        // Location::stock() counts only items that still exist, hence the join.
+        $byLocation = DB::table('inventory_stock')
+            ->join('products', fn ($j) => $j->on('products.id', '=', 'inventory_stock.inventory_item_id')->whereNull('products.deleted_at'))
+            ->whereIn('inventory_stock.inventory_location_id', $locationIds)
+            ->groupBy('inventory_stock.inventory_location_id')
+            ->selectRaw('inventory_stock.inventory_location_id as location_id, SUM(inventory_stock.quantity) as units, COUNT(*) as items, SUM(inventory_stock.quantity * COALESCE(products.average_cost, 0)) as value')
+            ->get()
+            ->keyBy('location_id');
+
         $locations = InventoryLocation::where('status', 'active')
             ->whereIn('id', $locationIds)
-            ->with('stock.item')
-            ->get()
+            ->get(['id', 'name'])
             ->map(fn ($location) => [
                 'name' => $location->name,
-                'total_units' => (int) $location->stock->sum('quantity'),
-                'unique_items' => $location->stock->count(),
-                'value' => $location->stock->sum(fn ($s) => $s->quantity * ($s->item->average_cost ?? 0)),
+                'total_units' => (int) ($byLocation[$location->id]->units ?? 0),
+                'unique_items' => (int) ($byLocation[$location->id]->items ?? 0),
+                'value' => (float) ($byLocation[$location->id]->value ?? 0),
             ])
             ->sortByDesc('value')
             ->values()
@@ -262,17 +292,20 @@ class InventoryAnalytics extends Page
     public function getFastMovers(): array
     {
         $locationIds = $this->getAccessibleLocationIds();
-        $items = InventoryStock::with(['item', 'location'])
-            ->whereIn('inventory_location_id', $locationIds)
-            ->whereHas('item', fn ($q) => $q->where('is_active', true))
-            ->get()
-            ->sortByDesc(fn ($stock) => $stock->quantity * ($stock->item->average_cost ?? 0))
-            ->take(5)
-            ->map(fn ($stock) => [
-                'name' => $stock->item->name,
-                'location' => $stock->location->name,
-                'quantity' => $stock->quantity,
-                'value' => $stock->quantity * ($stock->item->average_cost ?? 0),
+        $items = DB::table('inventory_stock')
+            ->join('products', 'products.id', '=', 'inventory_stock.inventory_item_id')
+            ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+            ->whereNull('products.deleted_at')
+            ->where('products.is_active', true)
+            ->whereIn('inventory_stock.inventory_location_id', $locationIds)
+            ->orderByRaw('inventory_stock.quantity * COALESCE(products.average_cost, 0) DESC')
+            ->limit(5)
+            ->get(['products.name', 'inventory_locations.name as location', 'inventory_stock.quantity', DB::raw('inventory_stock.quantity * COALESCE(products.average_cost, 0) as value')])
+            ->map(fn ($row) => [
+                'name' => $row->name,
+                'location' => $row->location,
+                'quantity' => $row->quantity,
+                'value' => (float) $row->value,
             ])
             ->values()
             ->toArray();
@@ -287,20 +320,18 @@ class InventoryAnalytics extends Page
     {
         $locationIds = $this->getAccessibleLocationIds();
         $items = InventoryItem::where('is_active', true)
-            ->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $locationIds)])
-            ->get()
-            ->filter(function ($item) {
-                $total = $item->stock->sum('quantity');
-                $value = $total * ($item->average_cost ?? 0);
-                return $total > 0 && $value < 100 && $item->average_cost > 0;
-            })
-            ->sortBy(fn ($item) => $item->stock->sum(fn ($s) => $s->quantity * ($item->average_cost ?? 0)))
-            ->take(5)
+            ->where('products.average_cost', '>', 0)
+            ->joinSub($this->onHandByItem(), 'on_hand', 'on_hand.item_id', '=', 'products.id')
+            ->where('on_hand.qty', '>', 0)
+            ->whereRaw('on_hand.qty * products.average_cost < 100')
+            ->orderByRaw('on_hand.qty * products.average_cost')
+            ->limit(5)
+            ->get(['products.name', 'products.sku', 'products.average_cost', 'on_hand.qty as on_hand_qty'])
             ->map(fn ($item) => [
                 'name' => $item->name,
                 'sku' => $item->sku,
-                'quantity' => (int) $item->stock->sum('quantity'),
-                'value' => $item->stock->sum(fn ($s) => $s->quantity * ($item->average_cost ?? 0)),
+                'quantity' => (int) $item->on_hand_qty,
+                'value' => (float) $item->on_hand_qty * (float) $item->average_cost,
             ])
             ->values()
             ->toArray();

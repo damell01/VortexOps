@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\SendLowStockNotification;
-use App\Models\InventoryItem;
+use App\Models\Product;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -33,7 +33,7 @@ class InventoryService
      * outside any lock and could describe a different row than the one that
      * ended up stored.
      */
-    private function lockedStock(InventoryItem $item, InventoryLocation $location): InventoryStock
+    private function lockedStock(Product $item, InventoryLocation $location): InventoryStock
     {
         InventoryStock::firstOrCreate(
             ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
@@ -49,7 +49,7 @@ class InventoryService
     }
 
     public function addStock(
-        InventoryItem $item,
+        Product $item,
         InventoryLocation $location,
         float $quantity,
         string $movementType = 'opening',
@@ -94,7 +94,7 @@ class InventoryService
     }
 
     public function transferStock(
-        InventoryItem $item,
+        Product $item,
         InventoryLocation $from,
         InventoryLocation $to,
         float $quantity,
@@ -137,7 +137,7 @@ class InventoryService
     }
 
     public function adjustStock(
-        InventoryItem $item,
+        Product $item,
         InventoryLocation $location,
         float $newQuantity,
         ?string $reason = null,
@@ -193,7 +193,7 @@ class InventoryService
     }
 
     public function markDamaged(
-        InventoryItem $item,
+        Product $item,
         InventoryLocation $from,
         InventoryLocation $damagedLocation,
         float $quantity,
@@ -244,7 +244,7 @@ class InventoryService
     }
 
     public function moveToReturns(
-        InventoryItem $item,
+        Product $item,
         InventoryLocation $from,
         InventoryLocation $returnsLocation,
         float $quantity,
@@ -287,7 +287,7 @@ class InventoryService
     }
 
     public function deductStock(
-        InventoryItem $item,
+        Product $item,
         InventoryLocation $location,
         float $quantity,
         ?string $reason = null,
@@ -326,7 +326,7 @@ class InventoryService
         });
     }
 
-    private function notifyIfLowStock(InventoryItem $item): void
+    private function notifyIfLowStock(Product $item): void
     {
         SendLowStockNotification::dispatch($item->id)->afterCommit();
     }

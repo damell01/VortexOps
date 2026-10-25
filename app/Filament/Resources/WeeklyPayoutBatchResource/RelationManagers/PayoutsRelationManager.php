@@ -70,8 +70,8 @@ class PayoutsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('streamer.name')->label('Team Member')->sortable()->weight('semibold'),
                 TextColumn::make('streamer.member_type')
-                    ->label('Team')->badge()
-                    ->formatStateUsing(fn ($state) => Streamer::memberTypeLabels()[$state ?? 'streamer'] ?? ucfirst((string) $state))
+                    ->label('Role')->badge()->default('streamer')
+                    ->formatStateUsing(fn ($state) => \App\Support\PayrollRoles::labels()[in_array($state, \App\Support\PayrollRoles::ORDER, true) ? $state : 'other'])
                     ->color('gray'),
                 TextColumn::make('show.title')
                     ->label('Source / Show')->badge()->color('gray')->placeholder('Manual / weekly activity')->limit(30)
@@ -119,6 +119,18 @@ class PayoutsRelationManager extends RelationManager
                         $total = (clone $rows)->sum('calculated_payout');
                         $count = (clone $rows)->count();
                         return $count . ' earning source' . ($count === 1 ? '' : 's') . ' — $' . number_format((float) $total, 2) . ' weekly total';
+                    })
+                    ->collapsible(),
+                // One section per role, the same split the pay run page uses.
+                Group::make('streamer.member_type')
+                    ->label('Role')
+                    ->getTitleFromRecordUsing(fn (Payout $record): string => \App\Support\PayrollRoles::plural(\App\Support\PayrollRoles::of($record->streamer)))
+                    ->getDescriptionFromRecordUsing(function (Payout $record) use ($batch): string {
+                        $role = \App\Support\PayrollRoles::of($record->streamer);
+                        $rows = Payout::where('weekly_payout_batch_id', $batch->id)->with('streamer:id,member_type')->get()
+                            ->filter(fn (Payout $p) => \App\Support\PayrollRoles::of($p->streamer) === $role);
+                        $people = $rows->pluck('streamer_id')->unique()->count();
+                        return $people . ' ' . \Illuminate\Support\Str::plural('person', $people) . ' — $' . number_format((float) $rows->sum('calculated_payout'), 2);
                     })
                     ->collapsible(),
             ])

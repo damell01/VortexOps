@@ -198,7 +198,7 @@ class Streamer extends Model
         return $trend !== null && $trend['change_pct'] <= -$thresholdPct;
     }
 
-    public static function memberTypeLabels(): array { return ['streamer' => 'Streamer', 'fulfillment' => 'Fulfillment']; }
+    public static function memberTypeLabels(): array { return \App\Support\PayrollRoles::labels(); }
     public static function streamerTypeLabels(): array { return ['in_house' => 'In-House', 'remote' => 'Remote']; }
     public function isRemote(): bool { return $this->streamer_type === 'remote'; }
     public function isInHouse(): bool { return ! $this->isRemote(); }

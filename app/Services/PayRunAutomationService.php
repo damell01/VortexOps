@@ -141,9 +141,13 @@ class PayRunAutomationService
             $showCount = 0;
             $eligibleShowIds = collect();
 
+            // Half-open range: a show dated the period's last day stays in it
+            // even where show_date is stored with a time (SQLite stores
+            // '2026-10-25 00:00:00', which sorts after '2026-10-25').
             $shows = Show::query()
                 ->where('is_operational', true)
-                ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                ->where('show_date', '>=', $start->toDateString())
+                ->where('show_date', '<', $end->copy()->addDay()->toDateString())
                 ->whereNotIn('status', ['cancelled'])
                 ->with([
                     'streamers',

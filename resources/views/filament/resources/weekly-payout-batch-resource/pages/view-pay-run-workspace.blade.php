@@ -10,14 +10,19 @@
     if ($peopleSearch !== '') {
         $byPerson = $byPerson->filter(fn($rows) => str_contains(strtolower((string)($rows->first()?->streamer?->name ?? '')), strtolower($peopleSearch)));
     }
-    // Largest payouts first: that is the order a reviewer checks them in.
-    $byPerson = $byPerson->sortByDesc(fn ($rows) => (float) $rows->sum('calculated_payout'));
+    // One section per role (streamers, assistants, fulfillment, other), and
+    // largest payouts first inside each: the order a reviewer checks them in.
+    $roleOf = fn ($rows) => \App\Support\PayrollRoles::of($rows->first()?->streamer);
+    $byPerson = $byPerson->sortBy([
+        fn ($a, $b) => \App\Support\PayrollRoles::rank($roleOf($a)) <=> \App\Support\PayrollRoles::rank($roleOf($b)),
+        fn ($a, $b) => (float) $b->sum('calculated_payout') <=> (float) $a->sum('calculated_payout'),
+    ]);
+    $roleTotals = $payouts->groupBy(fn ($p) => \App\Support\PayrollRoles::of($p->streamer))
+        ->map(fn ($rows) => ['total' => (float) $rows->sum('calculated_payout'), 'people' => $rows->pluck('streamer_id')->filter()->unique()->count()]);
     $peopleTotal = $byPerson->count();
     $peopleLastPage = max(1, (int) ceil($peopleTotal / $this::PEOPLE_PER_PAGE));
     $peoplePage = min(max(1, $this->peoplePage), $peopleLastPage);
     $visiblePeople = $byPerson->slice(($peoplePage - 1) * $this::PEOPLE_PER_PAGE, $this::PEOPLE_PER_PAGE);
-    $streamerTotal = (float)$payouts->filter(fn($p)=>!$p->streamer?->isFulfillment())->sum('calculated_payout');
-    $fulfillmentTotal = (float)$payouts->filter(fn($p)=>$p->streamer?->isFulfillment())->sum('calculated_payout');
     $statusLabel = \App\Models\WeeklyPayoutBatch::statusLabels()[$run->status] ?? ucfirst($run->status);
     $statusSteps = ['draft'=>'Review','finalized'=>'Finalized','submitted_to_adp'=>'Sent to ADP','paid'=>'Paid'];
     $statusKeys = array_keys($statusSteps);
@@ -40,31 +45,17 @@
 
 @php
     $assistantReport = $this->assistantAndTipSummary();
-    $assistantRows = $assistantReport['assistants'];
+    $assistantRows = collect($assistantReport['assistants']);
+    // Assistants clocked hours in this period but have no pay line yet: they
+    // are listed in the assistants section so nobody is missed.
+    $paidUserIds = $payouts->map(fn ($p) => $p->streamer?->user_id)->filter()->unique();
+    $assistantHoursByUser = $assistantRows->keyBy('user_id');
+    $unpaidAssistants = $assistantRows->filter(fn ($a) => $a['hours'] > 0 && ! $paidUserIds->contains($a['user_id']))->values();
     $tipRows = $assistantReport['tips'];
 @endphp
 
 <div class="vxw" data-vx-page="pay-run">
-<section class="vxw-card mb-4" aria-label="Assistant hours">
-    <div class="vxw-card-body">
-        <h3 class="text-lg font-semibold">Assistant hours</h3>
-        <p class="text-sm opacity-70">Hours and estimated wages for review. Check each person’s payout lines for the amounts included in this run.</p>
-        <div class="grid gap-5 mt-4">
-            <div>
-                <h4 class="font-semibold mb-2">Streamer assistants</h4>
-                @forelse ($assistantRows as $assistant)
-                    <div class="flex justify-between gap-3 py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span>{{ $assistant['name'] }} @if ($assistant['pending_review']) <span class="text-amber-600">({{ $assistant['pending_review'] }} to review)</span> @endif</span>
-                        <span class="text-right"><strong>{{ number_format($assistant['hours'], 2) }} h</strong><span class="block text-xs opacity-70">@if ($assistant['hourly_rate'] !== null) {{ $money($assistant['hourly_rate']) }}/hr · estimated {{ $money($assistant['estimated_pay']) }} @else Hourly rate not configured @endif</span></span>
-                    </div>
-                @empty
-                    <p class="text-sm opacity-70">No assistants configured.</p>
-                @endforelse
-            </div>
 
-        </div>
-    </div>
-</section>
 
 
     @include('filament.reports.ledger-tip-summary', ['tipReport' => $tipRows])
@@ -131,8 +122,11 @@
         </div>
         <div class="vxw-stats">
             <div class="vxw-stat"><div class="vxw-stat-label">Total payroll</div><div class="vxw-stat-value">{{ $money($run->total_payout) }}</div></div>
-            <div class="vxw-stat"><div class="vxw-stat-label">Streamer pay</div><div class="vxw-stat-value">{{ $money($streamerTotal) }}</div></div>
-            <div class="vxw-stat"><div class="vxw-stat-label">Fulfillment pay</div><div class="vxw-stat-value">{{ $money($fulfillmentTotal) }}</div></div>
+            @foreach(\App\Support\PayrollRoles::ORDER as $role)
+                @if(($roleTotals[$role]['people'] ?? 0) > 0 || $role === 'streamer')
+                    <div class="vxw-stat"><div class="vxw-stat-label">{{ \App\Support\PayrollRoles::plural($role) }}</div><div class="vxw-stat-value">{{ $money($roleTotals[$role]['total'] ?? 0) }}</div></div>
+                @endif
+            @endforeach
             <div class="vxw-stat"><div class="vxw-stat-label">Blockers</div><div class="vxw-stat-value {{ count($problems) ? 'vxw-tone-warn' : 'vxw-tone-ok' }}">{{ count($problems) }}</div></div>
         </div>
     </section>
@@ -142,7 +136,7 @@
             <div class="vxw-card-head">
                 <div>
                     <h3 class="vxw-h2">People in this run</h3>
-                    <p class="vxw-sub">Largest payouts first. Open a person to see the show lines behind their total.</p>
+                    <p class="vxw-sub">Grouped by role, largest payouts first. Open a person to see the lines behind their total.</p>
                 </div>
                 <div class="vxw-search w-full sm:w-56">
                     <x-filament::icon icon="heroicon-m-magnifying-glass" />
@@ -151,26 +145,37 @@
             </div>
 
             <div class="vxw-rows vx-payroll-people-cards" wire:loading.class="opacity-60" wire:target="peopleSearch,previousPeoplePage,nextPeoplePage" style="transition:opacity 150ms">
+                @php $lastRole = null; @endphp
                 @forelse($visiblePeople as $streamerId => $rows)
                     @php
                         $person = $rows->first()->streamer;
+                        $role = \App\Support\PayrollRoles::of($person);
+                        $assistantHours = $role === 'assistant' ? $assistantHoursByUser->get($person?->user_id) : null;
                         $personTotal = (float) $rows->sum('calculated_payout');
                         $hours = (float) $rows->sum('hours_worked');
                         $labels = (int) $rows->sum('label_count');
                         $pwe = (int) $rows->sum('pwe_count');
                         $personShows = $rows->pluck('show_id')->filter()->unique()->count();
                     @endphp
+                    @if($role !== $lastRole)
+                        @php $lastRole = $role; @endphp
+                        <div class="vx-payroll-role-head" wire:key="pay-role-{{ $role }}" data-payroll-role="{{ $role }}">
+                            <span>{{ \App\Support\PayrollRoles::plural($role) }}</span>
+                            <span class="vxw-meta">{{ $roleTotals[$role]['people'] ?? 0 }} {{ \Illuminate\Support\Str::plural('person', $roleTotals[$role]['people'] ?? 0) }} · {{ $money($roleTotals[$role]['total'] ?? 0) }}</span>
+                        </div>
+                    @endif
                     <details class="vxw-disclose vx-payroll-person-card" wire:key="pay-person-{{ $streamerId ?: 'none' }}">
                         <summary class="vxw-row" style="border-top:0">
                             <div class="vxw-row-main">
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="vxw-row-title" style="white-space:normal">{{ $person?->name ?? 'Unassigned team member' }}</span>
-                                    <span class="vxw-pill {{ $person?->isFulfillment() ? 'vxw-pill--info' : 'vxw-pill--accent' }}" style="height:20px;font-size:11px">{{ $person?->isFulfillment() ? 'Fulfillment' : 'Streamer' }}</span>
+                                    <span class="vxw-pill {{ $role === 'streamer' ? 'vxw-pill--accent' : 'vxw-pill--info' }}" style="height:20px;font-size:11px">{{ \App\Support\PayrollRoles::labels()[$role] }}</span>
                                 </div>
                                 <div class="vxw-row-line">
                                     <span>{{ $personShows }} {{ \Illuminate\Support\Str::plural('show', $personShows) }}</span>
                                     <span>{{ number_format($hours, 2) }} hrs</span>
                                     @if($labels || $pwe)<span>{{ $labels }} labels · {{ $pwe }} PWE</span>@endif
+                                    @if($assistantHours)<span>{{ number_format($assistantHours['hours'], 2) }} h clocked @if($assistantHours['pending_review'])<span class="text-amber-600">· {{ $assistantHours['pending_review'] }} to review</span>@endif</span>@endif
                                 </div>
                             </div>
                             <div class="vxw-row-side">
@@ -200,6 +205,22 @@
                         <div class="vxw-empty-text">{{ $peopleSearch !== '' ? 'No people match your search.' : 'No payout lines are attached to this run yet.' }}</div>
                     </div>
                 @endforelse
+
+                @if($unpaidAssistants->isNotEmpty() && $peopleSearch === '' && $peoplePage === $peopleLastPage)
+                    <div class="vx-payroll-role-head" data-payroll-role="assistant-unpaid">
+                        <span>Streamer assistants with hours but no pay line</span>
+                        <span class="vxw-meta">Add them before finalizing if they should be paid in this run</span>
+                    </div>
+                    @foreach($unpaidAssistants as $assistant)
+                        <div class="vxw-row" wire:key="pay-assistant-hours-{{ $assistant['user_id'] }}">
+                            <div class="vxw-row-main">
+                                <div class="flex flex-wrap items-center gap-2"><span class="vxw-row-title">{{ $assistant['name'] }}</span><span class="vxw-pill vxw-pill--warn" style="height:20px;font-size:11px">No pay line</span></div>
+                                <div class="vxw-row-line"><span>{{ number_format($assistant['hours'], 2) }} h clocked</span>@if($assistant['pending_review'])<span class="text-amber-600">{{ $assistant['pending_review'] }} to review</span>@endif</div>
+                            </div>
+                            <div class="vxw-row-side"><div class="vxw-fig"><div class="vxw-fig-label">Estimated</div><div class="vxw-fig-value" style="font-size:15px">{{ $assistant['estimated_pay'] !== null ? $money($assistant['estimated_pay']) : 'No rate set' }}</div></div></div>
+                        </div>
+                    @endforeach
+                @endif
             </div>
 
             @if($peopleLastPage > 1)

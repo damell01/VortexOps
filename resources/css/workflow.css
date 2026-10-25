@@ -407,6 +407,10 @@ button.vxw-tile:active, a.vxw-tile:active { transform: scale(.99); }
 .vx-payroll-show-cards .vxw-row-side { flex-wrap: wrap; }
 .vx-payroll-people-cards { align-items: start; }
 .vx-payroll-person-card > summary { border-radius: var(--vxw-radius-sm); }
+/* One heading per role (streamers, assistants, fulfillment, other) across the people grid. */
+.vx-payroll-role-head { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 6px 2px 0; font-size: 13px; font-weight: 700; color: var(--vxw-text); }
+.vx-payroll-role-head:not(:first-child) { margin-top: 8px; border-top: 1px solid var(--vxw-border); padding-top: 14px; }
+.vx-payroll-people-cards > .vxw-row { border: 1px dashed var(--vxw-warn-line); border-radius: var(--vxw-radius-sm); }
 .vx-payroll-line-cards { display: grid; gap: 10px; }
 .vx-payroll-line-card { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 14px; min-width: 0; border: 1px solid var(--vxw-border); border-radius: var(--vxw-radius-sm); background: var(--vxw-surface-2); font-size: 13px; }
 .vx-payroll-line-card > :first-child { grid-column: 1 / -1; min-width: 0; }

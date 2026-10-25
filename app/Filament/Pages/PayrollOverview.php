@@ -195,7 +195,7 @@ class PayrollOverview extends Page
             ->whereHas('show', fn ($q) => $q
                 ->inChannelContext()->inBusinessContext()
                 ->where('is_operational', true)
-                ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                ->where('show_date', '>=', $start->toDateString())->where('show_date', '<', $end->copy()->addDay()->toDateString())
                 ->whereNotIn('status', ['cancelled']))
             ->with(['show:id,title,show_date', 'streamer:id,name,member_type,payout_type'])
             ->get();
@@ -350,15 +350,19 @@ class PayrollOverview extends Page
     public function currentBreakdown(): array
     {
         $run = $this->currentPayRun();
-        if (! $run) return ['people' => 0, 'streamers' => 0, 'fulfillment' => 0, 'streamer_total' => 0.0, 'fulfillment_total' => 0.0];
+        if (! $run) return ['people' => 0, 'roles' => [], 'streamers' => 0, 'fulfillment' => 0, 'streamer_total' => 0.0, 'fulfillment_total' => 0.0];
 
         $payouts = Payout::query()->where('weekly_payout_batch_id', $run->id)->with('streamer:id,member_type')->get();
         $people = $payouts->pluck('streamer_id')->filter()->unique();
         $streamerIds = $payouts->filter(fn (Payout $p) => ! $p->streamer?->isFulfillment())->pluck('streamer_id')->filter()->unique();
         $fulfillmentIds = $payouts->filter(fn (Payout $p) => $p->streamer?->isFulfillment())->pluck('streamer_id')->filter()->unique();
 
+        $byRole = $payouts->groupBy(fn (Payout $p) => \App\Support\PayrollRoles::of($p->streamer))
+            ->map(fn ($rows) => ['people' => $rows->pluck('streamer_id')->filter()->unique()->count(), 'total' => (float) $rows->sum('calculated_payout')]);
+
         return [
             'people' => $people->count(),
+            'roles' => $byRole->all(),
             'streamers' => $streamerIds->count(),
             'fulfillment' => $fulfillmentIds->count(),
             'streamer_total' => (float) $payouts->filter(fn (Payout $p) => ! $p->streamer?->isFulfillment())->sum('calculated_payout'),
@@ -530,7 +534,7 @@ class PayrollOverview extends Page
         return $this->weekShowsMemo = Show::query()
             ->inChannelContext()->inBusinessContext()
             ->where('is_operational', true)
-            ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+            ->where('show_date', '>=', $start->toDateString())->where('show_date', '<', $end->copy()->addDay()->toDateString())
             ->whereNotIn('status', ['cancelled'])
             ->with(['channel:id,name','streamers:id,name,streamer_type,payout_type,hourly_rate,package_rate,payout_percentage','streamerLogEntry.streamer','streamerLogEntry.items:id,streamer_log_entry_id,inventory_item_id,quantity,deducted_quantity,updated_at','payouts.batch','latestDeductionRequest.lines:id,deduction_request_id,inventory_item_id,quantity_approved,line_total,updated_at'])
             ->withSum('payouts', 'calculated_payout')

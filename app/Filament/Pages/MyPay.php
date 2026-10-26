@@ -20,11 +20,14 @@ class MyPay extends Page
         return \App\Support\AdminModules::navigationGroupFor('payouts');
     }
 
-    public static function canAccess(): bool
+    protected static function passesModuleAccessCheck(): bool
     {
-        return (bool) auth()->user()?->isStreamerAssistant()
-            && \App\Support\AdminModules::isEnabled('payouts')
-            && ! \App\Support\NavVisibility::isHiddenForUser(static::class, auth()->user());
+        return auth()->check();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return (bool) auth()->user()?->isStreamerAssistant() && static::canAccess();
     }
 
     public function getView(): string { return 'filament.pages.my-pay'; }

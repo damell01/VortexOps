@@ -32,6 +32,26 @@ class InventorySearch extends Page
     // Saved filters
     public array $savedFilters = [];
 
+    /** Rows drawn at once. Redrawing 500 table rows on every keystroke took the browser seconds. */
+    public const PAGE = 50;
+
+    public int $shown = self::PAGE;
+
+    private const SORTABLE = ['name', 'sku', 'category', 'average_cost', 'created_at', 'updated_at'];
+
+    public function updated(string $property): void
+    {
+        // A new search or filter starts from the top again.
+        if ($property !== 'shown') {
+            $this->shown = self::PAGE;
+        }
+    }
+
+    public function showMore(): void
+    {
+        $this->shown += self::PAGE;
+    }
+
     public function mount(): void
     {
         $this->loadSavedFilters();
@@ -82,6 +102,21 @@ class InventorySearch extends Page
     #[Computed]
     public function results(): Collection
     {
+        return $this->filtered()
+            ->with('stock:id,inventory_item_id,inventory_location_id,quantity')
+            ->orderBy(in_array($this->sortBy, self::SORTABLE, true) ? $this->sortBy : 'name', $this->sortDirection === 'desc' ? 'desc' : 'asc')
+            ->limit($this->shown)
+            ->get();
+    }
+
+    #[Computed]
+    public function totalResults(): int
+    {
+        return $this->filtered()->count();
+    }
+
+    private function filtered(): \Illuminate\Database\Eloquent\Builder
+    {
         $query = InventoryItem::query();
 
         // Text search
@@ -125,13 +160,7 @@ class InventorySearch extends Page
             $query->whereRaw("(SELECT COALESCE(SUM(quantity), 0) FROM inventory_stock WHERE inventory_item_id = $tableName.id) = 0");
         }
 
-        // Eager load relationships
-        $query->with(['stock', 'lots', 'preferredVendor']);
-
-        // Sorting
-        $query->orderBy($this->sortBy, $this->sortDirection);
-
-        return $query->limit(500)->get();
+        return $query;
     }
 
     public function saveFilter(): void

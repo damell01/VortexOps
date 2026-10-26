@@ -24,6 +24,16 @@ class NavVisibility
         \App\Filament\Pages\ShowShipments::class,
     ];
 
+    /**
+     * Pages a grant carries with it. Quick Add Stock does what the scanner's
+     * Add Stock mode does, and the Tools tab links to it, so a role allowed
+     * the scanner is allowed it too — saved role lists predate the page and
+     * do not name it. An explicit Hide on the page still wins.
+     */
+    public const COMPANIONS = [
+        \App\Filament\Pages\QuickAddStock::class => [\App\Filament\Pages\InventoryScanner::class],
+    ];
+
     private static ?array $roleMemo = null;
     private static ?array $visibleMemo = null;
 
@@ -130,8 +140,11 @@ class NavVisibility
             \App\Filament\Pages\InventoryGuide::class,
         ], true)) return true;
         if (self::hasExplicitVisibility($role)) {
-            return in_array($class, self::visibleForRole($role), true)
-                || in_array($navigationClass, self::visibleForRole($role), true);
+            $visible = self::visibleForRole($role);
+
+            return in_array($class, $visible, true)
+                || in_array($navigationClass, $visible, true)
+                || array_intersect(self::COMPANIONS[$class] ?? [], $visible) !== [];
         }
         return ! in_array($class, self::hiddenForRole($role), true)
             && ! in_array($navigationClass, self::hiddenForRole($role), true);

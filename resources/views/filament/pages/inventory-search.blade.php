@@ -145,7 +145,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                    Results ({{ count($this->results) }})
+                    Results ({{ number_format($this->totalResults) }})@if($this->totalResults > count($this->results))<span class="ml-2 text-sm font-normal text-gray-500">showing {{ count($this->results) }}</span>@endif
                 </h3>
             </div>
 
@@ -169,7 +169,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         @foreach($this->results as $item)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                        <tr wire:key="result-{{ $item->id }}" class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
                             <td class="px-6 py-3">
                                 <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $item]) }}" class="text-primary-600 hover:underline font-medium">
                                     {{ $item->name }}
@@ -194,6 +194,13 @@
                     </tbody>
                 </table>
             </div>
+            @if($this->totalResults > count($this->results))
+            <div class="border-t border-gray-200 px-6 py-3 text-center dark:border-gray-700">
+                <button type="button" wire:click="showMore" wire:loading.attr="disabled" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                    Show {{ min($this::PAGE, $this->totalResults - count($this->results)) }} more
+                </button>
+            </div>
+            @endif
             @endif
         </div>
     </div>

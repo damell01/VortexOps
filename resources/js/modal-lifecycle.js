@@ -91,7 +91,30 @@ function releaseStrayFocusTrap() {
 
 let strayTrapCleared = false;
 
+/**
+ * Is there anything a lost modal could have left behind?
+ *
+ * Asked first because it is cheap: it reads inline styles and the DOM tree,
+ * never layout. aModalIsOpen() measures every mounted dialog (offsetParent
+ * forces a layout), and running that after every Livewire update — each
+ * keystroke in a table search — cost a few hundred milliseconds a time on
+ * pages that mount a modal per row. With no scroll lock and no empty
+ * overlay there is nothing to rescue, so it is skipped.
+ */
+function somethingWasLeftBehind() {
+    const locked = [document.documentElement, document.body].some(
+        (el) => el.style.overflow === 'hidden' || el.style.overflowY === 'hidden',
+    );
+    if (locked) return true;
+
+    return [...document.querySelectorAll('.fi-modal-window-ctn')].some(
+        (ctn) => ! ctn.querySelector('.fi-modal-window'),
+    );
+}
+
 function reconcile() {
+    if (! somethingWasLeftBehind()) return;
+
     if (aModalIsOpen()) {
         strayTrapCleared = false;
 
@@ -142,5 +165,5 @@ document.addEventListener('livewire:init', () => {
 
 scheduleReconcile();
 
-export { aModalIsOpen, releaseScrollLock, removeOrphanedOverlays, reconcile };
+export { aModalIsOpen, releaseScrollLock, removeOrphanedOverlays, reconcile, somethingWasLeftBehind };
 

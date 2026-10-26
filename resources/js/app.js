@@ -1,3 +1,4 @@
+import './morph-safe.js';
 import './action-feedback.js';
 import './delight.js';
 import './buddy.js';

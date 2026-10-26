@@ -78,9 +78,14 @@ function installBanner(message, actions) {
     // A banner at the top of the page content, under the menu bar. Livewire
     // replaces <main> on in-app navigation, so it is put back after each one
     // until it is dismissed.
-    // Inside the page container, so it lines up with the page header and cards.
-    const main = document.querySelector('.fi-page') || document.querySelector('main.fi-main');
+    // Above the page, but outside its Livewire component: an element Livewire
+    // did not render, sitting first inside the component, made it rebuild the
+    // whole page on every update (and drop focus from whatever was typed in).
+    const page = document.querySelector('.fi-page');
+    const main = page || document.querySelector('main.fi-main');
     if (!main || document.getElementById('vx-install-banner')) return;
+    let component = page?.closest('[wire\\:id]');
+    while (component?.parentElement?.closest('[wire\\:id]')) component = component.parentElement.closest('[wire\\:id]');
     const el = document.createElement('div');
     el.id = 'vx-install-banner';
     el.className = 'vx-install-banner';
@@ -97,7 +102,7 @@ function installBanner(message, actions) {
         holder.appendChild(button);
     });
     el.querySelector('.vx-install-banner__close').addEventListener('click', () => dismissInstall(el));
-    main.prepend(el);
+    if (component) component.before(el); else main.prepend(el);
 }
 
 function offerInstall() {

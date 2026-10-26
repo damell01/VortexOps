@@ -97,6 +97,7 @@ function rest(container) {
     const mon = ev?.swap?.snorlax && Math.random() < 0.5 ? ev.swap.snorlax : pick[Math.floor(Math.random() * pick.length)];
     const box = document.createElement('div');
     box.className = 'vx-rest';
+    box.setAttribute('data-vx-injected', '');
     box.setAttribute('aria-hidden', 'true');
     box.innerHTML = `<span class="vx-rest-ball"></span><img class="vx-rest-mon" alt="" src="/img/pokemon3d/${mon}.gif"><i class="vx-rest-z">z z</i>`;
     container.prepend(box);

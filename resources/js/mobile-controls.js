@@ -131,6 +131,7 @@ function decorateControls() {
             select.addEventListener('invalid', event => {
                 if (phone.matches) { event.preventDefault(); openPicker(select, trigger); }
             });
+            trigger.setAttribute('data-vx-injected', '');
             select.after(trigger); select.classList.add('vx-native-picker');
             controls.set(select, trigger);
         }
@@ -146,7 +147,7 @@ function paginate() {
         let state = collections.get(container);
         if (!state || state.rows.length !== rows.length || state.rows.some((r,i) => r !== rows[i]) || !state.nav.isConnected) {
             state?.nav.remove();
-            const nav = document.createElement('nav'); nav.className = 'vx-mobile-pages';
+            const nav = document.createElement('nav'); nav.className = 'vx-mobile-pages'; nav.setAttribute('data-vx-injected', '');
             nav.setAttribute('aria-label', 'List pages');
             const prev = document.createElement('button'), next = document.createElement('button'), status = document.createElement('span');
             prev.type = next.type = 'button'; prev.textContent = 'Previous'; next.textContent = 'Next';

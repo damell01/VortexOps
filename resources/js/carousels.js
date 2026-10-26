@@ -14,6 +14,7 @@ function dotsFor(group) {
         dots = document.createElement('div');
         dots.className = 'vx-carousel-dots';
         dots.setAttribute('aria-hidden', 'true');
+        dots.setAttribute('data-vx-injected', '');
         group.after(dots);
     }
     if (dots.childElementCount !== count) dots.innerHTML = '<i></i>'.repeat(count);

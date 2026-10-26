@@ -22,4 +22,23 @@ class RequestMetricsTest extends TestCase
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
         $this->assertFalse(app(RequestMetrics::class)->active);
     }
+
+    public function test_a_slow_button_press_names_the_page_and_the_button(): void
+    {
+        \Illuminate\Support\Facades\Log::spy();
+        $request = Request::create('/livewire-abc/update', 'POST', ['components' => [[
+            'snapshot' => json_encode(['memo' => ['name' => 'app.filament.pages.inventory-scanner']]),
+            'calls' => [['method' => 'barcodeScanned', 'params' => ['123']]],
+        ]]]);
+        $request->headers->set('referer', 'https://example.test/admin/inventory-scanner?mode=lookup');
+
+        (new PerformanceHeaders)->handle($request, function () {
+            app(RequestMetrics::class)->queries = 150; // over the slow threshold
+            return response('ok');
+        });
+
+        \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')->withArgs(fn ($message, $context) => $message === 'Slow or failed web request'
+            && $context['page'] === '/admin/inventory-scanner'
+            && $context['calls'] === 'inventory-scanner@barcodeScanned');
+    }
 }

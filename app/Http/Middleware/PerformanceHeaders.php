@@ -9,6 +9,33 @@ use Illuminate\Support\Facades\Log;
 
 class PerformanceHeaders
 {
+    /**
+     * Which page and button a slow request came from.
+     *
+     * Every button press on a Livewire page arrives as livewire.update, so
+     * the route alone could not tell a slow scan from a slow save. The page
+     * it was pressed on and the component and method it called can, and are
+     * only worked out when a request is being logged as slow.
+     */
+    private function whatWasPressed(Request $request): array
+    {
+        if (! $request->is('livewire*')) {
+            return ['path' => '/'.ltrim($request->path(), '/')];
+        }
+
+        $calls = [];
+        foreach ((array) $request->input('components', []) as $component) {
+            $name = json_decode((string) ($component['snapshot'] ?? ''), true)['memo']['name'] ?? '?';
+            $methods = array_column((array) ($component['calls'] ?? []), 'method');
+            $calls[] = class_basename(str_replace('.', '\\', $name)).($methods ? '@'.implode(',', $methods) : '');
+        }
+
+        return [
+            'page' => parse_url((string) $request->headers->get('referer'), PHP_URL_PATH),
+            'calls' => implode(' | ', array_slice($calls, 0, 5)),
+        ];
+    }
+
     public function handle(Request $request, Closure $next)
     {
         $metrics = app(RequestMetrics::class);
@@ -39,7 +66,7 @@ class PerformanceHeaders
                     'duration_ms' => round($elapsed, 1),
                     'database_ms' => round($metrics->databaseMs, 1),
                     'queries' => $metrics->queries,
-                ]);
+                ] + $this->whatWasPressed($request));
             }
         }
     }

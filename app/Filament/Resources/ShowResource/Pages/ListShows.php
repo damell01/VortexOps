@@ -42,11 +42,14 @@ class ListShows extends ListRecords
 
     public function getView(): string
     {
-        return 'filament.resources.show-resource.pages.list-shows-command-center';
+        return auth()->user()?->isStreamerAssistant()
+            ? 'filament.resources.show-resource.pages.list-shows-assistant'
+            : 'filament.resources.show-resource.pages.list-shows-command-center';
     }
 
     public function getSubheading(): ?string
     {
+        if (auth()->user()?->isStreamerAssistant()) return 'All shows across every streamer and channel.';
         if ($this->activeTab === 'flagged' && auth()->user()?->isAdmin()) {
             return 'All shows needing channel attribution review, including historical imports. Use Confirm Channel in the row actions to choose the correct channel and clear the flag.';
         }
@@ -158,6 +161,7 @@ class ListShows extends ListRecords
 
     public function getTabs(): array
     {
+        if (auth()->user()?->isStreamerAssistant()) return ['all' => Tab::make('All shows')];
         $weekStart = now()->startOfWeek()->toDateString();
         $weekEnd   = now()->endOfWeek()->toDateString();
 
@@ -218,6 +222,8 @@ class ListShows extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        if (auth()->user()?->isStreamerAssistant()) return [];
+
         return [
             CreateAction::make()->label('Add Show Manually')->visible(fn () => auth()->user()?->isAdmin() ?? false),
 

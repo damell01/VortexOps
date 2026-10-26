@@ -161,6 +161,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasRole('streamer') && ! $this->isAdmin();
     }
 
+    public function isStreamerAssistant(): bool
+    {
+        return $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && ! $this->isAdmin();
+    }
+
     public function isFulfillment(): bool
     {
         return $this->hasRole('fulfillment') && ! $this->isAdmin();

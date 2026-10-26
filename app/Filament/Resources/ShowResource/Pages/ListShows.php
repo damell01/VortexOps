@@ -33,6 +33,12 @@ class ListShows extends ListRecords
 
     public function mount(): void
     {
+        // Assistants follow the schedule: their All Shows link opens the
+        // calendar (which has its own list view) rather than the table.
+        if (auth()->user()?->isStreamerAssistant() && \App\Filament\Pages\Shows::canAccess() && ! request()->boolean('table')) {
+            $this->redirect(\App\Filament\Pages\Shows::getUrl());
+        }
+
         // Compatibility for bookmarks created before the correct Filament tab alias.
         if (request()->query('activeTab') === 'flagged' && auth()->user()?->isAdmin()) {
             $this->activeTab = 'flagged';

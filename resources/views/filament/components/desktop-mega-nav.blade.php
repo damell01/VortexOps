@@ -15,7 +15,7 @@ if($channel?->logo_path && file_exists(storage_path('app/public/'.$channel->logo
 elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $navLogo=asset('storage/'.$globalLogo);
 if($assistantOnly){
  $groups['Shows']=array_values(array_filter([
-  \App\Filament\Resources\ShowResource::canAccess() ? ['All Shows',\App\Filament\Resources\ShowResource::getUrl('index')] : null,
+  \App\Filament\Pages\Shows::canAccess() ? ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')] : (\App\Filament\Resources\ShowResource::canAccess() ? ['All Shows',\App\Filament\Resources\ShowResource::getUrl('index')] : null),
   \App\Filament\Pages\ShowLeaderboard::canAccess() ? ['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')] : null,
  ]));
 }elseif($streamerOnly){

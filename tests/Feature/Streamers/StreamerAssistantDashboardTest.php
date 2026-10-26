@@ -102,4 +102,12 @@ class StreamerAssistantDashboardTest extends TestCase
         $this->assertNull($presented['gross']);
         $this->assertNotNull($presented['viewUrl']);
     }
+
+    public function test_the_shows_list_opens_the_calendar(): void
+    {
+        $this->get(\App\Filament\Resources\ShowResource::getUrl('index'))
+            ->assertRedirect(\App\Filament\Pages\Shows::getUrl());
+        // The table is still there when asked for directly.
+        $this->get(\App\Filament\Resources\ShowResource::getUrl('index', ['table' => 1]))->assertOk();
+    }
 }

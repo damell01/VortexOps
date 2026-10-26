@@ -43,7 +43,7 @@ class StreamerAssistantDashboardTest extends TestCase
         $past = Show::create(['title' => 'Another host past show', 'show_date' => today()->subDay(), 'status' => 'closed', 'is_operational' => false, 'whatnot_channel_id' => $otherChannel->id]);
 
         $nav = view('filament.components.desktop-mega-nav')->render();
-        $this->assertStringContainsString('All Shows', $nav);
+        $this->assertStringContainsString('Show Calendar', $nav);
         $this->assertStringContainsString('My Pay', $nav);
         $this->assertTrue(ShowResource::canAccess());
         $this->assertTrue(ShowResource::canViewAny());
@@ -55,7 +55,9 @@ class StreamerAssistantDashboardTest extends TestCase
         $this->assertSame('assistant', (new DashboardImproved)->getViewData()['roleMode']);
         $this->assertSame([], (new DashboardImproved)->getWidgets());
         Livewire::test(DashboardImproved::class)->assertSuccessful()->assertSee('Another host future show')->assertSee('Another host past show')->assertDontSee('Receive inventory');
-        Livewire::test(ListShows::class)->loadTable()->assertSuccessful()->assertCanSeeTableRecords([$upcoming, $past]);
+        // All Shows opens the calendar for assistants; the table is still there on request.
+        Livewire::test(ListShows::class)->assertRedirect(\App\Filament\Pages\Shows::getUrl());
+        Livewire::withQueryParams(['table' => 1])->test(ListShows::class)->loadTable()->assertSuccessful()->assertCanSeeTableRecords([$upcoming, $past]);
         Livewire::test(ViewShow::class, ['record' => $upcoming->id])->assertSuccessful()->assertSee('Other channel')->assertDontSee('Show Financials')->assertDontSee('Edit Show');
         $this->assertFalse(ShowResource::canCreate());
         $this->assertFalse(ShowResource::canEdit($upcoming));

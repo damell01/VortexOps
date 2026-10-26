@@ -173,6 +173,8 @@ class NavVisibility
         // Existing assistant allow-lists predate their show workspace. Explicit Hide still wins above.
         if ($role === AssistantPayrollRole::NAME && in_array($navigationClass, [
             \App\Filament\Resources\ShowResource::class,
+            // The calendar is their show view: All Shows opens it.
+            \App\Filament\Pages\Shows::class,
             \App\Filament\Pages\Timekeeping::class,
             \App\Filament\Pages\ShowLeaderboard::class,
             \App\Filament\Pages\MyPay::class,

@@ -34,13 +34,13 @@ class DashboardImproved extends Dashboard
     public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
         $user = auth()->user();
-        return $user?->isStreamer() && !$user->isAdmin() && !$user->isOwner() ? null : parent::getHeading();
+        return ($user?->isStreamer() || $user?->isStreamerAssistant()) && !$user->isAdmin() && !$user->isOwner() ? null : parent::getHeading();
     }
 
     public function getSubheading(): ?string
     {
         $user = auth()->user();
-        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
+        if (($user?->isStreamer() || $user?->isStreamerAssistant()) && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
         return "{$name} operations center";
@@ -77,6 +77,10 @@ class DashboardImproved extends Dashboard
                 StreamerProfitShareWidget::class,
                 RecentShowsWidget::class,
             ];
+        }
+
+        if ($user?->isStreamerAssistant() && ! $user->isOwner()) {
+            return [];
         }
 
         if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
@@ -150,6 +154,8 @@ class DashboardImproved extends Dashboard
                     ->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->where('created_at', '>=', now()->subDays(30)))
                     ->sum('quantity'),
             ];
+        } elseif ($user?->isStreamerAssistant() && ! $user->isOwner()) {
+            $data['roleMode'] = 'assistant';
         } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $data['roleMode'] = 'fulfillment';
             $showsQuery = Show::query()->inChannelContext()->whereNotIn('status', ['closed', 'cancelled']);

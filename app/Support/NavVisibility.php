@@ -34,6 +34,33 @@ class NavVisibility
         \App\Filament\Pages\QuickAddStock::class => [\App\Filament\Pages\InventoryScanner::class],
     ];
 
+    /**
+     * What a role sees before anyone picks its pages on Roles & Permissions.
+     *
+     * A role with no saved list is unrestricted, which is right for the
+     * built-in admin and streamer roles but left streamer assistants able to
+     * open payouts, profit share, pallets and the rest of the admin pages.
+     * They clock in, look stock up and follow their streamers' shows; saving
+     * a list for the role on the Roles screen replaces this.
+     */
+    public const ROLE_DEFAULTS = [
+        'streamer_assistant' => [
+            \App\Filament\Pages\DashboardImproved::class,
+            \App\Filament\Pages\Timekeeping::class,
+            \App\Filament\Pages\Shows::class,
+            \App\Filament\Pages\ShowLeaderboard::class,
+            \App\Filament\Pages\InventoryOverview::class,
+            \App\Filament\Resources\InventoryItemResource::class,
+            \App\Filament\Resources\InventoryLocationResource::class,
+            \App\Filament\Pages\InventorySearch::class,
+            \App\Filament\Pages\InventoryGuide::class,
+            \App\Filament\Pages\Handbook::class,
+            \App\Filament\Pages\HowItWorks::class,
+            \App\Filament\Pages\GettingStarted::class,
+            \App\Filament\Resources\FeedbackTicketResource::class,
+        ],
+    ];
+
     private static ?array $roleMemo = null;
     private static ?array $visibleMemo = null;
 
@@ -45,7 +72,9 @@ class NavVisibility
     public static function visibleForRole(string $role): array
     {
         $map = self::visibleByRole();
-        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : []);
+        // A role nobody has configured shows its defaults ticked on the Roles
+        // screen, so saving it without changes keeps what the role already had.
+        return $map[$role] ?? ($role === 'fulfillment_admin' ? ($map['admin'] ?? []) : (self::ROLE_DEFAULTS[$role] ?? []));
     }
 
     public static function hasExplicitVisibility(string $role): bool
@@ -139,6 +168,10 @@ class NavVisibility
             \App\Filament\Pages\PalletReceivingHistory::class,
             \App\Filament\Pages\InventoryGuide::class,
         ], true)) return true;
+        if (! self::hasExplicitVisibility($role) && isset(self::ROLE_DEFAULTS[$role])) {
+            return in_array($class, self::ROLE_DEFAULTS[$role], true)
+                || in_array($navigationClass, self::ROLE_DEFAULTS[$role], true);
+        }
         if (self::hasExplicitVisibility($role)) {
             $visible = self::visibleForRole($role);
 

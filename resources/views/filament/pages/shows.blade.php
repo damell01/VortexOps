@@ -329,8 +329,10 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     <div class="vx-kcell"><span class="l">Total shows</span><span class="v">{{ number_format($stats['total']) }}</span><span class="s">{{ $stats['label'] }}</span></div>
     <div class="vx-kcell"><span class="l">Reports done</span><span class="v">{{ number_format($stats['completed']) }} <small>of {{ number_format($stats['total']) }}</small></span>
         <span class="vx-kbar" role="img" aria-label="{{ $stats['completedPct'] }}% of reports done"><i style="width:{{ max($stats['completedPct'], $stats['completed'] ? 2 : 0) }}%"></i></span></div>
+    @if($this->showsMoney())
     <div class="vx-kcell"><span class="l">Whatnot gross</span><span class="v">${{ number_format($stats['gross'], 0) }}</span><span class="s">{{ $stats['label'] }}</span></div>
     <div class="vx-kcell"><span class="l">Est. Whatnot net</span><span class="v">${{ number_format($stats['net'], 0) }}</span><span class="s">{{ $netPct !== null ? $netPct.'% of gross after fees' : $stats['label'] }}</span></div>
+    @endif
 </section>
 @if($unassignedCount)
     {{-- Phones: the Unassigned header button is tucked away, so the count sits here too. --}}
@@ -391,7 +393,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                                         @if($p['state'] === 'live')<span class="vx-pill live">Live</span>@endif
                                         {{-- The back of the card, shown on hover: the numbers, or who and when if it has not aired. --}}
                                         <span class="vx-chip-back" aria-hidden="true">
-                                            @if($p['state'] === 'upcoming')
+                                            @if($p['state'] === 'upcoming' || $p['gross'] === null)
                                                 <span class="ln"><b>{{ $p['time'] }}</b></span><span class="ln">{{ $p['streamers'] ?? 'No streamer yet' }}</span>
                                             @else
                                                 <span class="ln"><b>{{ $p['gross'] }}</b> sales</span><span class="ln"><b>{{ $p['net'] }}</b> earned · <b>{{ $p['units'] }}</b> units</span>
@@ -628,8 +630,10 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                         <template x-if="show.editUrl"><a :href="show.editUrl" wire:navigate class="vx-btn" :class="!show.whatnotUrl && 'col-span-2'"><x-filament::icon icon="heroicon-o-pencil-square" class="h-4 w-4" />Edit Show</a></template>
                     </div>
                     <div class="vx-stats mt-5">
+                        @if($this->showsMoney())
                         <div><b x-text="show.gross"></b><span>Gross Sales</span></div>
                         <div><b x-text="show.net"></b><span>Est. Net</span></div>
+                        @endif
                         <div><b x-text="show.units"></b><span>Items Sold</span></div>
                         <div><b x-text="show.views"></b><span>Views</span></div>
                     </div>
@@ -647,7 +651,7 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                     </div>
                 </div>
             </div>
-            <div class="p-4" style="border-top:1px solid var(--vx-line)">
+            <div class="p-4" style="border-top:1px solid var(--vx-line)" x-show="show.viewUrl">
                 <a :href="show.viewUrl" wire:navigate class="vx-btn primary w-full" style="min-height:44px">View Full Show Details <x-filament::icon icon="heroicon-m-arrow-right" class="h-4 w-4" /></a>
             </div>
         </div>

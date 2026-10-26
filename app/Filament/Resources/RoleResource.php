@@ -75,7 +75,7 @@ class RoleResource extends Resource
 
     public static function pagePermsFormState(string $role, array $readonly): array
     {
-        $configured=NavVisibility::hasExplicitVisibility($role); $visible=NavVisibility::visibleForRole($role); $hidden=NavVisibility::hiddenForRole($role); $state=[];
+        $configured=NavVisibility::hasExplicitVisibility($role) || isset(NavVisibility::ROLE_DEFAULTS[$role]); $visible=NavVisibility::visibleForRole($role); $hidden=NavVisibility::hiddenForRole($role); $state=[];
         foreach(static::pageOptions() as $class=>$label){$key=static::pageKey($class);$isVisible=$configured?in_array($class,$visible,true):!in_array($class,$hidden,true);$state[$key]=['access'=>!$isVisible?'hidden':(in_array($class,$readonly,true)?'view':'manage')];}
         return $state;
     }

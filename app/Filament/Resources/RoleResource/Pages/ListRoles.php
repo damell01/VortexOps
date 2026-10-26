@@ -32,7 +32,7 @@ class ListRoles extends ListRecords
         $total = count(RoleResource::roleControlledPages());
 
         return Role::query()->withCount('users')->orderBy('name')->get()->map(function (Role $role) use ($total): array {
-            $configured = NavVisibility::hasExplicitVisibility($role->name);
+            $configured = NavVisibility::hasExplicitVisibility($role->name) || isset(NavVisibility::ROLE_DEFAULTS[$role->name]);
             $visible = $configured
                 ? NavVisibility::visibleForRole($role->name)
                 : array_values(array_diff(RoleResource::roleControlledPages(), NavVisibility::hiddenForRole($role->name)));

@@ -84,7 +84,13 @@ class Shows extends Page
     {
         if (\App\Support\RoleAccess::grants(static::class)) return true;
         $u = auth()->user();
-        return AdminModules::isEnabled('streams') && ($u?->isAdmin() || $u?->isStreamer());
+        return AdminModules::isEnabled('streams') && ($u?->isAdmin() || $u?->isStreamer() || $u?->isStreamerAssistant());
+    }
+
+    /** Assistants follow the schedule; sales and the admin show page are not theirs. */
+    public function showsMoney(): bool
+    {
+        return ! (auth()->user()?->isStreamerAssistant() ?? false);
     }
 
     protected function getHeaderActions(): array
@@ -305,6 +311,7 @@ class Shows extends Page
     {
         $u = auth()->user();
         if ($u?->isAdmin()) return Streamer::orderBy('name')->get();
+        if ($u?->isStreamerAssistant()) return $u->assistedStreamers()->orderBy('name')->get();
         return $u?->streamer ? collect([$u->streamer]) : collect();
     }
 
@@ -320,6 +327,10 @@ class Shows extends Page
         if ($u?->isStreamer() && ! $u?->isAdmin()) {
             $id = $u->streamer?->id;
             $q->whereHas('streamers', fn ($x) => $x->where('streamers.id', $id));
+        } elseif ($u?->isStreamerAssistant()) {
+            // The shows of the streamers they support.
+            $ids = $u->assistedStreamers()->pluck('streamers.id');
+            $q->whereHas('streamers', fn ($x) => $x->whereIn('streamers.id', $ids));
         }
         return $q;
     }
@@ -394,8 +405,8 @@ class Shows extends Page
             'state' => $state,
             'stateLabel' => ['live' => 'Live', 'upcoming' => 'Upcoming', 'done' => 'Ended', 'cancelled' => 'Cancelled'][$state],
             'workflow' => $this->workflowLabel($s),
-            'gross' => '$'.number_format((float) $s->gross_revenue, 0),
-            'net' => '$'.number_format((float) $s->whatnot_net, 0),
+            'gross' => $this->showsMoney() ? '$'.number_format((float) $s->gross_revenue, 0) : null,
+            'net' => $this->showsMoney() ? '$'.number_format((float) $s->whatnot_net, 0) : null,
             'units' => number_format((int) $s->units_sold),
             'views' => number_format((int) $s->total_views),
             'cover' => $s->cover_image_url,
@@ -408,7 +419,7 @@ class Shows extends Page
             'ordersOk' => $s->orders_count > 0,
             'inventory' => ($log?->submitted_at || $s->deduction_requests_count > 0) ? 'Linked' : 'Not linked',
             'inventoryOk' => (bool) ($log?->submitted_at || $s->deduction_requests_count > 0),
-            'viewUrl' => $this->showUrl($s->id),
+            'viewUrl' => ShowResource::canAccess() ? $this->showUrl($s->id) : null,
             'editUrl' => ShowResource::canEdit($s) ? $this->editUrl($s->id) : null,
             'whatnotUrl' => filter_var($s->detail_url, FILTER_VALIDATE_URL) ? $s->detail_url : null,
         ];

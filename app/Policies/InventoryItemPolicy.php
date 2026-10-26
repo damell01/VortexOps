@@ -19,7 +19,8 @@ class InventoryItemPolicy
             return $authUser->can('ViewAny:InventoryItem');
         }
 
-        if ($authUser->isStreamer()) {
+        // Assistants look stock up for their streamers; they never edit it.
+        if ($authUser->isStreamer() || $authUser->isStreamerAssistant()) {
             return true;
         }
 
@@ -33,7 +34,7 @@ class InventoryItemPolicy
             return $authUser->can('View:InventoryItem');
         }
 
-        if ($authUser->isStreamer()) {
+        if ($authUser->isStreamer() || $authUser->isStreamerAssistant()) {
             return true;
         }
 

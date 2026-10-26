@@ -945,7 +945,7 @@ class ShowResource extends Resource
                 Filter::make('hide_upcoming')
                     ->label('Hide upcoming shows')
                     ->toggle()
-                    ->default()
+                    ->default(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false))
                     ->query(fn (Builder $query): Builder => $query->where(
                         fn (Builder $q) => $q
                             ->whereNull('show_date')

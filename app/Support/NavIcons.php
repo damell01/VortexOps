@@ -10,6 +10,8 @@ namespace App\Support;
 class NavIcons
 {
     public const ICONS = [
+        'All Shows' => 'heroicon-o-tv',
+        'My Pay' => 'heroicon-o-banknotes',
         // Shows
         'Shows Overview' => 'heroicon-o-tv',
         'Show Calendar' => 'heroicon-o-calendar-days',

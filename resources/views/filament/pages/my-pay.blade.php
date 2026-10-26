@@ -13,9 +13,9 @@
                 <p class="mt-1 text-xs text-gray-500">{{ \App\Models\Streamer::payoutTypeLabels()[$payment->payout_type] ?? ucfirst($payment->payout_type ?? 'Payment') }}</p>
                 @if($payment->show)<p class="mt-2 text-sm">{{ $payment->show->title ?: 'Show #'.$payment->show_id }}</p>@endif
                 <dl class="mt-3 space-y-1 text-xs text-gray-500">
-                    @if((float) $payment->hours_worked > 0)<div>Hours: {{ number_format((float) $payment->hours_worked, 2) }}</div>@endif
-                    @if((float) $payment->tips_included > 0)<div>Tips included: ${{ number_format((float) $payment->tips_included, 2) }}</div>@endif
-                    @if((float) $payment->loan_repayment_deducted > 0)<div>Loan repayment: ${{ number_format((float) $payment->loan_repayment_deducted, 2) }}</div>@endif
+                    @if((float) $payment->hours_worked > 0)<div class="flex justify-between gap-2"><dt>Hours</dt><dd>{{ number_format((float) $payment->hours_worked, 2) }}</dd></div>@endif
+                    @if((float) $payment->tips_included > 0)<div class="flex justify-between gap-2"><dt>Tips included</dt><dd>${{ number_format((float) $payment->tips_included, 2) }}</dd></div>@endif
+                    @if((float) $payment->loan_repayment_deducted > 0)<div class="flex justify-between gap-2"><dt>Loan repayment</dt><dd>${{ number_format((float) $payment->loan_repayment_deducted, 2) }}</dd></div>@endif
                 </dl>
             </article>
         @empty

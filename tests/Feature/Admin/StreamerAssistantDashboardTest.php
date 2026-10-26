@@ -42,6 +42,9 @@ class StreamerAssistantDashboardTest extends TestCase
         $upcoming = Show::create(['title' => 'Another host future show', 'show_date' => today()->addDay(), 'status' => 'draft', 'whatnot_channel_id' => $channel->id]);
         $past = Show::create(['title' => 'Another host past show', 'show_date' => today()->subDay(), 'status' => 'closed', 'is_operational' => false, 'whatnot_channel_id' => $otherChannel->id]);
 
+        $nav = view('filament.components.desktop-mega-nav')->render();
+        $this->assertStringContainsString('All Shows', $nav);
+        $this->assertStringContainsString('My Pay', $nav);
         $this->assertTrue(ShowResource::canAccess());
         $this->assertTrue(ShowResource::canViewAny());
         $this->assertTrue(ShowResource::canView($upcoming));

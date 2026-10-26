@@ -114,4 +114,21 @@ class StreamerAssistantDashboardTest extends TestCase
         $this->assertFalse(\App\Livewire\StreamerLeaderboard::canView());
     }
 
+    public function test_rollout_enables_requested_pages_on_existing_saved_assistant_roles(): void
+    {
+        $this->assistant();
+        NavVisibility::setVisibleForRole('streamer_assistant', [\App\Filament\Resources\PalletResource::class]);
+        NavVisibility::setHiddenForRole('streamer_assistant', [ShowResource::class, Timekeeping::class, \App\Filament\Pages\MyPay::class, \App\Filament\Pages\ShowLeaderboard::class, \App\Filament\Pages\PayrollOverview::class]);
+        NavVisibility::setVisibleForRole('streamer', []);
+        $migration = require database_path('migrations/2026_10_26_140000_enable_streamer_assistant_workspace.php');
+        $migration->up();
+        $this->assertTrue(ShowResource::canAccess());
+        $this->assertTrue(Timekeeping::canAccess());
+        $this->assertTrue(\App\Filament\Pages\MyPay::canAccess());
+        $this->assertTrue(\App\Filament\Pages\ShowLeaderboard::canAccess());
+        $this->assertContains(\App\Filament\Resources\PalletResource::class, NavVisibility::visibleForRole('streamer_assistant'));
+        $this->assertContains(\App\Filament\Pages\PayrollOverview::class, NavVisibility::hiddenForRole('streamer_assistant'));
+        $this->assertSame([], NavVisibility::visibleForRole('streamer'));
+    }
+
 }

@@ -66,7 +66,7 @@ class StreamerAssistantDashboardTest extends TestCase
         foreach ([Timekeeping::class, InventoryItemResource::class, ShowLeaderboard::class] as $page) {
             $this->assertTrue($page::canAccess(), class_basename($page).' should open');
         }
-        foreach ([PayoutResource::class, StreamerProfitShare::class, ManagerProfitShare::class, PalletResource::class, StockTransfer::class] as $page) {
+        foreach ([PayoutResource::class, StreamerProfitShare::class, ManagerProfitShare::class, PalletResource::class] as $page) {
             $this->assertFalse($page::canAccess(), class_basename($page).' should stay closed');
         }
         $this->assertFalse(InventoryItemResource::canCreate());
@@ -81,7 +81,7 @@ class StreamerAssistantDashboardTest extends TestCase
         NavVisibility::flushMemo();
 
         $this->assertFalse(NavVisibility::isHiddenForUser(PalletResource::class, $this->assistant));
-        $this->assertTrue(NavVisibility::isHiddenForUser(InventoryItemResource::class, $this->assistant));
+        $this->assertTrue(NavVisibility::isHiddenForUser(\App\Filament\Resources\InventoryLocationResource::class, $this->assistant));
         // Their core workspace (shows, time, pay) stays on regardless.
         $this->assertFalse(NavVisibility::isHiddenForUser(Timekeeping::class, $this->assistant));
     }
@@ -109,5 +109,28 @@ class StreamerAssistantDashboardTest extends TestCase
             ->assertRedirect(\App\Filament\Pages\Shows::getUrl());
         // The table is still there when asked for directly.
         $this->get(\App\Filament\Resources\ShowResource::getUrl('index', ['table' => 1]))->assertOk();
+    }
+
+    public function test_they_can_add_and_move_stock_but_not_edit_items(): void
+    {
+        $main = \App\Models\InventoryLocation::create(['name' => 'Main Storage', 'type' => 'main_storage', 'status' => 'active']);
+        $item = \App\Models\InventoryItem::create(['name' => 'Hobby Box', 'sku' => 'HB-1', 'barcode' => '0001', 'unit_cost' => 10, 'is_active' => true]);
+        \App\Models\InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $main->id, 'quantity' => 2]);
+
+        $this->assertTrue(InventoryItemResource::canManageStock());
+        $this->assertTrue(StockTransfer::canAccess());
+        $this->assertTrue(\App\Filament\Pages\QuickAddStock::canAccess());
+        $this->assertFalse(InventoryItemResource::canEdit($item));
+        $this->assertFalse(InventoryItemResource::canDeleteAny());
+
+        Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
+            ->assertSee('Add stock')
+            ->callAction('add_stock', ['location_id' => $main->id, 'quantity' => 6, 'movement_type' => 'opening'], ['product' => $item->id])
+            ->assertHasNoActionErrors();
+        $this->assertSame(8.0, (float) \App\Models\InventoryStock::where('inventory_item_id', $item->id)->value('quantity'));
+
+        Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ViewInventoryItem::class, ['record' => $item])
+            ->assertActionVisible('add_stock')
+            ->assertActionHidden('edit');
     }
 }

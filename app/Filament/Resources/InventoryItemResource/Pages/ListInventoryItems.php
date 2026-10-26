@@ -432,7 +432,7 @@ class ListInventoryItems extends ListRecords
             ->form(InventoryItemResource::addStockFields(fn () => $this->startQuickStockBarcodeScan()))
             ->action(function (array $data, array $arguments): void {
                 $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
-                abort_unless(InventoryItemResource::canEdit($record), 403);
+                abort_unless(InventoryItemResource::canManageStock(), 403);
 
                 $location = InventoryItemResource::bookAddStock($record, $data);
 

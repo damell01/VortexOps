@@ -345,10 +345,10 @@ class ViewInventoryItem extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('edit')->label('Edit')->icon('heroicon-o-pencil')->url(InventoryItemResource::getUrl('edit', ['record' => $this->record]))->color('gray'),
+            Action::make('edit')->label('Edit')->icon('heroicon-o-pencil')->url(InventoryItemResource::getUrl('edit', ['record' => $this->record]))->color('gray')->visible(fn () => InventoryItemResource::canEdit($this->record)),
             Action::make('add_stock')
                 ->label('Add Stock')->icon('heroicon-o-plus-circle')->color('primary')
-                ->visible(fn () => InventoryItemResource::canEdit($this->record))
+                ->visible(fn () => InventoryItemResource::canManageStock())
                 ->modalWidth('md')
                 ->modalHeading('Add Stock')
                 ->modalDescription(fn () => $this->record->name)
@@ -362,7 +362,7 @@ class ViewInventoryItem extends Page
                 ])
                 ->form(InventoryItemResource::addStockFields())
                 ->action(function (array $data): void {
-                    abort_unless(InventoryItemResource::canEdit($this->record), 403);
+                    abort_unless(InventoryItemResource::canManageStock(), 403);
                     $location = InventoryItemResource::bookAddStock($this->record, $data);
                     Notification::make()->title('Stock added')->body(rtrim(rtrim(number_format((float) $data['quantity'], 2), '0'), '.') . ' added at ' . $location->name . '.')->success()->send();
                     $this->record->load('stock.location');

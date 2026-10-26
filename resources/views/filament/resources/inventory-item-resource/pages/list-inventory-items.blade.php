@@ -115,7 +115,7 @@
    <div class="vx-catalog-grid">
     @foreach($this->catalogItems as $item)
      @php
-      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
+      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canStock=\App\Filament\Resources\InventoryItemResource::canManageStock();$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
@@ -135,7 +135,7 @@
       </div>
       <div class="vx-card-actions">
        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
-       @if($canEdit)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
+       @if($canStock)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
        @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>

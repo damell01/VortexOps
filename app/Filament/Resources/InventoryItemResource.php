@@ -255,6 +255,18 @@ class InventoryItemResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    /**
+     * Adding stock and moving it between locations. Admins, the owner and
+     * streamer assistants, who restock and move product for their streamers;
+     * editing an item's details, deleting it, and damage/returns stay admin.
+     */
+    public static function canManageStock(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamerAssistant());
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-archive-box';
@@ -1349,6 +1361,7 @@ class InventoryItemResource extends Resource
                         ->color('warning')
                         ->url(fn (InventoryItem $record) => static::getUrl('stock', ['record' => $record])),
                     Action::make('mark_damaged')
+                        ->visible(fn () => auth()->user()?->isAdmin() ?? false)
                         ->label('Mark Damaged')
                         ->icon('heroicon-o-exclamation-triangle')
                         ->color('danger')
@@ -1376,6 +1389,7 @@ class InventoryItemResource extends Resource
                             Notification::make()->title('Items marked as damaged')->warning()->send();
                         }),
                     Action::make('move_to_returns')
+                        ->visible(fn () => auth()->user()?->isAdmin() ?? false)
                         ->label('Move to Returns')
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('gray')
@@ -1420,7 +1434,7 @@ class InventoryItemResource extends Resource
                         ->action(fn (InventoryItem $record, $livewire) => $livewire->startBarcodeScan($record->getKey())),
                     static::deleteItemAction(),
                     static::restoreItemAction(),
-                ])->visible(fn () => auth()->user()?->isAdmin() ?? false),
+                ])->visible(fn () => static::canManageStock()),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

@@ -311,7 +311,6 @@ class Shows extends Page
     {
         $u = auth()->user();
         if ($u?->isAdmin()) return Streamer::orderBy('name')->get();
-        if ($u?->isStreamerAssistant()) return $u->assistedStreamers()->orderBy('name')->get();
         return $u?->streamer ? collect([$u->streamer]) : collect();
     }
 
@@ -327,11 +326,8 @@ class Shows extends Page
         if ($u?->isStreamer() && ! $u?->isAdmin()) {
             $id = $u->streamer?->id;
             $q->whereHas('streamers', fn ($x) => $x->where('streamers.id', $id));
-        } elseif ($u?->isStreamerAssistant()) {
-            // The shows of the streamers they support.
-            $ids = $u->assistedStreamers()->pluck('streamers.id');
-            $q->whereHas('streamers', fn ($x) => $x->whereIn('streamers.id', $ids));
         }
+        // Assistants see every show, as on their All Shows list.
         return $q;
     }
 

@@ -14,12 +14,12 @@ class ShowPolicy
     
     public function viewAny(AuthUser $authUser): bool
     {
-        return $authUser->can('ViewAny:Show');
+        return ($authUser instanceof \App\Models\User && $authUser->isStreamerAssistant()) || $authUser->can('ViewAny:Show');
     }
 
     public function view(AuthUser $authUser, Show $show): bool
     {
-        return $authUser->can('View:Show');
+        return ($authUser instanceof \App\Models\User && $authUser->isStreamerAssistant()) || $authUser->can('View:Show');
     }
 
     public function create(AuthUser $authUser): bool

@@ -2,7 +2,7 @@
     @if(($roleMode ?? null) === 'admin')
         @include('filament.components.dashboard-reference')
     @else
-    @if(! in_array($roleMode ?? null, ['streamer', 'assistant'], true))<x-dashboard-shortcuts />@endif
+    @if(($roleMode ?? null) !== 'streamer')<x-dashboard-shortcuts />@endif
     @php
         $pageMode = $roleMode ?? 'user';
     @endphp
@@ -14,10 +14,10 @@
         @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
         @endif
     >
-        @if($pageMode === 'streamer')
+        @if($pageMode === 'assistant')
+            @include('filament.components.assistant-dashboard')
+        @elseif($pageMode === 'streamer')
             <livewire:streamer-home :key="'streamer-home'" />
-        @elseif($pageMode === 'assistant')
-            <livewire:assistant-home :key="'assistant-home'" />
         @elseif($pageMode === 'fulfillment')
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">
@@ -92,7 +92,7 @@
             </section>
         @endif
 
-        @if(! in_array($pageMode, ['streamer', 'assistant'], true))
+        @if($pageMode !== 'streamer')
         <div class="min-w-0">
             <x-filament-widgets::widgets :widgets="$this->getWidgets()" :columns="$this->getColumns()" />
         </div>

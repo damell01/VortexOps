@@ -68,7 +68,7 @@ class ShowResource extends Resource
 
     public static function canEdit($r): bool
     {
-        if (!static::canAccess() || \App\Support\NavVisibility::isReadOnlyForUser(static::class, auth()->user())) return false;
+        if (!static::canAccess() || auth()->user()?->isStreamerAssistant() || \App\Support\NavVisibility::isReadOnlyForUser(static::class, auth()->user())) return false;
         // "Can Edit" on Roles & Permissions, which used to be a checkbox
         // nothing read.
         if (\App\Support\RoleAccess::allowsEditing(static::class)) {
@@ -122,10 +122,12 @@ class ShowResource extends Resource
         // Keep the base list query intentionally small. Detail/workflow pages can
         // load deeper inventory/payout relationships only when they need them.
         $query = parent::getEloquentQuery()
-            ->with(['streamers:id,name', 'channel:id,name'])
-            ->inChannelContext();
+            ->with(['streamers:id,name', 'channel:id,name']);
 
         $user = auth()->user();
+        // Assistants support all shows, including other hosts and channels.
+        if ($user?->isStreamerAssistant()) return $query;
+        $query->inChannelContext();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
             $streamerId = $user->streamer?->id ?? 0;
             $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId));
@@ -943,7 +945,7 @@ class ShowResource extends Resource
                 Filter::make('hide_upcoming')
                     ->label('Hide upcoming shows')
                     ->toggle()
-                    ->default()
+                    ->default(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false))
                     ->query(fn (Builder $query): Builder => $query->where(
                         fn (Builder $q) => $q
                             ->whereNull('show_date')

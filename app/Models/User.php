@@ -161,10 +161,9 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasRole('streamer') && ! $this->isAdmin();
     }
 
-    /** Supports one or more streamers; paid hourly from their own clocked time. */
     public function isStreamerAssistant(): bool
     {
-        return $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && ! $this->isAdmin() && ! $this->isStreamer();
+        return $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && ! $this->isAdmin();
     }
 
     public function isFulfillment(): bool

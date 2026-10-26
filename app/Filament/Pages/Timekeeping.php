@@ -36,6 +36,7 @@ class Timekeeping extends Page
 
         return ($user?->isAdmin()
             || $user?->isOwner()
+            || $user?->isStreamerAssistant()
             || $user?->isStreamer()
             || $user?->isStreamerAssistant()
             || $user?->isFulfillment()

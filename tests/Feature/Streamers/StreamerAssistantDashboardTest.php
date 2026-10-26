@@ -11,7 +11,6 @@ use App\Filament\Pages\Timekeeping;
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\PalletResource;
 use App\Filament\Resources\PayoutResource;
-use App\Livewire\AssistantHome;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -49,31 +48,17 @@ class StreamerAssistantDashboardTest extends TestCase
         $this->actingAs($this->assistant->fresh());
     }
 
-    public function test_the_dashboard_is_their_own(): void
+    public function test_the_dashboard_shows_cards_a_calendar_link_and_the_clock(): void
     {
         $upcoming = Show::create(['title' => 'Prizm Pack Wars', 'show_date' => now()->addDays(2)->toDateString(), 'start_time' => '18:00:00', 'status' => 'mapping']);
         $upcoming->streamers()->attach($this->streamer->id);
-        $someoneElses = Show::create(['title' => 'Not Their Show', 'show_date' => now()->addDays(2)->toDateString(), 'status' => 'mapping']);
-        $someoneElses->streamers()->attach(Streamer::create(['name' => 'Other', 'status' => 'active'])->id);
-        TimeEntry::create(['user_id' => $this->assistant->id, 'clocked_in_at' => now()->startOfWeek()->addHours(10), 'clocked_out_at' => now()->startOfWeek()->addHours(13), 'status' => 'ok']);
-        $profile = app(\App\Services\UserTeamProfileService::class)->sync($this->assistant);
-        $run = WeeklyPayoutBatch::create(['week_start' => now()->subWeeks(2)->startOfWeek()->toDateString(), 'week_end' => now()->subWeeks(2)->endOfWeek()->toDateString(), 'status' => 'paid']);
-        Payout::create(['weekly_payout_batch_id' => $run->id, 'streamer_id' => $profile->id, 'payout_type' => 'hourly', 'calculated_payout' => 60, 'status' => 'paid']);
-        Payout::create(['streamer_id' => $profile->id, 'payout_type' => 'hourly', 'calculated_payout' => 999, 'status' => 'draft']);
 
-        $this->get(DashboardImproved::getUrl())->assertOk()
-            ->assertSee('Streamer assistant')
-            ->assertSee('Jordan')
-            ->assertDontSee('Receive inventory');
-
-        $home = Livewire::test(AssistantHome::class)
+        Livewire::test(DashboardImproved::class)->assertSuccessful()
             ->assertSee('Prizm Pack Wars')
-            ->assertSee('$60.00')
-            ->assertDontSee('$999.00');
-        // Their streamers' shows only. (The clock's show picker lists every
-        // show on purpose — assistants may log time against any of them.)
-        $this->assertSame(['Prizm Pack Wars'], $home->instance()->upcoming->pluck('title')->all());
-        $this->assertSame(3.0, $home->instance()->hours['week']);
+            ->assertSee('vx-ah-card', false)
+            ->assertSee(\App\Filament\Pages\Shows::getUrl(), false)
+            ->assertSee('Clock in')
+            ->assertDontSee('Receive inventory');
     }
 
     public function test_they_reach_their_pages_and_not_the_admin_ones(): void
@@ -96,20 +81,25 @@ class StreamerAssistantDashboardTest extends TestCase
         NavVisibility::flushMemo();
 
         $this->assertFalse(NavVisibility::isHiddenForUser(PalletResource::class, $this->assistant));
-        $this->assertTrue(NavVisibility::isHiddenForUser(Timekeeping::class, $this->assistant));
+        $this->assertTrue(NavVisibility::isHiddenForUser(InventoryItemResource::class, $this->assistant));
+        // Their core workspace (shows, time, pay) stays on regardless.
+        $this->assertFalse(NavVisibility::isHiddenForUser(Timekeeping::class, $this->assistant));
     }
 
-    public function test_the_calendar_shows_their_streamers_shows_without_sales(): void
+    public function test_the_calendar_shows_every_show_without_sales(): void
     {
         $theirs = Show::create(['title' => 'Prizm Pack Wars', 'show_date' => now()->toDateString(), 'start_time' => '01:00:00', 'status' => 'reconciled', 'gross_revenue' => 4321, 'whatnot_net' => 3210]);
         $theirs->streamers()->attach($this->streamer->id);
-        $other = Show::create(['title' => 'Not Their Show', 'show_date' => now()->toDateString(), 'status' => 'mapping']);
+        $other = Show::create(['title' => 'Another Host Show', 'show_date' => now()->toDateString(), 'status' => 'mapping']);
         $other->streamers()->attach(Streamer::create(['name' => 'Other', 'status' => 'active'])->id);
 
         $this->assertTrue(\App\Filament\Pages\Shows::canAccess());
         $page = Livewire::test(\App\Filament\Pages\Shows::class)->assertOk();
-        $this->assertSame(['Prizm Pack Wars'], $page->instance()->shows->pluck('title')->all());
+        // All shows, as on their All Shows list.
+        $this->assertEqualsCanonicalizing(['Prizm Pack Wars', 'Another Host Show'], $page->instance()->shows->pluck('title')->all());
         $page->assertDontSee('4,321')->assertDontSee('Whatnot gross');
-        $this->assertNull($page->instance()->present($theirs->fresh(), now())['viewUrl']);
+        $presented = $page->instance()->present($theirs->fresh(), now());
+        $this->assertNull($presented['gross']);
+        $this->assertNotNull($presented['viewUrl']);
     }
 }

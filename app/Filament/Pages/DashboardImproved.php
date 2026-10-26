@@ -34,13 +34,14 @@ class DashboardImproved extends Dashboard
     public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
         $user = auth()->user();
-        return ($user?->isStreamer() || $user?->isStreamerAssistant()) && !$user->isAdmin() && !$user->isOwner() ? null : parent::getHeading();
+        return $user?->isStreamer() && !$user->isAdmin() && !$user->isOwner() ? null : parent::getHeading();
     }
 
     public function getSubheading(): ?string
     {
         $user = auth()->user();
-        if (($user?->isStreamer() || $user?->isStreamerAssistant()) && !$user->isAdmin() && !$user->isOwner()) return null;
+        if ($user?->isStreamerAssistant()) return 'Streamer assistant workspace · All shows and channels';
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
         return "{$name} operations center";
@@ -69,6 +70,8 @@ class DashboardImproved extends Dashboard
 
         $user = auth()->user();
 
+        if ($user?->isStreamerAssistant()) return [];
+
         if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
             return [
                 StreamerOverviewWidget::class,
@@ -77,10 +80,6 @@ class DashboardImproved extends Dashboard
                 StreamerProfitShareWidget::class,
                 RecentShowsWidget::class,
             ];
-        }
-
-        if ($user?->isStreamerAssistant() && ! $user->isOwner()) {
-            return [];
         }
 
         if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
@@ -106,6 +105,20 @@ class DashboardImproved extends Dashboard
     {
         $user = auth()->user();
         $data = ['roleMode' => 'user'];
+        if ($user?->isStreamerAssistant()) {
+            $canViewShows = \App\Filament\Resources\ShowResource::canAccess();
+            $today = \App\Support\BusinessTime::local()->toDateString();
+            $shows = fn () => \App\Filament\Resources\ShowResource::getEloquentQuery();
+            return [
+                'roleMode' => 'assistant',
+                'canViewShows' => $canViewShows,
+                'canViewPay' => MyPay::canAccess(),
+                'assistantPaidTotal' => MyPay::canAccess() ? \App\Support\AssistantPaidPay::query($user)->sum('calculated_payout') : 0,
+                'assistantRecentPay' => MyPay::canAccess() ? \App\Support\AssistantPaidPay::query($user)->with('batch')->latest('id')->limit(5)->get() : collect(),
+                'upcomingAssistantShows' => $canViewShows ? $shows()->whereDate('show_date', '>=', $today)->whereNotIn('status', ['cancelled', 'closed'])->orderBy('show_date')->orderBy('start_time')->limit(6)->get() : collect(),
+                'recentAssistantShows' => $canViewShows ? $shows()->whereDate('show_date', '<', $today)->orderByDesc('show_date')->orderByDesc('id')->limit(6)->get() : collect(),
+            ];
+        }
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             $data['roleMode'] = 'admin';
@@ -154,8 +167,6 @@ class DashboardImproved extends Dashboard
                     ->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->where('created_at', '>=', now()->subDays(30)))
                     ->sum('quantity'),
             ];
-        } elseif ($user?->isStreamerAssistant() && ! $user->isOwner()) {
-            $data['roleMode'] = 'assistant';
         } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $data['roleMode'] = 'fulfillment';
             $showsQuery = Show::query()->inChannelContext()->whereNotIn('status', ['closed', 'cancelled']);

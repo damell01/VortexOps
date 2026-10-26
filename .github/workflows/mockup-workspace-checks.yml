@@ -7,6 +7,9 @@ on:
       - 'app/Filament/Pages/DashboardImproved.php'
       - 'app/Filament/Resources/WhatnotLedgerResource.php'
       - '.github/workflows/mockup-workspace-checks.yml'
+      - 'tests/Feature/Admin/StreamerAssistantDashboardTest.php'
+      - 'tests/Browser/mockup-workspaces.spec.ts'
+      - 'tests/Browser/mockup-fixtures.php'
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -25,7 +28,7 @@ jobs:
       - run: npm ci && npm run build
       - run: cp .env.example .env && php artisan key:generate
       - name: Compile views and verify streamer access
-        run: php artisan test tests/Feature/Ui/BladeViewsCompileTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/StreamerAnalyticsTest.php tests/Feature/Reports/StreamerAnalyticsScopeTest.php tests/Feature/Timekeeping/TimekeepingTest.php
+        run: php artisan test tests/Feature/Ui/BladeViewsCompileTest.php tests/Feature/Admin/StreamerAssistantDashboardTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/StreamerAnalyticsTest.php tests/Feature/Reports/StreamerAnalyticsScopeTest.php tests/Feature/Timekeeping/TimekeepingTest.php
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite

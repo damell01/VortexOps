@@ -48,7 +48,9 @@ class NavVisibility
             \App\Filament\Pages\DashboardImproved::class,
             \App\Filament\Pages\Timekeeping::class,
             \App\Filament\Pages\Shows::class,
+            \App\Filament\Resources\ShowResource::class,
             \App\Filament\Pages\ShowLeaderboard::class,
+            \App\Filament\Pages\MyPay::class,
             \App\Filament\Pages\InventoryOverview::class,
             \App\Filament\Resources\InventoryItemResource::class,
             \App\Filament\Resources\InventoryLocationResource::class,
@@ -167,6 +169,13 @@ class NavVisibility
             \App\Filament\Resources\VendorResource::class,
             \App\Filament\Pages\PalletReceivingHistory::class,
             \App\Filament\Pages\InventoryGuide::class,
+        ], true)) return true;
+        // Existing assistant allow-lists predate their show workspace. Explicit Hide still wins above.
+        if ($role === AssistantPayrollRole::NAME && in_array($navigationClass, [
+            \App\Filament\Resources\ShowResource::class,
+            \App\Filament\Pages\Timekeeping::class,
+            \App\Filament\Pages\ShowLeaderboard::class,
+            \App\Filament\Pages\MyPay::class,
         ], true)) return true;
         if (! self::hasExplicitVisibility($role) && isset(self::ROLE_DEFAULTS[$role])) {
             return in_array($class, self::ROLE_DEFAULTS[$role], true)

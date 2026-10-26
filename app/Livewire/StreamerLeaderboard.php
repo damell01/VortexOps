@@ -30,7 +30,7 @@ class StreamerLeaderboard extends Component
     {
         $user = auth()->user();
         // Everyone with the Shows tab: admins, streamers, and roles granted Shows.
-        return AdminModules::isEnabled('streams') && (bool) ($user?->isAdmin() || ($user?->isStreamer() && $user->streamer) || $user?->isStreamerAssistant() || ($user && RoleAccess::grants(Shows::class, $user)));
+        return AdminModules::isEnabled('streams') && (bool) (($user?->isStreamerAssistant() && \App\Filament\Resources\ShowResource::canAccess() && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\ShowLeaderboard::class, $user)) || $user?->isAdmin() || ($user?->isStreamer() && $user->streamer) || ($user && RoleAccess::grants(Shows::class, $user)));
     }
 
     public function mount(): void { abort_unless(static::canView(), 403); }
@@ -56,7 +56,7 @@ class StreamerLeaderboard extends Component
     {
         abort_unless(static::canView(), 403);
         [$from, $to] = $this->dates();
-        $rows = app(StreamerShowLeaderboard::class)->rows(auth()->user(), $from, $to, ChannelContext::currentId());
+        $rows = app(StreamerShowLeaderboard::class)->rows(auth()->user(), $from, $to, auth()->user()?->isStreamerAssistant() ? null : ChannelContext::currentId());
         $pages = max(1, (int) ceil($rows->count() / self::PER_PAGE));
         $this->page = min(max(1, $this->page), $pages);
         $visible = $rows->slice(($this->page - 1) * self::PER_PAGE, self::PER_PAGE);
@@ -82,7 +82,7 @@ class StreamerLeaderboard extends Component
                 'mine' => (bool) $row['mine'],
                 'loss' => $row['value'] < 0,
                 // Streamers can open only their own shows; admins any.
-                'url' => (auth()->user()?->isAdmin() || $row['mine']) ? \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $row['show_id']]) : null,
+                'url' => (auth()->user()?->isAdmin() || (auth()->user()?->isStreamerAssistant() && \App\Filament\Resources\ShowResource::canAccess()) || $row['mine']) ? \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $row['show_id']]) : null,
             ])->all(),
         ];
     }

@@ -4,7 +4,8 @@ $user=auth()->user(); $groups=[];
 // calendar is one click away, and inventory/admin tooling stays out of the way.
 // Inventory routes stay reachable (reports create items through them); only the
 // links are dropped, unless Roles & Permissions explicitly grants the page.
-$streamerOnly=(bool) ($user?->isStreamer() && !$user?->isAdmin() && !$user?->isOwner());
+$assistantOnly=(bool) $user?->isStreamerAssistant();
+$streamerOnly=(bool) (!$assistantOnly && $user?->isStreamer() && !$user?->isAdmin() && !$user?->isOwner());
 $homeUrl=\App\Filament\Pages\DashboardImproved::getUrl(panel:'admin');
 $homeLabel=$streamerOnly ? 'My Dashboard' : 'Dashboard';
 $channel=\App\Support\ChannelContext::current();
@@ -12,7 +13,12 @@ try { $globalLogo=\App\Models\Setting::get('logo_path'); } catch (\Throwable) { 
 $navLogo=null;
 if($channel?->logo_path && file_exists(storage_path('app/public/'.$channel->logo_path))) $navLogo=asset('storage/'.$channel->logo_path);
 elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $navLogo=asset('storage/'.$globalLogo);
-if($streamerOnly){
+if($assistantOnly){
+ $groups['Shows']=array_values(array_filter([
+  \App\Filament\Resources\ShowResource::canAccess() ? ['All Shows',\App\Filament\Resources\ShowResource::getUrl('index')] : null,
+  \App\Filament\Pages\ShowLeaderboard::canAccess() ? ['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')] : null,
+ ]));
+}elseif($streamerOnly){
  if(\App\Filament\Pages\Shows::canAccess()) $groups['Shows']=array_values(array_filter([
   ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
   \App\Filament\Pages\ShowLeaderboard::canAccess() ? ['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')] : null,
@@ -50,7 +56,8 @@ if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\Payrol
 if(! $streamerOnly && \App\Filament\Pages\Timekeeping::canAccess()) $groups['Timekeeping']=[
  ['Timekeeping',\App\Filament\Pages\Timekeeping::getUrl(panel:'admin')],
 ];
-$directGroups = ['Timekeeping'];
+if($assistantOnly && \App\Filament\Pages\MyPay::canAccess()) $groups['My Pay']=[['My Pay',\App\Filament\Pages\MyPay::getUrl(panel:'admin')]];
+$directGroups = ['Timekeeping', 'My Pay'];
 // Links may carry a section heading and an icon: [label, url, section, icon].
 if(\App\Support\AdminModules::isEnabled('reporting') && \App\Filament\Pages\Reports::canAccess()) $groups['Reports']=[
  ['Reports Overview',\App\Filament\Pages\ReportsOverview::getUrl(panel:'admin'),'Reports','heroicon-o-chart-bar'],

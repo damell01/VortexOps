@@ -14,7 +14,9 @@
         @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
         @endif
     >
-        @if($pageMode === 'streamer')
+        @if($pageMode === 'assistant')
+            @include('filament.components.assistant-dashboard')
+        @elseif($pageMode === 'streamer')
             <livewire:streamer-home :key="'streamer-home'" />
         @elseif($pageMode === 'fulfillment')
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">

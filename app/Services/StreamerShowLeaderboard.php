@@ -17,7 +17,8 @@ class StreamerShowLeaderboard
     public function rows(User $viewer, Carbon $from, Carbon $to, ?int $channel = null): Collection
     {
         $granted = RoleAccess::grants(Shows::class, $viewer);
-        if (! $viewer->isAdmin() && ! $granted && ! ($viewer->isStreamer() && $viewer->streamer)) return collect();
+        $assistant = $viewer->isStreamerAssistant() && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Resources\ShowResource::class, $viewer) && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\ShowLeaderboard::class, $viewer);
+        if (! $assistant && ! $viewer->isAdmin() && ! $granted && ! ($viewer->isStreamer() && $viewer->streamer)) return collect();
         $now = BusinessTime::local();
         $shows = Show::query()->where('is_operational', true)->where('status', '!=', 'cancelled')->whereDate('show_date', '<=', $now->toDateString())
             ->whereBetween('show_date', [$from->toDateString(), $to->toDateString().' 23:59:59'])

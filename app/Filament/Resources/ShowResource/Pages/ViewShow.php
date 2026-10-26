@@ -16,8 +16,18 @@ class ViewShow extends ViewRecord
     protected static string $resource = ShowResource::class;
     protected string $view = 'filament.resources.show-resource.pages.view-show-workspace';
 
+    public function getView(): string
+    {
+        return auth()->user()?->isStreamerAssistant()
+            ? 'filament.resources.show-resource.pages.view-show-assistant'
+            : parent::getView();
+    }
+
     protected function resolveRecord(int|string $key): \App\Models\Show
     {
+        if (auth()->user()?->isStreamerAssistant()) {
+            return ShowResource::getEloquentQuery()->findOrFail($key);
+        }
         return \App\Models\Show::with([
             'streamers', 'channel', 'fulfillmentUsers',
             'latestDeductionRequest.lines.inventoryItem',

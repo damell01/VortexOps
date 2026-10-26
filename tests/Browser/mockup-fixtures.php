@@ -6,7 +6,7 @@ $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 \App\Models\Setting::set('demo_mode', false);
 $owner = \App\Models\User::factory()->create(['email'=>config('app.owner_email'), 'password'=>\Illuminate\Support\Facades\Hash::make('MockupTest123!'), 'must_change_password'=>false]);
 $owner->assignRole(\Spatie\Permission\Models\Role::findOrCreate('super_admin', 'web'));
-$user = \App\Models\User::factory()->create(['name'=>'Brandon', 'email'=>'mockup-streamer@example.test', 'password'=>\Illuminate\Support\Facades\Hash::make('MockupTest123!'), 'must_change_password'=>false]);
+$user = \App\Models\User::factory()->create(['name'=>'Brandon', 'buddy'=>'pikachu', 'email'=>'mockup-streamer@example.test', 'password'=>\Illuminate\Support\Facades\Hash::make('MockupTest123!'), 'must_change_password'=>false]);
 $user->assignRole(\Spatie\Permission\Models\Role::findOrCreate('streamer', 'web'));
 $streamer=\App\Models\Streamer::create(['name'=>'Brandon', 'user_id'=>$user->id, 'status'=>'active']);
 $channel=\App\Models\WhatnotChannel::create(['name'=>'Vortex Breaks', 'status'=>'active']);
@@ -19,3 +19,11 @@ foreach ([-1,0,2] as $offset) {
     }
 }
 file_put_contents(__DIR__.'/../../storage/mockup-owner.txt', $owner->email);
+
+$assistant = \App\Models\User::factory()->create(['name'=>'Assistant Test', 'email'=>'mockup-assistant@example.test', 'password'=>\Illuminate\Support\Facades\Hash::make('MockupTest123!'), 'must_change_password'=>false]);
+$assistant->assignRole(\Spatie\Permission\Models\Role::findOrCreate('streamer_assistant', 'web'));
+$assistantProfile = \App\Models\Streamer::create(['name'=>'Assistant Test', 'user_id'=>$assistant->id, 'member_type'=>'assistant', 'status'=>'active']);
+$paidRun = \App\Models\WeeklyPayoutBatch::create(['week_start'=>today()->subWeek()->startOfWeek(), 'week_end'=>today()->subWeek()->endOfWeek(), 'status'=>'paid', 'created_by'=>$owner->id]);
+foreach ([[$assistantProfile,125.25],[$streamer,9999.22]] as [$payee,$amount]) {
+    \App\Models\Payout::create(['streamer_id'=>$payee->id, 'weekly_payout_batch_id'=>$paidRun->id, 'payout_type'=>'hourly', 'status'=>'paid', 'calculated_payout'=>$amount]);
+}

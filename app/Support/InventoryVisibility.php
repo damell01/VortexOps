@@ -76,12 +76,11 @@ class InventoryVisibility
      */
     public static function shownLocationIdsFor(?User $user): ?array
     {
+        // Admins see every location again: hiding streamer shelves hid the
+        // business's real stock, which sits at a streamer-tied location.
         $ids = static::locationIdsFor($user);
-        if ($ids !== null) {
-            return $ids;
-        }
 
-        return InventoryLocation::query()->whereNull('streamer_id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return $ids ?? InventoryLocation::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     /** Null inherits global access; an empty list explicitly grants no locations. */

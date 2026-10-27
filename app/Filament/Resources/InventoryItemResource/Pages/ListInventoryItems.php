@@ -31,16 +31,25 @@ class ListInventoryItems extends ListRecords
 
     protected static string $resource = InventoryItemResource::class;
 
-    /** The catalog always shows one location; the Locations page manages all locations. */
+    /** Default to Main; honor a permitted warehouse selection without changing any stock. */
     public function inventoryPageLocationId(): ?int
     {
+        $options = $this->inventoryLocationOptions();
+        if ($this->inventoryLocation !== '' && ctype_digit($this->inventoryLocation)
+            && array_key_exists((int) $this->inventoryLocation, $options)) {
+            return (int) $this->inventoryLocation;
+        }
+
         $user = auth()->user();
         $own = $user ? \App\Support\InventoryVisibility::ownLocationIds($user) : [];
-        $allowed = \App\Support\InventoryVisibility::shownLocationIdsFor($user);
-        $own = array_values(array_filter($own, fn ($id) => $allowed === null || in_array((int) $id, $allowed, true)));
-        if ($own !== [] && ! ($user?->isAdmin() ?? false) && ! ($user?->isOwner() ?? false)) return (int) $own[0];
+        if ($own !== [] && \App\Support\InventoryVisibility::isReadOnlyStreamer($user)) {
+            foreach ($own as $id) {
+                if (array_key_exists((int) $id, $options)) return (int) $id;
+            }
+        }
         $main = InventoryLocation::mainId();
-        return $main !== null && ($allowed === null || in_array((int) $main, $allowed, true)) ? (int) $main : null;
+        if ($main !== null && array_key_exists((int) $main, $options)) return (int) $main;
+        return $options === [] ? null : (int) array_key_first($options);
     }
 
     protected ?array $statsMemo = null;

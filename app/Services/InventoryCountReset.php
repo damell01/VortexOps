@@ -20,7 +20,7 @@ class InventoryCountReset
 
     public static function canReset(?User $user): bool
     {
-        return ($user?->isAdmin() ?? false) && AdminModules::isEnabled('inventory')
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer($user) && ($user?->isAdmin() ?? false) && AdminModules::isEnabled('inventory')
             && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Resources\InventoryItemResource::class, $user)
             && ! \App\Support\NavVisibility::isReadOnlyForUser(\App\Filament\Resources\InventoryItemResource::class, $user);
     }

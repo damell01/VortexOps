@@ -174,14 +174,14 @@ class InventoryGuide extends Page
      */
     public function getLocationStatusProperty(): array
     {
-        $names = InventoryLocation::where('status', 'active')
+        $names = InventoryLocation::visibleTo()->where('status', 'active')
             ->orderBy('name')
             ->pluck('name')
             ->all();
 
         return [
             'count'      => count($names),
-            'hasStorage' => InventoryLocation::where('status', 'active')
+            'hasStorage' => InventoryLocation::visibleTo()->where('status', 'active')
                 ->where('type', 'main_storage')
                 ->exists(),
             'names'      => $names,

@@ -50,7 +50,7 @@ class InventoryOverviewWidget extends BaseWidget
                             ->groupBy('inventory_stock.inventory_item_id')
                             ->havingRaw('SUM(inventory_stock.quantity) <= products.reorder_level'))
                         ->count(),
-                    InventoryLocation::where('status', 'active')->inChannelContext()->count(),
+                    InventoryLocation::visibleTo()->where('status', 'active')->inChannelContext()->count(),
                     Streamer::where('status', 'active')->inChannelContext()->count(),
                     (float) $inventoryValue,
                 ];

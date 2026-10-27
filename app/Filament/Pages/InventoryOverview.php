@@ -271,7 +271,7 @@ class InventoryOverview extends Page
     #[Computed]
     public function reportLocations(): Collection
     {
-        return \App\Models\InventoryLocation::query()->where('status', 'active')->orderBy('name')->pluck('name', 'id');
+        return \App\Models\InventoryLocation::visibleTo()->where('status', 'active')->orderBy('name')->pluck('name', 'id');
     }
 
     #[Computed]

@@ -18,7 +18,7 @@ class InventoryByLocationWidget extends BaseWidget
     {
         return $table
             ->query(
-                InventoryLocation::query()
+                InventoryLocation::visibleTo()
                     ->select('inventory_locations.*')
                     ->selectRaw('COUNT(DISTINCT s.inventory_item_id) as sku_count')
                     ->selectRaw('COALESCE(SUM(s.quantity), 0) as total_units')

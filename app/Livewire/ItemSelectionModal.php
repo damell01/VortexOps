@@ -98,7 +98,7 @@ class ItemSelectionModal extends Component
                 ->toArray();
         }
 
-        return InventoryLocation::where('is_active', true)
+        return InventoryLocation::visibleTo()->where('status', 'active')
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();

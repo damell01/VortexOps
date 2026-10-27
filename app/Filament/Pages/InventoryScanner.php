@@ -32,7 +32,18 @@ class InventoryScanner extends Page
         return static::canAccess();
     }
 
-    use HasModuleAccess, WithFileUploads;
+    use WithFileUploads;
+    use HasModuleAccess { canAccess as moduleAllows; }
+
+    public static function canAccess(): bool
+    {
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer() && static::moduleAllows();
+    }
+
+    public function boot(): void
+    {
+        abort_unless(static::canAccess(), 403);
+    }
 
     protected static string $moduleSlug  = 'inventory';
     protected static ?string $title = 'Inventory Scanner';

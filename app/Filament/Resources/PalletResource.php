@@ -41,7 +41,12 @@ use Illuminate\Support\Facades\Storage;
 
 class PalletResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess { canAccess as moduleAllows; }
+
+    public static function canAccess(): bool
+    {
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer() && static::moduleAllows();
+    }
 
     protected static string $moduleSlug = 'purchasing';
     protected static ?string $model = Pallet::class;

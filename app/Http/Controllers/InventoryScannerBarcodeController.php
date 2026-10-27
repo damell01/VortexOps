@@ -14,6 +14,7 @@ class InventoryScannerBarcodeController extends Controller
     private function authorizeInventory(Request $request): void
     {
         $user = $request->user();
+        abort_if(\App\Support\InventoryVisibility::isReadOnlyStreamer($user), 403);
 
         abort_unless($user && ($user->isAdmin() || $user->isOwner()), 403);
     }

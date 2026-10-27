@@ -24,51 +24,61 @@ class InventoryStockPolicy
 
     public function create(AuthUser $authUser): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('Create:InventoryStock');
     }
 
     public function update(AuthUser $authUser, InventoryStock $inventoryStock): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('Update:InventoryStock');
     }
 
     public function delete(AuthUser $authUser, InventoryStock $inventoryStock): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('Delete:InventoryStock');
     }
 
     public function deleteAny(AuthUser $authUser): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('DeleteAny:InventoryStock');
     }
 
     public function restore(AuthUser $authUser, InventoryStock $inventoryStock): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('Restore:InventoryStock');
     }
 
     public function forceDelete(AuthUser $authUser, InventoryStock $inventoryStock): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('ForceDelete:InventoryStock');
     }
 
     public function forceDeleteAny(AuthUser $authUser): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('ForceDeleteAny:InventoryStock');
     }
 
     public function restoreAny(AuthUser $authUser): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('RestoreAny:InventoryStock');
     }
 
     public function replicate(AuthUser $authUser, InventoryStock $inventoryStock): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('Replicate:InventoryStock');
     }
 
     public function reorder(AuthUser $authUser): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
         return $authUser->can('Reorder:InventoryStock');
     }
 

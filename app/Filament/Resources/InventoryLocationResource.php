@@ -66,11 +66,13 @@ class InventoryLocationResource extends Resource
 
     public static function canCreate(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function canEdit(Model $record): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         // "Can Edit" on Roles & Permissions, which used to be a checkbox
         // nothing read.
         if (\App\Support\RoleAccess::allowsEditing(static::class)) {
@@ -86,17 +88,7 @@ class InventoryLocationResource extends Resource
         $query = parent::getEloquentQuery()->with(['streamer', 'channel', 'businesses']);
         $user  = auth()->user();
 
-        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
-            // Their own, plus shared ones for everyone or for their business.
-            $streamerId = $user->streamer?->id;
-            $businessId = $user->streamer?->business_id;
-            $query->where(function (Builder $q) use ($streamerId, $businessId): void {
-                $q->where(fn (Builder $shared) => $shared->whereNull('streamer_id')
-                    ->where(fn (Builder $b) => $b->whereDoesntHave('businesses')
-                        ->when($businessId, fn ($w) => $w->orWhereHas('businesses', fn ($x) => $x->whereKey($businessId)))))
-                  ->orWhere('streamer_id', $streamerId);
-            });
-        }
+        $query->visibleTo($user);
 
         if (ChannelContext::isScoped()) {
             $query->where('whatnot_channel_id', ChannelContext::currentId());
@@ -171,6 +163,7 @@ class InventoryLocationResource extends Resource
      */
     public static function canDelete(Model $record): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         if (! auth()->user()?->isAdmin()) {
             return false;
         }
@@ -184,6 +177,7 @@ class InventoryLocationResource extends Resource
 
     public static function canDeleteAny(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return auth()->user()?->isAdmin() ?? false;
     }
 
@@ -250,7 +244,7 @@ class InventoryLocationResource extends Resource
                         ->visible(fn ($get) => $get('audience') === 'business')
                         ->afterStateHydrated(fn ($component, ?InventoryLocation $record) => $record ? $component->state(array_map('strval', $record->sharedBusinessIds())) : null),
                     Select::make('streamer_id')
-                        ->label('Streamer')
+                        ->label('Location owner')
                         ->options(fn (?\App\Models\InventoryLocation $record) => static::streamerOptions($record?->streamer_id))
                         ->required(fn ($get) => $get('audience') === 'streamer')
                         ->visible(fn ($get) => $get('audience') === 'streamer'),
@@ -279,7 +273,7 @@ class InventoryLocationResource extends Resource
     {
         $businesses = \App\Models\Business::pluck('short_name', 'id')->map(fn ($s, $id) => $s ?: \App\Models\Business::whereKey($id)->value('name'));
 
-        return \App\Models\Streamer::query()->streamers()
+        return \App\Models\Streamer::query()
             ->where(fn ($q) => $q->where('status', 'active')->when($keep, fn ($q) => $q->orWhere('id', $keep)))
             ->orderBy('name')
             ->get(['id', 'name', 'business_id'])

@@ -210,6 +210,7 @@ class ListInventoryItems extends ListRecords
 
     public function startBarcodeScan(int $productId): void
     {
+        abort_unless(InventoryItemResource::canManageStock(), 403);
         $product = Product::find($productId);
         if (! $product) return;
 
@@ -220,6 +221,7 @@ class ListInventoryItems extends ListRecords
 
     public function saveScannedBarcode(string $barcode): void
     {
+        abort_unless(InventoryItemResource::canManageStock(), 403);
         $barcode = trim($barcode);
         $product = $this->barcodeScanTargetId ? Product::find($this->barcodeScanTargetId) : null;
         $this->barcodeScanTargetId = null;

@@ -38,28 +38,39 @@ class InventoryVisibility
      */
     public static function locationIdsFor(?User $user): ?array
     {
-        if ($user === null) {
-            return [];
-        }
+        if (self::$unrestrictedDepth > 0 || $user?->isOwner()) return null;
+        if ($user === null) return [];
 
-        if ($user->isAdmin() || $user->isOwner()) {
-            return null;
-        }
-
-        if (! $user->isStreamer() && ! $user->hasRole('streamer_assistant')) {
-            return null;
-        }
-
-        $override = static::overrideForStreamer($user->streamer?->id);
-        if ($override !== null) {
-            return array_values(array_unique([...$override, ...static::mainStorageIds()]));
-        }
-
-        return array_values(array_unique([
-            ...static::configuredForStreamers(),
-            ...static::mainStorageIds(),
+        return array_values(array_unique(array_filter([
+            InventoryLocation::mainId(),
             ...static::ownLocationIds($user),
-        ]));
+        ], fn ($id) => $id !== null)));
+    }
+
+    /** A streamer stays read-only even when another role also grants admin access. */
+    public static function isReadOnlyStreamer(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+        return $user !== null && ! $user->isOwner()
+            && ($user->hasRole('streamer') || ($user->streamer?->isStreamer() ?? false));
+    }
+
+    private static int $unrestrictedDepth = 0;
+
+    /** Internal stock bookkeeping must see both sides; UI authorization stays at the action boundary. */
+    public static function withoutLocationRestrictions(callable $callback): mixed
+    {
+        self::$unrestrictedDepth++;
+        try {
+            return $callback();
+        } finally {
+            self::$unrestrictedDepth--;
+        }
+    }
+
+    public static function restrictionsSuspended(): bool
+    {
+        return self::$unrestrictedDepth > 0;
     }
 
     /**
@@ -76,11 +87,7 @@ class InventoryVisibility
      */
     public static function shownLocationIdsFor(?User $user): ?array
     {
-        // Admins see every location again: hiding streamer shelves hid the
-        // business's real stock, which sits at a streamer-tied location.
-        $ids = static::locationIdsFor($user);
-
-        return $ids ?? InventoryLocation::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return static::locationIdsFor($user);
     }
 
     /** Null inherits global access; an empty list explicitly grants no locations. */

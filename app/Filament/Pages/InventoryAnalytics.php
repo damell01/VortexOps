@@ -101,7 +101,7 @@ class InventoryAnalytics extends Page
 
         // Admins and owners see all locations
         if ($user?->isAdmin() || $user?->isOwner()) {
-            return InventoryLocation::where('status', 'active')->pluck('id');
+            return InventoryLocation::visibleTo()->where('status', 'active')->pluck('id');
         }
 
         // Streamers only see their own locations — narrowed again by any
@@ -181,7 +181,7 @@ class InventoryAnalytics extends Page
         $totalItems = InventoryItem::whereHas('stock', fn ($q) =>
             $q->whereIn('inventory_location_id', $locationIds)
         )->where('is_active', true)->count();
-        $totalLocations = InventoryLocation::whereIn('id', $locationIds)
+        $totalLocations = InventoryLocation::visibleTo()->whereIn('id', $locationIds)
             ->where('status', 'active')->count();
 
         $summary = [
@@ -270,7 +270,7 @@ class InventoryAnalytics extends Page
             ->get()
             ->keyBy('location_id');
 
-        $locations = InventoryLocation::where('status', 'active')
+        $locations = InventoryLocation::visibleTo()->where('status', 'active')
             ->whereIn('id', $locationIds)
             ->get(['id', 'name'])
             ->map(fn ($location) => [

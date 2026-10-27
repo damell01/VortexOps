@@ -99,6 +99,7 @@ class InventoryStockResource extends Resource
 
     public static function canCreate(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return false;
     }
 
@@ -124,11 +125,13 @@ class InventoryStockResource extends Resource
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return false;
     }
 
     public static function canDeleteAny(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return false;
     }
 
@@ -282,4 +285,12 @@ class InventoryStockResource extends Resource
             'edit' => Pages\EditInventoryStock::route('/{record}/edit'),
         ];
     }
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer()
+            && static::canAccess()
+            && ! \App\Support\NavVisibility::isReadOnlyForUser(static::class, auth()->user())
+            && (\App\Support\RoleAccess::allowsEditing(static::class) || parent::canEdit($record));
+    }
+
 }

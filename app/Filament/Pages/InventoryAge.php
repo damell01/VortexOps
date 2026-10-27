@@ -130,7 +130,7 @@ class InventoryAge extends Page
         $user = auth()->user();
 
         if ($user?->isAdmin() || $user?->isOwner()) {
-            return InventoryLocation::where('status', 'active')->orderBy('name')->get();
+            return InventoryLocation::visibleTo()->where('status', 'active')->orderBy('name')->get();
         }
 
         if ($user?->isStreamer() && $user->streamer) {

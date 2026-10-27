@@ -28,7 +28,7 @@ class InventoryMovement extends Model
     {
         static::addGlobalScope('streamerLocations', function (\Illuminate\Database\Eloquent\Builder $query) {
             $user = auth()->user();
-            if (!$user?->isStreamer() || $user->isAdmin() || $user->isOwner()) return;
+            if (! $user || $user->isOwner() || \App\Support\InventoryVisibility::restrictionsSuspended()) return;
             $ids = \App\Support\InventoryVisibility::locationIdsFor($user) ?? [];
             $query->where(fn ($q) => $q->whereIn($query->qualifyColumn('from_location_id'), $ids)
                 ->orWhereIn($query->qualifyColumn('to_location_id'), $ids));

@@ -35,7 +35,6 @@ class InventoryAge extends Page
     protected static ?string $navigationLabel = 'Inventory Age';
 
     /** Selected location, or '' for every location the viewer can see. */
-    #[\Livewire\Attributes\Url(as: 'loc')]
     public string $locationId = '';
 
     /** Bucket key whose contents are expanded, or null for none. */
@@ -50,25 +49,8 @@ class InventoryAge extends Page
 
     public int $itemPage = 1;
 
-    public function mount(): void
-    {
-        $visible = $this->accessibleLocations()->pluck('id')->map(fn ($id) => (int) $id)->all();
-        if (! request()->has('loc')) {
-            $main = InventoryLocation::mainId();
-            if ($main !== null && in_array($main, $visible, true)) {
-                $this->locationId = (string) $main;
-            }
-        }
-        if ($this->locationId !== '' && ! in_array((int) $this->locationId, $visible, true)) {
-            $this->locationId = '';
-        }
-    }
-
     public function updatedLocationId(): void
     {
-        if ($this->locationId !== '' && ! $this->accessibleLocations()->pluck('id')->contains((int) $this->locationId)) {
-            $this->locationId = '';
-        }
         $this->itemPage = 1;
         $this->openBucket = null;
     }

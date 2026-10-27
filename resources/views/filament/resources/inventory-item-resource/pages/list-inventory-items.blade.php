@@ -77,7 +77,6 @@
  </div>
 
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
-  @include('filament.partials.inventory-location-filter')
   <div class="vx-inv-toolbar">
     <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.500ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
    @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif

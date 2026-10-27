@@ -19,6 +19,14 @@
             <button type="button" wire:click="setTab('{{ $k }}')" @class(['on' => $tab === $k])>{{ $l }}</button>
         @endforeach
     </nav>
+    <label class="text-xs font-semibold" style="color:var(--muted)">Inventory location
+        <select wire:model.live="location" class="ivx-input mt-1" aria-label="Filter inventory activity by location">
+            <option value="">All Locations</option>
+            @foreach($this->locations() as $id => $name)
+                <option value="{{ $id }}">{{ $name }}</option>
+            @endforeach
+        </select>
+    </label>
     <div class="ivx-search"><x-heroicon-o-magnifying-glass /><input type="search" wire:model.live.debounce.300ms="search" placeholder="Search activity by item or SKU…"></div>
 
     <section class="ivx-card ivx-list" style="overflow:hidden">

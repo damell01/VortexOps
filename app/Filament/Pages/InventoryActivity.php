@@ -24,6 +24,7 @@ class InventoryActivity extends Page
 
     #[Url(as: 'tab')] public string $tab = 'all';
     #[Url(as: 'q')] public string $search = '';
+    #[Url(as: 'loc')] public string $location = '';
     public int $limit = 40;
 
     public const TABS = ['all' => 'All', 'received' => 'Received', 'adjusted' => 'Adjusted', 'transferred' => 'Transferred'];
@@ -35,6 +36,30 @@ class InventoryActivity extends Page
     public static function canAccess(): bool
     {
         return InventoryItemResource::canAccess();
+    }
+
+    public function locations(): array
+    {
+        return \App\Models\InventoryLocation::visibleTo()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function mount(): void
+    {
+        if (! request()->has('loc')) {
+            $main = \App\Models\InventoryLocation::mainId();
+            if ($main !== null && array_key_exists($main, $this->locations())) {
+                $this->location = (string) $main;
+            }
+        }
+        $this->updatedLocation();
+    }
+
+    public function updatedLocation(): void
+    {
+        if ($this->location !== '' && ! array_key_exists((int) $this->location, $this->locations())) {
+            $this->location = '';
+        }
+        $this->limit = 40;
     }
 
     public function setTab(string $tab): void
@@ -69,6 +94,11 @@ class InventoryActivity extends Page
         $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
         if ($visible !== null) {
             $q->where(fn ($locations) => $locations->whereIn('from_location_id', $visible)->orWhereIn('to_location_id', $visible));
+        }
+
+        if ($this->location !== '') {
+            $id = (int) $this->location;
+            $q->where(fn ($locations) => $locations->where('from_location_id', $id)->orWhere('to_location_id', $id));
         }
 
         match ($this->tab) {
@@ -108,7 +138,7 @@ class InventoryActivity extends Page
         $rows = collect(array_values($grouped));
 
         // New SKUs belong in "All".
-        if ($this->tab === 'all' && trim($this->search) === '') {
+        if ($this->location === '' && $this->tab === 'all' && trim($this->search) === '') {
             $created = InventoryItemResource::getEloquentQuery()->latest('id')->limit(10)->get(['id', 'name', 'created_at'])
                 ->map(fn ($i) => ['kind' => 'created', 'item' => $i->name, 'item_id' => $i->id, 'change' => 0, 'qty' => 0, 'from' => null, 'to' => null, 'reason' => null, 'at' => $i->created_at]);
             $rows = $rows->concat($created);

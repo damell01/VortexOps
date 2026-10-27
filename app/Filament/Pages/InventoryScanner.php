@@ -32,7 +32,14 @@ class InventoryScanner extends Page
         return static::canAccess();
     }
 
-    use HasModuleAccess, WithFileUploads;
+    use WithFileUploads;
+    use HasModuleAccess { canAccess as moduleAllows; }
+
+    /** Scanning changes stock: only for people who run a location (StockGate). */
+    public static function canAccess(): bool
+    {
+        return static::moduleAllows() && \App\Support\StockGate::canChangeAny();
+    }
 
     protected static string $moduleSlug  = 'inventory';
     protected static ?string $title = 'Inventory Scanner';

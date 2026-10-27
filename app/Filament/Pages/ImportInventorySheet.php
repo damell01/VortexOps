@@ -13,7 +13,13 @@ use Livewire\WithFileUploads;
 
 class ImportInventorySheet extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess { canAccess as moduleAllows; }
+
+    /** Importing adds products and stock: only for people who run a location (StockGate). */
+    public static function canAccess(): bool
+    {
+        return static::moduleAllows() && \App\Support\StockGate::canChangeAny();
+    }
     use WithFileUploads;
 
     protected static string $moduleSlug = 'inventory';

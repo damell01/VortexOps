@@ -123,6 +123,8 @@ class StockGateTest extends TestCase
         $this->assertFalse(StockGate::canChangeAny());
         $this->assertFalse(\App\Filament\Pages\QuickAddStock::canAccess());
         $this->assertFalse(\App\Filament\Pages\StockTransfer::canAccess());
+        $this->assertFalse(\App\Filament\Pages\InventoryScanner::canAccess());
+        $this->assertFalse(\App\Filament\Pages\ImportInventorySheet::canAccess());
         $labels = array_column(\App\Support\InventoryNavigation::linksForPage([\App\Filament\Resources\InventoryItemResource::class]), 'label');
         $this->assertNotContains('Quick add stock', $labels);
 

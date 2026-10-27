@@ -153,6 +153,10 @@ class ListInventoryItems extends ListRecords
         // Only receipts into a location the viewer can see count as new stock.
         $query = $this->catalogQuery();
         $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        if ($this->inventoryLocation !== 'all') {
+            $selectedLocation = $this->inventoryPageLocationId();
+            $visible = $selectedLocation ? array_values(array_intersect($visible ?? [$selectedLocation], [$selectedLocation])) : [];
+        }
         $query->addSelect(['last_receipt_at' => \App\Models\InventoryMovement::query()
             ->select('created_at')
             ->whereColumn('inventory_item_id', 'products.id')

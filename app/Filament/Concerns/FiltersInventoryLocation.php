@@ -101,7 +101,12 @@ trait FiltersInventoryLocation
     {
         if (method_exists($this, 'inventoryPageLocationId')) {
             $location = $this->inventoryPageLocationId();
-            if ($location === null) return $query->whereRaw('1 = 0');
+            if ($location === null) {
+                if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! InventoryVisibility::isReadOnlyStreamer(auth()->user())) {
+                    return $query->select('products.*')->withSum('stock as stock_sum_quantity', 'quantity')->with('stock.location');
+                }
+                return $query->whereRaw('1 = 0');
+            }
             $stock = fn ($q) => $q->where('inventory_location_id', $location);
             return $query->select('products.*')->whereHas('stock', $stock)
                 ->withSum(['stock as stock_sum_quantity' => $stock], 'quantity')

@@ -20,6 +20,16 @@
         @endforeach
     </nav>
 
+    <label class="text-xs font-semibold" style="color:var(--muted)">Inventory location
+        <select wire:model.live="location" class="ivx-input mt-1" aria-label="Filter inventory health by location">
+            <option value="">All Locations</option>
+            @foreach($this->locations() as $id => $name)
+                <option value="{{ $id }}">{{ $name }}</option>
+            @endforeach
+        </select>
+    </label>
+    <p class="ivx-sub">Stock status, value and category/vendor totals use the selected location. Freshness and age indicators remain all-location figures.</p>
+
     @if($tab === 'health')
         <div class="ivx-kpis">
             <a href="{{ $this->ageUrl() }}" class="ivx-kpi" style="gap:6px">

@@ -79,6 +79,7 @@
     @else
      <option value="">Default warehouse</option>
     @endif
+    @if((auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user()))<option value="all">All Locations — combined totals</option>@endif
     @foreach($this->inventoryLocationOptions() as $locationId => $locationName)
      <option value="{{ $locationId }}">{{ $locationName }}</option>
     @endforeach

@@ -35,6 +35,7 @@ class ListInventoryItems extends ListRecords
     public function inventoryPageLocationId(): ?int
     {
         $options = $this->inventoryLocationOptions();
+        if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) return null;
         if ($this->inventoryLocation !== '' && ctype_digit($this->inventoryLocation)
             && array_key_exists((int) $this->inventoryLocation, $options)) {
             return (int) $this->inventoryLocation;
@@ -117,7 +118,11 @@ class ListInventoryItems extends ListRecords
     {
         $query = $this->getFilteredTableQuery()->reorder();
         $shown = array_filter([$this->inventoryPageLocationId()]);
-        $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
+        if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) {
+            $query->with(['stock.location']);
+        } else {
+            $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
+        }
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';

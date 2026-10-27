@@ -74,10 +74,8 @@
   <div class="flex w-full items-center gap-2 sm:w-auto">
    <label for="vx-warehouse-location" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-200">Location</label>
    <select id="vx-warehouse-location" wire:model.live="inventoryLocation" class="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:min-w-56" aria-label="Choose warehouse for inventory totals">
-    @if($this->inventoryPageLocationId() !== null && $inventoryLocation === '')
-     <option value="">Default — {{ $this->inventoryLocationOptions()[$this->inventoryPageLocationId()] ?? 'Main warehouse' }}</option>
-    @else
-     <option value="">Default warehouse</option>
+    @if($inventoryLocation === '')
+     <option value="" selected hidden>{{ $this->inventoryLocationOptions()[$this->inventoryPageLocationId()] ?? 'Main Warehouse' }}</option>
     @endif
     @if((auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user()))<option value="all">All Locations — combined totals</option>@endif
     @foreach($this->inventoryLocationOptions() as $locationId => $locationName)

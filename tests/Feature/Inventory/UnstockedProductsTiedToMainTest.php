@@ -27,4 +27,18 @@ class UnstockedProductsTiedToMainTest extends TestCase
         $this->assertSame([$main->id], InventoryStock::where('inventory_item_id', $loose->id)->pluck('inventory_location_id')->all());
         $this->assertSame([$other->id], InventoryStock::where('inventory_item_id', $stocked->id)->pluck('inventory_location_id')->all());
     }
+
+    public function test_products_created_by_a_sheet_import_land_at_main(): void
+    {
+        $main = InventoryLocation::create(['name' => 'Main Warehouse', 'type' => 'main_storage', 'status' => 'active']);
+
+        app(\App\Services\ProductSheetImporter::class)->apply([['name' => 'Fresh Box', 'sku' => 'FB-1', 'cost' => null, 'sale_price' => null, 'sold_as' => null, 'type' => null]]);
+        $fresh = InventoryItem::where('name', 'Fresh Box')->firstOrFail();
+        $this->assertSame([$main->id], InventoryStock::where('inventory_item_id', $fresh->id)->pluck('inventory_location_id')->all());
+
+        $rows = [['status' => 'new', 'data' => ['name' => 'Second Box', 'sku' => 'SB-1'], 'sheet_row' => 2]];
+        app(\App\Services\InventoryImportService::class)->import($rows);
+        $second = InventoryItem::where('sku', 'SB-1')->firstOrFail();
+        $this->assertSame([$main->id], InventoryStock::where('inventory_item_id', $second->id)->pluck('inventory_location_id')->all());
+    }
 }

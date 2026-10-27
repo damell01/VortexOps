@@ -105,6 +105,7 @@ class InventoryImportService
                     $item = null;
                     if ($status === 'new') {
                         $item = InventoryItem::create($this->cleanCreateData($data));
+                        if (! $setsStock) \App\Models\InventoryLocation::tieToMain($item->id);
                         $this->syncIdentities($item, $data);
                         $result['created']++;
                     } elseif ($status === 'existing') {

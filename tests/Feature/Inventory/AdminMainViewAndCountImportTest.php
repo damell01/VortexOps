@@ -76,6 +76,8 @@ class AdminMainViewAndCountImportTest extends TestCase
         $this->assertSame(12.0, (float) InventoryStock::where('inventory_item_id', $existing->id)->where('inventory_location_id', $this->main->id)->value('quantity'));
         $new = InventoryItem::where('sku', 'VB-151')->firstOrFail();
         $this->assertSame(30.0, (float) InventoryStock::where('inventory_item_id', $new->id)->where('inventory_location_id', $this->main->id)->value('quantity'));
-        $this->assertFalse(InventoryStock::where('inventory_item_id', InventoryItem::where('sku', 'VB-NC')->value('id'))->exists());
+        // No count: the new product still lands at Main, at zero.
+        $this->assertSame([[$this->main->id, 0.0]], InventoryStock::where('inventory_item_id', InventoryItem::where('sku', 'VB-NC')->value('id'))
+            ->get()->map(fn ($s) => [$s->inventory_location_id, (float) $s->quantity])->all());
     }
 }

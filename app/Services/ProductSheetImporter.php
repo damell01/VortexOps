@@ -212,7 +212,8 @@ class ProductSheetImporter
             $attributes = $this->attributesFor($row, $product, $overwrite);
 
             if ($product === null) {
-                Product::create($attributes + ['name' => $row['name'], 'is_active' => true]);
+                $new = Product::create($attributes + ['name' => $row['name'], 'is_active' => true]);
+                \App\Models\InventoryLocation::tieToMain($new->id);
                 $created++;
                 continue;
             }

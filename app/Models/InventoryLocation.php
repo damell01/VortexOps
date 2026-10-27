@@ -180,6 +180,27 @@ class InventoryLocation extends Model
      * Falls through to the only active location when there is just one, which
      * is the case where the question has no content at all.
      */
+    /** The business's main warehouse: Main Warehouse by name, else the first active main storage. */
+    public static function mainId(): ?int
+    {
+        $id = static::query()->whereNull('streamer_id')->where('status', 'active')->where('type', 'main_storage')
+            ->orderByRaw("CASE WHEN LOWER(name) = 'main warehouse' THEN 0 ELSE 1 END")->orderBy('id')->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
+    /**
+     * Give a product with no stock line anywhere a zero line at Main, so a
+     * product added from a sheet lists under Main and can be counted there.
+     */
+    public static function tieToMain(int $productId): void
+    {
+        $main = static::mainId();
+        if ($main && ! InventoryStock::withoutGlobalScopes()->where('inventory_item_id', $productId)->exists()) {
+            InventoryStock::withoutGlobalScopes()->firstOrCreate(['inventory_item_id' => $productId, 'inventory_location_id' => $main], ['quantity' => 0]);
+        }
+    }
+
     public static function defaultReceivingId(): ?int
     {
         $configured = Setting::get('default_receiving_location_id');

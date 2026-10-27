@@ -17,8 +17,11 @@ class MatchLedgerEntriesToShows extends Command
         $stats = ['matched' => 0, 'unmatched' => 0, 'manual' => 0];
         WhatnotLedgerEntry::query()->whereNotNull('whatnot_order_id')
             ->whereNotIn('whatnot_order_id', ['', '-'])
-            ->orderBy('id')->limit($limit)->get()->each(function ($entry) use ($matcher, &$stats) {
-                $stats[$matcher->match($entry)]++;
+            ->orderBy('id')->chunkById(500, function ($entries) use ($matcher, &$stats, $limit) {
+                foreach ($entries as $entry) {
+                    if (array_sum($stats) >= $limit) return false;
+                    $stats[$matcher->match($entry)]++;
+                }
             });
         $this->info('Ledger matching: '.json_encode($stats));
         return self::SUCCESS;

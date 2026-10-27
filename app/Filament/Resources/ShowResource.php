@@ -961,6 +961,23 @@ class ShowResource extends Resource
                     ->options(Show::statusLabels())
                     ->multiple(),
 
+                // Only active profiles are offered for new filtering; historical show
+                // assignments remain untouched and can still be inspected on a show.
+                SelectFilter::make('streamer_id')
+                    ->label('Streamer')
+                    ->options(fn (): array => Streamer::query()
+                        ->where('status', 'active')
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->searchable()
+                    ->multiple()
+                    ->query(function (Builder $query, array $data): Builder {
+                        $ids = array_values(array_filter(array_map('intval', $data['values'] ?? [])));
+                        return $ids === [] ? $query : $query->whereHas('streamers',
+                            fn (Builder $streamers) => $streamers->whereIn('streamers.id', $ids));
+                    }),
+
                 SelectFilter::make('whatnot_channel_id')
                     ->label('Channel')
                     ->relationship('channel', 'name')

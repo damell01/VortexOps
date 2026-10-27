@@ -184,6 +184,15 @@
                                     <div>
                                         <div class="truncate font-semibold text-[var(--vxw-text)]">{{ $payout->show?->title ?? 'General payroll line' }}</div>
                                         <div class="vxw-meta">{{ \App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? '')) }}@if($payout->show?->show_date) · {{ $payout->show->show_date->format('M j') }}@endif</div>
+                                        @if(str_contains((string) $payout->calculation_notes, '[OTHER_PAYMENT:'))
+                                            <div class="vxw-meta" style="margin-top:4px">
+                                                @foreach(preg_split('/\\r?\\n/', (string) $payout->calculation_notes) as $note)
+                                                    @if(str_starts_with(trim($note), '[OTHER_PAYMENT:'))
+                                                        <div>{{ trim(str_replace(['[OTHER_PAYMENT:PERSON]', '[OTHER_PAYMENT:SHOW]'], ['General payment:', 'Show payment:'], $note)) }}</div>
+                                                    @endif
+                                                @endforeach
+                                            </div>
+                                        @endif
                                     </div>
                                     <div><div class="vxw-fig-label">Hours</div><div class="vxw-num">{{ number_format((float)$payout->hours_worked, 2) }}</div></div>
                                     <div><div class="vxw-fig-label">Shipments</div><div class="vxw-num">{{ number_format((int)$payout->shipments_count) }}</div></div>

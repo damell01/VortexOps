@@ -23,6 +23,7 @@ class StockStatus extends Page
     #[Url(as: 'q')] public string $search = '';
     #[Url(as: 'sort')] public string $sort = 'status';
     public int $limit = 30;
+    #[Url(as: 'loc')] public string $location = '';
 
     public static function shouldRegisterNavigation(): bool { return false; }
     public function getView(): string { return 'filament.pages.stock-status'; }
@@ -31,6 +32,31 @@ class StockStatus extends Page
     public static function canAccess(): bool
     {
         return InventoryItemResource::canAccess();
+    }
+
+    public function locations(): array
+    {
+        return \App\Models\InventoryLocation::visibleTo()
+            ->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function mount(): void
+    {
+        if (! request()->has('loc')) {
+            $main = \App\Models\InventoryLocation::mainId();
+            if ($main !== null && array_key_exists($main, $this->locations())) {
+                $this->location = (string) $main;
+            }
+        }
+        $this->updatedLocation();
+    }
+
+    public function updatedLocation(): void
+    {
+        if ($this->location !== '' && ! array_key_exists((int) $this->location, $this->locations())) {
+            $this->location = '';
+        }
+        $this->limit = 30;
     }
 
     public function setTab(string $tab): void
@@ -46,11 +72,15 @@ class StockStatus extends Page
     /** Every active item with its on-hand and state, computed once per render. */
     private function items()
     {
-        return InventoryItemResource::getEloquentQuery()
-            ->where('products.is_active', true)
+        $query = InventoryItemResource::getEloquentQuery()->where('products.is_active', true);
+        if ($this->location !== '') {
+            $id = (int) $this->location;
+            $query->withSum(['stock as location_quantity' => fn ($stock) => $stock->where('inventory_location_id', $id)], 'quantity');
+        }
+        return $query
             ->get(['products.id', 'products.name', 'products.sku', 'products.image_path', 'products.reorder_level', 'products.average_cost', 'products.unit_cost'])
             ->map(function ($i) {
-                $qty = (float) ($i->stock_sum_quantity ?? 0);
+                $qty = (float) ($this->location !== '' ? ($i->location_quantity ?? 0) : ($i->stock_sum_quantity ?? 0));
                 $state = $qty <= 0 ? 'out' : (($i->reorder_level !== null && $qty <= (float) $i->reorder_level) ? 'low' : 'in');
                 return ['id' => $i->id, 'name' => $i->name, 'sku' => $i->sku, 'image' => $i->imageUrl(), 'qty' => $qty, 'state' => $state, 'cost' => $i->effectiveCost()];
             });

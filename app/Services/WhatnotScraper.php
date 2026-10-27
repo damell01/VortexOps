@@ -221,7 +221,20 @@ class WhatnotScraper
         $created=0;$skipped=0;$updated=0;$defaultLocationId=$show->defaultInventoryLocation()?->id;
         $existingByOrderId=WhatnotShowOrder::where('show_id',$show->id)->whereNotNull('whatnot_order_id')->get()->keyBy('whatnot_order_id');
         $existingFallbackKeys=WhatnotShowOrder::where('show_id',$show->id)->whereNull('whatnot_order_id')->get(['buyer_username','item_name','lot_number'])->map(fn($r)=>"{$r->buyer_username}|{$r->item_name}|{$r->lot_number}")->flip()->toArray();
-        foreach($rows as $row){$orderId=$row['order_id']??null;if($orderId&&$existingByOrderId->has($orderId)){if($this->mergeShipmentFields($existingByOrderId->get($orderId),$row))$updated++;else$skipped++;continue;}if(empty($row['buyer'])&&empty($row['item_name'])){$skipped++;continue;}if(!$orderId){$key=($row['buyer']??'').'|'.($row['item_name']??'').'|'.($row['lot_number']??'');if(isset($existingFallbackKeys[$key])){$skipped++;continue;}$existingFallbackKeys[$key]=true;}
+        foreach($rows as $row){$orderId=$row['order_id']??null;
+            // A Whatnot order ID must not silently spread across unrelated shows.
+            // Preserve existing historical rows for a separate, evidence-based repair.
+            if ($orderId && WhatnotShowOrder::query()
+                ->where('whatnot_order_id', $orderId)
+                ->where('show_id', '<>', $show->id)
+                ->exists()) {
+                Log::warning('Whatnot order import quarantined: order already belongs to another show', [
+                    'order_id' => $orderId, 'incoming_show_id' => $show->id,
+                ]);
+                $skipped++;
+                continue;
+            }
+            if($orderId&&$existingByOrderId->has($orderId)){if($this->mergeShipmentFields($existingByOrderId->get($orderId),$row))$updated++;else$skipped++;continue;}if(empty($row['buyer'])&&empty($row['item_name'])){$skipped++;continue;}if(!$orderId){$key=($row['buyer']??'').'|'.($row['item_name']??'').'|'.($row['lot_number']??'');if(isset($existingFallbackKeys[$key])){$skipped++;continue;}$existingFallbackKeys[$key]=true;}
             WhatnotShowOrder::create(['show_id'=>$show->id,'whatnot_order_id'=>$orderId,'whatnot_show_url'=>$show->detail_url,'inventory_location_id'=>$defaultLocationId,'buyer_username'=>$row['buyer']??null,'lot_number'=>$row['lot_number']??null,'item_name'=>$row['item_name']??null,'quantity'=>$row['quantity']??1,'unit_price'=>$row['unit_price']??null,'total_price'=>$row['total_price']??null,'status'=>$row['status']??'completed','show_date'=>$show->show_date,'raw_data'=>$row]);$created++;}
         Log::info('WhatnotScraper persistShowOrders complete',['show_id'=>$show->id,'created'=>$created,'updated'=>$updated,'skipped'=>$skipped]);return compact('created','skipped','updated');
     }

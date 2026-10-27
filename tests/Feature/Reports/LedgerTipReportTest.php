@@ -252,14 +252,17 @@ class LedgerTipReportTest extends TestCase
         $this->tip(99, ['whatnot_order_id' => 'unmatched-tip']);
         $rows = app(LedgerTipReport::class)->byStreamer('2026-10-01', '2026-10-31');
         $this->assertCount(2, $rows);
-        $this->assertSame($single->streamers()->first()->name, $rows[0]['streamer']);
-        $this->assertSame(2, $rows[0]['entries']);
-        $this->assertSame(1250, $rows[0]['credits']);
-        $this->assertSame(250, $rows[0]['debits']);
-        $this->assertSame(1000, $rows[0]['net']);
-        $this->assertSame($shared->primaryStreamer()->name, $rows[1]['streamer']);
-        $this->assertSame(1, $rows[1]['entries']);
-        $this->assertSame(9900, $rows[1]['net']);
+        $byName = collect($rows)->keyBy('streamer');
+        $singleRow = $byName->get($single->primaryStreamer()->name);
+        $sharedRow = $byName->get($shared->primaryStreamer()->name);
+        $this->assertNotNull($singleRow);
+        $this->assertNotNull($sharedRow);
+        $this->assertSame(2, $singleRow['entries']);
+        $this->assertSame(1250, $singleRow['credits']);
+        $this->assertSame(250, $singleRow['debits']);
+        $this->assertSame(1000, $singleRow['net']);
+        $this->assertSame(1, $sharedRow['entries']);
+        $this->assertSame(9900, $sharedRow['net']);
     }
 
 }

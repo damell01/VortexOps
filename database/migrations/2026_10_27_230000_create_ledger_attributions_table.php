@@ -25,7 +25,7 @@ return new class extends Migration {
         Schema::create('ledger_attribution_events', function (Blueprint $table) {
             $table->id();
             $table->foreignId('whatnot_ledger_entry_id')->constrained('whatnot_ledger_entries')->cascadeOnDelete();
-            $table->foreignId('actor_id')->constrained('users');
+            $table->foreignId('actor_id')->nullable()->constrained('users');
             $table->string('action', 30);
             $table->json('before')->nullable();
             $table->json('after')->nullable();

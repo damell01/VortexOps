@@ -166,3 +166,7 @@ Route::middleware(['web', 'auth', 'throttle:30,1'])->prefix('admin/push')->name(
 
 // Communications files have no public storage URL; every download rechecks preview access and membership.
 Route::middleware(['web', 'auth', 'throttle:60,1'])->get('/admin/communications/attachments/{attachment}', \App\Http\Controllers\TeamMessageAttachmentController::class)->whereNumber('attachment')->name('communications.attachment');
+
+// Browser and app icons drawn from the uploaded logo (see App\Support\BrandIcons).
+Route::get('/brand/icon-{size}.png', [\App\Http\Controllers\BrandIconController::class, 'icon'])->where('size', '32|180|192|512|maskable')->name('brand.icon');
+Route::get('/brand/manifest.json', [\App\Http\Controllers\BrandIconController::class, 'manifest'])->name('brand.manifest');

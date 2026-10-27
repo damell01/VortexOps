@@ -91,7 +91,7 @@ function installBanner(message, actions) {
     el.className = 'vx-install-banner';
     el.setAttribute('role', 'region');
     el.setAttribute('aria-label', 'Install VortexOps');
-    el.innerHTML = `<img src="/icons/icon-192.png" alt="" class="vx-install-banner__icon"><div class="vx-install-banner__text">${message}</div><div class="vx-install-banner__actions"></div><button type="button" class="vx-install-banner__close" aria-label="Dismiss">×</button>`;
+    el.innerHTML = `<img src="/brand/icon-192.png" alt="" class="vx-install-banner__icon"><div class="vx-install-banner__text">${message}</div><div class="vx-install-banner__actions"></div><button type="button" class="vx-install-banner__close" aria-label="Dismiss">×</button>`;
     const holder = el.querySelector('.vx-install-banner__actions');
     actions.forEach(({ label, onClick }) => {
         const button = document.createElement('button');
@@ -185,7 +185,7 @@ function installGuide() {
     el.className = 'vx-install-guide';
     el.innerHTML = `<div class="vx-install-guide__panel" role="dialog" aria-modal="true" aria-labelledby="vx-install-guide-title">
         <button type="button" class="vx-install-guide__close" aria-label="Close">×</button>
-        <img src="/icons/icon-192.png" alt="" class="vx-install-guide__icon">
+        <img src="/brand/icon-192.png" alt="" class="vx-install-guide__icon">
         <h2 id="vx-install-guide-title" class="vx-install-guide__title">${title}</h2>
         <ol class="vx-install-guide__steps">${steps.map((step) => `<li><span>${step}</span></li>`).join('')}</ol>
         ${note ? `<p class="vx-install-guide__note">${note}</p>` : ''}

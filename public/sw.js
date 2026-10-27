@@ -114,7 +114,7 @@ self.addEventListener('push', event => {
     const title = typeof payload.title === 'string' && payload.title.trim() ? payload.title.slice(0, 80) : 'Vortex Ops';
     event.waitUntil(self.registration.showNotification(title, {
         body: typeof payload.body === 'string' ? payload.body.slice(0, 180) : 'You have a new alert. Open Vortex Ops to view it.',
-        icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
+        icon: '/brand/icon-192.png', badge: '/brand/icon-192.png',
         tag: typeof payload.tag === 'string' ? payload.tag : 'vortex-alert',
         renotify: false, data: {url: target.href},
     }));

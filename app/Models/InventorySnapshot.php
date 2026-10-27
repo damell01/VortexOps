@@ -35,7 +35,7 @@ class InventorySnapshot extends Model
      */
     public static function generateCurrent(): self
     {
-        $stocks = InventoryStock::with(['item', 'location'])->where('quantity', '>', 0)->get();
+        $stocks = InventoryStock::with(['item', 'location.streamer'])->where('quantity', '>=', 0)->get();
 
         // Which items have moved recently, in one grouped query.
         //
@@ -67,7 +67,7 @@ class InventorySnapshot extends Model
             // the list cost says it is worth.
             $itemValue = $stock->quantity * ($stock->item?->costBasis() ?? 0);
             $totalValue += $itemValue;
-            $seenItems[$stock->inventory_item_id] = true;
+            if ((float) $stock->quantity > 0) $seenItems[$stock->inventory_item_id] = true;
             $totalQuantity += (float) $stock->quantity;
 
             // Location breakdown
@@ -122,7 +122,7 @@ class InventorySnapshot extends Model
             // Stock outs
             if ($stock->quantity == 0) {
                 $stockOuts[] = [
-                    'item_id' => $stock->item_id,
+                    'item_id' => $stock->inventory_item_id,
                     'name' => $stock->item->name,
                     'sku' => $stock->item->sku,
                 ];

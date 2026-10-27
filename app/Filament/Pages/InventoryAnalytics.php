@@ -397,6 +397,7 @@ class InventoryAnalytics extends Page
      */
     protected function trendBaseline(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         $snapshot = InventoryValueSnapshot::whereNull('whatnot_channel_id')
             ->where('snapshot_date', '>=', Carbon::today()->subDays(self::TREND_DAYS)->toDateString())
             ->orderBy('snapshot_date')

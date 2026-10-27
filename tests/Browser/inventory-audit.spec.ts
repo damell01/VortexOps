@@ -86,3 +86,46 @@ test('inventory pages render without horizontal overflow or browser errors',asyn
     }
     await page.screenshot({path:'tests/Browser/output/inventory-audit/'+testInfo.project.name+'-inventory.png',fullPage:true});
 });
+
+test('quick add stock persists through the standalone form',async({page})=>{
+    const f=fixture();
+    await page.goto('/admin/quick-add-stock');
+    await field(page,'barcode').fill('012345678905');
+    await page.locator('button[wire\\:click="scanBarcode"]').click();
+    await expect(page.getByText('Browser Audit Box',{exact:true}).first()).toBeVisible();
+    await select(page,'locationId',f.source);
+    await page.locator('input[wire\\:model\\.number="quantity"]').fill('2');
+    await page.locator('button[wire\\:click="addStock"]').click();
+    await expect(page.getByText('Stock Added',{exact:true})).toBeVisible();
+    await page.reload();
+    await expect(page.getByText('Browser Audit Box',{exact:true}).first()).toBeHidden();
+});
+
+test('receiving scan updates cases and survives reopening the delivery',async({page})=>{
+    const f=fixture();
+    await page.goto('/admin/inventory-scanner');
+    await page.locator('button[wire\\:click="switchMode(\'receive\')"]').click();
+    await select(page,'rcvPalletId',f.pallet);
+    const received=()=>page.evaluate(()=>{
+        const root=document.querySelector('[data-vx-page="inventory-scanner"]')!.closest('[wire\\:id]')!;
+        return (window as any).Livewire.find(root.getAttribute('wire:id')).get('rcvProgress').lines[0].received_cases;
+    });
+    const before=Number(await received());await scan(page);
+    await expect.poll(received).toBe(before+1);
+    await page.reload();
+    await page.locator('button[wire\\:click="switchMode(\'receive\')"]').click();
+    await select(page,'rcvPalletId',f.pallet);
+    await expect.poll(received).toBe(before+1);
+    await expect(page.locator('.vx-received-filter button')).toBeVisible();
+});
+
+test('camera manual fallback submits and closes without a stuck layer',async({page})=>{
+    await page.goto('/admin/inventory-scanner');
+    await page.locator('[data-camera-scan]').filter({visible:true}).first().click();
+    const manual=page.locator('input[x-ref="manualInput"]');
+    await expect(manual).toBeVisible();await manual.fill('012345678905');
+    await page.getByRole('button',{name:'Use Code',exact:true}).click();
+    await expect(manual).toBeHidden();
+    await expect(page.getByRole('link',{name:'Move / Correct Stock'})).toBeVisible();
+    await expect(page.locator('body')).not.toHaveClass(/vx-camera-scanner-open/);
+});

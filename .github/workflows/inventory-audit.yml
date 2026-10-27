@@ -24,6 +24,12 @@ jobs:
           extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - run: cp .env.example .env
       - run: php artisan test tests/Feature/Inventory tests/Feature/Reliability/InventoryAdminNavigationTest.php tests/Feature/Reliability/ReceivingNavigationTest.php tests/Unit/ModalCssRegressionTest.php
         env:

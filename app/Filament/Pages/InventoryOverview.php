@@ -250,6 +250,11 @@ class InventoryOverview extends Page
         return round(((float) $trend->last()['value'] - (float) $trend->first()['value']) / (float) $trend->first()['value'] * 100, 1);
     }
 
+    public function mount(): void
+    {
+        if (! in_array($this->tab, ['overview', 'reports'], true)) $this->tab = 'overview';
+    }
+
     public function setTab(string $tab): void
     {
         if ($tab === 'tools') $tab = 'overview';
@@ -413,6 +418,7 @@ class InventoryOverview extends Page
                 ->url(fn () => $this->reportUrl()),
             \Filament\Actions\Action::make('scan_inventory')
                 ->label('Scan Inventory')
+                ->visible(fn () => InventoryScanner::canAccess())
                 ->icon('heroicon-o-qr-code')
                 ->extraAttributes(['class' => 'ivx-desktop-only'])
                 ->url(fn () => \App\Filament\Pages\InventoryScanner::getUrl()),

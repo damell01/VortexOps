@@ -50,7 +50,7 @@
         </details>
         @endif
     @endforeach
-    <p class="text-xs text-gray-500">Open Add & Edit Items, Stage & Receive, or Fixing Mistakes above for the full reference guide. Only workflows available to your account are shown.</p>
+    <p class="text-xs text-gray-500">Open an available tab above for its full reference guide. Only workflows available to your account are shown.</p>
 </section>
 @endif
 

@@ -39,7 +39,7 @@ if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\
  \App\Filament\Pages\InventorySearch::canAccess() ? ['Inventory Search',\App\Filament\Pages\InventorySearch::getUrl(panel:'admin'),'Inventory'] : null,
  \App\Filament\Pages\InventoryScanner::canAccess() ? ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin'),'Stock operations'] : null,
  \App\Filament\Pages\QuickAddStock::canAccess() ? ['Quick Add Stock',\App\Filament\Pages\QuickAddStock::getUrl(panel:'admin'),'Stock operations'] : null,
- \App\Filament\Resources\InventoryItemResource::canCreate() ? ['Add Item',\App\Filament\Resources\InventoryItemResource::getUrl('create'),'Stock operations'] : null,
+ \App\Filament\Resources\InventoryItemResource::canCreate() && \App\Support\StockGate::canChangeAny() ? ['Add Item',\App\Filament\Resources\InventoryItemResource::getUrl('create'),'Stock operations'] : null,
  \App\Filament\Pages\StockTransfer::canAccess() ? ['Transfer Stock',\App\Filament\Pages\StockTransfer::getUrl(panel:'admin'),'Stock operations'] : null,
  \App\Filament\Resources\PalletResource::canAccess() ? ['Receive Inventory',\App\Filament\Resources\PalletResource::getUrl('index'),'Receiving'] : null,
  \App\Filament\Pages\ImportInventorySheet::canAccess() ? ['Import a Sheet',\App\Filament\Pages\ImportInventorySheet::getUrl(panel:'admin'),'Receiving'] : null,

@@ -130,4 +130,29 @@ class InventoryAuditRegressionTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $service->adjustStockBy($this->item, $this->source, -100);
     }
+    public function test_combined_receipts_keep_the_correct_before_after_and_signed_quantity(): void
+    {
+        $service = app(InventoryService::class);
+        $service->addStock($this->item, $this->source, 2, 'opening', 'Received via pallet #AUDIT');
+        $service->addStock($this->item, $this->source, 3, 'opening', 'Received via pallet #AUDIT');
+        $movement = InventoryMovement::first();
+        $this->assertSame(1, InventoryMovement::count());
+        $this->assertEquals(20, $movement->quantity_before);
+        $this->assertEquals(25, $movement->quantity_after);
+        $this->assertEquals(5, $movement->signedChange());
+    }
+
+    public function test_receipts_separated_by_another_stock_change_keep_separate_levels(): void
+    {
+        $service = app(InventoryService::class);
+        $service->addStock($this->item, $this->source, 2, 'opening', 'Received via pallet #AUDIT');
+        $service->transferStock($this->item, $this->source, $this->destination, 1);
+        $service->addStock($this->item, $this->source, 3, 'opening', 'Received via pallet #AUDIT');
+        $this->assertSame(3, InventoryMovement::count());
+        $movement = InventoryMovement::latest('id')->first();
+        $this->assertEquals(21, $movement->quantity_before);
+        $this->assertEquals(24, $movement->quantity_after);
+        $this->assertEquals(3, $movement->signedChange());
+    }
+
 }

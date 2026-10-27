@@ -35,8 +35,10 @@
                 const component = livewireComponent();
                 if (!component) { pendingScans.length = 0; break; }
                 await component.call('barcodeScanned', pendingScans.shift());
+                if (current === generation) scannerRoot()?.querySelector('[data-vx-scan-error]')?.remove();
             }
         } catch (error) {
+            if (current !== generation) return;
             pendingScans.length = 0;
             // A failed response may follow a committed write. Never retry automatically.
             if (current === generation && scannerRoot()) {

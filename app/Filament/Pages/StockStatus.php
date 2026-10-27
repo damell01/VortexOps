@@ -75,7 +75,8 @@ class StockStatus extends Page
         $query = InventoryItemResource::getEloquentQuery()->where('products.is_active', true);
         if ($this->location !== '') {
             $id = (int) $this->location;
-            $query->withSum(['stock as location_quantity' => fn ($stock) => $stock->where('inventory_location_id', $id)], 'quantity');
+            $query->whereHas('stock', fn ($stock) => $stock->where('inventory_location_id', $id))
+                ->withSum(['stock as location_quantity' => fn ($stock) => $stock->where('inventory_location_id', $id)], 'quantity');
         }
         return $query
             ->get(['products.id', 'products.name', 'products.sku', 'products.image_path', 'products.reorder_level', 'products.average_cost', 'products.unit_cost'])

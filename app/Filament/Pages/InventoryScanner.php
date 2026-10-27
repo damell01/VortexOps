@@ -37,7 +37,8 @@ class InventoryScanner extends Page
 
     public static function canAccess(): bool
     {
-        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer() && static::moduleAllows();
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer()
+            && \App\Support\StockGate::canChangeAny() && static::moduleAllows();
     }
 
     public function boot(): void

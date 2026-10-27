@@ -49,7 +49,7 @@
   {{-- The page header already names the page; this row is just the shortcuts. --}}
   <div>
    <div class="vx-inv-shortcuts">
-    @if(!\App\Support\InventoryVisibility::isReadOnlyStreamer())
+    @if(\App\Filament\Pages\InventoryScanner::canAccess())
     <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
     @endif
     @if(\App\Support\StockGate::canChangeAny())

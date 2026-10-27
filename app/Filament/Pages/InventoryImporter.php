@@ -69,7 +69,7 @@ class InventoryImporter extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
+        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && \App\Support\StockGate::canChangeAny($user);
     }
 
     public function getView(): string

@@ -284,7 +284,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                         $note = trim((string) $data['description']);
                         if ($note === '') return;
                         $payout->update(['calculation_notes' => trim(($payout->calculation_notes ?: '')
-                            . "\\n[ADMIN_NOTE] " . $note)]);
+                            . "\n[ADMIN_NOTE] " . $note)]);
                         activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
                             ->withProperties(['pay_run_id' => $run->id, 'description' => $note])
                             ->log('Calculated payout description added');

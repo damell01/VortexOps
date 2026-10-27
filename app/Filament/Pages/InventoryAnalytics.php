@@ -101,7 +101,7 @@ class InventoryAnalytics extends Page
 
         // Admins and owners see all locations
         if ($user?->isAdmin() || $user?->isOwner()) {
-            return InventoryLocation::where('status', 'active')->pluck('id');
+            return InventoryLocation::visibleTo()->where('status', 'active')->pluck('id');
         }
 
         // Streamers only see their own locations — narrowed again by any
@@ -181,7 +181,7 @@ class InventoryAnalytics extends Page
         $totalItems = InventoryItem::whereHas('stock', fn ($q) =>
             $q->whereIn('inventory_location_id', $locationIds)
         )->where('is_active', true)->count();
-        $totalLocations = InventoryLocation::whereIn('id', $locationIds)
+        $totalLocations = InventoryLocation::visibleTo()->whereIn('id', $locationIds)
             ->where('status', 'active')->count();
 
         $summary = [
@@ -270,7 +270,7 @@ class InventoryAnalytics extends Page
             ->get()
             ->keyBy('location_id');
 
-        $locations = InventoryLocation::where('status', 'active')
+        $locations = InventoryLocation::visibleTo()->where('status', 'active')
             ->whereIn('id', $locationIds)
             ->get(['id', 'name'])
             ->map(fn ($location) => [
@@ -397,6 +397,7 @@ class InventoryAnalytics extends Page
      */
     protected function trendBaseline(): array
     {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         $snapshot = InventoryValueSnapshot::whereNull('whatnot_channel_id')
             ->where('snapshot_date', '>=', Carbon::today()->subDays(self::TREND_DAYS)->toDateString())
             ->orderBy('snapshot_date')
@@ -452,6 +453,8 @@ class InventoryAnalytics extends Page
     /** @return array<int, array{date: Carbon, value: float}> */
     protected function snapshotSeries(): array
     {
+        // These snapshots are organization totals, with no location breakdown.
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         if ($this->snapshotMemo !== null) {
             return $this->snapshotMemo;
         }
@@ -489,6 +492,8 @@ class InventoryAnalytics extends Page
         $start   = $today->copy()->subDays(self::TREND_DAYS);
         $current = (float) $this->getSummary()['total_value'];
 
+        $locationSql = $locationIds->map(fn ($id) => (int) $id)->implode(',');
+
         // Net value change per day across the window.
         $deltas = InventoryMovement::query()
             ->where('inventory_movements.created_at', '>=', $start)
@@ -499,13 +504,9 @@ class InventoryAnalytics extends Page
             ->leftJoin('products', 'products.id', '=', 'inventory_movements.inventory_item_id')
             ->selectRaw('DATE(inventory_movements.created_at) as day')
             ->selectRaw(
-                'SUM(CASE
-                        WHEN inventory_movements.to_location_id IS NOT NULL AND inventory_movements.from_location_id IS NULL
-                            THEN inventory_movements.quantity
-                        WHEN inventory_movements.from_location_id IS NOT NULL AND inventory_movements.to_location_id IS NULL
-                            THEN -inventory_movements.quantity
-                        ELSE 0
-                     END * COALESCE(inventory_movements.unit_cost, products.average_cost, 0)) as delta'
+                'SUM((CASE WHEN inventory_movements.to_location_id IN (' . $locationSql . ') THEN inventory_movements.quantity ELSE 0 END
+                    - CASE WHEN inventory_movements.from_location_id IN (' . $locationSql . ') THEN inventory_movements.quantity ELSE 0 END)
+                    * COALESCE(inventory_movements.unit_cost, products.average_cost, 0)) as delta'
             )
             ->groupBy('day')
             ->pluck('delta', 'day')

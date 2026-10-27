@@ -969,3 +969,18 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   }
   .fi-modal-window .fi-modal-content { max-height: min(78vh, 900px); overflow-y: auto; }
 }
+
+/* Operational page actions own the phone's bottom row, as on end-of-stream.
+   A second fixed navigation bar at the same position intercepted stock saves. */
+@media (max-width: 639px) {
+  body:has([data-vx-mobile-actions]) .vx-tabbar { display: none !important; }
+  body:has([data-vx-mobile-actions]) .fi-main { padding-bottom: max(96px, calc(80px + env(safe-area-inset-bottom))); }
+}
+
+@media (max-width: 639px) {
+  .vx-inventory-list .vx-catalog-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 1023px) {
+  .vxr > *, .vxr-card, .vxr-table-wrap { min-width: 0; max-width: 100%; }
+  .vxr-table-wrap { width: 100%; overflow-x: auto; }
+}

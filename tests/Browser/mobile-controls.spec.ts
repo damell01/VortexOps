@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 test('shared mobile controls preserve bindings, keyboard access and list pages', async ({ page }) => {
     await page.setViewportSize({width:390,height:844});
-    await page.setContent('<main class="fi-main"><label>Location<select id="location"><option value="">All Locations</option><option value="1">Warehouse</option><option value="2">Brandon</option></select></label><div data-vx-mobile-page>'+Array.from({length:12},(_,i)=>'<article>Item '+i+'</article>').join('')+'</div></main>');
+    await page.setContent('<main class="fi-main"><label>Location<select id="location"><option value="">All Locations</option><option value="1">Warehouse</option><option value="2">Brandon</option><option value="3">Shelf 3</option><option value="4">Shelf 4</option><option value="5">Shelf 5</option><option value="6">Shelf 6</option><option value="7">Shelf 7</option><option value="8">Shelf 8</option><option value="9">Shelf 9</option><option value="10">Shelf 10</option></select></label><div data-vx-mobile-page>'+Array.from({length:12},(_,i)=>'<article>Item '+i+'</article>').join('')+'</div></main>');
     await page.addStyleTag({content:fs.readFileSync('resources/css/mobile-controls.css','utf8')});
     await page.evaluate(() => { (window as any).changes=0; document.querySelector('select')!.addEventListener('change',()=>{(window as any).changes++;}); });
     await page.addScriptTag({content:fs.readFileSync('resources/js/mobile-controls.js','utf8').replace(/^import .*;\n/,'')});

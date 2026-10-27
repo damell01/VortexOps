@@ -35,8 +35,10 @@ class InventoryCountResetTest extends TestCase
         $this->admin = User::factory()->create();
         $this->admin->assignRole(Role::findOrCreate('admin', 'web'));
         $this->actingAs($this->admin);
-        $this->a = InventoryLocation::create(['name' => 'Location A', 'status' => 'active']);
-        $this->b = InventoryLocation::create(['name' => 'Location B', 'status' => 'active']);
+        $this->a = InventoryLocation::create(['name' => 'Main Warehouse', 'type' => 'main_storage', 'status' => 'active']);
+        $profile = \App\Models\Streamer::create(['name' => 'Counting Admin', 'member_type' => 'fulfillment', 'user_id' => $this->admin->id, 'status' => 'active']);
+        $this->admin->unsetRelation('streamer');
+        $this->b = InventoryLocation::create(['name' => 'Location B', 'streamer_id' => $profile->id, 'status' => 'active']);
         Queue::fake();
     }
     private function item(string $name, float $quantity, bool $active = true): InventoryItem

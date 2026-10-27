@@ -156,7 +156,7 @@ class PalletItems extends Page
             if ((int) $this->draft['location_id'] !== (int) $row['location_id']) {
                 $service->moveToLocation(
                     $line,
-                    InventoryLocation::findOrFail($this->draft['location_id']),
+                    InventoryLocation::visibleTo()->findOrFail($this->draft['location_id']),
                     $this->draft['reason'] ?: null,
                 );
                 $happened[] = 'moved';

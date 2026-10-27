@@ -98,7 +98,7 @@ class InventoryValueDashboard extends Page
             $items = $this->items()->keyBy('id');
             $stock = $items->flatMap(fn (InventoryItem $item) => $item->stock)->groupBy('inventory_location_id');
 
-            return InventoryLocation::where('status', 'active')
+            return InventoryLocation::visibleTo()->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'name', 'type'])
                 ->map(function ($loc) use ($stock, $items) {

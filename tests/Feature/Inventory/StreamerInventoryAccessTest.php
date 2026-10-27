@@ -134,8 +134,8 @@ class StreamerInventoryAccessTest extends TestCase
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $this->assertNull(InventoryVisibility::locationIdsFor($admin));
-        $this->assertFalse(InventoryVisibility::isLimited($admin));
+        $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($admin));
+        $this->assertTrue(InventoryVisibility::isLimited($admin));
     }
 
     public function test_a_signed_out_visitor_sees_nothing(): void
@@ -186,7 +186,7 @@ class StreamerInventoryAccessTest extends TestCase
 
         Setting::set(InventoryVisibility::SETTING_KEY, json_encode([$this->main->id, $this->damaged->id]));
 
-        $this->assertSame(['Broken Box'], InventoryItemResource::getEloquentQuery()->pluck('name')->all());
+        $this->assertSame([], InventoryItemResource::getEloquentQuery()->pluck('name')->all());
     }
 
     // ── Where they can pull stock from ────────────────────────────────────
@@ -240,11 +240,11 @@ class StreamerInventoryAccessTest extends TestCase
         $this->assertNull(InventoryStock::where('inventory_item_id', $item->id)->where('inventory_location_id', $this->mine->id)->value('quantity'));
     }
 
-    public function test_an_admin_sending_main_stock_to_a_shelf_is_recorded_as_a_transfer_with_both_ends(): void
+    public function test_the_owner_sending_main_stock_to_a_shelf_is_recorded_as_a_transfer_with_both_ends(): void
     {
         // "Main Warehouse → My Shelf", not two unrelated adjustments.
         $item = $this->stocked('Warehouse Case', $this->main, 10);
-        $admin = User::factory()->create();
+        $admin = User::factory()->create(['email' => config('app.owner_email')]);
         $admin->assignRole('admin');
         $this->actingAs($admin);
 
@@ -325,16 +325,16 @@ class StreamerInventoryAccessTest extends TestCase
             ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);
     }
 
-    public function test_an_individual_override_replaces_global_and_own_locations_for_reports_and_totals(): void
+    public function test_report_overrides_do_not_hide_an_owned_location_from_inventory_views(): void
     {
         $this->actingAs($this->streamerUser);
         $allowed = $this->stocked('Allowed', $this->main, 3);
-        $this->stocked('Hidden', $this->mine, 9);
+        $owned = $this->stocked('Hidden', $this->mine, 9);
         Setting::set('streamer_inventory_locations:'.$this->streamerUser->streamer->id, json_encode([$this->main->id]));
-        $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($this->streamerUser));
+        $this->assertSame([$this->main->id, $this->mine->id], InventoryVisibility::locationIdsFor($this->streamerUser));
         $this->assertSame([$this->main->id], InventoryVisibility::reportLocationIdsForStreamer($this->streamerUser->streamer->id));
-        $this->assertSame(3.0, (float) InventoryStock::sum('quantity'));
-        $this->assertSame([$allowed->id], InventoryItemResource::getEloquentQuery()->pluck('id')->all());
+        $this->assertSame(12.0, (float) InventoryStock::sum('quantity'));
+        $this->assertSame([$allowed->id, $owned->id], InventoryItemResource::getEloquentQuery()->orderBy('id')->pluck('id')->all());
     }
 
 

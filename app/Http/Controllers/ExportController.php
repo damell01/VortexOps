@@ -229,7 +229,7 @@ class ExportController extends Controller
         return $this->streamCsv('locations', function () {
             $this->row(['Name', 'Type', 'Streamer', 'Channel', 'Status', 'SKUs Stocked', 'Notes']);
 
-            InventoryLocation::with(['streamer', 'channel'])
+            InventoryLocation::visibleTo()->with(['streamer', 'channel'])
                 ->withCount('stock')
                 ->orderBy('name')
                 ->lazy(500)

@@ -47,7 +47,7 @@ class ManageStock extends Page
         $mine = array_values(array_filter($rows, fn ($row) => array_key_exists((int) $row['location_id'], $this->sourceOptions)));
         $this->fromLocationId = $mine[0]['location_id'] ?? array_key_first($this->sourceOptions) ?? ($rows[0]['location_id'] ?? null);
 
-        if (InventoryVisibility::destinationFor(auth()->user()) && array_diff_key($this->sourceOptions, array_flip(InventoryVisibility::ownLocationIds(auth()->user()))) !== []) {
+        if (auth()->user()?->isStreamer() && InventoryVisibility::destinationFor(auth()->user()) && array_diff_key($this->sourceOptions, array_flip(InventoryVisibility::ownLocationIds(auth()->user()))) !== []) {
             $this->operation = self::SEND;
         }
 

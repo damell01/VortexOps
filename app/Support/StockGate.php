@@ -27,7 +27,7 @@ class StockGate
 {
     public static function canChange(?User $user, InventoryLocation|int|null $location): bool
     {
-        if ($user === null || $location === null) {
+        if ($user === null || $location === null || InventoryVisibility::isReadOnlyStreamer($user)) {
             return false;
         }
 
@@ -35,6 +35,9 @@ class StockGate
         if ($location === null) {
             return false;
         }
+
+        $visible = InventoryVisibility::locationIdsFor($user);
+        if ($visible !== null && ! in_array((int) $location->id, $visible, true)) return false;
 
         if ($location->streamer_id !== null) {
             return $user->streamer?->id !== null && (int) $user->streamer->id === (int) $location->streamer_id;
@@ -62,14 +65,14 @@ class StockGate
     /** @return list<int> Location ids this user may change stock in. */
     public static function changeableIds(?User $user): array
     {
-        if ($user === null) {
+        if ($user === null || InventoryVisibility::isReadOnlyStreamer($user)) {
             return [];
         }
 
         $own = $user->streamer?->id;
         $manager = static::runsSharedLocations($user);
 
-        return InventoryLocation::query()
+        return InventoryLocation::query()->visibleTo($user)
             ->where(function ($q) use ($own, $manager) {
                 if ($manager) {
                     $q->orWhereNull('streamer_id');
@@ -88,7 +91,7 @@ class StockGate
     public static function canChangeAny(?User $user = null): bool
     {
         $user ??= auth()->user();
-        if ($user === null) {
+        if ($user === null || InventoryVisibility::isReadOnlyStreamer($user)) {
             return false;
         }
 

@@ -39,7 +39,7 @@
 .vx-product-card .vx-card-action svg{width:14px;height:14px}
 .vx-product-card .vx-card-action span{display:block;max-width:100%;overflow:visible!important;text-overflow:clip!important;white-space:normal!important;text-align:center;overflow-wrap:normal;word-break:keep-all}
 .vx-select-check{width:30px;height:30px;top:6px;left:6px;border-radius:8px}.vx-select-check input{width:16px;height:16px}
-@media(max-width:639px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-product-card .vx-product-image{aspect-ratio:16/9;height:auto}.vx-product-card .vx-product-title{display:-webkit-box;-webkit-line-clamp:2;font-size:.84rem;line-height:1.1rem;overflow:hidden}.vx-product-card .vx-product-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx-product-tags{flex-wrap:nowrap}.vx-product-tags .vx-product-meta{display:none}.vx-product-card .vx-card-action{min-height:40px!important}.vx-card-figs{grid-template-columns:1fr 1fr}.vx-card-fig:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e5e7eb}}
+@media(max-width:639px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}.vx-product-card .vx-product-image{aspect-ratio:16/9;height:auto}.vx-product-card .vx-product-title{display:-webkit-box;-webkit-line-clamp:2;font-size:.84rem;line-height:1.1rem;overflow:hidden}.vx-product-card .vx-product-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx-product-tags{flex-wrap:nowrap}.vx-product-tags .vx-product-meta{display:none}.vx-product-card .vx-card-action{min-height:40px!important}.vx-card-figs{grid-template-columns:1fr 1fr}.vx-card-fig:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e5e7eb}}
 @media(max-width:359px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
@@ -49,8 +49,10 @@
   {{-- The page header already names the page; this row is just the shortcuts. --}}
   <div>
    <div class="vx-inv-shortcuts">
-    @if(\App\Support\StockGate::canChangeAny())
+    @if(\App\Filament\Pages\InventoryScanner::canAccess())
     <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
+    @endif
+    @if(\App\Support\StockGate::canChangeAny())
     <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
     <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
@@ -135,6 +137,7 @@
         <div class="vx-card-fig"><div class="vx-metric-label">Value</div><div class="vx-metric-value" title="Total value ${{ number_format($onHand*(float)$item->costBasis(),2) }}">${{ number_format($onHand*(float)$item->costBasis(),2) }}</div></div>
        </div>
       </div>
+      @unless(\App\Support\InventoryVisibility::isReadOnlyStreamer())
       <div class="vx-card-actions">
        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
        @if($canStock)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
@@ -144,6 +147,7 @@
        @if($canScan)<button type="button" wire:click.stop="startBarcodeScan({{ $item->getKey() }})" class="vx-card-action scan" title="{{ filled($item->barcode) ? 'Replace barcode' : 'Scan barcode' }}"><x-heroicon-o-qr-code /> <span>Scan</span></button>@endif
        @if($canDelete)<button type="button" wire:click="mountAction('deleteItem', { product: {{ $item->getKey() }} })" class="vx-card-action delete" title="Delete item"><x-heroicon-o-trash /> <span>Delete</span></button>@endif
       </div>
+      @endunless
      </article>
     @endforeach
    </div>

@@ -70,8 +70,9 @@ class InventoryItemResource extends Resource
      */
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return (auth()->user()?->isAdmin() ?? false)
-            && ! $record->stock()->where('quantity', '>', 0)->exists();
+            && ! $record->stock()->withoutGlobalScope('streamerLocationOverride')->where('quantity', '>', 0)->exists();
     }
 
     /**
@@ -219,6 +220,7 @@ class InventoryItemResource extends Resource
 
     public static function canDeleteAny(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return auth()->user()?->isAdmin() ?? false;
     }
 
@@ -245,12 +247,14 @@ class InventoryItemResource extends Resource
 
     public static function canCreate(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         $user = auth()->user();
         return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         // Inventory maintenance is admin-only. Streamers may view stock and
         // select existing products in their show reports, not edit stock.
         return auth()->user()?->isAdmin() ?? false;
@@ -262,6 +266,7 @@ class InventoryItemResource extends Resource
      */
     public static function canManageStock(): bool
     {
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         // Anyone who runs a location (App\Support\StockGate): the owner and
         // staff for Main, a streamer for their own shelf; nobody else.
         return \App\Support\StockGate::canChangeAny();
@@ -304,7 +309,8 @@ class InventoryItemResource extends Resource
 
         if ($visible !== null) {
             return $query
-                ->whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $visible))
+                ->where(fn ($q) => $q->whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $visible))
+                    ->orWhereDoesntHave('stock', fn ($q) => $q->withoutGlobalScope('streamerLocationOverride')))
                 ->distinct();
         }
 
@@ -1144,9 +1150,10 @@ class InventoryItemResource extends Resource
                 // getEloquentQuery()'s visibility scope is what remains.
                 Filter::make('mine_only')
                     ->label('My inventory only')
-                    ->visible(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user()))
-                    ->default()
+                    ->visible(fn () => \App\Support\InventoryVisibility::isReadOnlyStreamer())
+                    ->default(fn () => \App\Support\InventoryVisibility::isReadOnlyStreamer())
                     ->query(function (Builder $query) {
+                        if (! \App\Support\InventoryVisibility::isReadOnlyStreamer()) return $query;
                         $user = auth()->user();
                         $own  = $user ? \App\Support\InventoryVisibility::ownLocationIds($user) : [];
 

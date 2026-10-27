@@ -25,7 +25,9 @@ class AdminMainViewAndCountImportTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
+        $admin = User::factory()->create();
+        $admin->assignRole(\Spatie\Permission\Models\Role::findOrCreate('admin', 'web'));
+        $this->actingAs($admin);
         $this->main = InventoryLocation::create(['name' => 'Main Warehouse', 'type' => 'main_storage', 'status' => 'active']);
         $ty = Streamer::create(['name' => 'Ty & Luna', 'status' => 'active']);
         $this->shelf = InventoryLocation::create(['name' => 'Ty & Luna', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $ty->id]);
@@ -42,11 +44,11 @@ class AdminMainViewAndCountImportTest extends TestCase
         $page = Livewire::test(ListInventoryItems::class);
         $this->assertSame([$this->main->id => 'Main Warehouse'], $page->instance()->inventoryLocationOptions());
 
-        // Every product is still listed; quantities count Main only.
+        // Only Main products are listed for an admin without an owned location.
         $stats = collect($page->instance()->getStats())->keyBy('key');
-        $this->assertSame('2', $stats['']['value']);
+        $this->assertSame('1', $stats['']['value']);
         $this->assertSame('5 units on hand', $stats['']['percentage']);
-        $this->assertSame('1', $stats['out']['value']);
+        $this->assertSame('0', $stats['out']['value']);
     }
 
     public function test_a_quantity_column_sets_counts_at_the_chosen_location(): void

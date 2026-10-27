@@ -201,8 +201,8 @@ class InventoryOverview extends Page
             ->values()
             ->map(fn ($snapshot) => [
                 'date' => $snapshot->snapshot_date->format('M j'),
-                'value' => (float) $snapshot->total_value,
-            ]);
+                'value' => $snapshot->visibleValueFor(auth()->user()),
+            ])->filter(fn ($point) => $point['value'] !== null)->values();
     }
 
     #[Computed]
@@ -271,7 +271,7 @@ class InventoryOverview extends Page
     #[Computed]
     public function reportLocations(): Collection
     {
-        return \App\Models\InventoryLocation::query()->where('status', 'active')->orderBy('name')->pluck('name', 'id');
+        return \App\Models\InventoryLocation::visibleTo()->where('status', 'active')->orderBy('name')->pluck('name', 'id');
     }
 
     #[Computed]

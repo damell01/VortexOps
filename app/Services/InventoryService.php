@@ -61,7 +61,7 @@ class InventoryService
             throw new \RuntimeException('Stock quantity must be greater than zero.');
         }
 
-        return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost, $receivedAt) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost, $receivedAt) {
             $stock = $this->lockedStock($item, $location);
 
             // A receipt logged after the fact keeps the day it actually arrived,
@@ -94,7 +94,7 @@ class InventoryService
 
             $this->notifyIfLowStock($item);
             return $movement;
-        });
+        }));
     }
 
     public function transferStock(
@@ -111,7 +111,7 @@ class InventoryService
             throw new \RuntimeException('Choose a different destination location.');
         }
 
-        return DB::transaction(function () use ($item, $from, $to, $quantity, $reason) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $from, $to, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
                 ->lockForUpdate()
@@ -150,7 +150,7 @@ class InventoryService
 
             $this->notifyIfLowStock($item);
             return $movement;
-        });
+        }));
     }
 
     public function adjustStock(
@@ -167,7 +167,7 @@ class InventoryService
             throw new \RuntimeException('Stock quantity cannot be negative.');
         }
 
-        return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId, $notify) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId, $notify) {
             $stock = $this->lockedStock($item, $location);
 
             $diff = $newQuantity - (float) $stock->quantity;
@@ -211,17 +211,17 @@ class InventoryService
 
             if ($notify) $this->notifyIfLowStock($item);
             return $movement;
-        });
+        }));
     }
 
     /** Apply a scanner's relative correction under the same lock as its write. */
     public function adjustStockBy(Product $item, InventoryLocation $location, float $delta, ?string $reason = null): InventoryMovement
     {
-        return DB::transaction(function () use ($item, $location, $delta, $reason) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $location, $delta, $reason) {
             $stock = $this->lockedStock($item, $location);
 
             return $this->adjustStock($item, $location, (float) $stock->quantity + $delta, $reason);
-        });
+        }));
     }
 
     public function markDamaged(
@@ -231,7 +231,7 @@ class InventoryService
         float $quantity,
         ?string $reason = null
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $from, $damagedLocation, $quantity, $reason) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $from, $damagedLocation, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
                 ->lockForUpdate()
@@ -272,7 +272,7 @@ class InventoryService
 
             $this->notifyIfLowStock($item);
             return $movement;
-        });
+        }));
     }
 
     public function moveToReturns(
@@ -282,7 +282,7 @@ class InventoryService
         float $quantity,
         ?string $reason = null
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $from, $returnsLocation, $quantity, $reason) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $from, $returnsLocation, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
                 ->lockForUpdate()
@@ -315,7 +315,7 @@ class InventoryService
 
             $this->notifyIfLowStock($item);
             return $movement;
-        });
+        }));
     }
 
     public function deductStock(
@@ -325,7 +325,7 @@ class InventoryService
         ?string $reason = null,
         ?int $referenceId = null
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $location, $quantity, $reason, $referenceId) {
+        return \App\Support\InventoryVisibility::withoutLocationRestrictions(fn () => DB::transaction(function () use ($item, $location, $quantity, $reason, $referenceId) {
             $stock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $location->id)
                 ->lockForUpdate()
@@ -355,7 +355,7 @@ class InventoryService
 
             $this->notifyIfLowStock($item);
             return $movement;
-        });
+        }));
     }
 
     private function notifyIfLowStock(Product $item): void

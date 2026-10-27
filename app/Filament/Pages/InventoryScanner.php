@@ -35,10 +35,15 @@ class InventoryScanner extends Page
     use WithFileUploads;
     use HasModuleAccess { canAccess as moduleAllows; }
 
-    /** Scanning changes stock: only for people who run a location (StockGate). */
     public static function canAccess(): bool
     {
-        return static::moduleAllows() && \App\Support\StockGate::canChangeAny();
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer()
+            && \App\Support\StockGate::canChangeAny() && static::moduleAllows();
+    }
+
+    public function boot(): void
+    {
+        abort_unless(static::canAccess(), 403);
     }
 
     protected static string $moduleSlug  = 'inventory';

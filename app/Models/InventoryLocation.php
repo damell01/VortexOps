@@ -30,6 +30,23 @@ class InventoryLocation extends Model
      */
     protected $with = ['streamer'];
 
+    /** Apply the inventory display policy to selectors and location pages. */
+    public function scopeVisibleTo(\Illuminate\Database\Eloquent\Builder $query, ?User $user = null): \Illuminate\Database\Eloquent\Builder
+    {
+        $user ??= auth()->user();
+        // Queued reports and internal jobs have no interactive inventory viewer.
+        if ($user === null) return $query;
+        $ids = \App\Support\InventoryVisibility::locationIdsFor($user);
+        return $ids === null ? $query : $query->whereIn($query->qualifyColumn('id'), $ids);
+    }
+
+    private static function visibleOptions(array $options): array
+    {
+        if (! auth()->check()) return $options;
+        $ids = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        return $ids === null ? $options : array_intersect_key($options, array_flip($ids));
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logAll()->logOnlyDirty();
@@ -164,9 +181,10 @@ class InventoryLocation extends Model
     /** All active locations as id→name array, cached 5 min. */
     public static function activeOptions(): array
     {
-        return cache()->remember('inv_loc:active', 300, fn () =>
+        $options = cache()->remember('inv_loc:active', 300, fn () =>
             static::where('status', 'active')->orderBy('name')->pluck('name', 'id')->toArray()
         );
+        return static::visibleOptions($options);
     }
 
     /**
@@ -183,8 +201,8 @@ class InventoryLocation extends Model
     /** The business's main warehouse: Main Warehouse by name, else the first active main storage. */
     public static function mainId(): ?int
     {
-        $id = static::query()->whereNull('streamer_id')->where('status', 'active')->where('type', 'main_storage')
-            ->orderByRaw("CASE WHEN LOWER(name) = 'main warehouse' THEN 0 ELSE 1 END")->orderBy('id')->value('id');
+        $id = static::query()->whereNull('streamer_id')->where('status', 'active')->where(fn ($q) => $q->where('type', 'main_storage')->orWhereIn(\Illuminate\Support\Facades\DB::raw('LOWER(name)'), ['main warehouse', 'main storage', 'main']))
+            ->orderByRaw("CASE WHEN LOWER(name) = 'main warehouse' THEN 0 WHEN LOWER(name) = 'main storage' THEN 1 WHEN LOWER(name) = 'main' THEN 2 ELSE 3 END")->orderBy('id')->value('id');
 
         return $id ? (int) $id : null;
     }
@@ -205,7 +223,7 @@ class InventoryLocation extends Model
     {
         $configured = Setting::get('default_receiving_location_id');
 
-        if ($configured && static::where('id', $configured)->where('status', 'active')->exists()) {
+        if ($configured && static::visibleTo()->where('id', $configured)->where('status', 'active')->exists()) {
             return (int) $configured;
         }
 
@@ -217,15 +235,17 @@ class InventoryLocation extends Model
     /** Active locations filtered by type, cached 5 min. */
     public static function activeOptionsByType(string $type): array
     {
-        return cache()->remember("inv_loc:type:{$type}", 300, fn () =>
+        $options = cache()->remember("inv_loc:type:{$type}", 300, fn () =>
             static::where('type', $type)->where('status', 'active')->orderBy('name')->pluck('name', 'id')->toArray()
         );
+        return static::visibleOptions($options);
     }
 
     /** Bust location option caches when a location is saved or deleted. */
     protected static function booted(): void
     {
         $bust = function () {
+            \App\Support\InventoryVisibility::flushMemo();
             cache()->forget('inv_loc:active');
             foreach (['main_storage', 'streamer_inventory', 'returned', 'damaged', 'fulfillment', 'other'] as $type) {
                 cache()->forget("inv_loc:type:{$type}");

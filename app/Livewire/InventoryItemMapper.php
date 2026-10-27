@@ -74,7 +74,7 @@ class InventoryItemMapper extends Component
     public function render()
     {
         return view('livewire.inventory-item-mapper', [
-            'locations' => InventoryLocation::where('status', 'active')->get(),
+            'locations' => InventoryLocation::visibleTo()->where('status', 'active')->get(),
         ]);
     }
 }

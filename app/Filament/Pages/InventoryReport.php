@@ -263,8 +263,8 @@ class InventoryReport extends Page
             ->values()
             ->map(fn ($snapshot) => [
                 'date' => $snapshot->snapshot_date->format('M d'),
-                'value' => (float) $snapshot->total_value,
-            ]);
+                'value' => $snapshot->visibleValueFor(auth()->user()),
+            ])->filter(fn ($point) => $point['value'] !== null)->values();
 
         // The same stock rows the products above were loaded with (same
         // channel and location constraints) — re-querying them, with every
@@ -304,7 +304,7 @@ class InventoryReport extends Page
             'trend' => $trend,
             'locations' => $locations,
             'locations_by_item' => $locationsByItem,
-            'location_options' => InventoryLocation::query()->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))->orderBy('name')->pluck('name'),
+            'location_options' => InventoryLocation::visibleTo()->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId()))->orderBy('name')->pluck('name'),
             'items' => $items,
             'category_breakdown' => $onHand->groupBy('category')->map(function ($rows, $category) {
                 return [
@@ -706,7 +706,7 @@ class InventoryReport extends Page
     {
         // `streamer` is eager-loaded because lazy loading is disabled outside
         // production, so touching it while mapping fataled the whole report.
-        return InventoryLocation::with(['streamer', 'stock' => fn ($q) => $q->with('item')])
+        return InventoryLocation::visibleTo()->with(['streamer', 'stock' => fn ($q) => $q->with('item')])
             ->where('status', 'active')
             ->get()
             ->map(function ($location) {

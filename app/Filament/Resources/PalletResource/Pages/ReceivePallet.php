@@ -106,7 +106,7 @@ class ReceivePallet extends Page
 
     public function updatedReceivingLocationId(): void
     {
-        if (! InventoryLocation::query()->whereKey($this->receivingLocationId)->where('status', 'active')->exists()) {
+        if (! InventoryLocation::visibleTo()->whereKey($this->receivingLocationId)->where('status', 'active')->exists()) {
             $this->receivingLocationId = InventoryLocation::defaultReceivingId();
             return;
         }
@@ -240,7 +240,7 @@ class ReceivePallet extends Page
             $result = app(ReceivingService::class)->linkLineByScan(
                 $line,
                 $barcode,
-                InventoryLocation::findOrFail($locationId),
+                InventoryLocation::visibleTo()->findOrFail($locationId),
             );
 
             $count = ['received' => $result['line']->receivedCases(), 'expected' => (int) $result['line']->case_count];
@@ -827,7 +827,7 @@ class ReceivePallet extends Page
                             ->where('pallet_id', $this->record->id)
                             ->firstOrFail();
                         $item     = InventoryItem::findOrFail($data['inventory_item_id']);
-                        $location = InventoryLocation::findOrFail($data['inventory_location_id']);
+                        $location = InventoryLocation::visibleTo()->findOrFail($data['inventory_location_id']);
                         app(ReceivingService::class)->mapLine($line, $item, $location);
                         Notification::make()->title('Line mapped')->success()->send();
                         $this->record->refresh();

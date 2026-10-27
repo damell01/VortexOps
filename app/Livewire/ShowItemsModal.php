@@ -21,7 +21,7 @@ class ShowItemsModal extends Component
 
     public function getLocations(): array
     {
-        return InventoryLocation::where('status', 'active')
+        return InventoryLocation::visibleTo()->where('status', 'active')
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();

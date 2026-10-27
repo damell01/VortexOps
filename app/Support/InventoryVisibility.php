@@ -38,28 +38,50 @@ class InventoryVisibility
      */
     public static function locationIdsFor(?User $user): ?array
     {
-        if ($user === null) {
-            return [];
-        }
+        if (self::$unrestrictedDepth > 0 || $user?->isOwner()) return null;
+        if ($user === null) return [];
 
-        if ($user->isAdmin() || $user->isOwner()) {
-            return null;
-        }
-
-        if (! $user->isStreamer() && ! $user->hasRole('streamer_assistant')) {
-            return null;
-        }
-
-        $override = static::overrideForStreamer($user->streamer?->id);
-        if ($override !== null) {
-            return array_values(array_unique([...$override, ...static::mainStorageIds()]));
-        }
-
-        return array_values(array_unique([
-            ...static::configuredForStreamers(),
-            ...static::mainStorageIds(),
+        $key = $user->id . ':' . ($user->streamer?->id ?? 'none');
+        $memo = request()->attributes->get('vx.inventory.visibility', []);
+        if (array_key_exists($key, $memo)) return $memo[$key];
+        $ids = array_values(array_unique(array_filter([
+            InventoryLocation::mainId(),
             ...static::ownLocationIds($user),
-        ]));
+        ], fn ($id) => $id !== null)));
+        $memo[$key] = $ids;
+        request()->attributes->set('vx.inventory.visibility', $memo);
+        return $ids;
+    }
+
+    /** A streamer stays read-only even when another role also grants admin access. */
+    public static function isReadOnlyStreamer(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+        return $user !== null && ! $user->isOwner()
+            && ($user->hasRole('streamer') || ($user->streamer?->isStreamer() ?? false));
+    }
+
+    private static int $unrestrictedDepth = 0;
+
+    /** Internal stock bookkeeping must see both sides; UI authorization stays at the action boundary. */
+    public static function withoutLocationRestrictions(callable $callback): mixed
+    {
+        self::$unrestrictedDepth++;
+        try {
+            return $callback();
+        } finally {
+            self::$unrestrictedDepth--;
+        }
+    }
+
+    public static function flushMemo(): void
+    {
+        if (app()->bound('request')) request()->attributes->remove('vx.inventory.visibility');
+    }
+
+    public static function restrictionsSuspended(): bool
+    {
+        return self::$unrestrictedDepth > 0;
     }
 
     /**
@@ -77,11 +99,7 @@ class InventoryVisibility
     public static function shownLocationIdsFor(?User $user): ?array
     {
         $ids = static::locationIdsFor($user);
-        if ($ids !== null) {
-            return $ids;
-        }
-
-        return InventoryLocation::query()->whereNull('streamer_id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return $ids ?? InventoryLocation::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     /** Null inherits global access; an empty list explicitly grants no locations. */

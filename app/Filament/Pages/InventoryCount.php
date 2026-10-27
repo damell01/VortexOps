@@ -44,7 +44,7 @@ class InventoryCount extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return (bool) ($user?->isAdmin() || $user?->isOwner());
+        return ! \App\Support\InventoryVisibility::isReadOnlyStreamer($user) && (bool) ($user?->isAdmin() || $user?->isOwner());
     }
 
     public function getView(): string

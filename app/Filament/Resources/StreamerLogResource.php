@@ -217,7 +217,7 @@ class StreamerLogResource extends Resource
                         ->label('Stock Location')
                         ->options(fn (Get $get) =>
                             $get('inventory_item_id')
-                                ? InventoryLocation::whereHas('stock', fn ($q) =>
+                                ? InventoryLocation::visibleTo()->whereHas('stock', fn ($q) =>
                                     $q->where('inventory_item_id', $get('inventory_item_id'))
                                         ->where('quantity', '>', 0)
                                 )

@@ -45,10 +45,10 @@ class StockGateTest extends TestCase
     {
         $this->assertTrue(StockGate::canChange($this->owner, $this->main));
         $this->assertFalse(StockGate::canChange($this->owner, $this->jays));
-        $this->assertTrue(StockGate::canChange($this->jayUser, $this->jays));
+        $this->assertFalse(StockGate::canChange($this->jayUser, $this->jays));
         $this->assertFalse(StockGate::canChange($this->jayUser, $this->main));
         $this->assertSame([$this->main->id], StockGate::changeableIds($this->owner));
-        $this->assertSame([$this->jays->id], StockGate::changeableIds($this->jayUser));
+        $this->assertSame([], StockGate::changeableIds($this->jayUser));
     }
 
     public function test_the_owner_cannot_add_stock_at_a_streamers_shelf(): void
@@ -91,7 +91,7 @@ class StockGateTest extends TestCase
         $this->actingAs($this->jayUser);
 
         $page = Livewire::test(ManageStock::class, ['record' => $this->item->id]);
-        $this->assertSame([$this->jays->id => "Jay's Shelf"], $page->instance()->sourceOptions);
+        $this->assertSame([], $page->instance()->sourceOptions);
         $page->set('operation', 'adjust')->set('fromLocationId', $this->main->id)->set('newQuantity', '0')->call('submit');
         $this->assertSame(10.0, (float) InventoryStock::where('inventory_location_id', $this->main->id)->value('quantity'));
     }
@@ -128,10 +128,10 @@ class StockGateTest extends TestCase
         $labels = array_column(\App\Support\InventoryNavigation::linksForPage([\App\Filament\Resources\InventoryItemResource::class]), 'label');
         $this->assertNotContains('Quick add stock', $labels);
 
-        // Jay runs a shelf, so the tools are there for him.
+        // Owning a shelf does not grant a streamer write access.
         \Spatie\Permission\Models\Role::findOrCreate('streamer', 'web');
         $this->jayUser->assignRole('streamer');
         $this->actingAs($this->jayUser);
-        $this->assertTrue(StockGate::canChangeAny());
+        $this->assertFalse(StockGate::canChangeAny());
     }
 }

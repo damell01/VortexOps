@@ -62,6 +62,8 @@ class ManageStockPageTest extends TestCase
 
         $admin = User::factory()->create();
         $admin->assignRole('admin');
+        $profile = Streamer::create(['name' => 'Warehouse Admin', 'member_type' => 'fulfillment', 'user_id' => $admin->id, 'status' => 'active']);
+        $this->back->update(['streamer_id' => $profile->id]);
         $this->actingAs($admin);
     }
 
@@ -226,7 +228,8 @@ class ManageStockPageTest extends TestCase
 
         // Main is the business's (App\Support\StockGate): nothing to take from
         // there, and nothing of theirs here, so the page is view-only.
-        $this->assertSame([$mine->id => 'My Shelf'], $page->instance()->sourceOptions);
+        $this->assertSame([], $page->instance()->sourceOptions);
+        $this->assertFalse($page->instance()->canChange());
         $page->assertSet('operation', ManageStock::ADJUST);
     }
 

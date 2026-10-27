@@ -16,7 +16,7 @@ class InventoryDashboard extends Component
     public function render()
     {
         $currentSnapshot = InventorySnapshot::latest('snapshot_date')->first();
-        if (!$currentSnapshot || $currentSnapshot->snapshot_date->diffInHours(now()) > 1) {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user()) || !$currentSnapshot || $currentSnapshot->snapshot_date->diffInHours(now()) > 1) {
             $currentSnapshot = InventorySnapshot::generateCurrent();
         }
 
@@ -41,7 +41,7 @@ class InventoryDashboard extends Component
         $outOfStockCount = $items->filter(fn ($i) => ($i->stock_sum_quantity ?? 0) <= 0)->count();
 
         $categories = InventoryItem::whereNotNull('category')->distinct()->pluck('category')->sort();
-        $locations = InventoryLocation::where('status', 'active')->get();
+        $locations = InventoryLocation::visibleTo()->where('status', 'active')->get();
 
         return view('livewire.inventory-dashboard', [
             'snapshot' => $currentSnapshot,

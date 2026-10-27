@@ -64,6 +64,7 @@
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_missing_order' ? 'all' : 'tips_missing_order' }}')">{{ $review === 'tips_missing_order' ? 'Show all entries' : 'Review tips missing order ID' }}</button>
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_unmatched_order' ? 'all' : 'tips_unmatched_order' }}')">{{ $review === 'tips_unmatched_order' ? 'Show all entries' : 'Review tips without matching show' }}</button>
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_ambiguous_show' ? 'all' : 'tips_ambiguous_show' }}')">{{ $review === 'tips_ambiguous_show' ? 'Show all entries' : 'Review tips with multiple show matches' }}</button>
+            <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_missing_streamer' ? 'all' : 'tips_missing_streamer' }}')">{{ $review === 'tips_missing_streamer' ? 'Show all entries' : 'Review tips with no assigned streamer' }}</button>
             @if ($canDelete && count($checked))
                 <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
                     wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">

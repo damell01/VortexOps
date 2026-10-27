@@ -86,7 +86,7 @@
                 </div></div>
             @endif
             <section class="vxw-card">
-                <div class="vxw-card-head"><h2 class="vxw-h2">Verified tips by streamer</h2></div>
+                <div class="vxw-card-head"><h2 class="vxw-h2">Verified tips by streamer</h2><button type="button" class="vxw-btn vxw-btn--sm" wire:click="exportStreamerTipsCsv">Export streamer CSV</button></div>
                 <div class="vxw-card-body">
                     <p class="vxw-meta">Only exact ledger order matches to one show with one assigned streamer. Shared or ambiguous shows are excluded. Read-only; does not change payroll.</p>
                     @forelse ($this->streamerTotals() as $streamerTip)

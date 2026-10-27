@@ -259,4 +259,21 @@ class LedgerTipReportTest extends TestCase
         $this->assertSame(1000, $rows[0]['net']);
     }
 
+    public function test_verified_streamer_csv_export_uses_current_filters_and_does_not_change_payroll(): void
+    {
+        $show = $this->order('export-tip', $this->business);
+        $this->tip(15, ['whatnot_order_id' => 'export-tip']);
+        $this->tip(-3, ['whatnot_order_id' => 'export-tip']);
+        $this->tip(99, ['whatnot_order_id' => 'not-attributed']);
+        $page = Livewire::test(LedgerTips::class)
+            ->set('from', '2026-10-01')
+            ->set('until', '2026-10-31')
+            ->set('business', (string) $this->business->id);
+        $response = $page->instance()->exportStreamerTipsCsv();
+        $this->assertNotNull($response);
+        $this->assertStringContainsString('verified-streamer-tips-', $response->headers->get('content-disposition'));
+        $this->assertSame(0, Payout::count());
+        $this->assertSame(3, WhatnotLedgerEntry::count());
+    }
+
 }

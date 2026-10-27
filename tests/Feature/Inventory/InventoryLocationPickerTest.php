@@ -101,4 +101,23 @@ class InventoryLocationPickerTest extends TestCase
         $this->assertEquals(90, $page->instance()->catalogItems->firstWhere('id', $this->shared->id)->stock_sum_quantity);
         $this->assertSame(3, InventoryStock::count());
     }
+    public function test_recent_receipt_badge_uses_selected_warehouse_only(): void
+    {
+        \App\Models\InventoryMovement::create([
+            'inventory_item_id' => $this->shared->id,
+            'to_location_id' => $this->second->id,
+            'from_location_id' => null,
+            'quantity' => 2,
+            'movement_type' => 'opening',
+        ]);
+
+        $page = Livewire::test(ListInventoryItems::class)
+            ->set('inventoryLocation', (string) $this->main->id);
+        $this->assertNull($page->instance()->catalogItems->sole()->last_receipt_at);
+
+        $page->set('inventoryLocation', (string) $this->second->id);
+        $this->assertNotNull($page->instance()->catalogItems->firstWhere('id', $this->shared->id)->last_receipt_at);
+        $page->assertSee('Recently received');
+    }
+
 }

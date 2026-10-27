@@ -149,7 +149,23 @@ class ListInventoryItems extends ListRecords
     #[Computed]
     public function catalogItems(): Collection
     {
-        return $this->catalogQuery()->limit($this->catalogVisible)->get();
+        // One correlated subquery for the visible cards, not a query per SKU.
+        // Only receipts into a location the viewer can see count as new stock.
+        $query = $this->catalogQuery();
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        if ($this->inventoryLocation !== 'all') {
+            $selectedLocation = $this->inventoryPageLocationId();
+            $visible = $selectedLocation ? array_values(array_intersect($visible ?? [$selectedLocation], [$selectedLocation])) : [];
+        }
+        $query->addSelect(['last_receipt_at' => \App\Models\InventoryMovement::query()
+            ->select('created_at')
+            ->whereColumn('inventory_item_id', 'products.id')
+            ->whereNull('from_location_id')
+            ->whereNotNull('to_location_id')
+            ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
+            ->latest('created_at')
+            ->limit(1)]);
+        return $query->limit($this->catalogVisible)->get();
     }
 
     #[Computed]

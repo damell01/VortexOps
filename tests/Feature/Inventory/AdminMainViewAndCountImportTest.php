@@ -31,15 +31,22 @@ class AdminMainViewAndCountImportTest extends TestCase
         $this->shelf = InventoryLocation::create(['name' => 'Ty & Luna', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $ty->id]);
     }
 
-    public function test_admins_see_stock_at_every_location(): void
+    public function test_admins_see_main_and_not_streamer_shelves(): void
     {
         $box = InventoryItem::create(['name' => 'Hobby Box', 'sku' => 'HB-1', 'unit_cost' => 10, 'is_active' => true]);
         InventoryStock::create(['inventory_item_id' => $box->id, 'inventory_location_id' => $this->main->id, 'quantity' => 5]);
         InventoryStock::create(['inventory_item_id' => $box->id, 'inventory_location_id' => $this->shelf->id, 'quantity' => 40]);
+        $theirsOnly = InventoryItem::create(['name' => 'Shelf Only', 'sku' => 'SO-1', 'unit_cost' => 1, 'is_active' => true]);
+        InventoryStock::create(['inventory_item_id' => $theirsOnly->id, 'inventory_location_id' => $this->shelf->id, 'quantity' => 9]);
 
         $page = Livewire::test(ListInventoryItems::class);
-        $this->assertArrayHasKey($this->shelf->id, $page->instance()->inventoryLocationOptions());
-        $this->assertSame('45 units on hand', $page->instance()->getStats()[0]['percentage']);
+        $this->assertSame([$this->main->id => 'Main Warehouse'], $page->instance()->inventoryLocationOptions());
+
+        // Every product is still listed; quantities count Main only.
+        $stats = collect($page->instance()->getStats())->keyBy('key');
+        $this->assertSame('2', $stats['']['value']);
+        $this->assertSame('5 units on hand', $stats['']['percentage']);
+        $this->assertSame('1', $stats['out']['value']);
     }
 
     public function test_a_quantity_column_sets_counts_at_the_chosen_location(): void

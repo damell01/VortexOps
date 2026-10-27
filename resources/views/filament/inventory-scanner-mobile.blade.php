@@ -140,6 +140,8 @@
 
 <script>
 (() => {
+    if (window.__vxScannerMobileLoaded) return;
+    window.__vxScannerMobileLoaded = true;
     const API = '/inventory-scanner-api';
     let lastUnknown = null;
     let sheet = null;
@@ -189,8 +191,7 @@
         try {
             if (id && window.Livewire?.find) {
                 const component = window.Livewire.find(id);
-                await component.set('scanInput', barcode);
-                await component.call('submitScan');
+                await component.call('barcodeScanned', barcode);
             }
         } catch (_) {}
     };
@@ -199,6 +200,7 @@
         closeSheet();
         sheet = document.createElement('div');
         sheet.className = 'vx-scan-sheet-backdrop';
+        sheet.setAttribute('data-vx-dialog', '');
         sheet.innerHTML = `
             <div class="vx-scan-sheet" role="dialog" aria-modal="true" aria-label="Unknown barcode">
                 <div class="vx-scan-sheet-header">
@@ -246,16 +248,20 @@
         const results = el.querySelector('[data-results]');
         const status = el.querySelector('[data-status]');
         let timer;
+        let searchController;
         input.focus();
         input.addEventListener('input', () => {
             clearTimeout(timer);
+            searchController?.abort();
             timer = setTimeout(async () => {
                 const q = input.value.trim();
                 results.innerHTML = '';
                 status.innerHTML = '';
                 if (q.length < 2) return;
                 try {
-                    const data = await request(`${API}/items?q=${encodeURIComponent(q)}`, { method: 'GET', headers: {} });
+                    searchController = new AbortController();
+                    const data = await request(`${API}/items?q=${encodeURIComponent(q)}`, { method: 'GET', signal: searchController.signal });
+                    if (sheet !== el || input.value.trim() !== q) return;
                     if (!data.items?.length) {
                         status.innerHTML = '<div class="vx-scan-status">No matching inventory items.</div>';
                         return;
@@ -278,6 +284,7 @@
                         }
                     }));
                 } catch (error) {
+                    if (error.name === 'AbortError' || sheet !== el) return;
                     status.innerHTML = `<div class="vx-scan-status vx-scan-status-error">${escapeHtml(error.message)}</div>`;
                 }
             }, 250);
@@ -394,6 +401,8 @@
         runEnhancements();
         const observer = new MutationObserver(runEnhancements);
         observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+        document.addEventListener('livewire:navigating', closeSheet);
+        document.addEventListener('keydown', event => { if (event.key === 'Escape' && sheet) closeSheet(); });
         document.addEventListener('livewire:navigated', () => { lastUnknown = null; closeSheet(); runEnhancements(); });
     };
 

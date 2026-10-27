@@ -57,6 +57,10 @@ class InventoryService
         ?float $unitCost = null,
         ?\DateTimeInterface $receivedAt = null,
     ): InventoryMovement {
+        if (! is_finite($quantity) || $quantity <= 0) {
+            throw new \RuntimeException('Stock quantity must be greater than zero.');
+        }
+
         return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost, $receivedAt) {
             $stock = $this->lockedStock($item, $location);
 
@@ -100,6 +104,13 @@ class InventoryService
         float $quantity,
         ?string $reason = null
     ): InventoryMovement {
+        if (! is_finite($quantity) || $quantity <= 0) {
+            throw new \RuntimeException('Transfer quantity must be greater than zero.');
+        }
+        if ($from->is($to)) {
+            throw new \RuntimeException('Choose a different destination location.');
+        }
+
         return DB::transaction(function () use ($item, $from, $to, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
@@ -152,6 +163,10 @@ class InventoryService
         ?int $referenceId = null,
         bool $notify = true,
     ): InventoryMovement {
+        if (! is_finite($newQuantity) || $newQuantity < 0) {
+            throw new \RuntimeException('Stock quantity cannot be negative.');
+        }
+
         return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId, $notify) {
             $stock = $this->lockedStock($item, $location);
 
@@ -196,6 +211,16 @@ class InventoryService
 
             if ($notify) $this->notifyIfLowStock($item);
             return $movement;
+        });
+    }
+
+    /** Apply a scanner's relative correction under the same lock as its write. */
+    public function adjustStockBy(Product $item, InventoryLocation $location, float $delta, ?string $reason = null): InventoryMovement
+    {
+        return DB::transaction(function () use ($item, $location, $delta, $reason) {
+            $stock = $this->lockedStock($item, $location);
+
+            return $this->adjustStock($item, $location, (float) $stock->quantity + $delta, $reason);
         });
     }
 

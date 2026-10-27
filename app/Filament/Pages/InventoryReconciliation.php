@@ -78,6 +78,7 @@ class InventoryReconciliation extends Page implements HasForms
     public ?int $selectedLocationId = null;
     public ?int $selectedItemId = null;
     public string $physicalCount = '';
+    public string $itemSearch = '';
     public string $reconciliationReason = '';
     public array $reconciliationResults = [];
     public bool $showResults = false;
@@ -92,6 +93,11 @@ class InventoryReconciliation extends Page implements HasForms
     public function getItemsProperty()
     {
         return InventoryItem::where('is_active', true)
+            ->when(trim($this->itemSearch) !== '', function ($q) {
+                $term = '%' . trim($this->itemSearch) . '%';
+                $q->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('sku', 'like', $term)->orWhere('barcode', 'like', $term));
+            })
+            ->limit(50)
             ->orderBy('name')
             ->get(['id', 'name', 'sku', 'average_cost']);
     }
@@ -123,6 +129,11 @@ class InventoryReconciliation extends Page implements HasForms
 
     public function reconcileItem(): void
     {
+        $this->validate([
+            'selectedItemId' => 'required|integer|exists:products,id',
+            'selectedLocationId' => 'required|integer|exists:inventory_locations,id',
+            'physicalCount' => 'required|numeric|min:0',
+        ]);
         if (!$this->selectedItemId || $this->physicalCount === '') {
             Notification::make()
                 ->title('Error')

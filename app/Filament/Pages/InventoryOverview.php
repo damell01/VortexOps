@@ -26,7 +26,7 @@ class InventoryOverview extends Page
     protected static ?string $navigationLabel = 'Overview';
     protected static ?string $slug = 'inventory-overview';
 
-    /** Overview (health at a glance), Tools (quick actions) or Reports (stock table). */
+    /** Overview (health at a glance) or Reports (stock table); tools live in navigation. */
     #[Url(as: 'tab')] public string $tab = 'overview';
     #[Url(as: 'days')] public int $trendDays = 30;
     #[Url(as: 'loc')] public string $reportLocation = '';
@@ -250,9 +250,15 @@ class InventoryOverview extends Page
         return round(((float) $trend->last()['value'] - (float) $trend->first()['value']) / (float) $trend->first()['value'] * 100, 1);
     }
 
+    public function mount(): void
+    {
+        if (! in_array($this->tab, ['overview', 'reports'], true)) $this->tab = 'overview';
+    }
+
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'tools', 'reports'], true)) $this->tab = $tab;
+        if ($tab === 'tools') $tab = 'overview';
+        if (in_array($tab, ['overview', 'reports'], true)) $this->tab = $tab;
     }
 
     public function updatedTrendDays(): void
@@ -412,6 +418,7 @@ class InventoryOverview extends Page
                 ->url(fn () => $this->reportUrl()),
             \Filament\Actions\Action::make('scan_inventory')
                 ->label('Scan Inventory')
+                ->visible(fn () => InventoryScanner::canAccess())
                 ->icon('heroicon-o-qr-code')
                 ->extraAttributes(['class' => 'ivx-desktop-only'])
                 ->url(fn () => \App\Filament\Pages\InventoryScanner::getUrl()),

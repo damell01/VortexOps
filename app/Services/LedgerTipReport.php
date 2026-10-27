@@ -90,6 +90,50 @@ class LedgerTipReport
             'unassigned' => array_values($unassigned), 'unassigned_total' => $unassignedTotal];
     }
 
+    /**
+     * Verified, read-only tip totals by streamer. An order must belong to exactly
+     * one show in its channel, and that show must have exactly one streamer.
+     * Shared or ambiguous shows are deliberately excluded, not split or paid.
+     */
+    public function byStreamer(string $from, string $until, string $channel = 'all'): array
+    {
+        $matches = DB::table('whatnot_show_orders as orders')
+            ->join('shows', 'shows.id', '=', 'orders.show_id')
+            ->join('show_streamer', 'show_streamer.show_id', '=', 'shows.id')
+            ->selectRaw('orders.whatnot_order_id, shows.whatnot_channel_id as channel_id, MIN(show_streamer.streamer_id) as streamer_id')
+            ->whereNotNull('orders.whatnot_order_id')
+            ->whereNotIn('orders.whatnot_order_id', ['', '-'])
+            ->groupBy('orders.whatnot_order_id', 'shows.whatnot_channel_id')
+            ->havingRaw('COUNT(DISTINCT shows.id) = 1')
+            ->havingRaw('COUNT(DISTINCT show_streamer.streamer_id) = 1');
+
+        return WhatnotLedgerEntry::query()
+            ->inChannelContext()
+            ->joinSub($matches, 'verified', function (JoinClause $join) {
+                $join->on('verified.whatnot_order_id', '=', 'whatnot_ledger_entries.whatnot_order_id')
+                    ->on('verified.channel_id', '=', 'whatnot_ledger_entries.whatnot_channel_id');
+            })
+            ->join('streamers', 'streamers.id', '=', 'verified.streamer_id')
+            ->whereRaw('LOWER(TRIM(whatnot_ledger_entries.transaction_type)) IN (?, ?)', ['tip', 'tips'])
+            ->where('whatnot_ledger_entries.created_date', '>=', Carbon::parse($from)->startOfDay())
+            ->where('whatnot_ledger_entries.created_date', '<', Carbon::parse($until)->startOfDay()->addDay())
+            ->when($channel === 'unassigned', fn ($q) => $q->whereNull('whatnot_ledger_entries.whatnot_channel_id'))
+            ->when(ctype_digit($channel), fn ($q) => $q->where('whatnot_ledger_entries.whatnot_channel_id', (int) $channel))
+            ->selectRaw('streamers.id as streamer_id, streamers.name as streamer_name')
+            ->selectRaw('COUNT(*) as entries, SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as credits, SUM(CASE WHEN amount < 0 THEN -amount ELSE 0 END) as debits')
+            ->groupBy('streamers.id', 'streamers.name')
+            ->orderBy('streamers.name')
+            ->get()
+            ->map(fn ($row) => [
+                'streamer_id' => (int) $row->streamer_id,
+                'name' => $row->streamer_name,
+                'entries' => (int) $row->entries,
+                'credits' => (int) round((float) $row->credits * 100),
+                'debits' => (int) round((float) $row->debits * 100),
+                'net' => (int) round(((float) $row->credits - (float) $row->debits) * 100),
+            ])->all();
+    }
+
     private function emptyTotals(): array
     {
         return ['credits' => 0, 'debits' => 0, 'net' => 0, 'entries' => 0, 'pending' => 0, 'missing_amounts' => 0];

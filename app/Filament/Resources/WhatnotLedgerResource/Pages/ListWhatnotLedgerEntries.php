@@ -184,9 +184,11 @@ class ListWhatnotLedgerEntries extends Page
         $this->selectedId = $this->selectedId === $id ? null : $id;
         if ($this->selectedId) {
             $existing = $this->selectedAttribution();
-            $this->attributionCategory = $existing->category ?? 'other';
-            $this->attributionTarget = $existing->target ?? 'unassigned';
-            $this->attributionShowId = (string) ($existing->show_id ?? '');
+            $entry = $this->selected;
+            $suggestedShow = $entry ? app(LedgerAttributionService::class)->suggestedShow($entry) : null;
+            $this->attributionCategory = $existing->category ?? ($entry ? app(LedgerAttributionService::class)->suggestedCategory($entry) : 'other');
+            $this->attributionTarget = $existing->target ?? ($suggestedShow ? 'show' : 'unassigned');
+            $this->attributionShowId = (string) ($existing->show_id ?? $suggestedShow?->id ?? '');
             $this->attributionStreamerId = (string) ($existing->streamer_id ?? '');
             $this->attributionBusinessId = (string) ($existing->business_id ?? '');
             $this->attributionReason = '';

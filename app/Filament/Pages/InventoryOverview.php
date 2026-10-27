@@ -275,6 +275,16 @@ class InventoryOverview extends Page
     public function mount(): void
     {
         if (! in_array($this->tab, ['overview', 'reports'], true)) $this->tab = 'overview';
+
+        // Honor an explicitly selected location (including All Locations).
+        // On a first visit, default to Main Warehouse only when visible to
+        // the current user; otherwise keep the existing All Locations view.
+        if (! request()->has('overview_loc')) {
+            $mainId = \App\Models\InventoryLocation::mainId();
+            if ($mainId !== null && $this->reportLocations->has($mainId)) {
+                $this->overviewLocation = (string) $mainId;
+            }
+        }
     }
 
     public function setTab(string $tab): void

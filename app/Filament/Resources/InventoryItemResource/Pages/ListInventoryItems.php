@@ -30,6 +30,19 @@ class ListInventoryItems extends ListRecords
     use \App\Filament\Concerns\FiltersInventoryLocation;
 
     protected static string $resource = InventoryItemResource::class;
+
+    /** The catalog always shows one location; the Locations page manages all locations. */
+    public function inventoryPageLocationId(): ?int
+    {
+        $user = auth()->user();
+        $own = $user ? \App\Support\InventoryVisibility::ownLocationIds($user) : [];
+        $allowed = \App\Support\InventoryVisibility::shownLocationIdsFor($user);
+        $own = array_values(array_filter($own, fn ($id) => $allowed === null || in_array((int) $id, $allowed, true)));
+        if ($own !== [] && ! ($user?->isAdmin() ?? false) && ! ($user?->isOwner() ?? false)) return (int) $own[0];
+        $main = InventoryLocation::mainId();
+        return $main !== null && ($allowed === null || in_array((int) $main, $allowed, true)) ? (int) $main : null;
+    }
+
     protected ?array $statsMemo = null;
 
     #[Url(as: 'stock')]
@@ -94,8 +107,8 @@ class ListInventoryItems extends ListRecords
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = $this->getFilteredTableQuery()->reorder();
-        if ($this->inventoryLocation === '') {
-            $shown = \App\Support\InventoryVisibility::shownLocationIdsFor(auth()->user());
+        if (true) {
+            $shown = array_filter([$this->inventoryPageLocationId()]);
             $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
         }
 

@@ -356,7 +356,7 @@ class ViewInventoryItem extends Page
                 ->fillForm(fn () => [
                     'quantity' => 1,
                     'unit_cost' => $this->record->effectiveCost() > 0 ? number_format($this->record->effectiveCost(), 2, '.', '') : null,
-                    'location_id' => $this->record->stock()->where('quantity', '>', 0)->orderByDesc('quantity')->value('inventory_location_id') ?? InventoryLocation::defaultReceivingId(),
+                    'location_id' => $this->record->stock()->where('quantity', '>', 0)->whereIn('inventory_location_id', \App\Support\StockGate::changeableIds(auth()->user()))->orderByDesc('quantity')->value('inventory_location_id') ?? InventoryLocation::defaultReceivingId(),
                     'received_at' => now()->toDateString(),
                     'movement_type' => 'opening',
                 ])

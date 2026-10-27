@@ -77,6 +77,15 @@ class StockTransfer extends Page
             ->get();
     }
 
+    /** Where stock can be taken from: locations this person runs (see StockGate). */
+    #[Computed]
+    public function sourceLocations()
+    {
+        $ids = \App\Support\StockGate::changeableIds(auth()->user());
+
+        return $this->locations->filter(fn ($location) => in_array((int) $location->id, $ids, true))->values();
+    }
+
     #[Computed]
     public function sourceStock()
     {
@@ -179,6 +188,7 @@ class StockTransfer extends Page
         try {
             $inventoryService = app(InventoryService::class);
             $fromLocation = InventoryLocation::findOrFail($this->fromLocationId);
+            \App\Support\StockGate::authorize($fromLocation);
             $toLocation = InventoryLocation::findOrFail($this->toLocationId);
 
             foreach ($this->selectedTransfers as $itemId => $qty) {

@@ -59,8 +59,10 @@ class InventoryCount extends Page
 
     public function mount(): void
     {
-        $this->locationId = InventoryLocation::defaultReceivingId()
-            ?? InventoryLocation::where('status', 'active')
+        $changeable = \App\Support\StockGate::changeableIds(auth()->user());
+        $default = InventoryLocation::defaultReceivingId();
+        $this->locationId = in_array((int) $default, $changeable, true) ? $default
+            : InventoryLocation::where('status', 'active')->whereIn('id', $changeable)
                 ->orderByRaw("CASE WHEN type = 'main_storage' THEN 0 ELSE 1 END")
                 ->value('id');
 
@@ -71,6 +73,7 @@ class InventoryCount extends Page
     public function locations(): array
     {
         return InventoryLocation::where('status', 'active')
+            ->whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))
             ->orderByRaw("CASE WHEN type = 'main_storage' THEN 0 ELSE 1 END")
             ->orderBy('name')
             ->pluck('name', 'id')
@@ -234,6 +237,7 @@ class InventoryCount extends Page
 
         $item = InventoryItem::findOrFail($itemId);
         $location = InventoryLocation::findOrFail($this->locationId);
+        \App\Support\StockGate::authorize($location);
         $qty = max(0, (float) $this->counts[$itemId]);
 
         app(InventoryService::class)->adjustStock(
@@ -260,6 +264,7 @@ class InventoryCount extends Page
         if (! $this->locationId) return;
 
         $location = InventoryLocation::findOrFail($this->locationId);
+        \App\Support\StockGate::authorize($location);
         $changed = 0;
         $verified = 0;
 

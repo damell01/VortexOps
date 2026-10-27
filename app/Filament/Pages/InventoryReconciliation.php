@@ -79,7 +79,7 @@ class InventoryReconciliation extends Page implements HasForms
 
     public function getLocationsProperty()
     {
-        return InventoryLocation::where('status', 'active')->orderBy('name')->get(['id', 'name']);
+        return InventoryLocation::where('status', 'active')->whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->get(['id', 'name']);
     }
 
     public function getItemsProperty()
@@ -132,6 +132,7 @@ class InventoryReconciliation extends Page implements HasForms
 
         $physicalQty = (float) $this->physicalCount;
         $location = InventoryLocation::find($this->selectedLocationId);
+        \App\Support\StockGate::authorize($location);
 
         $stock = InventoryStock::where([
             'inventory_item_id' => $this->selectedItemId,

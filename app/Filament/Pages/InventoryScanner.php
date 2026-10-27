@@ -164,7 +164,7 @@ class InventoryScanner extends Page
 
     public function mount(): void
     {
-        $first = InventoryLocation::orderBy('name')->value('id');
+        $first = InventoryLocation::whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->value('id');
         if ($first) {
             $this->qaLocationId = $first;
         }
@@ -174,7 +174,7 @@ class InventoryScanner extends Page
 
     public function getLocationsProperty()
     {
-        return InventoryLocation::orderBy('name')->get(['id', 'name', 'type']);
+        return InventoryLocation::whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->get(['id', 'name', 'type']);
     }
 
     public function getPalletsProperty()
@@ -325,6 +325,7 @@ class InventoryScanner extends Page
 
         $item     = InventoryItem::findOrFail($this->result['id']);
         $location = InventoryLocation::findOrFail($this->adjustLocationId);
+        \App\Support\StockGate::authorize($location);
 
         // Through the service, not by hand. This wrote the stock row and then
         // its own movement, which meant no before/after, no transaction around
@@ -416,6 +417,11 @@ class InventoryScanner extends Page
         $qty = (float) $this->qaQty;
 
         $location = InventoryLocation::find($this->qaLocationId);
+        if ($location && ! \App\Support\StockGate::canChange(auth()->user(), $location)) {
+            $this->qaFlash = ['error' => 'You cannot add stock at ' . $location->name . '.'];
+
+            return;
+        }
         if (! $location) {
             $this->qaFlash = ['error' => 'Selected location no longer exists.'];
             return;

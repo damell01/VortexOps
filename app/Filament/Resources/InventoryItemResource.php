@@ -171,7 +171,7 @@ class InventoryItemResource extends Resource
                 ->content(fn (\Filament\Schemas\Components\Utilities\Get $get) => '$' . number_format((float) $get('quantity') * (float) $get('unit_cost'), 2))
                 ->extraAttributes(['class' => 'ivx-total-cost']),
             Select::make('location_id')->label('Location')
-                ->options(fn () => InventoryLocation::activeOptions())->required()->searchable(),
+                ->options(fn () => \App\Support\StockGate::filter(InventoryLocation::activeOptions()))->required()->searchable(),
             \Filament\Forms\Components\DatePicker::make('received_at')->label('Received Date')
                 ->default(now())->maxDate(now())->native(false)->displayFormat('M j, Y'),
             Textarea::make('reason')->label('Notes (Optional)')->rows(2)->placeholder('Add notes…'),
@@ -183,6 +183,7 @@ class InventoryItemResource extends Resource
     public static function bookAddStock(InventoryItem $record, array $data): InventoryLocation
     {
         $location = InventoryLocation::findOrFail((int) $data['location_id']);
+        \App\Support\StockGate::authorize($location);
         $reason = trim((string) ($data['reason'] ?? ''));
         if (! empty($data['vendor_id'])) {
             $vendor = \App\Models\Vendor::find($data['vendor_id']);
@@ -692,7 +693,7 @@ class InventoryItemResource extends Resource
                 Grid::make(2)->schema([
                     Select::make('initial_stock_location_id')
                         ->label('Stock Location')
-                        ->options(fn () => InventoryLocation::activeOptions())
+                        ->options(fn () => \App\Support\StockGate::filter(InventoryLocation::activeOptions()))
                         ->searchable()
                         ->dehydrated(false)
                         ->placeholder('Select location to add stock'),
@@ -740,10 +741,14 @@ class InventoryItemResource extends Resource
                                 ->disabled()
                                 ->columnSpan(2)
                                 ->dehydrated(false),
+                            // Read-only where the location is not this person's
+                            // to change (a streamer's own shelf, for admins).
                             TextInput::make('quantity')
                                 ->label('Qty')
                                 ->numeric()
                                 ->step(0.01)
+                                ->disabled(fn (Get $get) => ! \App\Support\StockGate::canChange(auth()->user(), (int) $get('inventory_location_id')))
+                                ->dehydrated(fn (Get $get) => \App\Support\StockGate::canChange(auth()->user(), (int) $get('inventory_location_id')))
                                 ->columnSpan(1),
                         ]),
                     ])
@@ -1241,6 +1246,7 @@ class InventoryItemResource extends Resource
                             ->label('Location')
                             ->options(fn ($record) => InventoryStock::query()
                                 ->where('inventory_item_id', $record->getKey())
+                                ->whereIn('inventory_location_id', \App\Support\StockGate::changeableIds(auth()->user()))
                                 ->where('quantity', '>', 0)
                                 ->with('location')
                                 ->get()
@@ -1264,6 +1270,7 @@ class InventoryItemResource extends Resource
                                 ->implode(', ') ?: '—'),
                     ])
                     ->action(function (InventoryItem $record, array $data): void {
+                        \App\Support\StockGate::authorize((int) $data['location_id']);
                         try {
                             $result = app(\App\Services\ContainerBreakdownService::class)->break(
                                 $record,
@@ -1305,7 +1312,7 @@ class InventoryItemResource extends Resource
                             Grid::make(2)->schema([
                                 Select::make('location_id')
                                     ->label('Location')
-                                    ->options(fn () => InventoryLocation::activeOptions())
+                                    ->options(fn () => \App\Support\StockGate::filter(InventoryLocation::activeOptions()))
                                     ->required()
                                     ->searchable()
                                     ->columnSpan(1),
@@ -1330,6 +1337,7 @@ class InventoryItemResource extends Resource
                         ])
                         ->action(function (InventoryItem $record, array $data): void {
                             $location = InventoryLocation::findOrFail($data['location_id']);
+                            \App\Support\StockGate::authorize($location);
                             $reason = $data['reason'] ?? '';
                             if (isset($data['vendor_id'])) {
                                 $vendor = Vendor::find($data['vendor_id']);
@@ -1367,7 +1375,7 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
+                                ->options(fn () => \App\Support\StockGate::filter(InventoryLocation::activeOptions()))
                                 ->required()
                                 ->searchable(),
                             Select::make('damaged_location_id')
@@ -1383,6 +1391,7 @@ class InventoryItemResource extends Resource
                         ])
                         ->action(function (InventoryItem $record, array $data): void {
                             $from = InventoryLocation::findOrFail($data['from_location_id']);
+                            \App\Support\StockGate::authorize($from);
                             $damaged = InventoryLocation::findOrFail($data['damaged_location_id']);
                             app(InventoryService::class)->markDamaged($record, $from, $damaged, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Items marked as damaged')->warning()->send();
@@ -1395,7 +1404,7 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
+                                ->options(fn () => \App\Support\StockGate::filter(InventoryLocation::activeOptions()))
                                 ->required()
                                 ->searchable(),
                             Select::make('returns_location_id')
@@ -1411,6 +1420,7 @@ class InventoryItemResource extends Resource
                         ])
                         ->action(function (InventoryItem $record, array $data): void {
                             $from = InventoryLocation::findOrFail($data['from_location_id']);
+                            \App\Support\StockGate::authorize($from);
                             $returns = InventoryLocation::findOrFail($data['returns_location_id']);
                             app(InventoryService::class)->moveToReturns($record, $from, $returns, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Items moved to returns')->success()->send();

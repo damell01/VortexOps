@@ -225,31 +225,35 @@ class StreamerInventoryAccessTest extends TestCase
 
     // ── Actually moving it ────────────────────────────────────────────────
 
-    public function test_a_streamer_can_pull_stock_onto_their_own_shelf(): void
+    public function test_a_streamer_cannot_pull_stock_out_of_main(): void
     {
+        // Main is run by the business (App\Support\StockGate): a streamer
+        // asks for stock, an admin sends it.
         $item = $this->stocked('Warehouse Case', $this->main, 10);
 
         $this->actingAs($this->streamerUser);
 
         $this->send($item, $this->main, 4, 'Friday break');
 
-        $this->assertEqualsWithDelta(6.0, (float) InventoryStock::where('inventory_item_id', $item->id)
+        $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
             ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);
-
-        $this->assertEqualsWithDelta(4.0, (float) InventoryStock::where('inventory_item_id', $item->id)
-            ->where('inventory_location_id', $this->mine->id)->value('quantity'), 0.01);
+        $this->assertNull(InventoryStock::where('inventory_item_id', $item->id)->where('inventory_location_id', $this->mine->id)->value('quantity'));
     }
 
-    public function test_the_move_is_recorded_as_a_transfer_with_both_ends(): void
+    public function test_an_admin_sending_main_stock_to_a_shelf_is_recorded_as_a_transfer_with_both_ends(): void
     {
-        // "Main Warehouse → My Shelf", not two unrelated adjustments. The whole
-        // reason for going through the service rather than writing the two
-        // rows directly.
+        // "Main Warehouse → My Shelf", not two unrelated adjustments.
         $item = $this->stocked('Warehouse Case', $this->main, 10);
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+        $this->actingAs($admin);
 
-        $this->actingAs($this->streamerUser);
-
-        $this->send($item, $this->main, 4);
+        \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ManageStock::class, ['record' => $item->id])
+            ->call('setOperation', \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::TRANSFER)
+            ->set('fromLocationId', $this->main->id)
+            ->set('toLocationId', $this->mine->id)
+            ->set('moveQuantity', '4')
+            ->call('submit');
 
         $movement = \App\Models\InventoryMovement::where('inventory_item_id', $item->id)->latest('id')->first();
 

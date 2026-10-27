@@ -129,6 +129,7 @@ class QuickAddInventoryItem extends Page
 
             if (($validatedData['location_id'] ?? null) && (float) ($validatedData['quantity'] ?? 0) > 0) {
                 $location = InventoryLocation::findOrFail($validatedData['location_id']);
+                \App\Support\StockGate::authorize($location);
                 app(InventoryService::class)->addStock(
                     $item,
                     $location,

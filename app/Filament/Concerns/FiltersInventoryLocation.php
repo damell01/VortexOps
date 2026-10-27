@@ -37,6 +37,58 @@ trait FiltersInventoryLocation
         unset($this->catalogItems, $this->catalogTotal);
     }
 
+    /**
+     * With one location picked: how many of the visible products are there,
+     * and where the rest are. A location holding 64 of 412 products reads as
+     * a broken filter unless the page says the other 348 are stocked at the
+     * receiving warehouse, or were imported and never received anywhere.
+     *
+     * @return array{here: int, total: int, elsewhere: array<string, int>, unstocked: int}|null
+     */
+    public function locationCoverage(): ?array
+    {
+        if (! $this->locationIsVisible()) {
+            return null;
+        }
+
+        $location = (int) $this->inventoryLocation;
+        $visible = InventoryVisibility::locationIdsFor(auth()->user());
+        $ids = \App\Filament\Resources\InventoryItemResource::getEloquentQuery()->reorder()->select('products.id')->toBase();
+        $total = \Illuminate\Support\Facades\DB::query()->fromSub($ids, 'visible_products')->count();
+
+        $stock = fn () => \Illuminate\Support\Facades\DB::table('inventory_stock')
+            ->whereIn('inventory_stock.inventory_item_id', clone $ids)
+            ->when($visible !== null, fn ($q) => $q->whereIn('inventory_stock.inventory_location_id', $visible));
+
+        $here = (clone $stock())->where('inventory_location_id', $location)->distinct()->count('inventory_item_id');
+        if ($here >= $total) {
+            return null;
+        }
+
+        $notHere = fn ($q) => $q->whereNotIn('inventory_stock.inventory_item_id',
+            \Illuminate\Support\Facades\DB::table('inventory_stock')->select('inventory_item_id')->where('inventory_location_id', $location));
+
+        $elsewhere = $notHere($stock())
+            ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+            ->where('inventory_stock.quantity', '>', 0)
+            ->groupBy('inventory_locations.id', 'inventory_locations.name')
+            ->selectRaw('inventory_locations.name, COUNT(DISTINCT inventory_stock.inventory_item_id) as items')
+            ->orderByDesc('items')
+            ->limit(4)
+            ->get()
+            ->mapWithKeys(fn ($row) => [$row->name => (int) $row->items])
+            ->all();
+
+        $stockedElsewhere = $notHere($stock())->where('inventory_stock.quantity', '>', 0)->distinct()->count('inventory_stock.inventory_item_id');
+
+        return [
+            'here' => $here,
+            'total' => $total,
+            'elsewhere' => $elsewhere,
+            'unstocked' => max(0, $total - $here - $stockedElsewhere),
+        ];
+    }
+
     protected function locationIsVisible(): bool
     {
         return ctype_digit($this->inventoryLocation)

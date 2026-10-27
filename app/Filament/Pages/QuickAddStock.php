@@ -39,6 +39,7 @@ class QuickAddStock extends Page
     {
         return InventoryLocation::query()
             ->where('status', 'active')
+            ->whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))
             ->inChannelContext()
             ->orderBy('name')
             ->get(['id', 'name', 'type']);

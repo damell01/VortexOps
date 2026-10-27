@@ -140,6 +140,7 @@ class InventoryQuickStockModal extends Component
         }
 
         $location = InventoryLocation::findOrFail((int) $data['locationId']);
+        \App\Support\StockGate::authorize($location);
         $reason = trim((string) ($data['reason'] ?? ''));
 
         if (! empty($data['vendorId'])) {
@@ -174,8 +175,10 @@ class InventoryQuickStockModal extends Component
 
     private function defaultLocationId(): ?int
     {
+        $changeable = \App\Support\StockGate::changeableIds(auth()->user());
         $id = InventoryLocation::query()
             ->where('status', 'active')
+            ->whereIn('id', $changeable)
             ->where('type', 'main_storage')
             ->orderBy('id')
             ->value('id');
@@ -186,6 +189,7 @@ class InventoryQuickStockModal extends Component
             ->value('id');
 
         $id ??= InventoryLocation::defaultReceivingId();
+        $id = in_array((int) $id, $changeable, true) ? $id : ($changeable[0] ?? null);
 
         return $id ? (int) $id : null;
     }
@@ -193,7 +197,7 @@ class InventoryQuickStockModal extends Component
     public function render()
     {
         return view('livewire.inventory-quick-stock-modal', [
-            'locations' => InventoryLocation::activeOptions(),
+            'locations' => \App\Support\StockGate::filter(InventoryLocation::activeOptions()),
             'vendors' => Vendor::activeOptions(),
         ]);
     }

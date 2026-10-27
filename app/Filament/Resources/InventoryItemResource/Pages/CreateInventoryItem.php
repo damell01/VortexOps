@@ -311,6 +311,7 @@ class CreateInventoryItem extends CreateRecord
 
         try {
             $location = InventoryLocation::findOrFail($locationId);
+            \App\Support\StockGate::authorize($location);
 
             app(InventoryService::class)->addStock(
                 $this->record,

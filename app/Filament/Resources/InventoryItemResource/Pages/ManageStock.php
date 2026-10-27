@@ -43,9 +43,11 @@ class ManageStock extends Page
     {
         $this->record = $this->resolveRecord($record);
         $this->authorize('view', $this->record);
-        $this->fromLocationId = $this->stockRows()[0]['location_id'] ?? null;
+        $rows = $this->stockRows();
+        $mine = array_values(array_filter($rows, fn ($row) => array_key_exists((int) $row['location_id'], $this->sourceOptions)));
+        $this->fromLocationId = $mine[0]['location_id'] ?? array_key_first($this->sourceOptions) ?? ($rows[0]['location_id'] ?? null);
 
-        if (InventoryVisibility::destinationFor(auth()->user())) {
+        if (InventoryVisibility::destinationFor(auth()->user()) && array_diff_key($this->sourceOptions, array_flip(InventoryVisibility::ownLocationIds(auth()->user()))) !== []) {
             $this->operation = self::SEND;
         }
 
@@ -55,7 +57,8 @@ class ManageStock extends Page
     /** Streamer assistants see where the stock is; changing it stays with admins. */
     public function canChange(): bool
     {
-        return InventoryItemResource::canManageStock() || ! (auth()->user()?->isStreamerAssistant() ?? false);
+        return (InventoryItemResource::canManageStock() || ! (auth()->user()?->isStreamerAssistant() ?? false))
+            && $this->sourceOptions !== [];
     }
 
     public function getSubheading(): ?string
@@ -98,7 +101,8 @@ class ManageStock extends Page
         return 0.0;
     }
 
-    public function getSourceOptionsProperty(): array
+    /** Visible, active locations: where stock can be moved to. */
+    private function visibleOptions(): array
     {
         $visible = InventoryVisibility::locationIdsFor(auth()->user());
 
@@ -109,6 +113,12 @@ class ManageStock extends Page
             ->all();
     }
 
+    /** Where stock can be corrected or taken from: only locations this person runs (StockGate). */
+    public function getSourceOptionsProperty(): array
+    {
+        return \App\Support\StockGate::filter($this->visibleOptions());
+    }
+
     public function getDestinationOptionsProperty(): array
     {
         if ($this->operation === self::SEND) {
@@ -116,7 +126,7 @@ class ManageStock extends Page
             return $own ? [$own->id => $own->name] : [];
         }
 
-        return array_diff_key($this->sourceOptions, [$this->fromLocationId => true]);
+        return array_diff_key($this->visibleOptions(), [$this->fromLocationId => true]);
     }
 
     public function getAdjustmentTypeOptionsProperty(): array

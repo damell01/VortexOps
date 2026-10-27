@@ -18,7 +18,7 @@
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white {{ $canChange ? 'lg:col-span-1' : '' }} dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Stock on hand now</h2>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $canChange ? 'Choose the location you are physically changing.' : 'View only — ask an admin to add or move stock.' }}</p>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $canChange ? 'Choose the location you are physically changing. Only locations you run can be changed.' : 'View only — only the people who run these locations can change their stock.' }}</p>
             </div>
 
             @forelse ($rows as $row)
@@ -58,7 +58,7 @@
                     \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::ADJUST => 'Correct / remove',
                     \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::TRANSFER => 'Move stock',
                 ])
-                @if (\App\Support\InventoryVisibility::destinationFor(auth()->user()))
+                @if (\App\Support\InventoryVisibility::destinationFor(auth()->user()) && array_diff_key($this->sourceOptions, array_flip(\App\Support\InventoryVisibility::ownLocationIds(auth()->user()))) !== [])
                     @php($ops[\App\Filament\Resources\InventoryItemResource\Pages\ManageStock::SEND] = 'Send to me')
                 @endif
 

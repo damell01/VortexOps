@@ -59,7 +59,7 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <label>
                     <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Location</span>
-                    <select wire:model="data.location_id" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm"><option value="">No starting stock</option>@foreach(\App\Models\InventoryLocation::activeOptions() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+                    <select wire:model="data.location_id" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm"><option value="">No starting stock</option>@foreach(\App\Support\StockGate::filter(\App\Models\InventoryLocation::activeOptions()) as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
                 </label>
                 <label>
                     <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Quantity</span>

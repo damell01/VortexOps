@@ -420,6 +420,8 @@ class ListInventoryItems extends ListRecords
                     ->value('id');
 
                 $mainLocationId ??= InventoryLocation::defaultReceivingId();
+                $changeable = \App\Support\StockGate::changeableIds(auth()->user());
+                if (! in_array((int) $mainLocationId, $changeable, true)) $mainLocationId = $changeable[0] ?? null;
 
                 $form->fill([
                     'location_id' => $mainLocationId,

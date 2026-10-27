@@ -208,7 +208,7 @@ class ManageStockPageTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $this->stockAt($this->back), 0.01);
     }
 
-    public function test_a_streamer_can_only_send_to_their_own_inventory(): void
+    public function test_a_streamer_can_only_change_their_own_inventory(): void
     {
         $streamerUser = User::factory()->create();
         $streamerUser->assignRole('streamer');
@@ -224,10 +224,10 @@ class ManageStockPageTest extends TestCase
 
         $page = Livewire::test(ManageStock::class, ['record' => $this->item->id]);
 
-        // It opens on the operation that is theirs, and the only place they can
-        // send anything is their own shelf.
-        $page->assertSet('operation', ManageStock::SEND);
-        $this->assertSame([$mine->id => 'My Shelf'], $page->instance()->destinationOptions);
+        // Main is the business's (App\Support\StockGate): nothing to take from
+        // there, and nothing of theirs here, so the page is view-only.
+        $this->assertSame([$mine->id => 'My Shelf'], $page->instance()->sourceOptions);
+        $page->assertSet('operation', ManageStock::ADJUST);
     }
 
     private function stockAt(InventoryLocation $location): float

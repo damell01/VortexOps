@@ -223,6 +223,24 @@
         </section>
 
         <aside class="vxw-aside">
+            <section class="vxw-card" data-vx-tip-channels>
+                <div class="vxw-card-head">
+                    <h3 class="vxw-h2">Tips by channel</h3>
+                    <span class="vxw-pill">{{ $money(array_sum(array_column($tipChannels, 'net')) / 100) }}</span>
+                </div>
+                <div class="vxw-card-body">
+                    @if($tipChannels)
+                        <dl class="vxw-dl">
+                            @foreach($tipChannels as $channel)
+                                <div><dt>{{ $channel['channel'] }}</dt><dd>{{ $money($channel['net'] / 100) }}</dd></div>
+                            @endforeach
+                        </dl>
+                    @else
+                        <div class="vxw-meta">No tips imported for these dates.</div>
+                    @endif
+                    <p class="vxw-meta mt-2">Whatnot tips per channel, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}, every business together. For reference only: not split by business or added to pay.</p>
+                </div>
+            </section>
             @if($transfer = \App\Support\BusinessTransfer::forRun($run))
             @php $signed = fn ($v) => ((float) $v < 0 ? '−' : '') . '$' . number_format(abs((float) $v), 2); @endphp
             <section class="vxw-card" data-vx-transfer>
@@ -242,38 +260,6 @@
                 </div>
             </section>
             @endif
-            <section class="vxw-card">
-                <div class="vxw-card-head">
-                    <h3 class="vxw-h2">Readiness</h3>
-                    <span class="vxw-pill vxw-pill--{{ count($problems) ? 'warn' : 'ok' }}">{{ count($problems) }} {{ \Illuminate\Support\Str::plural('issue', count($problems)) }}</span>
-                </div>
-                <div class="vxw-card-body">
-                    @if($problems)
-                        <ul class="vxw-issues">@foreach($problems as $problem)<li>{{ $problem }}</li>@endforeach</ul>
-                        <a href="{{ $blockedUrl }}" class="vxw-btn vxw-btn--sm vxw-btn--block mt-3">Open blocked shows</a>
-                    @else
-                        <div class="vxw-meta vxw-tone-ok">{{ $run->status === 'draft' ? 'Nothing blocks this run.' : 'Checks passed when this run was finalized.' }}</div>
-                    @endif
-                </div>
-            </section>
-            <section class="vxw-card" data-vx-tip-channels>
-                <div class="vxw-card-head">
-                    <h3 class="vxw-h2">Tips by channel</h3>
-                    <span class="vxw-pill">{{ $money(array_sum(array_column($tipChannels, 'net')) / 100) }}</span>
-                </div>
-                <div class="vxw-card-body">
-                    @if($tipChannels)
-                        <dl class="vxw-dl">
-                            @foreach($tipChannels as $channel)
-                                <div><dt>{{ $channel['channel'] }}</dt><dd>{{ $money($channel['net'] / 100) }}</dd></div>
-                            @endforeach
-                        </dl>
-                    @else
-                        <div class="vxw-meta">No tips imported for these dates.</div>
-                    @endif
-                    <p class="vxw-meta mt-2">Whatnot tips per channel, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}, every business together. For reference only: not split by business or added to pay.</p>
-                </div>
-            </section>
             <section class="vxw-card">
                 <details class="vxw-disclose">
                     <summary class="vxw-card-head" style="border-bottom:0">

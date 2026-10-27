@@ -4,7 +4,7 @@
 @php($isSend = $operation === \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::SEND)
 @php($canChange = $this->canChange())
 
-<div class="space-y-3 sm:space-y-5">
+<div class="space-y-3 {{ $canChange ? 'pb-24' : '' }} sm:space-y-5 sm:pb-0">
     @if ($canChange)
     <div class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-900 dark:bg-violet-950/40 sm:px-5">
         <p class="text-sm font-semibold text-violet-950 dark:text-violet-100">What are you trying to do?</p>
@@ -145,7 +145,7 @@
 
                 @if($errors->any())<p role="alert" class="text-sm text-red-600 dark:text-red-400">{{ $errors->first() }}</p>@endif
 
-                <div class="flex flex-wrap justify-end gap-2 pt-3">
+                <div class="hidden justify-end gap-2 pt-1 sm:flex">
                     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $this->record]) }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-200">Cancel</a>
                     <button type="button" wire:click="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-violet-700 disabled:opacity-60">
                         <span wire:loading.remove wire:target="submit">{{ $isAdjust ? 'Save Correction' : 'Move Inventory' }}</span>
@@ -158,4 +158,15 @@
     </div>
 </div>
 
+@if ($canChange)
+<div data-vx-mobile-actions class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden">
+    <div class="flex gap-2">
+        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $this->record]) }}" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">Cancel</a>
+        <button type="button" wire:click="submit" wire:loading.attr="disabled" class="inline-flex min-h-11 flex-[1.4] items-center justify-center rounded-lg bg-violet-600 px-3 text-sm font-semibold text-white disabled:opacity-60">
+            <span wire:loading.remove wire:target="submit">{{ $isAdjust ? 'Save Correction' : 'Move Inventory' }}</span>
+            <span wire:loading wire:target="submit">Working…</span>
+        </button>
+    </div>
+</div>
+@endif
 </x-filament-panels::page>

@@ -30,6 +30,7 @@ class InventoryOverview extends Page
     #[Url(as: 'tab')] public string $tab = 'overview';
     #[Url(as: 'days')] public int $trendDays = 30;
     #[Url(as: 'loc')] public string $reportLocation = '';
+    #[Url(as: 'overview_loc')] public string $overviewLocation = '';
     #[Url(as: 'cat')] public string $reportCategory = '';
     public string $reportSearch = '';
     public int $reportLimit = 25;
@@ -64,12 +65,31 @@ class InventoryOverview extends Page
         return 'filament.pages.inventory-overview';
     }
 
+    public function updatedOverviewLocation(): void
+    {
+        if ($this->overviewLocation !== '' && ! $this->reportLocations->has((int) $this->overviewLocation)) {
+            $this->overviewLocation = '';
+        }
+        unset($this->inventorySnapshot, $this->topValueItems, $this->recentRestocks, $this->recentMovements);
+    }
+
+    private function overviewItemsQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = InventoryItemResource::getEloquentQuery();
+        if ($this->overviewLocation !== '' && $this->reportLocations->has((int) $this->overviewLocation)) {
+            $id = (int) $this->overviewLocation;
+            $query->withSum(['stock as location_stock_quantity' => fn ($stock) => $stock->where('inventory_location_id', $id)], 'quantity');
+        }
+
+        return $query;
+    }
+
     #[Computed]
     public function inventorySnapshot(): array
     {
         // The overview only needs stock, reorder level and cost. Avoid eager
         // loading vendor models and wide product rows on every dashboard visit.
-        $items = InventoryItemResource::getEloquentQuery()
+        $items = $this->overviewItemsQuery()
             ->get(['products.id', 'products.reorder_level', 'products.average_cost', 'products.unit_cost']);
 
         $total = $items->count();
@@ -80,7 +100,7 @@ class InventoryOverview extends Page
         $units = 0.0;
 
         foreach ($items as $item) {
-            $onHand = (float) ($item->stock_sum_quantity ?? 0);
+            $onHand = (float) ($this->overviewLocation !== '' ? ($item->location_stock_quantity ?? 0) : ($item->stock_sum_quantity ?? 0));
             $units += max(0, $onHand);
             $value += max(0, $onHand) * $item->effectiveCost();
 
@@ -121,6 +141,7 @@ class InventoryOverview extends Page
         $movements = InventoryMovement::query()
             ->inChannelContext()
             ->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])
+            ->when($this->overviewLocation !== '', fn ($q) => $q->where(fn ($locations) => $locations->where('from_location_id', (int) $this->overviewLocation)->orWhere('to_location_id', (int) $this->overviewLocation)))
             ->latest()
             // Pull extra raw rows because one pallet receipt may have hundreds
             // of one-case movement rows. The dashboard shows business actions,
@@ -137,6 +158,7 @@ class InventoryOverview extends Page
         $movements = InventoryMovement::query()
             ->inChannelContext()
             ->whereIn('movement_type', ['opening', 'return'])
+            ->when($this->overviewLocation !== '', fn ($q) => $q->where('to_location_id', (int) $this->overviewLocation))
             ->with(['item', 'toLocation', 'createdByUser'])
             ->latest()
             ->limit(80)
@@ -223,10 +245,10 @@ class InventoryOverview extends Page
     #[Computed]
     public function topValueItems(): Collection
     {
-        return InventoryItemResource::getEloquentQuery()
+        return $this->overviewItemsQuery()
             ->get(['products.id', 'products.name', 'products.sku', 'products.average_cost', 'products.unit_cost'])
             ->map(function ($item) {
-                $quantity = max(0, (float) ($item->stock_sum_quantity ?? 0));
+                $quantity = max(0, (float) ($this->overviewLocation !== '' ? ($item->location_stock_quantity ?? 0) : ($item->stock_sum_quantity ?? 0)));
                 return [
                     'id' => $item->id,
                     'name' => $item->name,

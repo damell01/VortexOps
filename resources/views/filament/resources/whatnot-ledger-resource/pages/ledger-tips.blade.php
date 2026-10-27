@@ -74,6 +74,17 @@
             @foreach ($this->getErrorBag()->all() as $error)<p role="alert" class="vxt-error">{{ $error }}</p>@endforeach
         </section>
         @if ($report)
+            @php
+                $reviewRows = collect($report['rows'])->filter(fn ($row) => $row['business'] === 'Unassigned business');
+                $reviewCount = $reviewRows->sum('entries') + ($report['unassigned_total']['entries'] ?? 0);
+                $reviewNet = $reviewRows->sum('net') + ($report['unassigned_total']['net'] ?? 0);
+            @endphp
+            @if($reviewCount > 0)
+                <div class="vxw-alert vxw-alert--warn" role="status"><div>
+                    <strong>{{ number_format($reviewCount) }} tip transactions need business attribution review</strong>
+                    <p>Net ${{ number_format($reviewNet / 100, 2) }} is not verified for a business. These tips are not automatically allocated or paid.</p>
+                </div></div>
+            @endif
             <div class="vxt-stats" aria-label="Tip totals">
                 @foreach ([
                     ['Tip credits', 'credits', 'Imported positive amounts', 'accent'],

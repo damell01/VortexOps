@@ -109,6 +109,18 @@ class LedgerTips extends Page
         return app(LedgerTipReport::class)->between($from->toDateString(), $until->toDateString(), $this->channel, $this->business);
     }
 
+    public function streamerTotals(): array
+    {
+        try {
+            $this->validateFilters();
+        } catch (ValidationException $exception) {
+            return [];
+        }
+        [$from, $until] = $this->range();
+
+        return app(LedgerTipReport::class)->byStreamer($from->toDateString(), $until->toDateString(), $this->channel);
+    }
+
     public function resetFilters(): void
     {
         $this->period = 'week';

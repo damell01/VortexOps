@@ -2,23 +2,33 @@
 @php($rows = $this->rows)
 @php($isAdjust = $operation === \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::ADJUST)
 @php($isSend = $operation === \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::SEND)
+@php($canChange = $this->canChange())
 
-<div class="space-y-3 pb-24 sm:space-y-5 sm:pb-0">
+<div class="space-y-3 {{ $canChange ? 'pb-24' : '' }} sm:space-y-5 sm:pb-0">
+    @if ($canChange)
     <div class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-900 dark:bg-violet-950/40 sm:px-5">
         <p class="text-sm font-semibold text-violet-950 dark:text-violet-100">What are you trying to do?</p>
         <p class="mt-1 text-xs leading-5 text-violet-800 dark:text-violet-300 sm:text-sm">
             <strong>Correct / remove</strong> when the count is wrong, damaged, lost, used, or given away. <strong>Move stock</strong> when the quantity is right but the item changed locations. Every change is saved to inventory history.
         </p>
     </div>
+    @endif
 
-    <div class="grid gap-3 sm:gap-5 lg:grid-cols-3">
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:col-span-1 dark:border-gray-700 dark:bg-gray-900">
+    <div class="grid gap-3 sm:gap-5 {{ $canChange ? 'lg:grid-cols-3' : '' }}">
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white {{ $canChange ? 'lg:col-span-1' : '' }} dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Stock on hand now</h2>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Choose the location you are physically changing.</p>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $canChange ? 'Choose the location you are physically changing.' : 'View only — ask an admin to add or move stock.' }}</p>
             </div>
 
             @forelse ($rows as $row)
+                @if (! $canChange)
+                <div class="flex w-full items-center justify-between border-b border-gray-50 px-4 py-3 last:border-0 dark:border-gray-800/60 sm:px-5">
+                    <span class="block min-w-0 truncate text-xs font-medium text-gray-800 dark:text-gray-200 sm:text-sm">{{ $row['location'] }}</span>
+                    <span class="ml-3 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">{{ number_format($row['quantity']) }}</span>
+                </div>
+                @continue
+                @endif
                 <button type="button" wire:click="$set('fromLocationId', {{ $row['location_id'] }})"
                     class="flex w-full items-center justify-between border-b border-gray-50 px-4 py-3 text-left last:border-0 dark:border-gray-800/60 sm:px-5 {{ $row['location_id'] === $fromLocationId ? 'bg-violet-50/80 ring-1 ring-inset ring-violet-200 dark:bg-violet-950/30 dark:ring-violet-900' : 'hover:bg-gray-50 dark:hover:bg-gray-800/40' }}">
                     <span class="min-w-0">
@@ -41,6 +51,7 @@
             @endif
         </div>
 
+        @if ($canChange)
         <div class="space-y-3 sm:space-y-4 lg:col-span-2">
             <div class="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
                 @php($ops = [
@@ -141,9 +152,11 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 </div>
 
+@if ($canChange)
 <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden">
     <div class="flex gap-2">
         <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $this->record]) }}" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">Cancel</a>
@@ -153,4 +166,5 @@
         </button>
     </div>
 </div>
+@endif
 </x-filament-panels::page>

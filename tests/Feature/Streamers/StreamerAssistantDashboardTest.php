@@ -111,26 +111,33 @@ class StreamerAssistantDashboardTest extends TestCase
         $this->get(\App\Filament\Resources\ShowResource::getUrl('index', ['table' => 1]))->assertOk();
     }
 
-    public function test_they_can_add_and_move_stock_but_not_edit_items(): void
+    public function test_they_only_view_stock(): void
     {
         $main = \App\Models\InventoryLocation::create(['name' => 'Main Storage', 'type' => 'main_storage', 'status' => 'active']);
         $item = \App\Models\InventoryItem::create(['name' => 'Hobby Box', 'sku' => 'HB-1', 'barcode' => '0001', 'unit_cost' => 10, 'is_active' => true]);
         \App\Models\InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $main->id, 'quantity' => 2]);
 
-        $this->assertTrue(InventoryItemResource::canManageStock());
-        $this->assertTrue(StockTransfer::canAccess());
-        $this->assertTrue(\App\Filament\Pages\QuickAddStock::canAccess());
+        $this->assertFalse(InventoryItemResource::canManageStock());
         $this->assertFalse(InventoryItemResource::canEdit($item));
         $this->assertFalse(InventoryItemResource::canDeleteAny());
+        $this->get(StockTransfer::getUrl())->assertForbidden();
+        $this->get(\App\Filament\Pages\QuickAddStock::getUrl())->assertForbidden();
 
         Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
-            ->assertSee('Add stock')
-            ->callAction('add_stock', ['location_id' => $main->id, 'quantity' => 6, 'movement_type' => 'opening'], ['product' => $item->id])
-            ->assertHasNoActionErrors();
-        $this->assertSame(8.0, (float) \App\Models\InventoryStock::where('inventory_item_id', $item->id)->value('quantity'));
+            ->assertSee('Hobby Box')
+            ->assertDontSee('Add stock');
 
         Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ViewInventoryItem::class, ['record' => $item])
-            ->assertActionVisible('add_stock')
+            ->assertActionHidden('add_stock')
             ->assertActionHidden('edit');
+
+        Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ManageStock::class, ['record' => $item->id])
+            ->assertSee('Main Storage')
+            ->assertSee('View only')
+            ->assertDontSee('Move Inventory')
+            ->set('operation', 'transfer')
+            ->call('submit')
+            ->assertForbidden();
+        $this->assertSame(2.0, (float) \App\Models\InventoryStock::where('inventory_item_id', $item->id)->value('quantity'));
     }
 }

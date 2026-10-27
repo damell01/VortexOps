@@ -256,15 +256,14 @@ class InventoryItemResource extends Resource
     }
 
     /**
-     * Adding stock and moving it between locations. Admins, the owner and
-     * streamer assistants, who restock and move product for their streamers;
-     * editing an item's details, deleting it, and damage/returns stay admin.
+     * Adding stock and moving it between locations. Admins and the owner;
+     * streamer assistants only look stock up.
      */
     public static function canManageStock(): bool
     {
         $user = auth()->user();
 
-        return (bool) ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamerAssistant());
+        return (bool) (($user?->isAdmin() || $user?->isOwner()) && ! $user->isStreamerAssistant());
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

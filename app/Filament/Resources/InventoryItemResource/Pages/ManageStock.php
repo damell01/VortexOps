@@ -52,8 +52,18 @@ class ManageStock extends Page
         $this->syncFromLocation();
     }
 
+    /** Streamer assistants see where the stock is; changing it stays with admins. */
+    public function canChange(): bool
+    {
+        return InventoryItemResource::canManageStock() || ! (auth()->user()?->isStreamerAssistant() ?? false);
+    }
+
     public function getSubheading(): ?string
     {
+        if (! $this->canChange()) {
+            return $this->record->name . ' — where it is and how many are on hand.';
+        }
+
         return $this->record->name . ' — every change here is written to this item’s history.';
     }
 
@@ -201,6 +211,8 @@ class ManageStock extends Page
 
     public function submit(): void
     {
+        abort_unless($this->canChange(), 403);
+
         $service = app(InventoryService::class);
 
         try {

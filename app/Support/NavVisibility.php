@@ -55,8 +55,6 @@ class NavVisibility
             \App\Filament\Resources\InventoryItemResource::class,
             \App\Filament\Resources\InventoryLocationResource::class,
             \App\Filament\Pages\InventorySearch::class,
-            \App\Filament\Pages\QuickAddStock::class,
-            \App\Filament\Pages\StockTransfer::class,
             \App\Filament\Pages\InventoryGuide::class,
             \App\Filament\Pages\Handbook::class,
             \App\Filament\Pages\HowItWorks::class,
@@ -177,10 +175,8 @@ class NavVisibility
             \App\Filament\Resources\ShowResource::class,
             // The calendar is their show view: All Shows opens it.
             \App\Filament\Pages\Shows::class,
-            // They look stock up, add it and move it for their streamers.
+            // They look stock up; adding and moving it stays with admins.
             \App\Filament\Resources\InventoryItemResource::class,
-            \App\Filament\Pages\QuickAddStock::class,
-            \App\Filament\Pages\StockTransfer::class,
             \App\Filament\Pages\Timekeeping::class,
             \App\Filament\Pages\ShowLeaderboard::class,
             \App\Filament\Pages\MyPay::class,

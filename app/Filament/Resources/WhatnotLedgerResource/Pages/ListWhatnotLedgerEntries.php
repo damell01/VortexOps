@@ -60,6 +60,9 @@ class ListWhatnotLedgerEntries extends Page
     #[Url(as: 'status')]
     public string $status = '';
 
+    #[Url(as: 'review')]
+    public string $review = 'all';
+
     #[Url(as: 'q')]
     public string $search = '';
 
@@ -110,7 +113,7 @@ class ListWhatnotLedgerEntries extends Page
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'search', 'perPage'], true)) {
+        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'review', 'search', 'perPage'], true)) {
             if ($property === 'from' || $property === 'until') {
                 $this->preset = 'custom';
             }
@@ -131,6 +134,9 @@ class ListWhatnotLedgerEntries extends Page
         $this->dir = $this->dir === 'asc' ? 'asc' : 'desc';
         if (! in_array($this->perPage, [5, 10, 25, 50], true)) {
             $this->perPage = 25;
+        }
+        if (! in_array($this->review, ['all', 'tips_missing_order'], true)) {
+            $this->review = 'all';
         }
         if ($this->channel !== 'all' && $this->channel !== 'unassigned' && ! ctype_digit($this->channel)) {
             $this->channel = 'all';
@@ -172,6 +178,7 @@ class ListWhatnotLedgerEntries extends Page
         $this->preset = 'all';
         $this->from = $this->until = null;
         $this->type = $this->status = $this->search = '';
+        $this->review = 'all';
         $this->pageNo = 1;
     }
 
@@ -203,6 +210,9 @@ class ListWhatnotLedgerEntries extends Page
             ->when(ctype_digit($this->channel), fn (Builder $q) => $q->where('whatnot_channel_id', (int) $this->channel))
             ->when($from, fn (Builder $q) => $q->whereDate('created_date', '>=', $from->toDateString()))
             ->when($until, fn (Builder $q) => $q->whereDate('created_date', '<=', $until->toDateString()))
+            ->when($this->review === 'tips_missing_order', fn (Builder $q) => $q
+                ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                ->where(fn (Builder $missing) => $missing->whereNull('whatnot_order_id')->orWhereIn('whatnot_order_id', ['', '-'])))
             ->when($this->type !== '', fn (Builder $q) => $q->where('transaction_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
             ->when(trim($this->search) !== '', function (Builder $q) {

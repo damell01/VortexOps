@@ -46,6 +46,22 @@ class InventoryReport extends Page
 
     protected ?array $viewerDataCache = null;
 
+    public function mount(): void
+    {
+        $this->reportLocation = $this->defaultReportLocation();
+    }
+
+    private function defaultReportLocation(): string
+    {
+        $main = InventoryLocation::mainId();
+        if ($main === null) return '';
+        $location = InventoryLocation::visibleTo()->where('status', 'active')->find($main);
+        if (! $location) return '';
+        if (\App\Support\ChannelContext::isScoped()
+            && (int) $location->whatnot_channel_id !== (int) \App\Support\ChannelContext::currentId()) return '';
+        return $location->name;
+    }
+
     public function getView(): string
     {
         return 'filament.pages.inventory-report';
@@ -152,7 +168,7 @@ class InventoryReport extends Page
         $this->viewerDataCache = null;
         $this->reportSearch = '';
         $this->reportCategory = '';
-        $this->reportLocation = '';
+        $this->reportLocation = $this->defaultReportLocation();
         $this->reportStock = '';
         $this->reportSort = 'value';
 

@@ -16,7 +16,7 @@ class InventoryDashboard extends Component
     public function render()
     {
         $currentSnapshot = InventorySnapshot::latest('snapshot_date')->first();
-        if (!$currentSnapshot || $currentSnapshot->snapshot_date->diffInHours(now()) > 1) {
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user()) || !$currentSnapshot || $currentSnapshot->snapshot_date->diffInHours(now()) > 1) {
             $currentSnapshot = InventorySnapshot::generateCurrent();
         }
 

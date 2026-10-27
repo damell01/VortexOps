@@ -263,8 +263,8 @@ class InventoryReport extends Page
             ->values()
             ->map(fn ($snapshot) => [
                 'date' => $snapshot->snapshot_date->format('M d'),
-                'value' => (float) $snapshot->total_value,
-            ]);
+                'value' => $snapshot->visibleValueFor(auth()->user()),
+            ])->filter(fn ($point) => $point['value'] !== null)->values();
 
         // The same stock rows the products above were loaded with (same
         // channel and location constraints) — re-querying them, with every

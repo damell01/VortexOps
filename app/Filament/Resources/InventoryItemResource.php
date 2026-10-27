@@ -1150,9 +1150,10 @@ class InventoryItemResource extends Resource
                 // getEloquentQuery()'s visibility scope is what remains.
                 Filter::make('mine_only')
                     ->label('My inventory only')
-                    ->visible(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user()))
-                    ->default()
+                    ->visible(fn () => \App\Support\InventoryVisibility::isReadOnlyStreamer())
+                    ->default(fn () => \App\Support\InventoryVisibility::isReadOnlyStreamer())
                     ->query(function (Builder $query) {
+                        if (! \App\Support\InventoryVisibility::isReadOnlyStreamer()) return $query;
                         $user = auth()->user();
                         $own  = $user ? \App\Support\InventoryVisibility::ownLocationIds($user) : [];
 

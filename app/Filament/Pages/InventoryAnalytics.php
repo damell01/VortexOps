@@ -452,6 +452,8 @@ class InventoryAnalytics extends Page
     /** @return array<int, array{date: Carbon, value: float}> */
     protected function snapshotSeries(): array
     {
+        // These snapshots are organization totals, with no location breakdown.
+        if (\App\Support\InventoryVisibility::isLimited(auth()->user())) return [];
         if ($this->snapshotMemo !== null) {
             return $this->snapshotMemo;
         }
@@ -489,6 +491,8 @@ class InventoryAnalytics extends Page
         $start   = $today->copy()->subDays(self::TREND_DAYS);
         $current = (float) $this->getSummary()['total_value'];
 
+        $locationSql = $locationIds->map(fn ($id) => (int) $id)->implode(',');
+
         // Net value change per day across the window.
         $deltas = InventoryMovement::query()
             ->where('inventory_movements.created_at', '>=', $start)
@@ -499,13 +503,9 @@ class InventoryAnalytics extends Page
             ->leftJoin('products', 'products.id', '=', 'inventory_movements.inventory_item_id')
             ->selectRaw('DATE(inventory_movements.created_at) as day')
             ->selectRaw(
-                'SUM(CASE
-                        WHEN inventory_movements.to_location_id IS NOT NULL AND inventory_movements.from_location_id IS NULL
-                            THEN inventory_movements.quantity
-                        WHEN inventory_movements.from_location_id IS NOT NULL AND inventory_movements.to_location_id IS NULL
-                            THEN -inventory_movements.quantity
-                        ELSE 0
-                     END * COALESCE(inventory_movements.unit_cost, products.average_cost, 0)) as delta'
+                'SUM((CASE WHEN inventory_movements.to_location_id IN (' . $locationSql . ') THEN inventory_movements.quantity ELSE 0 END
+                    - CASE WHEN inventory_movements.from_location_id IN (' . $locationSql . ') THEN inventory_movements.quantity ELSE 0 END)
+                    * COALESCE(inventory_movements.unit_cost, products.average_cost, 0)) as delta'
             )
             ->groupBy('day')
             ->pluck('delta', 'day')

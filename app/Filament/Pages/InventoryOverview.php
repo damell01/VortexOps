@@ -201,8 +201,8 @@ class InventoryOverview extends Page
             ->values()
             ->map(fn ($snapshot) => [
                 'date' => $snapshot->snapshot_date->format('M j'),
-                'value' => (float) $snapshot->total_value,
-            ]);
+                'value' => $snapshot->visibleValueFor(auth()->user()),
+            ])->filter(fn ($point) => $point['value'] !== null)->values();
     }
 
     #[Computed]

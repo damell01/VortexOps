@@ -18,12 +18,16 @@ class InventoryOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $cacheKey = 'widget:inventory_overview:' . (ChannelContext::currentId() ?? 'all');
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        $cacheKey = 'widget:inventory_overview:' . (ChannelContext::currentId() ?? 'all')
+            . ':locations:' . ($visible === null ? 'all' : sha1(json_encode($visible)));
 
         [$totalQty, $totalItems, $lowStockCount, $activeLocations, $activeStreamers, $inventoryValue] =
-            Cache::remember($cacheKey, 300, function () {
+            Cache::remember($cacheKey, 300, function () use ($visible) {
                 $inventoryValue = \Illuminate\Support\Facades\DB::table('inventory_stock')
                     ->join('products', 'inventory_stock.inventory_item_id', '=', 'products.id')
+                    ->whereNull('products.deleted_at')
+                    ->when($visible !== null, fn ($q) => $q->whereIn('inventory_stock.inventory_location_id', $visible))
                     ->whereNotNull('products.average_cost')
                     ->where('products.average_cost', '>', 0)
                     ->when(ChannelContext::isScoped(), fn ($q) => $q
@@ -34,7 +38,7 @@ class InventoryOverviewWidget extends BaseWidget
 
                 return [
                     InventoryStock::query()->inChannelContext()->sum('quantity'),
-                    InventoryItem::where('is_active', true)
+                    \App\Filament\Resources\InventoryItemResource::getEloquentQuery()->where('is_active', true)
                         ->when(ChannelContext::isScoped(), fn ($q) => $q->whereHas('stock.location', fn ($q2) =>
                             $q2->where('whatnot_channel_id', ChannelContext::currentId())
                         ))
@@ -44,6 +48,7 @@ class InventoryOverviewWidget extends BaseWidget
                         ->whereExists(fn ($q) => $q->selectRaw('1')
                             ->from('inventory_stock')
                             ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                            ->when($visible !== null, fn ($q) => $q->whereIn('inventory_stock.inventory_location_id', $visible))
                             ->when(ChannelContext::isScoped(), fn ($q2) => $q2
                                 ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
                                 ->where('inventory_locations.whatnot_channel_id', ChannelContext::currentId()))
@@ -58,7 +63,7 @@ class InventoryOverviewWidget extends BaseWidget
 
         return [
             Stat::make('Total Units in Stock', number_format($totalQty, 0))
-                ->description('Across all locations')
+                ->description('Across visible locations')
                 ->icon('heroicon-o-archive-box')
                 ->color('success'),
 

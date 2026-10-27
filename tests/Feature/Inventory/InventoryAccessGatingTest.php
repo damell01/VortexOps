@@ -133,4 +133,44 @@ class InventoryAccessGatingTest extends TestCase
         $this->assertSame(8.0, $this->item->fresh()->totalQuantity());
         $this->assertSame(1, InventoryMovement::count());
     }
+    public function test_visibility_is_cached_per_request_and_invalidated_when_assignments_change(): void
+    {
+        $user = $this->admin();
+        InventoryVisibility::flushMemo();
+        InventoryVisibility::locationIdsFor($user);
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        \Illuminate\Support\Facades\DB::flushQueryLog();
+        $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($user));
+        $this->assertCount(0, \Illuminate\Support\Facades\DB::getQueryLog());
+        $profile = Streamer::create(['name' => 'Assigned Staff', 'member_type' => 'fulfillment', 'user_id' => $user->id, 'status' => 'active']);
+        $mine = InventoryLocation::create(['name' => 'New assignment', 'streamer_id' => $profile->id, 'status' => 'active']);
+        $this->assertContains($mine->id, InventoryVisibility::locationIdsFor($user->fresh()));
+        \Illuminate\Support\Facades\DB::disableQueryLog();
+    }
+
+    public function test_snapshot_breakdown_uses_real_location_ids_and_hides_unscoped_history(): void
+    {
+        $owner = User::factory()->create(['email' => config('app.owner_email')]);
+        $this->actingAs($owner);
+        $this->item->update(['unit_cost' => 2, 'average_cost' => 2]);
+        $snapshot = \App\Models\InventorySnapshot::generateCurrent();
+        $this->assertArrayHasKey($this->main->id, $snapshot->location_breakdown);
+        $admin = $this->admin();
+        $this->assertSame(20.0, $snapshot->visibleValueFor($admin));
+        $legacy = new \App\Models\InventorySnapshot(['total_value' => 999, 'location_breakdown' => ['' => ['value' => 999]]]);
+        $this->assertNull($legacy->visibleValueFor($admin));
+        $this->assertSame(999.0, $legacy->visibleValueFor($owner));
+    }
+
+    public function test_inventory_widget_cache_is_separated_by_visible_locations(): void
+    {
+        $widget = new class extends \App\Filament\Widgets\InventoryOverviewWidget {
+            public function values(): array { return array_map(fn ($stat) => $stat->getValue(), $this->getStats()); }
+        };
+        $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
+        $this->assertSame('110', $widget->values()[0]);
+        $this->admin();
+        $this->assertSame('10', $widget->values()[0]);
+    }
+
 }

@@ -71,7 +71,7 @@ class InventorySnapshot extends Model
             $totalQuantity += (float) $stock->quantity;
 
             // Location breakdown
-            $locId = $stock->location_id;
+            $locId = $stock->inventory_location_id;
             if (! isset($locationBreakdown[$locId])) {
                 $locationBreakdown[$locId] = [
                     'name' => $stock->location->name,
@@ -112,7 +112,7 @@ class InventorySnapshot extends Model
 
             if (! $hasMoved && $stock->quantity > 0) {
                 $slowMovingItems[] = [
-                    'item_id' => $stock->item_id,
+                    'item_id' => $stock->inventory_item_id,
                     'name' => $stock->item->name,
                     'quantity' => (int) $stock->quantity,
                     'value' => $itemValue,
@@ -129,7 +129,7 @@ class InventorySnapshot extends Model
             }
         }
 
-        return self::create([
+        $attributes = [
             'snapshot_date' => now(),
             'total_value' => $totalValue,
             'total_items' => count($seenItems),
@@ -140,7 +140,24 @@ class InventorySnapshot extends Model
             'streamer_breakdown' => $streamerBreakdown,
             'slow_moving_items' => array_slice($slowMovingItems, 0, 10),
             'stock_outs' => array_slice($stockOuts, 0, 10),
-        ]);
+        ];
+
+        // An interactive restricted view must not overwrite the business snapshot.
+        return auth()->check() && \App\Support\InventoryVisibility::isLimited(auth()->user())
+            ? new self($attributes) : self::create($attributes);
+    }
+
+    /** Null means this old snapshot lacks a reliable per-location breakdown. */
+    public function visibleValueFor(?User $user): ?float
+    {
+        $ids = \App\Support\InventoryVisibility::locationIdsFor($user);
+        if ($ids === null) return (float) $this->total_value;
+        $breakdown = $this->location_breakdown ?? [];
+        if ($breakdown === [] && (float) $this->total_value !== 0.0) return null;
+        foreach (array_keys($breakdown) as $id) {
+            if (! ctype_digit((string) $id)) return null;
+        }
+        return (float) collect($breakdown)->only($ids)->sum('value');
     }
 
     private static function calculateAverageMargin(): ?float

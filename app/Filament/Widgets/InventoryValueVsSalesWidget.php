@@ -18,7 +18,9 @@ class InventoryValueVsSalesWidget extends ChartWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->isAdmin() && AdminModules::isEnabled('inventory');
+        return auth()->user()?->isAdmin()
+            && ! \App\Support\InventoryVisibility::isLimited(auth()->user())
+            && AdminModules::isEnabled('inventory');
     }
 
     public function getHeading(): string

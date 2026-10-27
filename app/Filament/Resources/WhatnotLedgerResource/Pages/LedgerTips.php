@@ -109,6 +109,20 @@ class LedgerTips extends Page
         return app(LedgerTipReport::class)->between($from->toDateString(), $until->toDateString(), $this->channel, $this->business);
     }
 
+    public function streamerTotals(): array
+    {
+        if ($this->report() === null) return [];
+        [$from, $until] = $this->range();
+        $rows = app(LedgerTipReport::class)->byStreamer($from->toDateString(), $until->toDateString(), $this->channel);
+        if (ctype_digit($this->business)) {
+            return array_values(array_filter($rows, fn ($row) => (int) $row['business_id'] === (int) $this->business));
+        }
+        if ($this->business === 'unassigned') {
+            return array_values(array_filter($rows, fn ($row) => $row['business_id'] === null));
+        }
+        return $rows;
+    }
+
     public function resetFilters(): void
     {
         $this->period = 'week';

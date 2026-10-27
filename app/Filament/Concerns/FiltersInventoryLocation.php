@@ -43,7 +43,7 @@ trait FiltersInventoryLocation
      * a broken filter unless the page says the other 348 are stocked at the
      * receiving warehouse, or were imported and never received anywhere.
      *
-     * @return array{here: int, total: int, elsewhere: array<string, int>, unstocked: int}|null
+     * @return array{here: int, units: float, total: int, elsewhere: array<string, int>, unstocked: int}|null
      */
     public function locationCoverage(): ?array
     {
@@ -61,8 +61,9 @@ trait FiltersInventoryLocation
             ->when($visible !== null, fn ($q) => $q->whereIn('inventory_stock.inventory_location_id', $visible));
 
         $here = (clone $stock())->where('inventory_location_id', $location)->distinct()->count('inventory_item_id');
+        $units = (float) (clone $stock())->where('inventory_location_id', $location)->where('quantity', '>', 0)->sum('quantity');
         if ($here >= $total) {
-            return null;
+            return ['here' => $here, 'units' => $units, 'total' => $total, 'elsewhere' => [], 'unstocked' => 0];
         }
 
         $notHere = fn ($q) => $q->whereNotIn('inventory_stock.inventory_item_id',
@@ -83,6 +84,7 @@ trait FiltersInventoryLocation
 
         return [
             'here' => $here,
+            'units' => $units,
             'total' => $total,
             'elsewhere' => $elsewhere,
             'unstocked' => max(0, $total - $here - $stockedElsewhere),

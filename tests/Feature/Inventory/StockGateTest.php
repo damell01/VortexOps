@@ -107,7 +107,8 @@ class StockGateTest extends TestCase
         InventoryItem::create(['name' => 'Never received', 'sku' => 'NR-1', 'unit_cost' => 1, 'is_active' => true]);
 
         $page = Livewire::test(ListInventoryItems::class)->set('inventoryLocation', (string) $this->main->id);
-        $this->assertSame(['here' => 1, 'total' => 5, 'elsewhere' => ['Receiving Bay' => 3], 'unstocked' => 1], $page->instance()->locationCoverage());
-        $page->assertSee('3 stocked at Receiving Bay')->assertSee('1 with no stock anywhere');
+        $this->assertSame(['here' => 1, 'units' => 10.0, 'total' => 5, 'elsewhere' => ['Receiving Bay' => 3], 'unstocked' => 1], $page->instance()->locationCoverage());
+        $page->assertSee('Main Storage: 1 product, 10 units on hand.')->assertSee('3 stocked at Receiving Bay')->assertSee('1 with no stock anywhere');
+        $this->assertSame('10 units on hand', $page->instance()->getStats()[0]['percentage']);
     }
 }

@@ -182,10 +182,12 @@ class ListInventoryItems extends ListRecords
         $rows = \Illuminate\Support\Facades\DB::query()
             ->fromSub($base->toBase(), 'inventory_health')
             ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN stock_sum_quantity > 0 THEN stock_sum_quantity ELSE 0 END) as units')
             ->selectRaw('SUM(CASE WHEN COALESCE(stock_sum_quantity, 0) <= 0 THEN 1 ELSE 0 END) as out_count')
             ->selectRaw('SUM(CASE WHEN stock_sum_quantity > 0 AND reorder_level IS NOT NULL AND stock_sum_quantity <= reorder_level THEN 1 ELSE 0 END) as low_count')
             ->first();
         $total = (int) ($rows->total ?? 0);
+        $units = (float) ($rows->units ?? 0);
         $out = (int) ($rows->out_count ?? 0);
         $low = (int) ($rows->low_count ?? 0);
         $in = max(0, $total - $out - $low);
@@ -194,7 +196,9 @@ class ListInventoryItems extends ListRecords
             : '0.0%';
 
         return $this->statsMemo = [
-            ['key' => null, 'label' => 'All Items', 'value' => number_format($total), 'percentage' => $total > 0 ? '100%' : '0%', 'icon' => 'heroicon-o-cube', 'tone' => 'purple'],
+            // Products, not units: 64 different products can be 412 boxes on
+            // the shelf, and the box count is the one people carry in their head.
+            ['key' => null, 'label' => 'Products', 'value' => number_format($total), 'percentage' => number_format($units) . ' ' . \Illuminate\Support\Str::plural('unit', (int) $units) . ' on hand', 'icon' => 'heroicon-o-cube', 'tone' => 'purple'],
             ['key' => 'in', 'label' => 'In Stock', 'value' => number_format($in), 'percentage' => $percentage($in), 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
             ['key' => 'low', 'label' => 'Low Stock', 'value' => number_format($low), 'percentage' => $percentage($low), 'icon' => 'heroicon-o-exclamation-circle', 'tone' => 'amber'],
             ['key' => 'out', 'label' => 'Out of Stock', 'value' => number_format($out), 'percentage' => $percentage($out), 'icon' => 'heroicon-o-x-circle', 'tone' => 'red'],

@@ -69,6 +69,22 @@
   @if(\App\Services\InventoryCountReset::canReset(auth()->user()))<x-filament::button color="danger" size="sm" outlined icon="heroicon-o-arrow-path" wire:click="mountAction('resetAllCounts')">Reset all stock</x-filament::button>@endif
  </div>
  @endif
+ <section class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900" aria-label="Inventory warehouse selector">
+  <div class="min-w-0"><div class="text-sm font-bold text-gray-900 dark:text-white">Warehouse inventory</div><div class="text-xs text-gray-500 dark:text-gray-400">Product counts, stock totals and cards reflect the selected location.</div></div>
+  <div class="flex w-full items-center gap-2 sm:w-auto">
+   <label for="vx-warehouse-location" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-200">Location</label>
+   <select id="vx-warehouse-location" wire:model.live="inventoryLocation" class="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:min-w-56" aria-label="Choose warehouse for inventory totals">
+    @if($this->inventoryPageLocationId() !== null && $inventoryLocation === '')
+     <option value="">Default — {{ $this->inventoryLocationOptions()[$this->inventoryPageLocationId()] ?? 'Main warehouse' }}</option>
+    @else
+     <option value="">Default warehouse</option>
+    @endif
+    @foreach($this->inventoryLocationOptions() as $locationId => $locationName)
+     <option value="{{ $locationId }}">{{ $locationName }}</option>
+    @endforeach
+   </select>
+  </div>
+ </section>
  <div class="vx-health-grid">
   @foreach($this->getStats() as $stat)
    @if($stat['key'])<button type="button" wire:click="filterStock('{{ $stat['key'] }}')" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>

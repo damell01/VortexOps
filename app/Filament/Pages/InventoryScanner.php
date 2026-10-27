@@ -164,7 +164,7 @@ class InventoryScanner extends Page
 
     public function mount(): void
     {
-        $first = InventoryLocation::whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->value('id');
+        $first = InventoryLocation::where('status', 'active')->whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->value('id');
         if ($first) {
             $this->qaLocationId = $first;
         }
@@ -174,7 +174,7 @@ class InventoryScanner extends Page
 
     public function getLocationsProperty()
     {
-        return InventoryLocation::whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->get(['id', 'name', 'type']);
+        return InventoryLocation::where('status', 'active')->whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->get(['id', 'name', 'type']);
     }
 
     public function getPalletsProperty()
@@ -333,15 +333,11 @@ class InventoryScanner extends Page
         // quantity went down, so a reduction was recorded as stock arriving.
         // That is the same fault that made the log read "+12" for an
         // adjustment that removed twelve.
-        $current = (float) (InventoryStock::where('inventory_item_id', $item->id)
-            ->where('inventory_location_id', $location->id)
-            ->value('quantity') ?? 0);
-
         try {
-            app(InventoryService::class)->adjustStock(
+            app(InventoryService::class)->adjustStockBy(
                 $item,
                 $location,
-                $current + $qty,
+                $qty,
                 $this->adjustReason ?: 'Manual scanner adjustment',
             );
         } catch (\RuntimeException $e) {
@@ -373,8 +369,13 @@ class InventoryScanner extends Page
         }
 
         $qty = (float) $this->qaQty;
-        if ($qty <= 0) {
+        if (! is_numeric($this->qaQty) || ! is_finite($qty) || $qty <= 0) {
             $this->qaFlash = ['error' => 'Quantity must be greater than zero.'];
+            return;
+        }
+
+        if (! $this->locations->contains('id', $this->qaLocationId)) {
+            $this->qaFlash = ['error' => 'Choose an active destination you can manage.'];
             return;
         }
 
@@ -416,7 +417,12 @@ class InventoryScanner extends Page
     {
         $qty = (float) $this->qaQty;
 
-        $location = InventoryLocation::find($this->qaLocationId);
+        if (! is_numeric($this->qaQty) || ! is_finite($qty) || $qty <= 0) {
+            $this->qaFlash = ['error' => 'Quantity must be greater than zero.'];
+            return;
+        }
+
+        $location = $this->locations->firstWhere('id', $this->qaLocationId);
         if ($location && ! \App\Support\StockGate::canChange(auth()->user(), $location)) {
             $this->qaFlash = ['error' => 'You cannot add stock at ' . $location->name . '.'];
 
@@ -1577,7 +1583,7 @@ class InventoryScanner extends Page
             'sale_price'       => (float) ($item->sale_price ?? 0),
             'total_qty'        => (float) $totalQty,
             'inventory_value'  => (float) $inventoryValue,
-            'is_low'           => $item->isLowStock(),
+            'is_low'           => $item->reorder_level !== null && $totalQty <= $item->reorder_level,
             'reorder'          => (float) $item->reorder_level,
             'pricing_anomaly'  => $pricingAnomaly,
             'vendor_costs'     => $vendorCosts,

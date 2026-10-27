@@ -1,5 +1,6 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-6" data-vx-touch-page>
+        @if($errors->any())<p role="alert" class="text-sm text-red-600">{{ $errors->first() }}</p>@endif
 
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         {{-- LOCATION SELECTION                                                  --}}
@@ -13,7 +14,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Location</label>
-                    <select wire:model="selectedLocationId"
+                    <select wire:model.live="selectedLocationId"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm">
                         <option value="">Select location…</option>
                         @foreach($this->getLocationsProperty() as $location)
@@ -43,7 +44,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Location</label>
-                    <select wire:model="selectedLocationId"
+                    <select wire:model.live="selectedLocationId"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm">
                         <option value="">Select location…</option>
                         @foreach($this->getLocationsProperty() as $location)
@@ -54,7 +55,8 @@
 
                 <div>
                     <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Item</label>
-                    <select wire:model="selectedItemId"
+                    <input wire:model.live.debounce.400ms="itemSearch" type="search" placeholder="Find item by name, SKU or barcode" aria-label="Find item" class="mb-2 min-h-11 w-full rounded-lg border-gray-300 text-base dark:bg-gray-900" />
+                    <select wire:model.live="selectedItemId"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm">
                         <option value="">Select item…</option>
                         @foreach($this->getItemsProperty() as $item)
@@ -77,7 +79,7 @@
                 </div>
 
                 <div class="md:col-span-2 flex gap-2">
-                    <button wire:click="reconcileItem" type="button"
+                    <button wire:click="reconcileItem" wire:loading.attr="disabled" type="button"
                         class="flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700">
                         <x-heroicon-o-check-circle class="h-4 w-4 inline -mt-0.5 mr-1" />
                         Reconcile Item

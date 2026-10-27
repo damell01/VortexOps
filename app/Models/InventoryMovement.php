@@ -70,7 +70,17 @@ class InventoryMovement extends Model
                 return true;
             }
 
+            // Before/after values only describe a combined event when the
+            // receipts are contiguous. An intervening stock change needs a new row.
+            if ($existing->quantity_after !== null && $movement->quantity_before !== null
+                && abs((float) $existing->quantity_after - (float) $movement->quantity_before) > 0.001) {
+                return true;
+            }
+
             $existing->quantity = (float) $existing->quantity + (float) $movement->quantity;
+            if ($existing->quantity_before !== null && $movement->quantity_after !== null) {
+                $existing->quantity_after = $movement->quantity_after;
+            }
             if ($movement->unit_cost !== null) $existing->unit_cost = $movement->unit_cost;
             $existing->updated_at = $movement->created_at ?? now();
             $existing->saveQuietly();

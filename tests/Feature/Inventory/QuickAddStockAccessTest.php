@@ -60,6 +60,6 @@ class QuickAddStockAccessTest extends TestCase
 
         $this->get(QuickAddStock::getUrl())->assertForbidden();
         // No dead button on the Tools tab either.
-        $this->get(InventoryOverview::getUrl(['tab' => 'tools']))->assertOk()->assertSee('Scan Inventory')->assertDontSee(QuickAddStock::getUrl(), false);
+        $this->get(InventoryOverview::getUrl(['tab' => 'tools']))->assertOk()->assertDontSee(InventoryScanner::getUrl(), false)->assertDontSee(QuickAddStock::getUrl(), false);
     }
 }

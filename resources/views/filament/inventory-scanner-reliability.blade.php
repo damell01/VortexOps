@@ -9,22 +9,14 @@
     if (window.__vxScannerReliabilityLoaded) return;
     window.__vxScannerReliabilityLoaded = true;
 
-    const API = '/inventory-scanner-api';
-    let candidateTimer = null;
-    let lastCandidate = null;
+    const pendingScans = [];
+    let generation = 0;
     let showReceived = false;
     let scanInFlight = false;
 
     const scannerRoot = () => document.querySelector('[data-vx-page="inventory-scanner"]');
     const scanSheetOpen = () => !!document.querySelector('.vx-scan-sheet-backdrop');
     const scanInput = () => scannerRoot()?.querySelector('input[wire\\:model="scanInput"]');
-    const lookupIsActive = () => {
-        const root = scannerRoot();
-        if (!root) return false;
-        const button = [...root.querySelectorAll('button')].find(el => el.textContent?.trim().includes('Look Up'));
-        return !!button && (button.className.includes('text-primary-600') || button.className.includes('shadow-[inset_0_-2px_0_currentColor]'));
-    };
-
     const livewireComponent = () => {
         const root = scannerRoot()?.closest('[wire\\:id]');
         const id = root?.getAttribute('wire:id');
@@ -33,57 +25,35 @@
 
     const submitBarcodeOnce = async barcode => {
         barcode = String(barcode || '').trim();
-        if (!barcode || scanInFlight) return;
-
-        const component = livewireComponent();
-        if (!component) return;
-
+        if (!barcode) return;
+        pendingScans.push(barcode);
+        if (scanInFlight) return;
+        const current = generation;
         scanInFlight = true;
         try {
-            await component.call('barcodeScanned', barcode);
-        } finally {
-            scanInFlight = false;
-        }
-    };
-
-    const openUnknownChooser = barcode => {
-        if (!barcode || scanSheetOpen()) return;
-        const text = scannerRoot()?.innerText || '';
-        if (text.includes(`No inventory item found for "${barcode}"`) || text.includes(`No inventory item found for “${barcode}”`)) {
-            scannerRoot()?.setAttribute('data-vx-unknown-refresh', String(Date.now()));
-            return;
-        }
-
-        const marker = document.createElement('span');
-        marker.hidden = true;
-        marker.dataset.vxUnknownFallback = '1';
-        marker.textContent = `No inventory item found for "${barcode}".`;
-        scannerRoot()?.appendChild(marker);
-        setTimeout(() => marker.remove(), 1500);
-    };
-
-    const verifyCandidate = barcode => {
-        barcode = String(barcode || '').trim();
-        if (barcode.length < 3 || !scannerRoot() || !lookupIsActive()) return;
-        lastCandidate = barcode;
-        clearTimeout(candidateTimer);
-        candidateTimer = setTimeout(async () => {
-            if (lastCandidate !== barcode || !lookupIsActive() || scanSheetOpen()) return;
-            try {
-                const response = await fetch(`${API}/items?q=${encodeURIComponent(barcode)}`, {
-                    credentials: 'same-origin',
-                    headers: {'Accept':'application/json'},
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok) return;
-
-                if (!Array.isArray(data.items) || data.items.length === 0) {
-                    openUnknownChooser(barcode);
-                }
-            } catch (_) {
-                // Keep the original Livewire lookup/error path as fallback.
+            while (pendingScans.length && current === generation) {
+                const component = livewireComponent();
+                if (!component) { pendingScans.length = 0; break; }
+                await component.call('barcodeScanned', pendingScans.shift());
+                if (current === generation) scannerRoot()?.querySelector('[data-vx-scan-error]')?.remove();
             }
-        }, 350);
+        } catch (error) {
+            if (current !== generation) return;
+            pendingScans.length = 0;
+            // A failed response may follow a committed write. Never retry automatically.
+            if (current === generation && scannerRoot()) {
+                let status = scannerRoot().querySelector('[data-vx-scan-error]');
+                if (!status) {
+                    status = document.createElement('p');
+                    status.dataset.vxScanError = '1';
+                    status.setAttribute('role', 'alert');
+                    scannerRoot().prepend(status);
+                }
+                status.textContent = 'Scan could not be confirmed. Check inventory before trying again.';
+            }
+        } finally {
+            if (current === generation) scanInFlight = false;
+        }
     };
 
     const clearHardwareInput = input => {
@@ -104,7 +74,6 @@
 
         event.preventDefault();
         event.stopImmediatePropagation();
-        clearTimeout(candidateTimer);
         clearHardwareInput(target);
         void submitBarcodeOnce(barcode);
     }, true);
@@ -119,16 +88,7 @@
 
         event.preventDefault?.();
         event.stopImmediatePropagation();
-        clearTimeout(candidateTimer);
         void submitBarcodeOnce(barcode);
-    }, true);
-
-    // Save candidate codes while scanners type so unknown-item recovery still
-    // has the barcode even if Livewire rerenders and clears the input quickly.
-    document.addEventListener('input', event => {
-        const target = event.target;
-        if (!(target instanceof HTMLInputElement) || target !== scanInput()) return;
-        verifyCandidate(target.value);
     }, true);
 
     const enhanceReceivedPalletFilter = () => {
@@ -149,7 +109,11 @@
             controls.className = 'vx-received-filter';
             select.insertAdjacentElement('afterend', controls);
         }
-        controls.innerHTML = `<button type="button">${showReceived ? 'Hide received pallets' : `Show received pallets${received.length ? ` (${received.length})` : ''}`}</button><span>${showReceived ? 'Showing completed and open deliveries.' : 'Completed pallets are hidden by default.'}</span>`;
+        const markup = `<button type="button">${showReceived ? 'Hide received pallets' : `Show received pallets${received.length ? ` (${received.length})` : ''}`}</button><span>${showReceived ? 'Showing completed and open deliveries.' : 'Completed pallets are hidden by default.'}</span>`;
+        // Mutating the observed subtree again would schedule another pass forever.
+        if (controls.dataset.markup === markup) return;
+        controls.dataset.markup = markup;
+        controls.innerHTML = markup;
         controls.querySelector('button')?.addEventListener('click', () => {
             showReceived = !showReceived;
             enhanceReceivedPalletFilter();
@@ -164,8 +128,15 @@
     });
     observer.observe(document.body, {childList:true, subtree:true});
 
+    document.addEventListener('livewire:navigating', () => {
+        generation++;
+        pendingScans.length = 0;
+        scanInFlight = false;
+    });
+
     document.addEventListener('livewire:navigated', () => {
-        lastCandidate = null;
+        generation++;
+        pendingScans.length = 0;
         showReceived = false;
         scanInFlight = false;
         setTimeout(inspect, 80);

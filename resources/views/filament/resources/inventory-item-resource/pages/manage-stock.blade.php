@@ -143,6 +143,8 @@
                     <p class="text-xs font-semibold leading-5 text-gray-900 dark:text-gray-100 sm:text-sm">{{ $this->effect }}</p>
                 </div>
 
+                @if($errors->any())<p role="alert" class="text-sm text-red-600 dark:text-red-400">{{ $errors->first() }}</p>@endif
+
                 <div class="hidden justify-end gap-2 pt-1 sm:flex">
                     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $this->record]) }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-200">Cancel</a>
                     <button type="button" wire:click="submit" wire:loading.attr="disabled" class="rounded-lg bg-violet-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-violet-700 disabled:opacity-60">

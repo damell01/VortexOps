@@ -72,13 +72,16 @@ class StockTransfer extends Page
             return false;
         }
 
-        return false; // Hidden - accessed from Inventory Report
+        return static::canAccess();
     }
 
     #[Computed]
     public function locations()
     {
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+
         return InventoryLocation::where('status', 'active')
+            ->when($visible !== null, fn ($q) => $q->whereIn('id', $visible))
             ->orderBy('name')
             ->get();
     }
@@ -95,7 +98,7 @@ class StockTransfer extends Page
     #[Computed]
     public function sourceStock()
     {
-        if (!$this->fromLocationId) {
+        if (! $this->sourceLocations->contains('id', $this->fromLocationId)) {
             return [];
         }
 
@@ -116,11 +119,11 @@ class StockTransfer extends Page
             ->get()
             ->map(fn ($stock) => [
                 'id' => $stock->id,
-                'item_id' => $stock->item_id,
+                'item_id' => $stock->inventory_item_id,
                 'item_name' => $stock->item?->name ?? 'Unknown',
                 'sku' => $stock->item?->sku ?? '—',
                 'available' => (float) $stock->quantity,
-                'transferring' => (float) ($this->selectedTransfers[$stock->item_id] ?? 0),
+                'transferring' => (float) ($this->selectedTransfers[$stock->inventory_item_id] ?? 0),
             ])
             ->toArray();
     }
@@ -151,6 +154,13 @@ class StockTransfer extends Page
         ];
     }
 
+    public function updatedFromLocationId(): void
+    {
+        $this->clearSelection();
+        if ($this->fromLocationId === $this->toLocationId) $this->toLocationId = null;
+        unset($this->sourceStock, $this->transferSummary);
+    }
+
     public function updateTransferQty(int $itemId, string $qty): void
     {
         $value = max(0, (float) $qty);
@@ -164,6 +174,7 @@ class StockTransfer extends Page
 
     public function executeTransfer(): void
     {
+        abort_unless(static::canAccess() && ! NavVisibility::isReadOnlyForUser(static::class, auth()->user()), 403);
         if (!$this->fromLocationId || !$this->toLocationId) {
             Notification::make()
                 ->title('Invalid transfer')
@@ -191,24 +202,34 @@ class StockTransfer extends Page
             return;
         }
 
+        $this->validate([
+            'selectedTransfers.*' => ['required', 'numeric', 'gt:0'],
+            'transferReason' => ['string', 'max:1000'],
+        ]);
+
         try {
             $inventoryService = app(InventoryService::class);
-            $fromLocation = InventoryLocation::findOrFail($this->fromLocationId);
+            $fromLocation = $this->sourceLocations->firstWhere('id', $this->fromLocationId);
+            if (! $fromLocation) throw new \RuntimeException('Choose an active source you can manage.');
             \App\Support\StockGate::authorize($fromLocation);
-            $toLocation = InventoryLocation::findOrFail($this->toLocationId);
+            $toLocation = $this->locations->firstWhere('id', $this->toLocationId);
+            if (! $toLocation) throw new \RuntimeException('Choose an active, visible destination.');
 
-            foreach ($this->selectedTransfers as $itemId => $qty) {
-                if ($qty <= 0) continue;
-
-                $item = InventoryItem::findOrFail($itemId);
-                $inventoryService->transferStock(
-                    $item,
-                    $fromLocation,
-                    $toLocation,
-                    $qty,
-                    $this->transferReason ?: "Bulk transfer from {$fromLocation->name} to {$toLocation->name}"
-                );
-            }
+            // A failed later item must not leave earlier transfers committed.
+            \Illuminate\Support\Facades\DB::transaction(function () use ($inventoryService, $fromLocation, $toLocation) {
+                $transfers = $this->selectedTransfers;
+                ksort($transfers);
+                foreach ($transfers as $itemId => $qty) {
+                    $item = InventoryItem::findOrFail($itemId);
+                    $inventoryService->transferStock(
+                        $item,
+                        $fromLocation,
+                        $toLocation,
+                        (float) $qty,
+                        $this->transferReason ?: "Bulk transfer from {$fromLocation->name} to {$toLocation->name}"
+                    );
+                }
+            });
 
             Notification::make()
                 ->title('Transfer complete')
@@ -235,5 +256,7 @@ class StockTransfer extends Page
     public function clearSelection(): void
     {
         $this->selectedTransfers = [];
+        $this->showConfirm = false;
+        unset($this->sourceStock, $this->transferSummary);
     }
 }

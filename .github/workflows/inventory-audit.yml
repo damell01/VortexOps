@@ -1,0 +1,89 @@
+name: Inventory Audit
+on:
+  pull_request:
+    branches: [Production]
+    paths:
+      - 'app/**'
+      - 'resources/**'
+      - 'tests/**'
+      - 'playwright.inventory-audit.config.ts'
+      - '.github/workflows/inventory-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    name: Inventory workflows and permissions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: cp .env.example .env
+      - run: php artisan test tests/Feature/Inventory tests/Feature/Reliability/InventoryAdminNavigationTest.php tests/Feature/Reliability/ReceivingNavigationTest.php tests/Unit/ModalCssRegressionTest.php
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+  browser:
+    name: Inventory desktop and mobile browsers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'true'
+      APP_URL: http://127.0.0.1:8000
+      APP_KEY: base64:3P8d9fK5jjdq1DdRwrn9PkiikXcuF/OFu80W3RN9dmw=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /tmp/inventory-audit.sqlite
+      CACHE_STORE: array
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: node --test tests/Browser/camera-scanner.test.cjs
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Prepare isolated inventory fixtures
+        run: |
+          cp .env.example .env
+          mkdir -p storage/framework/testing
+          touch /tmp/inventory-audit.sqlite
+          php artisan migrate --force
+          php tests/Browser/fixtures/inventory-audit.php
+      - name: Exercise inventory user workflows
+        shell: bash
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/inventory-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:8000/admin/login >/dev/null && break; sleep 2; done
+          npx playwright test --config=playwright.inventory-audit.config.ts || { cat /tmp/inventory-server.log; tail -n 100 storage/logs/laravel.log; exit 1; }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inventory-audit-browser-results
+          path: tests/Browser/output/inventory-audit

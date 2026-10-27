@@ -123,6 +123,30 @@ class LedgerTips extends Page
         return $rows;
     }
 
+    public function exportStreamerTipsCsv(): ?StreamedResponse
+    {
+        if ($this->report() === null) {
+            return null;
+        }
+
+        [$from, $until] = $this->range();
+        $rows = $this->streamerTotals();
+
+        return response()->streamDownload(function () use ($rows) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['Streamer', 'Transactions', 'Tip credits', 'Tip debits / corrections', 'Net verified tips']);
+            foreach ($rows as $row) {
+                fputcsv($output, [
+                    $row['streamer'], $row['entries'],
+                    number_format($row['credits'] / 100, 2, '.', ''),
+                    number_format($row['debits'] / 100, 2, '.', ''),
+                    number_format($row['net'] / 100, 2, '.', ''),
+                ]);
+            }
+            fclose($output);
+        }, 'verified-streamer-tips-'.$from->toDateString().'-'.$until->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function resetFilters(): void
     {
         $this->period = 'week';

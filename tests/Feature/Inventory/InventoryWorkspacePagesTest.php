@@ -59,7 +59,10 @@ class InventoryWorkspacePagesTest extends TestCase
         $this->assertSame([1, 1, 1], [$snap['in'], $snap['low'], $snap['out']]);
         $this->assertSame(22.0, $snap['units']);
 
-        $page->call('setTab', 'tools')->assertSee('Receive Inventory')->assertSee('Transfer Stock');
+        $page->call('setTab', 'tools')->assertSet('tab', 'overview');
+        $menu = view('filament.components.desktop-mega-nav')->render();
+        $this->assertStringContainsString('Transfer Stock', $menu);
+        $this->assertStringContainsString('Quick Add Stock', $menu);
         $page->call('setTab', 'reports')->assertSee('Inventory Report')->assertSee('Plenty');
     }
 

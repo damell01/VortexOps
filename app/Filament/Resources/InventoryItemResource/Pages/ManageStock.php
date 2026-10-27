@@ -57,7 +57,8 @@ class ManageStock extends Page
     /** Streamer assistants see where the stock is; changing it stays with admins. */
     public function canChange(): bool
     {
-        return (InventoryItemResource::canManageStock() || ! (auth()->user()?->isStreamerAssistant() ?? false))
+        return ! \App\Support\NavVisibility::isReadOnlyForUser(InventoryItemResource::class, auth()->user())
+            && (InventoryItemResource::canManageStock() || ! (auth()->user()?->isStreamerAssistant() ?? false))
             && $this->sourceOptions !== [];
     }
 
@@ -223,7 +224,16 @@ class ManageStock extends Page
     {
         abort_unless($this->canChange(), 403);
 
+        $this->validate([
+            'operation' => 'required|in:adjust,transfer,send',
+            'fromLocationId' => 'required|integer',
+            'newQuantity' => $this->operation === self::ADJUST ? 'required|numeric|min:0' : 'nullable',
+            'moveQuantity' => $this->operation !== self::ADJUST ? 'required|numeric|gt:0' : 'nullable',
+            'toLocationId' => $this->operation !== self::ADJUST ? 'required|integer|different:fromLocationId' : 'nullable',
+        ]);
+
         $service = app(InventoryService::class);
+        $effect = $this->effect;
 
         try {
             if (! array_key_exists((int) $this->fromLocationId, $this->sourceOptions)) {
@@ -273,7 +283,7 @@ class ManageStock extends Page
                     $this->relatedShowId,
                 );
 
-                Notification::make()->title('Stock adjusted')->body($this->effect)->success()->send();
+                Notification::make()->title('Stock adjusted')->body($effect)->success()->send();
             } else {
                 $allowed = $this->destinationOptions;
                 if (! array_key_exists((int) $this->toLocationId, $allowed)) {
@@ -289,7 +299,7 @@ class ManageStock extends Page
                     $this->reason ?: 'Moved from the stock screen',
                 );
 
-                Notification::make()->title('Stock moved')->body($this->effect)->success()->send();
+                Notification::make()->title('Stock moved')->body($effect)->success()->send();
             }
         } catch (\RuntimeException | \Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Notification::make()->title($e->getMessage())->danger()->send();

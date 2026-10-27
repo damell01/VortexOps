@@ -26,7 +26,7 @@ class InventoryOverview extends Page
     protected static ?string $navigationLabel = 'Overview';
     protected static ?string $slug = 'inventory-overview';
 
-    /** Overview (health at a glance), Tools (quick actions) or Reports (stock table). */
+    /** Overview (health at a glance) or Reports (stock table); tools live in navigation. */
     #[Url(as: 'tab')] public string $tab = 'overview';
     #[Url(as: 'days')] public int $trendDays = 30;
     #[Url(as: 'loc')] public string $reportLocation = '';
@@ -252,7 +252,8 @@ class InventoryOverview extends Page
 
     public function setTab(string $tab): void
     {
-        if (in_array($tab, ['overview', 'tools', 'reports'], true)) $this->tab = $tab;
+        if ($tab === 'tools') $tab = 'overview';
+        if (in_array($tab, ['overview', 'reports'], true)) $this->tab = $tab;
     }
 
     public function updatedTrendDays(): void

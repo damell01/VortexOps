@@ -1,12 +1,12 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-6" data-vx-touch-page>
         <!-- Location Selection -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- From Location -->
             <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">From Location</h3>
                 <select wire:model.live="fromLocationId"
-                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
+                    class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
                     <option value="">Select source location...</option>
                     @foreach($this->sourceLocations as $loc)
                     <option value="{{ $loc->id }}">{{ $loc->name }} ({{ $loc->type }})</option>
@@ -15,7 +15,7 @@
 
                 @if($fromLocationId)
                 <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <p>Type: <strong>{{ collect($this->locations)->firstWhere('id', $fromLocationId)->type }}</strong></p>
+                    <p>Type: <strong>{{ collect($this->locations)->firstWhere('id', $fromLocationId)?->type }}</strong></p>
                 </div>
                 @endif
             </div>
@@ -24,7 +24,7 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">To Location</h3>
                 <select wire:model.live="toLocationId"
-                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
+                    class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
                     <option value="">Select destination location...</option>
                     @foreach($this->locations as $loc)
                     @if($fromLocationId && $loc->id != $fromLocationId)
@@ -35,17 +35,19 @@
 
                 @if($toLocationId)
                 <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <p>Type: <strong>{{ collect($this->locations)->find('id', $toLocationId)->type }}</strong></p>
+                    <p>Type: <strong>{{ collect($this->locations)->firstWhere('id', $toLocationId)?->type }}</strong></p>
                 </div>
                 @endif
             </div>
         </div>
 
+        @if($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-red-700">{{ $errors->first() }}</div>@endif
+
         <!-- Transfer Reason -->
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Transfer Reason (Optional)</label>
             <textarea wire:model="transferReason" placeholder="e.g., Seasonal reorganization, Floor move, Quality check..."
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 rows="2"></textarea>
         </div>
 
@@ -56,7 +58,7 @@
 
             <!-- Search -->
             <input wire:model.live.debounce.300ms="searchQuery" type="text" placeholder="Search items by name, SKU, or barcode..."
-                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4" />
+                class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4" />
 
             <!-- Items List -->
             @if(count($this->sourceStock) === 0)
@@ -67,8 +69,8 @@
             @else
             <div class="space-y-2 max-h-96 overflow-y-auto">
                 @foreach($this->sourceStock as $stock)
-                <div class="flex items-center gap-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <div class="flex-1">
+                <div wire:key="transfer-{{ $stock['id'] }}" class="flex flex-wrap items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                    <div class="min-w-0 flex-1">
                         <p class="font-medium text-gray-900 dark:text-white">{{ $stock['item_name'] }}</p>
                         <p class="text-xs text-gray-600 dark:text-gray-400">SKU: {{ $stock['sku'] }}</p>
                     </div>
@@ -83,7 +85,7 @@
                             value="{{ $stock['transferring'] }}"
                             min="0" max="{{ $stock['available'] }}"
                             placeholder="0"
-                            class="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                            class="min-h-11 text-base w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                     </div>
                 </div>
                 @endforeach
@@ -125,8 +127,8 @@
 
         <!-- Confirmation Modal -->
         @if($showConfirm)
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4">
+        <div role="dialog" aria-modal="true" aria-label="Confirm Transfer" data-vx-dialog class="fixed inset-0 overflow-y-auto bg-black/50 flex items-center justify-center z-50 p-3">
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-5 max-w-md w-full max-h-[90dvh] overflow-y-auto">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Confirm Transfer</h3>
                 <p class="text-gray-600 dark:text-gray-400 mb-6">
                     Transfer {{ number_format($this->transferSummary['total_quantity']) }} unit(s) across {{ $this->transferSummary['item_count'] }} item(s)?
@@ -137,7 +139,7 @@
                     <button wire:click="$toggle('showConfirm')" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium">
                         Cancel
                     </button>
-                    <button wire:click="executeTransfer" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
+                    <button wire:click="executeTransfer" wire:loading.attr="disabled" wire:target="executeTransfer" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
                         Confirm
                     </button>
                 </div>

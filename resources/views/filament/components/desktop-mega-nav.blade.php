@@ -34,13 +34,18 @@ if($assistantOnly){
  ['Show Report Inbox',\App\Filament\Resources\StreamerLogResource::getUrl('index')],
 ];
 if(\App\Support\AdminModules::isEnabled('inventory') && \App\Filament\Resources\InventoryItemResource::canAccess() && (! $streamerOnly || \App\Support\RoleAccess::grants(\App\Filament\Resources\InventoryItemResource::class))) $groups['Inventory']=array_values(array_filter([
- ['Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin')],
- ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index')],
- \App\Filament\Resources\PalletResource::canAccess() ? ['Receive Inventory',\App\Filament\Resources\PalletResource::getUrl('index')] : null,
- \App\Filament\Pages\InventoryActivity::canAccess() ? ['Inventory History',\App\Filament\Pages\InventoryActivity::getUrl(panel:'admin')] : null,
- \App\Filament\Resources\InventoryLocationResource::canAccess()
-    ? ['Locations & Vendors',\App\Filament\Resources\InventoryLocationResource::getUrl('index')]
-    : (\App\Filament\Resources\VendorResource::canAccess() ? ['Locations & Vendors',\App\Filament\Resources\VendorResource::getUrl('index')] : null),
+ ['Overview',\App\Filament\Pages\InventoryOverview::getUrl(panel:'admin'),'Inventory'],
+ ['All Inventory',\App\Filament\Resources\InventoryItemResource::getUrl('index'),'Inventory'],
+ \App\Filament\Pages\InventorySearch::canAccess() ? ['Inventory Search',\App\Filament\Pages\InventorySearch::getUrl(panel:'admin'),'Inventory'] : null,
+ \App\Filament\Pages\InventoryScanner::canAccess() ? ['Scan Inventory',\App\Filament\Pages\InventoryScanner::getUrl(panel:'admin'),'Stock operations'] : null,
+ \App\Filament\Pages\QuickAddStock::canAccess() ? ['Quick Add Stock',\App\Filament\Pages\QuickAddStock::getUrl(panel:'admin'),'Stock operations'] : null,
+ \App\Filament\Resources\InventoryItemResource::canCreate() ? ['Add Item',\App\Filament\Resources\InventoryItemResource::getUrl('create'),'Stock operations'] : null,
+ \App\Filament\Pages\StockTransfer::canAccess() ? ['Transfer Stock',\App\Filament\Pages\StockTransfer::getUrl(panel:'admin'),'Stock operations'] : null,
+ \App\Filament\Resources\PalletResource::canAccess() ? ['Receive Inventory',\App\Filament\Resources\PalletResource::getUrl('index'),'Receiving'] : null,
+ \App\Filament\Pages\ImportInventorySheet::canAccess() ? ['Import a Sheet',\App\Filament\Pages\ImportInventorySheet::getUrl(panel:'admin'),'Receiving'] : null,
+ \App\Filament\Pages\InventoryActivity::canAccess() ? ['Inventory History',\App\Filament\Pages\InventoryActivity::getUrl(panel:'admin'),'History & setup'] : null,
+ \App\Filament\Resources\InventoryLocationResource::canAccess() ? ['Locations',\App\Filament\Resources\InventoryLocationResource::getUrl('index'),'History & setup'] : null,
+ \App\Filament\Resources\VendorResource::canAccess() ? ['Vendors',\App\Filament\Resources\VendorResource::getUrl('index'),'History & setup'] : null,
 ]));
 
 if(\App\Support\AdminModules::isEnabled('payouts') && \App\Filament\Pages\PayrollOverview::canAccess()) $groups['Payroll']=[

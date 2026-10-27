@@ -1,4 +1,4 @@
-<div x-data="cameraScanner()" x-on:open-camera-scanner.window="open($event)">
+<div x-data="cameraScanner()" x-on:open-camera-scanner.window="open($event)" x-on:livewire:navigating.document="close()">
     <div
         x-cloak
         x-show="isOpen"
@@ -298,7 +298,10 @@ function cameraScanner() {
         },
 
         fillInput(value) {
-            window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { value } }));
+            const event = new CustomEvent('barcode-scanned', { detail: { value }, cancelable: true });
+            window.dispatchEvent(event);
+            // The page submitted this scan; do not overwrite a focused input afterwards.
+            if (event.defaultPrevented) return;
 
             const input = this.targetInput
                 || document.querySelector('input#receiving-barcode-input')
@@ -312,6 +315,10 @@ function cameraScanner() {
             if (setter) setter.call(input, value); else input.value = value;
             input.dispatchEvent(new Event('input', { bubbles: true }));
             input.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+
+        destroy() {
+            this.close();
         },
 
         async close() {

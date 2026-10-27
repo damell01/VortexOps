@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\User;
 use App\Models\WhatnotLedgerEntry;
+use App\Models\WhatnotShowOrder;
 use App\Services\LedgerAttributionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +45,21 @@ class LedgerAttributionTest extends TestCase
         $this->assertSame('approved', DB::table('ledger_attributions')->where('id', $row->id)->value('status'));
         $this->assertSame(2, DB::table('ledger_attribution_events')->where('whatnot_ledger_entry_id', $entry->id)->count());
         $this->assertSame(25.0, (float) $entry->fresh()->amount);
+    }
+
+    public function test_exact_order_match_suggests_show_but_duplicate_show_matches_do_not(): void
+    {
+        $author = User::factory()->create();
+        $show = Show::withoutEvents(fn () => Show::create(['title' => 'Matching show', 'show_date' => today(), 'created_by' => $author->id, 'status' => 'reconciled']));
+        $entry = WhatnotLedgerEntry::create(['dedup_key' => 'match-entry', 'whatnot_order_id' => 'order-123', 'transaction_type' => 'Tips']);
+        WhatnotShowOrder::create(['show_id' => $show->id, 'whatnot_order_id' => 'order-123']);
+        $service = app(LedgerAttributionService::class);
+        $this->assertSame($show->id, $service->suggestedShow($entry)?->id);
+        $this->assertSame('tips', $service->suggestedCategory($entry));
+
+        $other = Show::withoutEvents(fn () => Show::create(['title' => 'Another show', 'show_date' => today(), 'created_by' => $author->id, 'status' => 'reconciled']));
+        WhatnotShowOrder::create(['show_id' => $other->id, 'whatnot_order_id' => 'order-123']);
+        $this->assertNull($service->suggestedShow($entry));
     }
 
     public function test_house_assignment_has_no_streamer_and_can_be_rejected(): void

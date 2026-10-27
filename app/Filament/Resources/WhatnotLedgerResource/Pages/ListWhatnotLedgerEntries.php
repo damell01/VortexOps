@@ -195,7 +195,7 @@ class ListWhatnotLedgerEntries extends Page
 
     public function canReconcile(): bool
     {
-        return (bool) (auth()->user()?->isOwner() || auth()->user()?->isAdmin());
+        return WhatnotLedgerResource::canAccess() && (bool) (auth()->user()?->isOwner() || auth()->user()?->isAdmin());
     }
 
     public function selectedAttribution(): ?object

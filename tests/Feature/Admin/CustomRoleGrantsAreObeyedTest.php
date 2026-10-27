@@ -220,7 +220,8 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
 
         foreach ([
             \App\Filament\Pages\StreamerHub::class,
-            \App\Filament\Pages\QuickAddStock::class,
+            // Quick Add Stock is not here: a streamer with no shelf of their
+            // own changes no stock (App\Support\StockGate).
             \App\Filament\Pages\InventoryReport::class,
             \App\Filament\Pages\HowItWorks::class,
         ] as $class) {

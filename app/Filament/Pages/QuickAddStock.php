@@ -12,7 +12,13 @@ use Livewire\Attributes\On;
 
 class QuickAddStock extends Page
 {
-    use RespectsRoleVisibility;
+    use RespectsRoleVisibility { canAccess as roleAllows; }
+
+    /** Only for people who run a location (StockGate); a streamer without one only looks. */
+    public static function canAccess(): bool
+    {
+        return static::roleAllows() && \App\Support\StockGate::canChangeAny();
+    }
 
     use \App\Filament\Concerns\HasAdminNavVisibility;
 

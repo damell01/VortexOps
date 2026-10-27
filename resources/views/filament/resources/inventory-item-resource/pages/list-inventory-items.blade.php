@@ -50,9 +50,11 @@
   <div>
    <div class="vx-inv-shortcuts">
     <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
+    @if(\App\Support\StockGate::canChangeAny())
     <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
     <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
     <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
+    @endif
     <a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
     <a href="{{ route('export.inventory-pdf') }}?download=1" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-document-arrow-down class="mb-1 h-5 w-5"/>Report PDF</a>
     <a href="{{ route('export.inventory-items') }}" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-table-cells class="mb-1 h-5 w-5"/>Export Excel</a>
@@ -115,7 +117,7 @@
    <div class="vx-catalog-grid">
     @foreach($this->catalogItems as $item)
      @php
-      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canStock=\App\Filament\Resources\InventoryItemResource::canManageStock();$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=(auth()->user()?->isAdmin()??false)||(auth()->user()?->isOwner()??false)||(auth()->user()?->isStreamer()??false);
+      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canStock=\App\Filament\Resources\InventoryItemResource::canManageStock();$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=$canStock;
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
@@ -138,7 +140,7 @@
        @if($canStock)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
        @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>
+       @if($canStock)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>@endif
        @if($canScan)<button type="button" wire:click.stop="startBarcodeScan({{ $item->getKey() }})" class="vx-card-action scan" title="{{ filled($item->barcode) ? 'Replace barcode' : 'Scan barcode' }}"><x-heroicon-o-qr-code /> <span>Scan</span></button>@endif
        @if($canDelete)<button type="button" wire:click="mountAction('deleteItem', { product: {{ $item->getKey() }} })" class="vx-card-action delete" title="Delete item"><x-heroicon-o-trash /> <span>Delete</span></button>@endif
       </div>

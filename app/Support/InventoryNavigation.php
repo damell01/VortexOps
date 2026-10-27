@@ -19,7 +19,7 @@ class InventoryNavigation
             ],
             'catalog' => [
                 [Resources\InventoryItemResource::class, 'All inventory', 'index'],
-                [Resources\InventoryItemResource::class, 'Quick add stock', 'quick-add'],
+                [Resources\InventoryItemResource::class, 'Quick add stock', 'quick-add', 'stock'],
             ],
             'receiving' => [
                 [Resources\PalletResource::class, 'Receive inventory', 'index'],
@@ -45,7 +45,9 @@ class InventoryNavigation
             if (!$matches) continue;
 
             return collect($rows)->filter(fn ($row) => $row[0]::canAccess()
-                && !NavVisibility::isHiddenForUser($row[0], auth()->user()))
+                && !NavVisibility::isHiddenForUser($row[0], auth()->user())
+                // 'stock' rows change stock: only for people who run a location.
+                && (($row[3] ?? null) !== 'stock' || StockGate::canChangeAny()))
                 ->map(fn ($row) => [
                     'label' => $row[1],
                     'url' => $row[2] === null ? $row[0]::getUrl(panel: 'admin') : $row[0]::getUrl($row[2], panel: 'admin'),

@@ -19,7 +19,14 @@ use App\Support\NavVisibility;
 
 class InventoryReconciliation extends Page implements HasForms
 {
-    use HasModuleAccess, InteractsWithForms;
+    use InteractsWithForms;
+    use HasModuleAccess { canAccess as moduleAllows; }
+
+    /** Only for people who run a location (StockGate). */
+    public static function canAccess(): bool
+    {
+        return static::moduleAllows() && \App\Support\StockGate::canChangeAny();
+    }
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Inventory Reconciliation';

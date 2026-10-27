@@ -34,6 +34,7 @@ class QuickAddInventoryItem extends Page
     public function mount(): void
     {
         $this->authorize('create', InventoryItem::class);
+        abort_unless(\App\Support\StockGate::canChangeAny(), 403, 'Only people who run an inventory location can add stock.');
         $this->resetQuickAdd();
     }
 

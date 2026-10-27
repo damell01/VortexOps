@@ -46,11 +46,17 @@ class StockGate
     /** Admins, the owner, or staff with no streamer profile who are not assistants. */
     private static function runsSharedLocations(User $user): bool
     {
-        if ($user->isAdmin() || $user->isOwner()) {
+        if ($user->isOwner()) {
             return true;
         }
 
-        return $user->streamer === null && ! $user->isStreamerAssistant() && ! $user->hasRole('streamer');
+        // A streamer is a streamer even with an admin role on top: they run
+        // their own shelf, not Main.
+        if ($user->streamer?->isStreamer() || $user->isStreamerAssistant() || $user->hasRole('streamer')) {
+            return false;
+        }
+
+        return true;
     }
 
     /** @return list<int> Location ids this user may change stock in. */
@@ -76,6 +82,18 @@ class StockGate
                 }
             })
             ->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /** Whether this user runs any location at all — the condition for every stock-changing screen. */
+    public static function canChangeAny(?User $user = null): bool
+    {
+        $user ??= auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        // Staff run Main even before a location exists; a streamer needs a shelf.
+        return static::runsSharedLocations($user) || static::changeableIds($user) !== [];
     }
 
     /**

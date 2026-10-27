@@ -111,4 +111,25 @@ class StockGateTest extends TestCase
         $page->assertSee('Main Storage: 1 product, 10 units on hand.')->assertSee('3 stocked at Receiving Bay')->assertSee('1 with no stock anywhere');
         $this->assertSame('10 units on hand', $page->instance()->getStats()[0]['percentage']);
     }
+
+    public function test_a_streamer_without_a_location_gets_no_stock_tools(): void
+    {
+        \Spatie\Permission\Models\Role::findOrCreate('streamer', 'web');
+        $loner = User::factory()->create();
+        $loner->assignRole('streamer');
+        Streamer::create(['name' => 'Loner', 'status' => 'active', 'user_id' => $loner->id]);
+        $this->actingAs($loner);
+
+        $this->assertFalse(StockGate::canChangeAny());
+        $this->assertFalse(\App\Filament\Pages\QuickAddStock::canAccess());
+        $this->assertFalse(\App\Filament\Pages\StockTransfer::canAccess());
+        $labels = array_column(\App\Support\InventoryNavigation::linksForPage([\App\Filament\Resources\InventoryItemResource::class]), 'label');
+        $this->assertNotContains('Quick add stock', $labels);
+
+        // Jay runs a shelf, so the tools are there for him.
+        \Spatie\Permission\Models\Role::findOrCreate('streamer', 'web');
+        $this->jayUser->assignRole('streamer');
+        $this->actingAs($this->jayUser);
+        $this->assertTrue(StockGate::canChangeAny());
+    }
 }

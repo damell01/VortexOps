@@ -117,10 +117,12 @@
                 <a href="{{ $this->quickAddUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-plus-circle /></span><span class="flex-1"><span class="t block">Quick Add Stock</span><span class="ivx-sub">Add quantity fast</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>
         @endif
         <a href="{{ $this->scanUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-qr-code /></span><span class="flex-1"><span class="t block">Scan Inventory</span><span class="ivx-sub">Barcode workflow</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>
+        @if(\App\Support\StockGate::canChangeAny())
         <div class="grid grid-cols-2 gap-3">
             <a href="{{ $this->addItemUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-cube /></span><span class="min-w-0"><span class="t block">Add Item</span><span class="ivx-sub">Create new SKU</span></span></a>
             <a href="{{ $this->transferUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-arrows-right-left /></span><span class="min-w-0"><span class="t block">Transfer Stock</span><span class="ivx-sub">Move between locations</span></span></a>
         </div>
+        @endif
         <section class="ivx-card ivx-list">
             @foreach([
                 ['All inventory', 'Cards and table of every item', $this->inventoryUrl(), 'heroicon-o-squares-2x2'],

@@ -262,9 +262,9 @@ class InventoryItemResource extends Resource
      */
     public static function canManageStock(): bool
     {
-        $user = auth()->user();
-
-        return (bool) (($user?->isAdmin() || $user?->isOwner()) && ! $user->isStreamerAssistant());
+        // Anyone who runs a location (App\Support\StockGate): the owner and
+        // staff for Main, a streamer for their own shelf; nobody else.
+        return \App\Support\StockGate::canChangeAny();
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

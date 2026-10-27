@@ -97,9 +97,14 @@ class LedgerTipReport
      */
     public function byStreamer(string $from, string $until, string $channel = 'all'): array
     {
+        // Exactly one matched show and exactly one primary streamer. Approved
+        // manual decisions take precedence over this automatic attribution.
         $matches = DB::table('whatnot_show_orders as orders')
             ->join('shows', 'shows.id', '=', 'orders.show_id')
-            ->join('show_streamer', 'show_streamer.show_id', '=', 'shows.id')
+            ->join('show_streamer', function (JoinClause $join) {
+                $join->on('show_streamer.show_id', '=', 'shows.id')
+                    ->where('show_streamer.is_primary', '=', 1);
+            })
             ->selectRaw('orders.whatnot_order_id, shows.whatnot_channel_id as channel_id, MIN(show_streamer.streamer_id) as streamer_id')
             ->whereNotNull('orders.whatnot_order_id')
             ->whereNotIn('orders.whatnot_order_id', ['', '-'])
@@ -109,11 +114,17 @@ class LedgerTipReport
 
         return WhatnotLedgerEntry::query()
             ->inChannelContext()
-            ->joinSub($matches, 'matched', function (JoinClause $join) {
+            ->leftJoin('ledger_attributions as manual', function (JoinClause $join) {
+                $join->on('manual.whatnot_ledger_entry_id', '=', 'whatnot_ledger_entries.id')
+                    ->where('manual.status', '=', 'approved');
+            })
+            ->leftJoinSub($matches, 'matched', function (JoinClause $join) {
                 $join->on('matched.whatnot_order_id', '=', 'whatnot_ledger_entries.whatnot_order_id')
                     ->on('matched.channel_id', '=', 'whatnot_ledger_entries.whatnot_channel_id');
             })
-            ->join('streamers', 'streamers.id', '=', 'matched.streamer_id')
+            ->join('streamers', function (JoinClause $join) {
+                $join->on('streamers.id', '=', DB::raw("CASE WHEN manual.id IS NOT NULL THEN manual.streamer_id ELSE matched.streamer_id END"));
+            })
             ->whereRaw('LOWER(TRIM(whatnot_ledger_entries.transaction_type)) IN (?, ?)', ['tip', 'tips'])
             ->where('whatnot_ledger_entries.created_date', '>=', Carbon::parse($from)->startOfDay())
             ->where('whatnot_ledger_entries.created_date', '<', Carbon::parse($until)->startOfDay()->addDay())

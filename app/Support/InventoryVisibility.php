@@ -38,7 +38,7 @@ class InventoryVisibility
      */
     public static function locationIdsFor(?User $user): ?array
     {
-        if (self::$unrestrictedDepth > 0 || $user?->isOwner()) return null;
+        if (self::$unrestrictedDepth > 0 || ($user !== null && ($user->isOwner() || ($user->isAdmin() && ! self::isReadOnlyStreamer($user))))) return null;
         if ($user === null) return [];
 
         $key = $user->id . ':' . ($user->streamer?->id ?? 'none');

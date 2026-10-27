@@ -35,7 +35,7 @@ class LedgerAttributionService
             $streamer = $primary->first();
             $businessId = $streamer?->business_id;
         } elseif ($data['target'] === 'streamer') {
-            $streamer = Streamer::findOrFail((int) ($data['streamer_id'] ?? 0));
+            $streamer = Streamer::query()->where('status', 'active')->findOrFail((int) ($data['streamer_id'] ?? 0));
             $businessId = $streamer->business_id;
         } elseif ($data['target'] === 'house') {
             $businessId = filled($data['business_id'] ?? null) ? (int) $data['business_id'] : null;
@@ -45,6 +45,9 @@ class LedgerAttributionService
         }
         DB::transaction(function () use ($entry, $data, $actorId, $show, $streamer, $businessId) {
             $before = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->lockForUpdate()->first();
+            if ($before && $before->status === 'pending' && (int) $before->submitted_by !== $actorId) {
+                throw ValidationException::withMessages(['attribution' => 'Another administrator has a pending correction. Review it before submitting another.']);
+            }
             $payload = [
                 'category' => $data['category'], 'target' => $data['target'],
                 'show_id' => $show?->id, 'streamer_id' => $streamer?->id,
@@ -52,7 +55,11 @@ class LedgerAttributionService
                 'reason' => trim($data['reason']), 'submitted_by' => $actorId,
                 'reviewed_by' => null, 'reviewed_at' => null, 'updated_at' => now(),
             ];
-            DB::table('ledger_attributions')->updateOrInsert(['whatnot_ledger_entry_id' => $entry->id], $payload + ['created_at' => now()]);
+            if ($before) {
+                DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->update($payload);
+            } else {
+                DB::table('ledger_attributions')->insert($payload + ['whatnot_ledger_entry_id' => $entry->id, 'created_at' => now()]);
+            }
             $this->event($entry->id, $actorId, 'submitted', $before, $payload, $data['reason']);
         });
     }

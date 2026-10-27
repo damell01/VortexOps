@@ -23,6 +23,9 @@ class InventoryImportService
         'description' => 'description', 'unit_cost' => 'unit_cost', 'cost' => 'unit_cost',
         'average_cost' => 'average_cost', 'avg_cost' => 'average_cost', 'sale_price' => 'sale_price', 'price' => 'sale_price',
         'reorder_level' => 'reorder_level', 'reorder' => 'reorder_level', 'notes' => 'notes',
+        // A count, not a product field: sets stock at the location picked on the importer.
+        'quantity' => 'quantity', 'qty' => 'quantity', 'on_hand' => 'quantity', 'quantity_on_hand' => 'quantity',
+        'qty_on_hand' => 'quantity', 'stock' => 'quantity', 'units' => 'quantity', 'count' => 'quantity',
     ];
 
     /** @var array<int,string> */
@@ -71,9 +74,14 @@ class InventoryImportService
         ];
     }
 
-    public function import(array $reviewRows, bool $updateExisting = false): array
+    /**
+     * With a $stockLocation, a row's quantity becomes that product's count
+     * there (through InventoryService, so it lands in the item's history) —
+     * for existing rows too, even when their details are not being updated.
+     */
+    public function import(array $reviewRows, bool $updateExisting = false, ?\App\Models\InventoryLocation $stockLocation = null): array
     {
-        $result = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'conflicts' => 0, 'errors' => []];
+        $result = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'conflicts' => 0, 'stocked' => 0, 'errors' => []];
 
         foreach ($reviewRows as $row) {
             $status = $row['status'] ?? 'invalid';
@@ -84,29 +92,39 @@ class InventoryImportService
                 continue;
             }
 
-            if ($status === 'existing' && ! $updateExisting) {
+            $quantity = $data['quantity'] ?? null;
+            $setsStock = $stockLocation !== null && $quantity !== null && is_numeric($quantity) && (float) $quantity >= 0;
+
+            if ($status === 'existing' && ! $updateExisting && ! $setsStock) {
                 $result['skipped']++;
                 continue;
             }
 
             try {
-                DB::transaction(function () use ($status, $data, $row, $updateExisting, &$result): void {
+                DB::transaction(function () use ($status, $data, $row, $updateExisting, $setsStock, $quantity, $stockLocation, &$result): void {
+                    $item = null;
                     if ($status === 'new') {
                         $item = InventoryItem::create($this->cleanCreateData($data));
                         $this->syncIdentities($item, $data);
                         $result['created']++;
-                        return;
-                    }
-
-                    if ($status === 'existing' && $updateExisting) {
+                    } elseif ($status === 'existing') {
                         $item = InventoryItem::find($row['existing_id'] ?? null);
                         if (! $item) {
                             throw new \RuntimeException('The matched inventory item no longer exists.');
                         }
 
-                        $item->update($this->cleanUpdateData($data));
-                        $this->syncIdentities($item, $data);
-                        $result['updated']++;
+                        if ($updateExisting) {
+                            $item->update($this->cleanUpdateData($data));
+                            $this->syncIdentities($item, $data);
+                            $result['updated']++;
+                        } else {
+                            $result['skipped']++;
+                        }
+                    }
+
+                    if ($item && $setsStock) {
+                        app(\App\Services\InventoryService::class)->adjustStock($item, $stockLocation, (float) $quantity, 'Count imported from spreadsheet', 'adjustment');
+                        $result['stocked']++;
                     }
                 });
             } catch (\Throwable $e) {
@@ -304,7 +322,7 @@ class InventoryImportService
     {
         $mapped = [];
         foreach ($mappedHeaders as $index => $field) {
-            if (! $field || ! in_array($field, self::IMPORTABLE_FIELDS, true)) continue;
+            if (! $field || (! in_array($field, self::IMPORTABLE_FIELDS, true) && $field !== 'quantity')) continue;
             $value = $rawRow[$index] ?? null;
             if (is_string($value)) $value = trim($value);
             if ($value === '') $value = null;

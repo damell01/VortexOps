@@ -72,7 +72,7 @@ class ManageStock extends Page
 
     public function stockRows(): array
     {
-        $visible = InventoryVisibility::locationIdsFor(auth()->user());
+        $visible = InventoryVisibility::shownLocationIdsFor(auth()->user());
 
         return InventoryStock::with('location')
             ->where('inventory_item_id', $this->record->id)

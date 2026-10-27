@@ -14,7 +14,7 @@ trait FiltersInventoryLocation
 
     public function inventoryLocationOptions(): array
     {
-        $visible = InventoryVisibility::locationIdsFor(auth()->user());
+        $visible = InventoryVisibility::shownLocationIdsFor(auth()->user());
 
         return InventoryLocation::query()
             ->when($visible !== null, fn ($q) => $q->whereIn('id', $visible))
@@ -52,7 +52,7 @@ trait FiltersInventoryLocation
         }
 
         $location = (int) $this->inventoryLocation;
-        $visible = InventoryVisibility::locationIdsFor(auth()->user());
+        $visible = InventoryVisibility::shownLocationIdsFor(auth()->user());
         $ids = \App\Filament\Resources\InventoryItemResource::getEloquentQuery()->reorder()->select('products.id')->toBase();
         $total = \Illuminate\Support\Facades\DB::query()->fromSub($ids, 'visible_products')->count();
 

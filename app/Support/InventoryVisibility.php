@@ -62,6 +62,28 @@ class InventoryVisibility
         ]));
     }
 
+    /**
+     * Locations whose stock is *shown* to this user on inventory screens.
+     *
+     * Same as locationIdsFor(), except that admins, rather than everything,
+     * see the business's own locations — Main and other shared ones — and
+     * not streamers' shelves. A streamer's shelf is theirs to run
+     * (StockGate); on the business's screens it only crowded Main's numbers.
+     * The product list itself is not narrowed by this: an admin still sees
+     * every product, counted at the shared locations.
+     *
+     * @return array<int, int>|null
+     */
+    public static function shownLocationIdsFor(?User $user): ?array
+    {
+        $ids = static::locationIdsFor($user);
+        if ($ids !== null) {
+            return $ids;
+        }
+
+        return InventoryLocation::query()->whereNull('streamer_id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
     /** Null inherits global access; an empty list explicitly grants no locations. */
     public static function overrideForStreamer(?int $streamerId): ?array
     {

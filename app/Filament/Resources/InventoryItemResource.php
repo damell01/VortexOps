@@ -290,7 +290,10 @@ class InventoryItemResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->withSum('stock', 'quantity');
+        // Quantities count only the locations this person is shown: for an
+        // admin, the business's own (not streamers' shelves).
+        $shown = \App\Support\InventoryVisibility::shownLocationIdsFor(auth()->user());
+        $query = parent::getEloquentQuery()->withSum(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)], 'quantity');
 
         // This used to limit streamers to their own shelves, which meant they
         // could not see that a case existed anywhere else — and so could not
@@ -1097,10 +1100,9 @@ class InventoryItemResource extends Resource
                 // way to look somewhere they cannot.
                 SelectFilter::make('location')
                     ->label('Location')
-                    ->options(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user())
-                        ? InventoryLocation::whereIn('id', \App\Support\InventoryVisibility::locationIdsFor(auth()->user()))
-                            ->orderBy('name')->pluck('name', 'id')->all()
-                        : InventoryLocation::activeOptions())
+                    ->options(fn () => InventoryLocation::whereIn('id', \App\Support\InventoryVisibility::shownLocationIdsFor(auth()->user()))
+                        ->when(! \App\Support\InventoryVisibility::isLimited(auth()->user()), fn ($q) => $q->where('status', 'active'))
+                        ->orderBy('name')->pluck('name', 'id')->all())
                     ->multiple()
                     ->query(function (Builder $query, array $data) {
                         $ids = array_filter((array) ($data['values'] ?? []));

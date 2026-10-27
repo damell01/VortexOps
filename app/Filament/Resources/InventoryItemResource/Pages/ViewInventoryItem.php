@@ -41,8 +41,9 @@ class ViewInventoryItem extends Page
     {
         abort_unless(InventoryItemResource::getEloquentQuery()->whereKey($this->record->id)->exists(), 404);
         $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+        $shown = \App\Support\InventoryVisibility::shownLocationIdsFor(auth()->user());
         $this->record->load([
-            'stock' => fn ($q) => $q->when($visible !== null, fn ($q) => $q->whereIn('inventory_location_id', $visible))->with('location'),
+            'stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location'),
             'lots' => fn ($q) => $q->when($visible !== null, fn ($q) => $q->whereRaw('1 = 0'))->latest('received_at')->limit(20),
             'identities',
             'preferredVendor',

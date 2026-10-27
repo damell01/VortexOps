@@ -68,6 +68,17 @@
                     <span><strong style="display:block;font-size:.83rem">Update existing items from this sheet</strong><span class="vx-import-muted">Off by default. When off, existing items are shown for review but skipped. When on, nonblank descriptive/pricing fields from the sheet update the matched item; SKU/barcode identifiers are not overwritten.</span></span>
                 </label>
 
+                @if($this->hasQuantityColumn())
+                    <label style="display:grid;gap:.35rem;margin-top:.9rem;padding:.75rem;border:1px solid rgb(229 231 235);border-radius:.75rem" data-vx-import-stock>
+                        <strong style="font-size:.83rem">Set stock counts from the Quantity column at</strong>
+                        <select wire:model="stockLocationId" class="min-h-11 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
+                            <option value="">Don't set stock</option>
+                            @foreach($this->stockLocationOptions() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                        </select>
+                        <span class="vx-import-muted">Each row's quantity becomes that product's count at this location (new and existing products, even with updating off). Blank quantities are left alone. Every change is written to the item's history.</span>
+                    </label>
+                @endif
+
                 <div class="vx-import-list">
                     @foreach($this->filteredRows() as $row)
                         @php $status = $row['status']; $data = $row['data']; @endphp

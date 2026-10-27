@@ -27,6 +27,20 @@ class InventoryImporter extends Page
     public array $recognizedHeaders = [];
     public array $warnings = [];
     public bool $updateExisting = false;
+
+    /** Where a Quantity column's counts are set (a location this person runs). */
+    public ?int $stockLocationId = null;
+
+    public function stockLocationOptions(): array
+    {
+        return \App\Support\StockGate::filter(\App\Models\InventoryLocation::query()->where('status', 'active')
+            ->orderByRaw("CASE WHEN type = 'main_storage' THEN 0 ELSE 1 END")->orderBy('name')->pluck('name', 'id')->all());
+    }
+
+    public function hasQuantityColumn(): bool
+    {
+        return in_array('quantity', $this->recognizedHeaders, true);
+    }
     public bool $showNew = true;
     public bool $showExisting = true;
     public bool $showConflicts = true;
@@ -81,6 +95,7 @@ class InventoryImporter extends Page
             $this->reviewRows = $preview['rows'];
             $this->summary = $preview['summary'];
             $this->recognizedHeaders = $preview['headers'];
+            $this->stockLocationId ??= (int) array_key_first($this->stockLocationOptions()) ?: null;
             $this->warnings = $preview['warnings'];
 
             if ($this->reviewRows === []) {
@@ -116,12 +131,18 @@ class InventoryImporter extends Page
             return;
         }
 
-        $result = app(InventoryImportService::class)->import($this->reviewRows, $this->updateExisting);
+        $location = null;
+        if ($this->hasQuantityColumn() && $this->stockLocationId) {
+            $location = \App\Models\InventoryLocation::findOrFail($this->stockLocationId);
+            \App\Support\StockGate::authorize($location);
+        }
+
+        $result = app(InventoryImportService::class)->import($this->reviewRows, $this->updateExisting, $location);
         $this->lastImportResult = $result;
 
         Notification::make()
             ->title('Inventory import complete')
-            ->body("{$result['created']} created · {$result['updated']} updated · {$result['skipped']} existing skipped" . ($result['conflicts'] ? " · {$result['conflicts']} conflicts not imported" : ''))
+            ->body("{$result['created']} created · {$result['updated']} updated · {$result['skipped']} existing details skipped" . ($location ? " · {$result['stocked']} counts set at {$location->name}" : '') . ($result['conflicts'] ? " · {$result['conflicts']} conflicts not imported" : ''))
             ->success()
             ->send();
 

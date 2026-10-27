@@ -125,6 +125,9 @@
                     <h3 class="vxw-h2">People in this run</h3>
                     <p class="vxw-sub">Grouped by role, largest payouts first. Open a person to see the lines behind their total.</p>
                 </div>
+                @if($run->status === 'draft' && $payouts->isNotEmpty())
+                    <button type="button" wire:click="mountAction('other_payment')" class="vxw-btn vxw-btn--primary vxw-btn--sm"><x-filament::icon icon="heroicon-m-plus-circle" /> Add Payment</button>
+                @endif
                 <div class="vxw-search w-full sm:w-56">
                     <x-filament::icon icon="heroicon-m-magnifying-glass" />
                     <input type="search" wire:model.live.debounce.300ms="peopleSearch" placeholder="Search people" class="vxw-input" aria-label="Search people in this pay run">
@@ -171,6 +174,11 @@
                             </div>
                         </summary>
                         <div class="vxw-disclose-body vx-payroll-line-cards">
+                            @if($run->status === 'draft')
+                                <div class="flex flex-wrap justify-end gap-2 pb-2">
+                                    <button type="button" wire:click="mountAction('other_payment', { payout_id: {{ (int) $rows->first()->id }} })" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-plus-circle" /> Add Payment for {{ $person?->name ?? 'this person' }}</button>
+                                </div>
+                            @endif
                             @foreach($rows as $payout)
                                 <article class="vx-payroll-line-card">
                                     <div>

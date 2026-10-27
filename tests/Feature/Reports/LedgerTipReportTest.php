@@ -235,7 +235,7 @@ class LedgerTipReportTest extends TestCase
         $this->assertSame([$this->channel->name], array_column($tips['channels'], 'channel'));
         $page->assertSee('Tips this period')->assertSee('$42.50');
     }
-    public function test_streamer_tip_totals_only_include_unambiguous_single_streamer_shows(): void
+    public function test_streamer_tip_totals_use_primary_streamer_on_shared_shows_and_exclude_ambiguous_orders(): void
     {
         $single = $this->order('single-tip', $this->business);
         $this->tip(12.50, ['whatnot_order_id' => 'single-tip']);
@@ -251,12 +251,15 @@ class LedgerTipReportTest extends TestCase
 
         $this->tip(99, ['whatnot_order_id' => 'unmatched-tip']);
         $rows = app(LedgerTipReport::class)->byStreamer('2026-10-01', '2026-10-31');
-        $this->assertCount(1, $rows);
+        $this->assertCount(2, $rows);
         $this->assertSame($single->streamers()->first()->name, $rows[0]['streamer']);
         $this->assertSame(2, $rows[0]['entries']);
         $this->assertSame(1250, $rows[0]['credits']);
         $this->assertSame(250, $rows[0]['debits']);
         $this->assertSame(1000, $rows[0]['net']);
+        $this->assertSame($shared->primaryStreamer()->name, $rows[1]['streamer']);
+        $this->assertSame(1, $rows[1]['entries']);
+        $this->assertSame(9900, $rows[1]['net']);
     }
 
 }

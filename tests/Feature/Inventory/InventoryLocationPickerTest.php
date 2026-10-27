@@ -89,9 +89,9 @@ class InventoryLocationPickerTest extends TestCase
         $this->assertCount(0, $page->instance()->catalogItems);
     }
 
-    public function test_admin_can_select_inactive_locations_from_a_direct_link(): void
+    public function test_owner_can_select_inactive_locations_from_a_direct_link(): void
     {
-        $user = User::factory()->create();
+        $user = User::firstWhere('email', config('app.owner_email'));
         $user->assignRole(Role::findOrCreate('admin', 'web'));
         $this->actingAs($user);
         $this->second->update(['status' => 'inactive']);

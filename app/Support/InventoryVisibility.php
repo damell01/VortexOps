@@ -41,10 +41,16 @@ class InventoryVisibility
         if (self::$unrestrictedDepth > 0 || $user?->isOwner()) return null;
         if ($user === null) return [];
 
-        return array_values(array_unique(array_filter([
+        $key = $user->id . ':' . ($user->streamer?->id ?? 'none');
+        $memo = request()->attributes->get('vx.inventory.visibility', []);
+        if (array_key_exists($key, $memo)) return $memo[$key];
+        $ids = array_values(array_unique(array_filter([
             InventoryLocation::mainId(),
             ...static::ownLocationIds($user),
         ], fn ($id) => $id !== null)));
+        $memo[$key] = $ids;
+        request()->attributes->set('vx.inventory.visibility', $memo);
+        return $ids;
     }
 
     /** A streamer stays read-only even when another role also grants admin access. */
@@ -68,6 +74,11 @@ class InventoryVisibility
         }
     }
 
+    public static function flushMemo(): void
+    {
+        if (app()->bound('request')) request()->attributes->remove('vx.inventory.visibility');
+    }
+
     public static function restrictionsSuspended(): bool
     {
         return self::$unrestrictedDepth > 0;
@@ -87,7 +98,8 @@ class InventoryVisibility
      */
     public static function shownLocationIdsFor(?User $user): ?array
     {
-        return static::locationIdsFor($user);
+        $ids = static::locationIdsFor($user);
+        return $ids ?? InventoryLocation::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 
     /** Null inherits global access; an empty list explicitly grants no locations. */

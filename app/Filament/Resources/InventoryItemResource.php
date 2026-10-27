@@ -309,7 +309,8 @@ class InventoryItemResource extends Resource
 
         if ($visible !== null) {
             return $query
-                ->whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $visible))
+                ->where(fn ($q) => $q->whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $visible))
+                    ->orWhereDoesntHave('stock', fn ($q) => $q->withoutGlobalScope('streamerLocationOverride')))
                 ->distinct();
         }
 

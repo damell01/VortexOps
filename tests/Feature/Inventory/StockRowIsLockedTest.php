@@ -37,7 +37,7 @@ class StockRowIsLockedTest extends TestCase
     {
         parent::setUp();
 
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
 
         $this->location = InventoryLocation::create([
             'name' => 'Main', 'type' => 'main_storage', 'status' => 'active',

@@ -139,7 +139,7 @@ class ViewPallet extends ViewRecord
                         $result = app(ReceivingService::class)->linkLineByScan(
                             $line,
                             $data['code'],
-                            InventoryLocation::findOrFail($data['inventory_location_id']),
+                            InventoryLocation::visibleTo()->findOrFail($data['inventory_location_id']),
                         );
 
                         $body = $result['created']
@@ -200,7 +200,7 @@ class ViewPallet extends ViewRecord
             $result = app(ReceivingService::class)->linkLineByScan(
                 $line,
                 $code,
-                InventoryLocation::findOrFail($locationId),
+                InventoryLocation::visibleTo()->findOrFail($locationId),
             );
 
             $count = app(ReceivingService::class)->confirmOneCase($result['line']);
@@ -678,7 +678,7 @@ class ViewPallet extends ViewRecord
                             ->where('pallet_id', $this->record->id)
                             ->firstOrFail();
                         $item     = InventoryItem::findOrFail($data['inventory_item_id']);
-                        $location = InventoryLocation::findOrFail($data['inventory_location_id']);
+                        $location = InventoryLocation::visibleTo()->findOrFail($data['inventory_location_id']);
                         app(ReceivingService::class)->mapLine($line, $item, $location);
                         Notification::make()->title('Line mapped successfully')->success()->send();
                         $this->record->refresh();

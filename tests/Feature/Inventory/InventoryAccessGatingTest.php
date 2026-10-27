@@ -106,7 +106,7 @@ class InventoryAccessGatingTest extends TestCase
         $this->assertFalse(InventoryItemResource::canManageStock());
         $this->assertFalse(InventoryScanner::canAccess());
         $this->assertFalse(QuickAddStock::canAccess());
-        $page = Livewire::test(ListInventoryItems::class)->assertSee('Gated Box');
+        $page = Livewire::test(ListInventoryItems::class)->set('tableFilters.mine_only.isActive', false)->assertSee('Gated Box');
         $this->assertStringNotContainsString('<div class="vx-card-actions">', $page->html());
         $this->get(InventoryItemResource::getUrl('create'))->assertForbidden();
         $this->get(InventoryItemResource::getUrl('edit', ['record' => $this->item]))->assertForbidden();

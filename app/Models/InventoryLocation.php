@@ -33,7 +33,10 @@ class InventoryLocation extends Model
     /** Apply the inventory display policy to selectors and location pages. */
     public function scopeVisibleTo(\Illuminate\Database\Eloquent\Builder $query, ?User $user = null): \Illuminate\Database\Eloquent\Builder
     {
-        $ids = \App\Support\InventoryVisibility::locationIdsFor($user ?? auth()->user());
+        $user ??= auth()->user();
+        // Queued reports and internal jobs have no interactive inventory viewer.
+        if ($user === null) return $query;
+        $ids = \App\Support\InventoryVisibility::locationIdsFor($user);
         return $ids === null ? $query : $query->whereIn($query->qualifyColumn('id'), $ids);
     }
 
@@ -198,8 +201,8 @@ class InventoryLocation extends Model
     /** The business's main warehouse: Main Warehouse by name, else the first active main storage. */
     public static function mainId(): ?int
     {
-        $id = static::query()->whereNull('streamer_id')->where('status', 'active')->where('type', 'main_storage')
-            ->orderByRaw("CASE WHEN LOWER(name) = 'main warehouse' THEN 0 ELSE 1 END")->orderBy('id')->value('id');
+        $id = static::query()->whereNull('streamer_id')->where('status', 'active')->where(fn ($q) => $q->where('type', 'main_storage')->orWhereIn(\Illuminate\Support\Facades\DB::raw('LOWER(name)'), ['main warehouse', 'main storage', 'main']))
+            ->orderByRaw("CASE WHEN LOWER(name) = 'main warehouse' THEN 0 WHEN LOWER(name) = 'main storage' THEN 1 WHEN LOWER(name) = 'main' THEN 2 ELSE 3 END")->orderBy('id')->value('id');
 
         return $id ? (int) $id : null;
     }
@@ -220,7 +223,7 @@ class InventoryLocation extends Model
     {
         $configured = Setting::get('default_receiving_location_id');
 
-        if ($configured && static::where('id', $configured)->where('status', 'active')->exists()) {
+        if ($configured && static::visibleTo()->where('id', $configured)->where('status', 'active')->exists()) {
             return (int) $configured;
         }
 
@@ -242,6 +245,7 @@ class InventoryLocation extends Model
     protected static function booted(): void
     {
         $bust = function () {
+            \App\Support\InventoryVisibility::flushMemo();
             cache()->forget('inv_loc:active');
             foreach (['main_storage', 'streamer_inventory', 'returned', 'damaged', 'fulfillment', 'other'] as $type) {
                 cache()->forget("inv_loc:type:{$type}");

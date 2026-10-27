@@ -28,5 +28,19 @@ InventoryStock::firstOrCreate(['inventory_item_id' => $item->id, 'inventory_loca
 $vendor = Vendor::firstOrCreate(['name' => 'Audit Vendor'], ['status' => 'active']);
 $pallet = Pallet::firstOrCreate(['reference' => 'BROWSER-RECEIVE'], ['vendor_id' => $vendor->id, 'status' => 'pending']);
 $line = PalletLine::firstOrCreate(['pallet_id' => $pallet->id, 'line_number' => 1], ['description' => $item->name, 'inventory_item_id' => $item->id, 'inventory_location_id' => $source->id, 'case_count' => 20, 'quantity_per_case' => 1, 'unit_cost' => 10]);
-file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'line' => $line->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
+$admin = User::firstOrCreate(['email' => 'inventory-audit-admin@example.test'], ['name' => 'Audit Admin', 'password' => bcrypt('inventory-audit-local'), 'email_verified_at' => now()]);
+$admin->assignRole('admin');
+Role::findOrCreate('streamer', 'web');
+$reader = User::firstOrCreate(['email' => 'inventory-audit-streamer@example.test'], ['name' => 'Audit Streamer', 'password' => bcrypt('inventory-audit-local'), 'email_verified_at' => now()]);
+$reader->assignRole('streamer');
+$readerProfile = \App\Models\Streamer::firstOrCreate(['user_id' => $reader->id], ['name' => 'Audit Streamer', 'status' => 'active']);
+$readerLocation = InventoryLocation::firstOrCreate(['streamer_id' => $readerProfile->id], ['name' => 'Audit Personal Shelf', 'type' => 'streamer_inventory', 'status' => 'active']);
+InventoryStock::firstOrCreate(['inventory_item_id' => $item->id, 'inventory_location_id' => $readerLocation->id], ['quantity' => 5]);
+$pallets = ['desktop' => $pallet->id];
+foreach (['mobile', 'safari-mobile'] as $browser) {
+    $delivery = Pallet::firstOrCreate(['reference' => 'BROWSER-RECEIVE-'.$browser], ['vendor_id' => $vendor->id, 'status' => 'pending']);
+    PalletLine::firstOrCreate(['pallet_id' => $delivery->id, 'line_number' => 1], ['description' => $item->name, 'inventory_item_id' => $item->id, 'inventory_location_id' => $source->id, 'case_count' => 20, 'quantity_per_case' => 1, 'unit_cost' => 10]);
+    $pallets[$browser] = $delivery->id;
+}
+file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'pallets' => $pallets, 'line' => $line->id, 'adminEmail' => $admin->email, 'streamerEmail' => $reader->email, 'readerLocation' => $readerLocation->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
 echo "Isolated inventory browser fixtures ready.\n";

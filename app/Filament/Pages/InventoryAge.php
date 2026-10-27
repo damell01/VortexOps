@@ -171,6 +171,10 @@ class InventoryAge extends Page
             ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
             ->leftJoinSub($lastReceipt, 'r', 'r.inventory_item_id', '=', 'inventory_stock.inventory_item_id')
             ->whereIn('inventory_stock.inventory_location_id', $locationIds)
+            // Match the live inventory catalog; archived and inactive test SKUs
+            // must not inflate the operational aging report.
+            ->whereNull('products.deleted_at')
+            ->where('products.is_active', true)
             ->where('inventory_stock.quantity', '>', 0)
             ->selectRaw('inventory_stock.quantity as qty')
             ->selectRaw('COALESCE(products.average_cost, 0) as unit_cost')

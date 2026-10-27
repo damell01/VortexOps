@@ -28,5 +28,5 @@ InventoryStock::firstOrCreate(['inventory_item_id' => $item->id, 'inventory_loca
 $vendor = Vendor::firstOrCreate(['name' => 'Audit Vendor'], ['status' => 'active']);
 $pallet = Pallet::firstOrCreate(['reference' => 'BROWSER-RECEIVE'], ['vendor_id' => $vendor->id, 'status' => 'pending']);
 $line = PalletLine::firstOrCreate(['pallet_id' => $pallet->id, 'line_number' => 1], ['description' => $item->name, 'inventory_item_id' => $item->id, 'inventory_location_id' => $source->id, 'case_count' => 20, 'quantity_per_case' => 1, 'unit_cost' => 10]);
-file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'line' => $line->id]));
+file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'line' => $line->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
 echo "Isolated inventory browser fixtures ready.\n";

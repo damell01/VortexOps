@@ -81,7 +81,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for i in {1..30}; do curl -fsS http://127.0.0.1:8000/admin/login >/dev/null && break; sleep 2; done
-          npx playwright test --config=playwright.inventory-audit.config.ts || { cat /tmp/inventory-server.log; tail -n 100 storage/logs/laravel.log; exit 1; }
+          npx playwright test --config=playwright.inventory-audit.config.ts --max-failures=3 || { cat /tmp/inventory-server.log; tail -n 100 storage/logs/laravel.log; exit 1; }
       - uses: actions/upload-artifact@v4
         if: always()
         with:

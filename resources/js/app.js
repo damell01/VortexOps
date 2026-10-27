@@ -17,7 +17,7 @@ import '../css/mobile-report-pass.css';
 // Keep each user's timezone aligned with the browser they actually sign in
 // from. This removes timezone setup from admin user creation.
 async function syncBrowserTimezone() {
-    if (!location.pathname.startsWith('/admin')) return;
+    if (!location.pathname.startsWith('/admin') || location.pathname === '/admin/login') return;
 
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content;

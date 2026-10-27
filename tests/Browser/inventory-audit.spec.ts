@@ -9,6 +9,10 @@ async function scan(page:Page, code='012345678905') {
 }
 async function select(page:Page, name:string, value:string|number) {
     const input=page.locator('select[wire\\:model\\.live="'+name+'"],select[wire\\:model="'+name+'"]');
+    await input.waitFor({state:'attached'});
+    const roundTrip=await input.getAttribute('wire:model.live')
+        ? page.waitForResponse(r=>/\/livewire[^/]*\/update/.test(r.url()) && r.request().method()==='POST').then(r=>r.finished())
+        : Promise.resolve();
     if (await input.isVisible()) await input.selectOption(String(value));
     else {
         const button=input.locator('xpath=following-sibling::button[contains(@class,"vx-picker-trigger")][1]');
@@ -16,18 +20,20 @@ async function select(page:Page, name:string, value:string|number) {
         await button.click();
         await page.getByRole('dialog').getByRole('button',{name:label!.trim(),exact:false}).click();
     }
+    await roundTrip;
 }
 
 test.beforeEach(async ({page})=>{
     const errors:string[]=[];
-    page.on('pageerror',error=>errors.push(error.message));
-    page.on('response',response=>{if(response.status()>=400 && /\/livewire\/|\/inventory-scanner-api\//.test(response.url())) errors.push(response.status()+' '+response.url())});
+    page.on('pageerror',error=>errors.push(error.message+' '+error.stack));
+    page.on('response',response=>{if(response.status()>=400 && /\/livewire[^/]*\/|\/inventory-scanner-api\//.test(response.url())) errors.push(response.status()+' '+response.url())});
     (page as any).auditErrors=errors;
     await page.goto('/admin/login');
     await page.locator('input[type=email]').fill(fixture().email);
     await page.locator('input[type=password]').fill('inventory-audit-local');
     await page.locator('button[type=submit]').click();
     await expect(page.locator('input[type=password]')).toHaveCount(0,{timeout:30000});
+    await page.waitForLoadState('networkidle');
 });
 test.afterEach(async ({page})=>{expect((page as any).auditErrors).toEqual([])});
 
@@ -53,7 +59,7 @@ test('continuous scans submit once per operation and unknown barcode recovery cl
     const f=fixture();await page.goto('/admin/inventory-scanner');
     await page.locator('button[wire\\:click="switchMode(\'quickadd\')"]').click();
     await select(page,'qaLocationId',f.source);await field(page,'qaQty').fill('1');
-    let requests=0;page.on('request',request=>{if(request.url().includes('/livewire/update'))requests++});
+    let requests=0;page.on('request',request=>{if(/\/livewire[^/]*\/update/.test(request.url()))requests++});
     await page.evaluate(()=>{for(let i=0;i<3;i++)window.dispatchEvent(new CustomEvent('barcode-scanned',{detail:{value:'012345678905'},cancelable:true}))});
     await expect(page.getByText('Stock added: Browser Audit Box')).toBeVisible();
     await expect.poll(()=>requests).toBe(3);
@@ -79,7 +85,7 @@ test('bulk transfer can cancel, reopen and execute without stuck overlays',async
 
 test('inventory pages render without horizontal overflow or browser errors',async({page},testInfo)=>{
     const f=fixture();
-    for(const path of ['inventory-scanner','stock-transfer','quick-add-stock','inventory-search','inventory-items','inventory-items/'+f.item,'inventory-items/'+f.item+'/edit','inventory-locations','inventory-stock','inventory-movements','inventory-count','inventory-reconciliation','inventory-overview','inventory-health','inventory-activity','inventory-report','pallets']) {
+    for(const path of ['inventory-scanner','stock-transfer','quick-add-stock','inventory-search','inventory-items','inventory-items/'+f.item,'inventory-items/'+f.item+'/edit','inventory-locations',f.stockPath.replace(/^admin\//,''),'inventory-movements','inventory-count','inventory-reconciliation','inventory-overview','inventory-health','inventory-activity','inventory-report','pallets']) {
         const response=await page.goto('/admin/'+path);expect(response?.status(),path).toBe(200);
         await expect(page.locator('.fi-main')).toBeVisible();
         await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),{message:path}).toBe(true);

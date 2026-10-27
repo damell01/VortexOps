@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\WhatnotLedgerEntry;
 use App\Models\WhatnotShowOrder;
 use App\Services\LedgerAttributionService;
+use App\Services\LedgerTipReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -60,6 +61,28 @@ class LedgerAttributionTest extends TestCase
         $other = Show::withoutEvents(fn () => Show::create(['title' => 'Another show', 'show_date' => today(), 'created_by' => $author->id, 'status' => 'reconciled']));
         WhatnotShowOrder::create(['show_id' => $other->id, 'whatnot_order_id' => 'order-123']);
         $this->assertNull($service->suggestedShow($entry));
+    }
+
+    public function test_approved_manual_show_assignment_is_counted_once_in_streamer_tip_totals(): void
+    {
+        $author = User::factory()->create();
+        $reviewer = User::factory()->create();
+        $primary = Streamer::create(['name' => 'Ledger report primary', 'status' => 'active']);
+        $show = Show::withoutEvents(fn () => Show::create(['title' => 'Attributed show', 'show_date' => '2026-10-22', 'created_by' => $author->id, 'status' => 'reconciled']));
+        $show->streamers()->attach($primary->id, ['is_primary' => true]);
+        $entry = WhatnotLedgerEntry::create([
+            'dedup_key' => 'attributed-tip-report', 'whatnot_order_id' => 'manual-tip-1',
+            'amount' => 25, 'transaction_type' => 'Tips', 'status' => 'Completed', 'created_date' => '2026-10-22 12:00:00',
+        ]);
+        $service = app(LedgerAttributionService::class);
+        $service->save($entry, ['category' => 'tips', 'target' => 'show', 'show_id' => $show->id, 'reason' => 'Verified show receipt'], $author->id);
+        $this->assertSame([], app(LedgerTipReport::class)->byStreamer('2026-10-01', '2026-10-31'));
+        $service->review($entry, $reviewer->id, true);
+        $rows = app(LedgerTipReport::class)->byStreamer('2026-10-01', '2026-10-31');
+        $this->assertCount(1, $rows);
+        $this->assertSame('Ledger report primary', $rows[0]['streamer']);
+        $this->assertSame(2500, $rows[0]['net']);
+        $this->assertSame(1, $rows[0]['entries']);
     }
 
     public function test_house_assignment_has_no_streamer_and_can_be_rejected(): void

@@ -107,10 +107,8 @@ class ListInventoryItems extends ListRecords
     private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = $this->getFilteredTableQuery()->reorder();
-        if (true) {
-            $shown = array_filter([$this->inventoryPageLocationId()]);
-            $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
-        }
+        $shown = array_filter([$this->inventoryPageLocationId()]);
+        $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
 
         if (filled($this->catalogSearch)) {
             $term = '%' . trim($this->catalogSearch) . '%';

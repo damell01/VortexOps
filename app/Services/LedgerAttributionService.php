@@ -12,6 +12,34 @@ class LedgerAttributionService
 {
     public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'other'];
 
+    public function suggestedShow(WhatnotLedgerEntry $entry): ?Show
+    {
+        if (! filled($entry->whatnot_order_id) || $entry->whatnot_order_id === '-') return null;
+
+        $ids = DB::table('whatnot_show_orders as orders')
+            ->join('shows', 'shows.id', '=', 'orders.show_id')
+            ->where('orders.whatnot_order_id', $entry->whatnot_order_id)
+            ->where('shows.whatnot_channel_id', $entry->whatnot_channel_id)
+            ->distinct()->limit(2)->pluck('shows.id');
+        return $ids->count() === 1 ? Show::find($ids->first()) : null;
+    }
+
+    public function suggestedCategory(WhatnotLedgerEntry $entry): string
+    {
+        $type = strtolower(trim((string) $entry->transaction_type));
+        return match (true) {
+            str_contains($type, 'tip') => 'tips',
+            str_contains($type, 'refund'), str_contains($type, 'chargeback') => 'refunds',
+            str_contains($type, 'shipping'), str_contains($type, 'postage') => 'shipping',
+            str_contains($type, 'giveaway') => 'giveaways',
+            str_contains($type, 'bonus') => 'bonus',
+            str_contains($type, 'marketing'), str_contains($type, 'promotion') => 'marketing',
+            str_contains($type, 'fee'), str_contains($type, 'commission') => 'fees',
+            str_contains($type, 'sale'), str_contains($type, 'earning') => 'sales',
+            default => 'other',
+        };
+    }
+
     public function save(WhatnotLedgerEntry $entry, array $data, int $actorId): void
     {
         if (! in_array($data['category'] ?? '', self::CATEGORIES, true) ||
@@ -25,7 +53,7 @@ class LedgerAttributionService
         $businessId = null;
         if ($data['target'] === 'show') {
             $show = Show::findOrFail((int) ($data['show_id'] ?? 0));
-            if ($entry->whatnot_channel_id && $show->whatnot_channel_id !== $entry->whatnot_channel_id) {
+            if ($show->whatnot_channel_id !== $entry->whatnot_channel_id) {
                 throw ValidationException::withMessages(['attribution' => 'The show must belong to the ledger entry channel.']);
             }
             $primary = $show->streamers()->wherePivot('is_primary', true)->get();

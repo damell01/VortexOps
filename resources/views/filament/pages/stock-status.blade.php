@@ -12,6 +12,15 @@
         @endforeach
     </nav>
 
+    <label class="text-xs font-semibold" style="color:var(--muted)">Inventory location
+        <select wire:model.live="location" class="ivx-input mt-1" aria-label="Filter stock status by location">
+            <option value="">All Locations</option>
+            @foreach($this->locations() as $id => $name)
+                <option value="{{ $id }}">{{ $name }}</option>
+            @endforeach
+        </select>
+    </label>
+
     <div class="ivx-kpis k4">
         @foreach([['all', 'Total Items', '', 'heroicon-o-cube'], ['in', 'In Stock', 'green', 'heroicon-o-check-circle'], ['low', 'Low Stock', 'amber', 'heroicon-o-exclamation-triangle'], ['out', 'Out of Stock', 'red', 'heroicon-o-x-circle']] as [$k, $l, $tone, $icon])
             <button type="button" wire:click="setTab('{{ $k }}')" @class(['ivx-kpi center', 'on' => $tab === $k])>

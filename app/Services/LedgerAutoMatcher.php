@@ -1,0 +1,51 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\WhatnotLedgerEntry;
+use Illuminate\Support\Facades\DB;
+
+class LedgerAutoMatcher
+{
+    public function match(WhatnotLedgerEntry $entry): string
+    {
+        return DB::transaction(function () use ($entry) {
+            $existing = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->lockForUpdate()->first();
+            // Never overwrite a human decision, even a pending or rejected one.
+            if ($existing && $existing->submitted_by !== null) return 'manual';
+
+            $service = app(LedgerAttributionService::class);
+            $show = $service->suggestedShow($entry);
+            if (! $show) return 'unmatched';
+
+            $primary = $show->streamers()->wherePivot('is_primary', true)->get();
+            $streamer = $primary->count() === 1 ? $primary->first() : null;
+            $payload = [
+                'category' => $service->suggestedCategory($entry),
+                'target' => 'show', 'show_id' => $show->id,
+                'streamer_id' => $streamer?->id,
+                'business_id' => $streamer?->business_id,
+                'status' => 'approved', 'reason' => 'Automatic exact order ID + channel match',
+                'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
+                'updated_at' => now(),
+            ];
+            if ($existing) {
+                // Keep historical auto attribution synchronized when show primary changes.
+                DB::table('ledger_attributions')->where('id', $existing->id)->update($payload);
+            } else {
+                DB::table('ledger_attributions')->insert($payload + [
+                    'whatnot_ledger_entry_id' => $entry->id, 'created_at' => now(),
+                ]);
+            }
+            if (! $existing || $existing->show_id !== $show->id || $existing->streamer_id !== $streamer?->id) {
+                DB::table('ledger_attribution_events')->insert([
+                    'whatnot_ledger_entry_id' => $entry->id, 'actor_id' => null,
+                    'action' => 'auto_matched', 'before' => $existing ? json_encode($existing) : null,
+                    'after' => json_encode($payload), 'reason' => $payload['reason'],
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+            return 'matched';
+        });
+    }
+}

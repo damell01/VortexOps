@@ -60,4 +60,20 @@ class ActivityLogChangesTest extends TestCase
         $this->assertStringContainsString('No field changes', (string) ActivityLogResource::changesHtml($activity));
         $this->assertNull(ActivityLogResource::changedFieldsSummary($activity));
     }
+
+    public function test_system_entries_stay_out_until_asked_for(): void
+    {
+        $owner = User::factory()->create(['email' => 'dbellcreations@gmail.com']);
+        $mine = activity()->causedBy($owner)->log('person did it');
+        $system = activity()->log('system did it');
+        $this->actingAs($owner);
+
+        \Livewire\Livewire::test(ActivityLogResource\Pages\ListActivityLogs::class)
+            ->loadTable()
+            ->assertCanSeeTableRecords([$mine])
+            ->assertCanNotSeeTableRecords([$system])
+            ->callAction('toggleSystem')
+            ->assertSet('showSystem', true)
+            ->assertCanSeeTableRecords([$mine, $system]);
+    }
 }

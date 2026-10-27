@@ -130,6 +130,8 @@ class ActivityLogResource extends Resource
             ->emptyStateIcon('heroicon-o-clock')
             ->extraAttributes(['data-sticky-header' => 'true'])
             ->deferLoading()
+            // System entries (no person behind them) only when the page asks for them.
+            ->modifyQueryUsing(fn (Builder $query, $livewire) => ($livewire->showSystem ?? true) ? $query : $query->whereNotNull('causer_id'))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')

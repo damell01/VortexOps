@@ -857,12 +857,11 @@ class Show extends Model
 
             // Auto-attach only when the show has no streamers yet
             if ($this->streamers()->count() === 0) {
-                $first = true;
-                foreach ($suggestions as $s) {
-                    if ($s['confidence'] === 'high') {
-                        $this->streamers()->attach($s['streamer_id'], ['is_primary' => $first]);
-                        $first = false;
-                    }
+                // Never choose a primary streamer when multiple identities match.
+                // Keep the suggestions for admin review instead.
+                $high = array_values(array_filter($suggestions, fn ($s) => $s['confidence'] === 'high'));
+                if (count($high) === 1 && count($suggestions) === 1) {
+                    $this->streamers()->attach($high[0]['streamer_id'], ['is_primary' => true]);
                 }
             }
         }

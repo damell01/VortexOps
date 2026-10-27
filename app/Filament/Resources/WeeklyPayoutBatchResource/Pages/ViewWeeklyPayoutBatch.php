@@ -220,7 +220,79 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             Action::make('view_report')->label('View Report')->icon('heroicon-o-document-text')
                 ->url(fn () => route('financial-reports.pay-run', ['batch' => $this->record->id]))->openUrlInNewTab(),
 
-            $resolveBlockers, $finalize, $override, $markSubmitted, $markPaid, $exportAdp,
+            $resolveBlockers, $finalize,
+            \App\Filament\Actions\OtherPaymentAction::make($this->record),
+            Action::make('annotate_payout')
+                ->label('Add Payment Description')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->color('gray')
+                ->visible(fn () => $this->record->status === 'draft' && $this->record->payouts()->exists())
+                ->schema([
+                    Select::make('payout_id')->label('Calculated payment')
+                        ->options(fn () => $this->record->payouts()->with(['streamer', 'show'])->get()
+                            ->mapWithKeys(fn ($p) => [$p->id => ($p->streamer?->name ?? 'Unknown')
+                                . ' — ' . ($p->show?->title ?? 'No show')
+                                . ' — 
+            ActionGroup::make([
+                Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
+                    ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())
+                    ->requiresConfirmation()->modalHeading('Split this Pay Run by business')
+                    ->modalDescription('Each business gets its own Pay Run for these dates, holding only its own people, so one can be finalized and paid without the other. Pay for anyone not in a business yet is taken out until they are assigned.')
+                    ->action(function () {
+                        try {
+                            $result = app(PayRunAutomationService::class)->splitByBusiness($this->record, \App\Support\BusinessContext::currentId());
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not split this Pay Run')->body($e->getMessage())->danger()->send();
+                            return;
+                        }
+                        $runs = collect($result['runs'])->map(fn ($run) => '#' . $run->id . ' ' . $run->businessLabel())->implode(', ');
+                        Notification::make()->title('Pay Run split by business')
+                            ->body('Runs: ' . $runs . ($result['unassigned'] !== [] ? '. Not in a business yet (taken out): ' . implode(', ', $result['unassigned']) : ''))
+                            ->success()->persistent()->send();
+                        $this->record->refresh();
+                    }),
+                Action::make('recalculate')->label('Recalculate Pay Run')->icon('heroicon-o-arrow-path')->visible(fn () => $this->record->status === 'draft')->requiresConfirmation()
+                    ->modalHeading('Recalculate this draft Pay Run')->modalDescription('Re-evaluates eligible pay lines in this run’s date range. Only payroll-ready shows stay in the draft; newly blocked shows are removed until fixed. Apply any Custom Override after recalculating.')
+                    ->action(function () {
+                        $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start, true, $this->record->business_id, $this->record->kind); $this->record->refresh();
+                        $parts = [$result['shows_scanned'] . ' eligible show(s)', $result['payouts_attached'] . ' payout(s) added'];
+                        if (($result['payouts_detached'] ?? 0) > 0) $parts[] = $result['payouts_detached'] . ' blocked payout(s) removed';
+                        $parts[] = count($result['warnings']) . ' warning(s)'; $parts[] = 'total $' . number_format((float)$this->record->total_payout, 2);
+                        Notification::make()->title('Pay Run recalculated')->body(implode(' · ', $parts))->success()->send();
+                    }),
+                Action::make('validate_run')->label('Validate Readiness')->icon('heroicon-o-shield-check')->visible(fn () => $this->record->status === 'draft')->modalHeading('Pay Run readiness')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalDescription(function () { $p = app(PayRunReadinessService::class)->problems($this->record); return $p === [] ? 'Ready to finalize.' : "Needs attention:\n\n• " . implode("\n• ", $p); }),
+                Action::make('preview')->label('Preview Pay Run')->icon('heroicon-o-eye')->visible(fn () => $this->record->status === 'draft')->modalHeading('Payout preview')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+                    ->modalContent(fn () => view('filament.payout-preview', ['preview' => app(PayoutService::class)->previewFinalization($this->record)])),
+                EditAction::make()->label('Edit Details')->visible(fn () => $this->record->status === 'draft'),
+                DeleteAction::make()->label('Delete Draft')->visible(fn () => $this->record->status === 'draft'),
+            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible(fn () => $this->record->status === 'draft'),
+        ];
+    }
+}
+ . number_format((float) $p->calculated_payout, 2)])->all())
+                        ->searchable()->required(),
+                    Textarea::make('description')->label('Description / reason')
+                        ->helperText('Adds a note to the calculated amount without changing the payment.')
+                        ->required()->maxLength(1000),
+                ])
+                ->action(function (array $data): void {
+                    \Illuminate\Support\Facades\DB::transaction(function () use ($data): void {
+                        $run = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                        abort_unless($run->status === 'draft', 403);
+                        $payout = $run->payouts()->whereKey((int) $data['payout_id'])->lockForUpdate()->firstOrFail();
+                        $note = trim((string) $data['description']);
+                        if ($note === '') return;
+                        $payout->update(['calculation_notes' => trim(($payout->calculation_notes ?: '')
+                            . "\\n[ADMIN_NOTE] " . $note)]);
+                        activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
+                            ->withProperties(['pay_run_id' => $run->id, 'description' => $note])
+                            ->log('Calculated payout description added');
+                    });
+                    $this->record->refresh();
+                    Notification::make()->title('Payment description saved')->success()->send();
+                }),
+            $override, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

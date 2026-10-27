@@ -184,8 +184,9 @@ class LedgerTipReportTest extends TestCase
         $payout = Payout::create(['weekly_payout_batch_id' => $run->id, 'show_id' => $show->id, 'streamer_id' => $show->streamers()->first()->id,
             'payout_type' => 'package', 'calculated_payout' => 75, 'tips_included' => 25, 'status' => 'draft']);
         $page = Livewire::test(ViewWeeklyPayoutBatch::class, ['record' => $run->id])
-            ->assertSee('Ledger tip totals')->assertSee('$50.00')->assertSee('Tips recorded in this run: $25.00');
-        $this->assertSame(5000, $page->instance()->assistantAndTipSummary()['tips']['total']['net']);
+            ->assertDontSee('Ledger tip totals')->assertDontSee('Tips recorded in this run')
+            ->assertSee('Tips by channel')->assertSee('$50.00');
+        $this->assertSame(5000, array_sum(array_column($page->instance()->assistantAndTipSummary()['tip_channels'], 'net')));
         $this->assertSame('75.00', $payout->fresh()->calculated_payout);
         Livewire::withQueryParams(['period' => 'pay_period', 'payRun' => $run->id, 'business' => (string) $this->business->id])
             ->test(LedgerTips::class)->assertSee('Oct 19, 2026')->assertSee('Oct 25, 2026')->assertSee('$50.00');

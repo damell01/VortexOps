@@ -51,26 +51,13 @@
     $paidUserIds = $payouts->map(fn ($p) => $p->streamer?->user_id)->filter()->unique();
     $assistantHoursByUser = $assistantRows->keyBy('user_id');
     $unpaidAssistants = $assistantRows->filter(fn ($a) => $a['hours'] > 0 && ! $paidUserIds->contains($a['user_id']))->values();
-    $tipRows = $assistantReport['tips'];
+    $tipChannels = $assistantReport['tip_channels'];
 @endphp
 
 <div class="vxw" data-vx-page="pay-run">
 
 
 
-    @include('filament.reports.ledger-tip-summary', ['tipReport' => $tipRows])
-    <section class="vxw-card">
-        <div class="vxw-card-body grid gap-2">
-            @php
-                $tipsInRun = $payouts->sum('tips_included');
-            @endphp
-            <strong>Tips recorded in this run: {{ $money($tipsInRun) }}</strong>
-            <p class="vxw-meta">All channels for this run's business and dates. Includes embedded tips and separate show-tip lines already recorded in payroll. Custom formulas and manual overrides may require review. Ledger totals use transaction created dates; payroll tips use show dates and the configured tip split, so a difference is not automatically an amount owed. These figures do not change payouts.</p>
-            @if (\App\Filament\Resources\WhatnotLedgerResource::canAccess())
-                <a class="vxw-btn vxw-btn--ghost vxw-btn--sm" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips', ['period' => 'pay_period', 'payRun' => $run->id, 'business' => $run->business_id ? (string) $run->business_id : 'all']) }}">Review tip totals and weekly breakdown</a>
-            @endif
-        </div>
-    </section>
 
     <section class="vxw-card">
         <div class="vxw-card-body grid gap-5">
@@ -267,6 +254,24 @@
                     @else
                         <div class="vxw-meta vxw-tone-ok">{{ $run->status === 'draft' ? 'Nothing blocks this run.' : 'Checks passed when this run was finalized.' }}</div>
                     @endif
+                </div>
+            </section>
+            <section class="vxw-card" data-vx-tip-channels>
+                <div class="vxw-card-head">
+                    <h3 class="vxw-h2">Tips by channel</h3>
+                    <span class="vxw-pill">{{ $money(array_sum(array_column($tipChannels, 'net')) / 100) }}</span>
+                </div>
+                <div class="vxw-card-body">
+                    @if($tipChannels)
+                        <dl class="vxw-dl">
+                            @foreach($tipChannels as $channel)
+                                <div><dt>{{ $channel['channel'] }}</dt><dd>{{ $money($channel['net'] / 100) }}</dd></div>
+                            @endforeach
+                        </dl>
+                    @else
+                        <div class="vxw-meta">No tips imported for these dates.</div>
+                    @endif
+                    <p class="vxw-meta mt-2">Whatnot tips per channel, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}, every business together. For reference only: not split by business or added to pay.</p>
                 </div>
             </section>
             <section class="vxw-card">

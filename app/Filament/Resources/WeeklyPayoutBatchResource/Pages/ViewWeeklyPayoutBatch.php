@@ -66,14 +66,32 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $summary = app(\App\Services\AssistantPayrollSummary::class);
         return [
             'assistants' => $summary->hours($this->record->week_start->toDateString(), $this->record->week_end->toDateString())->all(),
-            'tips' => app(\App\Services\LedgerTipReport::class)->between(
-                $this->record->week_start->toDateString(),
-                $this->record->week_end->toDateString(),
-                'all',
-                $this->record->business_id ? (string) $this->record->business_id : 'all',
-                false, // A pay run covers its whole business across channels.
-            ),
+            'tip_channels' => $this->tipsByChannel(),
         ];
+    }
+
+    /**
+     * Ledger tips per channel over the run's dates, every business together.
+     * Channels are shared, so this is a reference total, not an allocation.
+     *
+     * @return list<array{channel: string, net: int}>
+     */
+    private function tipsByChannel(): array
+    {
+        $report = app(\App\Services\LedgerTipReport::class)->between(
+            $this->record->week_start->toDateString(),
+            $this->record->week_end->toDateString(),
+            'all',
+            'all',
+            false,
+        );
+
+        return collect($report['rows'])
+            ->groupBy('channel')
+            ->map(fn ($rows, $channel) => ['channel' => $channel, 'net' => (int) $rows->sum('net')])
+            ->sortBy('channel')
+            ->values()
+            ->all();
     }
 
     protected function getHeaderWidgets(): array { return []; }

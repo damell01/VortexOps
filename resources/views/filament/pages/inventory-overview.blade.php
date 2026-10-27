@@ -36,6 +36,17 @@
     </nav>
 
     @if($tab === 'overview')
+        <div class="ivx-card ivx-pad" style="margin-bottom:12px">
+            <label class="text-xs font-semibold" style="color:var(--muted)">Inventory location
+                <select wire:model.live="overviewLocation" class="ivx-input mt-1" aria-label="Filter overview by location">
+                    <option value="">All Locations</option>
+                    @foreach($this->reportLocations as $id => $name)
+                        <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <p class="ivx-sub mt-1">Inventory counts, value, and recent restocks reflect the selected location. Historical trend remains all locations.</p>
+        </div>
         {{-- ── 1. Overview ─────────────────────────────────────────── --}}
         <div class="ivx-kpis wide4" style="grid-template-columns:repeat(2,minmax(0,1fr))">
             <div class="ivx-kpi" style="flex-direction:row;align-items:center;gap:12px">

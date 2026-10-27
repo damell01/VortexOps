@@ -143,7 +143,7 @@
       <div class="vx-product-body">
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
-       <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
+       <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->created_at && $item->created_at->gte(now()->subDays(7)))<span class="vx-type" title="Added within the last seven days">New</span>@endif@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
        <div class="vx-product-meta vx-product-where" title="{{ $locations ?: 'No stocked location' }}"><x-heroicon-m-map-pin class="inline h-3 w-3 align-[-2px]" /> {{ $locations ?: 'No stocked location' }}</div>
        <div class="vx-card-figs">
         <div class="vx-card-fig is-qty {{ $stockState }}"><div class="vx-metric-label">Qty</div><div class="vx-metric-value">{{ number_format($onHand) }}</div></div>

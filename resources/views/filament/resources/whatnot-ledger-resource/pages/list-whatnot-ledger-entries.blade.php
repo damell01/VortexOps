@@ -265,6 +265,73 @@
                             <span class="vxr-pill {{ $tone ? 'vxr-pill--'.$tone : '' }}">{{ $selected->status }}</span>
                         @endif
                     </div>
+                    @if ($this->canReconcile())
+                        @php($attribution = $this->selectedAttribution())
+                        <section class="vxr-card" style="padding:16px;display:grid;gap:12px">
+                            <h3 style="font-weight:700">Categorize & assign transaction</h3>
+                            <p class="vxr-subtitle">Corrections require approval. Imported amounts and finalized payroll are never edited here.</p>
+                            @if($attribution)
+                                <p class="vxr-pill">Current proposal: {{ ucfirst($attribution->status) }} · {{ ucfirst($attribution->category) }} → {{ ucfirst($attribution->target) }}</p>
+                                @if($attribution->streamer_id)
+                                    <p>Attributed streamer: {{ \App\Models\Streamer::find($attribution->streamer_id)?->name ?? 'Unknown' }}</p>
+                                @endif
+                            @endif
+                            <label>Category
+                                <select class="vxr-control" wire:model="attributionCategory">
+                                    @foreach(\App\Services\LedgerAttributionService::CATEGORIES as $category)
+                                        <option value="{{ $category }}">{{ ucfirst($category) }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label>Assign to
+                                <select class="vxr-control" wire:model.live="attributionTarget">
+                                    <option value="unassigned">Unassigned / needs review</option>
+                                    <option value="show">Show (uses primary streamer)</option>
+                                    <option value="streamer">Streamer directly</option>
+                                    <option value="house">House / business</option>
+                                </select>
+                            </label>
+                            @if($attributionTarget === 'show')
+                                <label>Show
+                                    <select class="vxr-control" wire:model="attributionShowId">
+                                        <option value="">Select show</option>
+                                        @foreach($this->attributionShows() as $id => $name)
+                                            <option value="{{ $id }}">{{ $name }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                            @elseif($attributionTarget === 'streamer')
+                                <label>Streamer
+                                    <select class="vxr-control" wire:model="attributionStreamerId">
+                                        <option value="">Select streamer</option>
+                                        @foreach($this->attributionStreamers() as $id => $name)
+                                            <option value="{{ $id }}">{{ $name }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                            @elseif($attributionTarget === 'house')
+                                <label>Business (optional)
+                                    <select class="vxr-control" wire:model="attributionBusinessId">
+                                        <option value="">General house</option>
+                                        @foreach($this->attributionBusinesses() as $id => $name)
+                                            <option value="{{ $id }}">{{ $name }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                            @endif
+                            <label>Reason for correction
+                                <textarea class="vxr-control" rows="2" wire:model="attributionReason" placeholder="Why is this the correct category or assignment?"></textarea>
+                            </label>
+                            @error('attribution')<p style="color:var(--vxw-bad)">{{ $message }}</p>@enderror
+                            <button type="button" class="vxr-btn" wire:click="submitAttribution">Submit for approval</button>
+                            @if($attribution && $attribution->status === 'pending' && $attribution->submitted_by !== auth()->id())
+                                <div style="display:flex;gap:8px">
+                                    <button type="button" class="vxr-btn" wire:click="reviewAttribution(true)">Approve</button>
+                                    <button type="button" class="vxr-btn vxr-btn--outline" wire:click="reviewAttribution(false)">Reject</button>
+                                </div>
+                            @endif
+                        </section>
+                    @endif
                     <dl class="vxr-dl">
                         <div><dt>Created</dt><dd>{{ $selected->created_date?->format('M j, Y \a\t g:i A') ?? '—' }}</dd></div>
                         <div><dt>Completed</dt><dd>{{ $selected->completed_date?->format('M j, Y \a\t g:i A') ?? '—' }}</dd></div>

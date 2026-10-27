@@ -176,9 +176,19 @@ class InventoryScanner extends Page
 
     public function mount(): void
     {
-        $first = InventoryLocation::where('status', 'active')->whereIn('id', \App\Support\StockGate::changeableIds(auth()->user()))->orderBy('name')->value('id');
+        $changeable = \App\Support\StockGate::changeableIds(auth()->user());
+        $main = InventoryLocation::mainId();
+        // Never default to a location where this user cannot receive stock.
+        if ($main !== null && in_array($main, $changeable, true)
+            && InventoryLocation::whereKey($main)->where('status', 'active')->exists()) {
+            $this->qaLocationId = $main;
+            return;
+        }
+
+        $first = InventoryLocation::where('status', 'active')
+            ->whereIn('id', $changeable)->orderBy('name')->value('id');
         if ($first) {
-            $this->qaLocationId = $first;
+            $this->qaLocationId = (int) $first;
         }
     }
 

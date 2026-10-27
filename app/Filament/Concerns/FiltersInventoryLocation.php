@@ -99,6 +99,14 @@ trait FiltersInventoryLocation
 
     protected function filterInventoryItemsByLocation(Builder $query): Builder
     {
+        if (method_exists($this, 'inventoryPageLocationId')) {
+            $location = $this->inventoryPageLocationId();
+            if ($location === null) return $query->whereRaw('1 = 0');
+            $stock = fn ($q) => $q->where('inventory_location_id', $location);
+            return $query->select('products.*')
+                ->withSum(['stock as stock_sum_quantity' => $stock], 'quantity')
+                ->with(['stock' => $stock, 'stock.location']);
+        }
         if ($this->inventoryLocation === '') {
             return $query;
         }

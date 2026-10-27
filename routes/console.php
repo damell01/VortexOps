@@ -167,3 +167,6 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
     ->name('whatnot-tips-history')
     ->withoutOverlapping(180)
     ->runInBackground();
+
+// Reconcile imported ledger transactions against exact Whatnot orders and shows.
+Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo(storage_path('logs/ledger-show-matching.log'));

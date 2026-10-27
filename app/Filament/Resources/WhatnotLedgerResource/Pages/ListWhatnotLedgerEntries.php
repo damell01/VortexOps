@@ -135,7 +135,7 @@ class ListWhatnotLedgerEntries extends Page
         if (! in_array($this->perPage, [5, 10, 25, 50], true)) {
             $this->perPage = 25;
         }
-        if (! in_array($this->review, ['all', 'tips_missing_order', 'tips_unmatched_order'], true)) {
+        if (! in_array($this->review, ['all', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show'], true)) {
             $this->review = 'all';
         }
         if ($this->channel !== 'all' && $this->channel !== 'unassigned' && ! ctype_digit($this->channel)) {
@@ -223,6 +223,19 @@ class ListWhatnotLedgerEntries extends Page
                         ->join('shows', 'shows.id', '=', 'whatnot_show_orders.show_id')
                         ->whereColumn('whatnot_show_orders.whatnot_order_id', 'whatnot_ledger_entries.whatnot_order_id')
                         ->whereColumn('shows.whatnot_channel_id', 'whatnot_ledger_entries.whatnot_channel_id');
+                }))
+            ->when($this->review === 'tips_ambiguous_show', fn (Builder $q) => $q
+                ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                ->whereNotNull('whatnot_order_id')
+                ->whereNotIn('whatnot_order_id', ['', '-'])
+                ->whereExists(function ($subquery) {
+                    $subquery->selectRaw('1')
+                        ->from('whatnot_show_orders')
+                        ->join('shows', 'shows.id', '=', 'whatnot_show_orders.show_id')
+                        ->whereColumn('whatnot_show_orders.whatnot_order_id', 'whatnot_ledger_entries.whatnot_order_id')
+                        ->whereColumn('shows.whatnot_channel_id', 'whatnot_ledger_entries.whatnot_channel_id')
+                        ->groupBy('whatnot_show_orders.whatnot_order_id')
+                        ->havingRaw('COUNT(DISTINCT shows.id) > 1');
                 }))
             ->when($this->type !== '', fn (Builder $q) => $q->where('transaction_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))

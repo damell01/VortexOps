@@ -72,7 +72,7 @@ class InventoryItemResource extends Resource
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
         return (auth()->user()?->isAdmin() ?? false)
-            && ! $record->stock()->where('quantity', '>', 0)->exists();
+            && ! $record->stock()->withoutGlobalScope('streamerLocationOverride')->where('quantity', '>', 0)->exists();
     }
 
     /**

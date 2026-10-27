@@ -40,6 +40,12 @@ class InventoryItemDeleter
      */
     public function delete(Product $item, bool $writeOffStock = false, ?string $reason = null): float
     {
+        $visible = auth()->check() ? \App\Support\InventoryVisibility::locationIdsFor(auth()->user()) : null;
+        if (\App\Support\InventoryVisibility::isReadOnlyStreamer()
+            || ($visible !== null && $item->stock()->withoutGlobalScope('streamerLocationOverride')
+                ->whereNotIn('inventory_location_id', $visible)->where('quantity', '>', 0)->exists())) {
+            throw new \DomainException('This item cannot be deleted from your inventory access level. Ask the application owner to review it.');
+        }
         $onHand = $this->onHand($item);
         if ($onHand > 0 && ! $writeOffStock) {
             throw new \DomainException("{$item->name} still has ".rtrim(rtrim(number_format($onHand, 2), '0'), '.').' on hand. Write it off to delete the item.');

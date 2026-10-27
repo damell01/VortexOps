@@ -21,6 +21,7 @@ Laravel/Filament inventory, scanning, moving, receiving, quick add, catalog acti
 | Phone layout | Grid and report wrappers exceeded narrow viewport | Single-column cards and bounded report/modal containers |
 | Tools navigation | Links lived in a separate tools tab | Permission-aware grouped desktop/mobile menu; pages retained |
 | Location gating | Admin bypass and unrestricted selector builders exposed other locations | Main plus assigned locations for all non-owner accounts; owner-only exception |
+| Item deletion | Location-scoped stock could hide positive stock elsewhere before soft deletion | Block deletion when positive stock exists outside the actor's allowed locations |
 | Streamer mutation | Role/profile combinations could restore write access | Central read-only guard, policies and server actions; no card buttons or action strip |
 | Cross-user dashboard values | Cache keyed only by channel; raw totals ignored location access | Cache by channel and allowed locations; scope raw aggregates |
 | Historical totals | Global snapshots lacked reliable location scope | Use reliable location breakdowns; omit unsafe legacy history/global comparison widget for restricted users |
@@ -39,7 +40,7 @@ Laravel/Filament inventory, scanning, moving, receiving, quick add, catalog acti
 
 GitHub Actions runs backend inventory regressions, navigation/permission checks, existing full SQLite/MySQL CI and actual Playwright application workflows in desktop Chromium, mobile Chromium and mobile WebKit. The application browser suite exercises scan → move → persisted correction, continuous scans, unknown barcode recovery, transfer cancel/reopen/save, standalone quick add, receipt persistence, camera manual fallback, 17-page render/overflow crawl and cross-user access/card restrictions.
 
-Before the additional access changes, the dedicated inventory suite passed 577 tests / 3,262 assertions and full SQLite/MySQL CI passed. A later access run passed 580 tests with three failures; the follow-up corrects the owner fixture and staff-admin default filter, and reruns verification. Exact final run results must be checked on the PR before merge.
+Before the additional access changes, the dedicated inventory suite passed 577 tests / 3,262 assertions and full SQLite/MySQL CI passed. The follow-up access run passed 586 tests / 3,315 assertions. Final deletion safeguards and phone card layout changes undergo another exact-head regression run. Exact final run results must be checked on the PR before merge.
 
 Measured checks: scanner idle DOM mutations settle to zero over the 500 ms browser observation window; a repeated location visibility lookup performs zero additional database queries within the request. Report snapshot recent-movement lookup is grouped rather than one query per stock row. No production throughput/latency numbers are asserted.
 

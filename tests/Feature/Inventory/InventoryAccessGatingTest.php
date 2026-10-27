@@ -162,6 +162,19 @@ class InventoryAccessGatingTest extends TestCase
         $this->assertSame(999.0, $legacy->visibleValueFor($owner));
     }
 
+    public function test_admin_cannot_delete_an_item_with_stock_outside_their_locations(): void
+    {
+        $this->admin();
+        try {
+            app(\App\Services\InventoryItemDeleter::class)->delete($this->item, true);
+            $this->fail('Deletion must preserve stock outside this viewer\'s access.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('access level', $e->getMessage());
+        }
+        $this->assertFalse($this->item->fresh()->trashed());
+        $this->assertDatabaseHas('inventory_stock', ['inventory_item_id' => $this->item->id, 'inventory_location_id' => $this->other->id, 'quantity' => 70]);
+    }
+
     public function test_inventory_widget_cache_is_separated_by_visible_locations(): void
     {
         $widget = new class extends \App\Filament\Widgets\InventoryOverviewWidget {

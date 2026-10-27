@@ -85,6 +85,21 @@
                     <p>Net ${{ number_format($reviewNet / 100, 2) }} is not verified for a business. These tips are not automatically allocated or paid.</p>
                 </div></div>
             @endif
+            <section class="vxw-card">
+                <div class="vxw-card-head"><h2 class="vxw-h2">Verified tips by streamer</h2></div>
+                <div class="vxw-card-body">
+                    <p class="vxw-meta">Only exact ledger order matches to one show with one assigned streamer. Shared or ambiguous shows are excluded. Read-only; does not change payroll.</p>
+                    @forelse ($this->streamerTotals() as $streamerTip)
+                        <div class="vxt-channel">
+                            <strong>{{ $streamerTip['streamer'] }}</strong>
+                            <span>{{ number_format($streamerTip['entries']) }} transactions</span>
+                            <b>${{ number_format($streamerTip['net'] / 100, 2) }}</b>
+                        </div>
+                    @empty
+                        <p class="vxw-meta">No uniquely attributed streamer tips in this period.</p>
+                    @endforelse
+                </div>
+            </section>
             <div class="vxt-stats" aria-label="Tip totals">
                 @foreach ([
                     ['Tip credits', 'credits', 'Imported positive amounts', 'accent'],

@@ -103,7 +103,7 @@ trait FiltersInventoryLocation
             $location = $this->inventoryPageLocationId();
             if ($location === null) return $query->whereRaw('1 = 0');
             $stock = fn ($q) => $q->where('inventory_location_id', $location);
-            return $query->select('products.*')
+            return $query->whereHas('stock', $stock)
                 ->withSum(['stock as stock_sum_quantity' => $stock], 'quantity')
                 ->with(['stock' => $stock, 'stock.location']);
         }

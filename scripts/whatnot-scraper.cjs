@@ -4618,6 +4618,10 @@ async function extractLedgerFromPage(page) {
       // dedup by order id, and click Next until it's disabled or a page cap.
       const PAGE_CAP = 40; // ~800 orders/show ceiling to bound runtime
       const out = [];
+      // Fail closed if a dashboard filter returns the same order for two distinct
+      // livestream IDs. This indicates the source filter was not trustworthy.
+      const orderOwners = new Map();
+      let crossShowCollision = null;
       for (let i = 0; i < sources.length; i++) {
         const { live_id, show_key } = sources[i] || {};
         if (!live_id) { out.push({ show_key, live_id: null, order_count: 0, orders: [] }); continue; }
@@ -4674,6 +4678,18 @@ async function extractLedgerFromPage(page) {
         }
 
         const orders = [...byId.values(), ...noId];
+        for (const order of orders) {
+          if (!order.order_id) continue;
+          const previous = orderOwners.get(String(order.order_id));
+          if (previous && previous !== String(live_id)) {
+            crossShowCollision = { order_id: String(order.order_id), first_live_id: previous, second_live_id: String(live_id) };
+            break;
+          }
+          orderOwners.set(String(order.order_id), String(live_id));
+        }
+        if (crossShowCollision) {
+          exitAfterStderr('orders-batch: SOURCE_FILTER_UNTRUSTED — identical order found under distinct live IDs: ' + JSON.stringify(crossShowCollision) + '\\n', 1);
+        }
         info(`orders-batch: [${i + 1}/${sources.length}] show ${show_key} live_id=${live_id} → ${orders.length} order(s)`);
         out.push({ show_key, live_id, order_count: orders.length, orders });
       }

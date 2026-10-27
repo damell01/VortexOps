@@ -99,7 +99,10 @@ class LedgerTipReport
     {
         $matches = DB::table('whatnot_show_orders as orders')
             ->join('shows', 'shows.id', '=', 'orders.show_id')
-            ->join('show_streamer', 'show_streamer.show_id', '=', 'shows.id')
+            ->join('show_streamer', function (JoinClause $join) {
+                $join->on('show_streamer.show_id', '=', 'shows.id')
+                    ->where('show_streamer.is_primary', '=', 1);
+            })
             ->selectRaw('orders.whatnot_order_id, shows.whatnot_channel_id as channel_id, MIN(show_streamer.streamer_id) as streamer_id')
             ->whereNotNull('orders.whatnot_order_id')
             ->whereNotIn('orders.whatnot_order_id', ['', '-'])

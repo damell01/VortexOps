@@ -147,6 +147,27 @@ class PayrollOverview extends Page
             : \App\Support\PaySchedule::periodFor($this->period_date ?: now());
     }
 
+    /**
+     * Whatnot ledger tips over the selected pay period, per channel, every
+     * business together (channels are shared, so tips are not split by
+     * business). Follows the channel picker.
+     *
+     * @return array{total: float, channels: list<array{channel: string, total: float}>}
+     */
+    public function periodTips(): array
+    {
+        [$start, $end] = $this->periodBounds();
+        $report = app(\App\Services\LedgerTipReport::class)->between($start->toDateString(), $end->toDateString());
+        $channels = collect($report['rows'])
+            ->groupBy('channel')
+            ->map(fn ($rows, $channel) => ['channel' => $channel, 'total' => $rows->sum('net') / 100])
+            ->sortByDesc('total')
+            ->values()
+            ->all();
+
+        return ['total' => $report['total']['net'] / 100, 'channels' => $channels];
+    }
+
     public function changePeriod(int $direction): void
     {
         [$start, $end] = $this->periodBounds();

@@ -219,4 +219,20 @@ class LedgerTipReportTest extends TestCase
         $page->set('period', 'month');
         $this->assertSame(2000, $page->instance()->report()['total']['net']);
     }
+
+    public function test_payroll_overview_shows_the_period_tip_total_per_channel(): void
+    {
+        $this->tip(30);
+        $this->tip(12.5, ['created_date' => '2026-10-23 09:00:00']);
+        $this->tip(99, ['created_date' => '2026-09-01 09:00:00']); // another period
+
+        $page = Livewire::test(\App\Filament\Pages\PayrollOverview::class)->set('period_date', '2026-10-22');
+        [$start, $end] = $page->instance()->periodBounds();
+        $tips = $page->instance()->periodTips();
+
+        $this->assertTrue($start->lte('2026-10-22') && $end->gte('2026-10-23'));
+        $this->assertSame(42.5, (float) $tips['total']);
+        $this->assertSame([$this->channel->name], array_column($tips['channels'], 'channel'));
+        $page->assertSee('Tips this period')->assertSee('$42.50');
+    }
 }

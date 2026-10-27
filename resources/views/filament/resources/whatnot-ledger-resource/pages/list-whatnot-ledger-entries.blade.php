@@ -61,6 +61,7 @@
         </div>
         <div class="vxr-actions">
             <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
+            <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_missing_order' ? 'all' : 'tips_missing_order' }}')">{{ $review === 'tips_missing_order' ? 'Show all entries' : 'Review tips missing order ID' }}</button>
             @if ($canDelete && count($checked))
                 <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
                     wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">

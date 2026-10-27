@@ -5,6 +5,11 @@ namespace App\Filament\Resources\WhatnotLedgerResource\Pages;
 use App\Filament\Resources\WhatnotLedgerResource;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotLedgerEntry;
+use App\Models\Show;
+use App\Models\Streamer;
+use App\Models\Business;
+use App\Services\LedgerAttributionService;
+use Illuminate\Support\Facades\DB;
 use App\Support\ChannelContext;
 use App\Support\MobileTablePagination;
 use Filament\Notifications\Notification;
@@ -77,6 +82,12 @@ class ListWhatnotLedgerEntries extends Page
     public int $perPage = 25;
 
     public ?int $selectedId = null;
+    public string $attributionCategory = 'other';
+    public string $attributionTarget = 'unassigned';
+    public string $attributionShowId = '';
+    public string $attributionStreamerId = '';
+    public string $attributionBusinessId = '';
+    public string $attributionReason = '';
 
     /** @var array<int, string> ids ticked for the owner's bulk delete */
     public array $checked = [];
@@ -171,6 +182,64 @@ class ListWhatnotLedgerEntries extends Page
     public function select(?int $id): void
     {
         $this->selectedId = $this->selectedId === $id ? null : $id;
+        if ($this->selectedId) {
+            $existing = $this->selectedAttribution();
+            $this->attributionCategory = $existing->category ?? 'other';
+            $this->attributionTarget = $existing->target ?? 'unassigned';
+            $this->attributionShowId = (string) ($existing->show_id ?? '');
+            $this->attributionStreamerId = (string) ($existing->streamer_id ?? '');
+            $this->attributionBusinessId = (string) ($existing->business_id ?? '');
+            $this->attributionReason = '';
+        }
+    }
+
+    public function canReconcile(): bool
+    {
+        return (bool) (auth()->user()?->isOwner() || auth()->user()?->isAdmin());
+    }
+
+    public function selectedAttribution(): ?object
+    {
+        return $this->selectedId ? DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $this->selectedId)->first() : null;
+    }
+
+    public function attributionShows(): array
+    {
+        if (! $this->selected || ! $this->canReconcile()) return [];
+        return Show::query()->when($this->selected->whatnot_channel_id, fn ($q) => $q->where('whatnot_channel_id', $this->selected->whatnot_channel_id))
+            ->orderByDesc('show_date')->limit(250)->get(['id', 'title', 'show_date'])->mapWithKeys(fn ($s) => [$s->id => $s->title.' ('.$s->show_date?->format('M j, Y').')'])->all();
+    }
+
+    public function attributionStreamers(): array
+    {
+        if (! $this->canReconcile()) return [];
+        return Streamer::query()->where('status', 'active')->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function attributionBusinesses(): array
+    {
+        if (! $this->canReconcile()) return [];
+        return Business::query()->orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    public function submitAttribution(LedgerAttributionService $service): void
+    {
+        abort_unless($this->canReconcile(), 403);
+        $entry = $this->selected ?? abort(404);
+        $service->save($entry, [
+            'category' => $this->attributionCategory, 'target' => $this->attributionTarget,
+            'show_id' => $this->attributionShowId, 'streamer_id' => $this->attributionStreamerId,
+            'business_id' => $this->attributionBusinessId, 'reason' => $this->attributionReason,
+        ], auth()->id());
+        $this->attributionReason = '';
+        Notification::make()->title('Ledger correction submitted for approval')->success()->send();
+    }
+
+    public function reviewAttribution(bool $approve, LedgerAttributionService $service): void
+    {
+        abort_unless($this->canReconcile(), 403);
+        $service->review($this->selected ?? abort(404), auth()->id(), $approve);
+        Notification::make()->title($approve ? 'Correction approved' : 'Correction rejected')->success()->send();
     }
 
     public function clearFilters(): void

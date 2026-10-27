@@ -17,7 +17,7 @@ return new class extends Migration {
             $table->foreignId('business_id')->nullable()->constrained('businesses')->nullOnDelete();
             $table->string('status', 20)->default('pending');
             $table->text('reason');
-            $table->foreignId('submitted_by')->constrained('users');
+            $table->foreignId('submitted_by')->nullable()->constrained('users');
             $table->foreignId('reviewed_by')->nullable()->constrained('users');
             $table->timestamp('reviewed_at')->nullable();
             $table->timestamps();

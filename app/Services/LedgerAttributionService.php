@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WhatnotLedgerEntry;
 use Illuminate\Support\Facades\DB;
+use App\Support\ChannelContext;
 use Illuminate\Validation\ValidationException;
 
 class LedgerAttributionService
@@ -19,7 +20,11 @@ class LedgerAttributionService
         $ids = DB::table('whatnot_show_orders as orders')
             ->join('shows', 'shows.id', '=', 'orders.show_id')
             ->where('orders.whatnot_order_id', $entry->whatnot_order_id)
-            ->where('shows.whatnot_channel_id', $entry->whatnot_channel_id)
+            ->where(function ($query) use ($entry) {
+                $entry->whatnot_channel_id === null
+                    ? $query->whereNull('shows.whatnot_channel_id')
+                    : $query->where('shows.whatnot_channel_id', $entry->whatnot_channel_id);
+            })
             ->distinct()->limit(2)->pluck('shows.id');
         return $ids->count() === 1 ? Show::find($ids->first()) : null;
     }
@@ -42,6 +47,9 @@ class LedgerAttributionService
 
     public function save(WhatnotLedgerEntry $entry, array $data, int $actorId): void
     {
+        if (ChannelContext::isScoped() && (int) $entry->whatnot_channel_id !== (int) ChannelContext::currentId()) {
+            throw ValidationException::withMessages(['attribution' => 'This entry is outside your active channel.']);
+        }
         if (! in_array($data['category'] ?? '', self::CATEGORIES, true) ||
             ! in_array($data['target'] ?? '', ['show', 'streamer', 'house', 'unassigned'], true) ||
             trim((string) ($data['reason'] ?? '')) === '') {
@@ -94,6 +102,9 @@ class LedgerAttributionService
 
     public function review(WhatnotLedgerEntry $entry, int $actorId, bool $approve): void
     {
+        if (ChannelContext::isScoped() && (int) $entry->whatnot_channel_id !== (int) ChannelContext::currentId()) {
+            throw ValidationException::withMessages(['attribution' => 'This entry is outside your active channel.']);
+        }
         DB::transaction(function () use ($entry, $actorId, $approve) {
             $row = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->lockForUpdate()->first();
             if (! $row || $row->status !== 'pending') {

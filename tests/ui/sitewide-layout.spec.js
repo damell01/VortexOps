@@ -7,6 +7,7 @@ const baseURL = process.env.VX_BASE_URL || 'http://127.0.0.1:8000';
 const routes = (process.env.VX_AUDIT_ROUTES || '/admin').split(',').map(s => s.trim()).filter(Boolean);
 const widths = [320, 375, 390, 430, 768, 1024, 1280, 1440, 1920];
 const storageState = process.env.VX_STORAGE_STATE || undefined;
+const auditRole = process.env.VX_AUDIT_ROLE || 'unspecified';
 const allowProduction = process.env.VX_ALLOW_PRODUCTION_AUDIT === '1';
 const target = new URL(baseURL);
 if (!allowProduction && !['localhost', '127.0.0.1', '::1'].includes(target.hostname) && !/dev|staging|test/i.test(target.hostname)) {
@@ -17,10 +18,14 @@ test.use({ baseURL, ...(storageState ? { storageState } : {}) });
 
 for (const route of routes) {
   for (const width of widths) {
-    test(`layout: ${route} at ${width}px`, async ({ page }) => {
+    test(`layout: ${auditRole} ${route} at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const errors = [];
+      const failedRequests = [];
       page.on('pageerror', error => errors.push(error.message));
+      page.on('requestfailed', request => {
+        if (!/^(?:data|blob):/.test(request.url())) failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText}`);
+      });
       const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
       expect(response?.status(), 'route HTTP status').toBeLessThan(400);
       // An authenticated route redirecting to login is not a successful audit.
@@ -38,6 +43,7 @@ for (const route of routes) {
       expect(Math.max(metrics.document, metrics.body) - metrics.viewport,
         `horizontal overflow at ${route} (${width}px): ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(2);
       expect(errors, `uncaught browser errors on ${route}`).toEqual([]);
+      expect(failedRequests, `failed network requests on ${route}`).toEqual([]);
       const clippedControls = await page.evaluate(() => [...document.querySelectorAll('button, a, input, select, textarea')]
         .filter(el => {
           const r = el.getBoundingClientRect();

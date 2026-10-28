@@ -471,7 +471,9 @@ class ListInventoryItems extends ListRecords
             ->modalDescription(fn (array $arguments) => InventoryItem::find($arguments['product'] ?? null)?->name)
             ->modalSubmitActionLabel('Add Stock')
             ->mountUsing(function ($form, array $arguments): void {
-                $record = InventoryItem::find($arguments['product'] ?? null);
+                abort_unless(InventoryItemResource::canManageStock(), 403);
+                $record = $this->catalogQuery()->whereKey((int) ($arguments['product'] ?? 0))->first();
+                abort_unless($record, 404);
                 $this->selectedStockProductId = $record?->getKey();
                 $this->quickStockScanTargetId = $record?->getKey();
                 $this->quickStockScanTargetName = $record?->name;
@@ -501,8 +503,8 @@ class ListInventoryItems extends ListRecords
             })
             ->form(InventoryItemResource::addStockFields(fn () => $this->startQuickStockBarcodeScan()))
             ->action(function (array $data, array $arguments): void {
-                $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
                 abort_unless(InventoryItemResource::canManageStock(), 403);
+                $record = $this->catalogQuery()->whereKey((int) ($arguments['product'] ?? 0))->firstOrFail();
 
                 $location = InventoryItemResource::bookAddStock($record, $data);
 

@@ -29,6 +29,9 @@ class InventoryPriceAcknowledgment extends Component
             return;
         }
 
+        $this->changes = $alerts->pending(auth()->user());
+        $this->comingSoon = app(\App\Services\ComingSoonPalletItems::class)->items(auth()->user());
+        $this->arrivals = app(\App\Services\InventoryArrivalAlerts::class)->pending(auth()->user());
         if ($this->changes !== []) {
             $last = end($this->changes);
             $alerts->acknowledge(auth()->user(), (int) $last['id']);

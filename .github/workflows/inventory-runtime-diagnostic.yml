@@ -21,6 +21,8 @@ jobs:
             set -eu
             cd /var/www/vortexops
             git rev-parse --short HEAD
+            test ! -f public/build/manifest.json || echo MANIFEST_PRESENT
+            test -f public/build/manifest.json || echo MANIFEST_MISSING
             php <<'PHP'
             <?php
             // Do not print raw messages, SQL, request data, identities or credentials.
@@ -45,6 +47,7 @@ jobs:
                         '/Duplicate column name [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'DUPLICATE_COLUMN',
                         '/Undefined array key [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'MISSING_ARRAY_KEY',
                         '/Unable to locate file in Vite manifest: ([A-Za-z0-9_./-]+)/' => 'MISSING_VITE_ASSET',
+                        '/Vite manifest not found at: ([A-Za-z0-9_./-]+)/' => 'MISSING_MANIFEST',
                         '/Allowed memory size of ([0-9]+)/' => 'MEMORY_LIMIT',
                         '/Maximum execution time of ([0-9]+)/' => 'TIME_LIMIT',
                         '/Unknown column [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'MISSING_COLUMN',

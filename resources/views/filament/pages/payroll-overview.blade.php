@@ -14,6 +14,8 @@
     $lastPage = max(1, (int) ceil($totalFilteredShows / $perPage));
     $page = min(max(1, $this->queuePage), $lastPage);
     $shows = $filteredShows->forPage($page, $perPage)->values();
+    // P&L is needed for the visible cards only, not every show in the pay period.
+    $shows->each(fn (\App\Models\Show $show) => $show->setAttribute('pnl_summary', $show->profitAndLoss()));
 
     $activeWorkflow = $this->workflow ?: 'all';
     $statusLabels = \App\Models\WeeklyPayoutBatch::statusLabels();

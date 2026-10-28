@@ -20,6 +20,7 @@ use App\Filament\Pages\Auth\Login;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -76,16 +77,11 @@ class AdminPanelProvider extends PanelProvider
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
-            ->font('Inter')
-            // Needed so the sidebar can be opened/closed on desktop. Filament
-            // renders this as a chevron next to the drawer hamburger; the
-            // stylesheet hides the duplicate and redraws the remaining control
-            // as a hamburger so there is exactly one, consistent toggle.
-            ->sidebarCollapsibleOnDesktop()
-            // Mobile-optimized: 6xl on desktop, full width on mobile
+            ->font('Geist', provider: GoogleFontProvider::class)
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            // Retain Production's navbar and hide the dev-only global search.
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
-            ->globalSearchKeyBindings(['mod+k', '/'])
-            ->globalSearchDebounce('200ms')
+            ->globalSearch(false)
             ->colors([
                 'primary' => Color::hex($primaryColor),
                 'gray'    => Color::Zinc,
@@ -128,11 +124,9 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => ! $hasViteManifest()
-                    ? ''
-                    : ($isAuthenticatedAdminView()
-                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])")
-                        : Blade::render("@vite(['resources/css/app.css'])")),
+                fn (): string => $hasViteManifest() && $isAuthenticatedAdminView()
+                    ? Blade::render("@vite(['resources/js/app.js'])")
+                    : '',
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

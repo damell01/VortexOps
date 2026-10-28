@@ -42,5 +42,10 @@ foreach (['mobile', 'safari-mobile'] as $browser) {
     PalletLine::firstOrCreate(['pallet_id' => $delivery->id, 'line_number' => 1], ['description' => $item->name, 'inventory_item_id' => $item->id, 'inventory_location_id' => $source->id, 'case_count' => 20, 'quantity_per_case' => 1, 'unit_cost' => 10]);
     $pallets[$browser] = $delivery->id;
 }
-file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'pallets' => $pallets, 'line' => $line->id, 'adminEmail' => $admin->email, 'streamerEmail' => $reader->email, 'readerLocation' => $readerLocation->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
+$deleteItems = [];
+foreach (['desktop', 'mobile', 'safari-mobile'] as $project) {
+    $disposable = InventoryItem::firstOrCreate(['sku' => 'DELETE-DETAIL-'.$project], ['name' => 'Delete Detail '.$project, 'is_active' => true]);
+    $deleteItems[$project] = $disposable->id;
+}
+file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'deleteItems' => $deleteItems, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'pallets' => $pallets, 'line' => $line->id, 'adminEmail' => $admin->email, 'streamerEmail' => $reader->email, 'readerLocation' => $readerLocation->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
 echo "Isolated inventory browser fixtures ready.\n";

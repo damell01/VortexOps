@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Inventory;
 
+use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems;
+use App\Filament\Resources\InventoryItemResource\Pages\ViewInventoryItem;
+use App\Filament\Resources\InventoryItemResource\Pages\EditInventoryItem;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
@@ -54,6 +57,67 @@ class InventoryItemDeleteTest extends TestCase
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
+        $this->assertSoftDeleted($item);
+    }
+
+    public function test_the_detail_page_deletes_its_bound_item_and_redirects(): void
+    {
+        $item = $this->item('Detail Empty Box');
+        $other = $this->item('Unrelated Box');
+
+        $page = Livewire::test(ViewInventoryItem::class, ['record' => $item])
+            ->mountAction('deleteItem');
+        $this->assertSame('Delete Detail Empty Box?', $page->instance()->getMountedAction()->getModalHeading());
+        $this->assertSame($item->id, $page->instance()->getMountedAction()->getRecord()->id);
+        $page->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertRedirect(InventoryItemResource::getUrl('index'));
+
+        $this->assertSoftDeleted($item);
+        $this->assertNotSoftDeleted($other);
+    }
+
+    public function test_the_detail_page_keeps_stock_until_write_off_is_confirmed(): void
+    {
+        $item = $this->item('Detail Stocked Box', 5);
+        $page = Livewire::test(ViewInventoryItem::class, ['record' => $item])
+            ->mountAction('deleteItem');
+        $this->assertSame('Delete Detail Stocked Box?', $page->instance()->getMountedAction()->getModalHeading());
+        $page->callMountedAction()
+            ->assertHasActionErrors(['write_off' => 'accepted']);
+
+        $this->assertNotSoftDeleted($item);
+        $this->assertSame(5.0, (float) $item->stock()->sum('quantity'));
+
+        $page->setActionData(['write_off' => true, 'reason' => 'Detail page duplicate'])
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertRedirect(InventoryItemResource::getUrl('index'));
+
+        $this->assertSoftDeleted($item);
+        $this->assertSame(0.0, (float) InventoryStock::where('inventory_item_id', $item->id)->sum('quantity'));
+        $this->assertDatabaseHas('inventory_movements', ['inventory_item_id' => $item->id, 'reason' => 'Written off — item deleted: Detail page duplicate']);
+    }
+
+    public function test_canceling_the_detail_page_delete_preserves_the_item(): void
+    {
+        $item = $this->item('Keep Detail Box', 2);
+        Livewire::test(ViewInventoryItem::class, ['record' => $item])
+            ->mountAction('deleteItem')
+            ->call('unmountAction');
+
+        $this->assertNotSoftDeleted($item);
+        $this->assertSame(2.0, (float) $item->stock()->sum('quantity'));
+    }
+
+    public function test_the_edit_page_still_deletes_its_record_and_redirects(): void
+    {
+        $item = $this->item('Edit Empty Box');
+        Livewire::test(EditInventoryItem::class, ['record' => $item->id])
+            ->mountAction('deleteItem')
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertRedirect(InventoryItemResource::getUrl('index'));
         $this->assertSoftDeleted($item);
     }
 

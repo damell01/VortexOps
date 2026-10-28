@@ -175,3 +175,27 @@ test('admins cannot see another assigned location and streamers have no card con
     const denied=await visit(page,'/admin/inventory-items/'+f.item+'/edit');
     expect(denied!.status()).toBe(403);
 });
+
+
+test('detail-page delete names the item, cancels safely and redirects without a 403', async ({page}, testInfo) => {
+    const id = fixture().deleteItems[testInfo.project.name];
+    const name = 'Delete Detail '+testInfo.project.name;
+    await visit(page, '/admin/inventory-items/'+id);
+    const openDelete = page.getByRole('button', {name:'Delete item', exact:true});
+    await openDelete.click();
+    let dialog = page.getByRole('dialog').filter({hasText:'Delete '+name+'?'});
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('No stock on hand');
+    await dialog.getByRole('button', {name:'Cancel', exact:true}).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('.ivx-hero-name')).toContainText(name);
+    await openDelete.click();
+    dialog = page.getByRole('dialog').filter({hasText:'Delete '+name+'?'});
+    await expect(dialog).toBeVisible();
+    const response = page.waitForResponse(r => /\/livewire[^/]*\/update/.test(r.url()) && r.request().method()==='POST');
+    await dialog.getByRole('button', {name:'Delete item', exact:true}).click();
+    expect((await response).status()).toBe(200);
+    await expect(page).toHaveURL(/\/admin\/inventory-items(?:\?.*)?$/);
+    await expect(page.locator('.vx-product-card').first()).toBeVisible();
+    await expect(page.locator('.vx-product-card').filter({hasText:name})).toHaveCount(0);
+});

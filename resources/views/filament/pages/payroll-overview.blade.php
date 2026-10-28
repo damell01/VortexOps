@@ -149,7 +149,7 @@
                                 @if($show->streamers->isEmpty())
                                     <select class="vxw-select" style="min-width:180px" aria-label="Assign a streamer to {{ $show->title }}"
                                         wire:change="assignStreamerToShow({{ $show->id }}, $event.target.value)"
-                                        wire:loading.attr="disabled" wire:target="assignStreamerToShow({{ $show->id }}, $event.target.value)">
+                                        wire:loading.attr="disabled" wire:target="assignStreamerToShow">
                                         <option value="">Assign streamer…</option>
                                         @foreach($this->streamerOptions() as $streamerId => $streamerName)<option value="{{ $streamerId }}">{{ $streamerName }}</option>@endforeach
                                     </select>

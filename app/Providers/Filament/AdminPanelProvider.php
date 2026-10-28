@@ -83,8 +83,7 @@ class AdminPanelProvider extends PanelProvider
             // sidebar behavior for mobile only; do not render a desktop toggle.
             // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
-            ->globalSearchKeyBindings(['mod+k', '/'])
-            ->globalSearchDebounce('200ms')
+            ->globalSearch(false)
             ->colors([
                 'primary' => Color::hex($primaryColor),
                 'gray'    => Color::Zinc,

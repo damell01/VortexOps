@@ -9,9 +9,14 @@ use App\Services\InventoryService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Validation\Rule;
+use Livewire\WithFileUploads;
+use Illuminate\Support\Facades\Storage;
 
 class QuickAddInventoryItem extends Page
 {
+    use WithFileUploads;
+
+    public $photo = null;
     protected static string $resource = InventoryItemResource::class;
 
     public ?array $data = [];
@@ -56,6 +61,7 @@ class QuickAddInventoryItem extends Page
 
     public function resetQuickAdd(): void
     {
+        $this->photo = null;
         $this->data = [
             'name' => '',
             'barcode' => '',
@@ -101,6 +107,7 @@ class QuickAddInventoryItem extends Page
     {
         try {
             $validatedData = $this->validated();
+            $this->validate(['photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:5120']]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             // The toast is worth keeping — on a phone the offending field is
             // often scrolled off screen — but swallowing the exception here
@@ -127,6 +134,19 @@ class QuickAddInventoryItem extends Page
                 'preferred_vendor_id' => $validatedData['preferred_vendor_id'] ?? null,
                 'is_active' => true,
             ]);
+
+            if ($this->photo) {
+                $path = $this->photo->store('products', 'public');
+                if (! $path || ! Storage::disk('public')->exists($path)) {
+                    throw new \RuntimeException('The inventory photo could not be stored.');
+                }
+                $item->forceFill(['image_path' => $path])->save();
+                try {
+                    app(\App\Services\ImageCompressor::class)->compress('public', $path);
+                } catch (\Throwable $e) {
+                    report($e); // Compression must not prevent the saved photo being used.
+                }
+            }
 
             if (($validatedData['location_id'] ?? null) && (float) ($validatedData['quantity'] ?? 0) > 0) {
                 $location = InventoryLocation::findOrFail($validatedData['location_id']);

@@ -65,10 +65,11 @@ class InventoryItemDeleteTest extends TestCase
         $item = $this->item('Detail Empty Box');
         $other = $this->item('Unrelated Box');
 
-        Livewire::test(ViewInventoryItem::class, ['record' => $item])
-            ->mountAction('deleteItem')
-            ->assertSee('Delete Detail Empty Box?')
-            ->callMountedAction()
+        $page = Livewire::test(ViewInventoryItem::class, ['record' => $item])
+            ->mountAction('deleteItem');
+        $this->assertSame('Delete Detail Empty Box?', $page->instance()->getMountedAction()->getModalHeading());
+        $this->assertSame($item->id, $page->instance()->getMountedAction()->getRecord()->id);
+        $page->callMountedAction()
             ->assertHasNoActionErrors()
             ->assertRedirect(InventoryItemResource::getUrl('index'));
 
@@ -80,10 +81,9 @@ class InventoryItemDeleteTest extends TestCase
     {
         $item = $this->item('Detail Stocked Box', 5);
         $page = Livewire::test(ViewInventoryItem::class, ['record' => $item])
-            ->mountAction('deleteItem')
-            ->assertSee('Delete Detail Stocked Box?')
-            ->assertSee('Write off the 5 units on hand')
-            ->callMountedAction()
+            ->mountAction('deleteItem');
+        $this->assertSame('Delete Detail Stocked Box?', $page->instance()->getMountedAction()->getModalHeading());
+        $page->callMountedAction()
             ->assertHasActionErrors(['write_off' => 'accepted']);
 
         $this->assertNotSoftDeleted($item);

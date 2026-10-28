@@ -122,6 +122,14 @@ class InventoryScanner extends Page
     public string $qaQty        = '1';
     public string $qaName       = ''; // optional: creates the item when the scan is unknown
     public ?array $qaFlash      = null; // ['name', 'qty', 'location', 'created']
+    public ?int $selectedItemId = null;
+    public ?array $selectedItem = null;
+    public string $unmatchedBarcode = '';
+    public string $newItemName = '';
+    public string $newItemCategory = '';
+    public string $newItemPrice = '';
+    public string $barcodeLinkSearch = '';
+    public ?array $barcodeLinkOptions = null;
 
     // ── Receive Pallet state ──────────────────────────────────────────────────
 
@@ -242,6 +250,10 @@ class InventoryScanner extends Page
         $this->rcvError    = null;
         $this->keywordSearch  = '';
         $this->keywordOptions = null;
+        $this->selectedItemId = null;
+        $this->selectedItem = null;
+        $this->unmatchedBarcode = '';
+        $this->barcodeLinkOptions = null;
     }
 
     // ── Unified scan entry point ──────────────────────────────────────────────
@@ -303,12 +315,14 @@ class InventoryScanner extends Page
 
         if (! $item) {
             $this->result       = null;
-            $this->errorMessage = "No inventory item found for \"{$code}\". Check the barcode or SKU on the item record.";
+            $this->errorMessage = "This barcode is not linked to an inventory item yet.";
+            $this->unmatchedBarcode = $code;
             $this->costWarnings = null;
             $this->dispatch('inventory-scanner-unknown', barcode: $code);
             return;
         }
 
+        $this->unmatchedBarcode = '';
         $this->lookupItem($item);
     }
 
@@ -322,6 +336,8 @@ class InventoryScanner extends Page
         $this->errorMessage = null;
         $this->adjustMode   = false;
         $this->result       = $this->buildResultFromItem($item);
+        $this->selectedItemId = $item->id;
+        $this->selectedItem = $this->result;
         // Cost analysis is not needed to identify a scanned SKU. Keep the
         // scan response fast; detailed costs remain in the item result.
         $this->costWarnings = null;
@@ -429,7 +445,11 @@ class InventoryScanner extends Page
             $createdItem = true;
         }
 
-        $this->addQuickAddStock($item, $createdItem);
+        if ($createdItem) {
+            $this->addQuickAddStock($item, true);
+        } else {
+            $this->selectScannedItem($item);
+        }
     }
 
     /**
@@ -496,9 +516,121 @@ class InventoryScanner extends Page
 
         match ($this->mode) {
             'lookup'   => $this->lookupItem($item),
-            'quickadd' => $this->quickAddResolvedItem($item),
+            'quickadd' => $this->selectScannedItem($item),
             default    => null,
         };
+    }
+
+    private function selectScannedItem(InventoryItem $item): void
+    {
+        $this->selectedItemId = $item->id;
+        $this->selectedItem = $this->buildResultFromItem($item);
+        $this->unmatchedBarcode = '';
+        $this->errorMessage = null;
+        $this->qaFlash = null;
+    }
+
+    public function addSelectedStock(): void
+    {
+        $item = $this->selectedItemId ? InventoryItem::find($this->selectedItemId) : null;
+        if (! $item) {
+            $this->qaFlash = ['error' => 'Scan or select an item first.'];
+            return;
+        }
+
+        $this->addQuickAddStock($item, false);
+        if ($this->qaFlash && ! isset($this->qaFlash['error'])) {
+            $this->selectedItem = $this->buildResultFromItem($item->fresh());
+            $this->result = $this->selectedItem;
+        }
+    }
+
+    public function updatedBarcodeLinkSearch(): void
+    {
+        $term = trim($this->barcodeLinkSearch);
+        $this->barcodeLinkOptions = mb_strlen($term) < 2 ? null : InventoryItem::query()
+            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('name', 'like', "%{$term}%")
+                ->orWhere('sku', 'like', "{$term}%")
+                ->orWhere('barcode', 'like', "{$term}%"))
+            ->orderBy('name')->limit(8)->get(['id', 'name', 'sku'])
+            ->map(fn ($item) => ['id' => $item->id, 'name' => $item->name, 'sku' => $item->sku])->toArray();
+    }
+
+    public function linkScannedBarcode(int $itemId): void
+    {
+        $code = trim($this->unmatchedBarcode);
+        if ($code === '' || mb_strlen($code) > 255) {
+            $this->errorMessage = 'Scan a valid barcode first.';
+            return;
+        }
+        $item = InventoryItem::find($itemId);
+        if (! $item) {
+            $this->errorMessage = 'The selected item was not found.';
+            return;
+        }
+        if (InventoryItem::findByScan($code)) {
+            $this->errorMessage = 'This code is already assigned to an item. Scan it again.';
+            return;
+        }
+
+        try {
+            \\Illuminate\\Support\\Facades\\DB::transaction(function () use ($item, $code) {
+                \\App\\Models\\ProductIdentity::create([
+                    'product_id' => $item->id,
+                    'type' => \\App\\Models\\ProductIdentity::TYPE_BARCODE,
+                    'value' => $code,
+                    'confirmed_by' => auth()->id(),
+                    'confirmed_at' => now(),
+                ]);
+            });
+        } catch (\\Illuminate\\Database\\QueryException $e) {
+            report($e);
+            $this->errorMessage = 'Could not link this barcode. Check whether it already exists.';
+            return;
+        }
+        $this->unmatchedBarcode = '';
+        $this->barcodeLinkSearch = '';
+        $this->barcodeLinkOptions = null;
+        $this->lookupItem($item);
+        $this->qaFlash = ['name' => $item->name, 'qty' => 0, 'location' => 'Barcode linked', 'created' => false];
+    }
+
+    public function createScannedItem(): void
+    {
+        $code = trim($this->unmatchedBarcode);
+        $name = trim($this->newItemName);
+        if ($code === '' || mb_strlen($code) > 255 || $name === '' || mb_strlen($name) > 255) {
+            $this->errorMessage = 'Enter an item name and scan a valid barcode.';
+            return;
+        }
+        if (InventoryItem::findByScan($code)) {
+            $this->errorMessage = 'This barcode now belongs to an item. Scan it again.';
+            return;
+        }
+        if ($this->newItemPrice !== '' && (! is_numeric($this->newItemPrice) || (float) $this->newItemPrice < 0)) {
+            $this->errorMessage = 'Enter a valid non-negative price.';
+            return;
+        }
+        try {
+            $item = InventoryItem::create([
+                'name' => $name,
+                'barcode' => $code,
+                'category' => trim($this->newItemCategory) ?: null,
+                'sale_price' => $this->newItemPrice === '' ? null : (float) $this->newItemPrice,
+                'is_active' => true,
+            ]);
+        } catch (\\Illuminate\\Database\\QueryException $e) {
+            report($e);
+            $this->errorMessage = 'Could not create the item. Check for a duplicate barcode.';
+            return;
+        }
+        $this->newItemName = '';
+        $this->newItemCategory = '';
+        $this->newItemPrice = '';
+        $this->unmatchedBarcode = '';
+        $this->lookupItem($item);
+        $this->qaFlash = ['name' => $item->name, 'qty' => 0, 'location' => 'Item created (no stock added)', 'created' => true];
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

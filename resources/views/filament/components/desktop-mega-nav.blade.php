@@ -200,7 +200,11 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
         gap: 12px !important;
     }
     .fi-topbar .fi-topbar-end > :not(.fi-global-search) { flex-shrink: 0 !important; }
+    /* Keep Filament's actual search input clickable across its full visible surface. */
     .fi-topbar .fi-global-search {
+        position: relative !important;
+        z-index: 5 !important;
+        pointer-events: auto !important;
         flex: 0 1 240px !important;
         width: clamp(140px, 16vw, 240px) !important;
         min-width: 0 !important;
@@ -221,16 +225,16 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
         font-size: 12px !important;
     }
     .fi-topbar .fi-global-search {
-        flex: 0 1 44px !important;
-        width: 44px !important;
-        max-width: 44px !important;
+        flex: 0 1 220px !important;
+        width: clamp(160px, 18vw, 220px) !important;
+        max-width: 220px !important;
     }
-    .fi-topbar .fi-global-search input::placeholder { color: transparent !important; }
+    .fi-topbar .fi-global-search input::placeholder { color: #64748b !important; }
     .fi-topbar .fi-global-search:focus-within {
-        position: absolute !important;
-        right: 160px;
-        width: min(320px, 40vw) !important;
-        max-width: 320px !important;
+        position: relative !important;
+        right: auto !important;
+        width: clamp(160px, 18vw, 220px) !important;
+        max-width: 220px !important;
         z-index: 60;
     }
     .fi-topbar .fi-global-search:focus-within input::placeholder { color: #64748b !important; }

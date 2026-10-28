@@ -1,0 +1,30 @@
+name: Inventory Popup Tests
+on:
+  push:
+    branches: [phase/1-inventory-notifications]
+  pull_request:
+    paths:
+      - 'app/Services/Inventory*'
+      - 'app/Livewire/InventoryPriceAcknowledgment.php'
+      - 'app/Support/InventoryPopupPolicy.php'
+      - 'tests/Feature/Inventory*'
+      - '.github/workflows/inventory-popup-tests.yml'
+jobs:
+  inventory-popup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env
+      - run: php artisan key:generate
+      - name: Inventory popup feature tests
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          APP_ENV: testing
+        run: php artisan test tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php

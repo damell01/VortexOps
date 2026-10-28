@@ -73,6 +73,20 @@ class InventoryService
             $before = (float) $stock->quantity;
             $stock->increment('quantity', $quantity);
 
+            // Record every intake, including additions to already stocked products.
+            {
+                $previouslyReceived = (float) ($item->total_units_received ?? 0) > 0;
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id,
+                    'location_id' => $location->id,
+                    'kind' => $before > 0 ? 'stock_added' : ($previouslyReceived ? 'restocked' : 'new'),
+                    'quantity_before' => $before,
+                    'quantity_after' => $before + $quantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => null,
@@ -136,6 +150,23 @@ class InventoryService
                 ->first();
             $toStock->increment('quantity', $quantity);
 
+            if ($before - $quantity <= 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id, 'location_id' => $from->id,
+                    'kind' => 'sold_out', 'quantity_before' => $before,
+                    'quantity_after' => $before - $quantity,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+            if ((float) $toStock->quantity - $quantity <= 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id, 'location_id' => $to->id,
+                    'kind' => 'restocked', 'quantity_before' => (float) $toStock->quantity - $quantity,
+                    'quantity_after' => (float) $toStock->quantity,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+
             $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $from->id,
@@ -186,6 +217,27 @@ class InventoryService
 
             $before = (float) $stock->quantity;
             $stock->update(['quantity' => $newQuantity]);
+            if ($before > 0 && $newQuantity <= 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id,
+                    'location_id' => $location->id,
+                    'kind' => 'sold_out',
+                    'quantity_before' => $before,
+                    'quantity_after' => $newQuantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ($before <= 0 && $newQuantity > 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id,
+                    'location_id' => $location->id,
+                    'kind' => (float) ($item->total_units_received ?? 0) > 0 ? 'restocked' : 'new',
+                    'quantity_before' => $before,
+                    'quantity_after' => $newQuantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             // A drop is a real depletion (a show sale, a giveaway, shrinkage
             // found on a count) and consumes lots FIFO; an increase has no

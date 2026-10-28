@@ -15,18 +15,58 @@ class LedgerAttributionService
 
     public function suggestedShow(WhatnotLedgerEntry $entry): ?Show
     {
-        if (! filled($entry->whatnot_order_id) || $entry->whatnot_order_id === '-') return null;
+        if (! filled($entry->whatnot_order_id) || $entry->whatnot_order_id === '-') {
+            return null;
+        }
 
-        $ids = DB::table('whatnot_show_orders as orders')
+        // A single imported show-order link is not proof of ownership.
+        // Historical Seller Hub imports have associated the same order with
+        // hundreds of shows. Require explicit order-level livestream evidence.
+        $rows = DB::table('whatnot_show_orders as orders')
             ->join('shows', 'shows.id', '=', 'orders.show_id')
             ->where('orders.whatnot_order_id', $entry->whatnot_order_id)
-            ->where(function ($query) use ($entry) {
-                $entry->whatnot_channel_id === null
-                    ? $query->whereNull('shows.whatnot_channel_id')
-                    : $query->where('shows.whatnot_channel_id', $entry->whatnot_channel_id);
-            })
-            ->distinct()->limit(2)->pluck('shows.id');
-        return $ids->count() === 1 ? Show::find($ids->first()) : null;
+            ->get([
+                'orders.show_id',
+                'orders.raw_data',
+                'shows.whatnot_show_id',
+                'shows.whatnot_channel_id',
+            ]);
+
+        if ($rows->isEmpty() || $entry->whatnot_channel_id === null) {
+            return null;
+        }
+
+        $verified = [];
+        foreach ($rows as $row) {
+            $raw = json_decode((string) $row->raw_data, true);
+            if (! is_array($raw)) {
+                continue;
+            }
+
+            $liveIds = [];
+            foreach (['live_id', 'whatnot_live_id', 'livestream_id', 'source_live_id'] as $key) {
+                $value = $raw[$key] ?? null;
+                if (is_string($value) && preg_match('/^[a-f0-9-]{32,36}$/i', $value)) {
+                    $liveIds[] = strtolower($value);
+                }
+            }
+
+            if ($liveIds === []) {
+                continue;
+            }
+
+            // Conflicting explicit identifiers must never auto-approve.
+            if (count(array_unique($liveIds)) !== 1 ||
+                strtolower((string) $row->whatnot_show_id) !== $liveIds[0] ||
+                (int) $row->whatnot_channel_id !== (int) $entry->whatnot_channel_id) {
+                return null;
+            }
+            $verified[(int) $row->show_id] = true;
+        }
+
+        // Explicit evidence must resolve to exactly one show. No fallback
+        // to timestamp, channel or merely imported show-order associations.
+        return count($verified) === 1 ? Show::find(array_key_first($verified)) : null;
     }
 
     public function suggestedCategory(WhatnotLedgerEntry $entry): string

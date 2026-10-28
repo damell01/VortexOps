@@ -1,64 +1,795 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import '../../components.css';
+@import '../../workflow.css';
+@import '../../reports.css';
+@import '../../streamer-leaderboard.css';
+@import '../../communications.css';
 
+@source '../../../../app/Filament/**/*.php';
+@source '../../../views/**/*.blade.php';
 
-/* Shared shell: compact navigation, expanding search and predictable work surfaces. */
-@media(min-width:1024px){
- .fi-topbar nav{height:68px!important;min-height:68px!important;gap:8px!important}.fi-topbar{height:68px!important}
- .vx-mega-brand{width:44px!important;flex-basis:44px!important;margin-right:6px!important}.vx-mega-brand img{width:40px!important;height:40px!important}
- .vx-desktop-mega-nav{gap:2px!important}.vx-mega-home,.vx-mega-trigger{min-height:44px;padding-inline:10px!important;font-size:13px!important}
- .vx-desktop-mega-nav .vx-mega-channel{min-width:132px!important;max-width:170px!important;flex-basis:170px!important;margin-left:auto!important}
- .fi-topbar .fi-global-search{position:relative;flex:0 0 44px!important;min-width:44px!important;max-width:44px!important;width:44px}
- .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){min-width:44px;width:44px;border-radius:12px}
- .fi-topbar .fi-global-search input{min-width:0;width:44px;cursor:pointer;padding-inline-start:40px}
- .fi-topbar .fi-global-search input::placeholder{color:transparent}
- .fi-topbar .fi-global-search:focus-within{z-index:60}
- .fi-topbar .fi-global-search:focus-within :is(.fi-input-wrp,.fi-global-search-field){width:min(360px,55vw);position:relative;float:right;background:var(--vx-surface,#fff);box-shadow:0 8px 24px #0f172a20}
- .fi-topbar .fi-global-search:focus-within input{width:100%;cursor:text}.fi-topbar .fi-global-search:focus-within input::placeholder{color:#64748b}
- .vx-mega-menu{max-height:calc(100dvh - 100px);overflow-y:auto;width:270px}
+@theme {
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
 }
-@media(min-width:1024px) and (max-width:1150px){.vx-mega-home,.vx-mega-trigger{padding-inline:6px!important;font-size:12px!important}.vx-desktop-mega-nav .vx-mega-channel{flex-basis:132px!important}}
-.vx-owner-tools{border-top:1px solid var(--vx-border,#e2e8f0);margin-top:6px;padding-top:6px}.vx-owner-tools summary{display:flex;justify-content:space-between;cursor:pointer;min-height:44px;padding:12px 10px;font-size:13px;font-weight:650;color:var(--vx-muted,#64748b)}.vx-owner-tools[open] summary{color:#7c3aed}.vx-owner-tools>div{padding-inline-start:8px}
-.vx-mega-trigger:focus-visible,.vx-mega-menu a:focus-visible,.vx-owner-tools summary:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
-.fi-header-heading{line-height:1.25!important}.fi-header-subheading{line-height:1.5!important}
-.fi-section-header{padding-block:18px}.fi-section-content-ctn{min-width:0}
-.fi-ta-empty-state{padding:40px 20px!important;text-align:center}.fi-ta-empty-state-heading{font-size:17px!important}.fi-ta-empty-state-description{max-width:44ch;margin-inline:auto;line-height:1.5}
-.fi-fo-field-wrp-label{font-weight:600}.fi-modal-footer{border-top:1px solid var(--vx-border,#e2e8f0);padding-top:16px}.fi-modal-window{border-radius:18px!important}
-@media(max-width:767px){.fi-header-actions-ctn{width:100%}.fi-header-actions-ctn>.fi-btn{flex:1 1 auto}.fi-modal-footer .fi-btn{min-height:44px}.fi-section-header{padding-block:14px}}
-@media(prefers-reduced-motion:reduce){.vx-mega-menu,.fi-modal-window{transition:none!important}}
+
+:root {
+  --vx-page:#f4f4f7; --vx-surface:#ffffff; --vx-border:#e3e3ea; --vx-divider:#efeff4;
+  --vx-text:#16161d; --vx-muted:#5a5a68; --vx-faint:#8a8a98;
+  --vx-soft-primary:#f1ebfe; --vx-primary-text:#5b21b6;
+  --vx-sidebar:#0b1022; --vx-sidebar-2:#141a33; --vx-sidebar-text:#aab1c8; --vx-sidebar-muted:#6b7392;
+  --vx-green-bg:#e5f5ee; --vx-green:#05603f; --vx-amber-bg:#fdf2dc; --vx-amber:#8a4a06;
+  --vx-red-bg:#fdebee; --vx-red:#b0123a; --vx-blue-bg:#e5f1fb; --vx-blue:#075985;
+  --vx-violet-bg:#f1ebfe; --vx-violet:#5b21b6; --vx-gray-bg:#eeeef2; --vx-gray:#46465a;
+}
+html{font-family:var(--font-sans)}
+body,.fi-layout,.fi-main{background:var(--vx-page);color:var(--vx-text)}
+.fi-sidebar{width:248px;background:var(--vx-sidebar);border-right:0}
+.fi-sidebar-header,.fi-sidebar-footer{background:var(--vx-sidebar);border-color:var(--vx-sidebar-2)}
+.fi-sidebar-nav{padding:12px}
+.fi-sidebar-group{gap:2px}
+.fi-sidebar-group-label{padding:0 12px 6px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--vx-sidebar-muted)}
+.fi-sidebar-item-btn{min-height:38px;border-radius:9px;padding:0 12px;color:var(--vx-sidebar-text);font-size:14px;font-weight:500}
+.fi-sidebar-item-btn svg{color:var(--vx-sidebar-muted)}
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn{background:rgb(124 58 237 / .22);color:white;font-weight:600}
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn svg{color:#c4b5fd}
+.fi-topbar{height:64px;background:var(--vx-surface);border-bottom:1px solid var(--vx-border);box-shadow:none}
+.fi-topbar nav{height:64px}
+.fi-main{min-height:100vh}
+.fi-page{gap:24px}
+.fi-page-header-main-ctn{gap:8px}
+.fi-header-heading{font-size:26px;line-height:1.2;font-weight:650;letter-spacing:-.02em;color:var(--vx-text)}
+.fi-header-subheading{font-size:14px;color:var(--vx-muted)}
+.fi-page-content{padding:32px;gap:24px}
+.fi-section,.fi-ta,.fi-wi{background:var(--vx-surface);border:1px solid var(--vx-border);border-radius:14px;box-shadow:none}
+.fi-section-header-heading,.fi-ta-header-heading{font-size:16px;font-weight:600;color:var(--vx-text)}
+.fi-section-header-description,.fi-ta-header-description{font-size:13px;color:var(--vx-muted)}
+.fi-btn{min-height:40px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:none}
+.fi-input-wrp{min-height:44px;border-radius:10px;box-shadow:none}
+.fi-input{font-size:14px}
+.fi-ta-header-cell{height:40px;background:#fafafc;border-bottom:1px solid var(--vx-border);padding:0 16px}
+.fi-ta-header-cell-label{font-size:12px;font-weight:600;color:var(--vx-muted);text-transform:none;letter-spacing:.02em}
+.fi-ta-row{height:56px}
+.fi-ta-cell{padding:0 16px;border-bottom:1px solid var(--vx-divider);font-size:14px}
+.fi-ta-text-item-label,.fi-ta-text{font-size:14px}
+.fi-badge{min-height:24px;border-radius:999px;padding:0 10px;font-size:12px;font-weight:600}
+.vx-mono,.vx-money,.vx-id,.fi-ta-cell[data-column*="amount"],.fi-ta-cell[data-column*="total"],.fi-ta-cell[data-column*="cost"]{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.fi-tabs{border-bottom:1px solid var(--vx-border);gap:20px}
+.fi-tabs-item{border-radius:0;border-bottom:2px solid transparent;padding:10px 2px}
+.fi-tabs-item.fi-active{border-bottom-color:var(--primary-600);background:transparent}
+.dark{--vx-page:#16161d;--vx-surface:#141a33;--vx-border:#46465a;--vx-divider:#46465a;--vx-text:#ffffff;--vx-muted:#aab1c8;--vx-faint:#8a8a98}
+.dark .fi-ta-header-cell{background:var(--vx-sidebar)}
+@media(min-width:1024px){.fi-page-content{padding:32px}}
+@media(max-width:1023px){
+ .fi-sidebar{width:288px}
+ .fi-topbar{height:56px}.fi-topbar nav{height:56px}
+ .fi-page-content{padding:16px 16px 88px;gap:16px}
+ .fi-header-heading{font-size:20px}
+ .fi-ta-table{display:block}
+ .fi-ta-table thead{display:none}
+ .fi-ta-table tbody{display:grid;gap:10px;padding:0}
+ .fi-ta-row{display:grid;height:auto;min-height:72px;border:1px solid var(--vx-border);border-radius:14px;background:var(--vx-surface);padding:12px}
+ .fi-ta-cell{height:auto;min-height:0;border:0;padding:4px 0}
+ .fi-btn,.fi-icon-btn{min-height:44px;min-width:44px}
+ .fi-input{font-size:16px}
+}
+
+.vx-tabbar{display:none}
+@media(max-width:1023px){
+ body:has(.vx-tabbar) .fi-main{padding-bottom:88px}
+ .vx-tabbar{position:fixed;inset-inline:0;bottom:0;z-index:40;display:flex;height:calc(56px + env(safe-area-inset-bottom,0px));padding:4px 8px env(safe-area-inset-bottom,0px);background:var(--vx-surface);border-top:1px solid var(--vx-border)}
+ .vx-tabbar-item{flex:1;display:flex;min-width:0;min-height:48px;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--vx-faint);font-size:11px;font-weight:500}
+ .vx-tabbar-item svg{width:20px;height:20px}
+ .vx-tabbar-item[aria-current=page]{color:var(--primary-600);font-weight:600}
+}
 
 
-.vx-fulfill-preview{--fp-bg:var(--vx-surface,#fff);--fp-border:var(--vx-border,#e2e8f0);--fp-muted:var(--vx-muted,#64748b);max-width:1440px;margin:auto;color:var(--vx-text,#0f172a)}
-.vx-fp-intro,.vx-fp-toolbar,.vx-fp-card-head,.vx-fp-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
-.vx-fp-intro{margin-bottom:24px}.vx-fp-intro h2,.vx-fp-drawer h2{font-size:26px;font-weight:750;letter-spacing:-.03em;margin:12px 0 6px}
-.vx-fp-intro p,.vx-fp-toolbar p,.vx-fp-work-card p,.vx-fp-drawer>p{color:var(--fp-muted);font-size:14px}
-.vx-fp-tag,.vx-fp-status{display:inline-flex;padding:5px 10px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:12px;font-weight:650}
-.vx-fp-switch,.vx-fp-tabs{display:flex;gap:6px;flex-wrap:wrap}.vx-fp-switch button,.vx-fp-tabs button{min-height:44px;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:650}
-.vx-fp-switch{background:var(--fp-bg);padding:4px;border:1px solid var(--fp-border);border-radius:14px}.vx-fp-switch .active,.vx-fp-tabs .active{background:#ede9fe;color:#6d28d9}
-.vx-fp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
-.vx-fp-kpi{padding:20px;background:var(--fp-bg);border:1px solid var(--fp-border);border-radius:16px;text-align:left;transition:box-shadow .15s,border-color .15s}.vx-fp-kpi:hover,.vx-fp-kpi.active{border-color:#8b5cf6;box-shadow:0 4px 18px #7c3aed12}.vx-fp-kpi span,.vx-fp-kpi small{display:block;color:var(--fp-muted);font-size:13px}.vx-fp-kpi strong{display:block;font-size:32px;font-weight:750;margin:8px 0}.vx-fp-kpi small{font-size:11px}
-.vx-fp-panel{background:var(--fp-bg);border:1px solid var(--fp-border);border-radius:18px;padding:22px;margin-bottom:20px}.vx-fp-toolbar h3,.vx-fp-team h3{font-size:17px;font-weight:700}.vx-fp-toolbar input{width:300px;max-width:100%;min-height:44px;background:transparent;border:1px solid var(--fp-border);border-radius:10px;font-size:14px;padding:10px 12px}.vx-fp-tabs{margin:20px 0}
-.vx-fp-work{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.vx-fp-work-card{border:1px solid var(--fp-border);border-radius:14px;padding:18px;min-width:0}.vx-fp-channel{font-size:11px;font-weight:650;color:var(--fp-muted)}.vx-fp-work-card h3{font-size:17px;font-weight:700;margin:16px 0 6px;overflow-wrap:anywhere}.vx-fp-status.is-blocked{background:#fef3c7;color:#92400e}
-.vx-fp-numbers{display:flex;gap:36px;margin:20px 0}.vx-fp-numbers strong{display:block;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.vx-fp-numbers span{font-size:12px;color:var(--fp-muted)}
-.vx-fp-card-meta{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--fp-muted);border-top:1px solid var(--fp-border);padding-top:14px}.vx-fp-assignment{display:block;font-size:12px;color:var(--fp-muted);margin-top:16px}.vx-fp-assignment select{display:block;width:100%;min-height:44px;border-radius:10px;background:var(--fp-bg);border:1px solid var(--fp-border);margin-top:6px;font-size:14px}
-.vx-fp-primary{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;border-radius:10px;background:#6d28d9;color:white;font-size:13px;font-weight:650;padding:10px 14px;margin-top:18px}.vx-fp-primary:disabled{opacity:.5;cursor:not-allowed}
-.vx-fp-team{display:grid;grid-template-columns:2fr repeat(3,1fr);align-items:center;gap:20px}.vx-fp-team strong,.vx-fp-team span{display:block}.vx-fp-team span,.vx-fp-team p{font-size:12px;color:var(--fp-muted);margin-top:4px}.vx-fp-note{font-size:12px;color:var(--fp-muted);line-height:1.5}.vx-fp-empty{grid-column:1/-1;text-align:center;padding:40px;color:var(--fp-muted)}.vx-fp-empty h3{font-size:18px;font-weight:650}.vx-fp-empty button{margin-top:16px;color:#7c3aed;min-height:44px}
-.vx-fp-overlay{position:fixed;inset:0;z-index:90}.vx-fp-backdrop{position:absolute;inset:0;background:#0f172a66;backdrop-filter:blur(2px)}.vx-fp-drawer{position:absolute;inset:0 0 0 auto;width:min(100%,500px);overflow-y:auto;background:var(--fp-bg);padding:28px;box-shadow:-10px 0 40px #0f172a20}.vx-fp-drawer-head button{width:44px;height:44px;border-radius:10px;background:var(--vx-page,#f1f5f9)}.vx-fp-steps{display:flex;gap:6px;margin:24px 0}.vx-fp-steps span{flex:1;padding:8px 4px;text-align:center;border-radius:8px;background:var(--vx-page,#f1f5f9);font-size:12px;color:var(--fp-muted)}.vx-fp-steps .active{background:#ede9fe;color:#6d28d9;font-weight:700}.vx-fp-drawer h3{font-size:15px;font-weight:700;margin:24px 0 8px}
-.vx-fp-pick-list{border:1px solid var(--fp-border);border-radius:12px;margin-top:12px}.vx-fp-pick-list label{display:flex;align-items:center;gap:12px;min-height:60px;padding:12px;border-bottom:1px solid var(--fp-border);font-size:13px}.vx-fp-pick-list label:last-child{border:0}.vx-fp-pick-list input{width:20px;height:20px;flex-shrink:0}.vx-fp-pick-list span{flex:1}.vx-fp-pick-list small{display:block;color:var(--fp-muted);font-size:11px;margin-top:3px}.vx-fp-exception{padding:16px;border:1px solid #fbbf24;border-radius:12px;background:#fffbeb;color:#92400e}.vx-fp-exception p{font-size:13px;margin-top:6px}.vx-fp-drawer-footer{position:sticky;bottom:-28px;padding:12px 0 24px;background:var(--fp-bg)}
-.vx-fulfill-preview :is(button,input,select):focus-visible{outline:3px solid #a78bfa;outline-offset:3px}
-@media(max-width:1100px){.vx-fp-work{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-fp-intro{align-items:flex-start;flex-direction:column}.vx-fp-team{grid-template-columns:repeat(3,1fr)}.vx-fp-team>div:first-child{grid-column:1/-1}}
-@media(max-width:640px){.vx-fp-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vx-fp-kpi{padding:14px}.vx-fp-kpi strong{font-size:26px}.vx-fp-work{grid-template-columns:1fr}.vx-fp-panel{padding:14px}.vx-fp-toolbar{align-items:stretch;flex-direction:column}.vx-fp-toolbar input{width:100%}.vx-fp-intro h2{font-size:22px}.vx-fp-drawer{padding:20px}.vx-fp-drawer-footer{bottom:-20px}}
-@media(prefers-reduced-motion:reduce){.vx-fp-kpi{transition:none}}
+/* Preserve Filament's sidebar mechanics; the redesign only changes presentation. */
+.fi-sidebar .fi-sidebar-item-btn,
+.fi-sidebar .fi-sidebar-item-label,
+.fi-sidebar .fi-sidebar-group-label,
+.fi-sidebar .fi-sidebar-group-button,
+.fi-sidebar .fi-sidebar-group-button svg {
+  color: var(--vx-sidebar-text);
+}
+.fi-sidebar .fi-sidebar-item-btn svg { color: var(--vx-sidebar-muted); }
+.fi-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn,
+.fi-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-sidebar-item-label {
+  color: #fff;
+}
+.fi-sidebar .fi-sidebar-nav { min-height: 0; }
+.vx-channel-switcher { display:block; padding:8px 12px 14px; color:var(--vx-sidebar-text); }
+.vx-channel-switcher-label { display:block; margin:0 0 6px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--vx-sidebar-muted); }
+.vx-channel-switcher-select-wrp { position:relative; }
+.vx-channel-switcher-select { width:100%; min-height:40px; appearance:none; border:1px solid rgb(255 255 255 / .10); border-radius:9px; background:var(--vx-sidebar-2); padding:0 34px 0 34px; color:var(--vx-sidebar-text); font-size:14px; }
+.vx-channel-switcher-icon,.vx-channel-switcher-chevron { position:absolute; top:50%; z-index:1; width:16px; height:16px; transform:translateY(-50%); pointer-events:none; color:var(--vx-sidebar-muted); }
+.vx-channel-switcher-icon { left:10px; }
+.vx-channel-switcher-chevron { right:10px; }
 
 
+/* Auth: compact, intentional sign-in card instead of the default oversized simple page. */
+.fi-simple-layout {
+  background:var(--vx-page);
+}
+.fi-simple-main {
+  width:min(100% - 32px, 440px);
+  margin-inline:auto;
+}
+.fi-simple-main-ctn {
+  min-height:100dvh;
+  padding:clamp(32px,8vh,88px) 0;
+  align-items:center;
+}
+.fi-simple-header {
+  margin-bottom:22px;
+}
+.fi-simple-header-heading {
+  font-size:28px;
+  font-weight:700;
+  letter-spacing:-.025em;
+}
+.fi-simple-header-subheading {
+  max-width:360px;
+  margin:8px auto 0;
+  color:var(--vx-muted);
+  line-height:1.5;
+}
+.fi-simple-main .fi-form {
+  gap:18px;
+}
+.fi-simple-main .fi-section,
+.fi-simple-main form {
+  border-radius:18px;
+}
+.fi-simple-main .fi-btn {
+  min-height:48px;
+  border-radius:12px;
+}
+.fi-simple-main .fi-input-wrp {
+  min-height:48px;
+  border-radius:12px;
+}
+@media(max-width:640px){
+  .fi-simple-main{width:min(100% - 28px,440px)}
+  .fi-simple-main-ctn{padding:28px 0 48px}
+  .fi-simple-header-heading{font-size:25px}
+}
+
+/* The sign-in page doesn't load app.js's stylesheets, so the box-shadow:none
+   above left its fields with no outline at all; give them one here. */
+.fi-simple-main .fi-input-wrp{border:1px solid #dbe2f0;background:#f8faff}
+.fi-simple-main .fi-input-wrp:focus-within{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.fi-simple-main .fi-input-wrp.fi-invalid{border-color:#e11d48}
+/* The built-in logo's white wordmark is for the dark sidebar; swap in the
+   dark-text copy on the light sign-in card (an uploaded logo is untouched). */
+.fi-simple-layout img.fi-logo[src$="vb-logo-sidebar.svg"]{content:url("/images/vb-logo-light.svg")}
+
+
+/* Database notifications use Filament's native slide-over sizing and behavior.
+   Do not override .fi-modal-window here: the previous centered 1100px modal
+   made routine notifications cover most of the admin workspace. */
+
+/* Vortex Ops split-screen authentication experience. */
+.fi-simple-layout:has(.vx-login-showcase){
+  min-height:100dvh;
+  background:
+    radial-gradient(circle at 78% 15%,rgba(124,58,237,.08),transparent 28%),
+    linear-gradient(135deg,#f8f9ff 0%,#f3f5ff 100%);
+}
+.fi-simple-layout:has(.vx-login-showcase) .fi-simple-main-ctn{
+  min-height:100dvh;
+  width:50%;
+  margin-left:50%;
+  padding:40px clamp(28px,6vw,104px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.fi-simple-layout:has(.vx-login-showcase) .fi-simple-main{
+  width:min(100%,560px);
+  margin:0;
+  padding:42px 46px 34px;
+  border:1px solid rgba(226,232,240,.95);
+  border-radius:24px;
+  background:rgba(255,255,255,.94);
+  box-shadow:0 28px 70px rgba(45,38,96,.10);
+}
+.fi-simple-layout:has(.vx-login-showcase) .fi-simple-header{display:none}
+.fi-simple-layout:has(.vx-login-showcase) .fi-simple-main .fi-input-wrp{
+  min-height:52px;
+  border-radius:12px;
+  border-color:#dbe2f0;
+  background:#f8faff;
+}
+.fi-simple-layout:has(.vx-login-showcase) .fi-simple-main .fi-btn{
+  min-height:54px;
+  border-radius:12px;
+  font-size:16px;
+  background:linear-gradient(90deg,#6d28d9,#7c3aed);
+  box-shadow:0 10px 25px rgba(109,40,217,.22);
+}
+.fi-simple-layout:has(.vx-login-showcase) .fi-fo-field-wrp-label{font-weight:650;color:#17172a}
+.vx-login-showcase{
+  position:fixed;
+  inset:0 50% 0 0;
+  z-index:0;
+  overflow:hidden;
+  color:#fff;
+  background:
+    radial-gradient(circle at 88% 5%,rgba(124,58,237,.72),transparent 31%),
+    radial-gradient(circle at 5% 90%,rgba(91,33,182,.45),transparent 35%),
+    linear-gradient(145deg,#080a20 0%,#10102d 55%,#160a45 100%);
+}
+.vx-login-showcase:after{
+  content:"";
+  position:absolute;inset:auto -15% -22% 10%;height:45%;
+  background:#6d28d9;filter:blur(110px);opacity:.32;transform:rotate(-8deg);
+}
+.vx-login-showcase-inner{
+  position:relative;z-index:1;height:100%;max-width:760px;margin:auto;
+  padding:clamp(36px,5vh,68px) clamp(40px,5vw,78px);
+  display:flex;flex-direction:column;
+}
+.vx-login-brand img{width:min(360px,72%);height:auto;filter:brightness(0) invert(1)}
+.vx-login-eyebrow{margin-top:24px;font-size:11px;font-weight:650;letter-spacing:.3em;color:#aab0cb}
+.vx-login-eyebrow span{margin:0 9px;color:#7c3aed}
+.vx-login-showcase h2{margin:28px 0 12px;font-size:clamp(38px,4vw,60px);line-height:1.04;letter-spacing:-.045em;font-weight:750}
+.vx-login-showcase h2 strong{font-weight:750;background:linear-gradient(90deg,#60a5fa,#7c3aed,#c026d3);-webkit-background-clip:text;background-clip:text;color:transparent}
+.vx-login-showcase>div>p{max-width:610px;margin:0;color:#c4c7d8;font-size:18px;line-height:1.55}
+.vx-login-features{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px}
+.vx-login-features>div{display:flex;gap:14px;align-items:center;min-height:88px;padding:16px 18px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.035);backdrop-filter:blur(10px)}
+.vx-login-features b{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:rgba(124,58,237,.28);color:#c4b5fd;font-size:20px}
+.vx-login-features strong,.vx-login-features small{display:block}
+.vx-login-features strong{font-size:14px;color:#fff}
+.vx-login-features small{margin-top:4px;color:#9da4bd;font-size:12px;line-height:1.35}
+.vx-login-preview{margin-top:auto;min-height:170px;padding:18px 20px;border:1px solid rgba(139,92,246,.25);border-radius:20px 20px 0 0;background:linear-gradient(145deg,rgba(14,18,45,.96),rgba(23,18,60,.9));box-shadow:0 0 45px rgba(124,58,237,.2);transform:perspective(800px) rotateX(2deg)}
+.vx-preview-bar{display:flex;justify-content:space-between;color:#d9d7ee;font-size:10px;font-weight:700}.vx-preview-bar em{color:#8b5cf6;font-style:normal}.vx-preview-bar i{width:18px;height:5px;border-radius:9px;background:#312e81}
+.vx-preview-title{margin:20px 0 12px;font-size:13px;font-weight:650}
+.vx-preview-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.vx-preview-cards div{padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.035)}
+.vx-preview-cards small,.vx-preview-cards strong,.vx-preview-cards span{display:block}.vx-preview-cards small{color:#8f96b3;font-size:9px}.vx-preview-cards strong{margin:5px 0;font-size:17px}.vx-preview-cards span{color:#34d399;font-size:9px}
+.vx-login-card-brand{text-align:center;margin-bottom:22px}.vx-login-card-brand img{width:230px;max-width:70%;height:auto}
+.vx-login-heading{text-align:center;margin-bottom:30px}.vx-login-heading h1{margin:0;color:#111225;font-size:32px;line-height:1.1;font-weight:750;letter-spacing:-.035em}.vx-login-heading p{max-width:400px;margin:10px auto 0;color:#667085;font-size:15px;line-height:1.5}
+.vx-login-footer{margin-top:24px;padding-top:20px;border-top:1px solid #ececf3;text-align:center;color:#98a2b3;font-size:11px}
+.dark .fi-simple-layout:has(.vx-login-showcase){background:#0f1020}
+.dark .fi-simple-layout:has(.vx-login-showcase) .fi-simple-main{background:#17182b;border-color:#2b2d45}
+.dark .vx-login-heading h1{color:#fff}.dark .vx-login-heading p{color:#aab1c8}
+@media(max-width:1100px){
+  .vx-login-showcase{inset:0 55% 0 0}.fi-simple-layout:has(.vx-login-showcase) .fi-simple-main-ctn{width:55%;margin-left:45%;padding:28px}
+  .vx-login-showcase-inner{padding:42px 34px}.vx-login-showcase h2{font-size:40px}.vx-login-features{grid-template-columns:1fr}.vx-login-features>div:nth-child(n+3){display:none}
+}
+@media(max-width:800px){
+  .vx-login-showcase{display:none}
+  .fi-simple-layout:has(.vx-login-showcase) .fi-simple-main-ctn{width:100%;margin-left:0;padding:24px}
+  .fi-simple-layout:has(.vx-login-showcase) .fi-simple-main{width:min(100%,500px);padding:34px 26px;border-radius:20px}
+  .vx-login-card-brand img{width:205px}.vx-login-heading h1{font-size:28px}
+}
+
+
+/* Desktop mega navigation: visual layer only; Filament navigation remains intact for mobile. */
 .vx-desktop-mega-nav{display:none}
 @media(min-width:1024px){
-.fi-sidebar{display:none!important}.fi-main{margin-inline-start:0!important}.fi-topbar{background:#090d22;border:0}.fi-topbar .fi-logo,.fi-topbar-open-sidebar-btn,.fi-topbar-close-sidebar-btn{display:none!important}
-.vx-desktop-mega-nav{display:flex;align-items:center;flex:1 1 auto;min-width:0;height:100%;white-space:nowrap}
-.vx-mega-brand{display:flex;align-items:center;flex-shrink:0}.vx-mega-brand img{object-fit:contain}.vx-mega-home,.vx-mega-trigger{display:flex;align-items:center;gap:6px;border-radius:10px;color:#eef2ff;font-weight:650}.vx-mega-home:hover,.vx-mega-trigger:hover{background:#7c3aed2e}
-.vx-mega-home svg{width:18px}.vx-mega-trigger svg{width:14px}.vx-mega-group{position:relative;padding-block:12px;margin-block:-12px}
-.vx-mega-menu{position:absolute;z-index:100;top:calc(100% - 1px);left:0;padding:8px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;box-shadow:0 18px 45px #0f172a38}.vx-mega-menu-title{padding:8px 10px;color:#667085;font-size:10px;font-weight:750;text-transform:uppercase}
-.vx-mega-menu a{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 10px;border-radius:9px;color:#17172a;font-size:13px;font-weight:600}.vx-mega-menu a:hover{background:#f4f0ff;color:#5b21b6}.vx-mega-menu a svg{width:14px;color:#98a2b3}
-.vx-mega-channel .vx-channel-switcher{padding:0}.vx-mega-channel .vx-channel-switcher-label{display:none}.vx-mega-channel select{min-height:40px;background:#161b34;color:#e5e7eb;border:1px solid #ffffff24;border-radius:9px}
+  .fi-sidebar{display:none!important}
+  .fi-main{margin-inline-start:0!important}
+  .fi-topbar{height:76px;background:#090d22;border:0;box-shadow:0 8px 24px rgba(15,23,42,.12)}
+  .fi-topbar nav{height:76px;max-width:none;padding-inline:24px;gap:14px}
+  .fi-topbar .fi-logo{width:220px!important;max-width:220px!important;height:48px!important;object-fit:contain;object-position:left center;filter:none!important}
+  .fi-topbar .fi-sidebar-open-btn,.fi-topbar .fi-sidebar-close-btn{display:none!important}
+  .vx-desktop-mega-nav{display:flex;align-items:center;gap:4px;height:100%;margin-left:8px;white-space:nowrap}
+  .vx-mega-home,.vx-mega-trigger{display:flex;align-items:center;gap:7px;min-height:42px;padding:0 12px;border-radius:10px;color:#eef2ff;font-size:14px;font-weight:650;text-decoration:none}
+  .vx-mega-home:hover,.vx-mega-trigger:hover{background:rgba(124,58,237,.18);color:#fff}
+  .vx-mega-home svg{width:18px;height:18px}.vx-mega-trigger svg{width:14px;height:14px}
+  .vx-mega-group{position:relative}
+  .vx-mega-menu{position:absolute;z-index:100;top:calc(100% + 12px);left:0;width:260px;padding:8px;border:1px solid #e6e7ef;border-radius:14px;background:#fff;box-shadow:0 18px 45px rgba(15,23,42,.22)}
+  .vx-mega-menu-title{padding:8px 10px 6px;color:#667085;font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+  .vx-mega-menu a{display:flex;align-items:center;justify-content:space-between;min-height:42px;padding:0 10px;border-radius:9px;color:#17172a;font-size:13px;font-weight:600;text-decoration:none}
+  .vx-mega-menu a:hover{background:#f4f0ff;color:#5b21b6}
+  .vx-mega-menu a svg{width:14px;height:14px;color:#98a2b3}
+  .vx-mega-menu a.has-icon{justify-content:flex-start;gap:12px;font-size:14px}
+  .vx-mega-menu a.has-icon .vx-mega-link-icon{width:20px;height:20px;color:#7c3aed}
+  .vx-mega-menu a.has-icon:hover .vx-mega-link-icon{color:#5b21b6}
+  .vx-mega-section{margin-top:6px;padding-top:12px;border-top:1px solid #eef0f4}
+  .fi-topbar .fi-global-search-field{border-radius:999px}
+  .fi-page-content{padding-top:28px}
 }
+@media(min-width:1024px) and (max-width:1250px){
+  .fi-topbar .fi-logo{width:170px!important;max-width:170px!important}
+  .vx-mega-home,.vx-mega-trigger{padding:0 8px;font-size:13px}
+  .vx-desktop-mega-nav{gap:1px;margin-left:2px}
+}
+/* Mockup alignment: brand first, then hover navigation. */
+@media(min-width:1024px){
+  .fi-topbar nav>.fi-logo{display:none!important}
+  .vx-desktop-mega-nav{order:-10;margin-left:0!important;gap:5px!important}
+  .vx-mega-brand{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin-right:8px;flex:0 0 44px;border-radius:11px;overflow:hidden}
+  .vx-mega-brand img{display:block;width:38px;height:38px;object-fit:contain;object-position:center}
+  .vx-mega-group{padding-block:12px;margin-block:-12px}
+  .vx-mega-menu{top:calc(100% - 1px)!important}
+}
+@media(min-width:1024px) and (max-width:1250px){
+  .vx-mega-brand{width:180px;flex-basis:180px}
+  .vx-mega-brand img{width:172px}
+}
+/* Final desktop header cleanup: custom brand is authoritative. */
+@media(min-width:1024px){
+  .fi-topbar .fi-logo,
+  .fi-topbar [class*="sidebar-open"],
+  .fi-topbar [class*="sidebar-close"]{display:none!important}
+  .vx-mega-brand{order:-20!important}
+}
+/* Header cleanup from Sep 30 mockup review. */
+@media(min-width:1024px){
+  /* Hide every Filament desktop sidebar toggle variant; mobile remains native. */
+  .fi-topbar-open-sidebar-btn,.fi-topbar-close-sidebar-btn,
+  .fi-topbar .fi-icon-btn[x-on*="sidebar"],
+  .fi-topbar button[x-on*="sidebar"],
+  .fi-topbar button[aria-label*="sidebar" i],
+  .fi-topbar button[aria-label*="navigation" i]{display:none!important}
+  /* The custom nav owns branding; suppress any native Filament brand duplicate. */
+  .fi-topbar .fi-logo,.fi-topbar a.fi-logo{display:none!important}
+  .vx-mega-brand{width:72px!important;flex-basis:72px!important;margin-right:10px!important;justify-content:flex-start}
+  .vx-mega-brand img{width:58px!important;height:58px!important;object-fit:contain!important;object-position:left center!important}
+}
+
+/* Login hotfix: Filament v5 uses .fi-simple-main-ctn as the card and
+   .fi-simple-main as the outer flex container. Previous rules targeted them
+   in reverse, leaving the showcase inside a narrow centered card. */
+body:has(.vx-login-showcase) .fi-simple-layout{
+  min-height:100dvh!important;
+  background:linear-gradient(135deg,#f8f9ff 0%,#f3f5ff 100%)!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main{
+  width:100%!important;
+  max-width:none!important;
+  min-height:100dvh!important;
+  margin:0!important;
+  padding:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main-ctn{
+  width:50%!important;
+  max-width:none!important;
+  min-height:auto!important;
+  margin:0!important;
+  padding:40px clamp(28px,6vw,104px)!important;
+  display:block!important;
+  position:relative!important;
+  z-index:2!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main-ctn>div{
+  width:min(100%,560px)!important;
+  margin-inline:auto!important;
+  padding:42px 46px 34px!important;
+  border:1px solid rgba(226,232,240,.95)!important;
+  border-radius:24px!important;
+  background:#fff!important;
+  box-shadow:0 28px 70px rgba(45,38,96,.10)!important;
+}
+body:has(.vx-login-showcase) .fi-simple-header,
+body:has(.vx-login-showcase) .fi-simple-header-heading,
+body:has(.vx-login-showcase) .fi-simple-header-subheading{display:none!important}
+body:has(.vx-login-showcase) .vx-login-showcase{
+  display:block!important;
+  position:fixed!important;
+  inset:0 50% 0 0!important;
+  z-index:1!important;
+}
+body:has(.vx-login-showcase) .vx-login-hero{display:block!important}
+body:has(.vx-login-showcase) .fi-simple-main-ctn .fi-input-wrp{min-height:52px;border-radius:12px}
+body:has(.vx-login-showcase) .fi-simple-main-ctn .fi-btn{min-height:54px;border-radius:12px}
+@media(max-width:1100px){
+ body:has(.vx-login-showcase) .vx-login-showcase{inset:0 55% 0 0!important}
+ body:has(.vx-login-showcase) .fi-simple-main-ctn{width:55%!important;padding:28px!important}
+}
+@media(max-width:800px){
+ body:has(.vx-login-showcase) .vx-login-showcase{display:none!important}
+ body:has(.vx-login-showcase) .fi-simple-main{justify-content:center!important;padding:24px!important}
+ body:has(.vx-login-showcase) .fi-simple-main-ctn{width:min(100%,540px)!important;padding:0!important}
+ body:has(.vx-login-showcase) .fi-simple-main-ctn>div{padding:34px 26px!important;border-radius:20px!important}
+}
+
+/* Sep 30 UI polish: prevent dashboard KPI values from escaping their cards. */
+.fi-wi-stats-overview-stats-ctn{
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr))!important;
+}
+.fi-wi-stats-overview-stat{
+  min-width:0!important;
+  overflow:hidden!important;
+}
+.fi-wi-stats-overview-stat-value{
+  min-width:0!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  font-size:clamp(1.45rem,1.7vw,2rem)!important;
+  line-height:1.12!important;
+  letter-spacing:-.035em!important;
+}
+.fi-wi-stats-overview-stat-description{
+  overflow-wrap:anywhere;
+}
+
+/* Desktop header: full Vortex Ops wordmark, no Filament drawer/collapse affordance. */
+@media(min-width:1024px){
+  .vx-mega-brand{
+    width:220px!important;
+    flex:0 0 220px!important;
+    height:54px!important;
+    margin-right:8px!important;
+  }
+  .vx-mega-brand img{
+    width:210px!important;
+    height:48px!important;
+    object-fit:contain!important;
+    object-position:left center!important;
+  }
+  .fi-topbar .fi-sidebar-open-btn,
+  .fi-topbar .fi-sidebar-close-btn,
+  .fi-topbar .fi-sidebar-collapse-btn,
+  .fi-topbar .fi-sidebar-expand-btn,
+  .fi-topbar [data-sidebar-toggle],
+  .fi-topbar button[class*="sidebar"]{
+    display:none!important;
+  }
+}
+@media(min-width:1024px) and (max-width:1320px){
+  .vx-mega-brand{width:170px!important;flex-basis:170px!important}
+  .vx-mega-brand img{width:164px!important}
+  .vx-mega-home,.vx-mega-trigger{padding-inline:7px!important;font-size:12px!important}
+}
+
+/* Login layout final pass. The showcase is fixed; the auth card owns the
+   right half explicitly instead of relying on a shrinking flex child. */
+body:has(.vx-login-showcase) .fi-simple-main{
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  max-width:none!important;
+  min-height:100dvh!important;
+  margin:0!important;
+  padding:0!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main-ctn{
+  box-sizing:border-box!important;
+  width:50%!important;
+  max-width:none!important;
+  min-height:100dvh!important;
+  margin:0 0 0 50%!important;
+  padding:clamp(28px,5vw,72px)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  position:relative!important;
+  z-index:3!important;
+  overflow:visible!important;
+}
+body:has(.vx-login-showcase) .fi-simple-main-ctn>div{
+  box-sizing:border-box!important;
+  width:min(100%,560px)!important;
+  max-width:560px!important;
+  margin:0 auto!important;
+  padding:40px 44px 32px!important;
+}
+body:has(.vx-login-showcase) .vx-login-showcase{
+  inset:0 50% 0 0!important;
+  width:50vw!important;
+  z-index:1!important;
+}
+body:has(.vx-login-showcase) .vx-login-showcase-inner{
+  box-sizing:border-box!important;
+  width:100%!important;
+  max-width:760px!important;
+}
+@media(max-width:1100px) and (min-width:801px){
+  body:has(.vx-login-showcase) .vx-login-showcase{inset:0 52% 0 0!important;width:48vw!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn{width:52%!important;margin-left:48%!important;padding:28px!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn>div{padding:34px 30px 28px!important}
+}
+@media(max-width:800px){
+  body:has(.vx-login-showcase) .fi-simple-main{display:flex!important;align-items:center!important;justify-content:center!important;padding:20px!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn{width:min(100%,540px)!important;min-height:auto!important;margin:0!important;padding:0!important}
+  body:has(.vx-login-showcase) .fi-simple-main-ctn>div{width:100%!important;padding:32px 24px!important}
+}
+
+/* Temporary header cleanup: no brand artwork until final logo asset is supplied. */
+@media(min-width:1024px){
+  .fi-topbar .fi-sidebar-open-btn,
+  .fi-topbar .fi-sidebar-close-btn,
+  .fi-topbar .fi-sidebar-collapse-btn,
+  .fi-topbar .fi-sidebar-expand-btn,
+  .fi-topbar .fi-icon-btn[aria-label*="menu" i],
+  .fi-topbar .fi-icon-btn[aria-label*="sidebar" i],
+  .fi-topbar button[aria-label*="menu" i],
+  .fi-topbar button[aria-label*="sidebar" i],
+  .fi-topbar button[title*="menu" i],
+  .fi-topbar button[title*="sidebar" i],
+  .fi-topbar button[x-data*="sidebar"],
+  .fi-topbar button[x-on\:click*="sidebar"],
+  .fi-topbar [class*="sidebar"][class*="toggle"],
+  .fi-topbar [class*="sidebar"][class*="open"],
+  .fi-topbar [class*="sidebar"][class*="close"]{
+    display:none!important;
+  }
+}
+
+/* Login has been restored to Filament's basic auth screen. Neutralize every
+   custom split-login rule without deleting historical CSS in this hotfix. */
+body:not(:has(.vx-login-showcase)) .fi-simple-layout{
+  background:#f6f7fb!important;
+}
+
+/* Topbar/profile recovery: keep native user menu visible and reserve room for
+   right-side account controls instead of letting custom nav consume the row. */
+@media(min-width:1024px){
+  .fi-topbar nav{display:flex!important;min-width:0!important;overflow:visible!important;padding-inline:20px!important;gap:8px!important}
+  .vx-desktop-mega-nav{flex:0 1 auto!important;min-width:0!important;margin-right:auto!important}
+  .vx-mega-home,.vx-mega-trigger{padding-inline:9px!important}
+  .fi-topbar .fi-global-search{flex:0 1 285px!important;min-width:180px!important;max-width:285px!important}
+  .fi-topbar .fi-user-menu,
+  .fi-topbar [class*="user-menu"]{
+    display:flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+    flex:0 0 auto!important;
+    position:relative!important;
+    inset:auto!important;
+  }
+  .fi-topbar .fi-user-menu button,
+  .fi-topbar [class*="user-menu"] button{
+    display:inline-flex!important;
+    visibility:visible!important;
+    opacity:1!important;
+  }
+}
+@media(min-width:1024px) and (max-width:1280px){
+  .vx-mega-home,.vx-mega-trigger{padding-inline:6px!important;font-size:12px!important}
+  .fi-topbar .fi-global-search{flex-basis:220px!important;max-width:220px!important}
+}
+
+/* Database notification center: never create a page-width horizontal scroller. */
+.fi-modal-window:has(.fi-database-notifications),
+.fi-modal-window:has([wire\:key*="database-notification"]),
+.fi-modal-window:has([class*="database-notification"]){
+  width:min(960px,calc(100vw - 48px))!important;
+  max-width:calc(100vw - 48px)!important;
+  overflow:hidden!important;
+}
+.fi-modal-window:has(.fi-database-notifications) *,
+.fi-modal-window:has([wire\:key*="database-notification"]) *,
+.fi-modal-window:has([class*="database-notification"]) *{
+  min-width:0;
+}
+.fi-modal-window:has(.fi-database-notifications) .fi-modal-content,
+.fi-modal-window:has([wire\:key*="database-notification"]) .fi-modal-content,
+.fi-modal-window:has([class*="database-notification"]) .fi-modal-content{
+  width:100%!important;
+  max-width:100%!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+}
+.fi-modal-window:has(.fi-database-notifications) p,
+.fi-modal-window:has([wire\:key*="database-notification"]) p,
+.fi-modal-window:has([class*="database-notification"]) p{
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+}
+
+/* Page redesign foundation — dense operations UI matching approved mockups. */
+.fi-main{min-width:0!important}
+.fi-page{min-width:0}
+.fi-page-header{margin-bottom:14px!important}
+.fi-page-header-main-ctn{gap:8px!important}
+.fi-header-heading{font-size:1.55rem!important;line-height:1.15!important;letter-spacing:-.035em!important}
+.fi-header-subheading{margin-top:3px!important;font-size:.78rem!important;line-height:1.35!important}
+.fi-page-content{min-width:0!important}
+.fi-section{border-radius:14px!important}
+.fi-section-content{min-width:0}
+.fi-btn{border-radius:9px!important}
+.fi-input-wrp{border-radius:9px!important}
+.fi-ta-ctn{border-radius:14px!important;overflow:hidden}
+.fi-ta-header{padding:12px 14px!important}
+.fi-ta-row{min-width:0}
+.fi-ta-text{overflow-wrap:anywhere}
+@media(min-width:1024px){
+ .fi-page{padding-inline:20px!important}
+ .fi-page-content{padding-top:18px!important}
+}
+
+/* Admin dashboard: compact KPI rail and balanced operations cards. */
+[data-vx-page="admin-dashboard"]{gap:14px!important}
+[data-vx-page="admin-dashboard"]>section{border-radius:14px!important;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+[data-vx-page="admin-dashboard"] .grid{min-width:0}
+[data-vx-page="admin-dashboard"] [class*="text-3xl"],
+[data-vx-page="admin-dashboard"] [class*="text-4xl"]{font-size:clamp(1.35rem,2vw,1.9rem)!important;line-height:1.1!important;overflow-wrap:anywhere}
+
+/* Shows: assignment queue becomes a compact work queue rather than a large banner. */
+.vx-shows-redesign .vx-assignment-queue{background:#fff!important;border-color:#e5e7eb!important;padding:14px!important}
+.dark .vx-shows-redesign .vx-assignment-queue{background:#111827!important;border-color:#374151!important}
+.vx-shows-redesign .vx-assignment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vx-shows-redesign .vx-assignment-item{min-width:0;border:1px solid #e5e7eb;border-radius:11px;background:#f8fafc;padding:10px}
+.dark .vx-shows-redesign .vx-assignment-item{background:#182235;border-color:#374151}
+@media(max-width:1200px){.vx-shows-redesign .vx-assignment-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.vx-shows-redesign .vx-assignment-grid{grid-template-columns:1fr}}
+
+/* Payroll: tighter command-center cards so the actual show queue stays above fold. */
+.vx-payroll-redesign{gap:12px!important}
+.vx-payroll-redesign>section{border-radius:14px!important}
+.vx-payroll-redesign .vx-payroll-hero{padding:16px 20px!important}
+.vx-payroll-redesign .vx-payroll-kpis{gap:8px!important}
+.vx-payroll-redesign .vx-payroll-kpis>div{padding:12px 14px!important}
+
+/* Reports/inventory: prevent cards and filters from forcing horizontal overflow. */
+.vx-report,.vx-report *{box-sizing:border-box}
+.vx-report{min-width:0;max-width:100%}
+.vx-report-head,.vx-builder-head,.vx-sheet-toolbar{min-width:0}
+.vx-quick-reports{max-width:100%;scrollbar-width:thin}
+.vx-kpi{overflow:hidden}
+.vx-kpi-value{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:clamp(1.25rem,1.7vw,1.55rem)!important}
+@media(max-width:1300px){.vx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:700px){.vx-kpis{grid-template-columns:1fr!important}}
+
+/* Detailed mockup pass: card-first Shows and report density. */
+.vx-shows-redesign>section{box-shadow:0 1px 2px rgba(15,23,42,.03)}
+.vx-shows-redesign table th{font-size:10px;letter-spacing:.04em}
+.vx-shows-redesign table td{padding-top:11px!important;padding-bottom:11px!important}
+.vx-shows-redesign select,.vx-shows-redesign input{min-height:40px!important;border-radius:9px!important}
+.vx-shows-redesign .grid.grid-cols-2>div{overflow:hidden}
+.vx-pay .vx-card{border-radius:14px!important}
+.vx-pay .vx-pad{padding:16px!important}
+.vx-pay .vx-grid{gap:12px!important}
+.vx-pay .vx-show{padding:12px 14px!important}
+.vx-pay .vx-money{margin-top:8px!important}
+.vx-pay .vx-next{margin-top:8px!important}
+.vx-report-sheet,.vx-r-card{border-radius:12px!important}
+.vx-report-grid{gap:10px!important}
+.vx-report-grid>.vx-r-card{padding:14px!important}
+@media(min-width:1400px){
+ .vx-shows-redesign{max-width:1540px;margin-inline:auto}
+ .vx-pay{max-width:1540px!important}
+ .vx-report{max-width:1540px;margin-inline:auto}
+}
+
+/* Payroll workflow redesign — one-screen admin flow. */
+.vx-payroll-control .vx-kpis{margin-top:12px!important}
+.vx-payroll-control .vx-kpi{padding:10px 12px!important}
+.vx-payroll-statusbar{padding:12px 14px!important}
+.vx-payroll-statusbar .vx-flow{margin:0!important}
+.vx-payroll-statusbar .vx-flow a{padding:9px 11px!important;border-radius:10px!important}
+.vx-payroll-statusbar .vx-flow strong{font-size:16px!important}
+.vx-payroll-side{min-width:0}
+@media(min-width:1001px){
+ .vx-readiness-sticky{position:sticky;top:88px;max-height:calc(100vh - 108px);overflow:auto}
+}
+.vx-payrun-workspace{max-width:1540px;margin-inline:auto}
+.vx-payrun-summary .grid{margin-top:12px!important}
+.vx-payrun-summary .grid>div{padding:11px 13px!important;min-width:0;overflow:hidden}
+.vx-payrun-summary .grid strong{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vx-run-progress{display:flex;align-items:center;min-width:0;flex:1}
+.vx-run-stage{display:flex;align-items:center;gap:7px;min-width:0;flex:1;color:#94a3b8;font-size:11px;font-weight:700}
+.vx-run-stage:not(:last-child)::after{content:"";height:2px;background:#e5e7eb;flex:1;margin-inline:8px}
+.dark .vx-run-stage:not(:last-child)::after{background:#334155}
+.vx-run-stage span{display:grid;place-items:center;width:26px;height:26px;flex:0 0 26px;border-radius:999px;background:#f1f5f9;color:#64748b;font-size:10px}
+.vx-run-stage.current{color:#2563eb}.vx-run-stage.current span{background:#2563eb;color:#fff}
+.vx-run-stage.done{color:#059669}.vx-run-stage.done span{background:#059669;color:#fff}
+.vx-run-stage.done::after{background:#10b981!important}
+.vx-payrun-workspace .vx-grid{align-items:start}
+@media(min-width:1001px){.vx-payrun-side{position:sticky;top:88px}}
+.vx-payrun-workspace .vx-person{margin-top:8px!important;border-radius:11px!important}
+.vx-payrun-workspace .vx-person-head{padding:11px 12px!important}
+.vx-payrun-workspace .vx-breakdown{max-height:320px;overflow:auto}
+@media(max-width:800px){
+ .vx-run-progress{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+ .vx-run-stage{display:grid;justify-items:center;text-align:center;gap:4px}
+ .vx-run-stage::after{display:none}
+ .vx-run-stage b{font-size:9px}
+}
+/* Payroll inline blocker resolution */
+.vx-inline-fix{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto}
+.vx-inline-select{min-width:170px;max-width:230px;min-height:40px;border:1px solid var(--vx-border,#d1d5db);border-radius:10px;background:var(--vx-surface,#fff);padding:7px 30px 7px 10px;font-size:11px;font-weight:700;color:inherit}
+.dark .vx-inline-select{background:#111827;border-color:#475569;color:#f8fafc}
+@media(max-width:640px){.vx-inline-fix,.vx-inline-select{width:100%;max-width:none}.vx-inline-fix .vx-btn{width:100%}}
+
+
+/* Desktop channel switcher belongs with the custom top navigation. */
+@media(min-width:1024px){
+  .vx-desktop-mega-nav .vx-mega-channel{margin-left:auto;display:flex;align-items:center;min-width:190px}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher{width:100%;padding:0;border:0;background:transparent}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-label{display:none}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select-wrp{min-height:34px;border:1px solid rgba(255,255,255,.14);border-radius:9px;background:rgba(255,255,255,.06)}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select{color:#e5e7eb;font-size:12px}
+  .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-icon,.vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-chevron{color:#9ca3af}
+  .fi-sidebar .vx-channel-switcher{display:none}
+}
+
+/* Notifications: keep the desktop center deliberately compact even if a stale
+   built asset still carries the old wide-modal rules. These selectors come last
+   and use !important so deployment order cannot restore the 1100px takeover. */
+@media(min-width:641px){
+  .fi-modal-window:has(.fi-database-notifications),
+  .fi-modal-window:has([wire\\:key*="database-notification"]),
+  .fi-modal-window:has([class*="database-notification"]){
+    width:min(440px,calc(100vw - 32px)) !important;
+    max-width:440px !important;
+    height:min(680px,calc(100dvh - 32px)) !important;
+    max-height:calc(100dvh - 32px) !important;
+    margin:16px 16px 16px auto !important;
+    border-radius:14px !important;
+    overflow:hidden !important;
+  }
+  .fi-modal-window:has(.fi-database-notifications) .fi-modal-content,
+  .fi-modal-window:has([wire\\:key*="database-notification"]) .fi-modal-content,
+  .fi-modal-window:has([class*="database-notification"]) .fi-modal-content{
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+  }
+}
+
+
+/* Reports mockup system — compact, visual, and intentionally CSS-first so
+   redesigns do not add database work or Livewire round trips. */
+.vx-report{--vx-purple:#7c3aed;--vx-border:#e7e9f2;--vx-muted:#667085;max-width:1500px;margin-inline:auto}
+.vx-report>section,.vx-report>div{min-width:0}
+.vx-report .rounded-xl,.vx-report .rounded-2xl{border-color:var(--vx-border);box-shadow:0 1px 3px rgba(15,23,42,.035)}
+.dark .vx-report{--vx-border:#293247;--vx-muted:#94a3b8}
+.vx-report-overview>section:first-child,
+.vx-streamer-report>section:first-child,
+.vx-product-report>section:first-child{
+  padding:18px 20px!important;border:1px solid var(--vx-border)!important;border-radius:14px!important;
+  background:#fff!important;box-shadow:0 1px 3px rgba(15,23,42,.035)!important
+}
+.dark .vx-report-overview>section:first-child,
+.dark .vx-streamer-report>section:first-child,
+.dark .vx-product-report>section:first-child{background:#111827!important}
+.vx-report h2{letter-spacing:-.025em}
+.vx-report input,.vx-report select{min-height:36px}
+.vx-report table{font-size:12px}
+.vx-report th{font-size:10px!important;letter-spacing:.045em}
+.vx-report td,.vx-report th{padding-top:9px!important;padding-bottom:9px!important}
+.vx-report-overview .grid>div,.vx-streamer-report .grid>div,.vx-inventory-report .grid>div,.vx-product-report .grid>div{min-width:0}
+.vx-report-overview [class*="text-xl"],.vx-streamer-report [class*="text-2xl"],.vx-inventory-report [class*="text-2xl"],.vx-product-report [class*="text-2xl"]{letter-spacing:-.035em}
+@media(min-width:1024px){
+ .vx-report{font-size:13px}
+ .vx-report-overview{padding-inline:2px}
+ .vx-report-overview>section:first-child{padding-block:14px!important}
+ .vx-report .sticky{top:84px!important}
+}
+@media(max-width:767px){
+ .vx-report{gap:12px!important}
+ .vx-report .sticky{position:static!important}
+ .vx-report table{min-width:760px}
+}
+
+.vx-section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.vx-section-heading h3{margin:0;font-size:14px;font-weight:800;color:#101828}.dark .vx-section-heading h3{color:#fff}
+.vx-section-heading p{margin:2px 0 0;font-size:11px;color:#98a2b3}.vx-section-heading>span{font-size:11px;font-weight:700;color:#7c3aed}
+.vx-streamer-cards{padding:2px}
+.vx-person-card{padding:15px;border:1px solid var(--vx-border);border-radius:14px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.035);transition:transform .15s ease,box-shadow .15s ease}
+.vx-person-card:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,23,42,.07)}
+.dark .vx-person-card{background:#111827}
+.vx-avatar{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;font-size:13px;font-weight:800}
+.vx-person-card strong{color:#101828}.dark .vx-person-card strong{color:#f8fafc}.vx-person-card span{font-size:10px;color:#98a2b3}
+.vx-trend{padding:3px 7px;border-radius:999px;font-size:10px!important;font-weight:800}.vx-trend.is-up{background:#ecfdf3;color:#027a48}.vx-trend.is-down{background:#fff1f2;color:#e11d48}
+.vx-person-money{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}.vx-person-money span,.vx-person-money strong{display:block}.vx-person-money strong{margin-top:2px;font-size:15px}
+.vx-mini-track{height:3px;margin:13px 0;background:#f1f3f8;border-radius:999px;overflow:hidden}.dark .vx-mini-track{background:#253047}.vx-mini-track i{display:block;height:100%;border-radius:inherit;background:#7c3aed}
+.vx-person-foot{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vx-person-foot strong,.vx-person-foot span{display:block}.vx-person-foot strong{font-size:12px}.vx-person-foot span{margin-top:1px}
+
+/* Finance reports keep the same clean mockup language without replacing
+   Filament's deferred/paginated table implementation. */
+.vx-finance-table{border:1px solid #e7e9f2!important;border-radius:14px!important;box-shadow:0 1px 3px rgba(15,23,42,.04)!important;overflow:hidden}
+.dark .vx-finance-table{border-color:#293247!important}
+.vx-finance-table .fi-ta-header{padding:16px 18px!important;background:#fff}.dark .vx-finance-table .fi-ta-header{background:#111827}
+.vx-finance-table .fi-ta-header-heading{font-size:15px!important;font-weight:800!important;letter-spacing:-.02em}
+.vx-finance-table .fi-ta-header-description{font-size:11px!important;color:#98a2b3!important}
+.vx-finance-table .fi-ta-table thead{background:#f8fafc}.dark .vx-finance-table .fi-ta-table thead{background:#182235}
+.vx-finance-table .fi-ta-table th{font-size:10px!important;text-transform:uppercase;letter-spacing:.045em}
+
 
 /* Mobile app shell — same information architecture as desktop, touch-first. */
 .vx-mobile-menu{display:none}
@@ -116,6 +847,33 @@
 }
 
 
+/* Oct 1 desktop header + ledger hotfix. Keep nav compact enough that the
+   channel switcher and Filament search/actions never collide. */
+@media(min-width:1024px){
+  .fi-topbar nav{padding-inline:12px!important;gap:8px!important}
+  .vx-desktop-mega-nav{flex:1 1 auto!important;min-width:0!important;gap:1px!important}
+  .vx-mega-brand{width:58px!important;flex-basis:58px!important;margin-right:2px!important}
+  .vx-mega-brand img{width:50px!important;height:50px!important}
+  .vx-mega-home,.vx-mega-trigger{padding-inline:8px!important;font-size:13px!important}
+  .vx-desktop-mega-nav .vx-mega-channel{margin-left:auto!important;min-width:150px!important;max-width:175px!important;flex:0 1 175px!important}
+  .fi-topbar .fi-global-search{flex:0 1 235px!important;min-width:170px!important;max-width:235px!important}
+}
+@media(min-width:1024px) and (max-width:1280px){
+  .vx-mega-home,.vx-mega-trigger{padding-inline:6px!important;font-size:12px!important}
+  .vx-desktop-mega-nav .vx-mega-channel{min-width:135px!important;max-width:150px!important}
+  .fi-topbar .fi-global-search{flex-basis:190px!important;max-width:190px!important}
+}
+
+/* Ledger: details need a real readable text area, not a column narrow enough
+   to wrap every few characters. The table can scroll horizontally instead. */
+@media(min-width:1024px){
+  .vx-finance-table .fi-ta-content{overflow-x:auto!important}
+  .vx-finance-table .fi-ta-table{min-width:1180px!important;table-layout:auto!important}
+  .vx-finance-table .fi-ta-cell:has(.vx-ledger-details),
+  .vx-finance-table .fi-ta-header-cell:has([data-column="message"]){min-width:300px!important;width:34%!important}
+  .vx-ledger-details{display:block!important;min-width:280px!important;max-width:460px!important;white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;line-height:1.45!important}
+  .vx-ledger-details .fi-ta-text-item-label{white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important}
+}
 
 
 /* Shared shell: compact navigation, expanding search and predictable work surfaces. */
@@ -149,12 +907,51 @@
 @media(max-width:767px){.fi-header-actions-ctn{width:100%}.fi-header-actions-ctn>.fi-btn{flex:1 1 auto}.fi-modal-footer .fi-btn{min-height:44px}.fi-section-header{padding-block:14px}}
 @media(prefers-reduced-motion:reduce){.vx-mega-menu,.fi-modal-window{transition:none!important}}
 
-/* Menu links with an icon and section headings (Reports). */
+
+.vx-fulfill-preview{--fp-bg:var(--vx-surface,#fff);--fp-border:var(--vx-border,#e2e8f0);--fp-muted:var(--vx-muted,#64748b);max-width:1440px;margin:auto;color:var(--vx-text,#0f172a)}
+.vx-fp-intro,.vx-fp-toolbar,.vx-fp-card-head,.vx-fp-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.vx-fp-intro{margin-bottom:24px}.vx-fp-intro h2,.vx-fp-drawer h2{font-size:26px;font-weight:750;letter-spacing:-.03em;margin:12px 0 6px}
+.vx-fp-intro p,.vx-fp-toolbar p,.vx-fp-work-card p,.vx-fp-drawer>p{color:var(--fp-muted);font-size:14px}
+.vx-fp-tag,.vx-fp-status{display:inline-flex;padding:5px 10px;border-radius:999px;background:#ede9fe;color:#6d28d9;font-size:12px;font-weight:650}
+.vx-fp-switch,.vx-fp-tabs{display:flex;gap:6px;flex-wrap:wrap}.vx-fp-switch button,.vx-fp-tabs button{min-height:44px;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:650}
+.vx-fp-switch{background:var(--fp-bg);padding:4px;border:1px solid var(--fp-border);border-radius:14px}.vx-fp-switch .active,.vx-fp-tabs .active{background:#ede9fe;color:#6d28d9}
+.vx-fp-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.vx-fp-kpi{padding:20px;background:var(--fp-bg);border:1px solid var(--fp-border);border-radius:16px;text-align:left;transition:box-shadow .15s,border-color .15s}.vx-fp-kpi:hover,.vx-fp-kpi.active{border-color:#8b5cf6;box-shadow:0 4px 18px #7c3aed12}.vx-fp-kpi span,.vx-fp-kpi small{display:block;color:var(--fp-muted);font-size:13px}.vx-fp-kpi strong{display:block;font-size:32px;font-weight:750;margin:8px 0}.vx-fp-kpi small{font-size:11px}
+.vx-fp-panel{background:var(--fp-bg);border:1px solid var(--fp-border);border-radius:18px;padding:22px;margin-bottom:20px}.vx-fp-toolbar h3,.vx-fp-team h3{font-size:17px;font-weight:700}.vx-fp-toolbar input{width:300px;max-width:100%;min-height:44px;background:transparent;border:1px solid var(--fp-border);border-radius:10px;font-size:14px;padding:10px 12px}.vx-fp-tabs{margin:20px 0}
+.vx-fp-work{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.vx-fp-work-card{border:1px solid var(--fp-border);border-radius:14px;padding:18px;min-width:0}.vx-fp-channel{font-size:11px;font-weight:650;color:var(--fp-muted)}.vx-fp-work-card h3{font-size:17px;font-weight:700;margin:16px 0 6px;overflow-wrap:anywhere}.vx-fp-status.is-blocked{background:#fef3c7;color:#92400e}
+.vx-fp-numbers{display:flex;gap:36px;margin:20px 0}.vx-fp-numbers strong{display:block;font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}.vx-fp-numbers span{font-size:12px;color:var(--fp-muted)}
+.vx-fp-card-meta{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--fp-muted);border-top:1px solid var(--fp-border);padding-top:14px}.vx-fp-assignment{display:block;font-size:12px;color:var(--fp-muted);margin-top:16px}.vx-fp-assignment select{display:block;width:100%;min-height:44px;border-radius:10px;background:var(--fp-bg);border:1px solid var(--fp-border);margin-top:6px;font-size:14px}
+.vx-fp-primary{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:44px;border-radius:10px;background:#6d28d9;color:white;font-size:13px;font-weight:650;padding:10px 14px;margin-top:18px}.vx-fp-primary:disabled{opacity:.5;cursor:not-allowed}
+.vx-fp-team{display:grid;grid-template-columns:2fr repeat(3,1fr);align-items:center;gap:20px}.vx-fp-team strong,.vx-fp-team span{display:block}.vx-fp-team span,.vx-fp-team p{font-size:12px;color:var(--fp-muted);margin-top:4px}.vx-fp-note{font-size:12px;color:var(--fp-muted);line-height:1.5}.vx-fp-empty{grid-column:1/-1;text-align:center;padding:40px;color:var(--fp-muted)}.vx-fp-empty h3{font-size:18px;font-weight:650}.vx-fp-empty button{margin-top:16px;color:#7c3aed;min-height:44px}
+.vx-fp-overlay{position:fixed;inset:0;z-index:90}.vx-fp-backdrop{position:absolute;inset:0;background:#0f172a66;backdrop-filter:blur(2px)}.vx-fp-drawer{position:absolute;inset:0 0 0 auto;width:min(100%,500px);overflow-y:auto;background:var(--fp-bg);padding:28px;box-shadow:-10px 0 40px #0f172a20}.vx-fp-drawer-head button{width:44px;height:44px;border-radius:10px;background:var(--vx-page,#f1f5f9)}.vx-fp-steps{display:flex;gap:6px;margin:24px 0}.vx-fp-steps span{flex:1;padding:8px 4px;text-align:center;border-radius:8px;background:var(--vx-page,#f1f5f9);font-size:12px;color:var(--fp-muted)}.vx-fp-steps .active{background:#ede9fe;color:#6d28d9;font-weight:700}.vx-fp-drawer h3{font-size:15px;font-weight:700;margin:24px 0 8px}
+.vx-fp-pick-list{border:1px solid var(--fp-border);border-radius:12px;margin-top:12px}.vx-fp-pick-list label{display:flex;align-items:center;gap:12px;min-height:60px;padding:12px;border-bottom:1px solid var(--fp-border);font-size:13px}.vx-fp-pick-list label:last-child{border:0}.vx-fp-pick-list input{width:20px;height:20px;flex-shrink:0}.vx-fp-pick-list span{flex:1}.vx-fp-pick-list small{display:block;color:var(--fp-muted);font-size:11px;margin-top:3px}.vx-fp-exception{padding:16px;border:1px solid #fbbf24;border-radius:12px;background:#fffbeb;color:#92400e}.vx-fp-exception p{font-size:13px;margin-top:6px}.vx-fp-drawer-footer{position:sticky;bottom:-28px;padding:12px 0 24px;background:var(--fp-bg)}
+.vx-fulfill-preview :is(button,input,select):focus-visible{outline:3px solid #a78bfa;outline-offset:3px}
+@media(max-width:1100px){.vx-fp-work{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-fp-intro{align-items:flex-start;flex-direction:column}.vx-fp-team{grid-template-columns:repeat(3,1fr)}.vx-fp-team>div:first-child{grid-column:1/-1}}
+@media(max-width:640px){.vx-fp-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.vx-fp-kpi{padding:14px}.vx-fp-kpi strong{font-size:26px}.vx-fp-work{grid-template-columns:1fr}.vx-fp-panel{padding:14px}.vx-fp-toolbar{align-items:stretch;flex-direction:column}.vx-fp-toolbar input{width:100%}.vx-fp-intro h2{font-size:22px}.vx-fp-drawer{padding:20px}.vx-fp-drawer-footer{bottom:-20px}}
+@media(prefers-reduced-motion:reduce){.vx-fp-kpi{transition:none}}
+
+/* Ledger reference: visible filters, white rows and compact status pills. */
+.fi-main:has(.vx-finance-table){max-width:1680px!important}
+.vx-finance-table{border:1px solid var(--vx-border);border-radius:14px;box-shadow:0 4px 20px #17213d05}
+.vx-finance-table .fi-ta-header{padding:20px 24px}
+.vx-finance-table .fi-ta-filter-form{padding:18px;background:var(--vx-surface);border-radius:12px}
+.vx-finance-table .fi-ta-cell{padding-top:16px;padding-bottom:16px}
+.vx-finance-table .fi-ta-row:hover{background:rgb(124 58 237 / .045)}
+.vx-finance-table .fi-badge{border-radius:8px}
+
+/* Give the navigation and search distinct rows when the header is crowded. */
 @media(min-width:1024px){
-  .vx-mega-menu a.has-icon{justify-content:flex-start;gap:12px;font-size:14px}
-  .vx-mega-menu a.has-icon .vx-mega-link-icon{width:20px;height:20px;color:#7c3aed}
-  .vx-mega-menu a.has-icon:hover .vx-mega-link-icon{color:#5b21b6}
-  .vx-mega-section{margin-top:6px;padding-top:12px;border-top:1px solid #eef0f4}
+ .fi-topbar nav:has(.vx-desktop-mega-nav){display:flex!important;flex-wrap:wrap!important;gap:12px!important;height:auto!important;min-height:76px;padding-block:10px!important}
+ .fi-topbar:has(.vx-desktop-mega-nav){height:auto!important}
+ .vx-desktop-mega-nav{min-width:0!important;flex:1 1 auto!important;max-width:100%;height:auto!important;flex-wrap:wrap!important}
+ .vx-mega-channel{flex:0 0 auto;max-width:220px}
+ .fi-topbar .fi-global-search{flex:0 1 260px!important;min-width:160px;max-width:260px;position:relative!important;margin-left:12px!important}
+ .fi-topbar .fi-global-search-field{width:100%!important;max-width:100%}
+ .fi-topbar .fi-global-search-field .fi-input-wrp{width:100%!important}
+}
+@media(min-width:1024px) and (max-width:1599px){
+ .vx-desktop-mega-nav{flex:1 1 100%!important;justify-content:flex-start}
+ .fi-topbar .fi-global-search{margin-left:auto!important;flex-basis:320px!important;max-width:420px}
 }
 
 /* Menu link icons on the phone menu, matching the desktop menu's. */
@@ -162,3 +959,28 @@
 .vx-mobile-submenu a svg.vx-mm-link-icon{width:18px!important;height:18px!important;color:#7c3aed;flex:none}
 .dark .vx-mobile-submenu a svg.vx-mm-link-icon{color:#a78bfa}
 .dark .vx-mega-menu a.has-icon .vx-mega-link-icon{color:#a78bfa}
+
+/* Consistent, spacious application dialogs on desktop. Keep compact confirmation
+   dialogs compact, and leave phone dialogs within the viewport. */
+@media (min-width: 768px) {
+  .fi-modal-window:not(:has(.fi-modal-content:empty)) {
+    width: min(94vw, 1320px) !important;
+    max-width: min(94vw, 1320px) !important;
+  }
+  .fi-modal-window .fi-modal-content { max-height: min(78vh, 900px); overflow-y: auto; }
+}
+
+/* Operational page actions own the phone's bottom row, as on end-of-stream.
+   A second fixed navigation bar at the same position intercepted stock saves. */
+@media (max-width: 639px) {
+  body:has([data-vx-mobile-actions]) .vx-tabbar { display: none !important; }
+  body:has([data-vx-mobile-actions]) .fi-main { padding-bottom: max(96px, calc(80px + env(safe-area-inset-bottom))); }
+}
+
+@media (max-width: 639px) {
+  .vx-inventory-list .vx-catalog-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 1023px) {
+  .vxr > *, .vxr-card, .vxr-table-wrap { min-width: 0; max-width: 100%; }
+  .vxr-table-wrap { width: 100%; overflow-x: auto; }
+}

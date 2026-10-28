@@ -7,38 +7,15 @@
     $amber = $stockTotal ? $low / $stockTotal * 100 : 0;
     $shortcuts = collect(\App\Support\DashboardShortcuts::forCurrentUser());
     $guide = $shortcuts->firstWhere('label', 'Inventory guide');
-    // Read-only ranking for the current channel; no show data or workflow is modified.
-    $leaderboardShows = \App\Models\Show::query()->inChannelContext()->whereNotIn('status', ['cancelled'])->where('gross_revenue', '>', 0)->orderByDesc('gross_revenue')->limit(5)->get(['id', 'title', 'gross_revenue', 'show_date']);
 @endphp
 <div class="vx-dashboard-reference space-y-4" data-vx-page="admin-dashboard">
     <style>
-        /* Dashboard-only shell correction: keep the page header out of the hero. */
-        body:has(.vx-dashboard-reference) .fi-page-header-main-ctn{padding-top:.75rem!important;gap:.75rem!important}
-        body:has(.vx-dashboard-reference) .fi-header{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:.5rem 1rem!important;padding:.5rem 0!important}
-        body:has(.vx-dashboard-reference) .fi-header-heading-ctn{min-width:0!important;flex:1 1 220px!important;width:auto!important}
-        body:has(.vx-dashboard-reference) .fi-header-actions-ctn{min-width:0!important;flex:0 1 auto!important}
-        body:has(.vx-dashboard-reference) .fi-main{min-width:0}
-        .vx-dashboard-reference{min-width:0}
-        .vx-dashboard-reference .vx-dashboard-hero{isolation:isolate}
-        .vx-dashboard-reference .vx-dashboard-hero h1{line-height:1.18}
-        .vx-dashboard-reference .vx-dashboard-hero .relative.grid{align-items:center}
-        @media(max-width:640px){
-            .vx-dashboard-reference .vx-dashboard-hero{padding:1rem}
-            .vx-dashboard-reference .vx-dashboard-hero .relative.grid{gap:1rem}
-        }
         .vx-dashboard-reference .fi-wi-stats-overview-stat{border-radius:1rem;box-shadow:0 3px 12px rgba(30,41,59,.04);min-width:0}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1rem,1.3vw,1.2rem)!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:.75rem}
         .vx-dashboard-reference .fi-section{border-radius:1rem}
         .vx-dashboard-reference .fi-wi{min-width:0}
         .vx-dashboard-reference .vx-dashboard-hero{background:radial-gradient(ellipse at 58% 30%,rgba(109,40,217,.45),transparent 55%),linear-gradient(110deg,#080d22,#121a3b 55%,#21124d)}
-        .vx-dashboard-reference .vx-dashboard-hero :is(h1,p,a,strong,span){color:#fff}
-        .vx-dashboard-reference .vx-dashboard-hero a{background-color:rgba(255,255,255,.13);border-color:rgba(255,255,255,.24)}
-        .vx-dashboard-reference .vx-dashboard-hero a:first-child{background-color:#6d28d9;border-color:#a78bfa;color:#fff}
-        .vx-dashboard-reference .vx-dashboard-hero a:hover{background-color:#7c3aed;color:#fff}
-        .vx-dashboard-reference .vx-dashboard-hero aside{background-color:rgba(17,24,39,.72);border-color:rgba(255,255,255,.22)}
-        .vx-dashboard-reference .vx-dashboard-hero aside :is(a,span){color:#f3f4f6}
-        .vx-dashboard-reference .vx-dashboard-hero a:focus-visible{outline:2px solid #fff;outline-offset:3px}
         .vx-dashboard-reference .vx-donut{background:conic-gradient(#10b981 0 var(--green),#f59e0b var(--green) var(--amber),#fb7185 var(--amber) 100%)}
         .vx-dashboard-reference .vx-middle .fi-wi,.vx-dashboard-reference .vx-middle .fi-section{height:100%}
         /* The widget wrapper carries a navy background in dark mode and is
@@ -72,23 +49,6 @@
     </section>
 
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
-
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5" aria-labelledby="vx-show-leaderboard-title">
-        <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div><h2 id="vx-show-leaderboard-title" class="text-lg font-bold text-gray-950 dark:text-white">Show Leaderboard</h2><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Top shows by gross sales in the selected channel.</p></div>
-            <span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-200">Top 5</span>
-        </div>
-        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            @forelse($leaderboardShows as $show)
-                <div class="flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black {{ $loop->first ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200' }}">{{ $loop->iteration }}</span>
-                    <div class="min-w-0 flex-1"><p class="truncate text-xs font-semibold text-gray-900 dark:text-white" title="{{ $show->title }}">{{ $show->title ?: 'Untitled show' }}</p><p class="mt-1 text-sm font-bold tabular-nums text-gray-950 dark:text-white">${{ number_format((float) $show->gross_revenue, 2) }}</p><p class="text-[11px] text-gray-500 dark:text-gray-400">{{ $show->show_date?->format('M j, Y') }}</p></div>
-                </div>
-            @empty
-                <p class="col-span-full rounded-xl border border-dashed border-gray-200 p-5 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">No show sales recorded for this channel yet.</p>
-            @endforelse
-        </div>
-    </section>
 
     <div class="vx-middle grid gap-4 lg:grid-cols-3">
         <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">

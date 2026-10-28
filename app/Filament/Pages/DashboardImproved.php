@@ -301,21 +301,25 @@ class DashboardImproved extends Dashboard
     private function inventoryHealth(): array
     {
         try {
-            // Calculate stock totals in SQL instead of hydrating every stock row.
-            // withSum keeps InventoryStock's existing visibility/global scopes intact.
-            $products = InventoryItem::query()
+            // Aggregate over the visibility-scoped product and stock query.
+            // Avoid hydrating one Eloquent model per product on every dashboard load.
+            $stockedProducts = InventoryItem::query()
                 ->where('is_active', true)
-                ->select(['id', 'reorder_level'])
-                ->withSum('stock as on_hand', 'quantity')
-                ->get();
-            $in = $products->filter(fn ($p) => (float) $p->on_hand > 0)->count();
-            $out = $products->count() - $in;
-            $low = $products->filter(fn ($p) =>
-                (float) $p->on_hand > 0
-                && $p->reorder_level !== null
-                && (float) $p->on_hand <= (float) $p->reorder_level
-            )->count();
-            return compact('in', 'low', 'out');
+                ->select(['products.id', 'products.reorder_level'])
+                ->withSum('stock as on_hand', 'quantity');
+
+            $totals = \Illuminate\Support\Facades\DB::query()
+                ->fromSub($stockedProducts->toBase(), 'dashboard_inventory')
+                ->selectRaw('SUM(CASE WHEN COALESCE(on_hand, 0) > 0 THEN 1 ELSE 0 END) as in_count')
+                ->selectRaw('SUM(CASE WHEN COALESCE(on_hand, 0) <= 0 THEN 1 ELSE 0 END) as out_count')
+                ->selectRaw('SUM(CASE WHEN COALESCE(on_hand, 0) > 0 AND reorder_level IS NOT NULL AND on_hand <= reorder_level THEN 1 ELSE 0 END) as low_count')
+                ->first();
+
+            return [
+                'in' => (int) ($totals->in_count ?? 0),
+                'low' => (int) ($totals->low_count ?? 0),
+                'out' => (int) ($totals->out_count ?? 0),
+            ];
         } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
     }
 

@@ -194,6 +194,8 @@ def install(module) -> None:
 
         sources = json.loads(Path(source_file).read_text())
         output = []
+        # Fail closed if Whatnot ignores the source filter and repeats orders across shows.
+        observed_order_owners = {}
 
         def action(page):
             module.prepare(page)
@@ -284,6 +286,19 @@ def install(module) -> None:
                     page_number += 1
 
                 rows = list(found.values())
+                for row in rows:
+                    order_id = str(row.get('order_id') or '').strip()
+                    if not order_id or order_id == '-':
+                        continue
+                    owner = observed_order_owners.get(order_id)
+                    if owner is not None and owner != str(live_id):
+                        module.fail(
+                            f'ORDER_SOURCE_FILTER_COLLISION: order {order_id} appeared for both live IDs '
+                            f'{owner} and {live_id}. The source filter cannot be trusted; '
+                            'aborting without returning an import payload.',
+                            2,
+                        )
+                    observed_order_owners[order_id] = str(live_id)
                 module.info(
                     f"orders-batch: [{idx}/{len(sources)}] {key} complete=true "
                     f"pages={page_number} -> {len(rows)} row(s)"

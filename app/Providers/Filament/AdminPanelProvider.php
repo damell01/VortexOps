@@ -199,7 +199,8 @@ class AdminPanelProvider extends PanelProvider
                                         notificationPanelOpen = true;
                                     } else if (notificationPanelOpen) {
                                         // If panel is closing, toggle the button to close it
-                                        notificationBtn.click();
+                                        // Do not programmatically click the same control from
+                                        // its own click handler: that can reopen the panel.
                                         notificationPanelOpen = false;
                                     }
                                 }, 10);
@@ -210,7 +211,7 @@ class AdminPanelProvider extends PanelProvider
                         document.addEventListener('click', function(e) {
                             const notificationPanel = document.querySelector('[class*="notification"]');
                             if (notificationPanel && !notificationPanel.contains(e.target) &&
-                                e.target !== notificationBtn && !notificationBtn.contains(e.target)) {
+                                e.target !== notificationBtn && (!notificationBtn || !notificationBtn.contains(e.target))) {
                                 notificationPanelOpen = false;
                             }
                         });

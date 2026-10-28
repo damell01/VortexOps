@@ -94,7 +94,8 @@
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
   <div class="vx-inv-toolbar">
     <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.300ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
-   @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
+   @endif
+  @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
    <div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>
     <button type="button" wire:click="setViewMode('table')" class="vx-view-btn {{ $viewMode === 'table' ? 'active' : '' }}"><x-heroicon-o-list-bullet class="h-4 w-4" /> Table</button>
@@ -105,7 +106,8 @@
   @if($stockHealth)<div class="mt-3 flex items-center justify-between rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs dark:border-primary-900 dark:bg-primary-950/20"><span>Showing <strong>{{ match($stockHealth) { 'in' => 'In Stock', 'low' => 'Low Stock', 'out' => 'Out of Stock' } }}</strong></span><button wire:click="filterStock(null)" class="font-bold text-primary-600">Show all</button></div>@endif
  </section>
 
- <div class="vx-catalog-view {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}">
+ @if($viewMode !== 'table')
+ <div class="vx-catalog-view">
   @php $canBulkDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny(); $canResetStock = \App\Services\InventoryCountReset::canReset(auth()->user()); $canSelectStock = $canBulkDelete || $canResetStock; @endphp
   @if($this->catalogItems->isNotEmpty())
    @if($canSelectStock)
@@ -137,11 +139,11 @@
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
-      <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
+      <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" wire:navigate class="vx-product-link">
        <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
       </a>
       <div class="vx-product-body">
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
+       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" wire:navigate class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
        <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->created_at && $item->created_at->gte(now()->subDays(7)))<span class="vx-type" title="Added within the last seven days">New</span>@endif@if($onHand > 0 && $item->last_receipt_at && \Illuminate\Support\Carbon::parse($item->last_receipt_at)->gte(now()->subDays(7)))<span class="vx-type" title="Inventory received within the last seven days">Recently received</span>@endif@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
        <div class="vx-product-meta vx-product-where" title="{{ $locations ?: 'No stocked location' }}"><x-heroicon-m-map-pin class="inline h-3 w-3 align-[-2px]" /> {{ $locations ?: 'No stocked location' }}</div>
@@ -155,9 +157,9 @@
       <div class="vx-card-actions">
        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
        @if($canStock)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" data-stock-product-id="{{ $item->getKey() }}" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
-       @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
-       @if($canStock)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>@endif
+       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" wire:navigate class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
+       @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" wire:navigate class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
+       @if($canStock)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" wire:navigate class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>@endif
        @if($canScan)<button type="button" wire:click.stop="startBarcodeScan({{ $item->getKey() }})" class="vx-card-action scan" title="{{ filled($item->barcode) ? 'Replace barcode' : 'Scan barcode' }}"><x-heroicon-o-qr-code /> <span>Scan</span></button>@endif
        @if($canDelete)<button type="button" wire:click="mountAction('deleteItem', { product: {{ $item->getKey() }} })" class="vx-card-action delete" title="Delete item"><x-heroicon-o-trash /> <span>Delete</span></button>@endif
       </div>

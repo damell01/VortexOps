@@ -232,35 +232,45 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 (() => {
     if (window.vxSearchModalInstalled) return;
     window.vxSearchModalInstalled = true;
-    let scrim = null, shell = null, closeButton = null, previousFocus = null;
+    let scrim = null, shell = null, closeButton = null, previousFocus = null, searchField = null, marker = null;
     const close = () => {
-        document.querySelectorAll('.fi-topbar.vx-search-active').forEach(bar => bar.classList.remove('vx-search-active'));
+        if (searchField && marker?.parentNode) marker.replaceWith(searchField);
+        marker?.remove();
+        searchField = marker = null;
         scrim?.remove(); shell?.remove(); closeButton?.remove();
         scrim = shell = closeButton = null;
         document.body.classList.remove('vx-search-lock');
         if (previousFocus?.isConnected) previousFocus.focus();
     };
     const open = () => {
-        const bar = document.querySelector('.fi-topbar:has(.vx-desktop-mega-nav)');
-        const input = document.querySelector('.fi-global-search input');
-        if (!input) return;
-        if (scrim) { input.focus(); return; }
+        if (shell) { shell.querySelector('input')?.focus(); return; }
+        const field = document.querySelector('.fi-topbar .fi-global-search');
+        if (!field) return;
         previousFocus = document.activeElement;
+        marker = document.createComment('original-global-search');
+        field.replaceWith(marker);
+        searchField = field;
         scrim = document.createElement('div');
         scrim.className = 'vx-search-scrim';
         scrim.addEventListener('click', close);
         shell = document.createElement('div');
         shell.className = 'vx-search-shell';
+        shell.setAttribute('role','dialog');
+        shell.setAttribute('aria-modal','true');
+        shell.setAttribute('aria-label','Search Vortex Ops');
+        const heading = document.createElement('div');
+        heading.className = 'vx-search-heading';
+        heading.textContent = 'Search Vortex Ops';
         closeButton = document.createElement('button');
         closeButton.type = 'button';
         closeButton.className = 'vx-search-close';
-        closeButton.textContent = 'Close · Esc';
-        closeButton.setAttribute('aria-label','Close search');
+        closeButton.textContent = 'Close';
         closeButton.addEventListener('click',close);
-        document.body.append(scrim,shell,closeButton);
-        bar?.classList.add('vx-search-active');
+        heading.append(closeButton);
+        shell.append(heading,searchField);
+        document.body.append(scrim,shell);
         document.body.classList.add('vx-search-lock');
-        requestAnimationFrame(() => { input.focus(); input.click(); });
+        requestAnimationFrame(() => searchField?.querySelector('input')?.focus());
     };
     document.addEventListener('click', event => {
         if (event.target.closest('[data-vx-search-trigger]')) { event.preventDefault(); open(); }

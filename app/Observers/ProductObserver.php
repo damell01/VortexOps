@@ -24,7 +24,7 @@ class ProductObserver
         // getPrevious() is available in recent Laravel versions.
         $before = $product->getPrevious()['sale_price'] ?? $previous;
 
-        if ($before !== null && $new !== null && bccomp((string) $before, (string) $new, 2) === 0) {
+        if ($before !== null && $new !== null && round((float) $before, 2) === round((float) $new, 2)) {
             return;
         }
 

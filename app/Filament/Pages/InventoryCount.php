@@ -234,7 +234,12 @@ class InventoryCount extends Page
 
         $item = InventoryItem::findOrFail($itemId);
         $location = InventoryLocation::findOrFail($this->locationId);
-        $qty = max(0, (float) $this->counts[$itemId]);
+        $raw = $this->counts[$itemId];
+        if (! is_numeric($raw) || ! is_finite((float) $raw) || (float) $raw < 0) {
+            Notification::make()->title('Enter a valid physical count of zero or more')->danger()->send();
+            return;
+        }
+        $qty = (float) $raw;
 
         app(InventoryService::class)->adjustStock(
             $item,
@@ -260,13 +265,21 @@ class InventoryCount extends Page
         if (! $this->locationId) return;
 
         $location = InventoryLocation::findOrFail($this->locationId);
+        // Validate every entered count before making any inventory changes.
+        foreach ($this->counts as $qty) {
+            if ($qty === '' || $qty === null) continue;
+            if (! is_numeric($qty) || ! is_finite((float) $qty) || (float) $qty < 0) {
+                Notification::make()->title('Correct invalid counts before saving')->danger()->send();
+                return;
+            }
+        }
         $changed = 0;
         $verified = 0;
 
         foreach ($this->counts as $itemId => $qty) {
             if ($qty === '' || $qty === null) continue;
 
-            $qty = max(0, (float) $qty);
+            $qty = (float) $qty;
             $before = (float) ($this->systemCounts[$itemId] ?? 0);
             $verified++;
 

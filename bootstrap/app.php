@@ -24,6 +24,24 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->renderable(function (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e, \Illuminate\Http\Request $request) {
+            if ($e->getStatusCode() === 403 && $request->is('livewire*')) {
+                \Illuminate\Support\Facades\Log::error('Livewire 403 rendered', [
+                    'path' => $request->path(),
+                    'user_id' => auth()->id(),
+                    'roles' => auth()->user()?->getRoleNames()->all(),
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => collect($e->getTrace())->take(10)->map(fn ($f) => [
+                        'file' => $f['file'] ?? null, 'line' => $f['line'] ?? null,
+                        'function' => $f['function'] ?? null,
+                    ])->all(),
+                ]);
+            }
+            return null;
+        });
         // Livewire authorization failures render the branded 403 page and may
         // not appear in laravel.log. Record the actual rejecting class/line
         // without logging request payloads, cookies, or component state.

@@ -265,7 +265,7 @@ class ListInventoryItems extends ListRecords
     public function startBarcodeScan(int $productId): void
     {
         abort_unless(InventoryItemResource::canManageStock(), 403);
-        $product = Product::find($productId);
+        $product = $this->catalogQuery()->whereKey($productId)->first();
         if (! $product) return;
 
         $this->barcodeScanTargetId = $product->getKey();
@@ -277,7 +277,7 @@ class ListInventoryItems extends ListRecords
     {
         abort_unless(InventoryItemResource::canManageStock(), 403);
         $barcode = trim($barcode);
-        $product = $this->barcodeScanTargetId ? Product::find($this->barcodeScanTargetId) : null;
+        $product = $this->barcodeScanTargetId ? $this->catalogQuery()->whereKey($this->barcodeScanTargetId)->first() : null;
         $this->barcodeScanTargetId = null;
         $name = $this->barcodeScanTargetName;
         $this->barcodeScanTargetName = null;
@@ -337,7 +337,7 @@ class ListInventoryItems extends ListRecords
     public function verifyQuickStockBarcode(string $barcode): void
     {
         $barcode = trim($barcode);
-        $product = $this->quickStockScanTargetId ? Product::find($this->quickStockScanTargetId) : null;
+        $product = $this->quickStockScanTargetId ? $this->catalogQuery()->whereKey($this->quickStockScanTargetId)->first() : null;
 
         if ($barcode === '' || ! $product) return;
 

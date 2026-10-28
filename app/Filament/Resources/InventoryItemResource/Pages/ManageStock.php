@@ -212,7 +212,15 @@ class ManageStock extends Page
             $from = InventoryLocation::findOrFail($this->fromLocationId);
 
             if ($this->operation === self::ADJUST) {
-                $newQuantity = (float) $this->newQuantity;
+                // Never interpret a blank or malformed count as zero: that could
+                // silently write off every unit at the selected location.
+                $rawQuantity = $this->newQuantity;
+                if ($rawQuantity === null || trim($rawQuantity) === '' || ! is_numeric($rawQuantity) || ! is_finite((float) $rawQuantity)) {
+                    Notification::make()->title('Enter a valid new stock quantity')->danger()->send();
+                    return;
+                }
+
+                $newQuantity = (float) $rawQuantity;
                 if ($newQuantity < 0) {
                     Notification::make()->title('Quantity cannot be negative')->danger()->send();
                     return;

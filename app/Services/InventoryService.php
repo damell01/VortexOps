@@ -74,7 +74,7 @@ class InventoryService
             $stock->increment('quantity', $quantity);
 
             // Record every intake, including additions to already stocked products.
-            if (true) {
+            {
                 $previouslyReceived = (float) ($item->total_units_received ?? 0) > 0;
                 DB::table('inventory_arrival_events')->insert([
                     'product_id' => $item->id,

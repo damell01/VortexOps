@@ -36,6 +36,35 @@
         .vx-media{padding:18px 20px}.vx-upload{display:flex;align-items:center;justify-content:center;gap:12px;min-height:82px;margin-top:14px;border:1px dashed #cbd5e1;border-radius:11px;background:#fbfcfe;color:#64748b;text-align:center}.dark .vx-upload{background:#0f172a;border-color:#334155}.vx-upload button{border:0;background:transparent;color:#2563eb;font:inherit;font-weight:700;cursor:pointer}.vx-attachment-list{display:grid;gap:7px;margin-top:12px}.vx-attachment{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border-radius:8px;background:#f8fafc;font-size:12px}.dark .vx-attachment{background:#1f2937}
         @media(max-width:1050px){.vx-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.vx-summary-cell{border:0;padding:0}.vx-middle,.vx-lower{grid-template-columns:1fr}.vx-title-row{align-items:flex-start;flex-direction:column}.vx-actions{justify-content:flex-start}}
         @media(max-width:640px){.vx-pallet-redesign{padding-bottom:20px}.vx-title{font-size:23px}.vx-title-row{margin-bottom:14px}.vx-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.vx-action{width:100%;padding:0 10px;font-size:12px}.vx-actions .vx-receive{grid-column:1/-1}.vx-summary{grid-template-columns:1fr 1fr;padding:15px;gap:15px}.vx-summary-cell{gap:8px}.vx-summary-icon{width:34px;height:34px;flex-basis:34px}.vx-middle{gap:12px}.vx-status-card,.vx-progress-card{padding:16px}.vx-step-label{font-size:10px}.vx-progress-body{justify-content:flex-start}.vx-detail-card{padding:16px}.vx-details{grid-template-columns:1fr;gap:12px}.vx-detail-row{grid-template-columns:110px 1fr}.vx-lower{gap:12px}.vx-section-head{padding:14px}.vx-table th,.vx-table td{padding:11px 12px}.vx-cost,.vx-media{padding:16px}.vx-more{position:static}.vx-more-menu{left:10px;right:10px;top:auto;width:auto;margin-top:8px}}
+
+        /* Give manifest actions real space instead of clipping the last column. */
+        .vx-pallet-redesign .vx-lower{grid-template-columns:minmax(0,1fr);align-items:start}
+        .vx-pallet-redesign .vx-table-card{min-width:0;overflow:visible}
+        .vx-pallet-redesign .vx-table-wrap{width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+        .vx-pallet-redesign .vx-table{min-width:900px;table-layout:auto}
+        .vx-pallet-redesign .vx-table th,.vx-pallet-redesign .vx-table td{padding:13px 12px;vertical-align:middle}
+        .vx-pallet-redesign .vx-table th:first-child,.vx-pallet-redesign .vx-table td:first-child{width:36%;min-width:250px;padding-left:20px}
+        .vx-pallet-redesign .vx-table th:last-child,.vx-pallet-redesign .vx-table td:last-child{min-width:160px;padding-right:20px;white-space:nowrap}
+        .vx-pallet-redesign .vx-table .vx-item{min-width:0}
+        .vx-pallet-redesign .vx-table .vx-item>div:last-child{min-width:0;overflow-wrap:anywhere}
+        .vx-pallet-redesign .vx-table .vx-item-name{white-space:normal;overflow-wrap:anywhere}
+        .vx-pallet-redesign .vx-cost{width:100%}
+        @media(max-width:900px){
+            .vx-pallet-redesign .vx-table{min-width:0}
+            .vx-pallet-redesign .vx-table thead{display:none}
+            .vx-pallet-redesign .vx-table tbody{display:grid;gap:12px;padding:12px}
+            .vx-pallet-redesign .vx-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;padding:15px;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
+            .dark .vx-pallet-redesign .vx-table tr{background:#111827;border-color:#334155}
+            .vx-pallet-redesign .vx-table td{display:block;padding:0!important;border:0!important;min-width:0!important;width:auto!important}
+            .vx-pallet-redesign .vx-table td:first-child{grid-column:1/-1;padding-bottom:8px!important;border-bottom:1px solid #e2e8f0!important}
+            .vx-pallet-redesign .vx-table td:nth-child(2):before{content:'Location';display:block;font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b}
+            .vx-pallet-redesign .vx-table td:nth-child(3):before{content:'Expected';display:block;font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b}
+            .vx-pallet-redesign .vx-table td:nth-child(4):before{content:'Received';display:block;font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b}
+            .vx-pallet-redesign .vx-table td:nth-child(5):before{content:'Status';display:block;font-size:10px;font-weight:800;text-transform:uppercase;color:#64748b}
+            .vx-pallet-redesign .vx-table td:last-child{grid-column:1/-1;text-align:left!important}
+            .vx-pallet-redesign .vx-table td:last-child .vx-count-btn{width:100%;justify-content:center}
+            .vx-pallet-redesign .vx-section-head{flex-wrap:wrap}
+        }
     </style>
 
     <div

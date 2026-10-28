@@ -66,6 +66,9 @@
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_unmatched_order' ? 'all' : 'tips_unmatched_order' }}')">{{ $review === 'tips_unmatched_order' ? 'Show all entries' : 'Review tips without matching show' }}</button>
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_ambiguous_show' ? 'all' : 'tips_ambiguous_show' }}')">{{ $review === 'tips_ambiguous_show' ? 'Show all entries' : 'Review tips with multiple show matches' }}</button>
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_missing_streamer' ? 'all' : 'tips_missing_streamer' }}')">{{ $review === 'tips_missing_streamer' ? 'Show all entries' : 'Review tips with no assigned streamer' }}</button>
+            @if ($this->canReconcile())
+                <button type="button" class="vxr-btn vxr-btn--outline" wire:click="selectVisibleForReconciliation">Select page for reconciliation</button>
+            @endif
             @if ($canDelete && count($checked))
                 <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
                     wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">
@@ -77,6 +80,28 @@
             </button>
         </div>
     </div>
+
+    @if ($this->canReconcile() && count($reconcileIds))
+        <div class="vxr-card" style="padding:16px;display:grid;gap:12px">
+            <strong>Bulk show reconciliation — {{ count($reconcileIds) }} selected</strong>
+            <p>Only select transactions independently verified as belonging to the same show. This submits pending assignments for a different administrator to approve.</p>
+            <label>Verified show
+                <select class="vxr-select" wire:model="bulkShowId">
+                    <option value="">Select show (one channel only)</option>
+                    @foreach ($this->bulkAttributionShows() as $id => $label)
+                        <option value="{{ $id }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label>Source of verification
+                <input class="vxr-input" type="text" wire:model="bulkReason" placeholder="Describe independent evidence connecting these orders to the show">
+            </label>
+            <div class="vxr-actions">
+                <button type="button" class="vxr-btn" wire:click="submitBulkAttribution" wire:confirm="Submit these show assignments for independent review?">Submit pending assignments</button>
+                <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('reconcileIds', [])">Clear selection</button>
+            </div>
+        </div>
+    @endif
 
     <div class="vxled-chips" role="tablist" aria-label="Channel">
         @foreach ($chips as $chip)
@@ -148,6 +173,9 @@
                 <table class="vxr-table vxled-table">
                     <thead>
                         <tr>
+                            @if ($this->canReconcile())
+                                <th class="vxled-check">Review</th>
+                            @endif
                             @if ($canDelete)
                                 <th class="vxled-check"><span class="sr-only">Select</span></th>
                             @endif
@@ -165,6 +193,11 @@
                             @php $amt = (float) $entry->amount; @endphp
                             <tr wire:key="led-{{ $entry->id }}" class="is-click {{ $selectedId === $entry->id ? 'is-selected' : '' }}"
                                 wire:click="select({{ $entry->id }})">
+                                @if ($this->canReconcile())
+                                    <td class="vxled-check" x-on:click.stop>
+                                        <input type="checkbox" value="{{ $entry->id }}" wire:model.live="reconcileIds" aria-label="Reconcile entry {{ $entry->id }}">
+                                    </td>
+                                @endif
                                 @if ($canDelete)
                                     <td class="vxled-check" x-on:click.stop>
                                         <input type="checkbox" value="{{ $entry->id }}" wire:model.live="checked" aria-label="Select entry {{ $entry->id }}">
@@ -199,7 +232,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="{{ $canDelete ? 8 : 7 }}">
+                                <td colspan="{{ 7 + (int) $canDelete + (int) $this->canReconcile() }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
                                         @if ($preset !== 'all' || $type !== '' || $status !== '' || trim($search) !== '')

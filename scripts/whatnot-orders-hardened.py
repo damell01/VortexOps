@@ -206,6 +206,7 @@ def install(module) -> None:
             # Diagnostic-only network metadata. Never log tokens, request bodies,
             # cookies, response bodies, or query values.
             network_endpoints = set()
+            graphql_operations = set()
             if probe_max_pages:
                 def observe_response(response):
                     try:
@@ -220,6 +221,19 @@ def install(module) -> None:
                             return
                         keys = tuple(sorted({key for key, _ in parse_qsl(parsed.query)}))
                         network_endpoints.add((request.method, parsed.hostname, parsed.path, keys))
+                        if parsed.path == '/services/graphql/' and request.method == 'POST':
+                            # Operation names only: no variables, bodies, IDs, or response data.
+                            try:
+                                payload = request.post_data_json
+                                entries = payload if isinstance(payload, list) else [payload]
+                                for entry in entries:
+                                    if not isinstance(entry, dict):
+                                        continue
+                                    name = entry.get('operationName')
+                                    if isinstance(name, str) and name.isidentifier() and len(name) <= 100:
+                                        graphql_operations.add(name)
+                            except Exception:
+                                pass
                     except Exception:
                         pass
                 page.on('response', observe_response)
@@ -316,6 +330,8 @@ def install(module) -> None:
                     page_number += 1
 
                 if probe_max_pages:
+                    module.info('ORDER_SOURCE_GRAPHQL_OPERATIONS show=' + str(key) + ' ' + json.dumps(sorted(graphql_operations)))
+                    graphql_operations.clear()
                     module.info('ORDER_SOURCE_NETWORK_ENDPOINTS show=' + str(key) + ' ' +
                                 json.dumps([{'method': method, 'host': host, 'path': path, 'query_keys': keys}
                                             for method, host, path, keys in sorted(network_endpoints)][:60],

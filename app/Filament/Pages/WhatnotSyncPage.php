@@ -140,7 +140,17 @@ class WhatnotSyncPage extends Page
         return [
             'analytics' => $since ? \App\Models\Show::where('last_analytics_synced_at', '>=', $since)->count() : 0,
             'orders' => $since ? (clone $logs)->where('source', 'whatnot_orders')->count() : 0,
-            'still_due' => \App\Models\Show::query()->whereDate('show_date', '>=', $reportingStart)->readyForAnalytics()->missingAnalytics()->count(),
+            // This dashboard polls frequently; avoid repeating the same backlog count
+            // on every Livewire refresh while keeping it fresh within 15 seconds.
+            'still_due' => \Illuminate\Support\Facades\Cache::remember(
+                'whatnot-sync:still-due',
+                now()->addSeconds(15),
+                fn () => \App\Models\Show::query()
+                    ->whereDate('show_date', '>=', $reportingStart)
+                    ->readyForAnalytics()
+                    ->missingAnalytics()
+                    ->count()
+            ),
             'elapsed' => $since ? \Carbon\CarbonInterval::seconds((int) $since->diffInSeconds(
                 ! $this->jobActive && ! empty($this->reportingJob['finished_at']) ? \Illuminate\Support\Carbon::parse($this->reportingJob['finished_at']) : now()
             ))->cascade()->forHumans(['short' => true, 'parts' => 2]) : null,

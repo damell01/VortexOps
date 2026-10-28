@@ -86,16 +86,16 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div class="max-h-[68vh] overflow-auto overscroll-contain">
-                <table class="min-w-[760px] w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
+            <div class="max-h-[68vh] overflow-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
                     <thead class="sticky top-0 z-10 bg-gray-50/95 backdrop-blur dark:bg-gray-950/95">
                         <tr>
-                            <th scope="col" class="px-4 py-3 text-left font-semibold">Item</th>
-                            <th scope="col" class="px-4 py-3 text-left font-semibold">SKU / Barcode</th>
-                            <th scope="col" class="px-4 py-3 text-right font-semibold">System Qty</th>
-                            <th scope="col" class="px-4 py-3 text-right font-semibold">Physical Count</th>
-                            <th scope="col" class="px-4 py-3 text-right font-semibold">Difference</th>
-                            <th scope="col" class="px-4 py-3"><span class="sr-only">Row actions</span></th>
+                            <th class="px-4 py-3 text-left font-semibold">Item</th>
+                            <th class="px-4 py-3 text-left font-semibold">SKU / Barcode</th>
+                            <th class="px-4 py-3 text-right font-semibold">System Qty</th>
+                            <th class="px-4 py-3 text-right font-semibold">Physical Count</th>
+                            <th class="px-4 py-3 text-right font-semibold">Difference</th>
+                            <th class="px-4 py-3"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -132,14 +132,14 @@
                                 </td>
                                 <td class="px-4 py-3 text-right font-medium">{{ number_format($system) }}</td>
                                 <td class="px-4 py-3 text-right">
-                                    <input id="count-{{ $item->id }}" wire:model.live.debounce.300ms="counts.{{ $item->id }}" type="number" min="0" step="1" inputmode="numeric" aria-label="Physical count for {{ $item->name }}" placeholder="Count" class="ml-auto w-28 rounded-lg border-gray-300 text-right text-base font-bold dark:border-gray-700 dark:bg-gray-950" />
+                                    <input id="count-{{ $item->id }}" wire:model.live.debounce.300ms="counts.{{ $item->id }}" type="number" min="0" step="1" inputmode="numeric" placeholder="Count" class="ml-auto w-28 rounded-lg border-gray-300 text-right text-base font-bold dark:border-gray-700 dark:bg-gray-950" />
                                 </td>
                                 <td class="px-4 py-3 text-right font-semibold {{ $differenceClass }}">{{ $differenceText }}</td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex justify-end gap-2">
                                         @if($hasCount)
-                                            <button wire:click="clearCount({{ $item->id }})" type="button" aria-label="Clear count for {{ $item->name }}" class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">Clear</button>
-                                            <button wire:click="saveCount({{ $item->id }})" type="button" aria-label="Save count for {{ $item->name }}" class="rounded-lg border border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300">Save</button>
+                                            <button wire:click="clearCount({{ $item->id }})" type="button" class="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">Clear</button>
+                                            <button wire:click="saveCount({{ $item->id }})" type="button" class="rounded-lg border border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300">Save</button>
                                         @endif
                                     </div>
                                 </td>
@@ -155,7 +155,7 @@
 
             <div class="sticky bottom-0 flex flex-col gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-gray-800 dark:bg-gray-900/95">
                 <div class="text-xs text-gray-500">Only quantities you actually enter are treated as counted. Use Tab to move through the quantity cells quickly.</div>
-                <button wire:click="saveAll" type="button" wire:loading.attr="disabled" wire:target="saveAll" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-600 px-5 text-sm font-semibold text-white hover:bg-primary-500">Save All Counted Items</button>
+                <button wire:click="saveAll" type="button" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-600 px-5 text-sm font-semibold text-white hover:bg-primary-500">Save All Counted Items</button>
             </div>
         </div>
     </div>

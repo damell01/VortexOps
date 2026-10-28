@@ -47,6 +47,24 @@ jobs:
             echo 'PAYRUN_AUTHENTICATED_GET_STATUS '.$payResponse->getStatusCode().PHP_EOL;
             echo 'PAYRUN_PERIOD_SHOWS_VISIBLE '.(str_contains($payResponse->getContent(), 'Shows in this period') ? 'yes' : 'no').PHP_EOL;
             // Do not print raw messages, SQL, request data, identities or credentials.
+            foreach (['/var/log/nginx/error.log', '/var/log/nginx/access.log', '/var/log/apache2/error.log', '/var/log/apache2/access.log'] as $serverLog) {
+                if (!is_readable($serverLog)) continue;
+                $handle = fopen($serverLog, 'rb');
+                fseek($handle, max(0, filesize($serverLog) - 2000000));
+                $serverText = stream_get_contents($handle);
+                fclose($handle);
+                $lines = array_values(array_filter(explode("\n", $serverText), fn ($line) => str_contains($line, 'inventory-items')));
+                foreach (array_slice($lines, -10) as $line) {
+                    if (preg_match('~\[([^\]]+)\].*?"(?:GET|POST) [^" ]*inventory-items[^" ]* HTTP/[^" ]+" ([0-9]{3})~', $line, $m)) echo 'WEB_INVENTORY_STATUS '.$m[1].' '.$m[2].PHP_EOL;
+                    foreach (['Permission denied', 'Primary script unknown', 'File not found', 'Allowed memory size', 'upstream timed out', 'PHP Fatal error', 'Connection refused', 'Unable to open', 'failed to open stream', 'No such file'] as $word) {
+                        if (stripos($line, $word) !== false) echo 'WEB_ERROR_KIND '.$word.PHP_EOL;
+                    }
+                    preg_match_all('~(?:/var/www/vortexops/)([A-Za-z0-9_./-]+\.php)(?::([0-9]+))?~', $line, $paths, PREG_SET_ORDER);
+                    foreach ($paths as $m) echo 'WEB_ERROR_SOURCE '.$m[1].':'.($m[2] ?? '').PHP_EOL;
+                }
+            }
+            echo 'LIVE_PHP_VERSION '.PHP_VERSION.PHP_EOL;
+            echo 'LIVE_LOG_CHANNEL '.config('logging.default').PHP_EOL;
             $files = glob('storage/logs/*.log') ?: [];
             usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
             foreach (array_slice($files, 0, 8) as $file) {

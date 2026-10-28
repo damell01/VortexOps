@@ -5470,3 +5470,24 @@ body.vx-navigating {
     }
 }
 
+
+
+/* Shared keyboard and touch affordances for hand-built Filament views.
+   Presentation only: existing Livewire and Filament actions are unchanged. */
+.fi-main :is(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--primary-500, #8b5cf6);
+    outline-offset: 2px;
+}
+.fi-main :is(button, a, [role="button"]) {
+    touch-action: manipulation;
+}
+.fi-main :is(button, input, select, textarea):disabled {
+    cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+    .fi-main :is(button, a, [role="button"]) {
+        scroll-behavior: auto;
+        transition-duration: .01ms;
+        animation-duration: .01ms;
+    }
+}

@@ -73,13 +73,13 @@ class InventoryService
             $before = (float) $stock->quantity;
             $stock->increment('quantity', $quantity);
 
-            // An arrival is only a restock when the product had been received before.
-            if ($before <= 0) {
+            // Record every intake, including additions to already stocked products.
+            if (true) {
                 $previouslyReceived = (float) ($item->total_units_received ?? 0) > 0;
                 DB::table('inventory_arrival_events')->insert([
                     'product_id' => $item->id,
                     'location_id' => $location->id,
-                    'kind' => $previouslyReceived ? 'restocked' : 'new',
+                    'kind' => $before > 0 ? 'stock_added' : ($previouslyReceived ? 'restocked' : 'new'),
                     'quantity_before' => $before,
                     'quantity_after' => $before + $quantity,
                     'created_at' => now(),

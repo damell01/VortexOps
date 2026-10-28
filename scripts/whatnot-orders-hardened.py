@@ -10,6 +10,7 @@ Laravel never receives a partial result that could replace existing rows.
 
 import json
 import os
+from urllib.parse import urlsplit, parse_qsl
 from pathlib import Path
 
 
@@ -202,6 +203,26 @@ def install(module) -> None:
 
         def action(page):
             module.prepare(page)
+            # Diagnostic-only network metadata. Never log tokens, request bodies,
+            # cookies, response bodies, or query values.
+            network_endpoints = set()
+            if probe_max_pages:
+                def observe_response(response):
+                    try:
+                        request = response.request
+                        if request.resource_type not in ('xhr', 'fetch'):
+                            return
+                        parsed = urlsplit(response.url)
+                        if not parsed.hostname or not (
+                            parsed.hostname == 'whatnot.com'
+                            or parsed.hostname.endswith('.whatnot.com')
+                        ):
+                            return
+                        keys = tuple(sorted({key for key, _ in parse_qsl(parsed.query)}))
+                        network_endpoints.add((request.method, parsed.hostname, parsed.path, keys))
+                    except Exception:
+                        pass
+                page.on('response', observe_response)
 
             for idx, source in enumerate(sources, 1):
                 live_id = source.get("live_id")
@@ -294,6 +315,12 @@ def install(module) -> None:
 
                     page_number += 1
 
+                if probe_max_pages:
+                    module.info('ORDER_SOURCE_NETWORK_ENDPOINTS show=' + str(key) + ' ' +
+                                json.dumps([{'method': method, 'host': host, 'path': path, 'query_keys': keys}
+                                            for method, host, path, keys in sorted(network_endpoints)][:60],
+                                           separators=(',', ':')))
+                    network_endpoints.clear()
                 rows = list(found.values())
                 for row in rows:
                     order_id = str(row.get('order_id') or '').strip()

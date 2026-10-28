@@ -190,6 +190,7 @@
    <div class="vx-empty"><x-heroicon-o-magnifying-glass class="mx-auto h-8 w-8" /><div class="mt-2 font-semibold text-gray-800 dark:text-gray-200">No matching inventory</div><div class="mt-1 text-sm">Try another search or stock filter.</div></div>
   @endif
  </div>
+ @endif
  @if($viewMode === 'table')
   <section class="vx-inventory-items-panel overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"><div class="hidden border-b border-gray-100 px-5 py-3 dark:border-gray-800 sm:block"><h2 class="text-base font-semibold">Inventory Table</h2><p class="mt-0.5 text-xs text-gray-500">Bulk actions, advanced filters, sorting and detailed columns.</p></div><div class="p-1 sm:p-2">{{ $this->table }}</div></section>
  @endif

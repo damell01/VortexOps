@@ -76,7 +76,7 @@ function installVortexNavigationLoader() {
     const show = () => {
         clearTimeout(timeout);
         bar.classList.remove('vx-run', 'vx-done');
-        void bar.offsetWidth;
+        if (!bar.isConnected) document.body.appendChild(bar);
         bar.classList.add('vx-run');
         timeout = setTimeout(hide, 12000);
     };
@@ -90,7 +90,10 @@ function installVortexNavigationLoader() {
     document.addEventListener('livewire:navigate', (event) => {
         if (!event.defaultPrevented) show();
     });
-    document.addEventListener('livewire:navigated', hide);
+    document.addEventListener('livewire:navigated', () => {
+        if (!bar.isConnected) document.body.appendChild(bar);
+        hide();
+    });
     document.addEventListener('livewire:navigate-error', hide);
     window.addEventListener('pageshow', hide);
 }

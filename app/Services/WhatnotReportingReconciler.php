@@ -238,15 +238,19 @@ class WhatnotReportingReconciler
 
                 $before = WhatnotShowOrder::where('show_id', $show->id)->count();
 
+                // Never delete historical rows based on an unverified source-filtered
+                // scrape. Keep existing associations intact until a separate,
+                // auditable reconciliation can prove each order's owning live ID.
+                // persistShowOrders is idempotent for known order IDs and adds only
+                // new rows that pass its contamination safeguards.
                 $result = DB::transaction(function () use ($show, $rows) {
-                    WhatnotShowOrder::where('show_id', $show->id)->delete();
                     $result = $this->scraper->persistShowOrders($show, $rows);
                     $show->updateQuietly(['last_synced_at' => now()]);
                     return $result;
                 });
 
                 $newRows = (int) ($result['created'] ?? 0);
-                $replaced += $before;
+                // Existing orders are preserved; no rows were replaced.\n                $replaced += 0;
                 $created += $newRows;
                 ShowIngestionLog::create([
                     'show_id' => $show->id,

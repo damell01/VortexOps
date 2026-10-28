@@ -221,7 +221,8 @@ class InventoryItemResource extends Resource
     public static function canDeleteAny(): bool
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+        return (bool) ($user?->isAdmin() || $user?->isOwner());
     }
 
     public static function canAccess(): bool

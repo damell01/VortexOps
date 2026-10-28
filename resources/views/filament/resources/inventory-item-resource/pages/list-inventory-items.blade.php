@@ -180,7 +180,7 @@
    <div class="vx-catalog-footer">
     <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
     @if($this->catalogItems->count() < $this->catalogTotal)
-     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" class="vx-load-more">
+     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" wire:target="loadMoreCatalog" class="vx-load-more" aria-label="Load 40 more inventory products">
       <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
       <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
      </button>

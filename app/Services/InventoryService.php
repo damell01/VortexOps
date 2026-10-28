@@ -150,6 +150,23 @@ class InventoryService
                 ->first();
             $toStock->increment('quantity', $quantity);
 
+            if ($before - $quantity <= 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id, 'location_id' => $from->id,
+                    'kind' => 'sold_out', 'quantity_before' => $before,
+                    'quantity_after' => $before - $quantity,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+            if ((float) $toStock->quantity - $quantity <= 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id, 'location_id' => $to->id,
+                    'kind' => 'restocked', 'quantity_before' => (float) $toStock->quantity - $quantity,
+                    'quantity_after' => (float) $toStock->quantity,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+
             $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $from->id,

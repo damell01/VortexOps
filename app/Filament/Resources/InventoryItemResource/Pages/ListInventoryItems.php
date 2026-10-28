@@ -172,12 +172,13 @@ class ListInventoryItems extends ListRecords
     public function catalogTotal(): int
     {
         return \Illuminate\Support\Facades\DB::query()
-            ->fromSub($this->catalogQuery()->reorder()->toBase(), 'matching_inventory')->count();
+            ->fromSub($this->catalogQuery()->setEagerLoads([])->reorder()->toBase(), 'matching_inventory')->count();
     }
 
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
+        $this->catalogVisible = 40;
         $this->clearSelection();
         $this->resetPage();
         unset($this->catalogItems, $this->catalogTotal);
@@ -197,6 +198,7 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSort(): void
     {
+        $this->catalogVisible = 40;
         $this->catalogPage = 1;
         unset($this->catalogItems, $this->catalogTotal);
     }
@@ -210,6 +212,7 @@ class ListInventoryItems extends ListRecords
     public function clearCatalogSearch(): void
     {
         $this->catalogSearch = '';
+        $this->catalogVisible = 40;
         $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
     }

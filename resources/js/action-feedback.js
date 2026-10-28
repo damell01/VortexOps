@@ -136,6 +136,18 @@ function installFeedback() {
         });
     });
 }
+// Keep action controls responsive while preventing accidental duplicate writes.
+// This is intentionally NOT optimistic data mutation: inventory and payroll
+// values only change when the server confirms the operation.
+const actionSelector = 'button[wire\\\\:click], button[wire\\\\:submit], button[wire\\\\:confirm], button[type="submit"]';
+document.addEventListener('click', (event) => {
+    const button = event.target.closest?.(actionSelector);
+    if (!button || button.disabled || button.closest('[wire\\\\:ignore]')) return;
+    // Native disabled state can break confirmation dialogs; use only a visual
+    // pending state here and let Livewire's wire:loading handle actual locking.
+    button.classList.add('vx-action-pressed');
+    window.setTimeout(() => button.classList.remove('vx-action-pressed'), 450);
+}, true);
 document.addEventListener('livewire:init', installFeedback);
 installFeedback();
 document.addEventListener('livewire:navigating', () => { pending = 0; notice?.remove(); notice = null; });

@@ -200,6 +200,27 @@ class InventoryService
 
             $before = (float) $stock->quantity;
             $stock->update(['quantity' => $newQuantity]);
+            if ($before > 0 && $newQuantity <= 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id,
+                    'location_id' => $location->id,
+                    'kind' => 'sold_out',
+                    'quantity_before' => $before,
+                    'quantity_after' => $newQuantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } elseif ($before <= 0 && $newQuantity > 0) {
+                DB::table('inventory_arrival_events')->insert([
+                    'product_id' => $item->id,
+                    'location_id' => $location->id,
+                    'kind' => (float) ($item->total_units_received ?? 0) > 0 ? 'restocked' : 'new',
+                    'quantity_before' => $before,
+                    'quantity_after' => $newQuantity,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             // A drop is a real depletion (a show sale, a giveaway, shrinkage
             // found on a count) and consumes lots FIFO; an increase has no

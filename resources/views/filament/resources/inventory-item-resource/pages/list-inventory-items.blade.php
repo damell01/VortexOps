@@ -181,7 +181,7 @@
      $catalogTotal = $this->catalogTotal;
      $catalogLastPage = max(1, (int) ceil($catalogTotal / 40));
      $catalogPage = max(1, min($catalogPage, $catalogLastPage));
-     $catalogFrom = ($catalogPage - 1) * 40 + 1;
+     $catalogFrom = $catalogTotal > 0 ? ($catalogPage - 1) * 40 + 1 : 0;
      $catalogTo = min($catalogTotal, $catalogPage * 40);
     @endphp
     <div class="text-xs text-gray-500" role="status" aria-live="polite">Showing {{ number_format($catalogFrom) }}–{{ number_format($catalogTo) }} of {{ number_format($catalogTotal) }} matching products</div>

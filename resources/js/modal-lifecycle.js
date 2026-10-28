@@ -45,6 +45,10 @@ document.addEventListener('livewire:navigating', () => mountedActionModals.clear
 function aModalIsOpen() {
     // The server has mounted an action before Alpine has made its window
     // measurable. Cleanup during that interval sends Escape and cancels it.
+    if (mountedActionModals.size > 0) {
+        const liveIds = new Set([...document.querySelectorAll('[wire\\:id]')].map(el => el.getAttribute('wire:id')));
+        for (const id of mountedActionModals) if (! liveIds.has(id)) mountedActionModals.delete(id);
+    }
     if (mountedActionModals.size > 0 || document.querySelector('.fi-modal.fi-modal-open')) return true;
     return [...document.querySelectorAll(OPEN_MODAL)].some(
         (el) => el.offsetParent !== null || el.getClientRects().length > 0,

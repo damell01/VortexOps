@@ -166,7 +166,10 @@ class ManageStock extends Page
         $available = $this->available;
 
         if ($this->operation === self::ADJUST) {
-            if ($this->newQuantity === null || $this->newQuantity === '') return '—';
+            if ($this->newQuantity === null || trim($this->newQuantity) === '') return 'Enter the new stock count.';
+            if (! is_numeric($this->newQuantity) || ! is_finite((float) $this->newQuantity) || (float) $this->newQuantity < 0) {
+                return 'Enter a valid quantity of zero or more.';
+            }
 
             $change = (float) $this->newQuantity - $available;
             if ($change == 0.0) return 'Leave it unchanged.';
@@ -187,7 +190,12 @@ class ManageStock extends Page
             return 'Choose how many and where they are going.';
         }
 
+        if (! is_numeric($this->moveQuantity) || ! is_finite((float) $this->moveQuantity) || (float) $this->moveQuantity <= 0) {
+            return 'Enter a valid quantity greater than zero.';
+        }
+
         $moving = (float) $this->moveQuantity;
+        if ($moving > $available) return 'Not enough stock at the selected location.';
         $names = $this->sourceOptions + $this->destinationOptions;
 
         return sprintf(
@@ -204,6 +212,11 @@ class ManageStock extends Page
         $service = app(InventoryService::class);
 
         try {
+            if (! in_array($this->operation, [self::ADJUST, self::TRANSFER, self::SEND], true)) {
+                Notification::make()->title('Choose a valid stock operation')->danger()->send();
+                return;
+            }
+
             if (! array_key_exists((int) $this->fromLocationId, $this->sourceOptions)) {
                 Notification::make()->title('You cannot take stock from there')->danger()->send();
                 return;

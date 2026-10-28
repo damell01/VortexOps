@@ -91,6 +91,9 @@ class ListWhatnotLedgerEntries extends Page
 
     /** @var array<int, string> ids ticked for the owner's bulk delete */
     public array $checked = [];
+    public array $reconcileIds = [];
+    public string $bulkShowId = '';
+    public string $bulkReason = '';
 
     private const SORTABLE = ['created_date', 'amount', 'transaction_type', 'status', 'whatnot_order_id', 'channel', 'completed_date'];
 
@@ -242,6 +245,52 @@ class ListWhatnotLedgerEntries extends Page
         abort_unless($this->canReconcile(), 403);
         $service->review($this->selected ?? abort(404), auth()->id(), $approve);
         Notification::make()->title($approve ? 'Correction approved' : 'Correction rejected')->success()->send();
+    }
+
+    public function selectVisibleForReconciliation(): void
+    {
+        abort_unless($this->canReconcile(), 403);
+        $this->reconcileIds = $this->entries->pluck('id')->map(fn ($id) => (string) $id)->all();
+    }
+
+    public function bulkAttributionShows(): array
+    {
+        if (! $this->canReconcile() || $this->reconcileIds === []) return [];
+        $ids = array_map('intval', $this->reconcileIds);
+        $entries = WhatnotLedgerResource::getEloquentQuery()->whereKey($ids)->get();
+        if ($entries->count() !== count(array_unique($ids)) ||
+            $entries->pluck('whatnot_channel_id')->unique()->count() !== 1 ||
+            ! $entries->first()?->whatnot_channel_id) return [];
+        return Show::query()->where('whatnot_channel_id', $entries->first()->whatnot_channel_id)
+            ->orderByDesc('show_date')->limit(250)->get(['id', 'title', 'show_date'])
+            ->mapWithKeys(fn ($show) => [$show->id => $show->title.' ('.$show->show_date?->format('M j, Y').')'])->all();
+    }
+
+    public function submitBulkAttribution(LedgerAttributionService $service): void
+    {
+        abort_unless($this->canReconcile(), 403);
+        $ids = array_values(array_unique(array_map('intval', $this->reconcileIds)));
+        $entries = WhatnotLedgerResource::getEloquentQuery()->whereKey($ids)->get();
+        $show = Show::find((int) $this->bulkShowId);
+        if (count($ids) < 1 || count($ids) > 50 || $entries->count() !== count($ids) ||
+            ! $show || $entries->pluck('whatnot_channel_id')->unique()->count() !== 1 ||
+            (int) $entries->first()->whatnot_channel_id !== (int) $show->whatnot_channel_id ||
+            mb_strlen(trim($this->bulkReason)) < 12) {
+            Notification::make()->title('Select 1–50 transactions from one channel, a matching show, and an evidence note (12+ characters)')->danger()->send();
+            return;
+        }
+        foreach ($entries as $entry) {
+            $service->save($entry, [
+                'category' => $service->suggestedCategory($entry),
+                'target' => 'show',
+                'show_id' => $show->id,
+                'reason' => trim($this->bulkReason),
+            ], (int) auth()->id());
+        }
+        $count = $entries->count();
+        $this->reconcileIds = [];
+        $this->bulkShowId = $this->bulkReason = '';
+        Notification::make()->title($count.' assignments submitted for independent approval')->success()->send();
     }
 
     public function clearFilters(): void

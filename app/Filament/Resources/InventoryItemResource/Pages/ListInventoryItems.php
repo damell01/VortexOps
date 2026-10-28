@@ -186,7 +186,13 @@ class ListInventoryItems extends ListRecords
 
     public function setViewMode(string $mode): void
     {
-        $this->viewMode = in_array($mode, ['catalog', 'table'], true) ? $mode : 'catalog';
+        $next = in_array($mode, ['catalog', 'table'], true) ? $mode : 'catalog';
+        if ($this->viewMode === $next) return;
+        $this->viewMode = $next;
+        // Card selections must not linger invisibly when switching to the
+        // table; avoid an accidental bulk action on a stale selection.
+        $this->clearSelection();
+        unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function updatedCatalogSearch(): void
@@ -200,12 +206,16 @@ class ListInventoryItems extends ListRecords
     {
         $this->catalogVisible = 40;
         $this->catalogPage = 1;
+        $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function loadMoreCatalog(): void
     {
-        $this->catalogVisible += 40;
+        if ($this->viewMode !== 'catalog') return;
+        // Do not grow an unbounded Livewire response when the user repeatedly
+        // taps Load More. Clamp to the actual matching product count.
+        $this->catalogVisible = min($this->catalogVisible + 40, $this->catalogTotal);
         unset($this->catalogItems);
     }
 

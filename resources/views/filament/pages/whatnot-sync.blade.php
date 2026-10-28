@@ -113,7 +113,7 @@
                     <h3>What it's pulled <span>{{ $pulled->count() >= 30 ? 'latest 30' : $pulled->count() }}</span></h3>
                     <div class="vx-pulled">
                         @forelse($pulled as $show)
-                            <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}" class="vx-pulled-card" wire:key="pulled-{{ $show->id }}">
+                            <a wire:navigate href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}" class="vx-pulled-card" wire:key="pulled-{{ $show->id }}">
                                 <span class="vx-pulled-top">
                                     <b>{{ $show->title ?: 'Show #'.$show->id }}</b>
                                     <small>{{ $show->channel?->name }} · {{ $show->show_date?->format('M j') }}</small>
@@ -207,7 +207,7 @@
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse($this->recentActivity as $activity)
-                    <a href="{{ \App\Filament\Resources\ShowIngestionLogResource::getUrl('view', ['record' => $activity]) }}" class="block px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <a wire:navigate href="{{ \App\Filament\Resources\ShowIngestionLogResource::getUrl('view', ['record' => $activity]) }}" class="block px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/40">
                         <div class="flex items-start gap-3">
                             <span class="mt-1 h-2 w-2 rounded-full {{ $activity->status === 'success' ? 'bg-emerald-500' : ($activity->status === 'failed' ? 'bg-red-500' : 'bg-amber-500') }}"></span>
                             <div class="min-w-0 flex-1">

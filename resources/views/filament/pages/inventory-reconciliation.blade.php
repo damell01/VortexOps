@@ -24,7 +24,7 @@
 
                 @if($selectedLocationId)
                 <div class="md:col-span-2 flex items-end gap-2">
-                    <button wire:click="reconcileLocation" type="button"
+                    <button wire:click="reconcileLocation" wire:loading.attr="disabled" wire:target="reconcileLocation" type="button"
                         class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
                         <x-heroicon-o-clipboard-document-check class="h-4 w-4 inline -mt-0.5 mr-2" />
                         Start Location Count
@@ -77,7 +77,7 @@
                 </div>
 
                 <div class="md:col-span-2 flex gap-2">
-                    <button wire:click="reconcileItem" type="button"
+                    <button wire:click="reconcileItem" wire:loading.attr="disabled" wire:target="reconcileItem" type="button"
                         class="flex-1 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700">
                         <x-heroicon-o-check-circle class="h-4 w-4 inline -mt-0.5 mr-1" />
                         Reconcile Item

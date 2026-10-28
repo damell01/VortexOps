@@ -114,35 +114,32 @@
 
         <!-- Action Buttons -->
         <div class="flex gap-3 justify-end">
-            <button wire:click="clearSelection" class="px-6 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+            <button wire:click="clearSelection" wire:loading.attr="disabled" wire:target="clearSelection" type="button" class="px-6 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                 Clear Selection
             </button>
 
-            <button wire:click="$toggle('showConfirm')" class="px-6 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition font-medium">
+            <button wire:click="$toggle('showConfirm')" wire:loading.attr="disabled" wire:target="$toggle('showConfirm')" type="button" class="px-6 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition font-medium">
                 Execute Transfer
             </button>
         </div>
 
         <!-- Confirmation Modal -->
         @if($showConfirm)
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Confirm Transfer</h3>
-                <p class="text-gray-600 dark:text-gray-400 mb-6">
-                    Transfer {{ number_format($this->transferSummary['total_quantity']) }} unit(s) across {{ $this->transferSummary['item_count'] }} item(s)?
-                    <br/><strong class="text-primary-600">Total Value: ${{ number_format($this->transferSummary['total_value'], 2) }}</strong>
-                </p>
-
-                <div class="flex gap-3">
-                    <button wire:click="$toggle('showConfirm')" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium">
-                        Cancel
-                    </button>
-                    <button wire:click="executeTransfer" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
-                        Confirm
-                    </button>
+        <x-filament::modal id="stock-transfer-confirmation" width="md" x-init="open()"
+            x-on:close-modal.window="if ($event.detail.id === 'stock-transfer-confirmation') $wire.set('showConfirm', false)">
+            <x-slot name="heading">Confirm Transfer</x-slot>
+            <p>
+                Transfer {{ number_format($this->transferSummary['total_quantity']) }} unit(s)
+                across {{ $this->transferSummary['item_count'] }} item(s)?
+            </p>
+            <p class="mt-2 font-semibold">Total value: ${{ number_format($this->transferSummary['total_value'], 2) }}</p>
+            <x-slot name="footer">
+                <div class="fi-modal-footer-actions">
+                    <x-filament::button color="gray" wire:click="$set('showConfirm', false)" wire:loading.attr="disabled" wire:target="executeTransfer">Cancel</x-filament::button>
+                    <x-filament::button wire:click="executeTransfer" wire:loading.attr="disabled" wire:target="executeTransfer">Confirm transfer</x-filament::button>
                 </div>
-            </div>
-        </div>
+            </x-slot>
+        </x-filament::modal>
         @endif
         @else
         <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">

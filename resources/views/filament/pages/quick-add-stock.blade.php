@@ -31,7 +31,7 @@
                         style="min-height: 44px;"
                     />
                     <button
-                        wire:click="scanBarcode"
+                        wire:click="scanBarcode" wire:loading.attr="disabled" wire:target="scanBarcode" type="button"
                         class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition active:opacity-75 touch-manipulation"
                         style="min-height: 44px;"
                     >
@@ -55,7 +55,7 @@
                 @if($productOptions !== null)
                     <div class="absolute z-20 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
                         @forelse($productOptions as $option)
-                            <button type="button" wire:click="selectSearchResult({{ $option['id'] }})"
+                            <button type="button" wire:click="selectSearchResult({{ $option['id'] }})" wire:loading.attr="disabled" wire:target="selectSearchResult({{ $option['id'] }})"
                                 class="block w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
                                 <span class="font-medium text-gray-900 dark:text-white">{{ $option['name'] }}</span>
                                 <span class="ml-2 text-xs text-gray-500">{{ $option['sku'] ?: '—' }}</span>
@@ -88,7 +88,7 @@
                     <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-3">Quantity</label>
                     <div class="flex items-center gap-3">
                         <button
-                            wire:click="decrementQuantity"
+                            wire:click="decrementQuantity" wire:loading.attr="disabled" wire:target="decrementQuantity" type="button"
                             class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xl transition active:opacity-75 touch-manipulation"
                         >
                             −
@@ -101,7 +101,7 @@
                             style="min-height: 44px;"
                         />
                         <button
-                            wire:click="incrementQuantity"
+                            wire:click="incrementQuantity" wire:loading.attr="disabled" wire:target="incrementQuantity" type="button"
                             class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xl transition active:opacity-75 touch-manipulation"
                         >
                             +

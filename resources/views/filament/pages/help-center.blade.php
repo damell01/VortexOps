@@ -97,9 +97,9 @@
         <div class="rounded-2xl border border-gray-200 p-5 dark:border-gray-700">
             <h2 class="font-bold">More reference help</h2>
             <div class="mt-3 flex flex-wrap gap-4 text-sm font-semibold text-primary-600">
-                @if(\App\Filament\Pages\InventoryGuide::canAccess())<a href="{{ \App\Filament\Pages\InventoryGuide::getUrl(['tab'=>'tasks']) }}">Inventory workflows in the app</a>@endif
-                @if(\App\Filament\Pages\HowItWorks::canAccess())<a href="{{ \App\Filament\Pages\HowItWorks::getUrl(panel:'admin') }}">Your role & workflow</a>@endif
-                @if(\App\Filament\Pages\Handbook::canAccess() && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\Handbook::class, auth()->user()))<a href="{{ \App\Filament\Pages\Handbook::getUrl(panel:'admin') }}?module={{ auth()->user()?->isFulfillment() ? 'fulfillment' : 'inventory' }}">Operations handbook</a>@endif
+                @if(\App\Filament\Pages\InventoryGuide::canAccess())<a wire:navigate href="{{ \App\Filament\Pages\InventoryGuide::getUrl(['tab'=>'tasks']) }}">Inventory workflows in the app</a>@endif
+                @if(\App\Filament\Pages\HowItWorks::canAccess())<a wire:navigate href="{{ \App\Filament\Pages\HowItWorks::getUrl(panel:'admin') }}">Your role & workflow</a>@endif
+                @if(\App\Filament\Pages\Handbook::canAccess() && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\Handbook::class, auth()->user()))<a wire:navigate href="{{ \App\Filament\Pages\Handbook::getUrl(panel:'admin') }}?module={{ auth()->user()?->isFulfillment() ? 'fulfillment' : 'inventory' }}">Operations handbook</a>@endif
             </div>
         </div>
     </div>

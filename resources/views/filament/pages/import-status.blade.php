@@ -53,7 +53,7 @@
                     <summary class="cursor-pointer py-2 text-sm font-semibold">Records needing attention</summary>
                     <div class="space-y-2">
                         @forelse($row['missing'] as $show)
-                            <a class="block rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record'=>$show]) }}">
+                            <a wire:navigate class="block rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record'=>$show]) }}">
                                 <span class="block font-semibold">{{ $show->title ?: 'Show #'.$show->id }}</span>
                                 <span class="text-xs text-gray-500">{{ $show->show_date?->format('M j') }} · {{ $show->analytics_sync_note ?: 'Analytics still incomplete; awaiting a scheduled retry.' }}</span>
                             </a>
@@ -68,7 +68,7 @@
                             <article class="rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
                                 <div class="flex flex-wrap justify-between gap-2"><strong>{{ $event->show?->title ?: $event->sourceLabel() }}</strong><span class="text-xs text-gray-500">{{ $event->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('g:i A') }} · {{ ucfirst($event->status) }}</span></div>
                                 <p class="mt-1">{{ $event->summary() }}</p>
-                                @if($event->show)<a class="mt-2 inline-block font-semibold text-primary-600" href="{{ \App\Filament\Resources\ShowResource::getUrl('view',['record'=>$event->show]) }}">Review show</a>@endif
+                                @if($event->show)<a wire:navigate class="mt-2 inline-block font-semibold text-primary-600" href="{{ \App\Filament\Resources\ShowResource::getUrl('view',['record'=>$event->show]) }}">Review show</a>@endif
                                 @if($event->status === 'success')
                                     <dl class="mt-2 space-y-1 text-xs text-gray-500">@foreach(array_slice($event->capturedFields(),0,6,true) as $field=>$value)<div><dt class="inline font-semibold">{{ $field }}:</dt> <dd class="inline">{{ $value }}</dd></div>@endforeach</dl>
                                 @endif

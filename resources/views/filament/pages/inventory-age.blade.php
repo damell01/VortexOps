@@ -81,7 +81,7 @@
                             <ul class="vx-age-items">
                                 @foreach ($bucket['items'] as $item)
                                     <li wire:key="age-{{ $bucket['key'] }}-{{ $item['product_id'] }}-{{ $loop->index }}">
-                                        <a class="vx-age-item"
+                                        <a wire:navigate class="vx-age-item"
                                            href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $item['product_id']]) }}">
                                             <span class="vx-age-item-main">
                                                 <span class="vx-age-item-name">{{ $item['name'] }}</span>

@@ -33,7 +33,7 @@
                 <h2 class="vxsim-title">What would these shows pay?</h2>
                 <p class="vxsim-muted">Every number starts as the real one — the show, its report and each person's pay rates — and pay is worked out by the same calculation a pay run uses. Change anything to try it out.</p>
             </div>
-            <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="vxsim-btn">Back to Payroll</a>
+            <a wire:navigate href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="vxsim-btn">Back to Payroll</a>
         </div>
         <div class="vxsim-safe"><strong>What-if only.</strong> Nothing here is saved — no shows, reports, pay rates, payouts or pay runs change.</div>
 

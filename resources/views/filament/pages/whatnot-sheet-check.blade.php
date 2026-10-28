@@ -130,7 +130,7 @@
                                 <td><span class="wsc-pill {{ $labels[$it['action']][1] }}">{{ $labels[$it['action']][0] }}</span></td>
                                 <td class="wsc-title">
                                     @if ($it['show_id'])
-                                        <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $it['show_id']]) }}" target="_blank">{{ $it['title'] }}</a>
+                                        <a wire:navigate href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $it['show_id']]) }}" target="_blank">{{ $it['title'] }}</a>
                                     @else
                                         {{ $it['title'] }}
                                     @endif
@@ -147,7 +147,7 @@
                                         {{ $money($it['metrics']['gross_revenue'] ?? 0) }} sales · {{ $it['metrics']['show_duration'] ?? 0 }} min
                                     @elseif ($it['action'] === 'extra')
                                         @if (! empty($it['duplicate_of']))
-                                            Duplicate of <a class="wsc-link" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $it['duplicate_of']['show_id']]) }}" target="_blank">{{ \Illuminate\Support\Str::limit($it['duplicate_of']['title'], 50) }}</a>{{ $it['duplicate_of']['date'] ? ' ('.\Carbon\Carbon::parse($it['duplicate_of']['date'])->format('M j').')' : '' }} — {{ match ($it['duplicate_of']['by'] ?? '') { 'live_id' => 'same Whatnot stream', 'title' => 'same title, and only that one is on Whatnot\'s list', 'shipments' => 'all '.$it['duplicate_of']['orders'].' of its packages shipped from that show', default => 'all '.$it['duplicate_of']['orders'].' of its orders are on that show' } }}. Deleted on apply.
+                                            Duplicate of <a wire:navigate class="wsc-link" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $it['duplicate_of']['show_id']]) }}" target="_blank">{{ \Illuminate\Support\Str::limit($it['duplicate_of']['title'], 50) }}</a>{{ $it['duplicate_of']['date'] ? ' ('.\Carbon\Carbon::parse($it['duplicate_of']['date'])->format('M j').')' : '' }} — {{ match ($it['duplicate_of']['by'] ?? '') { 'live_id' => 'same Whatnot stream', 'title' => 'same title, and only that one is on Whatnot\'s list', 'shipments' => 'all '.$it['duplicate_of']['orders'].' of its packages shipped from that show', default => 'all '.$it['duplicate_of']['orders'].' of its orders are on that show' } }}. Deleted on apply.
                                         @elseif (($it['app_orders'] ?? 0) > 0 || ! empty($it['aired']))<span class="wsc-short">Kept: it has {{ ($it['app_orders'] ?? 0) > 0 ? $it['app_orders'].' imported orders' : 'sales' }}, so it aired — likely renamed on Whatnot or on a channel/page not uploaded</span>
                                         @elseif (! empty($it['blocked']))<span class="wsc-short">Kept unless you switch on deleting ones with pay: {{ $it['blocked'] }}</span>@elseif ($plan['all_channels'] ?? false)Deleted on apply (if you leave the switch on)@else<span class="wsc-muted">Upload every channel to delete</span>@endif
                                     @elseif ($it['action'] === 'confirmed')

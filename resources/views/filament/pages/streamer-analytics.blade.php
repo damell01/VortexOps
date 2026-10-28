@@ -140,7 +140,7 @@
                 <div class="vxsa-pop" x-show="open" x-cloak x-transition.opacity>
                     <div class="vxsa-presets">
                         @foreach (\App\Filament\Pages\StreamerAnalytics::RANGES as $key => $label)
-                            <button type="button" wire:click="setRange('{{ $key }}')" @click="open = false">{{ $label }}</button>
+                            <button type="button" wire:click="setRange('{{ $key }}')" wire:loading.attr="disabled" wire:target="setRange('{{ $key }}')" @click="open = false">{{ $label }}</button>
                         @endforeach
                     </div>
                     <div class="vxsa-dates">
@@ -182,7 +182,7 @@
                     <div class="vxsa-pop-foot">
                         <span>Compare streamers, or pick none for everyone.</span>
                         @if (count($selectedStreamers))
-                            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="clearSelectedStreamers">Everyone</button>
+                            <button type="button" class="vxr-btn vxr-btn--sm" wire:click="clearSelectedStreamers" wire:loading.attr="disabled" wire:target="clearSelectedStreamers">Everyone</button>
                         @endif
                     </div>
                 </div>
@@ -194,7 +194,7 @@
                 </a>
             @endif
 
-            <button type="button" wire:click="exportCsv" class="vxr-btn vxr-btn--primary" title="Export CSV">
+            <button type="button" wire:click="exportCsv" wire:loading.attr="disabled" wire:target="exportCsv" class="vxr-btn vxr-btn--primary" title="Export CSV">
                 <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export
             </button>
         </div>
@@ -202,8 +202,8 @@
 
     {{-- Tabs --}}
     <nav class="vxr-tabs" role="tablist">
-        <button type="button" role="tab" wire:click="$set('activeTab', 'overview')" class="vxr-tab {{ $activeTab === 'overview' ? 'is-active' : '' }}" aria-selected="{{ $activeTab === 'overview' ? 'true' : 'false' }}">Overview</button>
-        <button type="button" role="tab" wire:click="$set('activeTab', 'weekly')" class="vxr-tab {{ $activeTab === 'weekly' ? 'is-active' : '' }}" aria-selected="{{ $activeTab === 'weekly' ? 'true' : 'false' }}">Weekly breakdown</button>
+        <button type="button" role="tab" wire:click="$set('activeTab', 'overview')" wire:loading.attr="disabled" wire:target="$set('activeTab', 'overview')" class="vxr-tab {{ $activeTab === 'overview' ? 'is-active' : '' }}" aria-selected="{{ $activeTab === 'overview' ? 'true' : 'false' }}">Overview</button>
+        <button type="button" role="tab" wire:click="$set('activeTab', 'weekly')" wire:loading.attr="disabled" wire:target="$set('activeTab', 'weekly')" class="vxr-tab {{ $activeTab === 'weekly' ? 'is-active' : '' }}" aria-selected="{{ $activeTab === 'weekly' ? 'true' : 'false' }}">Weekly breakdown</button>
     </nav>
 
     @if ($activeTab === 'overview')
@@ -249,7 +249,7 @@
                     <h2 class="vxr-card-title">Top streamers</h2>
                     <div class="vxsa-seg" role="group" aria-label="Rank top streamers by" data-vx-keep-label>
                         @foreach (\App\Filament\Pages\StreamerAnalytics::TOP_METRICS as $key => $label)
-                            <button type="button" wire:click="$set('topMetric', '{{ $key }}')" aria-pressed="{{ $topMetric === $key ? 'true' : 'false' }}">{{ $label }}</button>
+                            <button type="button" wire:click="$set('topMetric', '{{ $key }}')" wire:loading.attr="disabled" wire:target="$set('topMetric', '{{ $key }}')" aria-pressed="{{ $topMetric === $key ? 'true' : 'false' }}">{{ $label }}</button>
                         @endforeach
                     </div>
                 </div>
@@ -317,7 +317,7 @@
             <div class="vxsa-perf-head">
                 <h2>Streamer performance</h2>
                 @if ($focused)
-                    <span class="vxsa-focus">{{ $focused->name }} <button type="button" wire:click="clearSelectedStreamers" aria-label="Show every streamer"><x-filament::icon icon="heroicon-m-x-mark" style="width:14px;height:14px" /></button></span>
+                    <span class="vxsa-focus">{{ $focused->name }} <button type="button" wire:click="clearSelectedStreamers" wire:loading.attr="disabled" wire:target="clearSelectedStreamers" aria-label="Show every streamer"><x-filament::icon icon="heroicon-m-x-mark" style="width:14px;height:14px" /></button></span>
                 @endif
                 <label class="vxr-control vxr-search">
                     <x-filament::icon icon="heroicon-o-magnifying-glass" />
@@ -331,7 +331,7 @@
                         @endforeach
                     </select>
                 </label>
-                <button type="button" class="vxr-btn" wire:click="$toggle('showComparison')" aria-expanded="{{ $showComparison ? 'true' : 'false' }}" style="color:var(--vxw-accent);border-color:var(--vxw-accent-line, var(--vxw-accent))">
+                <button type="button" class="vxr-btn" wire:click="$toggle('showComparison')" wire:loading.attr="disabled" wire:target="$toggle('showComparison')" aria-expanded="{{ $showComparison ? 'true' : 'false' }}" style="color:var(--vxw-accent);border-color:var(--vxw-accent-line, var(--vxw-accent))">
                     <x-filament::icon icon="heroicon-o-chart-bar" /> {{ $showComparison ? 'Hide full comparison' : 'Open full comparison' }}
                 </button>
             </div>
@@ -379,7 +379,7 @@
                             @if (count($selectedStreamers) === 1 && (int) $selectedStreamers[0] === $row['streamer_id'])
                                 <a class="vxsa-card-link" href="{{ route('filament.admin.resources.streamers.edit', $row['streamer_id']) }}">Open profile <x-filament::icon icon="heroicon-m-arrow-right" /></a>
                             @else
-                                <button type="button" class="vxsa-card-link" wire:click="focusStreamer({{ $row['streamer_id'] }})">View analytics <x-filament::icon icon="heroicon-m-arrow-right" /></button>
+                                <button type="button" class="vxsa-card-link" wire:click="focusStreamer({{ $row['streamer_id'] }})" wire:loading.attr="disabled" wire:target="focusStreamer({{ $row['streamer_id'] }})">View analytics <x-filament::icon icon="heroicon-m-arrow-right" /></button>
                             @endif
                         </article>
                     @endforeach
@@ -390,14 +390,14 @@
                         @php $nums = collect([1, $cards['page'] - 1, $cards['page'], $cards['page'] + 1, $cards['pages']])->filter(fn ($n) => $n >= 1 && $n <= $cards['pages'])->unique()->sort()->values(); @endphp
                         <nav class="vxsa-pages" aria-label="Streamer pages">
                             @if ($cards['page'] > 1)
-                                <button type="button" class="vxr-btn vxr-btn--sm" wire:click="goToCardPage({{ $cards['page'] - 1 }})"><x-filament::icon icon="heroicon-m-arrow-left" /> Previous</button>
+                                <button type="button" class="vxr-btn vxr-btn--sm" wire:click="goToCardPage({{ $cards['page'] - 1 }})" wire:loading.attr="disabled" wire:target="goToCardPage({{ $cards['page'] - 1 }})"><x-filament::icon icon="heroicon-m-arrow-left" /> Previous</button>
                             @endif
                             @foreach ($nums as $i => $p)
                                 @if ($i > 0 && $p - $nums[$i - 1] > 1)<span style="align-self:center">…</span>@endif
-                                <button type="button" class="vxr-btn vxr-btn--sm {{ $p === $cards['page'] ? 'is-current' : '' }}" wire:click="goToCardPage({{ $p }})" @if($p === $cards['page']) aria-current="page" @endif>{{ $p }}</button>
+                                <button type="button" class="vxr-btn vxr-btn--sm {{ $p === $cards['page'] ? 'is-current' : '' }}" wire:click="goToCardPage({{ $p }})" wire:loading.attr="disabled" wire:target="goToCardPage({{ $p }})" @if($p === $cards['page']) aria-current="page" @endif>{{ $p }}</button>
                             @endforeach
                             @if ($cards['page'] < $cards['pages'])
-                                <button type="button" class="vxr-btn vxr-btn--sm" wire:click="goToCardPage({{ $cards['page'] + 1 }})">Next <x-filament::icon icon="heroicon-m-arrow-right" /></button>
+                                <button type="button" class="vxr-btn vxr-btn--sm" wire:click="goToCardPage({{ $cards['page'] + 1 }})" wire:loading.attr="disabled" wire:target="goToCardPage({{ $cards['page'] + 1 }})">Next <x-filament::icon icon="heroicon-m-arrow-right" /></button>
                             @endif
                         </nav>
                     @endif
@@ -413,7 +413,7 @@
                         <h2 class="vxr-card-title">Full comparison</h2>
                         <p class="vxr-card-sub">{{ $dateFrom }} — {{ $dateTo }} · Ranked by revenue per show hour</p>
                     </div>
-                    <button type="button" class="vxr-btn vxr-btn--sm" wire:click="$set('showComparison', false)">Close</button>
+                    <button type="button" class="vxr-btn vxr-btn--sm" wire:click="$set('showComparison', false)" wire:loading.attr="disabled" wire:target="$set('showComparison', false)">Close</button>
                 </div>
                 @if (empty($rows))
                     <div class="vxr-empty">No data for the selected period.</div>

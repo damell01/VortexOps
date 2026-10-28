@@ -528,40 +528,7 @@ table th {
    7. MODAL RESPONSIVENESS
    ────────────────────────────────────────── */
 
-@media (max-width: 640px) {
-    .fi-modal-window {
-        position: fixed !important;
-        inset: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        height: 100vh !important;
-        max-height: 100vh !important;
-        border-radius: 0 !important;
-        display: flex !important;
-        flex-direction: column !important;
-    }
-
-    .fi-modal-header {
-        padding: 1rem !important;
-        flex-shrink: 0 !important;
-    }
-
-    .fi-modal-content {
-        flex: 1 1 0 !important;
-        overflow-y: auto !important;
-        padding: 1rem !important;
-    }
-
-    .fi-modal-footer-actions {
-        flex-shrink: 0 !important;
-        gap: 0.5rem !important;
-        padding: 1rem !important;
-    }
-
-    .fi-modal-footer-actions .fi-btn {
-        flex: 1 1 0 !important;
-    }
-}
+/* Dialog layout is centralized in modal-theme.css. */
 
 /* ──────────────────────────────────────────
    8. TOPBAR & HEADER RESPONSIVENESS
@@ -734,13 +701,13 @@ a:disabled,
 
 /* Loading button state */
 button.loading,
-[aria-busy="true"] {
+button[aria-busy="true"] {
     position: relative !important;
     color: transparent !important;
 }
 
 button.loading::after,
-[aria-busy="true"]::after {
+button[aria-busy="true"]::after {
     content: '' !important;
     position: absolute !important;
     top: 50% !important;

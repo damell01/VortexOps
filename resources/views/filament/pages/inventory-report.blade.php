@@ -110,7 +110,7 @@
                 <option value="low">Low stock</option>
                 <option value="out">Out of stock</option>
             </select>
-            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="vxr-btn">
+            <a wire:navigate href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="vxr-btn">
                 <x-filament::icon icon="heroicon-o-squares-2x2" /> Item list
             </a>
             <div x-data="{ open: false }" class="invr-export">

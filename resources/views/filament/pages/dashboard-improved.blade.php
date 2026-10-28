@@ -53,7 +53,7 @@
                         <div class="text-sm font-semibold text-blue-900 dark:text-blue-100">Ready to work the queue?</div>
                         <p class="mt-0.5 text-xs leading-5 text-blue-700 dark:text-blue-300">The Fulfillment Center keeps the list show-first so mobile users do not have to scan a giant shipment table.</p>
                     </div>
-                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('index') }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">Open Fulfillment Center</a>
+                    <a wire:navigate href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('index') }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">Open Fulfillment Center</a>
                 </div>
             </section>
         @elseif($pageMode === 'admin')
@@ -64,7 +64,7 @@
                             <h2 class="text-sm font-semibold text-gray-950 dark:text-white">Inventory Health</h2>
                             <p class="mt-0.5 text-xs text-gray-500">Current stock status at a glance.</p>
                         </div>
-                        <a href="{{ App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="text-xs font-semibold text-primary-600">View Inventory →</a>
+                        <a wire:navigate href="{{ App\Filament\Resources\InventoryItemResource::getUrl('index') }}" class="text-xs font-semibold text-primary-600">View Inventory →</a>
                     </div>
                     <div class="mt-4 grid grid-cols-3 gap-3">
                         <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/20"><div class="text-xs text-gray-500">In Stock</div><div class="mt-1 text-2xl font-bold text-emerald-600">{{ number_format($inventoryHealth['in'] ?? 0) }}</div></div>

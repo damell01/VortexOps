@@ -3,7 +3,7 @@
 <x-filament-panels::page>
     <p class="text-sm text-gray-500 dark:text-gray-400">
         Staging is now worked on the pallet page.
-        <a href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}"
+        <a wire:navigate href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}"
            class="text-primary-600 dark:text-primary-400 underline">
             Open pallet
         </a>

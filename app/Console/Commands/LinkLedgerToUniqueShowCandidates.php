@@ -30,6 +30,8 @@ class LinkLedgerToUniqueShowCandidates extends Command
                     $same = $all->filter(fn ($r) => $entry->whatnot_channel_id !== null && (int) $r->whatnot_channel_id === (int) $entry->whatnot_channel_id)
                         ->pluck('show_id')->unique()->values();
                     if ($same->isEmpty()) { $counts['conflicting_channel']++; continue; }
+                    // Reject cross-channel links too: these imports may reflect an ignored Whatnot source filter.
+                    if ($all->contains(fn ($r) => (int) $r->whatnot_channel_id !== (int) $entry->whatnot_channel_id)) { $counts['conflicting_channel']++; continue; }
                     if ($same->count() !== 1) { $counts['ambiguous']++; continue; }
                     $counts['unique']++;
                     if (! $submit) continue;

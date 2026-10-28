@@ -95,6 +95,7 @@ class PayrollOverview extends Page
     public function setWorkflow(string $workflow): void
     {
         $this->workflow = $workflow;
+        $this->filteredWeekShowsMemo = null;
         $this->queuePage = 1;
     }
 
@@ -138,7 +139,14 @@ class PayrollOverview extends Page
     }
 
     public function updatedPeriodDate(): void { $this->normalizePeriodDate(); $this->queuePage = 1; $this->clearReadMemo(); }
-    public function updatedQueueSearch(): void { $this->queuePage = 1; }
+    public function updatedQueueSearch(): void { $this->queuePage = 1; $this->filteredWeekShowsMemo = null; }
+
+    /**
+     * The show collection is expensive (workflow and P&L per show). Keep the
+     * computed filters per Livewire request, rather than repeatedly filtering
+     * the same collection for totals and the visible queue.
+     */
+    private ?Collection $filteredWeekShowsMemo = null;
 
     public function periodBounds(): array
     {
@@ -393,15 +401,16 @@ class PayrollOverview extends Page
 
     public function currentWeekShows(): Collection
     {
+        if ($this->filteredWeekShowsMemo !== null) return $this->filteredWeekShowsMemo;
         $shows = $this->allCurrentWeekShows();
         if (trim($this->queue_search) !== '') {
             $query = mb_strtolower(trim($this->queue_search));
             $shows = $shows->filter(fn ($show) => str_contains(mb_strtolower(($show->title ?? '') . ' ' . $show->streamers->pluck('name')->join(' ')), $query));
         }
         $filter = $this->workflow;
-        if ($filter === '' || $filter === 'all') return $shows;
+        if ($filter === '' || $filter === 'all') return $this->filteredWeekShowsMemo = $shows;
 
-        return $shows->filter(function (Show $show) use ($filter): bool {
+        return $this->filteredWeekShowsMemo = $shows->filter(function (Show $show) use ($filter): bool {
             $key = $show->getAttribute('workflow_state')['key'] ?? '';
             $hasPayRunProblems = ($show->getAttribute('payrun_problems') ?? []) !== [];
             return match ($filter) {
@@ -537,6 +546,7 @@ class PayrollOverview extends Page
     private function clearReadMemo(): void
     {
         $this->weekShowsMemo = null;
+        $this->filteredWeekShowsMemo = null;
         $this->streamerOptionsMemo = null;
         $this->payRunMemo = null;
         $this->payRunResolved = false;

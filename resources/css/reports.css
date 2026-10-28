@@ -400,3 +400,26 @@ a.vxr-stat:hover .vxr-stat-icon, .vxr-tile:hover .vxr-stat-icon, .vxr-linkrow:ho
 }
 .vxsp-sm-only { display: none; }
 @media (max-width: 900px) { .vxsp-sm-only { display: inline; } }
+
+
+/* Sitewide report presentation refinements; no filters, data, or actions changed. */
+.vxr[data-vx-page="reports-overview"]{min-width:0}
+.vxr[data-vx-page="reports-overview"] :is(.vxr-head,.vxr-actions,.vxr-grid,.vxr-tiles,.vxr-card,.vxr-tile){min-width:0}
+.vxr[data-vx-page="reports-overview"] :is(a,button,select):focus-visible{outline:2px solid #a78bfa;outline-offset:3px}
+.vxr[data-vx-page="reports-overview"] :is(a,button){touch-action:manipulation}
+.vxr[data-vx-page="reports-overview"] :is(.vxr-stat,.vxr-tile){overflow-wrap:anywhere}
+.vxr[data-vx-page="reports-overview"] .vxr-actions select{max-width:100%;min-height:40px}
+.vxr[data-vx-page="reports-overview"] .vxr-tile{transition:box-shadow .16s ease,transform .16s ease}
+@media (hover:hover){
+  .vxr[data-vx-page="reports-overview"] .vxr-tile:hover{transform:translateY(-2px)}
+}
+@media (max-width:640px){
+  .vxr[data-vx-page="reports-overview"] .vxr-head{gap:14px}
+  .vxr[data-vx-page="reports-overview"] .vxr-actions{width:100%;flex-wrap:wrap;gap:8px}
+  .vxr[data-vx-page="reports-overview"] .vxr-control{max-width:100%}
+  .vxr[data-vx-page="reports-overview"] .vxr-tiles{min-width:0}
+  .vxr[data-vx-page="reports-overview"] .vxr-tile{min-width:0}
+}
+@media (prefers-reduced-motion:reduce){
+  .vxr[data-vx-page="reports-overview"] .vxr-tile{transition:none;transform:none}
+}

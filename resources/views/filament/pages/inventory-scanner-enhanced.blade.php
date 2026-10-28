@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <div
-        class="mx-auto w-full max-w-7xl space-y-4 pb-24 sm:space-y-5 sm:pb-0"
+        class="mx-auto max-w-4xl space-y-3 pb-24 sm:space-y-5 sm:pb-0"
         data-vx-page="inventory-scanner"
         data-vx-touch-page
         x-data="{
@@ -15,10 +15,15 @@
     >
         <x-touch-mode-toggle />
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-            <div class="grid grid-cols-3 gap-2 bg-white p-2 dark:bg-gray-900 sm:gap-3 sm:p-3">
-                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'bg-violet-600 !text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Look Up</button>
-                <button type="button" wire:click="switchMode('quickadd')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'bg-violet-600 !text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
-                <button type="button" wire:click="switchMode('receive')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'receive' ? 'bg-violet-600 !text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-inbox-arrow-down class="mr-1 inline h-4 w-4" /> Receive</button>
+            <div class="p-4 sm:p-5">
+                <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Quick Scan</div>
+                <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">Scan an item, then decide what you need</h2>
+                <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Lookup is read-only. Add Stock puts units into a location. Receive works a delivery off a pallet — scan it, or just say how much turned up.</p>
+            </div>
+            <div class="grid grid-cols-3 gap-px bg-gray-100 dark:bg-gray-800">
+                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 bg-white px-2 py-3 text-xs font-semibold dark:bg-gray-900 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'text-primary-600 shadow-[inset_0_-2px_0_currentColor]' : 'text-gray-500 dark:text-gray-400' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Look Up</button>
+                <button type="button" wire:click="switchMode('quickadd')" class="min-h-12 bg-white px-2 py-3 text-xs font-semibold dark:bg-gray-900 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'text-emerald-600 shadow-[inset_0_-2px_0_currentColor]' : 'text-gray-500 dark:text-gray-400' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
+                <button type="button" wire:click="switchMode('receive')" class="min-h-12 bg-white px-2 py-3 text-xs font-semibold dark:bg-gray-900 sm:px-3 sm:text-sm {{ $mode === 'receive' ? 'text-amber-600 shadow-[inset_0_-2px_0_currentColor]' : 'text-gray-500 dark:text-gray-400' }}"><x-heroicon-o-inbox-arrow-down class="mr-1 inline h-4 w-4" /> Receive</button>
             </div>
         </section>
 
@@ -186,18 +191,12 @@
             @endif
         @endif
 
-        <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
-            <h2 class="text-base font-bold text-gray-950 dark:text-white">Scan or Enter Barcode</h2>
-            <button type="button" data-camera-scan @click="openScanner()" class="mt-3 flex min-h-36 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-400 bg-violet-50/60 p-4 text-violet-700 dark:bg-violet-950/30 dark:text-violet-200 sm:hidden">
-                <x-heroicon-o-camera class="h-9 w-9" />
-                <span class="text-sm font-bold">Tap to open camera</span>
-                <span class="text-xs">Point your camera at the barcode</span>
-            </button>
-            <label for="vx-scanner-code" class="mt-3 block text-xs font-semibold text-gray-700 dark:text-gray-200">Barcode, UPC, or SKU</label>
-            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <input id="vx-scanner-code" wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
-                <button data-camera-scan type="button" @click="openScanner()" class="hidden min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold sm:inline-flex text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
-                <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto @if($mode === 'lookup') bg-primary-600 @elseif($mode === 'receive') bg-amber-600 @else bg-emerald-600 @endif"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
+        <section class="rounded-xl border-2 @if($mode === 'lookup') border-primary-300 bg-primary-50/40 dark:border-primary-800 dark:bg-primary-950/20 @elseif($mode === 'receive') border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-950/20 @else border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20 @endif p-4 sm:rounded-2xl sm:p-5">
+            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
+            <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <input wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
+                <button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
+                <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 @if($mode === 'lookup') bg-primary-600 @elseif($mode === 'receive') bg-amber-600 @else bg-emerald-600 @endif"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
             </div>
             <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">USB/Bluetooth scanner: scan directly into this field. Camera: tap Camera and center the barcode in the scan box.</p>
 

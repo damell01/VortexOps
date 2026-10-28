@@ -215,12 +215,6 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
             ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn () => auth()->check() && \App\Support\InventoryPopupPolicy::enabledFor(auth()->user())
-                    ? Blade::render("@livewire('inventory-price-acknowledgment')")
-                    : '',
-            )
-            ->renderHook(
                 // "How this page works", beside every page's title that has help
                 // written for it (App\Support\HelpContent). The words load on the
                 // first click, from route('help.topics').

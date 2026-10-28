@@ -165,7 +165,7 @@ class ListInventoryItems extends ListRecords
             ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
             ->latest('created_at')
             ->limit(1)]);
-        return $query->limit($this->catalogVisible)->get();
+        return $query->forPage(max(1, $this->catalogPage), 40)->get();
     }
 
     #[Computed]
@@ -178,6 +178,7 @@ class ListInventoryItems extends ListRecords
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
+        $this->catalogPage = 1;
         $this->catalogVisible = 40;
         $this->clearSelection();
         $this->resetPage();
@@ -198,6 +199,7 @@ class ListInventoryItems extends ListRecords
     public function updatedCatalogSearch(): void
     {
         $this->clearSelection();
+        $this->catalogPage = 1;
         $this->catalogVisible = 40;
         unset($this->catalogItems, $this->catalogTotal);
     }
@@ -210,12 +212,13 @@ class ListInventoryItems extends ListRecords
         unset($this->catalogItems, $this->catalogTotal);
     }
 
-    public function loadMoreCatalog(): void
+    public function goToCatalogPage(int $page): void
     {
         if ($this->viewMode !== 'catalog') return;
-        // Do not grow an unbounded Livewire response when the user repeatedly
-        // taps Load More. Clamp to the actual matching product count.
-        $this->catalogVisible = min($this->catalogVisible + 40, $this->catalogTotal);
+        $lastPage = max(1, (int) ceil($this->catalogTotal / 40));
+        $this->catalogPage = max(1, min($page, $lastPage));
+        // Selections must not persist invisibly across catalog pages.
+        $this->clearSelection();
         unset($this->catalogItems);
     }
 

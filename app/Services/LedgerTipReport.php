@@ -18,22 +18,20 @@ class LedgerTipReport
         // Channels are shared by businesses. Only an exact order on one show,
         // with all its streamers assigned to the same business, can attribute
         // a ledger tip. No time-window or channel-ownership guesses.
-        $attribution = DB::table('whatnot_show_orders as orders')
-            ->join('shows', 'shows.id', '=', 'orders.show_id')
-            ->leftJoin('show_streamer', 'show_streamer.show_id', '=', 'shows.id')
-            ->leftJoin('streamers', 'streamers.id', '=', 'show_streamer.streamer_id')
-            ->selectRaw('orders.whatnot_order_id, shows.whatnot_channel_id as matched_channel_id, MIN(streamers.business_id) as business_id')
-            ->whereNotNull('orders.whatnot_order_id')->whereNotIn('orders.whatnot_order_id', ['', '-'])
-            ->groupBy('orders.whatnot_order_id', 'shows.whatnot_channel_id')
-            ->havingRaw('COUNT(DISTINCT shows.id) = 1')
-            ->havingRaw('COUNT(DISTINCT streamers.business_id) = 1')
-            ->havingRaw('COUNT(*) = COUNT(streamers.business_id)');
+        // Only explicitly approved human-reviewed show attributions can
+        // allocate tips to a business. Imported order/show links are untrusted.
+        $attribution = DB::table('ledger_attributions as verified')
+            ->join('shows', 'shows.id', '=', 'verified.show_id')
+            ->selectRaw('verified.whatnot_ledger_entry_id, verified.business_id')
+            ->where('verified.status', 'approved')
+            ->whereNotNull('verified.submitted_by')
+            ->where('verified.target', 'show')
+            ->whereColumn('verified.business_id', '!=', DB::raw('0'));
 
         $query = WhatnotLedgerEntry::query()
             ->when($channelContext, fn ($q) => $q->inChannelContext())
             ->leftJoinSub($attribution, 'attribution', function (JoinClause $join) {
-                $join->on('attribution.whatnot_order_id', '=', 'whatnot_ledger_entries.whatnot_order_id')
-                    ->on('attribution.matched_channel_id', '=', 'whatnot_ledger_entries.whatnot_channel_id');
+                $join->on('attribution.whatnot_ledger_entry_id', '=', 'whatnot_ledger_entries.id');
             })
             ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
             ->where('created_date', '>=', Carbon::parse($from)->startOfDay())
@@ -99,31 +97,16 @@ class LedgerTipReport
     {
         // Exactly one matched show and exactly one primary streamer. Approved
         // manual decisions take precedence over this automatic attribution.
-        $matches = DB::table('whatnot_show_orders as orders')
-            ->join('shows', 'shows.id', '=', 'orders.show_id')
-            ->join('show_streamer', function (JoinClause $join) {
-                $join->on('show_streamer.show_id', '=', 'shows.id')
-                    ->where('show_streamer.is_primary', '=', 1);
-            })
-            ->selectRaw('orders.whatnot_order_id, shows.whatnot_channel_id as channel_id, MIN(show_streamer.streamer_id) as streamer_id')
-            ->whereNotNull('orders.whatnot_order_id')
-            ->whereNotIn('orders.whatnot_order_id', ['', '-'])
-            ->groupBy('orders.whatnot_order_id', 'shows.whatnot_channel_id')
-            ->havingRaw('COUNT(DISTINCT shows.id) = 1')
-            ->havingRaw('COUNT(DISTINCT show_streamer.streamer_id) = 1');
 
         return WhatnotLedgerEntry::query()
             ->inChannelContext()
             ->leftJoin('ledger_attributions as manual', function (JoinClause $join) {
                 $join->on('manual.whatnot_ledger_entry_id', '=', 'whatnot_ledger_entries.id')
-                    ->where('manual.status', '=', 'approved');
-            })
-            ->leftJoinSub($matches, 'matched', function (JoinClause $join) {
-                $join->on('matched.whatnot_order_id', '=', 'whatnot_ledger_entries.whatnot_order_id')
-                    ->on('matched.channel_id', '=', 'whatnot_ledger_entries.whatnot_channel_id');
+                    ->where('manual.status', '=', 'approved')
+                    ->whereNotNull('manual.submitted_by');
             })
             ->join('streamers', function (JoinClause $join) {
-                $join->on('streamers.id', '=', DB::raw("CASE WHEN manual.id IS NOT NULL THEN manual.streamer_id ELSE matched.streamer_id END"));
+                $join->on('streamers.id', '=', DB::raw("manual.streamer_id"));
             })
             ->whereRaw('LOWER(TRIM(whatnot_ledger_entries.transaction_type)) IN (?, ?)', ['tip', 'tips'])
             ->where('whatnot_ledger_entries.created_date', '>=', Carbon::parse($from)->startOfDay())

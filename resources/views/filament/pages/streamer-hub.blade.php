@@ -1,20 +1,20 @@
 <x-filament-panels::page>
-    <div class="space-y-5 md:space-y-7">
+    <div class="space-y-8">
         <!-- Welcome Banner -->
-        <div class="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-purple-700 to-violet-600 rounded-2xl border border-purple-400/20 p-5 sm:p-6 md:p-8 text-white shadow-lg shadow-purple-900/10">
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg p-6 md:p-8 text-white">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight mb-2">Welcome back, {{ $this->getStreamer()->name }}! 👋</h1>
+                    <h1 class="text-3xl md:text-4xl font-bold mb-2">Welcome back, {{ $this->getStreamer()->name }}! 👋</h1>
                     <p class="text-indigo-100">Here's your streaming dashboard. Quick access to everything you need.</p>
                 </div>
-                <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:gap-3">
+                <div class="flex gap-3 flex-wrap md:flex-nowrap">
                     {{-- A plus icon labelled "New Log" that opened the list of
                          existing logs. Filing a report is End of Stream, the
                          same destination the quick action further down uses. --}}
                     <a href="{{ route('filament.admin.pages.end-of-stream') }}"
-                        class="inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+                        class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition">
                         <x-heroicon-o-plus-circle class="h-5 w-5" />
-                        <span>Report a Show</span>
+                        <span class="hidden sm:inline">Report a Show</span>
                     </a>
                     @livewire('create-manual-show', ['streamer' => $this->getStreamer()], key('create-show-' . $this->getStreamer()->id))
                 </div>
@@ -22,36 +22,36 @@
         </div>
 
         <!-- Quick Stats -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 md:p-6">
                 <p class="text-xs md:text-sm text-blue-600 dark:text-blue-400 uppercase font-semibold">Total Shows</p>
-                <p class="text-xl sm:text-2xl md:text-3xl font-bold tabular-nums text-blue-900 dark:text-blue-100 mt-2">{{ $stats['total_shows'] }}</p>
+                <p class="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $stats['total_shows'] }}</p>
                 <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">{{ $stats['upcoming_shows'] }} upcoming</p>
             </div>
 
             <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 md:p-6">
                 <p class="text-xs md:text-sm text-green-600 dark:text-green-400 uppercase font-semibold">Total Revenue</p>
-                <p class="text-xl sm:text-2xl md:text-3xl font-bold tabular-nums text-green-900 dark:text-green-100 mt-2">${{ number_format($stats['total_revenue'], 0) }}</p>
+                <p class="text-2xl md:text-3xl font-bold text-green-900 dark:text-green-100 mt-2">${{ number_format($stats['total_revenue'], 0) }}</p>
                 <p class="text-xs text-green-600 dark:text-green-400 mt-1">All time</p>
             </div>
 
             <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 md:p-6">
                 <p class="text-xs md:text-sm text-amber-600 dark:text-amber-400 uppercase font-semibold">Logs Pending</p>
-                <p class="text-xl sm:text-2xl md:text-3xl font-bold tabular-nums text-amber-900 dark:text-amber-100 mt-2">{{ $stats['logs_pending'] }}</p>
+                <p class="text-2xl md:text-3xl font-bold text-amber-900 dark:text-amber-100 mt-2">{{ $stats['logs_pending'] }}</p>
                 <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Need logging</p>
             </div>
 
             <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4 md:p-6">
                 <p class="text-xs md:text-sm text-purple-600 dark:text-purple-400 uppercase font-semibold">Share Pending</p>
-                <p class="text-xl sm:text-2xl md:text-3xl font-bold tabular-nums text-purple-900 dark:text-purple-100 mt-2">{{ $stats['profit_share_pending'] }}</p>
+                <p class="text-2xl md:text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">{{ $stats['profit_share_pending'] }}</p>
                 <p class="text-xs text-purple-600 dark:text-purple-400 mt-1">Awaiting approval</p>
             </div>
         </div>
 
         <!-- Main Actions Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Shows Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition">
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -86,7 +86,7 @@
             </div>
 
             <!-- Profit Share Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition">
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -121,7 +121,7 @@
             </div>
 
             <!-- Streamer Logs Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition">
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -149,7 +149,7 @@
             </div>
 
             <!-- Quick Actions Card -->
-            <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition">
                 <div class="flex items-start justify-between mb-4">
                     <div>
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">

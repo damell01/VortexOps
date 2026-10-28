@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use App\Support\InventoryVisibility;
 
 class InventoryPriceAlerts
 {
@@ -16,9 +17,11 @@ class InventoryPriceAlerts
         $cursor = (int) (DB::table('inventory_price_acknowledgments')
             ->where('user_id', $user->id)->value('last_event_id') ?? 0);
 
+        $locations = InventoryVisibility::locationIdsFor($user);
         return DB::table('inventory_price_change_events as changes')
             ->join('products', 'products.id', '=', 'changes.product_id')
             ->whereNull('products.deleted_at')
+            ->when($locations !== null, fn ($query) => $query->whereExists(fn ($stock) => $stock->selectRaw('1')->from('inventory_stock')->whereColumn('inventory_stock.inventory_item_id', 'changes.product_id')->whereIn('inventory_stock.inventory_location_id', $locations)->where('inventory_stock.quantity', '>', 0)))
             ->where('changes.id', '>', $cursor)
             ->orderBy('changes.id')
             ->limit(min(max($limit, 1), 100))

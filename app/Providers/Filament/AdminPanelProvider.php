@@ -211,12 +211,6 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render('@include(\'filament.components.sidebar-feedback\')'),
             )
             ->renderHook(
-                PanelsRenderHook::PAGE_START,
-                fn () => auth()->check() && request()->routeIs('filament.admin.pages.dashboard*')
-                    ? Blade::render("@livewire('inventory-arrival-feed')")
-                    : '',
-            )
-            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )

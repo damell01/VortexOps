@@ -204,18 +204,39 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     }
     .fi-topbar .fi-topbar-end > :not(.fi-global-search) { flex-shrink: 0 !important; }
     /* Keep Filament's own Livewire search mounted; only reposition its visible field. */
-    .fi-topbar .fi-global-search { display:none !important; }
-    .vx-search-trigger {display:inline-flex;align-items:center;justify-content:center;width:44px;height:42px;flex:0 0 44px;border:1px solid #554075;border-radius:11px;color:#e9d5ff;background:#211438;cursor:pointer}
-    .vx-search-trigger svg{width:20px;height:20px}
-    .vx-search-scrim{position:fixed;inset:0;z-index:9998;background:rgba(7,8,24,.75);backdrop-filter:blur(4px)}
-    .vx-search-shell{position:fixed;top:clamp(36px,10vh,100px);left:50%;transform:translateX(-50%);width:min(720px,calc(100vw - 32px));min-height:90px;padding:14px;border:1px solid #8b5cf6;border-radius:18px;background:#17112b;box-shadow:0 25px 80px #0009;z-index:9999;pointer-events:auto}
-    .vx-search-shell .fi-global-search{display:block!important;position:relative!important;width:100%!important;max-width:none!important;min-width:0!important;transform:none!important;left:auto!important;top:auto!important;margin:0!important;z-index:1!important}
-    .vx-search-shell .fi-global-search :is(.fi-input-wrp,.fi-global-search-field,input){width:100%!important;max-width:none!important;min-width:0!important}
-    .vx-search-shell .fi-global-search input{min-height:52px!important;font-size:17px!important}
-    .vx-search-shell :is(.fi-global-search-results-ctn,.fi-global-search-results){position:relative!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;z-index:2!important;max-height:55vh;overflow-y:auto}
-    .vx-search-heading{display:flex;align-items:center;justify-content:space-between;color:#e9d5ff;font-size:13px;font-weight:700;margin-bottom:10px}
-    .vx-search-close{position:static;padding:6px 11px;background:#2d204a;color:white;border:1px solid #70519c;border-radius:9px;cursor:pointer}
-    body.vx-search-lock{overflow:hidden}
+    /* Keep Filament's Livewire search in its original DOM location.
+       Moving it to document.body breaks morphing and detaches live results. */
+    .fi-topbar .fi-global-search-ctn { display:none !important; }
+    body.vx-search-lock .fi-topbar .fi-global-search-ctn {
+        display:block !important; position:fixed !important;
+        top:clamp(38px,10vh,100px) !important; left:50% !important;
+        transform:translateX(-50%) !important;
+        width:min(720px,calc(100vw - 32px)) !important;
+        max-width:none !important; min-width:0 !important;
+        z-index:10010 !important; pointer-events:auto !important;
+    }
+    body.vx-search-lock .fi-topbar .fi-global-search {
+        display:block !important; position:relative !important;
+        width:100% !important; min-width:0 !important; max-width:none !important;
+    }
+    body.vx-search-lock .fi-topbar .fi-global-search :is(.fi-global-search-field,.fi-input-wrp,input) {
+        width:100% !important; max-width:none !important; min-width:0 !important;
+    }
+    body.vx-search-lock .fi-topbar .fi-global-search input { min-height:54px !important; font-size:17px !important; }
+    body.vx-search-lock .fi-topbar .fi-global-search-results-ctn {
+        display:block; position:relative !important; top:auto !important;
+        left:auto !important; width:100% !important; max-width:none !important;
+        z-index:10011 !important; max-height:55vh; overflow-y:auto;
+        background:#fff; border-radius:12px; margin-top:10px;
+        box-shadow:0 15px 45px #0005;
+    }
+    .vx-search-trigger { display:inline-flex; align-items:center; justify-content:center; flex:0 0 44px; width:44px; height:42px; border:1px solid #554075; border-radius:11px; color:#e9d5ff; background:#211438; cursor:pointer; }
+    .vx-search-trigger svg { width:20px; height:20px; }
+    .vx-search-scrim { position:fixed; inset:0; z-index:9998; background:rgba(7,8,24,.75); backdrop-filter:blur(4px); }
+    .vx-search-shell { position:fixed; top:clamp(28px,calc(10vh - 10px),90px); left:50%; transform:translateX(-50%); width:min(744px,calc(100vw - 16px)); min-height:108px; padding:12px; border:1px solid #8b5cf6; border-radius:18px; background:#17112b; box-shadow:0 25px 80px #0009; z-index:9999; pointer-events:none; }
+    .vx-search-heading { position:fixed; z-index:10012; top:clamp(5px,calc(10vh - 45px),55px); left:50%; transform:translateX(-50%); width:min(720px,calc(100vw - 32px)); display:flex; align-items:center; justify-content:space-between; color:#e9d5ff; font-size:14px; font-weight:700; pointer-events:none; }
+    .vx-search-close { pointer-events:auto; padding:6px 11px; border:1px solid #70519c; border-radius:9px; background:#2d204a; color:#fff; cursor:pointer; }
+    body.vx-search-lock { overflow:hidden; }
     .fi-topbar .fi-user-menu { flex: 0 0 auto !important; margin: 0 !important; }
 }
 @media (min-width: 1024px) and (max-width: 1399px) {
@@ -232,45 +253,35 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 (() => {
     if (window.vxSearchModalInstalled) return;
     window.vxSearchModalInstalled = true;
-    let scrim = null, shell = null, closeButton = null, previousFocus = null, searchField = null, marker = null;
+    let scrim = null, shell = null, heading = null, previousFocus = null;
     const close = () => {
-        if (searchField && marker?.parentNode) marker.replaceWith(searchField);
-        marker?.remove();
-        searchField = marker = null;
-        scrim?.remove(); shell?.remove(); closeButton?.remove();
-        scrim = shell = closeButton = null;
+        scrim?.remove(); shell?.remove(); heading?.remove();
+        scrim = shell = heading = null;
         document.body.classList.remove('vx-search-lock');
         if (previousFocus?.isConnected) previousFocus.focus();
     };
     const open = () => {
-        if (shell) { shell.querySelector('input')?.focus(); return; }
-        const field = document.querySelector('.fi-topbar .fi-global-search');
-        if (!field) return;
+        const input = document.querySelector('.fi-topbar .fi-global-search input');
+        if (!input) return;
+        if (scrim) { input.focus(); return; }
         previousFocus = document.activeElement;
-        marker = document.createComment('original-global-search');
-        field.replaceWith(marker);
-        searchField = field;
         scrim = document.createElement('div');
         scrim.className = 'vx-search-scrim';
         scrim.addEventListener('click', close);
         shell = document.createElement('div');
         shell.className = 'vx-search-shell';
-        shell.setAttribute('role','dialog');
-        shell.setAttribute('aria-modal','true');
-        shell.setAttribute('aria-label','Search Vortex Ops');
-        const heading = document.createElement('div');
+        heading = document.createElement('div');
         heading.className = 'vx-search-heading';
         heading.textContent = 'Search Vortex Ops';
-        closeButton = document.createElement('button');
-        closeButton.type = 'button';
-        closeButton.className = 'vx-search-close';
-        closeButton.textContent = 'Close';
-        closeButton.addEventListener('click',close);
-        heading.append(closeButton);
-        shell.append(heading,searchField);
-        document.body.append(scrim,shell);
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'vx-search-close';
+        dismiss.textContent = 'Close';
+        dismiss.addEventListener('click', close);
+        heading.append(dismiss);
+        document.body.append(scrim, shell, heading);
         document.body.classList.add('vx-search-lock');
-        requestAnimationFrame(() => searchField?.querySelector('input')?.focus());
+        requestAnimationFrame(() => input.focus());
     };
     document.addEventListener('click', event => {
         if (event.target.closest('[data-vx-search-trigger]')) { event.preventDefault(); open(); }

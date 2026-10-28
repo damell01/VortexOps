@@ -1,3 +1,4 @@
+<div>
 @if (count($changes) || count($comingSoon) || count($arrivals))
 <div role="dialog" aria-modal="true" aria-labelledby="inventory-update-title" x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window.prevent.stop class="fixed inset-0 z-[9999] grid place-items-center bg-black/80 p-3 sm:p-6">
   <section class="flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-gray-950 text-white shadow-2xl" style="max-height:92dvh">
@@ -45,3 +46,4 @@
   </section>
 </div>
 @endif
+</div>

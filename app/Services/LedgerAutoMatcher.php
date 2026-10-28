@@ -16,7 +16,25 @@ class LedgerAutoMatcher
 
             $service = app(LedgerAttributionService::class);
             $show = $service->suggestedShow($entry);
-            if (! $show) return 'unmatched';
+            if (! $show) {
+                if ($existing && $existing->submitted_by === null &&
+                    $existing->status === 'approved' && $existing->target === 'show') {
+                    DB::table('ledger_attributions')->where('id', $existing->id)->update([
+                        'status' => 'pending',
+                        'reason' => 'Legacy automatic show match requires independent verification',
+                        'reviewed_by' => null, 'reviewed_at' => null, 'updated_at' => now(),
+                    ]);
+                    DB::table('ledger_attribution_events')->insert([
+                        'whatnot_ledger_entry_id' => $entry->id, 'actor_id' => null,
+                        'action' => 'auto_match_flagged', 'before' => json_encode($existing),
+                        'after' => json_encode(['status' => 'pending', 'show_id' => $existing->show_id]),
+                        'reason' => 'Unverified historical automatic show attribution',
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                    return 'flagged';
+                }
+                return 'unmatched';
+            }
 
             $primary = $show->streamers()->wherePivot('is_primary', true)->get();
             $streamer = $primary->count() === 1 ? $primary->first() : null;

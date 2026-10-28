@@ -14,7 +14,7 @@ class MatchLedgerEntriesToShows extends Command
     public function handle(LedgerAutoMatcher $matcher): int
     {
         $limit = min(100000, max(1, (int) $this->option('limit')));
-        $stats = ['matched' => 0, 'unmatched' => 0, 'manual' => 0];
+        $stats = ['matched' => 0, 'unmatched' => 0, 'manual' => 0, 'flagged' => 0];
         WhatnotLedgerEntry::query()->whereNotNull('whatnot_order_id')
             ->whereNotIn('whatnot_order_id', ['', '-'])
             ->orderBy('id')->chunkById(500, function ($entries) use ($matcher, &$stats, $limit) {

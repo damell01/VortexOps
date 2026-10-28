@@ -50,14 +50,14 @@
   <div>
    <div class="vx-inv-shortcuts">
     @if(\App\Filament\Pages\InventoryScanner::canAccess())
-    <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
+    <a wire:navigate href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
     @endif
     @if(\App\Support\StockGate::canChangeAny())
-    <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
-    <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
-    <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
+    <a wire:navigate href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
+    <a wire:navigate href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
+    <a wire:navigate href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
     @endif
-    <a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
+    <a wire:navigate href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
     <a href="{{ route('export.inventory-pdf') }}?download=1" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-document-arrow-down class="mb-1 h-5 w-5"/>Report PDF</a>
     <a href="{{ route('export.inventory-items') }}" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-table-cells class="mb-1 h-5 w-5"/>Export Excel</a>
    </div>

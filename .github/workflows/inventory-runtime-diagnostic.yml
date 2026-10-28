@@ -36,6 +36,7 @@ jobs:
                 $blocks = preg_split('/(?=^\[\d{4}-\d{2}-\d{2} )/m', $text);
                 $errors = array_values(array_filter($blocks, fn ($b) => str_contains(substr($b, 0, 180), '.ERROR:')));
                 foreach (array_slice($errors, -6) as $block) {
+                    $block = str_replace('\\/', '/', $block);
                     preg_match('/^\[([0-9: -]+)\]/', $block, $time);
                     echo 'ERROR_TIME '.($time[1] ?? 'unknown').PHP_EOL;
                     foreach (['Access denied', 'Permission denied', 'Undefined', 'not found', 'SQLSTATE', 'Call to', 'does not exist', 'Too many', 'Allowed memory', 'syntax error', 'must be of type', 'manifest', 'failed to open', 'CSRF', 'integrity constraint', 'Authentication', 'Unresolvable', 'Target class'] as $kind) {
@@ -58,6 +59,8 @@ jobs:
                         if (preg_match($pattern, $block, $match)) echo $label.' '.$match[1].PHP_EOL;
                     }
                     preg_match_all('~(?:/var/www/vortexops/)((?:app|resources/views)/[A-Za-z0-9_./-]+\.php)(?:\((\d+)\)|:(\d+))?~', $block, $frames, PREG_SET_ORDER);
+                    preg_match_all('~resources/[A-Za-z0-9_./-]+~', $block, $assets);
+                    foreach (array_unique($assets[0]) as $asset) echo 'ASSET_REFERENCE '.$asset.PHP_EOL;
                     $printed = [];
                     foreach ($frames as $frame) {
                         $source = $frame[1].':'.($frame[2] ?? $frame[3] ?? '');

@@ -27,7 +27,7 @@ class ProbeWhatnotOrderShowFilter extends Command
         $sources = [];
         foreach ([$a, $b] as $show) {
             $url = (string) $show->detail_url;
-            if (! preg_match('/[a-f0-9]{8}-[a-f0-9-]{27,}/i', $url, $m)) {
+            if (! preg_match('/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i', $url, $m)) {
                 $this->error("Show {$show->id} lacks a recognizable Whatnot live ID in detail_url");
                 return self::FAILURE;
             }
@@ -50,6 +50,11 @@ class ProbeWhatnotOrderShowFilter extends Command
             }
         }
         $overlaps = count(array_filter($owners, fn ($v) => count($v) > 1));
+        if (in_array(0, $counts, true)) {
+            $this->error('INCONCLUSIVE: one or both shows returned zero orders. Select two completed shows with known sales; do not enable backfill.');
+            $this->line(json_encode(['show_order_counts' => $counts], JSON_PRETTY_PRINT));
+            return self::FAILURE;
+        }
         $this->line(json_encode(['show_order_counts'=>$counts, 'overlapping_order_ids'=>$overlaps], JSON_PRETTY_PRINT));
         if ($overlaps > 0) {
             $this->error('SOURCE FILTER FAILED: orders appear under both shows. Do not backfill.');

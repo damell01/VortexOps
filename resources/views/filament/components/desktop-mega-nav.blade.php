@@ -156,10 +156,68 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
+<button type="button" class="vx-search-launch" aria-label="Open global search" title="Search (Ctrl+K)" onclick="window.vortexOpenSearch?.()">
+<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="21" height="21"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+<span class="vx-search-key">Ctrl K</span>
+</button>
 </nav>
 @include('filament.components.mobile-navigation')
 
 
+
+<style>
+/* The real Filament Livewire search stays mounted; only its presentation changes. */
+@media (min-width:1024px) {
+ .fi-topbar .fi-global-search { display:none !important; }
+ .fi-topbar.vx-search-open .fi-global-search {
+  display:block !important; position:fixed !important; inset: min(12vh,100px) auto auto 50% !important;
+  transform:translateX(-50%) !important; width:min(720px,calc(100vw - 36px)) !important;
+  max-width:720px !important; min-width:0 !important; z-index:10002 !important;
+  margin:0 !important; flex:none !important;
+ }
+ .fi-topbar.vx-search-open .fi-global-search .fi-input-wrp { min-height:62px !important; width:100% !important; }
+ .fi-topbar.vx-search-open .fi-global-search input { width:100% !important; min-height:60px !important; font-size:18px !important; }
+ .fi-topbar.vx-search-open .fi-global-search input::placeholder { color:#94a3b8 !important; }
+ .vx-search-launch { display:flex; align-items:center; justify-content:center; gap:8px; flex:0 0 auto; min-width:44px; height:44px; padding:0 12px; color:#d8b4fe; border:1px solid #493269; border-radius:12px; cursor:pointer; }
+ .vx-search-launch:hover,.vx-search-launch:focus-visible { background:#342052; outline:2px solid #a78bfa; outline-offset:2px; }
+ .vx-search-key { font-size:11px; color:#a1a1aa; white-space:nowrap; }
+ .vx-search-backdrop { position:fixed; inset:0; background:rgba(9,7,24,.78); backdrop-filter:blur(5px); z-index:10000; }
+ .vx-search-panel { position:fixed; top:min(12vh,100px); left:50%; transform:translateX(-50%); width:min(720px,calc(100vw - 36px)); height:64px; border-radius:18px; background:#18122b; border:1px solid #8b5cf6; box-shadow:0 25px 90px #0009; z-index:10001; pointer-events:none; }
+ .vx-search-hint { position:fixed; top:calc(min(12vh,100px) + 76px); left:50%; transform:translateX(-50%); width:min(720px,calc(100vw - 36px)); padding:10px 14px; border-radius:12px; background:#18122b; color:#c4b5fd; font-size:12px; z-index:10001; pointer-events:none; }
+ body.vx-search-modal-open { overflow:hidden; }
+}
+@media (max-width:1023px) { .vx-search-launch { display:none; } }
+</style>
+<script>
+(() => {
+ if(window.vortexSearchLauncherInstalled) return;
+ window.vortexSearchLauncherInstalled=true;
+ let overlay=null;
+ const close=()=>{
+  document.querySelectorAll('.fi-topbar.vx-search-open').forEach(el=>el.classList.remove('vx-search-open'));
+  overlay?.remove();overlay=null;document.body.classList.remove('vx-search-modal-open');
+ };
+ window.vortexOpenSearch=()=>{
+  const topbar=document.querySelector('.fi-topbar:has(.vx-desktop-mega-nav)');
+  const input=topbar?.querySelector('.fi-global-search input');
+  if(!topbar||!input){ document.querySelector('.fi-global-search input')?.focus();return; }
+  close();
+  overlay=document.createElement('div');
+  overlay.innerHTML='<div class="vx-search-backdrop"></div><div class="vx-search-panel"></div><div class="vx-search-hint">Search inventory, SKUs and records · Esc to close</div>';
+  overlay.querySelector('.vx-search-backdrop').addEventListener('click',close);
+  document.body.appendChild(overlay);
+  topbar.classList.add('vx-search-open');document.body.classList.add('vx-search-modal-open');
+  requestAnimationFrame(()=>input.focus());
+ };
+ document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && overlay){close();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+   e.preventDefault();window.vortexOpenSearch();
+  }
+ });
+ document.addEventListener('livewire:navigating',close);
+})();
+</script>
 
 <style>
 @media (min-width: 1024px) {

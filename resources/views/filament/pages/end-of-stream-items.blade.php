@@ -124,7 +124,7 @@
                         <div class="mt-0.5">{{ $reportBlocked }}</div>
                         @if($isAdminViewer)
                             <div class="mt-2 flex flex-wrap items-center gap-2">
-                                <a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $this->show]) }}">Open show</a>
+                                <a wire:navigate class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $this->show]) }}">Open show</a>
                                 <span class="vxw-meta">Assign someone there, or use <strong>Detect Streamers</strong> on the Shows list.</span>
                             </div>
                         @endif
@@ -294,7 +294,7 @@
                                             @elseif ($clock['open'])
                                                 You're still clocked in for this show.
                                             @else
-                                                No clock record linked to this show. Link your time on <a class="vxw-link" href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}">Timekeeping</a>, or an admin will review these hours.
+                                                No clock record linked to this show. Link your time on <a wire:navigate class="vxw-link" href="{{ \App\Filament\Pages\Timekeeping::getUrl() }}">Timekeeping</a>, or an admin will review these hours.
                                             @endif
                                         </div>
                                         <div class="vxw-hint">Reference only — show length on Whatnot: {{ $this->show?->show_duration ? number_format($this->show->show_duration / 60, 2) . ' hrs' : 'not recorded' }}</div>

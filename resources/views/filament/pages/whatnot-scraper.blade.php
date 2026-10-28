@@ -136,7 +136,7 @@
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Channels ({{ $this->channels->count() }})</h3>
-            <a href="{{ \App\Filament\Resources\WhatnotChannelResource::getUrl('index') }}" class="text-xs text-violet-600 dark:text-violet-400 hover:underline">
+            <a wire:navigate href="{{ \App\Filament\Resources\WhatnotChannelResource::getUrl('index') }}" class="text-xs text-violet-600 dark:text-violet-400 hover:underline">
                 Manage Channels →
             </a>
         </div>
@@ -162,7 +162,7 @@
         @empty
             <div class="px-5 py-8 text-center text-sm text-gray-400">
                 No channels configured.
-                <a href="{{ \App\Filament\Resources\WhatnotChannelResource::getUrl('create') }}" class="text-violet-600 dark:text-violet-400 hover:underline ml-1">Add a channel →</a>
+                <a wire:navigate href="{{ \App\Filament\Resources\WhatnotChannelResource::getUrl('create') }}" class="text-violet-600 dark:text-violet-400 hover:underline ml-1">Add a channel →</a>
             </div>
         @endforelse
     </div>

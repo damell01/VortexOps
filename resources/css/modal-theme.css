@@ -1,0 +1,85 @@
+/* Shared dialog skin. Filament/Alpine still owns opening, focus and dismissal. */
+.vx-dialog-theme {
+    --vxw-surface: #11192f; --vxw-sunken: #19233e;
+    --vxw-text: #eef2ff; --vxw-muted: #bcc6e4; --vxw-border: #465077;
+    background: var(--vxw-surface) !important; color: var(--vxw-text) !important;
+    border-color: var(--vxw-border) !important; color-scheme: dark;
+}
+.vx-dialog-theme :is(input:not([type=checkbox]):not([type=radio]), select, textarea) {
+    background-color: #19233e !important; color: #eef2ff !important; border-color: #596487 !important;
+}
+.vx-dialog-theme :focus-visible { outline: 3px solid #c4b5fd; outline-offset: 3px; }
+.fi-modal .fi-modal-window, .vx-confirm-dialog {
+    --vx-dialog-bg: #11192f;
+    --vx-dialog-line: #465077;
+    background: var(--vx-dialog-bg) !important;
+    color: #eef2ff !important;
+    border: 1px solid var(--vx-dialog-line) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 24px 80px #02061766 !important;
+    max-height: calc(100dvh - 2rem) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    color-scheme: dark;
+}
+.fi-modal .fi-modal-close-overlay, .vx-confirm-dialog::backdrop { background: #020617b3 !important; }
+.fi-modal .fi-modal-header {
+    position: relative;
+    background: var(--vx-dialog-bg) !important;
+    border-bottom: 1px solid var(--vx-dialog-line);
+    padding: 1.25rem !important;
+}
+.fi-modal .fi-modal-header::after {
+    content: '';
+    position: absolute;
+    top: .75rem;
+    inset-inline-end: 3.5rem;
+    width: 3rem;
+    height: 3rem;
+    background: url('/img/pokemon3d/pikachu.gif') center / contain no-repeat;
+    pointer-events: none;
+}
+.fi-modal:has(.fi-modal-footer .fi-color-danger) .fi-modal-header::after { background-image: url('/img/pokemon3d/charmander.gif'); }
+.fi-modal:has(.fi-fo-field-wrp):not(:has(.fi-modal-footer .fi-color-danger)) .fi-modal-header::after { background-image: url('/img/pokemon3d/bulbasaur.gif'); }
+body:has([data-vx-page="payroll"]) .fi-modal:not(:has(.fi-modal-footer .fi-color-danger)) .fi-modal-header::after { background-image: url('/img/pokemon3d/eevee.gif'); }
+.fi-modal .fi-modal-heading { color: #f8fafc !important; font-size: 1.125rem; line-height: 1.4; padding-inline-end: 5.5rem; }
+.fi-modal .fi-modal-description { color: #bcc6e4 !important; padding-inline-end: 4rem; line-height: 1.6; }
+.fi-modal .fi-modal-heading::before, .vx-confirm-dialog h2::before {
+    content: ''; display: inline-block; width: 1.2rem; height: 1.2rem;
+    background: url('/img/pokeball.svg') center / contain no-repeat;
+    margin-inline-end: .5rem; vertical-align: -.15rem;
+}
+.fi-modal .fi-modal-content { min-width: 0; flex: 0 0 auto; padding: 1.25rem !important; }
+.fi-modal .fi-modal-header, .fi-modal .fi-modal-footer { flex-shrink: 0; }
+.fi-modal .fi-modal-footer {
+    position: sticky; bottom: 0; z-index: 2;
+    background: var(--vx-dialog-bg) !important;
+    border-top: 1px solid var(--vx-dialog-line);
+    padding: 1rem 1.25rem max(1rem, env(safe-area-inset-bottom)) !important;
+}
+.fi-modal .fi-modal-footer-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.fi-modal .fi-modal-footer-actions .fi-btn { min-height: 44px; border-radius: 10px; }
+.fi-modal .fi-modal-close-btn { min-width: 44px; min-height: 44px; color: #cbd5e1 !important; }
+.fi-modal :is(.fi-fo-field-label, .fi-fo-field-label-content, .fi-fo-field-wrp-label, .fi-fo-field-wrp-label-content, .fi-input, .fi-select-input) { color: #eef2ff !important; }
+.fi-modal :is(.fi-fo-field-wrp-helper-text, .fi-fo-placeholder) { color: #bcc6e4 !important; }
+.fi-modal :is(.fi-input-wrp, .fi-fo-textarea) { background: #19233e !important; border-radius: 10px; --tw-ring-color: #465077; }
+.fi-modal input::placeholder, .fi-modal textarea::placeholder { color: #a3b1d1 !important; }
+.fi-modal .fi-modal-footer .fi-btn.fi-color-primary, .vx-confirm-actions [data-confirm] { background: #7543eb !important; color: white !important; }
+.fi-modal .fi-modal-footer .fi-btn.fi-color-gray, .vx-confirm-actions [data-cancel] { background: #202b47 !important; color: #eef2ff !important; border: 1px solid #596487; }
+.fi-modal .fi-modal-footer .fi-btn.fi-color-danger { background: #be334a !important; color: white !important; }
+.fi-modal :focus-visible, .vx-confirm-dialog :focus-visible { outline: 3px solid #c4b5fd; outline-offset: 3px; }
+.vx-confirm-dialog p, .dark .vx-confirm-dialog p { color: #bcc6e4; }
+.vx-confirm-dialog h2 { padding-inline-end: 2rem; }
+@media (max-width: 639px) {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn { align-items: end; padding: .5rem !important; }
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window {
+        width: 100% !important; max-width: 100% !important;
+        max-height: calc(100dvh - 1rem) !important;
+        border-radius: 20px 20px 12px 12px !important;
+    }
+    .fi-modal .fi-modal-header, .fi-modal .fi-modal-content { padding: 1rem !important; }
+    .fi-modal .fi-modal-footer-actions .fi-btn { flex: 1 1 8rem; white-space: normal; }
+    .fi-modal :is(input:not([type=checkbox]):not([type=radio]), select, textarea) { font-size: 16px !important; }
+    .vx-confirm-dialog { width: calc(100vw - 1rem); padding: 1.25rem; }
+}
+@media (prefers-reduced-motion: reduce) { .fi-modal .fi-modal-header::after { display: none; } }

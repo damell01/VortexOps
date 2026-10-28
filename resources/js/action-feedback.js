@@ -1,6 +1,7 @@
 import '../css/action-feedback.css';
 let installed = false;
 let pending = 0;
+let generation = 0;
 let notice = null;
 function renderFeedback(text, error = false) {
     notice?.remove();
@@ -92,17 +93,21 @@ function installFeedback() {
         const actions = (body?.components || []).some(component => (component.calls || []).some(call => !['$refresh', '$set', '$dispatch', '__dispatch'].includes(call.method)));
         if (!actions) return;
         awaiting = null;
+        const current = generation;
         pending++;
         let finished = false;
         // Only for something slow: a quick save flashing "Working…" is just noise.
-        const slow = setTimeout(() => { if (!finished) renderFeedback('Working…'); }, 700);
+        const slow = setTimeout(() => { if (!finished && current === generation) renderFeedback('Working…'); }, 700);
         const finish = () => {
             if (finished) return;
-            finished = true; clearTimeout(slow); pending = Math.max(0, pending - 1);
+            finished = true; clearTimeout(slow);
+            if (current !== generation) return;
+            pending = Math.max(0, pending - 1);
             if (pending === 0 && !notice?.classList.contains('is-error')) { notice?.remove(); notice = null; }
         };
         succeed(({ json }) => {
             finish();
+            if (current !== generation) return;
             // A form that didn't pass validation answers with a normal 200 and
             // marks the fields — often far up a long form, out of sight of the
             // Save button, so the button looked dead. Say so, and go there.
@@ -122,6 +127,7 @@ function installFeedback() {
         // nothing at all and looked like a dead button.
         let reported = false;
         respond(({ status }) => {
+            if (current !== generation) { finish(); return; }
             if (status < 400) return;
             reported = true;
             finish();
@@ -130,6 +136,7 @@ function installFeedback() {
                 : (status === 403 ? 'You don\u2019t have permission to do that.' : 'That didn\u2019t save \u2014 something went wrong on our side. Try again, and tell us if it keeps happening.'), true);
         });
         fail(({ status }) => {
+            if (current !== generation) { finish(); return; }
             if (reported) return; // the server's own answer above says it better
             finish();
             renderFeedback(status === 419 ? 'Your session expired. Refresh the page and sign in again.' : 'The action could not be confirmed. Check the record before retrying.', true);
@@ -138,4 +145,4 @@ function installFeedback() {
 }
 document.addEventListener('livewire:init', installFeedback);
 installFeedback();
-document.addEventListener('livewire:navigating', () => { pending = 0; notice?.remove(); notice = null; });
+document.addEventListener('livewire:navigating', () => { generation++; awaiting = null; pending = 0; notice?.remove(); notice = null; });

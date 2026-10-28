@@ -1,3 +1,6 @@
+import '../css/modal-theme.css';
+import '../css/ui-consistency.css';
+import './navigation-progress.js';
 import './action-feedback.js';
 import './delight.js';
 import './buddy.js';

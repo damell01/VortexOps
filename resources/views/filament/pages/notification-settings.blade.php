@@ -19,7 +19,7 @@
             <p class="vxr-subtitle">Manage who receives alerts and how they are delivered.</p>
         </div>
         <div class="vxr-actions">
-            <a class="vxr-btn" href="{{ \App\Filament\Pages\EmailLog::getUrl() }}"><x-filament::icon icon="heroicon-o-document-text" /> Delivery Log</a>
+            <a wire:navigate class="vxr-btn" href="{{ \App\Filament\Pages\EmailLog::getUrl() }}"><x-filament::icon icon="heroicon-o-document-text" /> Delivery Log</a>
             <button type="button" class="vxr-btn" wire:click="$set('emailPanel', true)"><x-filament::icon icon="heroicon-o-paper-airplane" /> Test Email</button>
         </div>
     </div>
@@ -88,7 +88,7 @@
         $times = []; for ($m = 0; $m < 1440; $m += 30) { $times[sprintf('%02d:%02d', intdiv($m, 60), $m % 60)] = \Illuminate\Support\Carbon::createFromTime(intdiv($m, 60), $m % 60)->format('g:i A'); }
     @endphp
     <div class="vxr-drawer-backdrop" wire:click="closeConfigure"></div>
-    <aside class="vxr-drawer" style="--vxr-modal-w:1040px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.closeConfigure()">
+    <aside class="vx-dialog-theme vxr-drawer" style="--vxr-modal-w:1040px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.closeConfigure()">
         <div class="vxr-drawer-head">
             <div><h2 class="vxr-drawer-title">{{ $event['label'] }}</h2><p class="vxr-hint" style="font-size:13.5px">{{ $event['description'] }}</p></div>
             <button type="button" class="vxr-x" wire:click="closeConfigure" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
@@ -200,7 +200,7 @@
 {{-- ── Email settings / test panel ─────────────────────────────────── --}}
 @if ($emailPanel)
     <div class="vxr-drawer-backdrop" wire:click="$set('emailPanel', false)"></div>
-    <aside class="vxr-drawer" style="--vxr-modal-w:760px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.set('emailPanel', false)">
+    <aside class="vx-dialog-theme vxr-drawer" style="--vxr-modal-w:760px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.set('emailPanel', false)">
         <div class="vxr-drawer-head">
             <div><h2 class="vxr-drawer-title">Email</h2><p class="vxr-hint" style="font-size:13.5px">Mailer: <b>{{ $mailer }}</b>@if(in_array($mailer, ['log', 'array'])) — emails are recorded, not delivered @endif</p></div>
             <button type="button" class="vxr-x" wire:click="$set('emailPanel', false)" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button>
@@ -235,7 +235,7 @@
 {{-- ── Email preview ───────────────────────────────────────────────── --}}
 @if ($previewEvent)
     <div class="vxr-drawer-backdrop" style="z-index:1005" wire:click="closePreview"></div>
-    <aside class="vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data x-on:keydown.escape.window="$wire.closePreview()">
+    <aside class="vx-dialog-theme vxr-drawer" style="--vxr-modal-w:1100px;height:min(90vh,980px);z-index:1010" role="dialog" aria-modal="true" wire:key="preview-{{ $previewEvent }}" x-data x-on:keydown.escape.window="$wire.closePreview()">
         <div class="vxr-drawer-head">
             <div><p class="vxr-hint" style="margin:0">Email preview</p><h2 class="vxr-drawer-title">{{ \App\Support\NotificationCatalog::label($previewEvent) }}</h2></div>
             <div style="display:flex;gap:8px"><button type="button" class="vxr-btn vxr-btn--sm" wire:click="sendTest('{{ $previewEvent }}')">Send test</button><button type="button" class="vxr-x" wire:click="closePreview" aria-label="Close"><x-filament::icon icon="heroicon-o-x-mark" /></button></div>

@@ -120,7 +120,7 @@
                                             </td>
                                             <td class="px-4 py-3"><span class="vxw-pill">Show report</span></td>
                                             <td class="px-4 py-3 text-right whitespace-nowrap">
-                                                @if ($seesTeam)<a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $r->id]) }}" wire:navigate>Open report</a>@endif
+                                                @if ($seesTeam)<a wire:navigate class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $r->id]) }}" wire:navigate>Open report</a>@endif
                                             </td>
                                         </tr>
                                         @continue

@@ -10,11 +10,11 @@
 
  <section class="vx-card p-4">
   <div class="vx-period">
-   <button wire:click="previousPeriod" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700">‹</button>
+   <button wire:click="previousPeriod" wire:loading.attr="disabled" wire:target="previousPeriod" type="button" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700">‹</button>
    <div class="vx-period-select"><label class="mb-1 block text-xs font-medium text-gray-500">Period</label><select wire:model.live="datePreset" class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"><option value="this_week">This week</option><option value="last_week">Last week</option><option value="this_month">This month</option><option value="last_month">Last month</option><option value="last_30">Last 30 days</option><option value="custom">Custom</option></select></div>
    <div><label class="mb-1 block text-xs font-medium text-gray-500">From</label><input type="date" wire:model.live="dateFrom" wire:change="$set('datePreset','custom')" class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"></div>
    <div><label class="mb-1 block text-xs font-medium text-gray-500">To</label><input type="date" wire:model.live="dateTo" wire:change="$set('datePreset','custom')" class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800"></div>
-   <button wire:click="nextPeriod" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700">›</button>
+   <button wire:click="nextPeriod" wire:loading.attr="disabled" wire:target="nextPeriod" type="button" class="rounded-lg border px-3 py-2 text-sm dark:border-gray-700">›</button>
    <div class="vx-period-label ml-auto rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold dark:bg-gray-800">{{ $this->dateRangeLabel() }}</div>
   </div>
  </section>

@@ -1,0 +1,19 @@
+/* Shared operational controls; keep compact icon controls and semantic colours. */
+.fi-main :is(.vxw-btn, .vxr-btn, .vx-action-btn, .fi-btn) {
+    border-radius: 10px; min-height: 40px; gap: .5rem;
+    font-size: .875rem; font-weight: 600; line-height: 1.4;
+}
+.fi-main :is(.vxw-hero, .vxr-header, .fi-header) { gap: 1rem; }
+.fi-main :is(.vxw-hero-actions, .fi-header-actions-ctn) { flex-wrap: wrap; gap: .5rem; }
+.fi-main :is(.vxw-panel, .vxr-card, .fi-section-content-ctn) { min-width: 0; }
+.fi-main :is(.vxw-btn, .vxr-btn, .vx-action-btn):focus-visible { outline: 3px solid #a78bfa; outline-offset: 3px; }
+.fi-main button[wire\:loading\.attr="disabled"]:disabled { cursor: progress !important; }
+@media (prefers-reduced-motion: reduce) {
+    #vx-nav-bar.vx-run { display: block !important; animation: none !important; width: 65%; opacity: 1; }
+}
+@media (pointer: coarse), (max-width: 767px) {
+    .fi-main :is(.vxw-btn, .vxr-btn, .vxw-iconbtn, .vxr-pager button, .vxw-page, .fi-btn, .fi-icon-btn) { min-height: 44px; }
+    .fi-main :is(.vxw-iconbtn, .vxr-pager button, .vxw-page, .fi-icon-btn) { min-width: 44px; }
+    .fi-main :is(.vxw-hero-actions, .fi-header-actions-ctn) { width: 100%; }
+    .fi-main :is(.vxw-hero-actions, .fi-header-actions-ctn) > :is(.vxw-btn, .fi-btn) { flex: 1 1 auto; white-space: normal; }
+}

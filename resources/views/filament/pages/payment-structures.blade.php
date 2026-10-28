@@ -103,7 +103,7 @@
 
         @if($editingMember)
         <div class="vx-ps-modal" wire:key="override-modal-{{ $editingMember->id }}" x-data x-on:keydown.escape.window="$wire.closeMemberEditor()">
-        <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit {{ $editingMember->name }}'s pay">
+        <div class="vx-dialog-theme vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit {{ $editingMember->name }}'s pay">
             <div class="flex items-center justify-between"><div><div class="text-xs font-bold uppercase text-primary-600">Custom override</div><div class="text-lg font-bold">{{$editingMember->name}}</div><div class="text-xs text-gray-500">Regular payouts · {{$editingMember->isFulfillment()?'Fulfillment':'Streamer'}}</div></div><button wire:click="closeMemberEditor" class="text-sm text-gray-500">Close</button></div>
 
             @if(!$editingMember->isFulfillment())
@@ -180,7 +180,7 @@
                 <div class="vx-type-card border border-[var(--vx-border)] p-4 text-sm" wire:key="run-type-{{ $index }}">
                     <div class="vx-type-title"><span>{{ $type['name'] ?: 'New pay run type' }}</span>
                         @if(($type['id'] ?? null) && ($type['active'] ?? false) && auth()->user()?->can('create', \App\Models\WeeklyPayoutBatch::class))
-                            <a class="vx-type-create" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create', ['pay_run_type_id' => $type['id']]) }}">+ Create run</a>
+                            <a wire:navigate class="vx-type-create" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create', ['pay_run_type_id' => $type['id']]) }}">+ Create run</a>
                         @endif
                         <button type="button" class="text-xs font-semibold text-danger-600" wire:loading.attr="disabled" wire:target="deleteRunType" x-data x-on:click="if (await window.vxConfirm(@js('Delete this pay run type? Existing pay runs are preserved.'))) $wire.deleteRunType({{ $index }})">Delete</button>
                     </div>
@@ -268,7 +268,7 @@
 
     @if($editing_rates)
         <div class="vx-ps-modal" wire:key="rates-modal" x-data x-on:keydown.escape.window="$wire.cancelRatesEditor()">
-            <div class="vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit team rates">
+            <div class="vx-dialog-theme vx-ps-modal-panel" role="dialog" aria-modal="true" aria-label="Edit team rates">
                 <div class="vx-ps-modal-head">
                     <div><div class="text-xs font-bold uppercase text-primary-600">Team rates</div><div class="text-lg font-bold">Edit how {{ $business ? $business->name."'s team" : 'the team' }} is paid</div></div>
                     <button type="button" wire:click="cancelRatesEditor" class="text-sm text-gray-500">Close</button>

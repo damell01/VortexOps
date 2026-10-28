@@ -201,7 +201,7 @@
                         </label>
                     </div>
                 @endforeach
-                <p class="text-xs text-gray-400 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <a href="{{ \App\Filament\Resources\RoleResource::getUrl('index') }}" class="font-semibold text-primary-600 underline">Roles &amp; Permissions</a>. Changes apply on the next page load after saving.</p>
+                <p class="text-xs text-gray-400 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <a wire:navigate href="{{ \App\Filament\Resources\RoleResource::getUrl('index') }}" class="font-semibold text-primary-600 underline">Roles &amp; Permissions</a>. Changes apply on the next page load after saving.</p>
             </div>
         </div>
         @endif
@@ -239,7 +239,7 @@
 
         {{-- Notifications moved to their own page: who gets what, email on/off, previews and tests. --}}
         <div wire:key="section-notifications" class="vx-card overflow-hidden">
-            <a href="{{ \App\Filament\Pages\NotificationSettings::getUrl() }}" class="flex items-center justify-between gap-4 px-6 py-4">
+            <a wire:navigate href="{{ \App\Filament\Pages\NotificationSettings::getUrl() }}" class="flex items-center justify-between gap-4 px-6 py-4">
                 <span>
                     <span class="block text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</span>
                     <span class="block text-xs text-gray-500 dark:text-gray-400">Who gets each notification, email on/off, previews and test sends — plus the Email Log.</span>

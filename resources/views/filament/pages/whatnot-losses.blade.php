@@ -18,7 +18,7 @@
             <div>
                 <h1 class="vxr-title">Whatnot Losses</h1>
                 <p class="vxr-subtitle">Shows with negative estimated Whatnot earnings.</p>
-                <a class="vxr-link" style="margin-top:6px;font-size:14px" href="{{ \App\Filament\Pages\NotificationSettings::getUrl(['configure' => 'whatnot_negative']) }}">Manage summaries in Notification Settings</a>
+                <a wire:navigate class="vxr-link" style="margin-top:6px;font-size:14px" href="{{ \App\Filament\Pages\NotificationSettings::getUrl(['configure' => 'whatnot_negative']) }}">Manage summaries in Notification Settings</a>
             </div>
             <div class="vxr-actions">
                 <button type="button" class="vxr-btn" wire:click="exportCsv"><x-filament::icon icon="heroicon-o-arrow-up-tray" /> Export CSV</button>
@@ -71,7 +71,7 @@
                         <tbody>
                             @foreach ($rows as $r)
                                 <tr wire:key="wl-{{ $r['id'] }}">
-                                    <td><a class="strong" style="color:inherit;text-decoration:none" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $r['id']]) }}">{{ $r['title'] }}</a><span class="sub"><x-vx.channel :name="$r['channel']" /></span></td>
+                                    <td><a wire:navigate class="strong" style="color:inherit;text-decoration:none" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $r['id']]) }}">{{ $r['title'] }}</a><span class="sub"><x-vx.channel :name="$r['channel']" /></span></td>
                                     <td>{{ $r['business'] }}</td>
                                     <td>{{ $r['streamer'] }}</td>
                                     <td style="white-space:nowrap">{{ $r['date']?->format('M j, Y') }}</td>

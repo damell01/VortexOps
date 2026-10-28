@@ -88,7 +88,7 @@
 
                 <!-- Action Buttons -->
                 <div class="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700 flex-wrap">
-                    <button wire:click="clearFilters" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    <button wire:click="clearFilters" wire:loading.attr="disabled" wire:target="clearFilters" type="button" class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                         <x-heroicon-o-x-mark class="h-4 w-4 inline mr-1" />
                         Clear Filters
                     </button>
@@ -129,10 +129,10 @@
             <div class="flex gap-2 flex-wrap">
                 @foreach($savedFilters as $filter)
                 <div class="inline-flex items-center gap-2 px-3 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 rounded-full text-sm">
-                    <button wire:click="loadFilter('{{ $filter }}')" class="hover:underline font-medium">
+                    <button wire:click="loadFilter('{{ $filter }}')" wire:loading.attr="disabled" wire:target="loadFilter('{{ $filter }}')" type="button" class="hover:underline font-medium">
                         {{ $filter }}
                     </button>
-                    <button wire:click="deleteFilter('{{ $filter }}')" class="hover:text-primary-600 dark:hover:text-primary-200">
+                    <button wire:click="deleteFilter('{{ $filter }}')" wire:loading.attr="disabled" wire:target="deleteFilter('{{ $filter }}')" type="button" class="hover:text-primary-600 dark:hover:text-primary-200">
                         <x-heroicon-o-x-mark class="h-4 w-4" />
                     </button>
                 </div>
@@ -171,7 +171,7 @@
                         @foreach($this->results as $item)
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
                             <td class="px-6 py-3">
-                                <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $item]) }}" class="text-primary-600 hover:underline font-medium">
+                                <a wire:navigate href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $item]) }}" class="text-primary-600 hover:underline font-medium">
                                     {{ $item->name }}
                                 </a>
                                 @if(!$item->is_active)

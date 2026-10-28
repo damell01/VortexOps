@@ -31,7 +31,7 @@
 <div class="ivx">
     <nav class="ivx-tabs" aria-label="Inventory overview sections">
         @foreach(['overview' => 'Overview', 'tools' => 'Tools', 'reports' => 'Reports'] as $k => $l)
-            <button type="button" wire:click="setTab('{{ $k }}')" @class(['on' => $tab === $k]) aria-pressed="{{ $tab === $k ? 'true' : 'false' }}">{{ $l }}</button>
+            <button type="button" wire:click="setTab('{{ $k }}')" wire:loading.attr="disabled" wire:target="setTab('{{ $k }}')" @class(['on' => $tab === $k]) aria-pressed="{{ $tab === $k ? 'true' : 'false' }}">{{ $l }}</button>
         @endforeach
     </nav>
 
@@ -59,7 +59,7 @@
                 <div class="ivx-head" style="margin-bottom:4px">
                     <h3 class="ivx-h">Inventory Value Trend</h3>
                     <div class="ivx-tabs" style="padding:3px;flex:none" role="group" aria-label="Trend period">
-                        @foreach([7, 30, 90] as $days)<button type="button" wire:click="$set('trendDays', {{ $days }})" @class(['on' => (int) $trendDays === $days]) style="min-height:28px;padding:0 10px;font-size:.72rem">{{ $days }}D</button>@endforeach
+                        @foreach([7, 30, 90] as $days)<button type="button" wire:click="$set('trendDays', {{ $days }})" wire:loading.attr="disabled" wire:target="$set('trendDays', {{ $days }})" @class(['on' => (int) $trendDays === $days]) style="min-height:28px;padding:0 10px;font-size:.72rem">{{ $days }}D</button>@endforeach
                     </div>
                 </div>
                 @if($change !== null)<span class="ivx-up {{ $change < 0 ? 'down' : '' }}">{{ $change < 0 ? '↓' : '↑' }} {{ abs($change) }}%</span>@endif
@@ -160,7 +160,7 @@
                 <div class="ivx-empty">No items match these filters.</div>
             @endforelse
             @if($report['total'] > $report['rows']->count())
-                <div class="p-3 text-center"><button type="button" class="ivx-btn" wire:click="moreReportRows">Show more ({{ $report['total'] - $report['rows']->count() }} left)</button></div>
+                <div class="p-3 text-center"><button type="button" class="ivx-btn" wire:click="moreReportRows" wire:loading.attr="disabled" wire:target="moreReportRows">Show more ({{ $report['total'] - $report['rows']->count() }} left)</button></div>
             @endif
         </section>
         <a href="{{ $this->reportUrl() }}" class="ivx-tool"><span class="ivx-ic"><x-heroicon-o-chart-bar /></span><span class="flex-1"><span class="t block">Full report &amp; analytics</span><span class="ivx-sub">Value, movement, categories, exports</span></span><x-heroicon-m-chevron-right class="ivx-chev" /></a>

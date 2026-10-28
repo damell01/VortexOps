@@ -48,6 +48,22 @@ class InventoryWorkspacePagesTest extends TestCase
         return $item;
     }
 
+    public function test_transfer_confirmation_uses_the_shared_accessible_modal_without_moving_stock(): void
+    {
+        $item = $this->item('Modal QA item', 12);
+        Livewire::test(\App\Filament\Pages\StockTransfer::class)
+            ->set('fromLocationId', $this->main->id)
+            ->set('selectedTransfers', [$item->id => 2])
+            ->set('showConfirm', true)
+            ->assertSee('Confirm Transfer')
+            ->assertSee('stock-transfer-confirmation', false)
+            ->assertSee('fi-modal-footer-actions', false)
+            ->assertSee('x-trap.noscroll', false)
+            ->set('showConfirm', false)
+            ->assertDontSee('Confirm Transfer');
+        $this->assertSame(12.0, (float) $item->stock()->sum('quantity'));
+    }
+
     public function test_overview_tabs_render_with_the_stock_counts(): void
     {
         $this->item('Plenty', 20);

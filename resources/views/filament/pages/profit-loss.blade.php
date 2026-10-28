@@ -122,8 +122,8 @@
                             <div style="font-weight:650;font-size:15px">{{ $name }}</div>
                             <div class="vxr-hint" style="margin-top:2px">
                                 @if ($go === 'incomplete')<button type="button" class="vxr-link" style="background:none;border:0;padding:0;font-weight:500;cursor:pointer" wire:click="setTab('incomplete')">{{ $text }}</button>
-                                @elseif ($go === 'time' && \App\Filament\Pages\TimeAttendance::canAccess())<a class="vxr-link" style="font-weight:500" href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}">{{ $text }}</a>
-                                @elseif ($go === 'payroll' && \App\Filament\Pages\PayrollOverview::canAccess())<a class="vxr-link" style="font-weight:500" href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}">{{ $text }}</a>
+                                @elseif ($go === 'time' && \App\Filament\Pages\TimeAttendance::canAccess())<a wire:navigate class="vxr-link" style="font-weight:500" href="{{ \App\Filament\Pages\TimeAttendance::getUrl() }}">{{ $text }}</a>
+                                @elseif ($go === 'payroll' && \App\Filament\Pages\PayrollOverview::canAccess())<a wire:navigate class="vxr-link" style="font-weight:500" href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}">{{ $text }}</a>
                                 @else {{ $text }} @endif
                             </div>
                         </div>
@@ -235,14 +235,14 @@
     <div class="vxr-card" style="display:flex;gap:14px;align-items:center;padding:16px 20px">
         <x-filament::icon icon="heroicon-o-bell" style="width:28px;height:28px;color:var(--vxw-accent);flex:none" />
         <div><b style="font-size:15px">Use notifications for daily or weekly loss summaries.</b>
-            <div class="vxr-hint" style="margin-top:2px">Finalized business losses and negative Whatnot earnings can be sent on a schedule — set it up in <a class="vxr-link" href="{{ \App\Filament\Pages\NotificationSettings::getUrl(['configure' => 'show_lost_money']) }}">notification settings</a>.</div></div>
+            <div class="vxr-hint" style="margin-top:2px">Finalized business losses and negative Whatnot earnings can be sent on a schedule — set it up in <a wire:navigate class="vxr-link" href="{{ \App\Filament\Pages\NotificationSettings::getUrl(['configure' => 'show_lost_money']) }}">notification settings</a>.</div></div>
     </div>
 </div>
 
 {{-- Show detail panel --}}
 @if ($detail)
     <div class="vxr-drawer-backdrop" wire:click="select({{ $detail['id'] }})"></div>
-    <aside class="vxr-drawer" style="--vxr-modal-w:980px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.select({{ $detail['id'] }})">
+    <aside class="vx-dialog-theme vxr-drawer" style="--vxr-modal-w:980px" role="dialog" aria-modal="true" x-data x-on:keydown.escape.window="$wire.select({{ $detail['id'] }})">
         <div class="vxr-drawer-head">
             <div style="min-width:0">
                 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h2 class="vxr-drawer-title">{{ $detail['title'] }}</h2>
@@ -280,7 +280,7 @@
             </div>
         </div>
         <div class="vxr-drawer-foot">
-            <a class="vxr-btn vxr-btn--primary" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $detail['id']]) }}" style="height:44px;padding:0 22px">View Show <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" /></a>
+            <a wire:navigate class="vxr-btn vxr-btn--primary" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $detail['id']]) }}" style="height:44px;padding:0 22px">View Show <x-filament::icon icon="heroicon-o-arrow-top-right-on-square" /></a>
         </div>
     </aside>
 @endif

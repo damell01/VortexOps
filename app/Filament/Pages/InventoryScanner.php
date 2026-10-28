@@ -433,7 +433,11 @@ class InventoryScanner extends Page
             $createdItem = true;
         }
 
-        $this->addQuickAddStock($item, $createdItem);
+        if ($createdItem) {
+            $this->addQuickAddStock($item, true);
+        } else {
+            $this->selectQuickAddItem($item);
+        }
     }
 
     /**

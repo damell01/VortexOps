@@ -34,7 +34,7 @@
         if (!button) return;
 
         const card = button.closest('.vx-product-card');
-        const recordId = recordIdFromCard(card);
+        const recordId = Number(button.dataset.stockProductId || 0) || recordIdFromCard(card);
         if (!recordId) {
             console.error('[VortexOps] Add Stock card is missing a record id');
             return;

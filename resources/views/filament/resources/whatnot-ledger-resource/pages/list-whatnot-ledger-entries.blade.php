@@ -60,6 +60,7 @@
             <p class="vxr-subtitle">Reconcile credits, debits and transaction status by channel.</p>
         </div>
         <div class="vxr-actions">
+            <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'needs_attribution' ? 'all' : 'needs_attribution' }}')">{{ $review === 'needs_attribution' ? 'Show all entries' : 'Reconciliation queue' }}</button>
             <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_missing_order' ? 'all' : 'tips_missing_order' }}')">{{ $review === 'tips_missing_order' ? 'Show all entries' : 'Review tips missing order ID' }}</button>
             <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', '{{ $review === 'tips_unmatched_order' ? 'all' : 'tips_unmatched_order' }}')">{{ $review === 'tips_unmatched_order' ? 'Show all entries' : 'Review tips without matching show' }}</button>

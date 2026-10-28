@@ -305,6 +305,7 @@ class InventoryScanner extends Page
             $this->result       = null;
             $this->errorMessage = "No inventory item found for \"{$code}\". Check the barcode or SKU on the item record.";
             $this->costWarnings = null;
+            $this->dispatch('inventory-scanner-unknown', barcode: $code);
             return;
         }
 
@@ -412,8 +413,9 @@ class InventoryScanner extends Page
 
             if ($name === '') {
                 $this->qaFlash = [
-                    'error' => "No item found for \"{$code}\". Enter an item name above to create it.",
+                    'error' => "No item found for \"{$code}\". Choose to create a new item or link this barcode to an existing one.",
                 ];
+                $this->dispatch('inventory-scanner-unknown', barcode: $code);
                 return;
             }
 

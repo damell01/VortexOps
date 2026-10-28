@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 428c775ae42e47884a1346dabdd3ba4428210ad6
+          ref: d3665e4117e05fa3bbf007c06fd95eea69a29701
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -25,7 +25,7 @@ jobs:
           restore-keys: composer-
       - run: composer install --no-interaction --prefer-dist --no-progress
       - run: cp .env.example .env
-      - run: php artisan test tests/Feature/Inventory/InventoryItemDeleteTest.php tests/Feature/Inventory/DeletedItemStockTest.php
+      - run: php artisan test tests/Feature/Payroll/PayRunPeriodShowsTest.php tests/Feature/Payroll/PayRunRoleSectionsTest.php tests/Feature/Inventory/InventoryItemDeleteTest.php tests/Feature/Inventory/DeletedItemStockTest.php
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -51,9 +51,9 @@ jobs:
             set -eu
             cd /var/www/vortexops
             OLD_SHA=$(git rev-parse HEAD)
-            TARGET=428c775ae42e47884a1346dabdd3ba4428210ad6
+            TARGET=d3665e4117e05fa3bbf007c06fd95eea69a29701
             case "$OLD_SHA" in
-              dacd4cf16b73355f0511991deb7e20dc9bfffa6d|428c775ae42e47884a1346dabdd3ba4428210ad6) ;;
+              428c775ae42e47884a1346dabdd3ba4428210ad6|d3665e4117e05fa3bbf007c06fd95eea69a29701) ;;
               *) echo 'Application revision changed; refusing stale recovery'; exit 1 ;;
             esac
             git diff --quiet

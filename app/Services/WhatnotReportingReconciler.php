@@ -250,7 +250,7 @@ class WhatnotReportingReconciler
                 });
 
                 $newRows = (int) ($result['created'] ?? 0);
-                // Existing orders are preserved; no rows were replaced.\n                $replaced += 0;
+                // Existing orders are preserved; no rows were replaced.
                 $created += $newRows;
                 ShowIngestionLog::create([
                     'show_id' => $show->id,
@@ -263,10 +263,10 @@ class WhatnotReportingReconciler
                         'whatnot_show_id' => $show->whatnot_show_id,
                         'orders_before' => $before,
                         'orders_imported' => $newRows,
-                        'orders_replaced' => $before,
+                        'orders_replaced' => 0,
                     ],
                 ]);
-                $progress && $progress("orders: show #{$show->id} reconciled — {$before} old row(s) replaced with {$newRows}");
+                $progress && $progress("orders: show #{$show->id} imported {$newRows} new order row(s); {$before} existing row(s) preserved");
             }
         }
 

@@ -250,8 +250,10 @@ class InventoryScanner extends Page
         $this->rcvError    = null;
         $this->keywordSearch  = '';
         $this->keywordOptions = null;
-        $this->selectedItemId = null;
-        $this->selectedItem = null;
+        if ($mode !== 'quickadd') {
+            $this->selectedItemId = null;
+            $this->selectedItem = null;
+        }
         $this->unmatchedBarcode = '';
         $this->barcodeLinkOptions = null;
     }
@@ -593,7 +595,7 @@ class InventoryScanner extends Page
         $this->barcodeLinkSearch = '';
         $this->barcodeLinkOptions = null;
         $this->lookupItem($item);
-        $this->qaFlash = ['name' => $item->name, 'qty' => 0, 'location' => 'Barcode linked', 'created' => false];
+        $this->qaFlash = null;
     }
 
     public function createScannedItem(): void
@@ -630,7 +632,7 @@ class InventoryScanner extends Page
         $this->newItemPrice = '';
         $this->unmatchedBarcode = '';
         $this->lookupItem($item);
-        $this->qaFlash = ['name' => $item->name, 'qty' => 0, 'location' => 'Item created (no stock added)', 'created' => true];
+        $this->qaFlash = null;
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

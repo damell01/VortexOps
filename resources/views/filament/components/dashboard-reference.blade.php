@@ -12,6 +12,20 @@
 @endphp
 <div class="vx-dashboard-reference space-y-4" data-vx-page="admin-dashboard">
     <style>
+        /* Dashboard-only shell correction: keep the page header out of the hero. */
+        body:has(.vx-dashboard-reference) .fi-page-header-main-ctn{padding-top:.75rem!important;gap:.75rem!important}
+        body:has(.vx-dashboard-reference) .fi-header{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:.5rem 1rem!important;padding:.5rem 0!important}
+        body:has(.vx-dashboard-reference) .fi-header-heading-ctn{min-width:0!important;flex:1 1 220px!important;width:auto!important}
+        body:has(.vx-dashboard-reference) .fi-header-actions-ctn{min-width:0!important;flex:0 1 auto!important}
+        body:has(.vx-dashboard-reference) .fi-main{min-width:0}
+        .vx-dashboard-reference{min-width:0}
+        .vx-dashboard-reference .vx-dashboard-hero{isolation:isolate}
+        .vx-dashboard-reference .vx-dashboard-hero h1{line-height:1.18}
+        .vx-dashboard-reference .vx-dashboard-hero .relative.grid{align-items:center}
+        @media(max-width:640px){
+            .vx-dashboard-reference .vx-dashboard-hero{padding:1rem}
+            .vx-dashboard-reference .vx-dashboard-hero .relative.grid{gap:1rem}
+        }
         .vx-dashboard-reference .fi-wi-stats-overview-stat{border-radius:1rem;box-shadow:0 3px 12px rgba(30,41,59,.04);min-width:0}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1rem,1.3vw,1.2rem)!important;line-height:1.25;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
         .vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:.75rem}

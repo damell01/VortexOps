@@ -94,7 +94,6 @@
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
   <div class="vx-inv-toolbar">
     <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}" role="search"><input wire:model.live.debounce.300ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" aria-label="Search inventory" /><span wire:loading.delay.short wire:target="catalogSearch" role="status" aria-live="polite" class="text-xs text-gray-500 dark:text-gray-400">Searching…</span></div>
-   @endif
   @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
    <div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>

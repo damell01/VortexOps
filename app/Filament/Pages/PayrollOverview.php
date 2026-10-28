@@ -36,6 +36,7 @@ class PayrollOverview extends Page
     private ?array $streamerOptionsMemo = null;
     private ?WeeklyPayoutBatch $payRunMemo = null;
     private bool $payRunResolved = false;
+    private ?array $readinessProblemsMemo = null;
 
     /**
      * Queue filter and page live on the component, not on request(): a
@@ -341,6 +342,16 @@ class PayrollOverview extends Page
         ];
     }
 
+    /** Reuse readiness validation across the queue and attention summary. */
+    private function draftReadinessProblems(): array
+    {
+        if ($this->readinessProblemsMemo !== null) return $this->readinessProblemsMemo;
+        $run = $this->currentPayRun();
+        return $this->readinessProblemsMemo = $run && $run->status === 'draft'
+            ? app(PayRunReadinessService::class)->problems($run)
+            : [];
+    }
+
     public function needsAttention(): array
     {
         $warnings = [];
@@ -370,7 +381,7 @@ class PayrollOverview extends Page
         }
 
         if ($run->status === 'draft') {
-            foreach (app(PayRunReadinessService::class)->problems($run) as $problem) $warnings[] = $problem;
+            foreach ($this->draftReadinessProblems() as $problem) $warnings[] = $problem;
         }
 
         return array_values(array_unique($warnings));
@@ -550,6 +561,7 @@ class PayrollOverview extends Page
         $this->streamerOptionsMemo = null;
         $this->payRunMemo = null;
         $this->payRunResolved = false;
+        $this->readinessProblemsMemo = null;
     }
 
     private function allCurrentWeekShows(): Collection
@@ -560,7 +572,7 @@ class PayrollOverview extends Page
         $start = $run?->week_start ?? $periodStart;
         $end = $run?->week_end ?? $periodEnd;
         $workflow = app(ShowWorkflowService::class);
-        $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
+        $payRunProblems = $this->draftReadinessProblems();
         // Readiness messages are keyed by show title. Index once rather than
         // scanning the entire problem list for every show in the period.
         $problemsByShowPrefix = [];

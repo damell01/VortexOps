@@ -11,14 +11,10 @@ import './mobile-controls.js';
 import './kpi-fit.js';
 import './carousels.js';
 import '../css/mobile-report-pass.css';
-// Some Filament/Livewire pages attach beforeunload guards after interactive
-// actions. In VortexOps those guards were sticking around after the action had
-// already completed, so ordinary navigation could trigger Chrome's misleading
-// "Changes you made may not be saved" dialog. VortexOps saves operational
-// actions immediately; do not block normal navigation with a stale page guard.
-window.addEventListener('beforeunload', (event) => {
-    event.stopImmediatePropagation();
-}, { capture: true });
+// Do not intercept beforeunload globally: forms may contain unsaved changes,
+// and suppressing other listeners can discard edits without warning.
+// Investigate stale guards at their owning component instead of bypassing
+// browser-level navigation protection for every route.
 
 // Keep Whatnot financial terminology consistent across Filament, including
 // server-rendered resource labels and Livewire-rendered report tables. The

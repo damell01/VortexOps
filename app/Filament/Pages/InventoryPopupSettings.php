@@ -3,6 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Models\User;
+use App\Support\InventoryVisibility;
 use App\Support\InventoryPopupPolicy;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
@@ -14,7 +16,17 @@ class InventoryPopupSettings extends Page
 
     public bool $enabled = false;
     public array $roles = ['streamer'];
-    public string $userIds = '';
+    public array $selectedStreamers = [];
+    public string $streamerSearch = '';
+
+    public function getStreamersProperty(): array
+    {
+        return User::query()->orderBy('name')->get(['id', 'name', 'email'])
+            ->filter(fn (User $user) => InventoryVisibility::isReadOnlyStreamer($user))
+            ->filter(fn (User $user) => $this->streamerSearch === '' || str_contains(mb_strtolower($user->name.' '.$user->email), mb_strtolower(trim($this->streamerSearch))))
+            ->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])
+            ->values()->all();
+    }
 
     public static function canAccess(): bool
     {
@@ -31,22 +43,23 @@ class InventoryPopupSettings extends Page
         abort_unless(static::canAccess(), 403);
         $this->enabled = Setting::getBool(InventoryPopupPolicy::ENABLED, false);
         $this->roles = json_decode((string) Setting::get(InventoryPopupPolicy::ROLES, '["streamer"]'), true) ?: ['streamer'];
-        $this->userIds = implode(', ', json_decode((string) Setting::get(InventoryPopupPolicy::USER_IDS, '[]'), true) ?: []);
+        $this->selectedStreamers = array_map('intval', json_decode((string) Setting::get(InventoryPopupPolicy::USER_IDS, '[]'), true) ?: []);
     }
 
     public function save(): void
     {
         abort_unless(static::canAccess(), 403);
-        $validRoles = ['streamer', 'admin', 'fulfillment', 'streamer_assistant'];
+        $validRoles = ['streamer'];
         $this->roles = array_values(array_intersect($validRoles, $this->roles));
-        $ids = trim($this->userIds) === '' ? [] : array_map('trim', explode(',', $this->userIds));
-        if (count(array_filter($ids, fn ($id) => ! ctype_digit($id))) > 0) {
-            $this->addError('userIds', 'Enter numeric user IDs separated by commas.');
+        $ids = array_values(array_unique(array_map('intval', $this->selectedStreamers)));
+        $validIds = User::query()->whereIn('id', $ids)->get()->filter(fn (User $user) => InventoryVisibility::isReadOnlyStreamer($user))->pluck('id')->all();
+        if (count($validIds) !== count($ids)) {
+            $this->addError('selectedStreamers', 'Choose valid streamer accounts only.');
             return;
         }
         Setting::set(InventoryPopupPolicy::ENABLED, $this->enabled ? '1' : '0');
         Setting::set(InventoryPopupPolicy::ROLES, json_encode($this->roles));
-        Setting::set(InventoryPopupPolicy::USER_IDS, json_encode(array_values(array_unique(array_map('intval', $ids)))));
+        Setting::set(InventoryPopupPolicy::USER_IDS, json_encode($validIds));
         Notification::make()->title('Inventory popup settings saved')->success()->send();
     }
 }

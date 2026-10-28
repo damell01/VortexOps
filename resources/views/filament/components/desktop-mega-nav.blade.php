@@ -205,27 +205,17 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     .fi-topbar .fi-topbar-end > :not(.fi-global-search) { flex-shrink: 0 !important; }
     /* Keep Filament's own Livewire search mounted; only reposition its visible field. */
     .fi-topbar .fi-global-search { display:none !important; }
-    body.vx-search-lock .fi-global-search {
-        display:block !important; position:fixed !important; z-index:10002 !important;
-        top:clamp(36px,12vh,110px) !important; left:50% !important;
-        transform:translateX(-50%) !important; width:min(680px,calc(100vw - 32px)) !important;
-        max-width:none !important; min-width:0 !important; margin:0 !important;
-        flex:none !important; pointer-events:auto !important;
-    }
-    body.vx-search-lock .fi-global-search :is(.fi-input-wrp,.fi-global-search-field,input) {
-        width:100% !important; max-width:100% !important; min-width:0 !important;
-    }
-    body.vx-search-lock .fi-global-search input { min-height:58px !important; font-size:17px !important; }
-    .vx-search-trigger { flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; gap:7px; min-width:44px; height:42px; padding:0 11px; border:1px solid #554075; border-radius:11px; color:#e9d5ff; background:#211438; cursor:pointer; }
-    .vx-search-trigger:hover,.vx-search-trigger:focus-visible { background:#39215e; outline:2px solid #a78bfa; outline-offset:2px; }
-    .vx-search-trigger svg { width:19px; height:19px; }
-    .vx-search-shortcut { font-size:11px; color:#c4b5fd; white-space:nowrap; }
-    .vx-search-scrim { position:fixed; inset:0; z-index:9998; background:rgba(7,8,24,.77); backdrop-filter:blur(4px); }
-    body.vx-search-lock .fi-global-search { pointer-events:auto !important; }
-    body.vx-search-lock .fi-global-search .fi-global-search-results-ctn { z-index:10003 !important; }
-    .vx-search-shell { position:fixed; top:clamp(29px,calc(12vh - 7px),103px); left:50%; transform:translateX(-50%); width:min(696px,calc(100vw - 16px)); height:74px; border-radius:17px; background:#17112b; border:1px solid #8b5cf6; box-shadow:0 20px 70px #0009; z-index:9999; pointer-events:none; }
-    .vx-search-close { position:fixed; z-index:10004; top:calc(clamp(36px,12vh,110px) + 65px); right:max(16px,calc((100vw - 680px)/2)); padding:7px 12px; background:#2d204a; color:white; border:1px solid #70519c; border-radius:9px; cursor:pointer; }
-    body.vx-search-lock { overflow:hidden; }
+    .vx-search-trigger {display:inline-flex;align-items:center;justify-content:center;width:44px;height:42px;flex:0 0 44px;border:1px solid #554075;border-radius:11px;color:#e9d5ff;background:#211438;cursor:pointer}
+    .vx-search-trigger svg{width:20px;height:20px}
+    .vx-search-scrim{position:fixed;inset:0;z-index:9998;background:rgba(7,8,24,.75);backdrop-filter:blur(4px)}
+    .vx-search-shell{position:fixed;top:clamp(36px,10vh,100px);left:50%;transform:translateX(-50%);width:min(720px,calc(100vw - 32px));min-height:90px;padding:14px;border:1px solid #8b5cf6;border-radius:18px;background:#17112b;box-shadow:0 25px 80px #0009;z-index:9999;pointer-events:auto}
+    .vx-search-shell .fi-global-search{display:block!important;position:relative!important;width:100%!important;max-width:none!important;min-width:0!important;transform:none!important;left:auto!important;top:auto!important;margin:0!important;z-index:1!important}
+    .vx-search-shell .fi-global-search :is(.fi-input-wrp,.fi-global-search-field,input){width:100%!important;max-width:none!important;min-width:0!important}
+    .vx-search-shell .fi-global-search input{min-height:52px!important;font-size:17px!important}
+    .vx-search-shell :is(.fi-global-search-results-ctn,.fi-global-search-results){position:relative!important;top:auto!important;left:auto!important;width:100%!important;max-width:none!important;z-index:2!important;max-height:55vh;overflow-y:auto}
+    .vx-search-heading{display:flex;align-items:center;justify-content:space-between;color:#e9d5ff;font-size:13px;font-weight:700;margin-bottom:10px}
+    .vx-search-close{position:static;padding:6px 11px;background:#2d204a;color:white;border:1px solid #70519c;border-radius:9px;cursor:pointer}
+    body.vx-search-lock{overflow:hidden}
     .fi-topbar .fi-user-menu { flex: 0 0 auto !important; margin: 0 !important; }
 }
 @media (min-width: 1024px) and (max-width: 1399px) {

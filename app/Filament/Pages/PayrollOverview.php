@@ -561,6 +561,15 @@ class PayrollOverview extends Page
         $end = $run?->week_end ?? $periodEnd;
         $workflow = app(ShowWorkflowService::class);
         $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
+        // Readiness messages are keyed by show title. Index once rather than
+        // scanning the entire problem list for every show in the period.
+        $problemsByShowPrefix = [];
+        foreach ($payRunProblems as $problem) {
+            $separator = strpos($problem, ' — ');
+            if ($separator === false) continue;
+            $prefix = substr($problem, 0, $separator + strlen(' — '));
+            $problemsByShowPrefix[$prefix][] = $problem;
+        }
 
         return $this->weekShowsMemo = Show::query()
             ->inChannelContext()->inBusinessContext()
@@ -571,11 +580,11 @@ class PayrollOverview extends Page
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()
-            ->map(function (Show $show) use ($workflow, $payRunProblems) {
+            ->map(function (Show $show) use ($workflow, $problemsByShowPrefix) {
                 $show->setAttribute('workflow_state', $workflow->stateFor($show));
                 $show->setAttribute('pnl_summary', $show->profitAndLoss());
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
-                $show->setAttribute('payrun_problems', array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix))));
+                $show->setAttribute('payrun_problems', $problemsByShowPrefix[$prefix] ?? []);
                 return $show;
             })
             ->sortBy(function (Show $show): string {

@@ -16,7 +16,7 @@ class InventoryPriceAcknowledgment extends Component
         $user = auth()->user();
         if ($user && InventoryVisibility::isReadOnlyStreamer($user)) {
             $this->changes = $alerts->pending($user);
-            $this->comingSoon = app(\\App\\Services\\ComingSoonPalletItems::class)->items($user);
+            $this->comingSoon = app(\App\Services\\ComingSoonPalletItems::class)->items($user);
         }
     }
 
@@ -31,8 +31,11 @@ class InventoryPriceAcknowledgment extends Component
             $last = end($this->changes);
             $alerts->acknowledge(auth()->user(), (int) $last['id']);
         }
+        if ($this->comingSoon !== []) {
+            app(\App\Services\ComingSoonPalletItems::class)->acknowledge(auth()->user(), $this->comingSoon);
+        }
         $this->changes = $alerts->pending(auth()->user());
-        $this->comingSoon = [];
+        $this->comingSoon = app(\App\Services\ComingSoonPalletItems::class)->items(auth()->user());
     }
 
     public function render()

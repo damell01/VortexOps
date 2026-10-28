@@ -312,6 +312,13 @@ const scanFlipbooks = () => {
         (guideFlipbook ??= import('./guide-flipbook.js')).then((m) => m.mountAll());
     });
 };
-new MutationObserver(scanFlipbooks).observe(document.documentElement, { childList: true, subtree: true });
+// Ignore unrelated table and dashboard morphs: they can produce thousands of
+// DOM mutations while no guide is open.
+new MutationObserver((records) => {
+    if (records.some((record) => [...record.addedNodes, ...record.removedNodes].some((node) =>
+        node.nodeType === 1 && (node.matches?.('[data-vx-flipbook]') || node.querySelector?.('[data-vx-flipbook]'))
+    ))) scanFlipbooks();
+}).observe(document.documentElement, { childList: true, subtree: true });
+document.addEventListener('livewire:navigated', scanFlipbooks);
 scanFlipbooks();
 

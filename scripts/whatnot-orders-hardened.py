@@ -193,6 +193,9 @@ def install(module) -> None:
             module.fail("WHATNOT_ORDER_SOURCES_FILE is required")
 
         sources = json.loads(Path(source_file).read_text())
+        probe_max_pages = int(os.getenv('WHATNOT_ORDER_PROBE_MAX_PAGES', '0') or '0')
+        if probe_max_pages < 0 or probe_max_pages > 2:
+            module.fail('Invalid probe page limit; only 1 or 2 allowed', 2)
         output = []
         # Fail closed if Whatnot ignores the source filter and repeats orders across shows.
         observed_order_owners = {}
@@ -246,6 +249,12 @@ def install(module) -> None:
                         f"page={page_number} page_rows={len(current_rows)} "
                         f"total_unique={len(found)} pagination={json.dumps(state, separators=(',', ':'))}"
                     )
+
+                    # Probe mode samples at most two pages per show, even if Next is enabled.
+                    # This is diagnostic only; never use these partial rows for imports.
+                    if probe_max_pages and page_number >= probe_max_pages:
+                        module.info(f'ORDER_SOURCE_PROBE_SAMPLE show={key} pages={page_number} rows={len(found)} (NOT complete; no import permitted)')
+                        break
 
                     # A short page proves that there cannot be another full page
                     # behind a hidden/missing Next control.
@@ -308,7 +317,8 @@ def install(module) -> None:
                         "show_key": key,
                         "live_id": live_id,
                         "order_count": len(rows),
-                        "pagination_complete": True,
+                        "pagination_complete": not bool(probe_max_pages),
+                        "probe_sample": bool(probe_max_pages),
                         "pages": page_number,
                         "orders": rows,
                     }

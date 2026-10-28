@@ -146,7 +146,7 @@ class ListWhatnotLedgerEntries extends Page
         if (! in_array($this->perPage, [5, 10, 25, 50], true)) {
             $this->perPage = 25;
         }
-        if (! in_array($this->review, ['all', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
+        if (! in_array($this->review, ['all', 'needs_attribution', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
         }
         if ($this->channel !== 'all' && $this->channel !== 'unassigned' && ! ctype_digit($this->channel)) {
@@ -281,6 +281,11 @@ class ListWhatnotLedgerEntries extends Page
             ->when(ctype_digit($this->channel), fn (Builder $q) => $q->where('whatnot_channel_id', (int) $this->channel))
             ->when($from, fn (Builder $q) => $q->whereDate('created_date', '>=', $from->toDateString()))
             ->when($until, fn (Builder $q) => $q->whereDate('created_date', '<=', $until->toDateString()))
+            ->when($this->review === 'needs_attribution', fn (Builder $q) => $q->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved');
+            }))
             ->when($this->review === 'tips_missing_order', fn (Builder $q) => $q
                 ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
                 ->where(fn (Builder $missing) => $missing->whereNull('whatnot_order_id')->orWhereIn('whatnot_order_id', ['', '-'])))

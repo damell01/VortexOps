@@ -17,7 +17,6 @@ class ComingSoonPalletItems
             ->whereNull('pallets.deleted_at')
             ->whereNull('products.deleted_at')
             ->whereIn('pallets.stage', ['created', 'staged', 'receiving'])
-            ->whereIn('pallets.status', ['staged', 'receiving', 'pending'])
             ->where(function ($q) {
                 $q->whereNull('lines.line_status')->orWhere('lines.line_status', '!=', 'received');
             })

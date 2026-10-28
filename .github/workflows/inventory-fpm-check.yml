@@ -32,6 +32,21 @@ jobs:
                 $app->instance('request', $request);
                 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
                 $kernel->bootstrap();
+                $app->instance(Illuminate\Contracts\Debug\ExceptionHandler::class, new class($app) extends Illuminate\Foundation\Exceptions\Handler {
+                    public function report(Throwable $e): void
+                    {
+                        do {
+                            echo 'CHECK_ERROR_CLASS '.get_class($e)."\n";
+                            echo 'CHECK_ERROR_SOURCE '.str_replace('/var/www/vortexops/', '', $e->getFile()).':'.$e->getLine()."\n";
+                            foreach (['Permission denied', 'failed to open stream', 'file_put_contents', 'memory', 'SQLSTATE', 'Unknown column', 'stock_sum_quantity', 'manifest', 'Undefined', 'must be of type', 'not found', 'Session', 'Redis', 'Connection refused', 'Cannot', 'syntax', 'Call to', 'readonly', 'decrypt', 'No such file', 'Maximum execution'] as $word) {
+                                if (stripos($e->getMessage(), $word) !== false) echo 'CHECK_ERROR_KIND '.$word."\n";
+                            }
+                            foreach (['/Unknown column [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/', '/Undefined variable \$([A-Za-z0-9_]+)/', '/Call to undefined method ([A-Za-z0-9_\\\\]+::[A-Za-z0-9_]+)\(/'] as $pattern) {
+                                if (preg_match($pattern, $e->getMessage(), $m)) echo 'CHECK_ERROR_IDENTIFIER '.$m[1]."\n";
+                            }
+                        } while ($e = $e->getPrevious());
+                    }
+                });
                 $owner = App\Models\User::where('email', config('app.owner_email'))->firstOrFail();
                 auth()->guard('web')->setUser($owner);
                 $response = $kernel->handle($request);

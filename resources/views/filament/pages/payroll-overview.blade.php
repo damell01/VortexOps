@@ -59,7 +59,7 @@
         @media(max-width:1100px){[data-vx-page=payroll] .vxw-split{grid-template-columns:1fr}}
     </style>
     <div class="vx-payroll-head">
-        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" aria-label="Next pay period">›</button></div>
+        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" wire:loading.attr="disabled" wire:target="changePeriod" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" wire:loading.attr="disabled" wire:target="changePeriod" aria-label="Next pay period">›</button></div>
         <div class="flex flex-wrap items-center gap-2"><a wire:navigate class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>@if($current)<a wire:navigate class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review run</a>@endif<a wire:navigate class="vxw-btn vxw-btn--primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}">+ Create Pay Run</a></div>
     </div>
     <div class="vx-payroll-kpis">

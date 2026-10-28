@@ -82,19 +82,19 @@ class InventoryItemPolicy
     public function delete(AuthUser $authUser, InventoryItem $inventoryItem): bool
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
-        return $authUser->isOwner() || $authUser->can('Delete:InventoryItem');
+        return $authUser->isAdmin() || $authUser->can('Delete:InventoryItem');
     }
 
     public function deleteAny(AuthUser $authUser): bool
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
-        return $authUser->isOwner() || $authUser->can('DeleteAny:InventoryItem');
+        return $authUser->isAdmin() || $authUser->can('DeleteAny:InventoryItem');
     }
 
     public function restore(AuthUser $authUser, InventoryItem $inventoryItem): bool
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
-        return $authUser->isOwner() || $authUser->can('Restore:InventoryItem');
+        return $authUser->isAdmin() || $authUser->can('Restore:InventoryItem');
     }
 
     public function forceDelete(AuthUser $authUser, InventoryItem $inventoryItem): bool
@@ -112,7 +112,7 @@ class InventoryItemPolicy
     public function restoreAny(AuthUser $authUser): bool
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer($authUser)) return false;
-        return $authUser->isOwner() || $authUser->can('RestoreAny:InventoryItem');
+        return $authUser->isAdmin() || $authUser->can('RestoreAny:InventoryItem');
     }
 
     public function replicate(AuthUser $authUser, InventoryItem $inventoryItem): bool

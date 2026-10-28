@@ -421,37 +421,19 @@ class InventoryScanner extends Page
         }
 
         $item = InventoryItem::findByScan($code);
-        $createdItem = false;
-
         if (! $item) {
-            // An unknown barcode used to dead-end here. With a name supplied the
-            // item is created on the spot, so receiving something new does not
-            // mean leaving the scanner to go and add it first.
-            $name = trim($this->qaName);
-
-            if ($name === '') {
-                $this->qaFlash = [
-                    'error' => "No item found for \"{$code}\". Choose to create a new item or link this barcode to an existing one.",
-                ];
-                $this->dispatch('inventory-scanner-unknown', barcode: $code);
-                return;
-            }
-
-            $item = InventoryItem::create([
-                'name'      => $name,
-                'barcode'   => $code,
-                'sku'       => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)),
-                'is_active' => true,
-            ]);
-
-            $createdItem = true;
+            $this->mode = 'lookup';
+            $this->result = null;
+            $this->selectedItemId = null;
+            $this->selectedItem = null;
+            $this->unmatchedBarcode = $code;
+            $this->errorMessage = 'This barcode is not linked to an inventory item yet.';
+            $this->barcodeLinkSearch = '';
+            $this->barcodeLinkOptions = null;
+            return;
         }
 
-        if ($createdItem) {
-            $this->addQuickAddStock($item, true);
-        } else {
-            $this->selectScannedItem($item);
-        }
+        $this->selectScannedItem($item);
     }
 
     /**

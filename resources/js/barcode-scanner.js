@@ -81,12 +81,13 @@ export async function initScanner() {
 
         if (generation === scanGeneration) updateStatus(errorMsg, 'error');
     } finally {
-        startPending = false;
+        if (generation === scanGeneration) startPending = false;
     }
 }
 
 export function stopScanner() {
     ++scanGeneration;
+    startPending = false;
     isScanning = false;
     if (scanTimeout) clearTimeout(scanTimeout);
     scanTimeout = null;
@@ -168,12 +169,17 @@ function vibrate(pattern) {
 }
 
 // Initialize scanner when component is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    const scanner = document.getElementById('zxing-scanner');
-    if (scanner) {
-        initScanner();
-    }
-});
+function initScannerIfPresent() {
+    if (document.getElementById('zxing-scanner')) void initScanner();
+}
+// Dynamic imports often finish after DOMContentLoaded; SPA navigations also
+// replace the scanner host without re-firing that browser event.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScannerIfPresent, { once: true });
+} else {
+    initScannerIfPresent();
+}
+document.addEventListener('livewire:navigated', initScannerIfPresent);
 
 // Clean up on page unload
 window.addEventListener('beforeunload', stopScanner);

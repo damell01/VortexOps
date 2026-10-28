@@ -15,7 +15,7 @@
 
                 @if($fromLocationId)
                 <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <p>Type: <strong>{{ collect($this->locations)->firstWhere('id', $fromLocationId)->type }}</strong></p>
+                    <p>Type: <strong>{{ $this->locations->firstWhere('id', (int) $fromLocationId)?->type ?? 'Unknown' }}</strong></p>
                 </div>
                 @endif
             </div>
@@ -35,7 +35,7 @@
 
                 @if($toLocationId)
                 <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <p>Type: <strong>{{ collect($this->locations)->find('id', $toLocationId)->type }}</strong></p>
+                    <p>Type: <strong>{{ $this->locations->firstWhere('id', (int) $toLocationId)?->type ?? 'Unknown' }}</strong></p>
                 </div>
                 @endif
             </div>
@@ -67,8 +67,8 @@
             @else
             <div class="space-y-2 max-h-96 overflow-y-auto">
                 @foreach($this->sourceStock as $stock)
-                <div class="flex items-center gap-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
-                    <div class="flex-1">
+                <div class="flex flex-wrap items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                    <div class="min-w-0 flex-1">
                         <p class="font-medium text-gray-900 dark:text-white">{{ $stock['item_name'] }}</p>
                         <p class="text-xs text-gray-600 dark:text-gray-400">SKU: {{ $stock['sku'] }}</p>
                     </div>
@@ -96,7 +96,7 @@
         @if($this->transferSummary)
         <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
             <h3 class="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-4">Transfer Summary</h3>
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <p class="text-sm text-blue-700 dark:text-blue-400">Items to Transfer</p>
                     <p class="text-2xl font-bold text-blue-900 dark:text-blue-300">{{ $this->transferSummary['item_count'] }}</p>
@@ -113,7 +113,7 @@
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex gap-3 justify-end">
+        <div class="flex flex-wrap gap-3 justify-end">
             <button wire:click="clearSelection" class="px-6 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
                 Clear Selection
             </button>
@@ -125,9 +125,9 @@
 
         <!-- Confirmation Modal -->
         @if($showConfirm)
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full mx-4">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Confirm Transfer</h3>
+        <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div role="dialog" aria-modal="true" aria-labelledby="transfer-confirm-title" class="bg-white dark:bg-gray-800 rounded-lg p-5 sm:p-8 max-w-md w-full">
+                <h3 id="transfer-confirm-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Confirm Transfer</h3>
                 <p class="text-gray-600 dark:text-gray-400 mb-6">
                     Transfer {{ number_format($this->transferSummary['total_quantity']) }} unit(s) across {{ $this->transferSummary['item_count'] }} item(s)?
                     <br/><strong class="text-primary-600">Total Value: ${{ number_format($this->transferSummary['total_value'], 2) }}</strong>
@@ -137,7 +137,7 @@
                     <button wire:click="$toggle('showConfirm')" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium">
                         Cancel
                     </button>
-                    <button wire:click="executeTransfer" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
+                    <button wire:click="executeTransfer" wire:loading.attr="disabled" wire:target="executeTransfer" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
                         Confirm
                     </button>
                 </div>

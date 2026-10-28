@@ -10,6 +10,7 @@ class InventoryPriceAcknowledgment extends Component
 {
     public array $changes = [];
     public array $comingSoon = [];
+    public array $arrivals = [];
 
     public function mount(InventoryPriceAlerts $alerts): void
     {
@@ -23,7 +24,7 @@ class InventoryPriceAcknowledgment extends Component
     public function acknowledge(InventoryPriceAlerts $alerts): void
     {
         abort_unless(auth()->check() && InventoryVisibility::isReadOnlyStreamer(auth()->user()), 403);
-        if ($this->changes === [] && $this->comingSoon === []) {
+        if ($this->changes === [] && $this->comingSoon === [] && $this->arrivals === []) {
             return;
         }
 
@@ -34,6 +35,10 @@ class InventoryPriceAcknowledgment extends Component
         if ($this->comingSoon !== []) {
             app(\App\Services\ComingSoonPalletItems::class)->acknowledge(auth()->user(), $this->comingSoon);
         }
+        if ($this->arrivals !== []) {
+            app(\App\Services\InventoryArrivalAlerts::class)->acknowledge(auth()->user(), $this->arrivals);
+        }
+        $this->arrivals = app(\App\Services\InventoryArrivalAlerts::class)->pending(auth()->user());
         $this->changes = $alerts->pending(auth()->user());
         $this->comingSoon = app(\App\Services\ComingSoonPalletItems::class)->items(auth()->user());
     }

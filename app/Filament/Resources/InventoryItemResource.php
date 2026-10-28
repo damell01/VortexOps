@@ -125,7 +125,9 @@ class InventoryItemResource extends Resource
                 Notification::make()->title($item->name.' deleted')
                     ->body($written > 0 ? $units($written).' units written off. Restore it from Deleted items if this was a mistake.' : 'Restore it from Deleted items if this was a mistake.')
                     ->success()->send();
-                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord || $livewire instanceof \Filament\Resources\Pages\EditRecord) {
+                if ($livewire instanceof \Filament\Resources\Pages\ViewRecord
+                    || $livewire instanceof \Filament\Resources\Pages\EditRecord
+                    || $livewire instanceof Pages\ViewInventoryItem) {
                     $livewire->redirect(static::getUrl('index'));
                 }
             });

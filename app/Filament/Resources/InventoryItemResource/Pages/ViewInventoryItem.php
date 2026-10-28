@@ -369,7 +369,7 @@ class ViewInventoryItem extends Page
                     $this->record->load('stock.location');
                 }),
             \Filament\Actions\ActionGroup::make([
-                InventoryItemResource::deleteItemAction(),
+                InventoryItemResource::deleteItemAction()->record($this->record),
             ])->icon('heroicon-m-ellipsis-vertical')->tooltip('More')->color('gray')->visible(fn () => InventoryItemResource::canDeleteAny()),
         ];
     }

@@ -25,6 +25,15 @@ jobs:
             test -f public/build/manifest.json || echo MANIFEST_MISSING
             php <<'PHP'
             <?php
+            require 'vendor/autoload.php';
+            $app = require 'bootstrap/app.php';
+            $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+            $kernel->bootstrap();
+            $owner = App\Models\User::where('email', config('app.owner_email'))->firstOrFail();
+            auth()->guard('web')->setUser($owner);
+            $request = Illuminate\Http\Request::create(rtrim(config('app.url'), '/').'/admin/inventory-items', 'GET');
+            $response = $kernel->handle($request);
+            echo 'INVENTORY_AUTHENTICATED_GET_STATUS '.$response->getStatusCode().PHP_EOL;
             // Do not print raw messages, SQL, request data, identities or credentials.
             $files = glob('storage/logs/laravel*.log') ?: [];
             usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));

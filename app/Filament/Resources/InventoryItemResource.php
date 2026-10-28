@@ -71,8 +71,9 @@ class InventoryItemResource extends Resource
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         if (\App\Support\InventoryVisibility::isReadOnlyStreamer()) return false;
-        return (auth()->user()?->isAdmin() ?? false)
-            && ! $record->stock()->withoutGlobalScope('streamerLocationOverride')->where('quantity', '>', 0)->exists();
+        // Stock on hand is handled by the shared delete action's explicit
+        // write-off confirmation, not by denying authorization up front.
+        return static::canDeleteAny() && $record instanceof InventoryItem && ! $record->trashed();
     }
 
     /**
@@ -114,7 +115,7 @@ class InventoryItemResource extends Resource
             ->modalSubmitActionLabel('Delete item')
             ->action(function ($record, array $arguments, array $data, $livewire) use ($resolve, $deleter, $units) {
                 $item = $resolve($record, $arguments);
-                abort_unless($item && static::canDeleteAny(), 403);
+                abort_unless($item && static::canDelete($item), 403);
                 try {
                     $written = $deleter()->delete($item, (bool) ($data['write_off'] ?? false), $data['reason'] ?? null);
                 } catch (\DomainException $e) {

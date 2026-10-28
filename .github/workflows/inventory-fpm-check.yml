@@ -1,0 +1,79 @@
+name: Inventory serving PHP verification
+on:
+  push:
+    branches: [fix/inventory-list-500]
+    paths: ['.github/workflows/inventory-fpm-check.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: production
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 90s
+          script: |
+            set -eu
+            cd /var/www/vortexops
+            CHECK_FILE=$(mktemp /var/www/vortexops/storage/framework/inventory-fpm-check.XXXXXX.php)
+            trap 'rm -f "$CHECK_FILE"' EXIT
+            cat > "$CHECK_FILE" <<'PHP'
+            <?php
+            try {
+                require '/var/www/vortexops/vendor/autoload.php';
+                $app = require '/var/www/vortexops/bootstrap/app.php';
+                $request = Illuminate\Http\Request::create('https://vortexops.tech/admin/inventory-items', 'GET');
+                $app->instance('request', $request);
+                $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+                $kernel->bootstrap();
+                $owner = App\Models\User::where('email', config('app.owner_email'))->firstOrFail();
+                auth()->guard('web')->setUser($owner);
+                $response = $kernel->handle($request);
+                echo 'CHECK_FPM_VERSION '.PHP_VERSION."\n";
+                echo 'CHECK_INVENTORY_STATUS '.$response->getStatusCode()."\n";
+                echo 'CHECK_CATALOG_VISIBLE '.(str_contains($response->getContent(), 'vx-inventory-list') && str_contains($response->getContent(), 'Products') ? 'yes' : 'no')."\n";
+            } catch (Throwable $e) {
+                echo 'CHECK_EXCEPTION_CLASS '.get_class($e)."\n";
+            }
+            PHP
+            chmod 644 "$CHECK_FILE"
+            python3 - "$CHECK_FILE" <<'PY'
+            import socket, struct, sys
+            def record(kind, data):
+                return struct.pack('!BBHHBB', 1, kind, 1, len(data), 0, 0) + data
+            def encoded(value):
+                value = value.encode()
+                n = len(value)
+                return (bytes([n]) if n < 128 else struct.pack('!I', n | 0x80000000)) + value
+            params = {'SCRIPT_FILENAME':sys.argv[1], 'SCRIPT_NAME':'/inventory-internal-verification.php', 'REQUEST_METHOD':'GET', 'REQUEST_URI':'/admin/inventory-items', 'SERVER_NAME':'vortexops.tech', 'HTTP_HOST':'vortexops.tech', 'SERVER_PORT':'443', 'HTTPS':'on', 'SERVER_PROTOCOL':'HTTP/1.1', 'GATEWAY_INTERFACE':'CGI/1.1', 'REMOTE_ADDR':'127.0.0.1', 'CONTENT_LENGTH':'0'}
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(70)
+            s.connect('/run/php/php8.4-fpm.sock')
+            payload = b''.join(encoded(k)+encoded(v) for k,v in params.items())
+            s.sendall(record(1, struct.pack('!HB5x',1,0)) + record(4,payload) + record(4,b'') + record(5,b''))
+            def exact(n):
+                out=b''
+                while len(out)<n:
+                    part=s.recv(n-len(out))
+                    if not part: raise RuntimeError('Incomplete FastCGI response')
+                    out+=part
+                return out
+            stdout=b''
+            while True:
+                version,kind,req,size,pad,_=struct.unpack('!BBHHBB',exact(8))
+                data=exact(size)
+                if pad: exact(pad)
+                if kind==6: stdout+=data
+                if kind==3: break
+            s.close()
+            lines=[line for line in stdout.decode(errors='replace').splitlines() if line.startswith('CHECK_')]
+            for line in lines: print(line)
+            if 'CHECK_INVENTORY_STATUS 200' not in lines or 'CHECK_CATALOG_VISIBLE yes' not in lines:
+                raise SystemExit('Serving PHP inventory verification failed')
+            PY

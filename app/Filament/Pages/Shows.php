@@ -353,7 +353,8 @@ class Shows extends Page
         }
 
         return $q->with(['streamers:id,name', 'streamerLogEntry', 'channel:id,name,display_title'])
-            ->withCount(['orders', 'deductionRequests'])
+            ->withCount('orders')
+            ->withExists('deductionRequests')
             ->orderBy('show_date')->orderBy('start_time')
             ->limit(500)->get();
     }
@@ -413,8 +414,8 @@ class Shows extends Page
             'analyticsOk' => auth()->user()?->isOwner() && $coverage === 'complete',
             'orders' => $s->orders_count > 0 ? 'Synced · '.number_format($s->orders_count) : ($state === 'upcoming' ? 'After show' : 'None yet'),
             'ordersOk' => $s->orders_count > 0,
-            'inventory' => ($log?->submitted_at || $s->deduction_requests_count > 0) ? 'Linked' : 'Not linked',
-            'inventoryOk' => (bool) ($log?->submitted_at || $s->deduction_requests_count > 0),
+            'inventory' => ($log?->submitted_at || $s->deduction_requests_exists) ? 'Linked' : 'Not linked',
+            'inventoryOk' => (bool) ($log?->submitted_at || $s->deduction_requests_exists),
             'viewUrl' => ShowResource::canAccess() ? $this->showUrl($s->id) : null,
             'editUrl' => ShowResource::canEdit($s) ? $this->editUrl($s->id) : null,
             'whatnotUrl' => filter_var($s->detail_url, FILTER_VALIDATE_URL) ? $s->detail_url : null,

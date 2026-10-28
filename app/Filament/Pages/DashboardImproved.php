@@ -275,10 +275,13 @@ class DashboardImproved extends Dashboard
                 ->selectRaw('COUNT(*) as show_count, COALESCE(SUM(gross_revenue), 0) as gross_total, COALESCE(SUM(whatnot_net), 0) as net_total')
                 ->first();
 
-            $inventoryValue = InventoryStock::query()
-                ->with('item:id,average_cost,unit_cost')
-                ->get()
-                ->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->average_cost ?: $stock->item?->unit_cost ?: 0));
+            // Aggregate on the database, preserving InventoryStock's visibility
+            // and live-product global scopes. NULLIF mirrors the previous
+            // average_cost ?: unit_cost fallback, including zero averages.
+            $inventoryValue = (float) InventoryStock::query()
+                ->join('products as value_products', 'value_products.id', '=', 'inventory_stock.inventory_item_id')
+                ->selectRaw('COALESCE(SUM(inventory_stock.quantity * COALESCE(NULLIF(value_products.average_cost, 0), value_products.unit_cost, 0)), 0) as total_value')
+                ->value('total_value');
 
             return [
                 'shows' => (int) ($showTotals?->show_count ?? 0),

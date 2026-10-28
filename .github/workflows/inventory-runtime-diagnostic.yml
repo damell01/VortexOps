@@ -1,0 +1,59 @@
+name: Inventory runtime diagnostic
+on:
+  push:
+    branches: [fix/inventory-list-500]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: production
+    steps:
+      - name: Read sanitized error types and application source locations
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 60s
+          script: |
+            set -eu
+            cd /var/www/vortexops
+            git rev-parse --short HEAD
+            php <<'PHP'
+            <?php
+            // Do not print raw messages, SQL, request data, identities or credentials.
+            $files = glob('storage/logs/laravel*.log') ?: [];
+            usort($files, fn ($a, $b) => filemtime($b) <=> filemtime($a));
+            foreach (array_slice($files, 0, 2) as $file) {
+                $handle = fopen($file, 'rb');
+                fseek($handle, max(0, filesize($file) - 2000000));
+                $text = stream_get_contents($handle);
+                fclose($handle);
+                $blocks = preg_split('/(?=^\[\d{4}-\d{2}-\d{2} )/m', $text);
+                $errors = array_values(array_filter($blocks, fn ($b) => str_contains(substr($b, 0, 180), '.ERROR:')));
+                foreach (array_slice($errors, -6) as $block) {
+                    preg_match('/^\[([0-9: -]+)\]/', $block, $time);
+                    echo 'ERROR_TIME '.($time[1] ?? 'unknown').PHP_EOL;
+                    foreach ([
+                        '/SQLSTATE\[([A-Z0-9]+)\]/' => 'SQLSTATE',
+                        '/Unknown column [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'MISSING_COLUMN',
+                        '/Call to undefined method ([A-Za-z0-9_\\\\]+::[A-Za-z0-9_]+)\(/' => 'MISSING_METHOD',
+                        '/Undefined variable \$([A-Za-z0-9_]+)/' => 'MISSING_VARIABLE',
+                        '/Class [\x27\x22]([A-Za-z0-9_\\\\]+)[\x27\x22] not found/' => 'MISSING_CLASS',
+                    ] as $pattern => $label) {
+                        if (preg_match($pattern, $block, $match)) echo $label.' '.$match[1].PHP_EOL;
+                    }
+                    preg_match_all('~(?:/var/www/vortexops/)((?:app|resources/views)/[A-Za-z0-9_./-]+\.php)(?:\((\d+)\)|:(\d+))?~', $block, $frames, PREG_SET_ORDER);
+                    $printed = [];
+                    foreach ($frames as $frame) {
+                        $source = $frame[1].':'.($frame[2] ?? $frame[3] ?? '');
+                        if (isset($printed[$source])) continue;
+                        $printed[$source] = true;
+                        echo 'SOURCE '.$source.PHP_EOL;
+                        if (count($printed) >= 5) break;
+                    }
+                }
+            }
+            PHP

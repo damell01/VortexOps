@@ -278,17 +278,18 @@ class DashboardImproved extends Dashboard
             // Aggregate on the database, preserving InventoryStock's visibility
             // and live-product global scopes. NULLIF mirrors the previous
             // average_cost ?: unit_cost fallback, including zero averages.
-            $inventoryValue = (float) InventoryStock::query()
+            $stockTotals = InventoryStock::query()
                 ->join('products as value_products', 'value_products.id', '=', 'inventory_stock.inventory_item_id')
                 ->selectRaw('COALESCE(SUM(inventory_stock.quantity * COALESCE(NULLIF(value_products.average_cost, 0), value_products.unit_cost, 0)), 0) as total_value')
-                ->value('total_value');
+                ->selectRaw('COALESCE(SUM(inventory_stock.quantity), 0) as total_units')
+                ->first();
 
             return [
                 'shows' => (int) ($showTotals?->show_count ?? 0),
                 'gross' => (float) ($showTotals?->gross_total ?? 0),
                 'net' => (float) ($showTotals?->net_total ?? 0),
-                'inventory_value' => $inventoryValue,
-                'units' => (float) InventoryStock::query()->sum('quantity'),
+                'inventory_value' => (float) ($stockTotals?->total_value ?? 0),
+                'units' => (float) ($stockTotals?->total_units ?? 0),
                 'unassigned' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereDoesntHave('streamers')->whereNotIn('status', ['cancelled','closed'])->count(),
                 'upcoming' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereNotIn('status', ['cancelled','closed'])->orderBy('show_date')->limit(5)->get(['id','title','show_date','start_time']),
             ];

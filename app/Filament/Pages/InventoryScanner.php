@@ -120,8 +120,6 @@ class InventoryScanner extends Page
 
     public int    $qaLocationId = 0;
     public string $qaQty        = '1';
-    public ?int $qaSelectedItemId = null;
-    public ?array $qaSelectedItem = null;
     public string $qaName       = ''; // optional: creates the item when the scan is unknown
     public ?array $qaFlash      = null; // ['name', 'qty', 'location', 'created']
 
@@ -244,8 +242,6 @@ class InventoryScanner extends Page
         $this->rcvError    = null;
         $this->keywordSearch  = '';
         $this->keywordOptions = null;
-        $this->qaSelectedItemId = null;
-        $this->qaSelectedItem = null;
     }
 
     // ── Unified scan entry point ──────────────────────────────────────────────
@@ -433,11 +429,7 @@ class InventoryScanner extends Page
             $createdItem = true;
         }
 
-        if ($createdItem) {
-            $this->addQuickAddStock($item, true);
-        } else {
-            $this->selectQuickAddItem($item);
-        }
+        $this->addQuickAddStock($item, $createdItem);
     }
 
     /**
@@ -504,37 +496,9 @@ class InventoryScanner extends Page
 
         match ($this->mode) {
             'lookup'   => $this->lookupItem($item),
-            'quickadd' => $this->selectQuickAddItem($item),
+            'quickadd' => $this->quickAddResolvedItem($item),
             default    => null,
         };
-    }
-
-    private function selectQuickAddItem(InventoryItem $item): void
-    {
-        $this->qaSelectedItemId = $item->id;
-        $this->qaSelectedItem = $this->buildResultFromItem($item);
-        $this->qaFlash = null;
-    }
-
-    public function addSelectedQuickStock(): void
-    {
-        if (! $this->qaSelectedItemId) {
-            $this->qaFlash = ['error' => 'Scan or select an item first.'];
-            return;
-        }
-
-        $item = InventoryItem::find($this->qaSelectedItemId);
-        if (! $item) {
-            $this->qaFlash = ['error' => 'Selected item is no longer available.'];
-            $this->qaSelectedItemId = null;
-            $this->qaSelectedItem = null;
-            return;
-        }
-
-        $this->quickAddResolvedItem($item);
-        if ($this->qaFlash && ! isset($this->qaFlash['error'])) {
-            $this->qaSelectedItem = $this->buildResultFromItem($item->fresh());
-        }
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

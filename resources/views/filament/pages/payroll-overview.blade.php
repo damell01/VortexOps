@@ -46,26 +46,6 @@
 
 <div class="vxw" data-vx-page="payroll">
     <style>
-        /* Presentation-only refinements: preserve all existing payroll actions and data. */
-        .vxw[data-vx-page="payroll"]{min-width:0}
-        .vxw[data-vx-page="payroll"] :is(button,a,input,select):focus-visible{outline:2px solid #a78bfa;outline-offset:3px}
-        .vxw[data-vx-page="payroll"] :is(button,a){touch-action:manipulation}
-        .vxw[data-vx-page="payroll"] button:disabled{opacity:.55;cursor:not-allowed}
-        .vxw[data-vx-page="payroll"] .vx-payroll-kpi{min-width:0}
-        .vxw[data-vx-page="payroll"] .vx-payroll-kpi strong{overflow-wrap:anywhere}
-        .vxw[data-vx-page="payroll"] .vx-payroll-search input{min-width:0}
-        .vxw[data-vx-page="payroll"] .vx-payroll-table{font-variant-numeric:tabular-nums}
-        @media(max-width:640px){
-            .vxw[data-vx-page="payroll"] .vx-payroll-head{align-items:stretch}
-            .vxw[data-vx-page="payroll"] .vx-payroll-period{max-width:100%;flex-wrap:wrap}
-            .vxw[data-vx-page="payroll"] .vx-payroll-period input{min-width:0}
-            .vxw[data-vx-page="payroll"] .vx-payroll-search{margin:12px 0;flex-wrap:wrap}
-            .vxw[data-vx-page="payroll"] .vx-payroll-kpis{gap:9px}
-            .vxw[data-vx-page="payroll"] .vx-payroll-kpi{padding:12px}
-        }
-        @media(prefers-reduced-motion:reduce){
-            .vxw[data-vx-page="payroll"] *, .vxw[data-vx-page="payroll"] *::before, .vxw[data-vx-page="payroll"] *::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}
-        }
         .vx-payroll-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}.vx-payroll-period{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--vxw-border);border-radius:12px;background:var(--vxw-surface)}.vx-payroll-period button{padding:4px 9px;border-radius:7px;font-size:18px}.vx-payroll-period strong{font-size:14px}.vx-payroll-period input{max-width:130px;border:0;background:transparent;font-size:12px;color:var(--vxw-muted)}
         .vx-payroll-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}.vx-payroll-kpi{display:flex;align-items:center;gap:12px;padding:18px;border:1px solid var(--vxw-border);border-radius:15px;background:var(--vxw-surface)}.vx-payroll-kpi strong{font-size:24px;font-variant-numeric:tabular-nums}.vx-payroll-kpi p{font-size:12px;color:var(--vxw-muted)}.vx-payroll-icon{padding:12px;border-radius:14px;background:rgb(124 58 237 / .1);color:#7c3aed;flex-shrink:0}.vx-payroll-icon svg{width:22px;height:22px}
         .vx-payroll-insights{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:16px;margin-bottom:18px}.vx-payroll-trend{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;align-items:end;height:180px;margin-top:24px;border-bottom:1px solid var(--vxw-border)}.vx-payroll-bar{border-radius:5px 5px 0 0;background:linear-gradient(#ac86ff,#7c3aed);min-height:3px}.vx-payroll-trend-point{display:flex;flex-direction:column;justify-content:flex-end;gap:8px;height:100%;text-align:center;font-size:10px;color:var(--vxw-muted)}.vx-payroll-status-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--vxw-border);font-size:12px;width:100%;text-align:left}.vx-payroll-progress{height:12px;border-radius:20px;background:rgb(124 58 237 / .14);overflow:hidden;margin:16px 0}.vx-payroll-progress span{display:block;height:100%;background:#8b5cf6}.vx-payroll-quick{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:12px;background:rgb(124 58 237 / .06);margin-top:10px;font-size:13px;font-weight:650}.vx-payroll-quick.primary{background:#7c3aed;color:white}.vx-payroll-quick small{display:block;font-size:11px;font-weight:400;opacity:.75}

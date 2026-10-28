@@ -282,7 +282,7 @@ class ListInventoryItems extends ListRecords
         $name = $this->barcodeScanTargetName;
         $this->barcodeScanTargetName = null;
 
-        if ($barcode === '' || ! $product) return;
+        if ($barcode === '' || ! $product || ! InventoryItemResource::canEdit($product)) return;
 
         $clash = Product::where('barcode', $barcode)->whereKeyNot($product->getKey())->first();
         if ($clash) {
@@ -339,7 +339,7 @@ class ListInventoryItems extends ListRecords
         $barcode = trim($barcode);
         $product = $this->quickStockScanTargetId ? $this->catalogQuery()->whereKey($this->quickStockScanTargetId)->first() : null;
 
-        if ($barcode === '' || ! $product) return;
+        if ($barcode === '' || ! $product || ! InventoryItemResource::canEdit($product)) return;
 
         $matches = in_array($barcode, array_filter([
             trim((string) $product->barcode),

@@ -580,11 +580,13 @@ class PayrollOverview extends Page
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()
-            ->map(function (Show $show) use ($workflow, $problemsByShowPrefix) {
+            ->map(function (Show $show) use ($workflow, $problemsByShowPrefix, $payRunProblems) {
                 $show->setAttribute('workflow_state', $workflow->stateFor($show));
                 $show->setAttribute('pnl_summary', $show->profitAndLoss());
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
-                $show->setAttribute('payrun_problems', $problemsByShowPrefix[$prefix] ?? []);
+                $show->setAttribute('payrun_problems', str_contains($show->title ?: '', ' — ')
+                    ? array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix)))
+                    : ($problemsByShowPrefix[$prefix] ?? []));
                 return $show;
             })
             ->sortBy(function (Show $show): string {

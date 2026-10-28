@@ -195,10 +195,10 @@
                 <span class="text-xs font-normal">Point your camera at the barcode</span>
             </button>
             <label for="vx-scan-code" class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
-            <div class="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <input id="vx-scan-code" wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
+            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <input id="vx-scan-code" wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 w-full min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-900" />
                 <button data-camera-scan type="button" @click="openScanner()" class="hidden min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold sm:inline-flex text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
-                <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 @if($mode === 'lookup') bg-primary-600 @elseif($mode === 'receive') bg-amber-600 @else bg-emerald-600 @endif"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
+                <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60 sm:w-auto"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
             </div>
             <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">USB/Bluetooth scanner: scan directly into this field. Camera: tap Camera and center the barcode in the scan box.</p>
 

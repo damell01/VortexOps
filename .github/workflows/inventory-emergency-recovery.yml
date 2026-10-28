@@ -1,0 +1,88 @@
+name: Inventory verified runtime recovery
+on:
+  push:
+    branches: [fix/inventory-list-500]
+    paths: ['.github/workflows/inventory-emergency-recovery.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 428c775ae42e47884a1346dabdd3ba4428210ad6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env
+      - run: php artisan test tests/Feature/Inventory/InventoryItemDeleteTest.php tests/Feature/Inventory/DeletedItemStockTest.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-modal-opening.cjs
+      - run: npm run build
+  recover:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Apply verified merged inventory fix and restore compiled assets
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 12m
+          script: |
+            set -eu
+            cd /var/www/vortexops
+            OLD_SHA=$(git rev-parse HEAD)
+            TARGET=428c775ae42e47884a1346dabdd3ba4428210ad6
+            case "$OLD_SHA" in
+              dacd4cf16b73355f0511991deb7e20dc9bfffa6d|428c775ae42e47884a1346dabdd3ba4428210ad6) ;;
+              *) echo 'Application revision changed; refusing stale recovery'; exit 1 ;;
+            esac
+            git diff --quiet
+            git diff --cached --quiet
+            git fetch origin Production
+            git cat-file -e "$TARGET^{commit}"
+            BACKUP=$(mktemp -d /tmp/vortex-inventory-assets.XXXXXX)
+            if [ -d public/build ]; then cp -a public/build "$BACKUP/build"; fi
+            rollback() {
+              git checkout -B Production "$OLD_SHA"
+              if [ -d "$BACKUP/build" ]; then rm -rf public/build; cp -a "$BACKUP/build" public/build; fi
+              php artisan view:clear >/dev/null 2>&1 || true
+            }
+            trap rollback EXIT
+            git checkout -B Production "$TARGET"
+            npm ci --no-audit --no-fund
+            npm run build
+            php <<'PHP'
+            <?php
+            $manifest = json_decode(file_get_contents('public/build/manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+            foreach (['resources/css/filament/admin/theme.css', 'resources/js/app.js', 'resources/js/barcode-scanner.js', 'resources/js/colosseum.js'] as $entry) {
+                if (!isset($manifest[$entry]['file']) || !is_file('public/build/'.$manifest[$entry]['file'])) throw new RuntimeException('Required inventory asset missing');
+            }
+            echo "INVENTORY_ASSETS_VERIFIED\n";
+            PHP
+            php artisan view:clear
+            php artisan filament:clear-cached-components
+            FPM_UNIT=$(systemctl list-units --type=service --all --no-legend 'php*-fpm.service' 2>/dev/null | awk '{print $1}' | head -n1 || true)
+            if [ -n "$FPM_UNIT" ]; then sudo -n systemctl reload "$FPM_UNIT"; fi
+            php artisan health:check >/dev/null
+            trap - EXIT
+            echo "INVENTORY_RECOVERY_COMPLETE $(git rev-parse --short HEAD)"

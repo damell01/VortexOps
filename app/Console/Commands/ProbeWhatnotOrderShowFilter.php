@@ -14,8 +14,30 @@ class ProbeWhatnotOrderShowFilter extends Command
     public function handle(WhatnotScraper $scraper): int
     {
         $ids = array_filter([(int) $this->option('show-a'), (int) $this->option('show-b')]);
-        if (count($ids) !== 2 || count(array_unique($ids)) !== 2) {
-            $this->error('Provide two distinct show IDs: --show-a=ID --show-b=ID');
+        if (count($ids) === 0) {
+            // Select recent shows with recorded sales, not potentially contaminated order links.
+            $candidates = Show::query()
+                ->whereNotNull('whatnot_channel_id')
+                ->whereNotNull('detail_url')
+                ->where('units_sold', '>', 0)
+                ->whereDate('show_date', '<=', now()->toDateString())
+                ->orderByDesc('show_date')
+                ->limit(200)
+                ->get();
+            $valid = $candidates->filter(fn ($show) => preg_match(
+                '/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i',
+                (string) $show->detail_url
+            ));
+            $group = $valid->groupBy('whatnot_channel_id')
+                ->first(fn ($shows) => $shows->count() >= 2);
+            $ids = $group ? $group->take(2)->pluck('id')->all() : [];
+            if (count($ids) !== 2) {
+                $this->error('Could not auto-select two recent shows with sales, valid live IDs, and the same channel.');
+                return self::FAILURE;
+            }
+            $this->info("Auto-selected show IDs {$ids[0]} and {$ids[1]} (same channel).");
+        } elseif (count($ids) !== 2 || count(array_unique($ids)) !== 2) {
+            $this->error('Provide both --show-a and --show-b, or omit both for automatic selection.');
             return self::FAILURE;
         }
         $shows = Show::with('channel')->whereIn('id', $ids)->get()->keyBy('id');

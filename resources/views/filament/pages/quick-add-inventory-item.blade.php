@@ -28,6 +28,16 @@
                     @error('data.name')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                 </label>
 
+                <div class="sm:col-span-2 space-y-2">
+                    <label for="quick-add-photo" class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Product photo <span class="font-normal text-gray-400">optional · up to 5MB</span></label>
+                    <input id="quick-add-photo" type="file" wire:model="photo" accept="image/jpeg,image/png,image/webp,image/gif" class="block w-full rounded-lg border border-gray-300 p-2 text-sm dark:border-gray-600 dark:text-gray-200" />
+                    <div wire:loading wire:target="photo" class="text-xs text-primary-600">Uploading photo…</div>
+                    @if ($photo)
+                        <img src="{{ $photo->temporaryUrl() }}" alt="Selected product photo preview" class="h-28 w-28 rounded-lg border border-gray-200 object-contain dark:border-gray-700" />
+                    @endif
+                    @error('photo') <p class="text-xs text-red-600">{{ $message }}</p> @enderror
+                </div>
+
                 <label class="sm:col-span-2">
                     <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode / UPC <span class="font-normal text-gray-400">optional</span></span>
                     <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
@@ -85,8 +95,8 @@
 
         <div class="hidden items-center justify-end gap-2 sm:flex">
             <button type="button" wire:click="resetQuickAdd" class="min-h-11 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200">Clear</button>
-            <button type="button" wire:click="submit(true)" wire:loading.attr="disabled" class="min-h-11 rounded-lg border border-primary-300 px-4 text-sm font-semibold text-primary-700 disabled:opacity-60 dark:border-primary-800 dark:text-primary-300">Save & Add Another</button>
-            <button type="button" wire:click="submit(false)" wire:loading.attr="disabled" class="min-h-11 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-white disabled:opacity-60">Save Item</button>
+            <button type="button" wire:click="submit(true)" wire:loading.attr="disabled" wire:target="photo,submit" class="min-h-11 rounded-lg border border-primary-300 px-4 text-sm font-semibold text-primary-700 disabled:opacity-60 dark:border-primary-800 dark:text-primary-300">Save & Add Another</button>
+            <button type="button" wire:click="submit(false)" wire:loading.attr="disabled" wire:target="photo,submit" class="min-h-11 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-white disabled:opacity-60">Save Item</button>
         </div>
 
         <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><div class="flex gap-2"><button type="button" @click="openScanner()" class="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary-300 bg-white px-3 text-sm font-semibold text-primary-700 dark:border-primary-800 dark:bg-gray-800 dark:text-primary-300"><x-heroicon-o-camera class="h-5 w-5" /> Scan</button><button type="button" wire:click="submit(false)" wire:loading.attr="disabled" class="inline-flex min-h-11 flex-[1.35] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white disabled:opacity-60"><span wire:loading.remove>Save Item</span><span wire:loading>Saving…</span></button></div></div>

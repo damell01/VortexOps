@@ -295,13 +295,20 @@ class DashboardImproved extends Dashboard
     private function inventoryHealth(): array
     {
         try {
-            $products = InventoryItem::query()->where('is_active', true)->with('stock')->get();
-            $in = $products->filter(fn ($p) => (float) $p->stock->sum('quantity') > 0)->count();
+            // Calculate stock totals in SQL instead of hydrating every stock row.
+            // withSum keeps InventoryStock's existing visibility/global scopes intact.
+            $products = InventoryItem::query()
+                ->where('is_active', true)
+                ->select(['id', 'reorder_level'])
+                ->withSum('stock as on_hand', 'quantity')
+                ->get();
+            $in = $products->filter(fn ($p) => (float) $p->on_hand > 0)->count();
             $out = $products->count() - $in;
-            $low = $products->filter(function ($p) {
-                $qty = (float) $p->stock->sum('quantity');
-                return $qty > 0 && $p->reorder_level !== null && $qty <= (float) $p->reorder_level;
-            })->count();
+            $low = $products->filter(fn ($p) =>
+                (float) $p->on_hand > 0
+                && $p->reorder_level !== null
+                && (float) $p->on_hand <= (float) $p->reorder_level
+            )->count();
             return compact('in', 'low', 'out');
         } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
     }

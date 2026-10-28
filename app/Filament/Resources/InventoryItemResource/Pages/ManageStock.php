@@ -267,11 +267,19 @@ class ManageStock extends Page
                     return;
                 }
 
+                // Reject invalid transfer input before it reaches the stock
+                // service; do not coerce blanks or arbitrary text to zero.
+                $rawMoveQuantity = $this->moveQuantity;
+                if ($rawMoveQuantity === null || trim($rawMoveQuantity) === '' || ! is_numeric($rawMoveQuantity) || ! is_finite((float) $rawMoveQuantity) || (float) $rawMoveQuantity <= 0) {
+                    Notification::make()->title('Enter a quantity greater than zero to move')->danger()->send();
+                    return;
+                }
+
                 $service->transferStock(
                     $this->record,
                     $from,
                     InventoryLocation::findOrFail($this->toLocationId),
-                    (float) $this->moveQuantity,
+                    (float) $rawMoveQuantity,
                     $this->reason ?: 'Moved from the stock screen',
                 );
 

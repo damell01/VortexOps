@@ -51,7 +51,7 @@ class ComingSoonPalletItems
         foreach ($items as $item) {
             $id = (int) ($item['id'] ?? 0);
             if (! isset($pending[$id]) || ($item['fingerprint'] ?? null) !== $pending[$id]['fingerprint']) {
-                throw new \\InvalidArgumentException('Pallet status changed; refresh before acknowledging.');
+                throw new \InvalidArgumentException('Pallet status changed; refresh before acknowledging.');
             }
             DB::table('inventory_pallet_review_states')->updateOrInsert(
                 ['user_id' => $user->id, 'pallet_line_id' => $id],

@@ -125,10 +125,9 @@ class WhatnotSyncPage extends Page
         return \App\Models\Show::query()
             ->with('channel:id,name')
             ->where(fn ($q) => $q->where('last_analytics_synced_at', '>=', $since)->orWhere('last_synced_at', '>=', $since))
-            ->get(['id', 'title', 'show_date', 'whatnot_channel_id', 'gross_revenue', 'whatnot_net', 'units_sold', 'buyers_count', 'analytics_sync_status', 'analytics_sync_note', 'last_analytics_synced_at', 'last_synced_at'])
-            ->sortByDesc(fn ($show) => max($show->last_analytics_synced_at?->getTimestamp() ?? 0, $show->last_synced_at?->getTimestamp() ?? 0))
-            ->take(30)
-            ->values();
+            ->orderByRaw('GREATEST(COALESCE(last_analytics_synced_at, ?), COALESCE(last_synced_at, ?)) DESC', ['1970-01-01 00:00:00', '1970-01-01 00:00:00'])
+            ->limit(30)
+            ->get(['id', 'title', 'show_date', 'whatnot_channel_id', 'gross_revenue', 'whatnot_net', 'units_sold', 'buyers_count', 'analytics_sync_status', 'analytics_sync_note', 'last_analytics_synced_at', 'last_synced_at']);
     }
 
     /** Running totals for this run, and how much is still left to catch up. */

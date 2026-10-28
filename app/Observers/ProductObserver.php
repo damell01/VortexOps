@@ -18,11 +18,10 @@ class ProductObserver
             return;
         }
 
-        $previous = $product->getOriginal('sale_price');
         $new = $product->sale_price;
         // Eloquent's original value is the pre-save value for a change event.
         // getPrevious() is available in recent Laravel versions.
-        $before = $product->getPrevious()['sale_price'] ?? $previous;
+        $before = $product->getPrevious()['sale_price'] ?? null;
 
         if ($before !== null && $new !== null && round((float) $before, 2) === round((float) $new, 2)) {
             return;

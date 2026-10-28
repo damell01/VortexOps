@@ -177,12 +177,20 @@
     </div>
    @endif
    <div class="vx-catalog-footer">
-    <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
-    @if($this->catalogItems->count() < $this->catalogTotal)
-     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" wire:target="loadMoreCatalog" class="vx-load-more" aria-label="Load 40 more inventory products">
-      <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
-      <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
-     </button>
+    @php
+     $catalogTotal = $this->catalogTotal;
+     $catalogLastPage = max(1, (int) ceil($catalogTotal / 40));
+     $catalogPage = max(1, min($catalogPage, $catalogLastPage));
+     $catalogFrom = ($catalogPage - 1) * 40 + 1;
+     $catalogTo = min($catalogTotal, $catalogPage * 40);
+    @endphp
+    <div class="text-xs text-gray-500" role="status" aria-live="polite">Showing {{ number_format($catalogFrom) }}–{{ number_format($catalogTo) }} of {{ number_format($catalogTotal) }} matching products</div>
+    @if($catalogLastPage > 1)
+     <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Inventory catalog pages">
+      <button type="button" wire:click="goToCatalogPage({{ $catalogPage - 1 }})" wire:loading.attr="disabled" wire:target="goToCatalogPage" @disabled($catalogPage <= 1) class="vx-load-more">Previous</button>
+      <span class="text-xs text-gray-500">Page {{ $catalogPage }} of {{ $catalogLastPage }}</span>
+      <button type="button" wire:click="goToCatalogPage({{ $catalogPage + 1 }})" wire:loading.attr="disabled" wire:target="goToCatalogPage" @disabled($catalogPage >= $catalogLastPage) class="vx-load-more">Next 40</button>
+     </nav>
     @endif
    </div>
   @else

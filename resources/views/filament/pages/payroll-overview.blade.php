@@ -98,7 +98,7 @@
             </div>
 
             <div class="vx-payroll-search"><input type="search" wire:model.live.debounce.300ms="queue_search" placeholder="Search shows or streamers…" aria-label="Search payroll shows"><span wire:loading.delay.short wire:target="queue_search" class="vxw-meta" role="status" aria-live="polite">Searching…</span><span class="vxw-meta">{{ $totalFilteredShows }} matching shows</span></div>
-            <div class="vxw-rows vx-payroll-show-cards" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage" style="transition:opacity 150ms">
+            <div class="vxw-rows vx-payroll-show-cards" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage,queue_search,changePeriod,period_date" style="transition:opacity 150ms" aria-live="polite" aria-relevant="additions removals">
                 @forelse($shows as $show)
                     @php
                         $state = $show->getAttribute('workflow_state');

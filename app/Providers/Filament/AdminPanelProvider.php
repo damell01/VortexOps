@@ -99,7 +99,10 @@ class AdminPanelProvider extends PanelProvider
         $pwaIconsExist = fn (): bool => file_exists(public_path('icons/icon-192.png'));
 
         return $panel
-            ->spa(hasPrefetching: false)
+            // Prefetch internal Filament destinations on hover/focus so the next
+            // Livewire navigation can reuse the response rather than waiting
+            // until the user clicks. Only applies to Filament SPA links.
+            ->spa(hasPrefetching: true)
             // The custom top menu and its mobile sheet replace the sidebar on every
             // signed-in page, so don't spend a fifth of each request building it.
             ->sidebarLivewireComponent(\App\Livewire\HiddenSidebar::class)

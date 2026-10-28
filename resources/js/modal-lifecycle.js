@@ -165,7 +165,22 @@ function scheduleReconcile() {
     });
 }
 
-const observer = new MutationObserver(scheduleReconcile);
+const observer = new MutationObserver((records) => {
+    // Large tables morph frequently. Only inspect modal lifecycle mutations;
+    // ordinary row/class updates cannot leave behind a modal overlay.
+    const modalMutation = records.some((record) => {
+        if (record.type === 'attributes') {
+            if (record.target === document.body || record.target === document.documentElement) return true;
+            return record.target.matches?.('.fi-modal, .fi-modal-window-ctn, .fi-modal-window, [x-trap], .vx-mobile-menu-sheet, .vx-mobile-picker-sheet');
+        }
+        const nodes = [...record.addedNodes, ...record.removedNodes];
+        return nodes.some((node) => node.nodeType === 1 && (
+            node.matches?.('.fi-modal, .fi-modal-window-ctn, .fi-modal-window, .vx-mobile-menu-sheet, .vx-mobile-picker-sheet') ||
+            node.querySelector?.('.fi-modal, .fi-modal-window-ctn, .fi-modal-window, .vx-mobile-menu-sheet, .vx-mobile-picker-sheet')
+        ));
+    });
+    if (modalMutation) scheduleReconcile();
+});
 
 observer.observe(document.body, {
     childList: true,

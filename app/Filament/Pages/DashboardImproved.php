@@ -269,21 +269,27 @@ class DashboardImproved extends Dashboard
     {
         try {
             $start = now()->subDays(29)->startOfDay();
-            $shows = Show::query()->inChannelContext()
+            $showTotals = Show::query()->inChannelContext()
                 ->whereBetween('show_date', [$start->toDateString(), now()->endOfDay()->toDateTimeString()])
-                ->whereNotIn('status', ['cancelled'])->get();
+                ->whereNotIn('status', ['cancelled'])
+                ->selectRaw('COUNT(*) as show_count, COALESCE(SUM(gross_revenue), 0) as gross_total, COALESCE(SUM(whatnot_net), 0) as net_total')
+                ->first();
 
-            $inventoryValue = InventoryStock::query()
-                ->with('item:id,average_cost,unit_cost')
-                ->get()
-                ->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->average_cost ?: $stock->item?->unit_cost ?: 0));
+            // Aggregate on the database, preserving InventoryStock's visibility
+            // and live-product global scopes. NULLIF mirrors the previous
+            // average_cost ?: unit_cost fallback, including zero averages.
+            $stockTotals = InventoryStock::query()
+                ->join('products as value_products', 'value_products.id', '=', 'inventory_stock.inventory_item_id')
+                ->selectRaw('COALESCE(SUM(inventory_stock.quantity * COALESCE(NULLIF(value_products.average_cost, 0), value_products.unit_cost, 0)), 0) as total_value')
+                ->selectRaw('COALESCE(SUM(inventory_stock.quantity), 0) as total_units')
+                ->first();
 
             return [
-                'shows' => $shows->count(),
-                'gross' => (float) $shows->sum('gross_revenue'),
-                'net' => (float) $shows->sum('whatnot_net'),
-                'inventory_value' => $inventoryValue,
-                'units' => (float) InventoryStock::query()->sum('quantity'),
+                'shows' => (int) ($showTotals?->show_count ?? 0),
+                'gross' => (float) ($showTotals?->gross_total ?? 0),
+                'net' => (float) ($showTotals?->net_total ?? 0),
+                'inventory_value' => (float) ($stockTotals?->total_value ?? 0),
+                'units' => (float) ($stockTotals?->total_units ?? 0),
                 'unassigned' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereDoesntHave('streamers')->whereNotIn('status', ['cancelled','closed'])->count(),
                 'upcoming' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereNotIn('status', ['cancelled','closed'])->orderBy('show_date')->limit(5)->get(['id','title','show_date','start_time']),
             ];
@@ -295,14 +301,25 @@ class DashboardImproved extends Dashboard
     private function inventoryHealth(): array
     {
         try {
-            $products = InventoryItem::query()->where('is_active', true)->with('stock')->get();
-            $in = $products->filter(fn ($p) => (float) $p->stock->sum('quantity') > 0)->count();
-            $out = $products->count() - $in;
-            $low = $products->filter(function ($p) {
-                $qty = (float) $p->stock->sum('quantity');
-                return $qty > 0 && $p->reorder_level !== null && $qty <= (float) $p->reorder_level;
-            })->count();
-            return compact('in', 'low', 'out');
+            // Aggregate over the visibility-scoped product and stock query.
+            // Avoid hydrating one Eloquent model per product on every dashboard load.
+            $stockedProducts = InventoryItem::query()
+                ->where('is_active', true)
+                ->select(['products.id', 'products.reorder_level'])
+                ->withSum('stock as on_hand', 'quantity');
+
+            $totals = \Illuminate\Support\Facades\DB::query()
+                ->fromSub($stockedProducts->toBase(), 'dashboard_inventory')
+                ->selectRaw('SUM(CASE WHEN COALESCE(on_hand, 0) > 0 THEN 1 ELSE 0 END) as in_count')
+                ->selectRaw('SUM(CASE WHEN COALESCE(on_hand, 0) <= 0 THEN 1 ELSE 0 END) as out_count')
+                ->selectRaw('SUM(CASE WHEN COALESCE(on_hand, 0) > 0 AND reorder_level IS NOT NULL AND on_hand <= reorder_level THEN 1 ELSE 0 END) as low_count')
+                ->first();
+
+            return [
+                'in' => (int) ($totals->in_count ?? 0),
+                'low' => (int) ($totals->low_count ?? 0),
+                'out' => (int) ($totals->out_count ?? 0),
+            ];
         } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
     }
 

@@ -50,14 +50,14 @@
   <div>
    <div class="vx-inv-shortcuts">
     @if(\App\Filament\Pages\InventoryScanner::canAccess())
-    <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
+    <a wire:navigate href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-primary-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-qr-code class="mb-1 h-5 w-5"/>Quick Scan</a>
     @endif
     @if(\App\Support\StockGate::canChangeAny())
-    <a href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
-    <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
-    <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
+    <a wire:navigate href="{{ \App\Filament\Pages\ImportInventorySheet::getUrl() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-blue-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-arrow-up-tray class="mb-1 h-5 w-5"/>Import Sheet</a>
+    <a wire:navigate href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-emerald-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-inbox-arrow-down class="mb-1 h-5 w-5"/>Receive</a>
+    <a wire:navigate href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-violet-600 shadow-sm dark:border-gray-700 dark:bg-gray-900"><x-heroicon-o-bolt class="mb-1 h-5 w-5"/>Quick Add</a>
     @endif
-    <a href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
+    <a wire:navigate href="{{ \App\Filament\Pages\InventoryReport::getUrl() }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-chart-bar class="mb-1 h-5 w-5"/>View Report</a>
     <a href="{{ route('export.inventory-pdf') }}?download=1" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-document-arrow-down class="mb-1 h-5 w-5"/>Report PDF</a>
     <a href="{{ route('export.inventory-items') }}" target="_blank" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 shadow-sm dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-table-cells class="mb-1 h-5 w-5"/>Export Excel</a>
    </div>
@@ -93,8 +93,8 @@
 
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
   <div class="vx-inv-toolbar">
-    <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.500ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
-   @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
+    <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}" role="search"><input wire:model.live.debounce.300ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" aria-label="Search inventory" /><span wire:loading.delay.short wire:target="catalogSearch" role="status" aria-live="polite" class="text-xs text-gray-500 dark:text-gray-400">Searching…</span></div>
+  @if($viewMode === 'table')<div class="hidden lg:block">Detailed inventory table</div>@endif
    <div class="vx-view-toggle" aria-label="Inventory view">
     <button type="button" wire:click="setViewMode('catalog')" class="vx-view-btn {{ $viewMode === 'catalog' ? 'active' : '' }}"><x-heroicon-o-squares-2x2 class="h-4 w-4" /> Cards</button>
     <button type="button" wire:click="setViewMode('table')" class="vx-view-btn {{ $viewMode === 'table' ? 'active' : '' }}"><x-heroicon-o-list-bullet class="h-4 w-4" /> Table</button>
@@ -105,7 +105,8 @@
   @if($stockHealth)<div class="mt-3 flex items-center justify-between rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 text-xs dark:border-primary-900 dark:bg-primary-950/20"><span>Showing <strong>{{ match($stockHealth) { 'in' => 'In Stock', 'low' => 'Low Stock', 'out' => 'Out of Stock' } }}</strong></span><button wire:click="filterStock(null)" class="font-bold text-primary-600">Show all</button></div>@endif
  </section>
 
- <div class="vx-catalog-view {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}">
+ @if($viewMode !== 'table')
+ <div class="vx-catalog-view">
   @php $canBulkDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny(); $canResetStock = \App\Services\InventoryCountReset::canReset(auth()->user()); $canSelectStock = $canBulkDelete || $canResetStock; @endphp
   @if($this->catalogItems->isNotEmpty())
    @if($canSelectStock)
@@ -137,11 +138,11 @@
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
-      <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
+      <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" wire:navigate class="vx-product-link">
        <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
       </a>
       <div class="vx-product-body">
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
+       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" wire:navigate class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>
        <div class="vx-product-meta">{{ $item->sku ?: 'No SKU' }}@if($item->brand) · {{ $item->brand }}@endif</div>
        <div class="vx-product-row vx-product-tags"><span class="vx-stock vx-stock-{{ $stockState }}">{{ $stockState==='out'?'Out of stock':($stockState==='low'?'Low stock':'In stock') }}</span><span class="vx-type">{{ $item->is_container ? 'Case' : 'Item' }}</span>@if($item->created_at && $item->created_at->gte(now()->subDays(7)))<span class="vx-type" title="Added within the last seven days">New</span>@endif@if($onHand > 0 && $item->last_receipt_at && \Illuminate\Support\Carbon::parse($item->last_receipt_at)->gte(now()->subDays(7)))<span class="vx-type" title="Inventory received within the last seven days">Recently received</span>@endif@if($item->category)<span class="vx-product-meta">{{ $item->category }}</span>@endif</div>
        <div class="vx-product-meta vx-product-where" title="{{ $locations ?: 'No stocked location' }}"><x-heroicon-m-map-pin class="inline h-3 w-3 align-[-2px]" /> {{ $locations ?: 'No stocked location' }}</div>
@@ -155,9 +156,9 @@
       <div class="vx-card-actions">
        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->getKey() }} })" wire:loading.attr="disabled" class="vx-card-action" title="Item history"><x-heroicon-o-clock /> <span>History</span></button>
        @if($canStock)<button type="button" wire:click="mountAction('add_stock', { product: {{ $item->getKey() }} })" wire:loading.attr="disabled" wire:target="mountAction('add_stock')" class="vx-card-action add-stock" data-stock-product-id="{{ $item->getKey() }}" title="Add stock"><x-heroicon-o-plus-circle /> <span>Add stock</span></button>@endif
-       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
-       @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
-       @if($canStock)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>@endif
+       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" wire:navigate class="vx-card-action" title="View item"><x-heroicon-o-eye /> <span>View</span></a>
+       @if($canEdit)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$item]) }}" wire:navigate class="vx-card-action" title="Edit item"><x-heroicon-o-pencil-square /> <span>Edit</span></a>@endif
+       @if($canStock)<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock',['record'=>$item]) }}" wire:navigate class="vx-card-action" title="Manage stock"><x-heroicon-o-arrows-right-left /> <span>Stock</span></a>@endif
        @if($canScan)<button type="button" wire:click.stop="startBarcodeScan({{ $item->getKey() }})" class="vx-card-action scan" title="{{ filled($item->barcode) ? 'Replace barcode' : 'Scan barcode' }}"><x-heroicon-o-qr-code /> <span>Scan</span></button>@endif
        @if($canDelete)<button type="button" wire:click="mountAction('deleteItem', { product: {{ $item->getKey() }} })" class="vx-card-action delete" title="Delete item"><x-heroicon-o-trash /> <span>Delete</span></button>@endif
       </div>
@@ -176,18 +177,27 @@
     </div>
    @endif
    <div class="vx-catalog-footer">
-    <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
-    @if($this->catalogItems->count() < $this->catalogTotal)
-     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" class="vx-load-more">
-      <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
-      <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
-     </button>
+    @php
+     $catalogTotal = $this->catalogTotal;
+     $catalogLastPage = max(1, (int) ceil($catalogTotal / 40));
+     $catalogPage = max(1, min($catalogPage, $catalogLastPage));
+     $catalogFrom = $catalogTotal > 0 ? ($catalogPage - 1) * 40 + 1 : 0;
+     $catalogTo = min($catalogTotal, $catalogPage * 40);
+    @endphp
+    <div class="text-xs text-gray-500" role="status" aria-live="polite">Showing {{ number_format($catalogFrom) }}–{{ number_format($catalogTo) }} of {{ number_format($catalogTotal) }} matching products</div>
+    @if($catalogLastPage > 1)
+     <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Inventory catalog pages">
+      <button type="button" wire:click="goToCatalogPage({{ $catalogPage - 1 }})" wire:loading.attr="disabled" wire:target="goToCatalogPage" @disabled($catalogPage <= 1) class="vx-load-more">Previous</button>
+      <span class="text-xs text-gray-500">Page {{ $catalogPage }} of {{ $catalogLastPage }}</span>
+      <button type="button" wire:click="goToCatalogPage({{ $catalogPage + 1 }})" wire:loading.attr="disabled" wire:target="goToCatalogPage" @disabled($catalogPage >= $catalogLastPage) class="vx-load-more">Next 40</button>
+     </nav>
     @endif
    </div>
   @else
    <div class="vx-empty"><x-heroicon-o-magnifying-glass class="mx-auto h-8 w-8" /><div class="mt-2 font-semibold text-gray-800 dark:text-gray-200">No matching inventory</div><div class="mt-1 text-sm">Try another search or stock filter.</div></div>
   @endif
  </div>
+ @endif
  @if($viewMode === 'table')
   <section class="vx-inventory-items-panel overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"><div class="hidden border-b border-gray-100 px-5 py-3 dark:border-gray-800 sm:block"><h2 class="text-base font-semibold">Inventory Table</h2><p class="mt-0.5 text-xs text-gray-500">Bulk actions, advanced filters, sorting and detailed columns.</p></div><div class="p-1 sm:p-2">{{ $this->table }}</div></section>
  @endif

@@ -67,11 +67,10 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'sort')]
     public string $catalogSort = 'name';
 
-    #[Url(as: 'perPage')]
-    public int $catalogPerPage = 50;
+    /** Fixed card page size prevents unbounded Livewire HTML payloads. */
+    private const CATALOG_PAGE_SIZE = 40;
 
     public int $catalogPage = 1;
-    public int $catalogVisible = 40;
 
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
@@ -165,19 +164,20 @@ class ListInventoryItems extends ListRecords
             ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
             ->latest('created_at')
             ->limit(1)]);
-        return $query->limit($this->catalogVisible)->get();
+        return $query->forPage(max(1, $this->catalogPage), self::CATALOG_PAGE_SIZE)->get();
     }
 
     #[Computed]
     public function catalogTotal(): int
     {
         return \Illuminate\Support\Facades\DB::query()
-            ->fromSub($this->catalogQuery()->reorder()->toBase(), 'matching_inventory')->count();
+            ->fromSub($this->catalogQuery()->setEagerLoads([])->reorder()->toBase(), 'matching_inventory')->count();
     }
 
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
+        $this->catalogPage = 1;
         $this->clearSelection();
         $this->resetPage();
         unset($this->catalogItems, $this->catalogTotal);
@@ -185,31 +185,44 @@ class ListInventoryItems extends ListRecords
 
     public function setViewMode(string $mode): void
     {
-        $this->viewMode = in_array($mode, ['catalog', 'table'], true) ? $mode : 'catalog';
+        $next = in_array($mode, ['catalog', 'table'], true) ? $mode : 'catalog';
+        if ($this->viewMode === $next) return;
+        $this->viewMode = $next;
+        $this->catalogPage = 1;
+        // Card selections must not linger invisibly when switching to the
+        // table; avoid an accidental bulk action on a stale selection.
+        $this->clearSelection();
+        unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function updatedCatalogSearch(): void
     {
         $this->clearSelection();
-        $this->catalogVisible = 40;
+        $this->catalogPage = 1;
         unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function updatedCatalogSort(): void
     {
         $this->catalogPage = 1;
+        $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
     }
 
-    public function loadMoreCatalog(): void
+    public function goToCatalogPage(int $page): void
     {
-        $this->catalogVisible += 40;
+        if ($this->viewMode !== 'catalog') return;
+        $lastPage = max(1, (int) ceil($this->catalogTotal / self::CATALOG_PAGE_SIZE));
+        $this->catalogPage = max(1, min($page, $lastPage));
+        // Selections must not persist invisibly across catalog pages.
+        $this->clearSelection();
         unset($this->catalogItems);
     }
 
     public function clearCatalogSearch(): void
     {
         $this->catalogSearch = '';
+        $this->catalogPage = 1;
         $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
     }
@@ -252,7 +265,7 @@ class ListInventoryItems extends ListRecords
     public function startBarcodeScan(int $productId): void
     {
         abort_unless(InventoryItemResource::canManageStock(), 403);
-        $product = Product::find($productId);
+        $product = $this->catalogQuery()->whereKey($productId)->first();
         if (! $product) return;
 
         $this->barcodeScanTargetId = $product->getKey();
@@ -264,12 +277,12 @@ class ListInventoryItems extends ListRecords
     {
         abort_unless(InventoryItemResource::canManageStock(), 403);
         $barcode = trim($barcode);
-        $product = $this->barcodeScanTargetId ? Product::find($this->barcodeScanTargetId) : null;
+        $product = $this->barcodeScanTargetId ? $this->catalogQuery()->whereKey($this->barcodeScanTargetId)->first() : null;
         $this->barcodeScanTargetId = null;
         $name = $this->barcodeScanTargetName;
         $this->barcodeScanTargetName = null;
 
-        if ($barcode === '' || ! $product) return;
+        if ($barcode === '' || ! $product || ! InventoryItemResource::canEdit($product)) return;
 
         $clash = Product::where('barcode', $barcode)->whereKeyNot($product->getKey())->first();
         if ($clash) {
@@ -324,9 +337,9 @@ class ListInventoryItems extends ListRecords
     public function verifyQuickStockBarcode(string $barcode): void
     {
         $barcode = trim($barcode);
-        $product = $this->quickStockScanTargetId ? Product::find($this->quickStockScanTargetId) : null;
+        $product = $this->quickStockScanTargetId ? $this->catalogQuery()->whereKey($this->quickStockScanTargetId)->first() : null;
 
-        if ($barcode === '' || ! $product) return;
+        if ($barcode === '' || ! $product || ! InventoryItemResource::canEdit($product)) return;
 
         $matches = in_array($barcode, array_filter([
             trim((string) $product->barcode),
@@ -377,7 +390,12 @@ class ListInventoryItems extends ListRecords
             return $this->catalogQuery()->setEagerLoads([])->get()->modelKeys();
         }
 
-        return array_values(array_filter(array_map('intval', $this->selectedItems)));
+        // Checkbox values are browser-controlled. Re-resolve explicit IDs
+        // through the same location, role and search filters as the catalog
+        // before performing any destructive bulk operation.
+        $ids = array_values(array_unique(array_filter(array_map('intval', $this->selectedItems), fn (int $id) => $id > 0)));
+        if ($ids === []) return [];
+        return $this->catalogQuery()->setEagerLoads([])->whereKey($ids)->get()->modelKeys();
     }
 
     public function bulkSelectionCount(): int
@@ -453,7 +471,9 @@ class ListInventoryItems extends ListRecords
             ->modalDescription(fn (array $arguments) => InventoryItem::find($arguments['product'] ?? null)?->name)
             ->modalSubmitActionLabel('Add Stock')
             ->mountUsing(function ($form, array $arguments): void {
-                $record = InventoryItem::find($arguments['product'] ?? null);
+                abort_unless(InventoryItemResource::canManageStock(), 403);
+                $record = $this->catalogQuery()->whereKey((int) ($arguments['product'] ?? 0))->first();
+                abort_unless($record, 404);
                 $this->selectedStockProductId = $record?->getKey();
                 $this->quickStockScanTargetId = $record?->getKey();
                 $this->quickStockScanTargetName = $record?->name;
@@ -483,8 +503,8 @@ class ListInventoryItems extends ListRecords
             })
             ->form(InventoryItemResource::addStockFields(fn () => $this->startQuickStockBarcodeScan()))
             ->action(function (array $data, array $arguments): void {
-                $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
                 abort_unless(InventoryItemResource::canManageStock(), 403);
+                $record = $this->catalogQuery()->whereKey((int) ($arguments['product'] ?? 0))->firstOrFail();
 
                 $location = InventoryItemResource::bookAddStock($record, $data);
 

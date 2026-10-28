@@ -12,11 +12,15 @@ trait FiltersInventoryLocation
     #[Url(as: 'location')]
     public string $inventoryLocation = '';
 
+    /** Warehouse choices are used by cards, filters and stock actions in one render. */
+    private ?array $inventoryLocationOptionsMemo = null;
+
     public function inventoryLocationOptions(): array
     {
+        if ($this->inventoryLocationOptionsMemo !== null) return $this->inventoryLocationOptionsMemo;
         $visible = InventoryVisibility::shownLocationIdsFor(auth()->user());
 
-        return InventoryLocation::query()
+        return $this->inventoryLocationOptionsMemo = InventoryLocation::query()
             ->when($visible !== null, fn ($q) => $q->whereIn('id', $visible))
             ->orderBy('name')->get(['id', 'name', 'status'])
             ->mapWithKeys(fn ($location) => [$location->id => $location->name.($location->status === 'active' ? '' : ' (inactive)')])
@@ -32,7 +36,7 @@ trait FiltersInventoryLocation
         unset($this->cachedSelectedTableRecords);
         $this->deselectAllTableRecords();
         $this->resetPage();
-        $this->catalogVisible = 40;
+        $this->catalogPage = 1;
         $this->statsMemo = null;
         unset($this->catalogItems, $this->catalogTotal);
     }

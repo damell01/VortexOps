@@ -14,6 +14,8 @@
     $lastPage = max(1, (int) ceil($totalFilteredShows / $perPage));
     $page = min(max(1, $this->queuePage), $lastPage);
     $shows = $filteredShows->forPage($page, $perPage)->values();
+    // P&L is needed for the visible cards only, not every show in the pay period.
+    $shows->each(fn (\App\Models\Show $show) => $show->setAttribute('pnl_summary', $show->profitAndLoss()));
 
     $activeWorkflow = $this->workflow ?: 'all';
     $statusLabels = \App\Models\WeeklyPayoutBatch::statusLabels();
@@ -59,8 +61,8 @@
         @media(max-width:1100px){[data-vx-page=payroll] .vxw-split{grid-template-columns:1fr}}
     </style>
     <div class="vx-payroll-head">
-        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" aria-label="Next pay period">›</button></div>
-        <div class="flex flex-wrap items-center gap-2"><a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>@if($current)<a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review run</a>@endif<a class="vxw-btn vxw-btn--primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}">+ Create Pay Run</a></div>
+        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" wire:loading.attr="disabled" wire:target="changePeriod" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" wire:loading.attr="disabled" wire:target="changePeriod" aria-label="Next pay period">›</button></div>
+        <div class="flex flex-wrap items-center gap-2"><a wire:navigate class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>@if($current)<a wire:navigate class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review run</a>@endif<a wire:navigate class="vxw-btn vxw-btn--primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}">+ Create Pay Run</a></div>
     </div>
     <div class="vx-payroll-kpis">
         @foreach([['Selected run total',$money($current?->total_payout ?? 0),$current ? 'Saved pay lines' : 'No run created','heroicon-o-banknotes'],['People in run',$breakdown['people'],collect(\App\Support\PayrollRoles::ORDER)->filter(fn ($r) => ($breakdown['roles'][$r]['people'] ?? 0) > 0)->map(fn ($r) => $breakdown['roles'][$r]['people'].' '.strtolower(\App\Support\PayrollRoles::plural($r)))->implode(' · ') ?: 'Grouped by role','heroicon-o-user-group'],['Ready for payroll',$readiness['ready'],'Ready or in a pay run','heroicon-o-check-circle'],['Needs attention',$readiness['review'],'Reports, time or pay setup','heroicon-o-clock'],['Pending approval',$progress['needs_review'],'Awaiting report review','heroicon-o-document-text'],['Tips this period','$'.number_format($tips['total'],2),collect($tips['channels'])->map(fn ($c) => $c['channel'].' $'.number_format($c['total'],2))->implode(' · ') ?: 'No tips imported yet','heroicon-o-gift']] as [$label,$value,$hint,$icon])
@@ -70,7 +72,7 @@
     <div class="vx-payroll-insights">
         <section class="vxw-card"><div class="vxw-card-body"><div class="flex items-center justify-between gap-3"><h3 class="vxw-h2">Payout trend</h3><span class="vxw-meta">Last 8 weeks</span></div><p class="vxw-sub">Paid runs grouped by period start.</p><div class="vx-payroll-trend" role="img" aria-label="Paid pay run totals for the last eight weeks">@foreach($trend as $point)<div class="vx-payroll-trend-point" title="{{ $point['label'] }}: {{ $money($point['total']) }}"><div class="vx-payroll-bar" style="height:{{ $point['total'] ? round($point['total']/$trendMax*145) : 3 }}px"></div><span>{{ $point['label'] }}</span></div>@endforeach</div>@if(!array_sum(array_column($trend,'total')))<p class="vxw-meta mt-3">No paid runs in this range.</p>@endif</div></section>
         <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Pay period status</h3><p class="vxw-sub">{{ $processed }} of {{ $progress['total'] }} shows ready, in a run or paid</p><div class="vx-payroll-progress" role="progressbar" aria-valuenow="{{ $processedPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Payroll progress"><span style="width:{{ $processedPercent }}%"></span></div>@foreach([['paid','Completed & paid',$workflow['paid']],['ready','Ready for a run',$workflow['ready']],['in_run','In a pay run',$workflow['in_run']],['review','Pending approval',$progress['needs_review']],['blocked','Blocked',$workflow['blocked']]] as [$filter,$label,$count])<button type="button" class="vx-payroll-status-row" wire:click="setWorkflow('{{ $filter }}')"><span>{{ $label }}</span><strong>{{ $count }} ›</strong></button>@endforeach</div></section>
-        <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
+        <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a wire:navigate class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a wire:navigate class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a wire:navigate class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
     </div>
 
     <div class="vxw-split">
@@ -97,8 +99,8 @@
                 @endif
             </div>
 
-            <div class="vx-payroll-search"><input type="search" wire:model.live.debounce.300ms="queue_search" placeholder="Search shows or streamers…" aria-label="Search payroll shows"><span class="vxw-meta">{{ $totalFilteredShows }} matching shows</span></div>
-            <div class="vxw-rows vx-payroll-show-cards" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage" style="transition:opacity 150ms">
+            <div class="vx-payroll-search"><input type="search" wire:model.live.debounce.300ms="queue_search" placeholder="Search shows or streamers…" aria-label="Search payroll shows"><span wire:loading.delay.short wire:target="queue_search" class="vxw-meta" role="status" aria-live="polite">Searching…</span><span class="vxw-meta">{{ $totalFilteredShows }} matching shows</span></div>
+            <div class="vxw-rows vx-payroll-show-cards" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage,queue_search,changePeriod,period_date" style="transition:opacity 150ms" aria-live="polite" aria-relevant="additions removals">
                 @forelse($shows as $show)
                     @php
                         $state = $show->getAttribute('workflow_state');
@@ -123,7 +125,7 @@
                                 <span>{{ $show->show_date?->format('D, M j') }}</span>
                                 <span>{{ $show->channel?->name ?? 'No channel' }}</span>
                             </div>
-                            <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}" class="vxw-row-title" title="{{ $show->title }}">{{ $show->title ?: 'Show #' . $show->id }}</a>
+                            <a wire:navigate href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}" class="vxw-row-title" title="{{ $show->title }}">{{ $show->title ?: 'Show #' . $show->id }}</a>
                             <div class="vxw-row-line">
                                 <span class="inline-flex items-center gap-1.5"><x-filament::icon icon="heroicon-m-user" class="h-3.5 w-3.5" />{{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer assigned' }}</span>
                             </div>
@@ -148,13 +150,14 @@
                             <div class="w-full sm:w-auto">
                                 @if($show->streamers->isEmpty())
                                     <select class="vxw-select" style="min-width:180px" aria-label="Assign a streamer to {{ $show->title }}"
-                                        wire:change="assignStreamerToShow({{ $show->id }}, $event.target.value)">
+                                        wire:change="assignStreamerToShow({{ $show->id }}, $event.target.value)"
+                                        wire:loading.attr="disabled" wire:target="assignStreamerToShow">
                                         <option value="">Assign streamer…</option>
                                         @foreach($this->streamerOptions() as $streamerId => $streamerName)<option value="{{ $streamerId }}">{{ $streamerName }}</option>@endforeach
                                     </select>
                                 @elseif($show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')
                                     <div class="flex gap-2">
-                                        <a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $show->streamerLogEntry]) }}">Open</a>
+                                        <a wire:navigate class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $show->streamerLogEntry]) }}">Open</a>
                                         <button type="button" class="vxw-btn vxw-btn--success vxw-btn--sm"
                                             wire:click="approveReportInline({{ $show->id }})" wire:confirm="Approve this streamer report?"
                                             wire:loading.attr="disabled" wire:target="approveReportInline({{ $show->id }})">
@@ -163,9 +166,9 @@
                                         </button>
                                     </div>
                                 @elseif($needsPaySetup)
-                                    <a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit', ['record' => $show->streamers->first()]) }}">Fix pay setup</a>
+                                    <a wire:navigate class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit', ['record' => $show->streamers->first()]) }}">Fix pay setup</a>
                                 @else
-                                    <a class="vxw-btn vxw-btn--sm {{ in_array($resolution['tone'], ['primary', 'success'], true) ? 'vxw-btn--primary' : '' }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
+                                    <a wire:navigate class="vxw-btn vxw-btn--sm {{ in_array($resolution['tone'], ['primary', 'success'], true) ? 'vxw-btn--primary' : '' }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
                                 @endif
                             </div>
                         </div>
@@ -199,11 +202,11 @@
             <section class="vxw-card">
                 <div class="vxw-card-head">
                     <h3 class="vxw-h2">Recent pay runs</h3>
-                    <a class="vxw-link text-[13px]" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">All</a>
+                    <a wire:navigate class="vxw-link text-[13px]" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">All</a>
                 </div>
                 <div class="vxw-rows">
                     @forelse($recent as $run)
-                        <a href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view', ['record' => $run]) }}" class="vxw-row" style="grid-template-columns:minmax(0,1fr) auto;text-decoration:none;padding:12px 18px">
+                        <a wire:navigate href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view', ['record' => $run]) }}" class="vxw-row" style="grid-template-columns:minmax(0,1fr) auto;text-decoration:none;padding:12px 18px">
                             <div class="vxw-row-main">
                                 <span class="text-[13.5px] font-semibold text-[var(--vxw-text)]">{{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}</span>
                                 <span class="vxw-meta">{{ $run->payouts_count }} {{ \Illuminate\Support\Str::plural('line', $run->payouts_count) }}@unless(\App\Support\BusinessContext::isScoped()) · {{ $run->businessLabel() }}@endunless</span>

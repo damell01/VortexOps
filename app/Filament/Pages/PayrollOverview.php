@@ -36,6 +36,7 @@ class PayrollOverview extends Page
     private ?array $streamerOptionsMemo = null;
     private ?WeeklyPayoutBatch $payRunMemo = null;
     private bool $payRunResolved = false;
+    private ?array $readinessProblemsMemo = null;
 
     /**
      * Queue filter and page live on the component, not on request(): a
@@ -95,6 +96,7 @@ class PayrollOverview extends Page
     public function setWorkflow(string $workflow): void
     {
         $this->workflow = $workflow;
+        $this->filteredWeekShowsMemo = null;
         $this->queuePage = 1;
     }
 
@@ -138,7 +140,14 @@ class PayrollOverview extends Page
     }
 
     public function updatedPeriodDate(): void { $this->normalizePeriodDate(); $this->queuePage = 1; $this->clearReadMemo(); }
-    public function updatedQueueSearch(): void { $this->queuePage = 1; }
+    public function updatedQueueSearch(): void { $this->queuePage = 1; $this->filteredWeekShowsMemo = null; }
+
+    /**
+     * The show collection is expensive (workflow and P&L per show). Keep the
+     * computed filters per Livewire request, rather than repeatedly filtering
+     * the same collection for totals and the visible queue.
+     */
+    private ?Collection $filteredWeekShowsMemo = null;
 
     public function periodBounds(): array
     {
@@ -333,6 +342,16 @@ class PayrollOverview extends Page
         ];
     }
 
+    /** Reuse readiness validation across the queue and attention summary. */
+    private function draftReadinessProblems(): array
+    {
+        if ($this->readinessProblemsMemo !== null) return $this->readinessProblemsMemo;
+        $run = $this->currentPayRun();
+        return $this->readinessProblemsMemo = $run && $run->status === 'draft'
+            ? app(PayRunReadinessService::class)->problems($run)
+            : [];
+    }
+
     public function needsAttention(): array
     {
         $warnings = [];
@@ -362,7 +381,7 @@ class PayrollOverview extends Page
         }
 
         if ($run->status === 'draft') {
-            foreach (app(PayRunReadinessService::class)->problems($run) as $problem) $warnings[] = $problem;
+            foreach ($this->draftReadinessProblems() as $problem) $warnings[] = $problem;
         }
 
         return array_values(array_unique($warnings));
@@ -393,15 +412,16 @@ class PayrollOverview extends Page
 
     public function currentWeekShows(): Collection
     {
+        if ($this->filteredWeekShowsMemo !== null) return $this->filteredWeekShowsMemo;
         $shows = $this->allCurrentWeekShows();
         if (trim($this->queue_search) !== '') {
             $query = mb_strtolower(trim($this->queue_search));
             $shows = $shows->filter(fn ($show) => str_contains(mb_strtolower(($show->title ?? '') . ' ' . $show->streamers->pluck('name')->join(' ')), $query));
         }
         $filter = $this->workflow;
-        if ($filter === '' || $filter === 'all') return $shows;
+        if ($filter === '' || $filter === 'all') return $this->filteredWeekShowsMemo = $shows;
 
-        return $shows->filter(function (Show $show) use ($filter): bool {
+        return $this->filteredWeekShowsMemo = $shows->filter(function (Show $show) use ($filter): bool {
             $key = $show->getAttribute('workflow_state')['key'] ?? '';
             $hasPayRunProblems = ($show->getAttribute('payrun_problems') ?? []) !== [];
             return match ($filter) {
@@ -525,7 +545,9 @@ class PayrollOverview extends Page
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
                 return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
-            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
+            // The existing withSum('payouts', 'calculated_payout') covers all period shows.
+            // Avoid computing full profit-and-loss for offscreen queue cards.
+            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->payouts_sum_calculated_payout ?? 0)),
         ];
     }
 
@@ -537,9 +559,11 @@ class PayrollOverview extends Page
     private function clearReadMemo(): void
     {
         $this->weekShowsMemo = null;
+        $this->filteredWeekShowsMemo = null;
         $this->streamerOptionsMemo = null;
         $this->payRunMemo = null;
         $this->payRunResolved = false;
+        $this->readinessProblemsMemo = null;
     }
 
     private function allCurrentWeekShows(): Collection
@@ -550,7 +574,16 @@ class PayrollOverview extends Page
         $start = $run?->week_start ?? $periodStart;
         $end = $run?->week_end ?? $periodEnd;
         $workflow = app(ShowWorkflowService::class);
-        $payRunProblems = $run && $run->status === 'draft' ? app(PayRunReadinessService::class)->problems($run) : [];
+        $payRunProblems = $this->draftReadinessProblems();
+        // Readiness messages are keyed by show title. Index once rather than
+        // scanning the entire problem list for every show in the period.
+        $problemsByShowPrefix = [];
+        foreach ($payRunProblems as $problem) {
+            $separator = strpos($problem, ' — ');
+            if ($separator === false) continue;
+            $prefix = substr($problem, 0, $separator + strlen(' — '));
+            $problemsByShowPrefix[$prefix][] = $problem;
+        }
 
         return $this->weekShowsMemo = Show::query()
             ->inChannelContext()->inBusinessContext()
@@ -561,11 +594,12 @@ class PayrollOverview extends Page
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()
-            ->map(function (Show $show) use ($workflow, $payRunProblems) {
+            ->map(function (Show $show) use ($workflow, $problemsByShowPrefix, $payRunProblems) {
                 $show->setAttribute('workflow_state', $workflow->stateFor($show));
-                $show->setAttribute('pnl_summary', $show->profitAndLoss());
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
-                $show->setAttribute('payrun_problems', array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix))));
+                $show->setAttribute('payrun_problems', str_contains($show->title ?: '', ' — ')
+                    ? array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix)))
+                    : ($problemsByShowPrefix[$prefix] ?? []));
                 return $show;
             })
             ->sortBy(function (Show $show): string {

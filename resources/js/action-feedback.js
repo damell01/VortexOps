@@ -77,7 +77,7 @@ document.addEventListener('invalid', (event) => {
     const label = field.closest('.fi-fo-field')?.querySelector('label')?.innerText?.replace(/\*/g, '').trim() || field.name || field.id;
     awaiting = null;
     renderFeedback(`Not saved \u2014 ${label}: ${field.validationMessage}`, true);
-    report('Browser blocked a form', `${label}: ${field.validationMessage} (value ${String(field.value).slice(0, 40)})`);
+    report('Browser blocked a form', `${label}: ${field.validationMessage}`);
     field.closest('.fi-fo-field')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }, true);
 
@@ -136,6 +136,17 @@ function installFeedback() {
         });
     });
 }
+// Keep action controls responsive while preventing accidental duplicate writes.
+// This is intentionally NOT optimistic data mutation: inventory and payroll
+// values only change when the server confirms the operation.
+document.addEventListener('click', (event) => {
+    const button = event.target.closest?.('button');
+    if (!button || button.disabled || button.closest('[wire\\:ignore]')) return;
+    const isLivewireAction = button.hasAttribute('wire:click') || button.hasAttribute('wire:submit') || button.hasAttribute('wire:confirm') || (button.type === 'submit' && button.form?.hasAttribute('wire:submit'));
+    if (!isLivewireAction) return;
+    button.classList.add('vx-action-pressed');
+    window.setTimeout(() => button.classList.remove('vx-action-pressed'), 450);
+}, true);
 document.addEventListener('livewire:init', installFeedback);
 installFeedback();
 document.addEventListener('livewire:navigating', () => { pending = 0; notice?.remove(); notice = null; });

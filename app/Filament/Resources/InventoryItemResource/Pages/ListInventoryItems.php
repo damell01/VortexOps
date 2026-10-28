@@ -390,7 +390,12 @@ class ListInventoryItems extends ListRecords
             return $this->catalogQuery()->setEagerLoads([])->get()->modelKeys();
         }
 
-        return array_values(array_filter(array_map('intval', $this->selectedItems)));
+        // Checkbox values are browser-controlled. Re-resolve explicit IDs
+        // through the same location, role and search filters as the catalog
+        // before performing any destructive bulk operation.
+        $ids = array_values(array_unique(array_filter(array_map('intval', $this->selectedItems), fn (int $id) => $id > 0)));
+        if ($ids === []) return [];
+        return $this->catalogQuery()->setEagerLoads([])->whereKey($ids)->get()->modelKeys();
     }
 
     public function bulkSelectionCount(): int

@@ -165,7 +165,7 @@
                                 @elseif($needsPaySetup)
                                     <a wire:navigate class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit', ['record' => $show->streamers->first()]) }}">Fix pay setup</a>
                                 @else
-                                    <a class="vxw-btn vxw-btn--sm {{ in_array($resolution['tone'], ['primary', 'success'], true) ? 'vxw-btn--primary' : '' }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
+                                    <a wire:navigate class="vxw-btn vxw-btn--sm {{ in_array($resolution['tone'], ['primary', 'success'], true) ? 'vxw-btn--primary' : '' }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
                                 @endif
                             </div>
                         </div>

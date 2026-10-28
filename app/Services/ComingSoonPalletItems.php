@@ -21,7 +21,8 @@ class ComingSoonPalletItems
                 $q->whereNull('lines.line_status')->orWhere('lines.line_status', '!=', 'received');
             })
             ->whereNotNull('lines.inventory_item_id')
-            ->where('lines.case_count', '>', 0);
+            ->where('lines.case_count', '>', 0)
+            ->whereNotNull('lines.inventory_location_id');
 
         if ($locations !== null) {
             $query->whereIn('lines.inventory_location_id', $locations);

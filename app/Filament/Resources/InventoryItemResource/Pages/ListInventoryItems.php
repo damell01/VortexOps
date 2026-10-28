@@ -67,11 +67,10 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'sort')]
     public string $catalogSort = 'name';
 
-    #[Url(as: 'perPage')]
-    public int $catalogPerPage = 50;
+    /** Fixed card page size prevents unbounded Livewire HTML payloads. */
+    private const CATALOG_PAGE_SIZE = 40;
 
     public int $catalogPage = 1;
-    public int $catalogVisible = 40;
 
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
@@ -165,7 +164,7 @@ class ListInventoryItems extends ListRecords
             ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
             ->latest('created_at')
             ->limit(1)]);
-        return $query->forPage(max(1, $this->catalogPage), 40)->get();
+        return $query->forPage(max(1, $this->catalogPage), self::CATALOG_PAGE_SIZE)->get();
     }
 
     #[Computed]
@@ -179,7 +178,6 @@ class ListInventoryItems extends ListRecords
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
         $this->catalogPage = 1;
-        $this->catalogVisible = 40;
         $this->clearSelection();
         $this->resetPage();
         unset($this->catalogItems, $this->catalogTotal);
@@ -201,13 +199,11 @@ class ListInventoryItems extends ListRecords
     {
         $this->clearSelection();
         $this->catalogPage = 1;
-        $this->catalogVisible = 40;
         unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function updatedCatalogSort(): void
     {
-        $this->catalogVisible = 40;
         $this->catalogPage = 1;
         $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
@@ -216,7 +212,7 @@ class ListInventoryItems extends ListRecords
     public function goToCatalogPage(int $page): void
     {
         if ($this->viewMode !== 'catalog') return;
-        $lastPage = max(1, (int) ceil($this->catalogTotal / 40));
+        $lastPage = max(1, (int) ceil($this->catalogTotal / self::CATALOG_PAGE_SIZE));
         $this->catalogPage = max(1, min($page, $lastPage));
         // Selections must not persist invisibly across catalog pages.
         $this->clearSelection();
@@ -227,7 +223,6 @@ class ListInventoryItems extends ListRecords
     {
         $this->catalogSearch = '';
         $this->catalogPage = 1;
-        $this->catalogVisible = 40;
         $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);
     }

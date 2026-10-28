@@ -24,7 +24,7 @@ for (const route of routes) {
       const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
       expect(response?.status(), 'route HTTP status').toBeLessThan(400);
       // An authenticated route redirecting to login is not a successful audit.
-      expect(new URL(page.url()).pathname, 'Unexpected redirect: check role and storage state').toBe(route.replace(/\/$/, '') || '/');
+      expect(new URL(page.url()).pathname.replace(/\/$/, '') || '/', 'Unexpected redirect: check role and storage state').toBe(route.replace(/\/$/, '') || '/');
       await page.locator('body').waitFor();
       await page.evaluate(() => document.fonts.ready);
       await expect(page.locator('body')).not.toBeEmpty();
@@ -34,6 +34,7 @@ for (const route of routes) {
         document: document.documentElement.scrollWidth,
         body: document.body.scrollWidth,
       }));
+      await page.screenshot({ path: `test-results/layout-${route.replace(/[^a-z0-9]+/gi, '-')}-${width}.png`, fullPage: true });
       expect(Math.max(metrics.document, metrics.body) - metrics.viewport,
         `horizontal overflow at ${route} (${width}px): ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(2);
       expect(errors, `uncaught browser errors on ${route}`).toEqual([]);
@@ -46,7 +47,6 @@ for (const route of routes) {
           return el.scrollWidth > el.clientWidth + 3 && style.overflowX === 'hidden' && !!el.textContent?.trim();
         }).slice(0, 20).map(el => ({ tag: el.tagName, text: el.textContent.trim().slice(0, 70) })));
       expect(clippedControls, `Potentially clipped controls on ${route}`).toEqual([]);
-      await page.screenshot({ path: `test-results/layout-${route.replace(/[^a-z0-9]+/gi, '-')}-${width}.png`, fullPage: true });
     });
   }
 }

@@ -36,8 +36,17 @@ jobs:
                 foreach (array_slice($errors, -6) as $block) {
                     preg_match('/^\[([0-9: -]+)\]/', $block, $time);
                     echo 'ERROR_TIME '.($time[1] ?? 'unknown').PHP_EOL;
+                    foreach (['Access denied', 'Permission denied', 'Undefined', 'not found', 'SQLSTATE', 'Call to', 'does not exist', 'Too many', 'Allowed memory', 'syntax error', 'must be of type', 'manifest', 'failed to open', 'CSRF', 'integrity constraint', 'Authentication', 'Unresolvable', 'Target class'] as $kind) {
+                        if (stripos(substr($block, 0, 1500), $kind) !== false) echo 'ERROR_CATEGORY '.$kind.PHP_EOL;
+                    }
                     foreach ([
                         '/SQLSTATE\[([A-Z0-9]+)\]/' => 'SQLSTATE',
+                        '/\[object\] \(([A-Za-z0-9_\\\\]+)/' => 'EXCEPTION_CLASS',
+                        '/Duplicate column name [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'DUPLICATE_COLUMN',
+                        '/Undefined array key [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'MISSING_ARRAY_KEY',
+                        '/Unable to locate file in Vite manifest: ([A-Za-z0-9_./-]+)/' => 'MISSING_VITE_ASSET',
+                        '/Allowed memory size of ([0-9]+)/' => 'MEMORY_LIMIT',
+                        '/Maximum execution time of ([0-9]+)/' => 'TIME_LIMIT',
                         '/Unknown column [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'MISSING_COLUMN',
                         '/Call to undefined method ([A-Za-z0-9_\\\\]+::[A-Za-z0-9_]+)\(/' => 'MISSING_METHOD',
                         '/Undefined variable \$([A-Za-z0-9_]+)/' => 'MISSING_VARIABLE',

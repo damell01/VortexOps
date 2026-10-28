@@ -22,16 +22,6 @@
             </div>
         </section>
 
-        @if($mode === 'quickadd')
-            <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
-                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_130px]">
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Destination location</span><select wire:model="qaLocationId" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Quantity</span><input wire:model="qaQty" type="number" step="0.01" min="0.01" inputmode="decimal" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /></label>
-                </div>
-                <label class="mt-3 block"><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Name only if this is a brand-new barcode</span><input wire:model="qaName" type="text" autocomplete="off" placeholder="Leave blank for an item already in inventory" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /><p class="mt-1 text-[10px] leading-4 text-gray-500 sm:text-xs">If the barcode is unknown, VortexOps can create the product using this name and add the scanned quantity.</p></label>
-            </section>
-        @endif
-
         @if($mode === 'receive')
             <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
                 <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -225,6 +215,17 @@
             @endif
         </section>
 
+        @if($mode === 'quickadd')
+            <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+                <h2 class="mb-3 text-base font-bold text-gray-950 dark:text-white">Add to Inventory</h2>
+                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_130px]">
+                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Destination location</span><select wire:model="qaLocationId" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Quantity</span><input wire:model="qaQty" type="number" step="0.01" min="0.01" inputmode="decimal" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /></label>
+                </div>
+                <label class="mt-3 block"><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Name only if this is a brand-new barcode</span><input wire:model="qaName" type="text" autocomplete="off" placeholder="Leave blank for an item already in inventory" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /><p class="mt-1 text-[10px] leading-4 text-gray-500 sm:text-xs">If the barcode is unknown, VortexOps can create the product using this name and add the scanned quantity.</p></label>
+            </section>
+        @endif
+
         @if($errorMessage)<section class="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Not found.</strong> {{ $errorMessage }}</section>@endif
 
         @if($qaFlash)
@@ -237,7 +238,7 @@
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-5">
                     <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0"><div class="text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">{{ $result['name'] }}</div><div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs"><span>SKU {{ $result['sku'] ?: '—' }}</span>@if($result['barcode'])<span>UPC {{ $result['barcode'] }}</span>@endif</div></div>
+                        <div class="min-w-0"><div class="mb-1 text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-300">Scan Result · Item Found</div><div class="text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">{{ $result['name'] }}</div><div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs"><span>SKU {{ $result['sku'] ?: '—' }}</span>@if($result['barcode'])<span>UPC {{ $result['barcode'] }}</span>@endif</div></div>
                         <span class="rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs {{ $result['is_low'] ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200' : 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' }}">{{ $result['is_low'] ? 'Low stock' : 'In stock' }}</span>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">

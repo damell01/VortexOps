@@ -1,7 +1,9 @@
 import { BrowserMultiFormatReader } from '@zxing/browser';
 
 let codeReader = null;
-let currentStream = null;
+let scannerControls = null;
+let startPending = false;
+let scanGeneration = 0;
 let isScanning = false;
 let lastScannedCode = null;
 let scanTimeout = null;
@@ -9,7 +11,9 @@ let torchController = null;
 
 export async function initScanner() {
     const scanner = document.getElementById('zxing-scanner');
-    if (!scanner) return;
+    if (!scanner || isScanning || startPending) return;
+    startPending = true;
+    const generation = ++scanGeneration;
 
     try {
         codeReader = new BrowserMultiFormatReader();
@@ -17,13 +21,13 @@ export async function initScanner() {
 
         const videoElement = document.createElement('video');
         videoElement.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-        scanner.appendChild(videoElement);
+        scanner.replaceChildren(videoElement);
 
-        currentStream = await codeReader.decodeFromVideoDevice(
+        const controls = await codeReader.decodeFromVideoDevice(
             undefined,
             videoElement,
             (result, err) => {
-                if (result) {
+                if (result && generation === scanGeneration) {
                     const barcode = result.getText();
 
                     if (barcode !== lastScannedCode) {
@@ -33,9 +37,7 @@ export async function initScanner() {
                         vibrate([50, 30, 50]);
                         updateStatus(`Scanned: ${barcode}`, 'success');
 
-                        if (window.livewire) {
-                            window.livewire.dispatch('barcodeScanned', { barcode: barcode });
-                        }
+                        window.Livewire?.dispatch?.('barcodeScanned', { barcode });
 
                         if (scanTimeout) clearTimeout(scanTimeout);
                         scanTimeout = setTimeout(() => {
@@ -49,10 +51,15 @@ export async function initScanner() {
             }
         );
 
+        if (generation !== scanGeneration || !document.getElementById('zxing-scanner')) {
+            controls.stop();
+            return;
+        }
+        scannerControls = controls;
         isScanning = true;
         updateStatus('Camera active - scanning...', 'success');
 
-        const track = currentStream.getVideoTracks()[0];
+        const track = videoElement.srcObject?.getVideoTracks?.()[0];
         if (track && 'getCapabilities' in track) {
             const capabilities = track.getCapabilities();
             if (capabilities.torch) {
@@ -72,27 +79,25 @@ export async function initScanner() {
             errorMsg = 'Barcode library error - try refreshing';
         }
 
-        updateStatus(errorMsg, 'error');
+        if (generation === scanGeneration) updateStatus(errorMsg, 'error');
+    } finally {
+        startPending = false;
     }
 }
 
 export function stopScanner() {
+    ++scanGeneration;
     isScanning = false;
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-    }
-
+    if (scanTimeout) clearTimeout(scanTimeout);
+    scanTimeout = null;
+    lastScannedCode = null;
+    scannerControls?.stop();
+    scannerControls = null;
     const scanner = document.getElementById('zxing-scanner');
-    if (scanner) {
-        scanner.innerHTML = '';
-    }
-
-    if (torchController) {
-        torchController.applyConstraints({ advanced: [{ torch: false }] });
-        torchController = null;
-    }
-
+    const video = scanner?.querySelector('video');
+    video?.srcObject?.getTracks?.().forEach(track => track.stop());
+    if (scanner) scanner.replaceChildren();
+    torchController = null;
     updateStatus('Camera closed', 'info');
 }
 
@@ -171,6 +176,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Clean up on page unload
-window.addEventListener('beforeunload', () => {
-    stopScanner();
-});
+window.addEventListener('beforeunload', stopScanner);
+document.addEventListener('livewire:navigate', stopScanner);

@@ -102,11 +102,11 @@ class StockTransfer extends Page
             ->get()
             ->map(fn ($stock) => [
                 'id' => $stock->id,
-                'item_id' => $stock->item_id,
+                'item_id' => $stock->inventory_item_id,
                 'item_name' => $stock->item?->name ?? 'Unknown',
                 'sku' => $stock->item?->sku ?? '—',
                 'available' => (float) $stock->quantity,
-                'transferring' => (float) ($this->selectedTransfers[$stock->item_id] ?? 0),
+                'transferring' => (float) ($this->selectedTransfers[$stock->inventory_item_id] ?? 0),
             ])
             ->toArray();
     }

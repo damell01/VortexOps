@@ -8,6 +8,8 @@ on:
       - 'app/Services/InventoryItemDeleter.php'
       - 'tests/Feature/Inventory/InventoryItemDeleteTest.php'
       - '.github/workflows/inventory-delete-checks.yml'
+      - 'resources/js/modal-lifecycle.js'
+      - 'scripts/check-modal-opening.cjs'
       - 'tests/Browser/inventory-audit.spec.ts'
       - 'tests/Browser/fixtures/inventory-audit.php'
 jobs:
@@ -58,6 +60,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: node scripts/check-modal-opening.cjs
       - run: npm run build
       - run: npx playwright install --with-deps chromium webkit
       - name: Prepare isolated inventory fixtures

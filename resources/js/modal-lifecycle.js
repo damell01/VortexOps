@@ -23,6 +23,18 @@
 // an open dialog so late-loading cleanup never dispatches Escape into it.
 const OPEN_MODAL = '.fi-modal.fi-modal-open, .fi-modal-window, .vx-mobile-menu-sheet, .vx-mobile-picker-sheet, .vxr-drawer, .vx-ps-modal, .vx-scan-sheet, .vx-camera-scanner-open [x-data="cameraScanner()"], [data-vx-dialog]';
 
+// Track Filament's explicit modal lifecycle, including its opening frame.
+// A navigation can discard a component without sending an unmount event.
+const mountedActionModals = new Set();
+window.addEventListener('sync-action-modals', (event) => {
+    const { id, newActionNestingIndex } = event.detail ?? {};
+    if (! id) return;
+    if (typeof newActionNestingIndex === 'number' && newActionNestingIndex >= 0) mountedActionModals.add(id);
+    else mountedActionModals.delete(id);
+    scheduleReconcile();
+});
+document.addEventListener('livewire:navigating', () => mountedActionModals.clear());
+
 /**
  * Is a dialog genuinely on screen?
  *
@@ -31,6 +43,9 @@ const OPEN_MODAL = '.fi-modal.fi-modal-open, .fi-modal-window, .vx-mobile-menu-s
  * this errs toward "open" and the net simply waits for the next check.
  */
 function aModalIsOpen() {
+    // The server has mounted an action before Alpine has made its window
+    // measurable. Cleanup during that interval sends Escape and cancels it.
+    if (mountedActionModals.size > 0 || document.querySelector('.fi-modal.fi-modal-open')) return true;
     return [...document.querySelectorAll(OPEN_MODAL)].some(
         (el) => el.offsetParent !== null || el.getClientRects().length > 0,
     );

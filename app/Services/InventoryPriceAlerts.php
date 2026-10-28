@@ -26,12 +26,13 @@ class InventoryPriceAlerts
             ->orderBy('changes.id')
             ->limit(min(max($limit, 1), 100))
             ->get([
-                'changes.id', 'changes.product_id', 'products.name',
+                'changes.id', 'changes.product_id', 'products.name', 'products.image_path',
                 'changes.old_price', 'changes.new_price', 'changes.created_at',
             ])->map(fn ($change) => [
                 'id' => (int) $change->id,
                 'product_id' => (int) $change->product_id,
                 'name' => $change->name,
+                'image' => $change->image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($change->image_path) : null,
                 'old_price' => $change->old_price,
                 'new_price' => $change->new_price,
                 'decreased' => $change->old_price !== null && $change->new_price !== null

@@ -55,7 +55,11 @@ jobs:
             s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             s.settimeout(70)
             s.connect('/run/php/php8.4-fpm.sock')
-            payload = b''.join(encoded(k)+encoded(v) for k,v in params.items())
+            def pair(k,v):
+                key,value=k.encode(),v.encode()
+                def size(n): return bytes([n]) if n < 128 else struct.pack('!I', n | 0x80000000)
+                return size(len(key))+size(len(value))+key+value
+            payload = b''.join(pair(k,v) for k,v in params.items())
             s.sendall(record(1, struct.pack('!HB5x',1,0)) + record(4,payload) + record(4,b'') + record(5,b''))
             def exact(n):
                 out=b''

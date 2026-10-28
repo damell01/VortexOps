@@ -10,6 +10,7 @@ use App\Services\InventoryService;
 use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use App\Support\NavVisibility;
 
@@ -138,7 +139,11 @@ class StockTransfer extends Page
 
     public function updateTransferQty(int $itemId, string $qty): void
     {
-        $value = max(0, (float) $qty);
+        if (! is_numeric($qty) || ! is_finite((float) $qty) || (float) $qty < 0) {
+            Notification::make()->title('Enter a valid transfer quantity')->warning()->send();
+            return;
+        }
+        $value = (float) $qty;
 
         if ($value == 0) {
             unset($this->selectedTransfers[$itemId]);
@@ -149,6 +154,7 @@ class StockTransfer extends Page
 
     public function executeTransfer(): void
     {
+        abort_unless(static::canAccess(), 403);
         if (!$this->fromLocationId || !$this->toLocationId) {
             Notification::make()
                 ->title('Invalid transfer')
@@ -181,18 +187,28 @@ class StockTransfer extends Page
             $fromLocation = InventoryLocation::findOrFail($this->fromLocationId);
             $toLocation = InventoryLocation::findOrFail($this->toLocationId);
 
+            // Validate the entire selection before changing any stock. Without
+            // an outer transaction, a failure midway leaves a partial transfer.
+            $transfers = [];
             foreach ($this->selectedTransfers as $itemId => $qty) {
-                if ($qty <= 0) continue;
-
-                $item = InventoryItem::findOrFail($itemId);
-                $inventoryService->transferStock(
-                    $item,
-                    $fromLocation,
-                    $toLocation,
-                    $qty,
-                    $this->transferReason ?: "Bulk transfer from {$fromLocation->name} to {$toLocation->name}"
-                );
+                if (! is_numeric($qty) || ! is_finite((float) $qty) || (float) $qty <= 0) {
+                    throw new \InvalidArgumentException('Every selected transfer must have a valid quantity greater than zero.');
+                }
+                $transfers[] = [(int) $itemId, (float) $qty];
             }
+
+            DB::transaction(function () use ($transfers, $inventoryService, $fromLocation, $toLocation): void {
+                foreach ($transfers as [$itemId, $qty]) {
+                    $item = InventoryItem::findOrFail($itemId);
+                    $inventoryService->transferStock(
+                        $item,
+                        $fromLocation,
+                        $toLocation,
+                        $qty,
+                        $this->transferReason ?: "Bulk transfer from {$fromLocation->name} to {$toLocation->name}"
+                    );
+                }
+            });
 
             Notification::make()
                 ->title('Transfer complete')

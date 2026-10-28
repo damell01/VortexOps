@@ -5,7 +5,7 @@
             <!-- From Location -->
             <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">From Location</h3>
-                <select wire:model.live="fromLocationId"
+                <select aria-label="Source inventory location" wire:model.live="fromLocationId"
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
                     <option value="">Select source location...</option>
                     @foreach($this->locations as $loc)
@@ -23,7 +23,7 @@
             <!-- To Location -->
             <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">To Location</h3>
-                <select wire:model.live="toLocationId"
+                <select aria-label="Destination inventory location" wire:model.live="toLocationId"
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
                     <option value="">Select destination location...</option>
                     @foreach($this->locations as $loc)
@@ -55,7 +55,7 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Items</h3>
 
             <!-- Search -->
-            <input wire:model.live.debounce.300ms="searchQuery" type="text" placeholder="Search items by name, SKU, or barcode..."
+            <input aria-label="Search stock to transfer" wire:model.live.debounce.300ms="searchQuery" type="text" placeholder="Search items by name, SKU, or barcode..."
                 class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4" />
 
             <!-- Items List -->
@@ -79,11 +79,11 @@
 
                     <!-- Transfer Qty Input -->
                     <div class="flex items-center gap-2">
-                        <input type="number" wire:change="updateTransferQty({{ $stock['item_id'] }}, $event.target.value)"
+                        <input type="number" aria-label="Transfer quantity for {{ $stock['item_name'] }}" wire:change="updateTransferQty({{ $stock['item_id'] }}, $event.target.value)"
                             value="{{ $stock['transferring'] }}"
                             min="0" max="{{ $stock['available'] }}"
                             placeholder="0"
-                            class="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
+                            class="w-24 min-h-10 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right focus:ring-2 focus:ring-primary-500 focus:border-transparent" />
                     </div>
                 </div>
                 @endforeach
@@ -118,7 +118,7 @@
                 Clear Selection
             </button>
 
-            <button wire:click="$toggle('showConfirm')" class="px-6 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition font-medium">
+            <button wire:click="$toggle('showConfirm')" class="min-h-11 px-6 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg transition font-medium">
                 Execute Transfer
             </button>
         </div>
@@ -134,10 +134,10 @@
                 </p>
 
                 <div class="flex gap-3">
-                    <button wire:click="$toggle('showConfirm')" class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium">
+                    <button wire:click="$toggle('showConfirm')" class="flex-1 min-h-11 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition font-medium">
                         Cancel
                     </button>
-                    <button wire:click="executeTransfer" wire:loading.attr="disabled" wire:target="executeTransfer" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
+                    <button wire:click="executeTransfer" wire:loading.attr="disabled" wire:target="executeTransfer" class="flex-1 min-h-11 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg transition font-medium">
                         Confirm
                     </button>
                 </div>

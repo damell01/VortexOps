@@ -156,8 +156,8 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
-<button type="button" class="vx-search-trigger" data-vx-search-trigger aria-label="Open search" aria-keyshortcuts="Control+K Meta+K" title="Search (Ctrl+K)">
-<x-filament::icon icon="heroicon-o-magnifying-glass"/><span class="vx-search-shortcut">Ctrl K</span>
+<button type="button" class="vx-search-trigger" data-vx-search-trigger aria-label="Open search" aria-keyshortcuts="Control+K Meta+K" title="Search">
+<x-filament::icon icon="heroicon-o-magnifying-glass"/>
 </button>
 </nav>
 @include('filament.components.mobile-navigation')

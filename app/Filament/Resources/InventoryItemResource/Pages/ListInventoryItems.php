@@ -190,6 +190,7 @@ class ListInventoryItems extends ListRecords
         $next = in_array($mode, ['catalog', 'table'], true) ? $mode : 'catalog';
         if ($this->viewMode === $next) return;
         $this->viewMode = $next;
+        $this->catalogPage = 1;
         // Card selections must not linger invisibly when switching to the
         // table; avoid an accidental bulk action on a stale selection.
         $this->clearSelection();
@@ -225,6 +226,7 @@ class ListInventoryItems extends ListRecords
     public function clearCatalogSearch(): void
     {
         $this->catalogSearch = '';
+        $this->catalogPage = 1;
         $this->catalogVisible = 40;
         $this->clearSelection();
         unset($this->catalogItems, $this->catalogTotal);

@@ -545,7 +545,9 @@ class PayrollOverview extends Page
                 $key = $show->getAttribute('workflow_state')['key'] ?? '';
                 return ($show->getAttribute('payrun_problems') ?? []) !== [] || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
             })->count(),
-            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
+            // The existing withSum('payouts', 'calculated_payout') covers all period shows.
+            // Avoid computing full profit-and-loss for offscreen queue cards.
+            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->payouts_sum_calculated_payout ?? 0)),
         ];
     }
 
@@ -594,7 +596,6 @@ class PayrollOverview extends Page
             ->get()
             ->map(function (Show $show) use ($workflow, $problemsByShowPrefix, $payRunProblems) {
                 $show->setAttribute('workflow_state', $workflow->stateFor($show));
-                $show->setAttribute('pnl_summary', $show->profitAndLoss());
                 $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
                 $show->setAttribute('payrun_problems', str_contains($show->title ?: '', ' — ')
                     ? array_values(array_filter($payRunProblems, fn (string $problem) => str_starts_with($problem, $prefix)))

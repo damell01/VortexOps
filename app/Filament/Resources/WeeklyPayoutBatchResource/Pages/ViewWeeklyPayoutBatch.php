@@ -44,6 +44,56 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $this->peoplePage = min(max(1, $lastPage), $this->peoplePage + 1);
     }
 
+    public int $showsPage = 1;
+
+    public function previousShowsPage(): void
+    {
+        $this->showsPage = max(1, $this->showsPage - 1);
+    }
+
+    public function nextShowsPage(): void
+    {
+        $this->showsPage++;
+    }
+
+    public function periodShows(): ?\Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        $run = $this->record;
+        if ($run->status !== 'draft' || $run->kind === 'other') {
+            return null;
+        }
+
+        return \App\Models\Show::query()
+            ->where('show_date', '>=', $run->week_start->toDateString())
+            ->where('show_date', '<', $run->week_end->copy()->addDay()->toDateString())
+            ->where('status', '!=', 'cancelled')
+            ->whereHas('streamers', fn ($q) => $q->when($run->business_id, fn ($q) => $q->where('business_id', $run->business_id)))
+            ->with(['streamers' => fn ($q) => $q->when($run->business_id, fn ($q) => $q->where('business_id', $run->business_id)), 'streamerLogEntry', 'channel'])
+            ->orderBy('show_date')->orderBy('id')
+            ->paginate(12, ['*'], 'showsPage', max(1, $this->showsPage));
+    }
+
+    public function periodShowStatus(\App\Models\Show $show): string
+    {
+        if ($this->record->payouts->contains('show_id', $show->id)) {
+            return 'Included in pay';
+        }
+        if (! $show->is_operational) {
+            return 'Historical — outside payroll';
+        }
+        $report = $show->streamerLogEntry;
+        if ($report?->status === 'changes_requested') {
+            return 'Changes requested';
+        }
+        if (! $report?->submitted_at && $report?->status !== 'admin_approved') {
+            return 'Needs report';
+        }
+        if ($report->status !== 'admin_approved' && $report->approval_status !== 'approved') {
+            return 'Needs approval';
+        }
+        return 'Pending payroll review';
+    }
+
     public function getTitle(): string
     {
         $start = $this->record->week_start?->format('M j');

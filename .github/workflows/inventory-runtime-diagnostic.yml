@@ -35,6 +35,7 @@ jobs:
             auth()->guard('web')->setUser($owner);
             $response = $kernel->handle($request);
             echo 'INVENTORY_AUTHENTICATED_GET_STATUS '.$response->getStatusCode().PHP_EOL;
+            echo 'INVENTORY_CATALOG_VISIBLE '.(str_contains($response->getContent(), 'data-vx-page=') && str_contains($response->getContent(), 'Products') ? 'yes' : 'no').PHP_EOL;
             auth()->guard('web')->setUser($owner);
             $payRequest = Illuminate\Http\Request::create('https://vortexops.tech/admin/weekly-payout-batches/66', 'GET');
             $payResponse = $kernel->handle($payRequest);
@@ -50,14 +51,19 @@ jobs:
                 fclose($handle);
                 $blocks = preg_split('/(?=^\[\d{4}-\d{2}-\d{2} )/m', $text);
                 $errors = array_values(array_filter($blocks, fn ($b) => str_contains(substr($b, 0, 180), '.ERROR:')));
-                foreach (array_slice($errors, -6) as $block) {
+                foreach (array_slice($errors, -20) as $block) {
                     $block = str_replace('\\/', '/', $block);
                     preg_match('/^\[([0-9: -]+)\]/', $block, $time);
                     echo 'ERROR_TIME '.($time[1] ?? 'unknown').PHP_EOL;
                     foreach (['Access denied', 'Permission denied', 'Undefined', 'not found', 'SQLSTATE', 'Call to', 'does not exist', 'Too many', 'Allowed memory', 'syntax error', 'must be of type', 'manifest', 'failed to open', 'CSRF', 'integrity constraint', 'Authentication', 'Unresolvable', 'Target class'] as $kind) {
                         if (stripos(substr($block, 0, 1500), $kind) !== false) echo 'ERROR_CATEGORY '.$kind.PHP_EOL;
                     }
+                    $headline = substr(explode('\n', $block)[0], 0, 1200);
+                    foreach (['memory', 'exhausted', 'permission', 'denied', 'manifest', 'Vite', 'Component', 'View', 'SQLSTATE', 'column', 'stock_sum_quantity', 'products', 'method', 'property', 'undefined', 'function', 'not found', 'table', 'syntax', 'Alpine', 'Livewire', 'route', 'session', 'Redis', 'Connection', 'refused', 'timeout', 'Too many', 'TypeError', 'array', 'string', 'null', 'cache', 'file', 'failed', 'open', 'duplicate', 'decrypt', 'key', 'readonly', 'disabled'] as $word) {
+                        if (stripos($headline, $word) !== false) echo 'HEADLINE_TOKEN '.$word.PHP_EOL;
+                    }
                     foreach ([
+                        '/View \[([A-Za-z0-9_.-]+)\] not found/' => 'MISSING_VIEW',
                         '/SQLSTATE\[([A-Z0-9]+)\]/' => 'SQLSTATE',
                         '/\[object\] \(([A-Za-z0-9_\\\\]+)/' => 'EXCEPTION_CLASS',
                         '/Duplicate column name [\x27\x22]([A-Za-z0-9_.]+)[\x27\x22]/' => 'DUPLICATE_COLUMN',

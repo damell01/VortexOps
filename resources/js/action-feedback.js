@@ -77,7 +77,7 @@ document.addEventListener('invalid', (event) => {
     const label = field.closest('.fi-fo-field')?.querySelector('label')?.innerText?.replace(/\*/g, '').trim() || field.name || field.id;
     awaiting = null;
     renderFeedback(`Not saved \u2014 ${label}: ${field.validationMessage}`, true);
-    report('Browser blocked a form', `${label}: ${field.validationMessage} (value ${String(field.value).slice(0, 40)})`);
+    report('Browser blocked a form', `${label}: ${field.validationMessage}`);
     field.closest('.fi-fo-field')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }, true);
 

@@ -1,0 +1,33 @@
+name: Inventory runtime cache repair
+on:
+  push:
+    branches: [fix/inventory-list-500]
+    paths: ['.github/workflows/inventory-runtime-cache-repair.yml']
+permissions:
+  contents: read
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - name: Refresh framework caches and the serving PHP processes
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          timeout: 60s
+          command_timeout: 3m
+          script: |
+            set -eu
+            cd /var/www/vortexops
+            git rev-parse --short HEAD
+            php artisan optimize:clear
+            php artisan config:cache
+            php artisan route:cache
+            php artisan filament:optimize
+            FPM_UNITS=$(systemctl list-units --type=service --all --no-legend 'php*-fpm.service' 2>/dev/null | awk '{print $1}')
+            for FPM_UNIT in $FPM_UNITS; do sudo -n systemctl reload "$FPM_UNIT"; done
+            php artisan health:check >/dev/null
+            echo INVENTORY_RUNTIME_CACHES_REFRESHED

@@ -252,8 +252,8 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     };
     const open = () => {
         const bar = document.querySelector('.fi-topbar:has(.vx-desktop-mega-nav)');
-        const input = bar?.querySelector('.fi-global-search input');
-        if (!bar || !input) return;
+        const input = document.querySelector('.fi-global-search input');
+        if (!input) return;
         if (scrim) { input.focus(); return; }
         previousFocus = document.activeElement;
         scrim = document.createElement('div');
@@ -268,9 +268,9 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
         closeButton.setAttribute('aria-label','Close search');
         closeButton.addEventListener('click',close);
         document.body.append(scrim,shell,closeButton);
-        bar.classList.add('vx-search-active');
+        bar?.classList.add('vx-search-active');
         document.body.classList.add('vx-search-lock');
-        requestAnimationFrame(() => input.focus());
+        requestAnimationFrame(() => { input.focus(); input.click(); });
     };
     document.addEventListener('click', event => {
         if (event.target.closest('[data-vx-search-trigger]')) { event.preventDefault(); open(); }

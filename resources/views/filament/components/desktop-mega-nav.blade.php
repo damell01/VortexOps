@@ -207,6 +207,9 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     /* Keep Filament's Livewire search in its original DOM location.
        Moving it to document.body breaks morphing and detaches live results. */
     .fi-topbar .fi-global-search-ctn { display:none !important; }
+    body.vx-search-lock .fi-topbar { z-index:10005 !important; isolation:auto !important; transform:none !important; }
+    body.vx-search-lock .fi-topbar nav.vx-desktop-mega-nav { pointer-events:none !important; }
+    body.vx-search-lock .fi-topbar .fi-global-search-ctn { pointer-events:auto !important; }
     body.vx-search-lock .fi-topbar .fi-global-search-ctn {
         display:block !important; position:fixed !important;
         top:clamp(38px,10vh,100px) !important; left:50% !important;
@@ -222,7 +225,7 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
     body.vx-search-lock .fi-topbar .fi-global-search :is(.fi-global-search-field,.fi-input-wrp,input) {
         width:100% !important; max-width:none !important; min-width:0 !important;
     }
-    body.vx-search-lock .fi-topbar .fi-global-search input { min-height:54px !important; font-size:17px !important; }
+    body.vx-search-lock .fi-topbar .fi-global-search input { min-height:54px !important; font-size:17px !important; color:#111827 !important; -webkit-text-fill-color:#111827 !important; opacity:1 !important; background:#fff !important; caret-color:#111827 !important; }
     body.vx-search-lock .fi-topbar .fi-global-search-results-ctn {
         display:block; position:relative !important; top:auto !important;
         left:auto !important; width:100% !important; max-width:none !important;

@@ -19,11 +19,8 @@ final class InventoryPopupPolicy
         $ids = json_decode((string) Setting::get(self::USER_IDS, '[]'), true);
         $ids = is_array($ids) ? array_map('intval', $ids) : [];
 
-        if (in_array($user->id, $ids, true)) return true;
+        if (in_array($user->id, $ids, true)) return InventoryVisibility::isReadOnlyStreamer($user);
         if (in_array('streamer', $roles, true) && InventoryVisibility::isReadOnlyStreamer($user)) return true;
-        foreach (['admin', 'fulfillment', 'streamer_assistant'] as $role) {
-            if (in_array($role, $roles, true) && $user->hasRole($role)) return true;
-        }
         return false;
     }
 }

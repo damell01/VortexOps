@@ -15,15 +15,16 @@ class InventoryPriceAcknowledgment extends Component
     public function mount(InventoryPriceAlerts $alerts): void
     {
         $user = auth()->user();
-        if ($user && InventoryVisibility::isReadOnlyStreamer($user)) {
+        if ($user && \App\Support\InventoryPopupPolicy::enabledFor($user)) {
             $this->changes = $alerts->pending($user);
-            $this->comingSoon = app(\App\Services\\ComingSoonPalletItems::class)->items($user);
+            $this->comingSoon = app(\App\Services\ComingSoonPalletItems::class)->items($user);
+            $this->arrivals = app(\App\Services\InventoryArrivalAlerts::class)->pending($user);
         }
     }
 
     public function acknowledge(InventoryPriceAlerts $alerts): void
     {
-        abort_unless(auth()->check() && InventoryVisibility::isReadOnlyStreamer(auth()->user()), 403);
+        abort_unless(auth()->check() && \App\Support\InventoryPopupPolicy::enabledFor(auth()->user()), 403);
         if ($this->changes === [] && $this->comingSoon === [] && $this->arrivals === []) {
             return;
         }

@@ -57,7 +57,7 @@ class ProbeWhatnotOrderShowFilter extends Command
         }
         try {
             $result = $scraper->fetchOrdersForShows($sources, $a->channel?->whatnot_username, false,
-                fn (string $line) => $this->line($line));
+                fn (string $line) => $this->line($line), true);
         } catch (\Throwable $e) {
             $this->error('Order source probe failed: '.$e->getMessage());
             return self::FAILURE;
@@ -82,7 +82,7 @@ class ProbeWhatnotOrderShowFilter extends Command
             $this->error('SOURCE FILTER FAILED: orders appear under both shows. Do not backfill.');
             return self::FAILURE;
         }
-        $this->warn('No overlap observed; this does NOT independently prove source filtering. No orders were imported or changed.');
+        $this->warn('Sampled at most 2 pages per show. No overlap is NOT proof of filtering; compare IDs to verified Whatnot reports before enabling automatic matching. No orders were imported or changed.');
         return self::SUCCESS;
     }
 }

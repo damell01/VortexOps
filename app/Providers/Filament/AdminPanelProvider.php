@@ -99,7 +99,7 @@ class AdminPanelProvider extends PanelProvider
         $pwaIconsExist = fn (): bool => file_exists(public_path('icons/icon-192.png'));
 
         return $panel
-            ->spa(hasPrefetching: false)
+            ->spa(hasPrefetching: true)
             // The custom top menu and its mobile sheet replace the sidebar on every
             // signed-in page, so don't spend a fifth of each request building it.
             ->sidebarLivewireComponent(\App\Livewire\HiddenSidebar::class)

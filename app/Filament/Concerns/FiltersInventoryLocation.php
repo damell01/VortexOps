@@ -37,6 +37,7 @@ trait FiltersInventoryLocation
         $this->deselectAllTableRecords();
         $this->resetPage();
         $this->catalogVisible = 40;
+        $this->catalogPage = 1;
         $this->statsMemo = null;
         unset($this->catalogItems, $this->catalogTotal);
     }

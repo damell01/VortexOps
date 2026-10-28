@@ -3,6 +3,7 @@
     $run = $this->record;
     $run->loadMissing(['payouts.streamer','payouts.show','createdBy','finalizedBy']);
     $payouts = $run->payouts;
+    $periodShows = $this->periodShows();
     $problems = $run->status === 'draft' ? app(\App\Services\PayRunReadinessService::class)->problems($run) : [];
     $allPeople = $payouts->groupBy('streamer_id');
     $byPerson = $allPeople;
@@ -33,7 +34,7 @@
     $nextAction = match ($run->status) {
         'draft' => $problems !== []
             ? ['title'=>'Resolve '.count($problems).' '.\Illuminate\Support\Str::plural('blocker', count($problems)),'detail'=>'Clear these before the run can be finalized.','tone'=>'warn']
-            : ['title'=>'Ready to finalize','detail'=>'All readiness checks are clear. Finalizing locks every payout amount.','tone'=>'ok'],
+            : ($payouts->isEmpty() ? ['title'=>'No pay lines yet','detail'=>'Review the shows below. Reports and approvals are still required before pay can be included.','tone'=>'info'] : ['title'=>'Ready to finalize','detail'=>'All readiness checks are clear. Finalizing locks every payout amount.','tone'=>'ok']),
         'finalized' => ['title'=>'Send to ADP','detail'=>'Amounts are locked. Export the CSV, submit it in ADP, then mark it submitted.','tone'=>'info'],
         'submitted_to_adp' => ['title'=>'Confirm payment','detail'=>'Mark the run paid once ADP confirms the payments went out.','tone'=>'info'],
         'paid' => ['title'=>'Pay run complete','detail'=>'This run is paid and team balances have been updated.','tone'=>'ok'],
@@ -96,7 +97,7 @@
                 <div class="flex flex-wrap gap-2">
                     @if($run->status === 'draft' && count($problems))
                         <a href="{{ $blockedUrl }}" class="vxw-btn vxw-btn--sm">Fix blocked shows</a>
-                    @elseif($run->status === 'draft')
+                    @elseif($run->status === 'draft' && $payouts->isNotEmpty())
                         <button type="button" wire:click="mountAction('finalize')" class="vxw-btn vxw-btn--success vxw-btn--sm"><x-filament::icon icon="heroicon-m-lock-closed" /> Finalize</button>
                     @elseif($run->status === 'finalized')
                         <button type="button" wire:click="mountAction('export_adp')" class="vxw-btn vxw-btn--sm"><x-filament::icon icon="heroicon-m-arrow-down-tray" /> Export ADP CSV</button>
@@ -117,6 +118,35 @@
             <div class="vxw-stat"><div class="vxw-stat-label">Blockers</div><div class="vxw-stat-value {{ count($problems) ? 'vxw-tone-warn' : 'vxw-tone-ok' }}">{{ count($problems) }}</div></div>
         </div>
     </section>
+
+    @if($periodShows !== null)
+        <section class="vxw-card" aria-label="Shows in this period">
+            <div class="vxw-card-head">
+                <div><h3 class="vxw-h2">Shows in this period · {{ $periodShows->total() }}</h3>
+                <p class="vxw-sub">Shows assigned to people in this business, including shows awaiting reports or approval. Pending shows do not add to pay.</p></div>
+            </div>
+            <div class="vxw-card-body grid gap-4">
+                @forelse($periodShows as $show)
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <a class="font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}">{{ $show->title }}</a>
+                            <div class="vxw-meta">{{ $show->show_date?->format('M j, Y') }} · {{ $show->channel?->name }} · {{ $show->streamers->pluck('name')->join(', ') }}</div>
+                        </div>
+                        <span class="vxw-pill">{{ $this->periodShowStatus($show) }}</span>
+                    </div>
+                @empty
+                    <p class="vxw-meta">No shows are assigned to this business during these dates.</p>
+                @endforelse
+                @if($periodShows->hasPages())
+                    <div class="flex items-center justify-between gap-3">
+                        <button type="button" wire:click="previousShowsPage" @disabled($periodShows->onFirstPage()) class="vxw-btn vxw-btn--sm">Previous shows</button>
+                        <span class="vxw-meta">Page {{ $periodShows->currentPage() }} of {{ $periodShows->lastPage() }}</span>
+                        <button type="button" wire:click="nextShowsPage" @disabled(! $periodShows->hasMorePages()) class="vxw-btn vxw-btn--sm">Next shows</button>
+                    </div>
+                @endif
+            </div>
+        </section>
+    @endif
 
     <div class="vxw-split">
         <section class="vxw-card">

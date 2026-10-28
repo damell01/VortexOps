@@ -269,9 +269,11 @@ class DashboardImproved extends Dashboard
     {
         try {
             $start = now()->subDays(29)->startOfDay();
-            $shows = Show::query()->inChannelContext()
+            $showTotals = Show::query()->inChannelContext()
                 ->whereBetween('show_date', [$start->toDateString(), now()->endOfDay()->toDateTimeString()])
-                ->whereNotIn('status', ['cancelled'])->get();
+                ->whereNotIn('status', ['cancelled'])
+                ->selectRaw('COUNT(*) as show_count, COALESCE(SUM(gross_revenue), 0) as gross_total, COALESCE(SUM(whatnot_net), 0) as net_total')
+                ->first();
 
             $inventoryValue = InventoryStock::query()
                 ->with('item:id,average_cost,unit_cost')
@@ -279,9 +281,9 @@ class DashboardImproved extends Dashboard
                 ->sum(fn ($stock) => (float) $stock->quantity * (float) ($stock->item?->average_cost ?: $stock->item?->unit_cost ?: 0));
 
             return [
-                'shows' => $shows->count(),
-                'gross' => (float) $shows->sum('gross_revenue'),
-                'net' => (float) $shows->sum('whatnot_net'),
+                'shows' => (int) ($showTotals?->show_count ?? 0),
+                'gross' => (float) ($showTotals?->gross_total ?? 0),
+                'net' => (float) ($showTotals?->net_total ?? 0),
                 'inventory_value' => $inventoryValue,
                 'units' => (float) InventoryStock::query()->sum('quantity'),
                 'unassigned' => Show::query()->inChannelContext()->whereDate('show_date', '>=', today())->whereDoesntHave('streamers')->whereNotIn('status', ['cancelled','closed'])->count(),

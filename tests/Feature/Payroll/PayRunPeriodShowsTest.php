@@ -23,7 +23,7 @@ class PayRunPeriodShowsTest extends TestCase
         $outsider = Streamer::create(['name' => 'Other Host', 'business_id' => $other->id, 'status' => 'active']);
         $channel = WhatnotChannel::create(['name' => 'Period Channel', 'status' => 'active']);
         foreach ([['Opening boundary', '2026-10-20', $person], ['Closing boundary', '2026-10-26', $person], ['Before period', '2026-10-19', $person], ['After period', '2026-10-27', $person], ['Other business show', '2026-10-22', $outsider]] as [$title, $date, $host]) {
-            $show = Show::create(['title' => $title, 'show_date' => $date, 'whatnot_channel_id' => $channel->id, 'created_by' => $owner->id, 'status' => 'scheduled']);
+            $show = Show::create(['title' => $title, 'show_date' => $date, 'whatnot_channel_id' => $channel->id, 'created_by' => $owner->id, 'status' => 'draft']);
             $show->streamers()->attach($host);
         }
         $run = WeeklyPayoutBatch::create(['business_id' => $business->id, 'week_start' => '2026-10-20', 'week_end' => '2026-10-26', 'status' => 'draft', 'created_by' => $owner->id]);

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FulfillmentPackage;
 use App\Models\Show;
+use App\Models\Setting;
 use App\Models\StreamerLogItem;
 
 class ShowWorkflowService
@@ -56,21 +57,30 @@ class ShowWorkflowService
         }
 
         if (! $report) {
+            // Optional per-profile policy. Unconfigured installations retain the
+            // existing in-house log requirement until an admin selects IDs.
+            // Use IDs rather than names: names can be duplicated or changed.
+            $requiredIds = Setting::get('streamer_log_required_ids');
+            $configured = $requiredIds !== null;
+            $ids = $configured ? json_decode((string) $requiredIds, true) : null;
+            $requiresLog = ! $configured || ! is_array($ids)
+                || $show->streamers->contains(fn ($member) => in_array((int) $member->id, array_map('intval', $ids), true));
+            $analyticsOnly = $remoteOnly || ! $requiresLog;
             if ($show->show_date?->isFuture()) {
                 return $this->state('scheduled', 'Scheduled', 'Show has not ended yet.', 'gray', 1, $blockers);
             }
 
-            if ($remoteOnly) {
+            if ($analyticsOnly) {
                 if ($show->getRawOriginal('gross_revenue') === null && $show->getRawOriginal('whatnot_net') === null) {
-                    $blockers[] = 'Remote streamer analytics are still missing.';
-                    return $this->state('analytics', 'Needs Analytics', 'Remote streamers are tracked from show analytics and do not require a streamer log.', 'warning', 2, $blockers);
+                    $blockers[] = 'Whatnot show analytics are still missing.';
+                    return $this->state('analytics', 'Needs Analytics', 'This show uses Whatnot analytics; no streamer log is required.', 'warning', 2, $blockers);
                 }
 
                 if ($payouts->isNotEmpty()) {
-                    return $this->state('payroll', $batch ? 'In Pay Run' : 'Payroll Draft', $batch ? 'Remote streamer analytics are included in the current draft pay run.' : 'Remote streamer analytics are ready to be placed into a weekly pay run.', 'primary', 6, $blockers);
+                    return $this->state('payroll', $batch ? 'In Pay Run' : 'Payroll Draft', $batch ? 'Show analytics are included in the current draft pay run.' : 'Show analytics are ready to be placed into a weekly pay run.', 'primary', 6, $blockers);
                 }
 
-                return $this->state('payroll_ready', 'Payroll Ready', 'Remote streamer analytics are available; no streamer log is required.', 'success', 5, $blockers);
+                return $this->state('payroll_ready', 'Payroll Ready', 'Show analytics are available; no streamer log is required.', 'success', 5, $blockers);
             }
 
             $blockers[] = 'End of Stream report has not been started.';

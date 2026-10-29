@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-4 sm:space-y-5" data-vx-workflow="show-report">
         {{-- Step 1: Show Selection --}}
         @if (!$this->show)
             <div class="rounded-xl border-2 border-dashed border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 p-8">
@@ -132,7 +132,7 @@
                             Cancel
                         </button>
                         <button type="button"
-                                wire:click="submit"
+                                wire:click="submit" wire:loading.attr="disabled" wire:target="submit"
                                 class="flex-1 rounded-lg bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-500 transition-colors flex items-center justify-center gap-2">
                             <x-heroicon-o-check-circle class="h-5 w-5" />
                             Submit Items

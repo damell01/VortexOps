@@ -99,6 +99,9 @@ class AppSettings extends Page
     public string $show_report_review_policy = 'required';
     public string $show_reports_required_from = '';
 
+    /** Streamer profile IDs requiring a post-show log (all others use Whatnot analytics). */
+    public array $streamer_log_required_ids = [];
+
     // ── Shipping Surcharge ───────────────────────────────────────────────────
 
     public string $shipping_surcharge_rate      = '4.00';
@@ -178,6 +181,8 @@ class AppSettings extends Page
         $this->show_inventory_posting_policy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
         $this->show_report_review_policy     = (string) Setting::get('show_report_review_policy', 'required');
         $this->show_reports_required_from    = (string) Setting::get(\App\Support\ShowReportingGoLive::SETTING, '');
+        $configuredLogIds = json_decode((string) Setting::get('streamer_log_required_ids', '[]'), true);
+        $this->streamer_log_required_ids = is_array($configuredLogIds) ? array_map('intval', $configuredLogIds) : [];
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         // No default — an unset rate stays unset, and unset means no burden.
@@ -205,6 +210,12 @@ class AppSettings extends Page
         $this->ai_temperature          = (string) Setting::get('ai_temperature', (string) config('ai.generation.temperature.default', '0.7'));
         $this->ai_max_tokens           = (string) Setting::get('ai_max_tokens', (string) config('ai.generation.max_tokens.default', '1024'));
         $this->ai_streaming            = (bool) Setting::get('ai_streaming', config('ai.streaming.default', true));
+    }
+
+    public function getStreamerLogProfileOptionsProperty(): \Illuminate\Support\Collection
+    {
+        return \App\Models\Streamer::query()->where('status', 'active')->orderBy('name')->get(['id', 'name', 'business_id'])
+            ->mapWithKeys(fn ($member) => [$member->id => $member->name . ' (#' . $member->id . ')']);
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
@@ -292,6 +303,8 @@ class AppSettings extends Page
             'show_inventory_posting_policy'    => 'required|in:on_submit,clean_only,on_approval',
             'show_report_review_policy'        => 'required|in:required,exceptions_only,auto',
             'show_reports_required_from'       => 'nullable|date_format:Y-m-d',
+            'streamer_log_required_ids'        => 'array',
+            'streamer_log_required_ids.*'      => 'integer|distinct|exists:streamers,id',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             // Nullable on purpose: blank means "we don't charge for this",
             // and required would have forced a burden onto every operation.
@@ -338,6 +351,7 @@ class AppSettings extends Page
 
         Setting::set('show_inventory_posting_policy', $this->show_inventory_posting_policy);
         Setting::set('show_report_review_policy',     $this->show_report_review_policy);
+        Setting::set('streamer_log_required_ids', json_encode(array_values(array_unique(array_map('intval', $this->streamer_log_required_ids)))));
         Setting::set(\App\Support\ShowReportingGoLive::SETTING, trim($this->show_reports_required_from));
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);

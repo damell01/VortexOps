@@ -260,6 +260,30 @@
                     <p class="mt-1 text-xs text-gray-500">SKU {{ $selectedItem['sku'] }} · {{ number_format((float) $selectedItem['total_qty']) }} units on hand</p>
                 </div>
                 <div class="p-4 sm:p-5">
+                    <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                        <div class="flex items-start gap-3">
+                            @php($photoItem = \\App\\Models\\InventoryItem::find($selectedItemId))
+                            @if($photoItem?->hasImage())
+                                <img src="{{ $photoItem->imageUrl() }}" alt="Current item photo" class="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                            @else
+                                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-200 text-gray-500 dark:bg-gray-700" aria-hidden="true"><x-heroicon-o-camera class="h-7 w-7" /></div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <label for="vx-scanned-item-photo" class="block text-sm font-semibold text-gray-900 dark:text-white">Item photo <span class="font-normal text-gray-500">(optional)</span></label>
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Take a photo or choose one from your device. JPG, PNG or WebP, up to 5 MB.</p>
+                                <input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" wire:model="itemPhoto" class="mt-2 block w-full min-w-0 text-xs text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-800 dark:text-gray-200" />
+                                @error('itemPhoto')<p class="mt-1 text-xs font-semibold text-red-600" role="alert">{{ $message }}</p>@enderror
+                                @if($photoFeedback)<p class="mt-1 text-xs font-semibold text-green-700" role="status">{{ $photoFeedback }}</p>@endif
+                                <div wire:loading wire:target="itemPhoto" class="mt-1 text-xs text-violet-700" role="status">Uploading photo…</div>
+                                @if($itemPhoto)
+                                    <button type="button" wire:click="saveSelectedItemPhoto" wire:loading.attr="disabled" wire:target="itemPhoto,saveSelectedItemPhoto" class="mt-2 min-h-11 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60">
+                                        <span wire:loading.remove wire:target="saveSelectedItemPhoto">Save item photo</span>
+                                        <span wire:loading wire:target="saveSelectedItemPhoto">Saving photo…</span>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
                     <h3 class="mb-3 text-sm font-bold text-gray-950 dark:text-white">Add to Inventory</h3>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="block"><span class="mb-1 block text-xs font-bold">Quantity</span><input wire:model="qaQty" type="number" min="0.01" step="0.01" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>

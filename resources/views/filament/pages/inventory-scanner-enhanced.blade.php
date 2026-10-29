@@ -230,7 +230,7 @@
                     @if($barcodeLinkOptions !== null)
                         <div class="mt-2 max-h-64 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                             @forelse($barcodeLinkOptions as $option)
-                                <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:confirm="Link this barcode to the selected item? You can then choose whether to add stock." class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
+                                <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
                                     <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['name'] }} <span class="block text-xs font-normal text-gray-500">{{ $option['sku'] }}</span></span>
                                     <span class="shrink-0 text-xs font-bold text-violet-600">Link →</span>
                                 </button>
@@ -246,7 +246,7 @@
                         <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Category</span><input wire:model="newItemCategory" type="text" placeholder="Sports Cards" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                         <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Sale price</span><input wire:model="newItemPrice" type="number" min="0" step="0.01" placeholder="0.00" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                     </div>
-                    <button type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" wire:confirm="Create this inventory item?" class="min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60">Create Item</button>
+                    <button type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" class="min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="createScannedItem">Create Item</span><span wire:loading wire:target="createScannedItem">Creating item…</span></button>
                     <p class="text-xs text-gray-500">After creation, choose a quantity and location to add stock, or leave the new item at zero.</p>
                 </div>
             </section>
@@ -289,7 +289,7 @@
                         <label class="block"><span class="mb-1 block text-xs font-bold">Quantity</span><input wire:model="qaQty" type="number" min="0.01" step="0.01" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                         <label class="block"><span class="mb-1 block text-xs font-bold">Location</span><select wire:model="qaLocationId" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
                     </div>
-                    <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" class="mt-4 min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60">Confirm Add Stock</button>
+                    <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" class="mt-4 min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="addSelectedStock">Confirm Add Stock</span><span wire:loading wire:target="addSelectedStock">Adding stock…</span></button>
                 </div>
             </section>
         @endif

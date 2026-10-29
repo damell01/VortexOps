@@ -216,8 +216,9 @@
         </section>
 
         @if($unmatchedBarcode && $mode === 'lookup')
-            <div class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-5" role="presentation" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()" @keydown.escape.window="$wire.switchMode('lookup')">
-                <section role="dialog" aria-modal="true" aria-labelledby="vx-barcode-title" class="flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-gray-900 sm:h-auto sm:max-h-[min(92dvh,900px)] sm:rounded-2xl">
+            @teleport('body')
+            <div class="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-slate-950/70 p-0 backdrop-blur-sm sm:p-3" role="presentation" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()" @keydown.escape.window="$wire.switchMode('lookup')">
+                <section role="dialog" aria-modal="true" aria-labelledby="vx-barcode-title" class="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-gray-900 sm:h-[calc(100dvh-1.5rem)] sm:max-w-6xl sm:rounded-2xl">
                     <header class="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-800 sm:px-6">
                         <div class="flex min-w-0 items-start gap-3">
                             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><x-heroicon-o-qr-code class="h-6 w-6" /></div>
@@ -230,7 +231,7 @@
                         <button type="button" wire:click="switchMode('lookup')" aria-label="Close barcode dialog" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-300"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                     </header>
                     @if($errorMessage)<p class="mx-4 mt-3 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-200" role="alert">{{ $errorMessage }}</p>@endif
-                    <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
                         <div class="grid grid-cols-2 gap-2">
                             <button type="button" @click="choice='link'; $wire.barcodeBackToCatalog()" :class="choice === 'link' ? 'border-violet-600 bg-violet-50 text-violet-700 dark:bg-violet-950' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200'" class="min-h-14 rounded-xl border-2 px-3 text-left text-sm font-bold">Link to Existing Item<span class="block text-xs font-normal">Search catalog</span></button>
                             <button type="button" @click="choice='new'" :class="choice === 'new' ? 'border-violet-600 bg-violet-50 text-violet-700 dark:bg-violet-950' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200'" class="min-h-14 rounded-xl border-2 px-3 text-left text-sm font-bold">Create New Item<span class="block text-xs font-normal">Quick create</span></button>
@@ -263,7 +264,7 @@
                                 </div>
                                 @if($barcodeLinkOptions !== null)
                                     <div class="mt-2 flex items-center justify-between text-xs text-gray-500"><span>{{ number_format($barcodeLinkOptions['total']) }} items found</span><span>Page {{ $catalogPage }} of {{ $barcodeLinkOptions['pages'] }}</span></div>
-                                    <div class="mt-2 divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                                    <div class="mt-2 max-h-[min(48dvh,540px)] divide-y divide-gray-100 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                                         @forelse($barcodeLinkOptions['items'] as $option)
                                             <div wire:key="catalog-row-{{ $option['id'] }}" class="flex min-w-0 items-center gap-3 p-2 sm:p-3">
                                                 <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
@@ -304,7 +305,7 @@
                             </div>
                         </div>
                     </div>
-                    <footer class="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
+                    <footer class="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_14px_rgba(0,0,0,0.05)] dark:border-gray-800 dark:bg-gray-900 sm:px-6">
                         <button type="button" wire:click="{{ $barcodeStep === 'confirm' ? 'barcodeBackToCatalog' : "switchMode('lookup')" }}" class="min-h-11 flex-1 rounded-lg border border-gray-200 px-4 text-sm font-semibold dark:border-gray-700">{{ $barcodeStep === 'confirm' ? 'Back to catalog' : 'Cancel / Scan again' }}</button>
                         <button x-show="choice === 'new'" type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" class="min-h-11 flex-1 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">Create Item &amp; Link Barcode</button>
                         @if($barcodeStep === 'confirm' && $this->catalogSelectedItem)
@@ -313,6 +314,7 @@
                     </footer>
                 </section>
             </div>
+            @endteleport
         @endif
 
         @if($barcodeSuccess)

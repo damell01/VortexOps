@@ -113,6 +113,34 @@
     outline-offset: 2px;
 }
 
+/* Always-visible input affordances across Filament forms and dialogs.
+   Filament v5 renders text/number inputs inside .fi-input-wrp, so style the
+   wrapper rather than relying on the borderless native input itself. */
+.fi-body :is(.fi-main, .fi-modal, .fi-slide-over) .fi-input-wrp {
+    border: 1px solid #b7b7c6 !important;
+    background-color: #fff !important;
+    box-shadow: 0 1px 2px rgb(15 23 42 / .06);
+}
+.fi-body :is(.fi-main, .fi-modal, .fi-slide-over) .fi-input-wrp:focus-within {
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 3px rgb(139 92 246 / .16) !important;
+}
+.fi-body :is(.fi-main, .fi-modal, .fi-slide-over) :is(.fi-fo-textarea, .fi-fo-select, textarea.fi-input, select.fi-input),
+.fi-body .fi-main :is(.vxw-input, .vxw-select, .vxw-textarea) {
+    border: 1px solid #b7b7c6 !important;
+    background-color: #fff;
+}
+.fi-body :is(.fi-main, .fi-modal, .fi-slide-over) :is(.fi-fo-textarea, textarea.fi-input):focus-visible,
+.fi-body .fi-main :is(.vxw-input, .vxw-select, .vxw-textarea):focus-visible {
+    border-color: #8b5cf6 !important;
+}
+.fi-body.dark :is(.fi-main, .fi-modal, .fi-slide-over) .fi-input-wrp,
+.dark .fi-body :is(.fi-main, .fi-modal, .fi-slide-over) .fi-input-wrp,
+.dark .fi-body :is(.fi-main, .fi-modal, .fi-slide-over) :is(.fi-fo-textarea, .fi-fo-select, textarea.fi-input, select.fi-input) {
+    background-color: #252532 !important;
+    border-color: #626276 !important;
+}
+
 /* Keep native modal widths and focus trapping; polish their interior only. */
 .fi-body .fi-modal-window {
     border-radius: 18px;

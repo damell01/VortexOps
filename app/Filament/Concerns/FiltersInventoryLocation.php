@@ -9,14 +9,22 @@ use Livewire\Attributes\Url;
 
 trait FiltersInventoryLocation
 {
+    // One warehouse-options lookup per Livewire request, not one per card,
+    // filter, and render helper. Protected state is rebuilt next request.
+    protected ?array $inventoryLocationOptionsMemo = null;
+
     #[Url(as: 'location')]
     public string $inventoryLocation = '';
 
     public function inventoryLocationOptions(): array
     {
+        if ($this->inventoryLocationOptionsMemo !== null) {
+            return $this->inventoryLocationOptionsMemo;
+        }
+
         $visible = InventoryVisibility::shownLocationIdsFor(auth()->user());
 
-        return InventoryLocation::query()
+        return $this->inventoryLocationOptionsMemo = InventoryLocation::query()
             ->when($visible !== null, fn ($q) => $q->whereIn('id', $visible))
             ->orderBy('name')->get(['id', 'name', 'status'])
             ->mapWithKeys(fn ($location) => [$location->id => $location->name.($location->status === 'active' ? '' : ' (inactive)')])

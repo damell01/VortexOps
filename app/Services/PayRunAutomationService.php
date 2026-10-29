@@ -282,7 +282,7 @@ class PayRunAutomationService
 
         foreach ($members as $member) {
             $rate = $member->user?->isStreamerAssistant()
-                ? ((float) $member->hourly_rate > 0 ? (float) $member->hourly_rate : null)
+                ? ((float) $member->compensationValue('hourly_rate') > 0 ? (float) $member->compensationValue('hourly_rate') : null)
                 : $member->paidHourlyRate();
             if ($rate === null) {
                 continue;

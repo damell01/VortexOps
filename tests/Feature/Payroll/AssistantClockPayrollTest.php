@@ -26,9 +26,11 @@ class AssistantClockPayrollTest extends TestCase
         $service->syncWeek('2026-10-19', true, $business->id);
         $line = Payout::where('weekly_payout_batch_id', $run->id)->where('streamer_id', $member->id)->where('payout_type', 'clocked_time')->sole();
         $this->assertEquals(17.28, (float) $line->calculated_payout);
+        \App\Support\PaymentStructure::saveDefaults('streamer', ['payout_type' => 'hourly', 'hourly_rate' => 20], $business->id);
+        $member->update(['compensation_override_fields' => []]);
         $entry->update(['status' => 'approved', 'approved_minutes' => 120]);
         $service->syncWeek('2026-10-19', true, $business->id);
-        $this->assertEquals(34, (float) $line->fresh()->calculated_payout);
+        $this->assertEquals(40, (float) $line->fresh()->calculated_payout);
         $this->assertSame(1, Payout::where('weekly_payout_batch_id', $run->id)->where('streamer_id', $member->id)->count());
     }
 }

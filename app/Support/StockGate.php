@@ -14,8 +14,9 @@ use App\Models\User;
  *    for certain businesses) are run by the business: admins, the owner and
  *    staff the owner has given inventory pages to (a warehouse role) — but
  *    not streamers or streamer assistants.
- *  - A streamer's own location is theirs alone. Admins still see it but do
- *    not change it, and its streamer cannot change Main.
+ *  - Owners and non-streamer admins may manage every location, including
+ *    streamer shelves, to receive and correct stock for the team. Streamers
+ *    cannot change Main or another streamer's shelf.
  *
  * Moving stock is judged by where it comes from: sending Main stock to a
  * streamer is an admin's call, sending their own stock back is theirs. The
@@ -40,6 +41,9 @@ class StockGate
         if ($visible !== null && ! in_array((int) $location->id, $visible, true)) return false;
 
         if ($location->streamer_id !== null) {
+            if ($user->isOwner() || ($user->isAdmin() && ! InventoryVisibility::isReadOnlyStreamer($user))) {
+                return true;
+            }
             return $user->streamer?->id !== null && (int) $user->streamer->id === (int) $location->streamer_id;
         }
 
@@ -71,9 +75,14 @@ class StockGate
 
         $own = $user->streamer?->id;
         $manager = static::runsSharedLocations($user);
+        $admin = $user->isOwner() || ($user->isAdmin() && ! InventoryVisibility::isReadOnlyStreamer($user));
 
         return InventoryLocation::query()->visibleTo($user)
-            ->where(function ($q) use ($own, $manager) {
+            ->where(function ($q) use ($own, $manager, $admin) {
+                if ($admin) {
+                    // Admins can select all locations, including streamer inventory.
+                    return;
+                }
                 if ($manager) {
                     $q->orWhereNull('streamer_id');
                 }

@@ -252,14 +252,25 @@
                     <button type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" class="min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="createScannedItem">Create Item</span><span wire:loading wire:target="createScannedItem">Creating item…</span></button>
                     <p class="text-xs text-gray-500">Leave stock unchecked below to create the item with zero stock.</p>
                 </div>
-                <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
-                    <label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model.live="addStockAfterResolve" class="rounded border-gray-300 text-violet-600" /> Add stock now (optional)</label>
-                    @if($addStockAfterResolve)
-                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                            <label class="block text-xs font-semibold">Quantity<input type="number" min="0.01" step="0.01" wire:model="qaQty" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
-                            <label class="block text-xs font-semibold">Stock location<select wire:model="qaLocationId" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
-                        </div>
-                    @endif
+                <div class="mt-4 rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20 sm:p-4">
+                    <label class="flex cursor-pointer items-start gap-3 text-sm font-semibold text-gray-900 dark:text-white">
+                        <input type="checkbox" wire:model.live="addStockAfterResolve" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-violet-600" />
+                        <span>Add stock now <span class="font-normal text-gray-500">(optional)</span>
+                            <span class="mt-0.5 block text-xs font-normal text-gray-500">Select this to add stock when you link or create the item. Leave it off to save only the barcode or item.</span>
+                        </span>
+                    </label>
+                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Quantity
+                            <input type="number" min="0.01" step="1" wire:model="qaQty" @disabled(!$addStockAfterResolve) class="mt-1 min-h-11 w-full rounded-lg border-gray-300 bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800" />
+                        </label>
+                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Stock location
+                            <select wire:model="qaLocationId" @disabled(!$addStockAfterResolve) class="mt-1 min-h-11 w-full rounded-lg border-gray-300 bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800">
+                                @foreach($this->locations as $location)
+                                    <option value="{{ $location->id }}">{{ $location->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
                 </div>
                 <button type="button" wire:click="switchMode('lookup')" class="mt-4 w-full rounded-lg border border-gray-200 p-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Cancel / Scan again</button>
             </section>

@@ -133,6 +133,7 @@ class InventoryScanner extends Page
     public string $barcodeLinkSearch = '';
     public bool $addStockAfterResolve = false;
     public ?array $barcodeLinkOptions = null;
+    public ?array $barcodeSuccess = null;
     public string $catalogCategory = '';
     public string $catalogSort = 'name';
     public int $catalogPage = 1;
@@ -274,6 +275,7 @@ class InventoryScanner extends Page
             $this->selectedItem = null;
         }
         $this->unmatchedBarcode = '';
+        $this->barcodeSuccess = null;
         $this->barcodeLinkOptions = null;
         $this->catalogSelectedItemId = null;
         $this->catalogPage = 1;
@@ -730,14 +732,14 @@ class InventoryScanner extends Page
             $this->errorMessage = 'Could not link this barcode. Check whether it already exists.';
             return;
         }
+        $withStock = $this->addStockAfterResolve;
         $this->unmatchedBarcode = '';
         $this->barcodeLinkSearch = '';
         $this->barcodeLinkOptions = null;
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
-        if ($this->addStockAfterResolve) {
-            $this->addSelectedStock();
-        }
+        if ($withStock) $this->addSelectedStock();
+        $this->barcodeSuccess = ['action' => 'linked', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $withStock && !isset($this->qaFlash['error']) ? $this->qaFlash : null, 'stock_error' => $this->qaFlash['error'] ?? null];
     }
 
     public function createScannedItem(): void
@@ -778,11 +780,11 @@ class InventoryScanner extends Page
         $this->qaFlash = null;
         // The item is now selected, so the same optional stock confirmation
         // is available whether the item was newly created or already existed.
+        $withStock = $this->addStockAfterResolve;
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
-        if ($this->addStockAfterResolve) {
-            $this->addSelectedStock();
-        }
+        if ($withStock) $this->addSelectedStock();
+        $this->barcodeSuccess = ['action' => 'created', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $withStock && !isset($this->qaFlash['error']) ? $this->qaFlash : null, 'stock_error' => $this->qaFlash['error'] ?? null];
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

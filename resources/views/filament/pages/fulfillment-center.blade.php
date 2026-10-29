@@ -1,20 +1,20 @@
 <x-filament-panels::page>
 @php $s=$this->summary; @endphp
-<div class="space-y-6">
+<div class="space-y-4 sm:space-y-5" data-vx-workflow="fulfillment">
  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
   @foreach([
    ['Open',$s['open'],'Active work'],['Ready / Packed',$s['ready'],'Ready for carrier'],['In Transit',$s['inTransit'],'Shipped orders'],['Delivered',$s['delivered'],'Completed'],['Exceptions',$s['exceptions'],'Needs review'],['Open Units',$s['unitsOpen'],'Units still moving']
   ] as [$label,$value,$sub])
-   <div class="vx-card p-4"><div class="text-xs font-medium text-gray-500">{{$label}}</div><div class="mt-1 text-2xl font-bold">{{number_format($value)}}</div><div class="mt-1 text-xs text-gray-400">{{$sub}}</div></div>
+   <div class="vx-card p-3 sm:p-4"><div class="text-xs font-medium text-gray-500">{{$label}}</div><div class="mt-1 text-xl font-bold tabular-nums">{{number_format($value)}}</div><div class="mt-1 text-xs text-gray-400">{{$sub}}</div></div>
   @endforeach
  </div>
 
  <section class="vx-card p-4">
   <div class="flex flex-wrap items-center gap-3">
    <div class="flex gap-5 overflow-x-auto border-b border-[var(--vx-border)]">
-    <button wire:click="setTab('queue')" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='queue'?'active':''}}">Queue</button>
-    <button wire:click="setTab('exceptions')" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='exceptions'?'active':''}}">Exceptions</button>
-    <button wire:click="setTab('history')" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='history'?'active':''}}">History</button>
+    <button type="button" wire:click="setTab('queue')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='queue'?'active':''}}">Queue</button>
+    <button type="button" wire:click="setTab('exceptions')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='exceptions'?'active':''}}">Exceptions</button>
+    <button type="button" wire:click="setTab('history')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='history'?'active':''}}">History</button>
    </div>
    <div class="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-2">
     <input type="search" wire:model.live.debounce.300ms="searchQuery" placeholder="Buyer, show, order or tracking…" class="min-w-[220px] flex-1 rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
@@ -37,8 +37,8 @@
     <div class="vx-hide-tablet min-w-0"><div class="truncate text-xs">{{$shipment->tracking_number ?: 'No tracking yet'}}</div></div>
     <div class="flex flex-wrap gap-2 lg:justify-end">
      @if(!in_array($status,['delivered','returned'],true))
-      @if($status!=='packed')<button wire:click="markPacked({{$shipment->id}})" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold">Packed</button>@endif
-      @if($status!=='ready_to_ship')<button wire:click="markReady({{$shipment->id}})" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold success">Ready</button>@endif
+      @if($status!=='packed')<button type="button" wire:click="markPacked({{$shipment->id}})" wire:loading.attr="disabled" wire:target="markPacked({{$shipment->id}})" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold">Packed</button>@endif
+      @if($status!=='ready_to_ship')<button type="button" wire:click="markReady({{$shipment->id}})" wire:loading.attr="disabled" wire:target="markReady({{$shipment->id}})" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold success">Ready</button>@endif
      @endif
      @if($show)<a href="{{$this->showUrl($show->id)}}" class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold primary">Show</a>@endif
     </div>

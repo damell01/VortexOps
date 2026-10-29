@@ -143,7 +143,7 @@ class Shows extends Page
                     TimePicker::make('end_time')->label('End time')->seconds(false),
                     TextInput::make('title')->label('Show title')->placeholder('e.g. Vortex Cards — Friday Night Breaks')->maxLength(255)->columnSpanFull(),
                     Select::make('whatnot_channel_id')->label('Channel')->options(fn () => WhatnotChannel::where('status', 'active')->orderBy('name')->pluck('name', 'id'))->searchable()->nullable()->columnSpanFull(),
-                    Select::make('streamers')->label('Streamers')->multiple()->options(fn () => Streamer::where('status', 'active')->orderBy('name')->pluck('name', 'id'))->searchable()->columnSpanFull(),
+                    Select::make('streamers')->label('Streamers')->multiple()->options(fn () => Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->pluck('name', 'id'))->searchable()->columnSpanFull(),
                 ]),
             ])
             ->action(function (array $data): void {
@@ -310,7 +310,7 @@ class Shows extends Page
     #[Computed] public function streamers(): Collection
     {
         $u = auth()->user();
-        if ($u?->isAdmin()) return Streamer::orderBy('name')->get();
+        if ($u?->isAdmin()) return Streamer::query()->inChannelContext()->streamers()->where('status', 'active')->orderBy('name')->get();
         return $u?->streamer ? collect([$u->streamer]) : collect();
     }
 

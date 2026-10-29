@@ -1,0 +1,55 @@
+name: Isolated operations audit runtime
+on:
+  push:
+    branches: [fix/operations-audit-runtime]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Package public test dependencies without application data
+        run: |
+          python3 <<'PY'
+          import pathlib,subprocess,re,shutil
+          root=pathlib.Path('/tmp/operations-audit-runtime')
+          for folder in ['bin','extensions','lib']: (root/folder).mkdir(parents=True,exist_ok=True)
+          binary=pathlib.Path(shutil.which('php')).resolve()
+          extension=pathlib.Path(subprocess.check_output(['php','-r','echo ini_get("extension_dir");'],text=True))
+          files=[binary,*extension.glob('*.so')]
+          shutil.copy2(binary,root/'bin/php')
+          for file in extension.glob('*.so'): shutil.copy2(file,root/'extensions'/file.name)
+          for file in files:
+              output=subprocess.run(['ldd',str(file)],capture_output=True,text=True).stdout
+              for name in re.findall(r'(/[^\s()]+)',output):
+                  source=pathlib.Path(name)
+                  if source.is_file(): shutil.copy2(source,root/'lib'/source.name)
+          ini=pathlib.Path('/etc/php/8.4/cli/conf.d')
+          modules=[]
+          for path in sorted(ini.glob('*.ini')):
+              for line in path.read_text().splitlines():
+                  if line.startswith('extension='): modules.append(line.split('=',1)[1].strip())
+          (root/'modules.txt').write_text('\n'.join(modules))
+          PY
+          tar -czf /tmp/operations-audit-runtime.tar.gz -C /tmp operations-audit-runtime
+          tar -czf /tmp/operations-audit-vendor.tar.gz vendor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: operations-audit-runtime
+          path: |
+            /tmp/operations-audit-runtime.tar.gz
+            /tmp/operations-audit-vendor.tar.gz
+          retention-days: 2

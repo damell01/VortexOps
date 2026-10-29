@@ -137,15 +137,24 @@
      </div>
     </div>
    @endif
+   @php
+    // Resolve the fallback image once per render, not for every product.
+    // Product::placeholderImageUrl() reads channel/branding settings and can
+    // otherwise cause dozens of redundant queries on a stock-filter click.
+    $catalogPlaceholderImage = \App\Models\Product::placeholderImageUrl();
+    $catalogCanEdit = \App\Filament\Resources\InventoryItemResource::canEdit(new \App\Models\InventoryItem());
+    $catalogCanStock = \App\Filament\Resources\InventoryItemResource::canManageStock();
+    $catalogCanDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny();
+   @endphp
    <div class="vx-catalog-grid">
     @foreach($this->catalogItems as $item)
      @php
-      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=\App\Filament\Resources\InventoryItemResource::canEdit($item);$canStock=\App\Filament\Resources\InventoryItemResource::canManageStock();$canDelete=\App\Filament\Resources\InventoryItemResource::canDeleteAny();$canScan=$canStock;
+      $onHand=(float)($item->stock_sum_quantity??0);$reorder=$item->reorder_level!==null?(float)$item->reorder_level:null;$stockState=$onHand<=0?'out':(($reorder!==null&&$onHand<=$reorder)?'low':'in');$locations=$item->stock->where('quantity','>',0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');$canEdit=$catalogCanEdit;$canStock=$catalogCanStock;$canDelete=$catalogCanDelete;$canScan=$canStock;
      @endphp
      <article @class(['vx-product-card', 'is-selected' => $selectAllMatching]) wire:key="inv-card-{{ $item->getKey() }}" @if($canSelectStock && ! $selectAllMatching) :class="$wire.selectedItems.includes('{{ $item->getKey() }}') && 'is-selected'" @endif>
       @if($canSelectStock && ! $selectAllMatching)<label class="vx-select-check" title="Select {{ $item->name }}"><input type="checkbox" wire:model="selectedItems" value="{{ $item->getKey() }}" aria-label="Select {{ $item->name }}"></label>@endif
       <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link">
-       <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->imageUrl() ?: \App\Models\Product::placeholderImageUrl() }}" alt="{{ $item->name }}" /></div>
+       <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])><img loading="lazy" decoding="async" src="{{ $item->hasImage() ? $item->imageUrl() : $catalogPlaceholderImage }}" alt="{{ $item->name }}" /></div>
       </a>
       <div class="vx-product-body">
        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view',['record'=>$item]) }}" class="vx-product-link"><div class="vx-product-title">{{ $item->name }}</div></a>

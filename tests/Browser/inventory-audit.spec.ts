@@ -14,6 +14,10 @@ async function settle(page:Page) {
             component.name === 'Filament\\Livewire\\DatabaseNotifications'
             && component.snapshot.memo.lazyLoaded === false);
     }), { message: 'notification lazy loading settled' }).toBe(false);
+    const traffic = (page as any).auditTraffic;
+    if (traffic) await expect.poll(() => traffic.pending.size === 0
+        && Date.now() - traffic.lastActivity >= 500,
+        { message: 'Livewire requests and deferred event responses settled', timeout: 10000 }).toBe(true);
     await page.waitForLoadState('networkidle');
 }
 
@@ -47,6 +51,16 @@ async function select(page:Page, name:string, value:string|number) {
 }
 
 test.beforeEach(async ({page})=>{
+    const traffic = { pending: new Set(), lastActivity: Date.now() };
+    (page as any).auditTraffic = traffic;
+    page.on('request', request => {
+        if (!/\/livewire[^/]*\/update/.test(request.url())) return;
+        traffic.pending.add(request); traffic.lastActivity = Date.now();
+    });
+    const finished = (request:any) => {
+        if (traffic.pending.delete(request)) traffic.lastActivity = Date.now();
+    };
+    page.on('requestfinished', finished); page.on('requestfailed', finished);
     const errors:string[]=[];
     const resizeDeferrals:string[]=[];
     page.on('pageerror',error=>{

@@ -1,0 +1,91 @@
+name: Assistant live workspace verification
+'on':
+  push:
+    branches:
+    - fix/assistant-live-verification
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 90s
+        script: "set -eu\ncd /var/www/vortexops\nCHECK_FILE=$(mktemp /var/www/vortexops/storage/framework/inventory-fpm-check.XXXXXX.php)\n\
+          trap 'rm -f \"$CHECK_FILE\"' EXIT\ncat > \"$CHECK_FILE\" <<'PHP'\n<?php\n\
+          try {\n    require '/var/www/vortexops/vendor/autoload.php';\n    $app =\
+          \ require '/var/www/vortexops/bootstrap/app.php';\n    $request = Illuminate\\\
+          Http\\Request::create('https://vortexops.tech/admin/inventory-items', 'GET');\n\
+          \    $app->instance('request', $request);\n    $kernel = $app->make(Illuminate\\\
+          Contracts\\Http\\Kernel::class);\n    $kernel->bootstrap();\n    $app->instance(Illuminate\\\
+          Contracts\\Debug\\ExceptionHandler::class, new class($app) extends Illuminate\\\
+          Foundation\\Exceptions\\Handler {\n        public function report(Throwable\
+          \ $e): void\n        {\n            do {\n                echo 'CHECK_ERROR_CLASS\
+          \ '.get_class($e).\"\\n\";\n                echo 'CHECK_ERROR_SOURCE '.str_replace('/var/www/vortexops/',\
+          \ '', $e->getFile()).':'.$e->getLine().\"\\n\";\n                foreach\
+          \ (['Permission denied', 'failed to open stream', 'file_put_contents', 'memory',\
+          \ 'SQLSTATE', 'Unknown column', 'stock_sum_quantity', 'manifest', 'Undefined',\
+          \ 'must be of type', 'not found', 'Session', 'Redis', 'Connection refused',\
+          \ 'Cannot', 'syntax', 'Call to', 'readonly', 'decrypt', 'No such file',\
+          \ 'Maximum execution'] as $word) {\n                    if (stripos($e->getMessage(),\
+          \ $word) !== false) echo 'CHECK_ERROR_KIND '.$word.\"\\n\";\n          \
+          \      }\n                foreach (['/Unknown column [\\x27\\x22]([A-Za-z0-9_.]+)[\\\
+          x27\\x22]/', '/Undefined variable \\$([A-Za-z0-9_]+)/', '/Call to undefined\
+          \ method ([A-Za-z0-9_\\\\\\\\]+::[A-Za-z0-9_]+)\\(/'] as $pattern) {\n \
+          \                   if (preg_match($pattern, $e->getMessage(), $m)) echo\
+          \ 'CHECK_ERROR_IDENTIFIER '.$m[1].\"\\n\";\n                }\n        \
+          \    } while ($e = $e->getPrevious());\n        }\n    });\n    $owner =\
+          \ App\\Models\\User::where('email', config('app.owner_email'))->firstOrFail();\n\
+          \    auth()->guard('web')->setUser($owner);\n    $response = $kernel->handle($request);\n\
+          \    $assistant = App\\Models\\User::role('streamer_assistant')->where('email',\
+          \ '!=', config('app.owner_email') ?: 'dbellcreations@gmail.com')->where('must_change_password',\
+          \ false)->whereNull('two_factor_confirmed_at')->first();\n    echo 'CHECK_ASSISTANT_AVAILABLE\
+          \ '.($assistant ? 'yes' : 'no').\"\\n\";\n    if ($assistant) {\n      \
+          \  session()->forget('password_hash_web');\n        auth()->guard('web')->setUser($assistant);\n\
+          \        $assistantResponse = $kernel->handle(Illuminate\\Http\\Request::create('https://vortexops.tech/admin',\
+          \ 'GET'));\n        echo 'CHECK_ASSISTANT_STATUS '.$assistantResponse->getStatusCode().\"\
+          \\n\";\n        $html = $assistantResponse->getContent();\n        echo\
+          \ 'CHECK_ASSISTANT_CLOCK '.(str_contains($html, 'data-vx=\"assistant-clock\"\
+          ') ? 'yes' : 'no').\"\\n\";\n        echo 'CHECK_ASSISTANT_PAID_HISTORY\
+          \ '.(str_contains($html, 'Paid pay runs') ? 'yes' : 'no').\"\\n\";\n   \
+          \     auth()->guard('web')->setUser($assistant);\n        $blocked = $kernel->handle(Illuminate\\\
+          Http\\Request::create('https://vortexops.tech/admin/shows', 'GET'));\n \
+          \       echo 'CHECK_ASSISTANT_SHOWS_BLOCKED '.$blocked->getStatusCode().\"\
+          \\n\";\n    }\n    echo 'CHECK_FPM_VERSION '.PHP_VERSION.\"\\n\";\n    echo\
+          \ 'CHECK_INVENTORY_STATUS '.$response->getStatusCode().\"\\n\";\n    echo\
+          \ 'CHECK_CATALOG_VISIBLE '.(str_contains($response->getContent(), 'vx-inventory-list')\
+          \ && str_contains($response->getContent(), 'Products') ? 'yes' : 'no').\"\
+          \\n\";\n} catch (Throwable $e) {\n    echo 'CHECK_EXCEPTION_CLASS '.get_class($e).\"\
+          \\n\";\n}\nPHP\nchmod 644 \"$CHECK_FILE\"\npython3 - \"$CHECK_FILE\" <<'PY'\n\
+          import socket, struct, sys\ndef record(kind, data):\n    return struct.pack('!BBHHBB',\
+          \ 1, kind, 1, len(data), 0, 0) + data\ndef encoded(value):\n    value =\
+          \ value.encode()\n    n = len(value)\n    return (bytes([n]) if n < 128\
+          \ else struct.pack('!I', n | 0x80000000)) + value\nparams = {'SCRIPT_FILENAME':sys.argv[1],\
+          \ 'SCRIPT_NAME':'/inventory-internal-verification.php', 'REQUEST_METHOD':'GET',\
+          \ 'REQUEST_URI':'/admin/inventory-items', 'SERVER_NAME':'vortexops.tech',\
+          \ 'HTTP_HOST':'vortexops.tech', 'SERVER_PORT':'443', 'HTTPS':'on', 'SERVER_PROTOCOL':'HTTP/1.1',\
+          \ 'GATEWAY_INTERFACE':'CGI/1.1', 'REMOTE_ADDR':'127.0.0.1', 'CONTENT_LENGTH':'0'}\n\
+          s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\ns.settimeout(70)\n\
+          s.connect('/run/php/php8.4-fpm.sock')\ndef pair(k,v):\n    key,value=k.encode(),v.encode()\n\
+          \    def size(n): return bytes([n]) if n < 128 else struct.pack('!I', n\
+          \ | 0x80000000)\n    return size(len(key))+size(len(value))+key+value\n\
+          payload = b''.join(pair(k,v) for k,v in params.items())\ns.sendall(record(1,\
+          \ struct.pack('!HB5x',1,0)) + record(4,payload) + record(4,b'') + record(5,b''))\n\
+          def exact(n):\n    out=b''\n    while len(out)<n:\n        part=s.recv(n-len(out))\n\
+          \        if not part: raise RuntimeError('Incomplete FastCGI response')\n\
+          \        out+=part\n    return out\nstdout=b''\nwhile True:\n    version,kind,req,size,pad,_=struct.unpack('!BBHHBB',exact(8))\n\
+          \    data=exact(size)\n    if pad: exact(pad)\n    if kind==6: stdout+=data\n\
+          \    if kind==3: break\ns.close()\nlines=[line for line in stdout.decode(errors='replace').splitlines()\
+          \ if line.startswith('CHECK_')]\nfor line in lines: print(line)\nexpected\
+          \ = ['CHECK_INVENTORY_STATUS 200', 'CHECK_CATALOG_VISIBLE yes']\nif 'CHECK_ASSISTANT_AVAILABLE\
+          \ yes' in lines:\n    expected += ['CHECK_ASSISTANT_STATUS 200', 'CHECK_ASSISTANT_CLOCK\
+          \ yes', 'CHECK_ASSISTANT_PAID_HISTORY yes', 'CHECK_ASSISTANT_SHOWS_BLOCKED\
+          \ 403']\nif any(item not in lines for item in expected):\n    raise SystemExit('Serving\
+          \ PHP inventory verification failed')\nPY\n"

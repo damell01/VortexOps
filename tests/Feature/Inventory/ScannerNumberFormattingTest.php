@@ -97,7 +97,7 @@ class ScannerNumberFormattingTest extends TestCase
     {
         $this->valuableItem();
 
-        $result = $this->scan('6942600401310')->get('result');
+        $result = $this->scan('6942600401310')->get('selectedItem');
 
         $this->assertNotNull($result, 'The scan should have found it.');
 
@@ -135,7 +135,7 @@ class ScannerNumberFormattingTest extends TestCase
         // character — "1" is less than "3" — so the badge said the opposite.
         $this->valuableItem();
 
-        $result = $this->scan('6942600401310')->get('result');
+        $result = $this->scan('6942600401310')->get('selectedItem');
 
         $this->assertGreaterThan(
             $result['reorder'] * 1.5,

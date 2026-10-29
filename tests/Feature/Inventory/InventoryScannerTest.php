@@ -129,13 +129,13 @@ class InventoryScannerTest extends TestCase
         $page->scanInput = '012345678901';
         $page->submitScan();
 
-        $this->assertNotNull($page->result);
-        $this->assertEquals($this->item->id, $page->result['id']);
-        $this->assertEquals('Topps Chrome Hobby Box', $page->result['name']);
-        $this->assertEquals('5', $page->result['total_qty']);
-        $this->assertCount(1, $page->result['stock']);
-        $this->assertEquals('Shelf A', $page->result['stock'][0]['location']);
-        $this->assertEquals(5.0, $page->result['stock'][0]['qty']);
+        $this->assertNotNull($page->selectedItem);
+        $this->assertEquals($this->item->id, $page->selectedItem['id']);
+        $this->assertEquals('Topps Chrome Hobby Box', $page->selectedItem['name']);
+        $this->assertEquals('5', $page->selectedItem['total_qty']);
+        $this->assertCount(1, $page->selectedItem['stock']);
+        $this->assertEquals('Shelf A', $page->selectedItem['stock'][0]['location']);
+        $this->assertEquals(5.0, $page->selectedItem['stock'][0]['qty']);
         $this->assertEmpty($page->scanInput);
         $this->assertNull($page->errorMessage);
     }
@@ -148,8 +148,8 @@ class InventoryScannerTest extends TestCase
         $page->scanInput = 'TCH-2024';
         $page->submitScan();
 
-        $this->assertNotNull($page->result);
-        $this->assertEquals('TCH-2024', $page->result['sku']);
+        $this->assertNotNull($page->selectedItem);
+        $this->assertEquals('TCH-2024', $page->selectedItem['sku']);
     }
 
     public function test_submit_scan_sets_error_for_unknown_code(): void
@@ -160,8 +160,9 @@ class InventoryScannerTest extends TestCase
         $page->scanInput = 'NOSUCHITEM';
         $page->submitScan();
 
-        $this->assertNull($page->result);
-        $this->assertStringContainsString('NOSUCHITEM', $page->errorMessage);
+        $this->assertNull($page->selectedItem);
+        $this->assertSame('NOSUCHITEM', $page->unmatchedBarcode);
+        $this->assertNotEmpty($page->errorMessage);
     }
 
     public function test_submit_scan_ignores_whitespace_only_input(): void
@@ -172,7 +173,7 @@ class InventoryScannerTest extends TestCase
         $page->scanInput = '   ';
         $page->submitScan();
 
-        $this->assertNull($page->result);
+        $this->assertNull($page->selectedItem);
         $this->assertNull($page->errorMessage);
     }
 
@@ -186,7 +187,7 @@ class InventoryScannerTest extends TestCase
         $page->submitScan();
 
         $this->assertNull($page->errorMessage);
-        $this->assertNotNull($page->result);
+        $this->assertNotNull($page->selectedItem);
     }
 
     public function test_submit_scan_includes_recent_movements(): void
@@ -204,9 +205,9 @@ class InventoryScannerTest extends TestCase
         $page->scanInput = 'TCH-2024';
         $page->submitScan();
 
-        $this->assertCount(1, $page->result['movements']);
-        $this->assertEquals('opening', $page->result['movements'][0]['type']);
-        $this->assertEquals(10.0, $page->result['movements'][0]['qty']);
+        $this->assertCount(1, $page->selectedItem['movements']);
+        $this->assertEquals('opening', $page->selectedItem['movements'][0]['type']);
+        $this->assertEquals(10.0, $page->selectedItem['movements'][0]['qty']);
     }
 
     // ── applyAdjust ───────────────────────────────────────────────────────────
@@ -218,6 +219,8 @@ class InventoryScannerTest extends TestCase
         $page = new InventoryScanner();
         $page->scanInput = '012345678901';
         $page->submitScan();
+        // Legacy inline-adjust callers supply the resolved lookup payload.
+        $page->result = $page->selectedItem;
 
         $page->adjustLocationId = $this->location->id;
         $page->adjustQty        = '10';
@@ -251,6 +254,8 @@ class InventoryScannerTest extends TestCase
         $page = new InventoryScanner();
         $page->scanInput = 'TCH-2024';
         $page->submitScan();
+        // Legacy inline-adjust callers supply the resolved lookup payload.
+        $page->result = $page->selectedItem;
 
         $page->adjustLocationId = $this->location->id;
         $page->adjustQty        = '-5';
@@ -286,6 +291,8 @@ class InventoryScannerTest extends TestCase
         $page = new InventoryScanner();
         $page->scanInput = '012345678901';
         $page->submitScan();
+        // Legacy inline-adjust callers supply the resolved lookup payload.
+        $page->result = $page->selectedItem;
 
         $page->adjustLocationId = $this->location->id;
         $page->adjustQty        = '7';
@@ -304,6 +311,8 @@ class InventoryScannerTest extends TestCase
         $page = new InventoryScanner();
         $page->scanInput = '012345678901';
         $page->submitScan();
+        // Legacy inline-adjust callers supply the resolved lookup payload.
+        $page->result = $page->selectedItem;
 
         $page->adjustLocationId = $this->location->id;
         $page->adjustQty        = '3';

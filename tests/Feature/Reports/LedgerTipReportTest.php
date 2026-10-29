@@ -235,7 +235,7 @@ class LedgerTipReportTest extends TestCase
         $this->assertSame([$this->channel->name], array_column($tips['channels'], 'channel'));
         $page->assertSee('Tips this period')->assertSee('$42.50');
     }
-    public function test_streamer_tip_totals_only_include_unambiguous_single_streamer_shows(): void
+    public function test_streamer_tip_totals_use_one_primary_recipient_and_exclude_ambiguous_matches(): void
     {
         $single = $this->order('single-tip', $this->business);
         $this->tip(12.50, ['whatnot_order_id' => 'single-tip']);
@@ -244,6 +244,9 @@ class LedgerTipReportTest extends TestCase
         $shared = $this->order('shared-tip', $this->business);
         $shared->streamers()->attach(Streamer::create(['name' => 'Second streamer', 'business_id' => $this->business->id, 'status' => 'active'])->id);
         $this->tip(99, ['whatnot_order_id' => 'shared-tip']);
+        $ambiguous = $this->order('two-primary-tip', $this->business);
+        $ambiguous->streamers()->attach(Streamer::create(['name' => 'Second primary', 'business_id' => $this->business->id, 'status' => 'active'])->id, ['is_primary' => true]);
+        $this->tip(777, ['whatnot_order_id' => 'two-primary-tip']);
 
         $this->order('duplicate-tip', $this->business);
         $this->order('duplicate-tip', $this->business);
@@ -251,12 +254,17 @@ class LedgerTipReportTest extends TestCase
 
         $this->tip(99, ['whatnot_order_id' => 'unmatched-tip']);
         $rows = app(LedgerTipReport::class)->byStreamer('2026-10-01', '2026-10-31');
-        $this->assertCount(1, $rows);
-        $this->assertSame($single->streamers()->first()->name, $rows[0]['streamer']);
-        $this->assertSame(2, $rows[0]['entries']);
-        $this->assertSame(1250, $rows[0]['credits']);
-        $this->assertSame(250, $rows[0]['debits']);
-        $this->assertSame(1000, $rows[0]['net']);
+        $this->assertCount(2, $rows);
+        $byName = collect($rows)->keyBy('streamer');
+        $singleRow = $byName[$single->streamers()->first()->name];
+        $this->assertSame(2, $singleRow['entries']);
+        $this->assertSame(1250, $singleRow['credits']);
+        $this->assertSame(250, $singleRow['debits']);
+        $this->assertSame(1000, $singleRow['net']);
+        $sharedRow = $byName[$shared->streamers()->wherePivot('is_primary', true)->first()->name];
+        $this->assertSame(1, $sharedRow['entries']);
+        $this->assertSame(9900, $sharedRow['net']);
+        $this->assertSame(10900, array_sum(array_column($rows, 'net')));
     }
 
 }

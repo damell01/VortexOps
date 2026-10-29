@@ -53,7 +53,7 @@ class InventoryPriceAlerts
                 ->value('last_event_id') ?? 0);
 
             $batch = $this->pending($user);
-            if ($batch === [] || (int) end($batch)['id'] !== $lastSeenId || $lastSeenId <= $current) {
+            if ($batch === [] || ! in_array($lastSeenId, array_column($batch, 'id'), true) || $lastSeenId <= $current) {
                 throw new \InvalidArgumentException('Price-change acknowledgment is stale or incomplete.');
             }
 

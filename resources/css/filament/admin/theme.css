@@ -1109,3 +1109,11 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   .fi-modal-window .fi-modal-content { scroll-padding-bottom:80px; }
   .fi-page-header .fi-header-heading { font-size:clamp(19px,5vw,24px); }
 }
+
+/* Dev QA: keep short status pills readable; avoid tall approval rows. */
+.fi-ta-table .fi-badge { white-space:nowrap; width:max-content; max-width:none; overflow-wrap:normal; word-break:normal; line-height:1.3; }
+.fi-ta-table .fi-badge span { white-space:nowrap; overflow-wrap:normal; word-break:normal; }
+.fi-ta-table .fi-ta-cell { overflow-wrap:normal; word-break:normal; }
+.fi-ta-table tbody td { vertical-align:middle; }
+.fi-ta-table-container { overflow-x:auto; }
+@media (min-width:1024px) { .fi-ta-table .fi-badge { min-width:max-content; } }

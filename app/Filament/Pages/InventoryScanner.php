@@ -137,8 +137,9 @@ class InventoryScanner extends Page
     public string $catalogCategory = '';
     public string $catalogSort = 'name';
     public int $catalogPage = 1;
-    public int $catalogPerPage = 12;
+    public int $catalogPerPage = 10;
     public ?int $catalogSelectedItemId = null;
+    public string $barcodeStep = 'catalog';
 
     // ── Receive Pallet state ──────────────────────────────────────────────────
 
@@ -278,6 +279,7 @@ class InventoryScanner extends Page
         $this->barcodeSuccess = null;
         $this->barcodeLinkOptions = null;
         $this->catalogSelectedItemId = null;
+        $this->barcodeStep = 'catalog';
         $this->catalogPage = 1;
         $this->catalogCategory = '';
         $this->barcodeLinkSearch = '';
@@ -623,6 +625,7 @@ class InventoryScanner extends Page
 
     public function openBarcodeCatalog(): void
     {
+        $this->barcodeStep = 'catalog';
         $this->refreshBarcodeCatalog();
     }
 
@@ -649,6 +652,7 @@ class InventoryScanner extends Page
                 ->map(fn ($item) => [
                     'id' => $item->id, 'name' => $item->name, 'sku' => $item->sku,
                     'category' => $item->category, 'image' => $item->imageUrl(),
+                    'quantity' => (float) $item->totalQuantity(),
                 ])->all(),
             'total' => $total, 'pages' => $pages,
         ];
@@ -682,7 +686,13 @@ class InventoryScanner extends Page
     {
         if (InventoryItem::query()->where('is_active', true)->whereKey($id)->exists()) {
             $this->catalogSelectedItemId = $id;
+            $this->barcodeStep = 'confirm';
         }
+    }
+
+    public function barcodeBackToCatalog(): void
+    {
+        $this->barcodeStep = 'catalog';
     }
 
     private function validateOptionalInitialStock(): bool
@@ -717,8 +727,12 @@ class InventoryScanner extends Page
             return;
         }
 
+        $withStock = $this->addStockAfterResolve;
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($item, $code) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($item, $code, $withStock) {
+                if (InventoryItem::findByScan($code)) {
+                    throw new \RuntimeException('This barcode has already been assigned.');
+                }
                 \App\Models\ProductIdentity::create([
                     'product_id' => $item->id,
                     'type' => \App\Models\ProductIdentity::TYPE_BARCODE,
@@ -726,20 +740,25 @@ class InventoryScanner extends Page
                     'confirmed_by' => auth()->id(),
                     'confirmed_at' => now(),
                 ]);
+                if ($withStock) {
+                    $this->addQuickAddStock($item, false);
+                    if (isset($this->qaFlash['error'])) {
+                        throw new \RuntimeException($this->qaFlash['error']);
+                    }
+                }
             });
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (\Throwable $e) {
             report($e);
-            $this->errorMessage = 'Could not link this barcode. Check whether it already exists.';
+            $this->errorMessage = 'Could not save barcode and stock: ' . ($e instanceof \RuntimeException ? $e->getMessage() : 'Please try again.');
             return;
         }
-        $withStock = $this->addStockAfterResolve;
+        $stock = $withStock ? $this->qaFlash : null;
         $this->unmatchedBarcode = '';
         $this->barcodeLinkSearch = '';
         $this->barcodeLinkOptions = null;
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
-        if ($withStock) $this->addSelectedStock();
-        $this->barcodeSuccess = ['action' => 'linked', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $withStock && !isset($this->qaFlash['error']) ? $this->qaFlash : null, 'stock_error' => $this->qaFlash['error'] ?? null];
+        $this->barcodeSuccess = ['action' => 'linked', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $stock, 'stock_error' => null];
     }
 
     public function createScannedItem(): void
@@ -759,32 +778,40 @@ class InventoryScanner extends Page
             $this->errorMessage = 'Enter a valid non-negative price.';
             return;
         }
+        $withStock = $this->addStockAfterResolve;
         try {
-            $item = InventoryItem::create([
-                'name' => $name,
-                'barcode' => $code,
-                'category' => trim($this->newItemCategory) ?: null,
-                'sale_price' => $this->newItemPrice === '' ? null : (float) $this->newItemPrice,
-                'is_active' => true,
-            ]);
-        } catch (\Illuminate\Database\QueryException $e) {
+            $item = \Illuminate\Support\Facades\DB::transaction(function () use ($code, $name, $withStock) {
+                if (InventoryItem::findByScan($code)) {
+                    throw new \RuntimeException('This barcode has already been assigned.');
+                }
+                $item = InventoryItem::create([
+                    'name' => $name,
+                    'barcode' => $code,
+                    'category' => trim($this->newItemCategory) ?: null,
+                    'sale_price' => $this->newItemPrice === '' ? null : (float) $this->newItemPrice,
+                    'is_active' => true,
+                ]);
+                if ($withStock) {
+                    $this->addQuickAddStock($item, true);
+                    if (isset($this->qaFlash['error'])) {
+                        throw new \RuntimeException($this->qaFlash['error']);
+                    }
+                }
+                return $item;
+            });
+        } catch (\Throwable $e) {
             report($e);
-            $this->errorMessage = 'Could not create the item. Check for a duplicate barcode.';
+            $this->errorMessage = 'Could not create item: ' . ($e instanceof \RuntimeException ? $e->getMessage() : 'Please check the details and try again.');
             return;
         }
+        $stock = $withStock ? $this->qaFlash : null;
         $this->newItemName = '';
         $this->newItemCategory = '';
         $this->newItemPrice = '';
         $this->unmatchedBarcode = '';
-        $this->lookupItem($item);
-        $this->qaFlash = null;
-        // The item is now selected, so the same optional stock confirmation
-        // is available whether the item was newly created or already existed.
-        $withStock = $this->addStockAfterResolve;
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
-        if ($withStock) $this->addSelectedStock();
-        $this->barcodeSuccess = ['action' => 'created', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $withStock && !isset($this->qaFlash['error']) ? $this->qaFlash : null, 'stock_error' => $this->qaFlash['error'] ?? null];
+        $this->barcodeSuccess = ['action' => 'created', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $stock, 'stock_error' => null];
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

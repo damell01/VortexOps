@@ -26,7 +26,10 @@ class LedgerAttributionService
                 $explicit[] = strtolower($value);
             }
         }
-        if ($explicit !== [] && count(array_unique($explicit)) === 1 && $entry->whatnot_channel_id !== null) {
+        if (count(array_unique($explicit)) > 1) {
+            return null; // Conflicting source identifiers: never silently choose one.
+        }
+        if ($explicit !== [] && $entry->whatnot_channel_id !== null) {
             $matches = Show::query()
                 ->where('whatnot_channel_id', $entry->whatnot_channel_id)
                 ->whereRaw('LOWER(whatnot_show_id) = ?', [$explicit[0]])

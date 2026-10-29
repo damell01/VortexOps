@@ -137,7 +137,7 @@ class InventoryScanner extends Page
     public string $catalogCategory = '';
     public string $catalogSort = 'name';
     public int $catalogPage = 1;
-    public int $catalogPerPage = 10;
+    public int $catalogPerPage = 5;
     public ?int $catalogSelectedItemId = null;
     public string $barcodeStep = 'catalog';
 

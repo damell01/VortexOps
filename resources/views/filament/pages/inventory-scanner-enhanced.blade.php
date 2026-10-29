@@ -420,7 +420,7 @@
                     <div x-show="stockOpen" x-cloak class="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20 lg:col-span-2">
                         <h3 class="text-sm font-extrabold">Add stock</h3>
                         <div class="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div x-data="{ keypad: false, digits: String($wire.qaQty || 1), add(d) { digits = this.digits === '0' ? d : this.digits + d; this.digits = digits; $wire.set('qaQty', Number(digits || 0)); }, erase() { this.digits = this.digits.slice(0, -1); $wire.set('qaQty', Number(this.digits || 0)); } }" class="space-y-2">
+                            <div x-data="{ keypad: false, digits: String($wire.qaQty || 1), add(d) { this.digits = this.digits === '0' ? d : this.digits + d; $wire.set('qaQty', Number(this.digits || 0)); }, erase() { this.digits = this.digits.slice(0, -1); $wire.set('qaQty', Number(this.digits || 0)); } }" class="space-y-2">
                                 <label class="block text-xs font-bold">Quantity
                                     <input wire:model="qaQty" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off"
                                         x-on:input="digits = $event.target.value"

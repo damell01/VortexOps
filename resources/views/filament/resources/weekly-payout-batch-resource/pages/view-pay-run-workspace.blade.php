@@ -228,6 +228,13 @@
                                             </div>
                                         @endif
                                     </div>
+                                    @if($payout->show)
+                                        <div class="col-span-full text-xs text-gray-500 dark:text-gray-400">
+                                            Hours source: {{ $payout->show->streamerLogEntry?->hours_streamed !== null ? 'Streamer report' : 'Time clock / missing' }} ·
+                                            Counts source: {{ $payout->show->streamerLogEntry ? 'Streamer report / fulfillment fallback' : 'Show / fulfillment fallback' }}.
+                                            Show duration is not automatically paid hours.
+                                        </div>
+                                    @endif
                                     @if($payout->calculation_notes)
                                         <details class="col-span-full rounded-lg border border-gray-200 p-2 text-xs dark:border-gray-700">
                                             <summary class="cursor-pointer font-semibold">How this payout was calculated</summary>
@@ -239,6 +246,11 @@
                                             <button type="button" class="vxw-btn vxw-btn--sm" wire:click="mountAction('override_payout', { payout_id: {{ (int) $payout->id }} })">
                                                 <x-filament::icon icon="heroicon-m-pencil-square" /> Adjust payout
                                             </button>
+                                            @if($payout->show)
+                                                <button type="button" class="vxw-btn vxw-btn--sm" wire:click="mountAction('edit_show_inputs', { payout_id: {{ (int) $payout->id }} })">
+                                                    <x-filament::icon icon="heroicon-m-pencil-square" /> Edit inputs
+                                                </button>
+                                            @endif
                                         </div>
                                     @endif
                                     <div><div class="vxw-fig-label">Hours</div><div class="vxw-num">{{ number_format((float)$payout->hours_worked, 2) }}</div></div>

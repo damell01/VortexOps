@@ -1,12 +1,12 @@
 <x-filament-panels::page>
     {{-- The shared camera scanner (the one Scan Inventory uses) announces a
          read with a window event; hand it straight to the page. --}}
-    <div class="max-w-2xl mx-auto space-y-6" data-vx-touch-page
+    <div class="w-full max-w-2xl mx-auto space-y-4 sm:space-y-6" data-vx-touch-page
         x-data
         x-on:barcode-scanned.window="$event.detail?.value && $wire.handleBarcodeScan($event.detail.value)">
         <x-touch-mode-toggle />
         {{-- Product Scanner Section --}}
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Scan Product</h2>
 
             <button type="button"
@@ -27,12 +27,12 @@
                         type="text"
                         autocomplete="off"
                         placeholder="Enter barcode or SKU"
-                        class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        class="min-w-0 flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-500"
                         style="min-height: 44px;"
                     />
                     <button
                         wire:click="scanBarcode"
-                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition active:opacity-75 touch-manipulation"
+                        class="px-5 py-2 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-lg transition active:opacity-75 touch-manipulation focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                         style="min-height: 44px;"
                     >
                         Search

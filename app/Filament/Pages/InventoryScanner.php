@@ -123,6 +123,8 @@ class InventoryScanner extends Page
     public string $qaName       = ''; // optional: creates the item when the scan is unknown
     public ?array $qaFlash      = null; // ['name', 'qty', 'location', 'created']
     public ?int $selectedItemId = null;
+    public $itemPhoto = null;
+    public ?string $photoFeedback = null;
     public ?array $selectedItem = null;
     public string $unmatchedBarcode = '';
     public string $newItemName = '';
@@ -508,10 +510,53 @@ class InventoryScanner extends Page
     private function selectScannedItem(InventoryItem $item): void
     {
         $this->selectedItemId = $item->id;
+        $this->reset('itemPhoto');
+        $this->photoFeedback = null;
         $this->selectedItem = $this->buildResultFromItem($item);
         $this->unmatchedBarcode = '';
         $this->errorMessage = null;
         $this->qaFlash = null;
+    }
+
+    /**
+     * Optional camera/gallery photo for the resolved item. This never changes stock.
+     * Existing product images are preserved unless the operator explicitly replaces one.
+     */
+    public function saveSelectedItemPhoto(): void
+    {
+        $this->photoFeedback = null;
+        $item = $this->selectedItemId ? InventoryItem::find($this->selectedItemId) : null;
+        if (! $item) {
+            $this->addError('itemPhoto', 'Select an inventory item before saving a photo.');
+            return;
+        }
+
+        $this->validate([
+            'itemPhoto' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+        ]);
+
+        try {
+            $previousPath = $item->image_path;
+            $newPath = $this->itemPhoto->store('inventory-items', InventoryItem::IMAGE_DISK);
+            if (! $newPath) {
+                throw new \\RuntimeException('The image could not be stored.');
+            }
+            try {
+                $item->update(['image_path' => $newPath]);
+            } catch (\\Throwable $e) {
+                \\Illuminate\\Support\\Facades\\Storage::disk(InventoryItem::IMAGE_DISK)->delete($newPath);
+                throw $e;
+            }
+            if ($previousPath && $previousPath !== $newPath) {
+                \\Illuminate\\Support\\Facades\\Storage::disk(InventoryItem::IMAGE_DISK)->delete($previousPath);
+            }
+            $this->reset('itemPhoto');
+            $this->photoFeedback = 'Item photo saved.';
+            $this->selectedItem = $this->buildResultFromItem($item->fresh());
+        } catch (\\Throwable $e) {
+            report($e);
+            $this->addError('itemPhoto', 'Could not save the photo. Please try again.');
+        }
     }
 
     public function addSelectedStock(): void

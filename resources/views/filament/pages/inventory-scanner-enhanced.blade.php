@@ -357,8 +357,8 @@
                             @endif
                             <div class="min-w-0 flex-1">
                                 <label for="vx-scanned-item-photo" class="block text-sm font-semibold text-gray-900 dark:text-white">Item photo <span class="font-normal text-gray-500">(optional)</span></label>
-                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Take a photo or choose one from your device. JPG, PNG or WebP, up to 5 MB.</p>
-                                <input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" wire:model="itemPhoto" class="mt-2 block w-full min-w-0 text-xs text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-800 dark:text-gray-200" />
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Choose a photo from your device or camera. JPG, PNG or WebP, up to 5 MB.</p>
+                                <input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" wire:model="itemPhoto" class="mt-2 block w-full min-w-0 text-xs text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-800 dark:text-gray-200" />
                                 @error('itemPhoto')<p class="mt-1 text-xs font-semibold text-red-600" role="alert">{{ $message }}</p>@enderror
                                 @if($photoFeedback)<p class="mt-1 text-xs font-semibold text-green-700" role="status">{{ $photoFeedback }}</p>@endif
                                 <div wire:loading wire:target="itemPhoto" class="mt-1 text-xs text-violet-700" role="status">Uploading photo…</div>

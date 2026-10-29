@@ -1071,3 +1071,21 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 @media(prefers-reduced-motion:reduce) {
   .fi-ta-row, .fi-notification { transition:none !important; }
 }
+
+
+/* Operational table readability and modal sizes — no custom JS or sorting changes. */
+.fi-ta-table thead th { white-space:nowrap; }
+.fi-ta-table tbody tr { border-color:var(--vx-divider); }
+.fi-ta-table .fi-ta-cell .fi-badge { max-width:100%; }
+.fi-ta-header-toolbar .fi-input-wrp { max-width:100%; }
+.fi-modal-window[role="alertdialog"] { max-width:min(92vw,440px); }
+@media(min-width:768px) {
+  .fi-modal-window:has(.fi-modal-content .fi-fo-component-ctn) { width:min(92vw,800px); }
+  .fi-modal-window:has(.fi-modal-content .fi-fo-component-ctn .fi-fo-field-wrp:nth-of-type(5)) { width:min(94vw,1080px); }
+}
+@media(max-width:767px) {
+  .fi-ta-header { gap:10px; }
+  .fi-ta-header-toolbar > * { min-width:0; }
+  .fi-modal-window { margin-inline:auto; }
+  .fi-modal-window .fi-modal-content { overscroll-behavior-y:contain; }
+}

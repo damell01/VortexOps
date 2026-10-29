@@ -605,16 +605,16 @@ class InventoryScanner extends Page
         }
 
         try {
-            \Illuminate\\Support\\Facades\\DB::transaction(function () use ($item, $code) {
-                \App\\Models\\ProductIdentity::create([
+            \Illuminate\Support\Facades\DB::transaction(function () use ($item, $code) {
+                \App\Models\ProductIdentity::create([
                     'product_id' => $item->id,
-                    'type' => \App\\Models\\ProductIdentity::TYPE_BARCODE,
+                    'type' => \App\Models\ProductIdentity::TYPE_BARCODE,
                     'value' => $code,
                     'confirmed_by' => auth()->id(),
                     'confirmed_at' => now(),
                 ]);
             });
-        } catch (\Illuminate\\Database\\QueryException $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
             report($e);
             $this->errorMessage = 'Could not link this barcode. Check whether it already exists.';
             return;
@@ -651,7 +651,7 @@ class InventoryScanner extends Page
                 'sale_price' => $this->newItemPrice === '' ? null : (float) $this->newItemPrice,
                 'is_active' => true,
             ]);
-        } catch (\Illuminate\\Database\\QueryException $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
             report($e);
             $this->errorMessage = 'Could not create the item. Check for a duplicate barcode.';
             return;

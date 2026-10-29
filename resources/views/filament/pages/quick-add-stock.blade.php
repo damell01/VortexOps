@@ -97,8 +97,11 @@
                             −
                         </button>
                         <input
-                            wire:model.number="quantity"
+                            wire:model.live.number="quantity"
                             type="number"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            aria-label="Type quantity to add"
                             min="1"
                             class="w-20 px-4 py-2 text-center text-lg font-bold rounded-lg border-2 border-green-600 dark:border-green-500 bg-white dark:bg-gray-700 text-green-900 dark:text-green-100"
                             style="min-height: 44px;"
@@ -110,20 +113,6 @@
                             +
                         </button>
                     </div>
-                </div>
-
-                {{-- Unit Cost --}}
-                <div class="border-t border-green-200 dark:border-green-700 pt-4">
-                    <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-2">Unit Cost <span class="font-normal text-green-700/70 dark:text-green-300/70">(optional)</span></label>
-                    <input
-                        wire:model.number="unitCost"
-                        type="number"
-                        step="0.01"
-                        class="w-full px-4 py-2 rounded-lg border border-green-300 dark:border-green-600 bg-white dark:bg-gray-700 text-green-900 dark:text-green-100"
-                        min="0"
-                        placeholder="0.00"
-                        style="min-height: 44px;"
-                    />
                 </div>
 
                 {{-- Location Selector --}}

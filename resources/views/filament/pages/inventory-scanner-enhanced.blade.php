@@ -217,8 +217,8 @@
 
         @if($unmatchedBarcode && $mode === 'lookup')
             @teleport('body')
-            <div class="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-slate-950/70 p-0 backdrop-blur-sm sm:p-3" role="presentation" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()" @keydown.escape.window="$wire.switchMode('lookup')">
-                <section role="dialog" aria-modal="true" aria-labelledby="vx-barcode-title" class="flex h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-2xl dark:bg-gray-900 sm:h-[calc(100dvh-1.5rem)] sm:max-w-6xl sm:rounded-2xl">
+            <div style="position:fixed;inset:0;z-index:99999;height:100dvh;width:100vw" class="flex items-center justify-center overflow-hidden bg-slate-950/70 p-0 backdrop-blur-sm sm:p-3" role="presentation" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()" @keydown.escape.window="$wire.switchMode('lookup')">
+                <section role="dialog" aria-modal="true" aria-labelledby="vx-barcode-title" style="height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)" class="flex w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl dark:bg-gray-900">
                     <header class="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-800 sm:px-6">
                         <div class="flex min-w-0 items-start gap-3">
                             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white"><x-heroicon-o-qr-code class="h-6 w-6" /></div>
@@ -283,7 +283,7 @@
                                 </div>
                                 @if($barcodeLinkOptions !== null)
                                     <div class="mt-2 flex items-center justify-between text-xs text-gray-500"><span>{{ number_format($barcodeLinkOptions['total']) }} items found</span><span>Page {{ $catalogPage }} of {{ $barcodeLinkOptions['pages'] }}</span></div>
-                                    <div class="mt-2 max-h-[min(48dvh,540px)] divide-y divide-gray-100 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                                    <div class="mt-2 divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                                         @forelse($barcodeLinkOptions['items'] as $option)
                                             <div wire:key="catalog-row-{{ $option['id'] }}" class="flex min-w-0 items-center gap-3 p-2 sm:p-3">
                                                 <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
@@ -358,13 +358,37 @@
         @endif
 
         @if($mode === 'quickadd' && $selectedItem && !$barcodeSuccess)
-            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                <div class="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
-                    <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">Item found</span>
-                    <h2 class="mt-2 text-lg font-bold text-gray-950 dark:text-white">{{ $selectedItem['name'] }}</h2>
-                    <p class="mt-1 text-xs text-gray-500">SKU {{ $selectedItem['sku'] }} · {{ number_format((float) $selectedItem['total_qty']) }} units on hand</p>
+            <section x-data="{ stockOpen: false, photoOpen: false }" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-800 sm:p-6">
+                    <div class="min-w-0">
+                        <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Existing item found</span>
+                        <h2 class="mt-3 text-xl font-extrabold text-gray-950 dark:text-white">{{ $selectedItem['name'] }}</h2>
+                        <p class="mt-1 text-sm text-gray-500">SKU {{ $selectedItem['sku'] ?: '—' }}</p>
+                    </div>
+                    <button type="button" wire:click="switchMode('lookup')" class="min-h-11 rounded-lg border border-gray-200 px-4 text-sm font-bold dark:border-gray-700">Scan another</button>
                 </div>
-                <div class="p-4 sm:p-5">
+                <div class="grid gap-5 p-4 sm:p-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)]">
+                    <div class="flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                        @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
+                        <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-gray-800">
+                            @if($photoItem?->hasImage())<img src="{{ $photoItem->imageUrl() }}" alt="" class="h-full w-full object-contain" />@else<x-heroicon-o-cube class="h-12 w-12 text-gray-400" />@endif
+                        </div>
+                        <div class="min-w-0"><p class="text-xs font-bold uppercase text-gray-500">On hand</p><p class="text-3xl font-extrabold text-emerald-700">{{ number_format((float)$selectedItem['total_qty']) }} <span class="text-sm">units</span></p><p class="mt-2 text-xs text-gray-500">Select an action to continue.</p></div>
+                    </div>
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-bold text-gray-950 dark:text-white">What would you like to do?</h3>
+                        <button type="button" @click="stockOpen = !stockOpen; photoOpen = false" :aria-expanded="stockOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"><span>Add stock to this item</span><x-heroicon-o-plus class="h-5 w-5" /></button>
+                        <button type="button" @click="photoOpen = !photoOpen; stockOpen = false" :aria-expanded="photoOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Update item photo</span><x-heroicon-o-camera class="h-5 w-5" /></button>
+                    </div>
+                    <div x-show="stockOpen" x-cloak class="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20 lg:col-span-2">
+                        <h3 class="text-sm font-extrabold">Add stock</h3>
+                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <label class="block text-xs font-bold">Quantity<input wire:model="qaQty" type="number" min="0.01" step="0.01" class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                            <label class="block text-xs font-bold">Location<select wire:model="qaLocationId" class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                        </div>
+                        <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" class="mt-3 min-h-12 w-full rounded-xl bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">Confirm Add Stock</button>
+                    </div>
+                    <div x-show="photoOpen" x-cloak class="lg:col-span-2">
                     <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
                         <div class="flex items-start gap-3">
                             @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
@@ -389,12 +413,8 @@
                             </div>
                         </div>
                     </div>
-                    <h3 class="mb-3 text-sm font-bold text-gray-950 dark:text-white">Add to Inventory</h3>
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <label class="block"><span class="mb-1 block text-xs font-bold">Quantity</span><input wire:model="qaQty" type="number" min="0.01" step="0.01" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
-                        <label class="block"><span class="mb-1 block text-xs font-bold">Location</span><select wire:model="qaLocationId" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+
                     </div>
-                    <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" class="mt-4 min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="addSelectedStock">Confirm Add Stock</span><span wire:loading wire:target="addSelectedStock">Adding stock…</span></button>
                 </div>
             </section>
         @endif

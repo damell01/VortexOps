@@ -41,7 +41,7 @@
                         <div class="rounded-xl border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/30">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="min-w-0">
-                                    <div class="text-sm font-semibold text-gray-900 dark:text-white">Barcode</div>
+                                    <div class="text-sm font-semibold text-gray-900 dark:text-white">Add Another Barcode (optional)</div>
                                     <div class="mt-0.5 break-all text-xs text-gray-500 dark:text-gray-400">
                                         @if($currentBarcode)
                                             Current: <span class="font-mono font-semibold">{{ $currentBarcode }}</span>
@@ -52,20 +52,32 @@
                                 </div>
                                 <button type="button" wire:click="startBarcodeScan" class="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 text-xs font-bold text-white hover:bg-sky-700 sm:w-auto">
                                     <x-heroicon-o-qr-code class="h-4 w-4" />
-                                    {{ $currentBarcode ? 'Replace Barcode' : 'Scan Barcode' }}
+                                    Scan New Barcode
                                 </button>
                             </div>
 
                             <div class="mt-3 flex min-w-0 flex-col gap-2 sm:flex-row">
-                                <input wire:model="barcode" type="text" inputmode="numeric" autocomplete="off" placeholder="Scan or enter barcode" class="min-h-11 min-w-0 flex-1 rounded-lg border-gray-300 bg-white font-mono text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+                                <input wire:model="barcode" type="text" autocomplete="off" placeholder="New barcode (existing one stays linked)" class="min-h-11 min-w-0 flex-1 rounded-lg border-gray-300 bg-white font-mono text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                                 @if($barcode)
                                     <button type="button" wire:click="clearBarcode" class="inline-flex min-h-11 w-full shrink-0 items-center justify-center rounded-lg border border-gray-300 px-3 text-xs font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200 sm:w-auto">Clear</button>
                                 @endif
                             </div>
                             @error('barcode')<div class="mt-1 text-xs text-red-600">{{ $message }}</div>@enderror
                             @if($barcode && $barcode !== $currentBarcode)
-                                <div class="mt-2 break-words text-xs font-semibold text-emerald-600">Scanned barcode {{ $barcode }} will be saved with this stock update.</div>
+                                <div class="mt-2 break-words text-xs font-semibold text-emerald-600">Additional barcode {{ $barcode }} will be linked. Existing barcodes will remain unchanged.</div>
                             @endif
+                        </div>
+
+                        <div class="rounded-xl border border-violet-200 bg-violet-50/40 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+                            <div class="text-sm font-bold text-gray-900 dark:text-white">Add / Change Photo <span class="font-normal text-gray-500">(optional)</span></div>
+                            <p class="mt-1 text-xs text-gray-500">JPG, PNG or WebP, up to 5 MB. Leave blank to keep the current photo.</p>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" />Take Photo<input type="file" wire:model="itemPhoto" accept="image/jpeg,image/png,image/webp" capture="environment" class="sr-only" /></label>
+                                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-violet-200 bg-white px-4 py-2 text-xs font-bold text-violet-700"><x-heroicon-o-photo class="h-5 w-5" />Choose Photo<input type="file" wire:model="itemPhoto" accept="image/jpeg,image/png,image/webp" class="sr-only" /></label>
+                                @if($itemPhoto)<span class="self-center text-xs font-semibold text-emerald-700">Photo selected</span><button type="button" wire:click="$set('itemPhoto', null)" class="min-h-11 rounded-lg border px-3 text-xs font-bold">Clear</button>@endif
+                            </div>
+                            <span wire:loading wire:target="itemPhoto" class="mt-2 block text-xs font-semibold text-violet-700">Uploading photo…</span>
+                            @error('itemPhoto')<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
 
                         <div class="grid gap-4 sm:grid-cols-2">

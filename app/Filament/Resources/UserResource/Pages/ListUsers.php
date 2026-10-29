@@ -26,7 +26,7 @@ class ListUsers extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Manage team access, roles, and linked streamer profiles.';
+        return 'Find streamers, fulfillment staff, assistants, and admins. Filter by role or profile, then view or edit each member.';
     }
 
     protected function getHeaderActions(): array

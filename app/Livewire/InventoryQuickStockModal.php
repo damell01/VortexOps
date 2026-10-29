@@ -5,6 +5,10 @@ namespace App\Livewire;
 use App\Filament\Resources\InventoryItemResource;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\ProductIdentity;
+use App\Models\Product;
+use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
 use App\Models\Vendor;
 use App\Services\InventoryService;
 use Filament\Notifications\Notification;
@@ -12,7 +16,10 @@ use Livewire\Component;
 
 class InventoryQuickStockModal extends Component
 {
+    use WithFileUploads;
+
     public bool $open = false;
+    public $itemPhoto = null;
     public ?int $productId = null;
     public string $productName = '';
     public ?int $locationId = null;
@@ -45,7 +52,8 @@ class InventoryQuickStockModal extends Component
         $this->unitCost = '';
         $this->reason = '';
         $this->currentBarcode = trim((string) $record->barcode);
-        $this->barcode = $this->currentBarcode;
+        $this->barcode = '';
+        $this->itemPhoto = null;
         $this->open = true;
     }
 
@@ -61,7 +69,7 @@ class InventoryQuickStockModal extends Component
 
         $this->dispatch(
             'open-camera-scanner',
-            title: filled($this->currentBarcode) ? 'Replace item barcode' : 'Attach item barcode',
+            title: 'Add another item barcode',
             helper: $this->productName,
         );
     }
@@ -73,7 +81,7 @@ class InventoryQuickStockModal extends Component
         $value = trim($value);
         if ($value === '') return;
 
-        $clash = InventoryItem::query()
+        $clash = InventoryItem::withTrashed()
             ->whereKeyNot($this->productId)
             ->where(function ($query) use ($value) {
                 $query->where('barcode', $value)
@@ -82,10 +90,10 @@ class InventoryQuickStockModal extends Component
             })
             ->first();
 
-        if ($clash) {
+        if ($clash || ProductIdentity::where('value', $value)->whereIn('type', ProductIdentity::SCANNABLE_TYPES)->where('product_id', '!=', $this->productId)->exists()) {
             Notification::make()
                 ->title('Barcode already in use')
-                ->body($value . ' is already assigned to "' . $clash->name . '". Nothing was changed.')
+                ->body($value . ' is already assigned to another product. Nothing was changed.')
                 ->danger()
                 ->send();
             return;
@@ -95,7 +103,7 @@ class InventoryQuickStockModal extends Component
         $this->resetValidation('barcode');
 
         Notification::make()
-            ->title(filled($this->currentBarcode) ? 'Replacement barcode scanned' : 'Barcode scanned')
+            ->title('Additional barcode scanned')
             ->body($value . ' will be saved with this stock update.')
             ->success()
             ->send();
@@ -116,7 +124,8 @@ class InventoryQuickStockModal extends Component
             'vendorId' => ['nullable', 'integer'],
             'unitCost' => ['nullable', 'numeric', 'min:0'],
             'reason' => ['nullable', 'string', 'max:500'],
-            'barcode' => ['nullable', 'string', 'max:255'],
+            'barcode' => ['nullable', 'string', 'max:191'],
+            'itemPhoto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
 
         $record = InventoryItem::findOrFail((int) $data['productId']);
@@ -124,7 +133,7 @@ class InventoryQuickStockModal extends Component
 
         $barcode = trim((string) ($data['barcode'] ?? ''));
         if ($barcode !== '') {
-            $clash = InventoryItem::query()
+            $clash = InventoryItem::withTrashed()
                 ->whereKeyNot($record->getKey())
                 ->where(function ($query) use ($barcode) {
                     $query->where('barcode', $barcode)
@@ -133,8 +142,8 @@ class InventoryQuickStockModal extends Component
                 })
                 ->first();
 
-            if ($clash) {
-                $this->addError('barcode', $barcode . ' is already assigned to ' . $clash->name . '.');
+            if ($clash || ProductIdentity::where('value', $barcode)->whereIn('type', ProductIdentity::SCANNABLE_TYPES)->where('product_id', '!=', $record->getKey())->exists()) {
+                $this->addError('barcode', $barcode . ' is already assigned to another product.');
                 return;
             }
         }
@@ -157,16 +166,32 @@ class InventoryQuickStockModal extends Component
             $data['unitCost'] !== null && $data['unitCost'] !== '' ? (float) $data['unitCost'] : null,
         );
 
-        if ($barcode !== '' && $barcode !== trim((string) $record->barcode)) {
-            $record->forceFill(['barcode' => $barcode])->save();
+        if ($barcode !== '' && ! in_array($barcode, array_filter([$record->barcode, $record->upc, $record->sku]), true)) {
+            ProductIdentity::firstOrCreate([
+                'product_id' => $record->getKey(),
+                'type' => ProductIdentity::TYPE_BARCODE,
+                'value' => $barcode,
+            ]);
         }
+
+        if ($this->itemPhoto) {
+            try {
+                $path = $this->itemPhoto->store('inventory-items', Product::IMAGE_DISK);
+                if (! $path) throw new \RuntimeException('Photo upload failed.');
+                $record->update(['image_path' => $path]);
+            } catch (\Throwable $e) {
+                report($e);
+                Notification::make()->title('Stock saved, photo upload failed')->warning()->send();
+            }
+        }
+        $this->itemPhoto = null;
 
         $qty = (float) $data['quantity'];
         $this->open = false;
 
         Notification::make()
             ->title('Stock added successfully')
-            ->body(number_format($qty) . ' added to ' . $record->name . ' at ' . $location->name . ($barcode !== '' ? ' · Barcode ' . $barcode : '') . '.')
+            ->body(number_format($qty) . ' added to ' . $record->name . ' at ' . $location->name . ($barcode !== '' ? ' · Added barcode ' . $barcode : '') . '.')
             ->success()
             ->send();
 

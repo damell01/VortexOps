@@ -423,11 +423,11 @@
                             <div x-data="{ keypad: false, digits: String($wire.qaQty || 1), add(d) { this.digits = this.digits === '0' ? d : this.digits + d; $wire.set('qaQty', Number(this.digits || 0)); }, erase() { this.digits = this.digits.slice(0, -1); $wire.set('qaQty', Number(this.digits || 0)); } }" class="space-y-2">
                                 <label class="block text-xs font-bold">Quantity
                                     <input wire:model="qaQty" type="number" min="0.01" step="0.01" inputmode="decimal" autocomplete="off"
-                                        x-on:input="digits = $event.target.value"
+                                        x-on:focus="digits = $event.target.value || String($wire.qaQty || 1); keypad = true" x-on:input="digits = $event.target.value"
                                         class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
                                 </label>
                                 <button type="button" x-on:click="digits = String($wire.qaQty || 1); keypad = !keypad" x-bind:aria-expanded="keypad.toString()"
-                                    class="min-h-11 rounded-lg border border-violet-400 px-3 text-sm font-bold dark:text-white">Number pad</button>
+                                    class="min-h-11 rounded-lg border border-violet-400 px-3 text-sm font-bold dark:text-white">Show / hide number pad</button>
                                 <div x-show="keypad" x-cloak class="grid grid-cols-3 gap-2" aria-label="On-screen quantity keypad">
                                     <template x-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit">
                                         <button type="button" x-on:click="add(digit)" x-text="digit" class="min-h-12 rounded-lg border border-gray-300 bg-white text-lg font-bold dark:bg-gray-800 dark:text-white"></button>

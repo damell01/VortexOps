@@ -295,15 +295,15 @@
                     <label class="flex cursor-pointer items-start gap-3 text-sm font-semibold text-gray-900 dark:text-white">
                         <input type="checkbox" wire:model.live="addStockAfterResolve" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-violet-600" />
                         <span>Add stock now <span class="font-normal text-gray-500">(optional)</span>
-                            <span class="mt-0.5 block text-xs font-normal text-gray-500">Select this to add stock when you link or create the item. Leave it off to save only the barcode or item.</span>
+                            <span class="mt-0.5 block text-xs font-normal text-gray-500">Quantity and location can be selected anytime. Check this box only when you want to add stock as part of linking or creating.</span>
                         </span>
                     </label>
                     <div class="mt-3 grid gap-3 sm:grid-cols-2">
                         <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Quantity
-                            <input type="number" min="0.01" step="1" wire:model="qaQty" @disabled(!$addStockAfterResolve) class="mt-1 min-h-11 w-full rounded-lg border-gray-300 bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800" />
+                            <input type="number" min="0.01" step="1" wire:model="qaQty" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800" />
                         </label>
                         <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Stock location
-                            <select wire:model="qaLocationId" @disabled(!$addStockAfterResolve) class="mt-1 min-h-11 w-full rounded-lg border-gray-300 bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800">
+                            <select wire:model="qaLocationId" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 bg-white disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800">
                                 @foreach($this->locations as $location)
                                     <option value="{{ $location->id }}">{{ $location->name }}</option>
                                 @endforeach

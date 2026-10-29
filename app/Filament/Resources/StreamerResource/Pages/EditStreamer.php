@@ -104,17 +104,17 @@ class EditStreamer extends EditRecord
                     Notification::make()->title('Using team calculation')->success()->send();
                 }),
 
-            Action::make('merge_duplicate_profile')
-                ->label('Merge Duplicate Profile')
-                ->icon('heroicon-o-arrows-pointing-in')
+            Action::make('transfer_duplicate_shows')
+                ->label('Transfer All Shows')
+                ->icon('heroicon-o-arrows-right-left')
                 ->color('warning')
                 ->visible(fn (): bool => (bool) (auth()->user()?->isOwner() || auth()->user()?->isAdmin()) && $this->record->isStreamer())
-                ->modalHeading('Merge duplicate streamer profile')
-                ->modalDescription(fn (): string => 'Duplicate: '.$this->record->name.' (#'.$this->record->id.'). Transfers show assignments, reports, draft payouts, loans, aliases, profit share packets and inventory locations where supported. Conflicting records and finalized payouts block the merge. The duplicate is deactivated, not deleted.')
+                ->modalHeading('Transfer all shows to the correct streamer')
+                ->modalDescription(fn (): string => 'Old profile: '.$this->record->name.' (#'.$this->record->id.'). Move every past, current, and upcoming show assignment to the selected profile. Existing assignments are preserved without duplicates. Financial records and login accounts are unchanged. The old profile is marked inactive.')
                 ->form([
                     Select::make('target_id')
-                        ->label('Keep this profile')
-                        ->options(fn (): array => \App\Models\\Streamer::query()
+                        ->label('New profile (keep this one)')
+                        ->options(fn (): array => \App\Models\Streamer::query()
                             ->streamers()->where('status', 'active')
                             ->whereKeyNot($this->record->id)
                             ->where('business_id', $this->record->business_id)
@@ -123,13 +123,50 @@ class EditStreamer extends EditRecord
                         ->searchable()->required(),
                 ])
                 ->requiresConfirmation()
-                ->modalSubmitActionLabel('Merge profiles')
+                ->modalSubmitActionLabel('Transfer all shows')
                 ->action(function (array $data): void {
                     abort_unless(auth()->user()?->isOwner() || auth()->user()?->isAdmin(), 403);
-                    $counts = app(\App\Services\\StreamerProfileMergeService::class)
-                        ->merge((int) $this->record->id, (int) $data['target_id']);
-                    Notification::make()->title('Streamer profiles merged')
-                        ->body(array_sum($counts).' linked records transferred. The duplicate profile is inactive.')
+                    $sourceId = (int) $this->record->id;
+                    $targetId = (int) ($data['target_id'] ?? 0);
+                    if ($sourceId === $targetId) {
+                        throw ValidationException::withMessages(['target_id' => 'Choose another profile.']);
+                    }
+                    $moved = DB::transaction(function () use ($sourceId, $targetId): int {
+                        $profiles = \App\Models\Streamer::query()->whereIn('id', [$sourceId, $targetId])
+                            ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+                        $source = $profiles->get($sourceId);
+                        $target = $profiles->get($targetId);
+                        if (! $source || ! $target || ! $source->isStreamer() || ! $target->isStreamer()
+                            || $source->status !== 'active' || $target->status !== 'active'
+                            || (int) $source->business_id !== (int) $target->business_id) {
+                            throw ValidationException::withMessages(['target_id' => 'Both profiles must be active streamers in the same business.']);
+                        }
+                        $rows = DB::table('show_streamer')->where('streamer_id', $sourceId)
+                            ->orderBy('show_id')->lockForUpdate()->get();
+                        foreach ($rows as $row) {
+                            $existing = DB::table('show_streamer')->where('show_id', $row->show_id)
+                                ->where('streamer_id', $targetId)->first();
+                            if ($existing) {
+                                if ($row->is_primary && ! $existing->is_primary) {
+                                    DB::table('show_streamer')->where('show_id', $row->show_id)
+                                        ->where('streamer_id', $targetId)->update(['is_primary' => true, 'updated_at' => now()]);
+                                }
+                                DB::table('show_streamer')->where('show_id', $row->show_id)
+                                    ->where('streamer_id', $sourceId)->delete();
+                            } else {
+                                DB::table('show_streamer')->where('show_id', $row->show_id)
+                                    ->where('streamer_id', $sourceId)->update(['streamer_id' => $targetId, 'updated_at' => now()]);
+                            }
+                        }
+                        $source->update(['status' => 'inactive']);
+                        return $rows->count();
+                    });
+                    activity('streamer_profile_transfer')->causedBy(auth()->user())
+                        ->performedOn($this->record)
+                        ->withProperties(['source_id' => $sourceId, 'target_id' => $targetId, 'shows_transferred' => $moved])
+                        ->log('All streamer show assignments transferred');
+                    Notification::make()->title('All shows transferred')
+                        ->body($moved.' show assignments transferred. The old profile is inactive.')
                         ->success()->send();
                     $this->redirect(StreamerResource::getUrl('index'));
                 }),

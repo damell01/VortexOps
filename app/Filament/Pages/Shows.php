@@ -82,6 +82,7 @@ class Shows extends Page
 
     public static function canAccess(): bool
     {
+        if (auth()->user()?->isStreamerAssistant()) return false;
         if (\App\Support\RoleAccess::grants(static::class)) return true;
         $u = auth()->user();
         return AdminModules::isEnabled('streams') && ($u?->isAdmin() || $u?->isStreamer() || $u?->isStreamerAssistant());

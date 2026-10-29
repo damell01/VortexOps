@@ -40,7 +40,7 @@ class DashboardImproved extends Dashboard
     public function getSubheading(): ?string
     {
         $user = auth()->user();
-        if ($user?->isStreamerAssistant()) return 'Streamer assistant workspace · All shows and channels';
+        if ($user?->isStreamerAssistant()) return 'Clock in, clock out, and view your paid pay runs';
         if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
@@ -101,22 +101,28 @@ class DashboardImproved extends Dashboard
         return [];
     }
 
+    public int $assistantPayPage = 1;
+
+    public function previousAssistantPayPage(): void
+    {
+        $this->assistantPayPage = max(1, $this->assistantPayPage - 1);
+    }
+
+    public function nextAssistantPayPage(): void
+    {
+        $this->assistantPayPage++;
+    }
+
     public function getViewData(): array
     {
         $user = auth()->user();
         $data = ['roleMode' => 'user'];
         if ($user?->isStreamerAssistant()) {
-            $canViewShows = \App\Filament\Resources\ShowResource::canAccess();
-            $today = \App\Support\BusinessTime::local()->toDateString();
-            $shows = fn () => \App\Filament\Resources\ShowResource::getEloquentQuery();
             return [
                 'roleMode' => 'assistant',
-                'canViewShows' => $canViewShows,
-                'canViewPay' => MyPay::canAccess(),
-                'assistantPaidTotal' => MyPay::canAccess() ? \App\Support\AssistantPaidPay::query($user)->sum('calculated_payout') : 0,
-                'assistantRecentPay' => MyPay::canAccess() ? \App\Support\AssistantPaidPay::query($user)->with('batch')->latest('id')->limit(5)->get() : collect(),
-                'upcomingAssistantShows' => $canViewShows ? $shows()->whereDate('show_date', '>=', $today)->whereNotIn('status', ['cancelled', 'closed'])->orderBy('show_date')->orderBy('start_time')->limit(6)->get() : collect(),
-                'recentAssistantShows' => $canViewShows ? $shows()->whereDate('show_date', '<', $today)->orderByDesc('show_date')->orderByDesc('id')->limit(6)->get() : collect(),
+                'assistantPaidTotal' => \App\Support\AssistantPaidPay::query($user)->sum('calculated_payout'),
+                'assistantRecentPay' => \App\Support\AssistantPaidPay::query($user)->with('batch')->latest('id')
+                    ->paginate(10, ['*'], 'assistantPayPage', max(1, $this->assistantPayPage)),
             ];
         }
 

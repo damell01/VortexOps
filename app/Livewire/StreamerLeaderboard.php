@@ -30,6 +30,7 @@ class StreamerLeaderboard extends Component
     {
         $user = auth()->user();
         // Everyone with the Shows tab: admins, streamers, and roles granted Shows.
+        if ($user?->isStreamerAssistant()) return false;
         return AdminModules::isEnabled('streams') && (bool) (($user?->isStreamerAssistant() && \App\Filament\Resources\ShowResource::canAccess() && ! \App\Support\NavVisibility::isHiddenForUser(\App\Filament\Pages\ShowLeaderboard::class, $user)) || $user?->isAdmin() || ($user?->isStreamer() && $user->streamer) || ($user && RoleAccess::grants(Shows::class, $user)));
     }
 

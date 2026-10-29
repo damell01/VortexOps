@@ -34,33 +34,9 @@ class NavVisibility
         \App\Filament\Pages\QuickAddStock::class => [\App\Filament\Pages\InventoryScanner::class],
     ];
 
-    /**
-     * What a role sees before anyone picks its pages on Roles & Permissions.
-     *
-     * A role with no saved list is unrestricted, which is right for the
-     * built-in admin and streamer roles but left streamer assistants able to
-     * open payouts, profit share, pallets and the rest of the admin pages.
-     * They clock in, look stock up and follow their streamers' shows; saving
-     * a list for the role on the Roles screen replaces this.
-     */
+    /** Default page grants. Assistants have a fixed clock-and-paid-pay workspace. */
     public const ROLE_DEFAULTS = [
-        'streamer_assistant' => [
-            \App\Filament\Pages\DashboardImproved::class,
-            \App\Filament\Pages\Timekeeping::class,
-            \App\Filament\Pages\Shows::class,
-            \App\Filament\Resources\ShowResource::class,
-            \App\Filament\Pages\ShowLeaderboard::class,
-            \App\Filament\Pages\MyPay::class,
-            \App\Filament\Pages\InventoryOverview::class,
-            \App\Filament\Resources\InventoryItemResource::class,
-            \App\Filament\Resources\InventoryLocationResource::class,
-            \App\Filament\Pages\InventorySearch::class,
-            \App\Filament\Pages\InventoryGuide::class,
-            \App\Filament\Pages\Handbook::class,
-            \App\Filament\Pages\HowItWorks::class,
-            \App\Filament\Pages\GettingStarted::class,
-            \App\Filament\Resources\FeedbackTicketResource::class,
-        ],
+        'streamer_assistant' => [\App\Filament\Pages\DashboardImproved::class],
     ];
 
     private static ?array $roleMemo = null;
@@ -98,6 +74,8 @@ class NavVisibility
         if (! $user || ! method_exists($user, 'getRoleNames')) {
             return false;
         }
+
+        if (method_exists($user, 'isStreamerAssistant') && $user->isStreamerAssistant()) return false;
 
         foreach ($user->getRoleNames() as $role) {
             if (self::hasExplicitVisibility($role) && in_array($class, self::visibleForRole($role), true)) {
@@ -138,6 +116,13 @@ class NavVisibility
     public static function isHiddenForUser(string $class, $user): bool
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) return false;
+        if (method_exists($user, 'isStreamerAssistant') && $user->isStreamerAssistant()) {
+            return ! in_array($class, [
+                \App\Filament\Pages\DashboardImproved::class,
+                \App\Filament\Pages\TwoFactorAuth::class,
+                \App\Filament\Pages\TwoFactorVerify::class,
+            ], true);
+        }
         if (in_array($class, self::ALWAYS_AVAILABLE, true)) return false;
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
         if (empty($roleNames)) return false;
@@ -169,17 +154,6 @@ class NavVisibility
             \App\Filament\Resources\VendorResource::class,
             \App\Filament\Pages\PalletReceivingHistory::class,
             \App\Filament\Pages\InventoryGuide::class,
-        ], true)) return true;
-        // Existing assistant allow-lists predate their show workspace. Explicit Hide still wins above.
-        if ($role === AssistantPayrollRole::NAME && in_array($navigationClass, [
-            \App\Filament\Resources\ShowResource::class,
-            // The calendar is their show view: All Shows opens it.
-            \App\Filament\Pages\Shows::class,
-            // They look stock up; adding and moving it stays with admins.
-            \App\Filament\Resources\InventoryItemResource::class,
-            \App\Filament\Pages\Timekeeping::class,
-            \App\Filament\Pages\ShowLeaderboard::class,
-            \App\Filament\Pages\MyPay::class,
         ], true)) return true;
         if (! self::hasExplicitVisibility($role) && isset(self::ROLE_DEFAULTS[$role])) {
             return in_array($class, self::ROLE_DEFAULTS[$role], true)

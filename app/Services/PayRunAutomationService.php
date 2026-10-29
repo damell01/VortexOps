@@ -276,12 +276,14 @@ class PayRunAutomationService
     private function syncClockedTime(WeeklyPayoutBatch $batch, Carbon $start, Carbon $end, ?int $businessId): void
     {
         $keep = [];
-        $members = Streamer::query()->whereNotNull('user_id')
+        $members = Streamer::query()->with('user')->whereNotNull('user_id')
             ->when($businessId !== null, fn ($q) => $q->where('business_id', $businessId))
             ->get();
 
         foreach ($members as $member) {
-            $rate = $member->paidHourlyRate();
+            $rate = $member->user?->isStreamerAssistant()
+                ? ((float) $member->compensationValue('hourly_rate') > 0 ? (float) $member->compensationValue('hourly_rate') : null)
+                : $member->paidHourlyRate();
             if ($rate === null) {
                 continue;
             }
@@ -315,7 +317,7 @@ class PayRunAutomationService
                 'hours_worked' => $hours,
                 'owner_fee_deducted' => 0,
                 'tips_included' => 0,
-                'calculated_payout' => round($rate * $hours, 2),
+                'calculated_payout' => round($rate * $minutes / 60, 2),
                 'calculation_notes' => "Time not on a show: \${$rate}/hr × {$hours}hrs ({$breakdown})",
                 'status' => 'draft',
             ])->save();

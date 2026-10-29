@@ -148,22 +148,22 @@ class User extends Authenticatable implements FilamentUser
 
     public function isSuperAdmin(): bool
     {
-        return $this->isOwner() || $this->hasRole('super_admin');
+        return $this->isOwner() || (! $this->isStreamerAssistant() && $this->hasRole('super_admin'));
     }
 
     public function isAdmin(): bool
     {
-        return $this->isOwner() || $this->hasAnyRole(['admin', 'super_admin', 'fulfillment_admin']);
+        return $this->isOwner() || (! $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && $this->hasAnyRole(['admin', 'super_admin', 'fulfillment_admin']));
     }
 
     public function isStreamer(): bool
     {
-        return $this->hasRole('streamer') && ! $this->isAdmin();
+        return $this->hasRole('streamer') && ! $this->isAdmin() && ! $this->isStreamerAssistant();
     }
 
     public function isStreamerAssistant(): bool
     {
-        return $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && ! $this->isAdmin();
+        return $this->hasRole(\App\Support\AssistantPayrollRole::NAME) && ! $this->isOwner();
     }
 
     public function isFulfillment(): bool
@@ -174,13 +174,13 @@ class User extends Authenticatable implements FilamentUser
     /** Elevated fulfillment role: sees every channel's fulfillment work, not just their own assigned shows. */
     public function isFulfillmentAdmin(): bool
     {
-        return $this->hasRole('fulfillment_admin');
+        return $this->hasRole('fulfillment_admin') && ! $this->isStreamerAssistant();
     }
 
     /** Roles allowed to pick a specific channel (or "All Channels") via the topbar switcher. */
     public function canSwitchChannels(): bool
     {
-        return $this->isAdmin() || $this->isFulfillmentAdmin();
+        return ! $this->isStreamerAssistant() && ($this->isAdmin() || $this->isFulfillmentAdmin());
     }
 
     /**
@@ -190,7 +190,7 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canManageFeedback(): bool
     {
-        return $this->isOwner() || $this->hasRole('super_admin');
+        return $this->isOwner() || (! $this->isStreamerAssistant() && $this->hasRole('super_admin'));
     }
 
     public function isOwner(): bool

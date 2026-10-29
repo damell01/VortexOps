@@ -16,10 +16,7 @@ elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $nav
 // Restore the built-in brand mark when no channel/global logo is configured.
 if(!$navLogo && file_exists(public_path('images/vb-logo-sidebar.svg'))) $navLogo=asset('images/vb-logo-sidebar.svg');
 if($assistantOnly){
- $groups['Shows']=array_values(array_filter([
-  \App\Filament\Pages\Shows::canAccess() ? ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')] : (\App\Filament\Resources\ShowResource::canAccess() ? ['All Shows',\App\Filament\Resources\ShowResource::getUrl('index')] : null),
-  \App\Filament\Pages\ShowLeaderboard::canAccess() ? ['Show Leaderboard',\App\Filament\Pages\ShowLeaderboard::getUrl(panel:'admin')] : null,
- ]));
+ $groups=[];
 }elseif($streamerOnly){
  if(\App\Filament\Pages\Shows::canAccess()) $groups['Shows']=array_values(array_filter([
   ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')],
@@ -158,9 +155,11 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mega-channel vx-mega-business">@livewire('business-switcher')</div>@endif
 <div class="vx-mega-channel">@livewire('channel-switcher')</div>
 @endif
+@unless($assistantOnly)
 <button type="button" class="vx-search-trigger" data-vx-search-trigger aria-label="Open search" aria-keyshortcuts="Control+K Meta+K" title="Search">
 <x-filament::icon icon="heroicon-o-magnifying-glass"/>
 </button>
+@endunless
 </nav>
 @include('filament.components.mobile-navigation')
 

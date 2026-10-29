@@ -1,17 +1,9 @@
 <?php
-
 namespace Tests\Feature\Admin;
 
-use App\Filament\Pages\DashboardImproved;
-use App\Filament\Pages\Timekeeping;
-use App\Filament\Resources\ShowResource;
-use App\Filament\Resources\ShowResource\Pages\ListShows;
-use App\Filament\Resources\ShowResource\Pages\ViewShow;
-use App\Models\Show;
-use App\Models\User;
-use App\Models\WhatnotChannel;
-use App\Support\ChannelContext;
-use App\Support\DashboardShortcuts;
+use App\Filament\Pages\{DashboardImproved, MyPay, ShowLeaderboard, Shows, Timekeeping};
+use App\Filament\Resources\{InventoryItemResource, PalletResource, ShowResource, WeeklyPayoutBatchResource};
+use App\Models\{Payout, Show, Streamer, User, WeeklyPayoutBatch};
 use App\Support\NavVisibility;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -24,113 +16,82 @@ class StreamerAssistantDashboardTest extends TestCase
 
     private function assistant(): User
     {
+        $this->withoutVite();
         $this->enableAdminModules();
-        Role::findOrCreate('streamer_assistant', 'web');
         $user = User::factory()->create();
-        $user->assignRole('streamer_assistant');
+        $user->assignRole(Role::findOrCreate('streamer_assistant', 'web'));
         $this->actingAs($user);
         return $user;
     }
 
-    public function test_assistant_home_and_show_pages_work_with_an_older_saved_role_list(): void
+    public function test_dashboard_only_has_the_clock_and_own_paid_pay_runs(): void
     {
         $user = $this->assistant();
-        NavVisibility::setVisibleForRole('streamer_assistant', []);
-        $channel = WhatnotChannel::create(['name' => 'Other channel', 'status' => 'active']);
-        $otherChannel = WhatnotChannel::create(['name' => 'Selected channel', 'status' => 'active']);
-        ChannelContext::setActive($otherChannel->id);
-        $upcoming = Show::create(['title' => 'Another host future show', 'show_date' => today()->addDay(), 'status' => 'draft', 'whatnot_channel_id' => $channel->id]);
-        $past = Show::create(['title' => 'Another host past show', 'show_date' => today()->subDay(), 'status' => 'closed', 'is_operational' => false, 'whatnot_channel_id' => $otherChannel->id]);
-
-        $nav = view('filament.components.desktop-mega-nav')->render();
-        $this->assertStringContainsString('Show Calendar', $nav);
-        $this->assertStringContainsString('My Pay', $nav);
-        $this->assertTrue(ShowResource::canAccess());
-        $this->assertTrue(ShowResource::canViewAny());
-        $this->assertTrue(ShowResource::canView($upcoming));
-        $this->assertTrue(Timekeeping::canAccess());
-        $this->assertEqualsCanonicalizing([$upcoming->id, $past->id], ShowResource::getEloquentQuery()->pluck('id')->all());
-        $this->assertContains('All shows', array_column(DashboardShortcuts::forCurrentUser(), 'label'));
-        $this->assertNotContains('Receive inventory', array_column(DashboardShortcuts::forCurrentUser(), 'label'));
-        $this->assertSame('assistant', (new DashboardImproved)->getViewData()['roleMode']);
+        Show::create(['title' => 'Confidential team show', 'show_date' => today(), 'status' => 'draft']);
+        $person = Streamer::create(['name' => 'Assistant', 'user_id' => $user->id, 'member_type' => 'assistant', 'status' => 'active']);
+        $other = Streamer::create(['name' => 'Other person', 'status' => 'active']);
+        $paid = WeeklyPayoutBatch::create(['week_start' => '2026-10-12', 'week_end' => '2026-10-18', 'status' => 'paid']);
+        $draft = WeeklyPayoutBatch::create(['week_start' => '2026-10-19', 'week_end' => '2026-10-25', 'status' => 'draft']);
+        Payout::create(['streamer_id' => $person->id, 'weekly_payout_batch_id' => $paid->id, 'status' => 'paid', 'payout_type' => 'hourly', 'calculated_payout' => 125.25]);
+        Payout::create(['streamer_id' => $other->id, 'weekly_payout_batch_id' => $paid->id, 'status' => 'paid', 'payout_type' => 'hourly', 'calculated_payout' => 987.65]);
+        Payout::create(['streamer_id' => $person->id, 'weekly_payout_batch_id' => $draft->id, 'status' => 'draft', 'payout_type' => 'hourly', 'calculated_payout' => 876.54]);
+        Livewire::test(DashboardImproved::class)->assertSuccessful()->assertSee('Clock in')->assertSee('Paid pay runs')
+            ->assertSee('125.25')->assertDontSee('987.65')->assertDontSee('876.54')
+            ->assertDontSee('Confidential team show')->assertDontSee('Upcoming shows')->assertDontSee('leaderboard')
+            ->assertDontSee('Receive inventory')->assertDontSee('Choose a show');
         $this->assertSame([], (new DashboardImproved)->getWidgets());
-        Livewire::test(DashboardImproved::class)->assertSuccessful()->assertSee('Another host future show')->assertSee('Another host past show')->assertDontSee('Receive inventory');
-        // All Shows opens the calendar for assistants; the table is still there on request.
-        Livewire::test(ListShows::class)->assertRedirect(\App\Filament\Pages\Shows::getUrl());
-        Livewire::withQueryParams(['table' => 1])->test(ListShows::class)->loadTable()->assertSuccessful()->assertCanSeeTableRecords([$upcoming, $past]);
-        Livewire::test(ViewShow::class, ['record' => $upcoming->id])->assertSuccessful()->assertSee('Other channel')->assertDontSee('Show Financials')->assertDontSee('Edit Show');
-        $this->assertFalse(ShowResource::canCreate());
-        $this->assertFalse(ShowResource::canEdit($upcoming));
-        $this->assertFalse(ShowResource::canDelete($upcoming));
-        $this->assertFalse($user->can('update', $upcoming));
+        $this->get(DashboardImproved::getUrl())->assertOk();
     }
 
-    public function test_explicit_hiding_and_disabled_modules_are_honored_on_the_dashboard(): void
-    {
-        $this->assistant();
-        NavVisibility::setHiddenForRole('streamer_assistant', [ShowResource::class]);
-        $this->assertFalse(ShowResource::canAccess());
-        $this->assertEmpty((new DashboardImproved)->getViewData()['upcomingAssistantShows']);
-        Livewire::test(DashboardImproved::class)->assertSuccessful()->assertDontSee('View all shows');
-        Livewire::test(ListShows::class)->assertForbidden();
-        NavVisibility::setHiddenForRole('streamer_assistant', []);
-        $this->enableAdminModules([]);
-        $this->assertFalse(ShowResource::canAccess());
-        $this->assertEmpty((new DashboardImproved)->getViewData()['recentAssistantShows']);
-    }
-
-    public function test_assistant_role_wins_over_streamer_scoping_without_becoming_an_admin(): void
+    public function test_saved_grants_cannot_reopen_other_pages_or_direct_urls(): void
     {
         $user = $this->assistant();
-        Role::findOrCreate('streamer', 'web');
-        $user->assignRole('streamer');
-        $show = Show::create(['title' => 'Unassigned show', 'show_date' => today(), 'status' => 'draft']);
-        $this->assertFalse($user->isAdmin());
-        $this->assertTrue(ShowResource::getEloquentQuery()->whereKey($show)->exists());
-        $this->assertSame('assistant', (new DashboardImproved)->getViewData()['roleMode']);
-        $this->assertSame([], (new DashboardImproved)->getWidgets());
-        $this->assertFalse(ShowResource::canEdit($show));
-    }
-    public function test_assistants_see_the_leaderboard_and_only_their_paid_pay_runs(): void
-    {
-        $user = $this->assistant();
-        NavVisibility::setVisibleForRole('streamer_assistant', []);
-        $person = \App\Models\Streamer::create(['name' => $user->name, 'user_id' => $user->id, 'member_type' => 'assistant', 'status' => 'active']);
-        $other = \App\Models\Streamer::create(['name' => 'Other assistant', 'status' => 'active']);
-        $paid = \App\Models\WeeklyPayoutBatch::create(['week_start' => '2026-10-12', 'week_end' => '2026-10-18', 'status' => 'paid']);
-        $draft = \App\Models\WeeklyPayoutBatch::create(['week_start' => '2026-10-19', 'week_end' => '2026-10-25', 'status' => 'draft']);
-        $mine = \App\Models\Payout::create(['streamer_id' => $person->id, 'weekly_payout_batch_id' => $paid->id, 'status' => 'paid', 'payout_type' => 'hourly', 'calculated_payout' => 125.25]);
-        \App\Models\Payout::create(['streamer_id' => $other->id, 'weekly_payout_batch_id' => $paid->id, 'status' => 'paid', 'payout_type' => 'hourly', 'calculated_payout' => 987.65]);
-        \App\Models\Payout::create(['streamer_id' => $person->id, 'weekly_payout_batch_id' => $draft->id, 'status' => 'draft', 'payout_type' => 'hourly', 'calculated_payout' => 876.54]);
-        $this->assertSame([$mine->id], \App\Support\AssistantPaidPay::query($user)->pluck('id')->all());
-        $this->assertTrue(\App\Livewire\StreamerLeaderboard::canView());
-        $this->assertTrue(\App\Filament\Pages\ShowLeaderboard::canAccess());
-        Livewire::test(\App\Filament\Pages\MyPay::class)->assertSuccessful()->assertSee('125.25')->assertDontSee('987.65')->assertDontSee('876.54');
-        Livewire::test(DashboardImproved::class)->assertSuccessful()->assertSee('Payment history')->assertSee('125.25')->assertDontSee('987.65')->assertDontSee('876.54');
-        Livewire::test(\App\Livewire\StreamerLeaderboard::class)->assertSuccessful();
-        $unlinked = User::factory()->create();
-        $unlinked->assignRole('streamer_assistant');
-        $this->assertSame(0, \App\Support\AssistantPaidPay::query($unlinked)->count());
-        NavVisibility::setHiddenForRole('streamer_assistant', [\App\Filament\Pages\MyPay::class, \App\Filament\Pages\ShowLeaderboard::class]);
-        $this->assertFalse(\App\Filament\Pages\MyPay::canAccess());
+        $pages = [Shows::class, ShowLeaderboard::class, Timekeeping::class, MyPay::class, InventoryItemResource::class, ShowResource::class, PalletResource::class, WeeklyPayoutBatchResource::class];
+        NavVisibility::setVisibleForRole('streamer_assistant', $pages);
+        foreach ($pages as $class) {
+            $this->assertTrue(NavVisibility::isHiddenForUser($class, $user), $class);
+            $this->get($class::getUrl())->assertForbidden();
+        }
+        $menu = view('filament.components.desktop-mega-nav')->render();
+        foreach (['Show Calendar', 'Show Leaderboard', 'All Inventory', 'Timekeeping', 'My notifications', 'Help & Guides'] as $label) {
+            $this->assertStringNotContainsString($label, $menu);
+        }
         $this->assertFalse(\App\Livewire\StreamerLeaderboard::canView());
     }
 
-    public function test_rollout_enables_requested_pages_on_existing_saved_assistant_roles(): void
+    public function test_assistant_role_wins_over_old_admin_and_streamer_grants(): void
     {
-        $this->assistant();
-        NavVisibility::setVisibleForRole('streamer_assistant', [\App\Filament\Resources\PalletResource::class]);
-        NavVisibility::setHiddenForRole('streamer_assistant', [ShowResource::class, Timekeeping::class, \App\Filament\Pages\MyPay::class, \App\Filament\Pages\ShowLeaderboard::class, \App\Filament\Pages\PayrollOverview::class]);
-        NavVisibility::setVisibleForRole('streamer', []);
-        $migration = require database_path('migrations/2026_10_26_140000_enable_streamer_assistant_workspace.php');
-        $migration->up();
-        $this->assertTrue(ShowResource::canAccess());
-        $this->assertTrue(Timekeeping::canAccess());
-        $this->assertTrue(\App\Filament\Pages\MyPay::canAccess());
-        $this->assertTrue(\App\Filament\Pages\ShowLeaderboard::canAccess());
-        $this->assertContains(\App\Filament\Resources\PalletResource::class, NavVisibility::visibleForRole('streamer_assistant'));
-        $this->assertContains(\App\Filament\Pages\PayrollOverview::class, NavVisibility::hiddenForRole('streamer_assistant'));
-        $this->assertSame([], NavVisibility::visibleForRole('streamer'));
+        $user = $this->assistant();
+        foreach (['admin', 'streamer'] as $role) $user->assignRole(Role::findOrCreate($role, 'web'));
+        $this->assertTrue($user->isStreamerAssistant());
+        $this->assertFalse($user->isAdmin());
+        $this->assertFalse($user->canSwitchChannels());
+        $this->assertFalse(\App\Support\InventoryPopupPolicy::enabledFor($user));
+        $this->get(ShowResource::getUrl('index'))->assertForbidden();
+        $this->get(DashboardImproved::getUrl())->assertOk();
     }
 
+    public function test_assistants_can_still_log_out(): void
+    {
+        $this->assistant();
+        $this->post(filament()->getLogoutUrl())->assertRedirect();
+        $this->assertGuest();
+    }
+
+    public function test_owner_access_is_unchanged(): void
+    {
+        $this->enableAdminModules();
+        $owner = User::factory()->create(['email' => config('app.owner_email') ?: 'dbellcreations@gmail.com']);
+        $owner->assignRole(Role::findOrCreate('streamer_assistant', 'web'));
+        $this->actingAs($owner);
+        $this->assertTrue($owner->isAdmin());
+        $this->assertFalse($owner->isStreamerAssistant());
+        $this->assertFalse(NavVisibility::isHiddenForUser(ShowResource::class, $owner));
+    }
+
+    public function test_unlinked_assistant_has_no_access_to_anyone_elses_pay(): void
+    {
+        $this->assistant();
+        Livewire::test(DashboardImproved::class)->assertSuccessful()->assertSee('No paid pay runs yet.');
+    }
 }

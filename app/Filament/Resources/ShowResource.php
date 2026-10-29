@@ -125,8 +125,8 @@ class ShowResource extends Resource
             ->with(['streamers:id,name', 'channel:id,name']);
 
         $user = auth()->user();
-        // Assistants support all shows, including other hosts and channels.
-        if ($user?->isStreamerAssistant()) return $query;
+        // Assistant accounts never load show rows, including through nested components.
+        if ($user?->isStreamerAssistant()) return $query->whereRaw('1 = 0');
         $query->inChannelContext();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
             $streamerId = $user->streamer?->id ?? 0;

@@ -12,7 +12,7 @@ class AssistantPayrollSummary
 {
     public function hours(string $start, string $end): Collection
     {
-        $rates = Streamer::query()->whereNotNull('user_id')->get(['user_id', 'hourly_rate'])->keyBy('user_id');
+        $rates = Streamer::query()->whereNotNull('user_id')->get()->keyBy('user_id');
 
         return User::role('streamer_assistant')->get()->map(function (User $user) use ($start, $end, $rates) {
             $entries = TimeEntry::query()->where('user_id', $user->id)
@@ -21,7 +21,7 @@ class AssistantPayrollSummary
                 ->whereNotNull('clocked_out_at')->get();
 
             $minutes = $entries->sum(fn (TimeEntry $entry) => $entry->payableMinutes());
-            $rate = $rates->get($user->id)?->hourly_rate;
+            $rate = $rates->get($user->id)?->compensationValue('hourly_rate');
             $hours = round($minutes / 60, 2);
 
             return [

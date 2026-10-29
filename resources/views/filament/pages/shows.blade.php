@@ -73,7 +73,10 @@
 .dark .vx-cal{--vx-bg:#0f172a;--vx-soft:#111c2f;--vx-line:#253247;--vx-line2:#1b2638;--vx-text:#e5e7eb;--vx-muted:#94a3b8;--vx-faint:#64748b}
 .vx-cal [x-cloak]{display:none!important}
 .vx-cal .vx-card{background:var(--vx-bg);border:1px solid var(--vx-line);border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
-.vx-cal button{cursor:pointer}
+.vx-cal button{cursor:pointer;touch-action:manipulation}
+.vx-cal button:focus-visible,.vx-cal a:focus-visible{outline:3px solid #8b5cf6;outline-offset:2px}
+.vx-cal button:disabled{opacity:.55;cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){.vx-drawer{transition:none!important}.vx-cal *{scroll-behavior:auto!important}}
 .vx-d{display:block}.vx-m{display:none}
 @media(max-width:767px){.vx-d{display:none}.vx-m{display:block}}
 /* KPI strip */
@@ -205,10 +208,10 @@ button.vx-chan.off{background:transparent;color:var(--vx-faint);border-style:das
 .vx-empty{padding:48px 16px;text-align:center;color:var(--vx-muted);font-size:.86rem}
 /* Drawer: right panel on desktop, bottom sheet on phones */
 .vx-drawer{position:fixed;z-index:45;top:0;right:0;bottom:0;width:410px;max-width:100vw;display:flex;flex-direction:column;background:var(--vx-bg);border-left:1px solid var(--vx-line);box-shadow:-12px 0 40px rgba(15,23,42,.14);transition:transform .25s ease,height .25s ease}
-.vx-drawer-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain}
+.vx-drawer-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .vx-drawer-hero{position:relative;height:150px;background:linear-gradient(135deg,var(--c),color-mix(in srgb,var(--c) 40%,#0f172a))}
 .vx-drawer-hero img{width:100%;height:100%;object-fit:cover}
-.vx-drawer-x{position:absolute;top:10px;right:10px;display:grid;place-items:center;width:34px;height:34px;border-radius:999px;background:rgba(255,255,255,.92);color:#0f172a;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.vx-drawer-x{position:absolute;top:10px;right:10px;display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:rgba(255,255,255,.92);color:#0f172a;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .vx-drawer-hero .vx-pill{position:absolute;top:12px;left:12px}
 .vx-handle{display:none}
 .vx-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}

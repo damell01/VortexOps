@@ -139,9 +139,9 @@
                 @endforelse
                 @if($periodShows->hasPages())
                     <div class="flex items-center justify-between gap-3">
-                        <button type="button" wire:click="previousShowsPage" @disabled($periodShows->onFirstPage()) class="vxw-btn vxw-btn--sm">Previous shows</button>
+                        <button type="button" wire:click="previousShowsPage" wire:loading.attr="disabled" wire:target="previousShowsPage,nextShowsPage" @disabled($periodShows->onFirstPage()) class="vxw-btn vxw-btn--sm">Previous shows</button>
                         <span class="vxw-meta">Page {{ $periodShows->currentPage() }} of {{ $periodShows->lastPage() }}</span>
-                        <button type="button" wire:click="nextShowsPage" @disabled(! $periodShows->hasMorePages()) class="vxw-btn vxw-btn--sm">Next shows</button>
+                        <button type="button" wire:click="nextShowsPage" wire:loading.attr="disabled" wire:target="previousShowsPage,nextShowsPage" @disabled(! $periodShows->hasMorePages()) class="vxw-btn vxw-btn--sm">Next shows</button>
                     </div>
                 @endif
             </div>
@@ -261,9 +261,9 @@
                 <div class="vxw-card-foot">
                     <span class="vxw-meta">{{ (($peoplePage-1)*$this::PEOPLE_PER_PAGE)+1 }}–{{ min($peoplePage*$this::PEOPLE_PER_PAGE,$peopleTotal) }} of {{ $peopleTotal }} people</span>
                     <div class="vxw-pager">
-                        <button type="button" class="vxw-page" wire:click="previousPeoplePage" @disabled($peoplePage <= 1) aria-label="Previous page">‹</button>
+                        <button type="button" class="vxw-page" wire:click="previousPeoplePage" wire:loading.attr="disabled" wire:target="previousPeoplePage,nextPeoplePage" @disabled($peoplePage <= 1) aria-label="Previous page">‹</button>
                         <span class="vxw-meta px-2">{{ $peoplePage }} / {{ $peopleLastPage }}</span>
-                        <button type="button" class="vxw-page" wire:click="nextPeoplePage({{ $peopleLastPage }})" @disabled($peoplePage >= $peopleLastPage) aria-label="Next page">›</button>
+                        <button type="button" class="vxw-page" wire:click="nextPeoplePage({{ $peopleLastPage }})" wire:loading.attr="disabled" wire:target="previousPeoplePage,nextPeoplePage" @disabled($peoplePage >= $peopleLastPage) aria-label="Next page">›</button>
                     </div>
                 </div>
             @endif

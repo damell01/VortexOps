@@ -539,21 +539,21 @@ class InventoryScanner extends Page
             $previousPath = $item->image_path;
             $newPath = $this->itemPhoto->store('inventory-items', InventoryItem::IMAGE_DISK);
             if (! $newPath) {
-                throw new \\RuntimeException('The image could not be stored.');
+                throw new \RuntimeException('The image could not be stored.');
             }
             try {
                 $item->update(['image_path' => $newPath]);
-            } catch (\\Throwable $e) {
-                \\Illuminate\\Support\\Facades\\Storage::disk(InventoryItem::IMAGE_DISK)->delete($newPath);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Storage::disk(InventoryItem::IMAGE_DISK)->delete($newPath);
                 throw $e;
             }
             if ($previousPath && $previousPath !== $newPath) {
-                \\Illuminate\\Support\\Facades\\Storage::disk(InventoryItem::IMAGE_DISK)->delete($previousPath);
+                \Illuminate\Support\Facades\Storage::disk(InventoryItem::IMAGE_DISK)->delete($previousPath);
             }
             $this->reset('itemPhoto');
             $this->photoFeedback = 'Item photo saved.';
             $this->selectedItem = $this->buildResultFromItem($item->fresh());
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             report($e);
             $this->addError('itemPhoto', 'Could not save the photo. Please try again.');
         }

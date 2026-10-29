@@ -22,6 +22,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\HtmlString;
@@ -71,7 +72,12 @@ class UserResource extends Resource
 
     public static function getPluralModelLabel(): string
     {
-        return 'Users';
+        return 'Team & Members';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Team & Members';
     }
 
     public static function getEloquentQuery(): Builder
@@ -388,6 +394,20 @@ class UserResource extends Resource
                     ->date('M j, Y')
                     ->description(fn (User $record): string => $record->created_at?->diffForHumans() ?? '')
                     ->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('role')
+                    ->label('Member role')
+                    ->options(fn (): array => Role::query()->orderBy('name')->pluck('name', 'name')->mapWithKeys(fn ($name) => [$name => str($name)->replace('_', ' ')->title()->toString()])->all())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null) ? $query->whereHas('roles', fn (Builder $roles) => $roles->where('name', $data['value'])) : $query),
+                SelectFilter::make('profile')
+                    ->label('Team profile')
+                    ->options(['streamer' => 'Streamer', 'fulfillment' => 'Fulfillment', 'none' => 'No linked profile'])
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        'streamer', 'fulfillment' => $query->whereHas('streamer', fn (Builder $profiles) => $profiles->where('member_type', $data['value'])),
+                        'none' => $query->whereDoesntHave('streamer'),
+                        default => $query,
+                    }),
             ])
             ->persistFiltersInSession()
             ->paginationPageOptions(\App\Support\MobileTablePagination::options([8, 16, 32]))

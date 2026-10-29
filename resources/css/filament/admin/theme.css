@@ -1089,3 +1089,23 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   .fi-modal-window { margin-inline:auto; }
   .fi-modal-window .fi-modal-content { overscroll-behavior-y:contain; }
 }
+
+
+/* Progressive polish for shared admin controls. Keep page-specific dialogs and
+   operational bottom bars in control of their own positioning. */
+.dark .fi-modal-window .fi-modal-header,
+.dark .fi-modal-window .fi-modal-footer { background:var(--gray-900,#111827); }
+.fi-modal-window .fi-modal-header { border-bottom:1px solid var(--vx-divider); }
+.fi-modal-window .fi-modal-footer { border-top:1px solid var(--vx-divider); }
+.fi-ta-table thead th { position:sticky; top:0; z-index:1; background:var(--vx-surface); }
+.dark .fi-ta-table thead th { background:var(--gray-900,#111827); }
+.fi-ta-table tbody td { padding-block:10px; }
+.fi-badge { white-space:normal; text-align:center; line-height:1.25; }
+.fi-btn[disabled], .fi-btn[aria-busy="true"] { pointer-events:none; }
+@media(max-width:767px) {
+  .fi-ta-table-container { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; }
+  .fi-ta-table thead th { position:static; }
+  .fi-modal-window .fi-modal-footer { padding-bottom:max(14px,env(safe-area-inset-bottom)); }
+  .fi-modal-window .fi-modal-content { scroll-padding-bottom:80px; }
+  .fi-page-header .fi-header-heading { font-size:clamp(19px,5vw,24px); }
+}

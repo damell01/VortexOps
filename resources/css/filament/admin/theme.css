@@ -984,3 +984,40 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   .vxr > *, .vxr-card, .vxr-table-wrap { min-width: 0; max-width: 100%; }
   .vxr-table-wrap { width: 100%; overflow-x: auto; }
 }
+
+
+/* 2026-10 UI consistency pass — scoped to shared Filament primitives.
+   No changes to SPA lifecycle, forms, scanner handlers or authorization. */
+:root {
+  --vx-ui-radius:12px;
+  --vx-ui-focus:#7c3aed;
+  --vx-ui-shadow:0 4px 18px rgb(15 23 42 / .055);
+}
+.fi-page-content, .fi-page, .fi-section, .fi-ta, .fi-modal-window { min-width:0; }
+.fi-section, .fi-ta, .fi-wi { overflow-wrap:break-word; }
+.fi-section, .fi-ta, .fi-wi, .fi-modal-window { border-radius:var(--vx-ui-radius); }
+.fi-btn, .fi-input-wrp, .fi-select-input { transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease; }
+.fi-btn:focus-visible, .fi-icon-btn:focus-visible, .fi-tabs-item:focus-visible,
+.fi-sidebar-item-btn:focus-visible, .vx-tabbar-item:focus-visible,
+.fi-ta a:focus-visible, .fi-modal-window button:focus-visible {
+  outline:3px solid var(--vx-ui-focus); outline-offset:2px;
+}
+.fi-btn:disabled, .fi-btn[aria-disabled="true"] { cursor:not-allowed; opacity:.58; }
+.fi-ta-table { font-variant-numeric:tabular-nums; }
+.fi-modal-window { max-height:calc(100dvh - 24px); }
+.fi-modal-window .fi-modal-content { overscroll-behavior:contain; }
+@media(max-width:639px) {
+  .fi-page-content { padding-inline:12px; }
+  .fi-page-header { min-width:0; }
+  .fi-page-header .fi-header-actions { flex-wrap:wrap; gap:8px; }
+  .fi-page-header .fi-header-actions > * { max-width:100%; }
+  .fi-modal-window { width:calc(100vw - 16px) !important; max-width:calc(100vw - 16px) !important; }
+  .fi-modal-window .fi-modal-content { max-height:calc(100dvh - 160px); overflow-y:auto; }
+  .fi-input, .fi-select-input, .fi-fo-field-wrp input, .fi-fo-field-wrp select,
+  .fi-fo-field-wrp textarea { font-size:16px; }
+  .fi-btn, .fi-icon-btn { touch-action:manipulation; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .fi-btn, .fi-input-wrp, .fi-select-input { transition:none !important; }
+  .fi-modal-window { scroll-behavior:auto; }
+}

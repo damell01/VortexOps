@@ -316,7 +316,30 @@
             </div>
         @endif
 
-        @if($mode === 'quickadd' && $selectedItem)
+        @if($barcodeSuccess)
+            <section class="mt-4 rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900 dark:bg-gray-900" role="status" aria-live="polite">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"><x-heroicon-o-check-circle class="h-7 w-7" /></div>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-lg font-bold text-gray-950 dark:text-white">{{ $barcodeSuccess['action'] === 'created' ? 'Item created successfully!' : 'Barcode linked successfully!' }}</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $barcodeSuccess['name'] }} · Barcode {{ $barcodeSuccess['barcode'] }}</p>
+                        @if($barcodeSuccess['stock'])
+                            <p class="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">Added {{ number_format($barcodeSuccess['stock']['qty']) }} units to {{ $barcodeSuccess['stock']['location'] }}.</p>
+                        @elseif($barcodeSuccess['stock_error'])
+                            <p class="mt-2 rounded-lg bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">Item saved, but stock was not added: {{ $barcodeSuccess['stock_error'] }}</p>
+                        @else
+                            <p class="mt-2 text-sm text-gray-500">No stock was added.</p>
+                        @endif
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button type="button" wire:click="switchMode('lookup')" class="min-h-11 flex-1 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white">Scan another</button>
+                    <button type="button" wire:click="$set('barcodeSuccess', null)" class="min-h-11 flex-1 rounded-lg border border-gray-200 px-4 text-sm font-semibold dark:border-gray-700">View item / Add stock</button>
+                </div>
+            </section>
+        @endif
+
+        @if($mode === 'quickadd' && $selectedItem && !$barcodeSuccess)
             <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
                     <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">Item found</span>

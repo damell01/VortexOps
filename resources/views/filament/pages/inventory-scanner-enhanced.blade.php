@@ -215,18 +215,6 @@
             @endif
         </section>
 
-        @if($mode === 'quickadd')
-            <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
-                <h2 class="mb-3 text-base font-bold text-gray-950 dark:text-white">Add to Inventory</h2>
-                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_130px]">
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Destination location</span><select wire:model="qaLocationId" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Quantity</span><input wire:model="qaQty" type="number" step="0.01" min="0.01" inputmode="decimal" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /></label>
-                </div>
-                <label class="mt-3 block"><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Name only if this is a brand-new barcode</span><input wire:model="qaName" type="text" autocomplete="off" placeholder="Leave blank for an item already in inventory" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /><p class="mt-1 text-[10px] leading-4 text-gray-500 sm:text-xs">If the barcode is unknown, VortexOps can create the product using this name and add the scanned quantity.</p></label>
-            </section>
-        @endif
-
-
         @if($unmatchedBarcode && $mode === 'lookup')
             <section class="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm dark:border-violet-900 dark:bg-gray-900 sm:p-5" x-data="{ choice: 'link' }">
                 <h2 class="text-lg font-bold text-gray-950 dark:text-white">New barcode detected</h2>
@@ -242,7 +230,7 @@
                     @if($barcodeLinkOptions !== null)
                         <div class="mt-2 max-h-64 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                             @forelse($barcodeLinkOptions as $option)
-                                <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:confirm="Link this barcode to the selected item?" class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
+                                <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:confirm="Link this barcode to the selected item? You can then choose whether to add stock." class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
                                     <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['name'] }} <span class="block text-xs font-normal text-gray-500">{{ $option['sku'] }}</span></span>
                                     <span class="shrink-0 text-xs font-bold text-violet-600">Link →</span>
                                 </button>
@@ -259,7 +247,7 @@
                         <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Sale price</span><input wire:model="newItemPrice" type="number" min="0" step="0.01" placeholder="0.00" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                     </div>
                     <button type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" wire:confirm="Create this inventory item?" class="min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60">Create Item</button>
-                    <p class="text-xs text-gray-500">This creates the item without changing stock. You can add units afterward.</p>
+                    <p class="text-xs text-gray-500">After creation, choose a quantity and location to add stock, or leave the new item at zero.</p>
                 </div>
             </section>
         @endif

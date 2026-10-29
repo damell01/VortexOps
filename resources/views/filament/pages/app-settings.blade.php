@@ -1,6 +1,24 @@
 <x-filament-panels::page>
     <div class="vx-settings-layout grid gap-6 xl:grid-cols-[220px_minmax(0,760px)]"><aside class="vx-card h-fit p-3"><nav class="space-y-1 text-sm font-medium"><a href="#branding" class="block rounded-[10px] px-3 py-2">Branding</a><a href="#payroll" class="block rounded-[10px] px-3 py-2">Payroll defaults</a><a href="#operations" class="block rounded-[10px] px-3 py-2">Operations</a>@if($this->canSeeModuleToggles)<a href="#modules" class="block rounded-[10px] px-3 py-2">Modules</a>@endif</nav></aside><div class="space-y-6">
 
+        {{-- Per-profile streamer report requirements --}}
+        <section class="vx-card rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+            <h2 class="text-sm font-bold text-gray-900 dark:text-white">Streamer Log Requirements</h2>
+            <p class="mt-1 text-xs text-gray-500">Select only the team profiles that must submit an End of Stream log. Everyone else can use imported Whatnot show analytics for draft payroll. Missing earnings or pay inputs can still block finalization.</p>
+            <div class="mt-4 grid max-h-52 grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+                @forelse($this->streamerLogProfileOptions as $profileId => $profileLabel)
+                    <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-700">
+                        <input type="checkbox" wire:model="streamer_log_required_ids" value="{{ $profileId }}" class="rounded border-gray-300 text-violet-600" />
+                        <span class="min-w-0 break-words">{{ $profileLabel }}</span>
+                    </label>
+                @empty
+                    <p class="text-sm text-gray-500">No active streamer profiles found.</p>
+                @endforelse
+            </div>
+            @error('streamer_log_required_ids.*')<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+            <p class="mt-3 text-xs text-gray-500">Select Ty and Luna's exact profile(s), then click Save Changes at the top. Leaving everyone unchecked means no profiles require a log.</p>
+        </section>
+
         {{-- ── Branding ──────────────────────────────────────────────────── --}}
         <div id="branding" wire:key="section-branding" x-data="{ open: true }" class="vx-card overflow-hidden">
 

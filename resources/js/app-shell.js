@@ -299,7 +299,8 @@ document.addEventListener('visibilitychange', () => {
     checkForUpdate().finally(() => { hiddenAt = 0; });
 });
 window.addEventListener('focus', checkForUpdate);
-setInterval(checkForUpdate, 10 * 60 * 1000);
+setInterval(checkForUpdate, 60 * 1000);
+setTimeout(checkForUpdate, 5000);
 
 // ── Notifications ───────────────────────────────────────────────────────
 // Following a link out of the notifications window closes it, so the page

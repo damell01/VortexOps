@@ -242,6 +242,63 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     ->send();
             });
 
+        $editInputs = Action::make('edit_show_inputs')
+            ->label('Edit Show Inputs')
+            ->icon('heroicon-o-pencil-square')
+            ->visible(fn () => $this->record->status === 'draft')
+            ->modalHeading('Edit show payroll inputs')
+            ->modalDescription('Edits the existing show report inputs and recalculates draft payouts for everyone on that show. Already finalized or paid shows cannot be edited. Show duration is not automatically paid hours.')
+            ->fillForm(function (array $arguments): array {
+                $payout = $this->record->payouts()->with('show.streamerLogEntry')->findOrFail($arguments['payout_id'] ?? 0);
+                $log = $payout->show?->streamerLogEntry;
+                return [
+                    'payout_id' => $payout->id,
+                    'hours_streamed' => $log?->hours_streamed,
+                    'number_of_shipments' => $log?->number_of_shipments,
+                    'label_count' => $log?->label_count,
+                    'pwe_count' => $log?->pwe_count,
+                    'reason' => '',
+                ];
+            })
+            ->schema([
+                TextInput::make('payout_id')->hidden()->required(),
+                TextInput::make('hours_streamed')->label('Paid hours')->numeric()->minValue(0)->step(0.01)->nullable(),
+                TextInput::make('number_of_shipments')->label('Shipments')->integer()->minValue(0)->nullable(),
+                TextInput::make('label_count')->label('Labels')->integer()->minValue(0)->nullable(),
+                TextInput::make('pwe_count')->label('PWE')->integer()->minValue(0)->nullable(),
+                Textarea::make('reason')->label('Reason for adjustment')->required()->maxLength(1000)->rows(2),
+            ])
+            ->action(function (array $data): void {
+                \Illuminate\Support\Facades\DB::transaction(function () use ($data) {
+                    $run = WeeklyPayoutBatch::query()->lockForUpdate()->findOrFail($this->record->id);
+                    abort_unless($run->status === 'draft', 403);
+                    $payout = $run->payouts()->with('show.streamerLogEntry')->findOrFail((int) $data['payout_id']);
+                    $show = $payout->show;
+                    abort_unless($show !== null, 422, 'This payout has no show.');
+                    $lockedPayoutExists = \App\Models\Payout::query()->where('show_id', $show->id)
+                        ->whereHas('batch', fn ($query) => $query->where('status', '!=', 'draft'))->exists();
+                    abort_if($lockedPayoutExists, 422, 'This show has finalized payroll; inputs are locked.');
+                    $log = $show->streamerLogEntry;
+                    abort_unless($log !== null, 422, 'This show has no report yet. Enter its inputs in the show report before editing them here.');
+                    $fields = ['hours_streamed', 'number_of_shipments', 'label_count', 'pwe_count'];
+                    $before = $log->only($fields);
+                    $updates = [];
+                    foreach ($fields as $field) {
+                        $updates[$field] = ($data[$field] ?? null) === null || $data[$field] === '' ? null : $data[$field];
+                    }
+                    $log->update($updates);
+                    $show->unsetRelation('streamerLogEntry');
+                    $show->load(['streamerLogEntry', 'streamers', 'channel']);
+                    app(PayoutService::class)->calculateForShow($show);
+                    $run->recalculateTotal();
+                    activity('pay_run')->causedBy(auth()->user())->performedOn($run)
+                        ->withProperties(['show_id' => $show->id, 'payout_id' => $payout->id, 'before' => $before, 'after' => $updates, 'reason' => trim($data['reason'])])
+                        ->log('Show payroll inputs edited from draft pay run');
+                });
+                $this->record->refresh();
+                Notification::make()->title('Show inputs saved and draft payouts recalculated')->success()->send();
+            });
+
         $markSubmitted = Action::make('mark_submitted')->label('Mark Submitted to ADP')->icon('heroicon-o-arrow-up-tray')->color('info')
             ->visible(fn () => $this->record->status === 'finalized')->requiresConfirmation()->action(function () {
                 $this->record->update(['status' => 'submitted_to_adp']); $this->record->refresh();
@@ -272,7 +329,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
 
             $resolveBlockers, $finalize,
             \App\Filament\Actions\OtherPaymentAction::make($this->record),
-            $override, $markSubmitted, $markPaid, $exportAdp,
+            $override, $editInputs, $markSubmitted, $markPaid, $exportAdp,
             ActionGroup::make([
                 Action::make('split_by_business')->label('Split by business')->icon('heroicon-o-building-office-2')
                     ->visible(fn () => $this->record->status === 'draft' && $this->record->business_id === null && \App\Support\BusinessContext::available()->isNotEmpty())

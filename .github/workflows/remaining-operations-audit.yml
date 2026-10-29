@@ -10,6 +10,25 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  assistant:
+    name: Assistant dashboard, access and hourly pay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env
+      - run: php artisan test tests/Feature/Admin/StreamerAssistantDashboardTest.php tests/Feature/Streamers/StreamerAssistantDashboardTest.php tests/Feature/Payroll/AssistantClockPayrollTest.php
   inventory:
     name: Inventory workflows and permissions
     runs-on: ubuntu-24.04

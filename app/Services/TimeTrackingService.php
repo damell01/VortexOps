@@ -490,6 +490,7 @@ class TimeTrackingService
      */
     public function pickerShows(User $user, ?int $include = null): array
     {
+        if ($user->isStreamerAssistant()) return [];
         $mine = $this->linkableShows($user, $include)->pluck('id')->all();
         $shows = ($this->isReviewer($user) || $user->hasRole('streamer_assistant')) ? $this->linkableShows($user, $include, true) : $this->linkableShows($user, $include);
         $today = \App\Support\BusinessTime::local()->toDateString();
@@ -537,6 +538,7 @@ class TimeTrackingService
     /** @return array{0:?int,1:?string} */
     private function purpose(User $user, ?int $showId, ?string $reason, ?User $actor = null): array
     {
+        if ($user->isStreamerAssistant() && ! ($actor && $this->isReviewer($actor))) return [null, 'other'];
         $reason = $reason !== null && $reason !== '' ? $reason : null;
         if ($reason !== null && ! array_key_exists($reason, TimeEntry::REASONS)) {
             throw ValidationException::withMessages(['reason' => 'Pick a reason from the list.']);

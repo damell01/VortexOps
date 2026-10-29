@@ -15,6 +15,7 @@ $tab('Inventory','heroicon-o-cube',fn()=>\App\Filament\Pages\InventoryOverview::
 $tab('Payroll','heroicon-o-wallet',fn()=>\App\Filament\Pages\PayrollOverview::canAccess(),fn()=>\App\Filament\Pages\PayrollOverview::getUrl()),
 $tab('Fulfill','heroicon-o-truck',fn()=>\App\Filament\Resources\FulfillmentResource::canViewAny(),fn()=>\App\Filament\Resources\FulfillmentResource::getUrl('index')),
 ]));
+if(auth()->user()?->isStreamerAssistant()) $tabs=[$tab('Dashboard','heroicon-o-home',fn()=>true,fn()=>\App\Filament\Pages\DashboardImproved::getUrl())];
 $current=url()->current();
 @endphp
 <nav class="vx-tabbar" aria-label="Quick navigation">

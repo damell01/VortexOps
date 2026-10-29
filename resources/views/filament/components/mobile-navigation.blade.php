@@ -48,8 +48,10 @@
 @if($label==='Admin' && !empty($ownerLinks))<details class="vx-owner-tools"><summary>Owner tools</summary><div>@foreach($ownerLinks as $link)<a href="{{ $link[1] }}" wire:navigate @click="open=false"><span class="vx-mm-link">@if($linkIcon = \App\Support\NavIcons::for($link))<x-filament::icon :icon="$linkIcon" class="vx-mm-link-icon"/>@endif<span>{{ $link[0] }}</span></span></a>@endforeach</div></details>@endif
 </div></div>
 @endforeach
+@unless($user?->isStreamerAssistant())
 <a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\MyNotifications::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-bell"/><span>My notifications</span></a>
 <a class="vx-mobile-menu-home" href="{{ \App\Filament\Pages\HelpCenter::getUrl(panel:'admin') }}" wire:navigate @click="open=false"><x-filament::icon icon="heroicon-o-question-mark-circle"/><span>Help & Guides</span></a>
+@endunless
 @if($user?->canSwitchChannels())@if(\App\Support\BusinessContext::appliesToCurrentPage() && \App\Support\BusinessContext::available()->isNotEmpty())<div class="vx-mobile-channel">@livewire('business-switcher')</div>@endif<div class="vx-mobile-channel">@livewire('channel-switcher')</div>@endif
 </aside></div></template></div>
 <style>

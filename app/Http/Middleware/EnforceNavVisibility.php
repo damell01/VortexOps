@@ -39,6 +39,16 @@ class EnforceNavVisibility
 
         $class = $this->governingClass($request);
 
+        if ($user->isStreamerAssistant()
+            && $request->is('admin', 'admin/*')
+            && ! $request->routeIs('filament.admin.auth.logout', 'account.password.*', 'impersonation.stop')) {
+            abort_unless(in_array($class, [
+                \App\Filament\Pages\DashboardImproved::class,
+                \App\Filament\Pages\TwoFactorAuth::class,
+                \App\Filament\Pages\TwoFactorVerify::class,
+            ], true), 403, 'This page is not available for your role.');
+        }
+
         // Only pages the Roles screen can actually grant are subject to this.
         // Checking anything else denies it: an allow-list refuses whatever it
         // does not name, and it never names the logout route, Livewire's

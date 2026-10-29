@@ -61,15 +61,22 @@ class AdminPanelProvider extends PanelProvider
             ->passwordReset()
             ->profile(\App\Filament\Auth\EditProfile::class, isSimple: false)
             ->userMenuItems([
+                'profile' => \Filament\Actions\Action::make('profile')
+                    ->label('Profile')->icon('heroicon-o-user-circle')
+                    ->url(fn () => filament()->getProfileUrl())
+                    ->visible(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false)),
                 \Filament\Actions\Action::make('help_guides')
+                    ->visible(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false))
                     ->label('Help & Guides')
                     ->icon('heroicon-o-question-mark-circle')
                     ->url(fn (): string => \App\Filament\Pages\HelpCenter::getUrl(panel: 'admin')),
                 \Filament\Actions\Action::make('my_notifications')
+                    ->visible(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false))
                     ->label('My notifications')
                     ->icon('heroicon-o-bell')
                     ->url(fn (): string => \App\Filament\Pages\MyNotifications::getUrl(panel: 'admin')),
                 \Filament\Actions\Action::make('my_pokedex')
+                    ->visible(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false))
                     ->label('My Pokédex')
                     ->icon('heroicon-o-sparkles')
                     ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin')),
@@ -105,7 +112,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarLivewireComponent(\App\Livewire\HiddenSidebar::class)
             // Initials avatars drawn in place rather than fetched from ui-avatars.com on every page.
             ->defaultAvatarProvider(\App\Filament\AvatarProviders\InitialsAvatarProvider::class)
-            ->databaseNotifications()
+            ->databaseNotifications(fn (): bool => ! (auth()->user()?->isStreamerAssistant() ?? false))
             // 300s meant a streamer could sit for five minutes after an admin
             // requested changes before the bell showed anything, which read as
             // "no notification was sent" when one had been written instantly.
@@ -293,7 +300,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,
-                fn () => ! auth()->check() ? '' : view('filament.components.clock-banner'),
+                fn () => ! auth()->check() || auth()->user()->isStreamerAssistant() ? '' : view('filament.components.clock-banner'),
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,

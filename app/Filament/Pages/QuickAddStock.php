@@ -35,6 +35,15 @@ class QuickAddStock extends Page
 
     public function mount(): void
     {
+        // Legacy Quick Add links/bookmarks should open the current scanner for
+        // admins with scanner permission. Keep the legacy form available to
+        // other stock-authorized roles that cannot access the admin scanner.
+        if (InventoryScanner::canAccess()) {
+            $this->redirect(InventoryScanner::getUrl(panel: 'admin'), navigate: false);
+
+            return;
+        }
+
         // Preselect where stock usually lands so a restock is scan → qty → add.
         $ids = $this->locations->pluck('id');
         $default = InventoryLocation::defaultReceivingId();

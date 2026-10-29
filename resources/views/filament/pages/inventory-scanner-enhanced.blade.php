@@ -262,7 +262,7 @@
                 <div class="p-4 sm:p-5">
                     <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
                         <div class="flex items-start gap-3">
-                            @php($photoItem = \\App\\Models\\InventoryItem::find($selectedItemId))
+                            @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
                             @if($photoItem?->hasImage())
                                 <img src="{{ $photoItem->imageUrl() }}" alt="Current item photo" class="h-16 w-16 shrink-0 rounded-lg object-cover" />
                             @else

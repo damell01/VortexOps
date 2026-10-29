@@ -16,6 +16,7 @@ class StreamerAssistantDashboardTest extends TestCase
 
     private function assistant(): User
     {
+        $this->withoutVite();
         $this->enableAdminModules();
         $user = User::factory()->create();
         $user->assignRole(Role::findOrCreate('streamer_assistant', 'web'));

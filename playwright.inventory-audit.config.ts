@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
     testDir: './tests/Browser',
-    testMatch: ['inventory-audit.spec.ts', 'inventory-scanner-runtime.spec.ts'],
+    testMatch: ['inventory-audit.spec.ts', 'inventory-scanner-runtime.spec.ts', 'assistant-dashboard.spec.ts'],
     workers: 1,
     timeout: 90000,
     use: { baseURL: 'http://127.0.0.1:8000', actionTimeout: 15000, screenshot: 'only-on-failure', trace: 'retain-on-failure' },

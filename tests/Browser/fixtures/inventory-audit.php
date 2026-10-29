@@ -47,5 +47,14 @@ foreach (['desktop', 'mobile', 'safari-mobile'] as $project) {
     $disposable = InventoryItem::firstOrCreate(['sku' => 'DELETE-DETAIL-'.$project], ['name' => 'Delete Detail '.$project, 'is_active' => true]);
     $deleteItems[$project] = $disposable->id;
 }
-file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['email' => $user->email, 'deleteItems' => $deleteItems, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'pallets' => $pallets, 'line' => $line->id, 'adminEmail' => $admin->email, 'streamerEmail' => $reader->email, 'readerLocation' => $readerLocation->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
+$assistant = User::firstOrCreate(['email' => 'inventory-audit-assistant@example.test'], ['name' => 'Assistant Browser Audit', 'password' => bcrypt('inventory-audit-local'), 'email_verified_at' => now()]);
+$assistant->assignRole(Role::findOrCreate('streamer_assistant', 'web'));
+$assistantBusiness = \App\Models\Business::firstOrCreate(['name' => 'Assistant Browser Audit Business']);
+$assistantProfile = \App\Models\Streamer::firstOrCreate(['user_id' => $assistant->id], ['business_id' => $assistantBusiness->id, 'name' => 'Assistant Browser Audit', 'member_type' => 'assistant', 'payout_type' => 'hourly', 'hourly_rate' => 17, 'status' => 'active']);
+$assistantPaid = \App\Models\WeeklyPayoutBatch::create(['business_id' => $assistantBusiness->id, 'week_start' => '2026-10-12', 'week_end' => '2026-10-18', 'status' => 'paid']);
+$assistantDraft = \App\Models\WeeklyPayoutBatch::create(['business_id' => $assistantBusiness->id, 'week_start' => '2026-10-19', 'week_end' => '2026-10-25', 'status' => 'draft']);
+foreach ([[$assistantPaid, 'paid', 125.25], [$assistantDraft, 'draft', 876.54]] as [$run, $status, $amount]) {
+    \App\Models\Payout::create(['streamer_id' => $assistantProfile->id, 'weekly_payout_batch_id' => $run->id, 'status' => $status, 'payout_type' => 'hourly', 'calculated_payout' => $amount]);
+}
+file_put_contents(storage_path('framework/testing/inventory-audit-fixture.json'), json_encode(['assistantEmail' => $assistant->email, 'dashboardPath' => \App\Filament\Pages\DashboardImproved::getUrl(), 'email' => $user->email, 'deleteItems' => $deleteItems, 'item' => $item->id, 'source' => $source->id, 'destination' => $destination->id, 'pallet' => $pallet->id, 'pallets' => $pallets, 'line' => $line->id, 'adminEmail' => $admin->email, 'streamerEmail' => $reader->email, 'readerLocation' => $readerLocation->id, 'stockPath' => ltrim(parse_url(\App\Filament\Resources\InventoryStockResource::getUrl('index'), PHP_URL_PATH), '/')]));
 echo "Isolated inventory browser fixtures ready.\n";

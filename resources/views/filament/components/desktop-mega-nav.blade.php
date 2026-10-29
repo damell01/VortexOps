@@ -13,6 +13,8 @@ try { $globalLogo=\App\Models\Setting::get('logo_path'); } catch (\Throwable) { 
 $navLogo=null;
 if($channel?->logo_path && file_exists(storage_path('app/public/'.$channel->logo_path))) $navLogo=asset('storage/'.$channel->logo_path);
 elseif($globalLogo && file_exists(storage_path('app/public/'.$globalLogo))) $navLogo=asset('storage/'.$globalLogo);
+// Restore the built-in brand mark when no channel/global logo is configured.
+if(!$navLogo && file_exists(public_path('images/vb-logo-sidebar.svg'))) $navLogo=asset('images/vb-logo-sidebar.svg');
 if($assistantOnly){
  $groups['Shows']=array_values(array_filter([
   \App\Filament\Pages\Shows::canAccess() ? ['Show Calendar',\App\Filament\Pages\Shows::getUrl(panel:'admin')] : (\App\Filament\Resources\ShowResource::canAccess() ? ['All Shows',\App\Filament\Resources\ShowResource::getUrl('index')] : null),

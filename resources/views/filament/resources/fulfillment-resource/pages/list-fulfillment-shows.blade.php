@@ -20,11 +20,11 @@
 
     <div class="space-y-4" data-vx-page="fulfillment-card-workspace">
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <div class="p-4 sm:p-5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="p-3 sm:p-4">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <div class="text-[10px] font-bold uppercase tracking-[.14em] text-primary-600 sm:text-xs">Fulfillment Center</div>
-                        <h2 class="mt-1 text-xl font-bold text-gray-950 dark:text-white sm:text-2xl">{{ $isFulfillmentOnly ? 'Your packing queue' : 'Approved shows ready for fulfillment' }}</h2>
+                        <h2 class="mt-1 text-lg font-bold text-gray-950 dark:text-white sm:text-xl">{{ $isFulfillmentOnly ? 'Your packing queue' : 'Approved shows ready for fulfillment' }}</h2>
                         <p class="mt-1 max-w-3xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">
                             {{ $isFulfillmentOnly
                                 ? 'Only shows assigned to you appear here. Pack the items the streamer logged, resolve any exceptions, and complete the show.'
@@ -68,19 +68,19 @@
                                     @if($show->channel)<span>· {{ $show->channel->name }}</span>@endif
                                 </div>
                             </div>
-                            <div class="shrink-0 rounded-xl bg-gray-50 px-3 py-2 text-right dark:bg-gray-800">
+                            <div class="shrink-0 rounded-xl bg-gray-50 px-2.5 py-1.5 text-right dark:bg-gray-800">
                                 <div class="text-lg font-bold text-gray-950 dark:text-white">{{ $card['remaining_units'] }}</div>
                                 <div class="text-[9px] font-semibold uppercase tracking-wide text-gray-500">units left</div>
                             </div>
                         </div>
 
-                        <div class="mt-4">
+                        <div class="mt-3">
                             <div class="mb-1.5 flex items-center justify-between gap-2 text-[10px] font-semibold text-gray-500 sm:text-xs"><span>Streamer-log packing progress</span>
                                 <span @class(['vx-catchball vx-catchball--sm', 'is-full' => $packed]) style="--vx-fill: {{ $card['progress'] }}%"><span class="vx-catchball-ball" aria-hidden="true"><i></i><b></b></span><span class="vx-catchball-text">{{ $card['packed_units'] }}/{{ $card['total_units'] }} · {{ $card['progress'] }}%</span></span></div>
                             <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full rounded-full bg-primary-600 transition-all" style="width:{{ $card['progress'] }}%"></div></div>
                         </div>
 
-                        <div class="mt-4 grid grid-cols-3 gap-2">
+                        <div class="mt-3 grid grid-cols-3 gap-2">
                             <div class="rounded-xl bg-gray-50 p-2.5 dark:bg-gray-800"><div class="text-sm font-bold text-gray-950 dark:text-white">{{ $card['total_lines'] }}</div><div class="text-[9px] uppercase tracking-wide text-gray-500">item lines</div></div>
                             <div class="rounded-xl bg-gray-50 p-2.5 dark:bg-gray-800"><div class="text-sm font-bold text-gray-950 dark:text-white">{{ $card['total_units'] }}</div><div class="text-[9px] uppercase tracking-wide text-gray-500">total units</div></div>
                             <div class="rounded-xl bg-gray-50 p-2.5 dark:bg-gray-800"><div class="text-sm font-bold {{ $card['issues'] ? 'text-red-600' : 'text-gray-950 dark:text-white' }}">{{ $card['issues'] }}</div><div class="text-[9px] uppercase tracking-wide text-gray-500">issues</div></div>

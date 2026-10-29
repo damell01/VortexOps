@@ -615,6 +615,10 @@ class InventoryScanner extends Page
         $this->unmatchedBarcode = '';
         $this->lookupItem($item);
         $this->qaFlash = null;
+        // The item is now selected, so the same optional stock confirmation
+        // is available whether the item was newly created or already existed.
+        $this->mode = 'quickadd';
+        $this->selectScannedItem($item);
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

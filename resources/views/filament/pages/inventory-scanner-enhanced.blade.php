@@ -239,13 +239,32 @@
                         <div x-show="choice === 'link'" class="mt-4">
                             @if($barcodeStep === 'confirm' && $this->catalogSelectedItem)
                                 @php($preview = $this->catalogSelectedItem)
-                                <div class="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20">
-                                    <h3 class="text-base font-extrabold text-gray-950 dark:text-white">Confirm barcode link</h3>
-                                    <p class="mt-1 text-xs text-gray-500">Nothing is saved until you press Link to This Item.</p>
-                                    <div class="mt-4 flex items-center gap-4 rounded-xl bg-white p-3 dark:bg-gray-800">
-                                        @if($preview['image'])<img src="{{ $preview['image'] }}" alt="" class="h-20 w-20 shrink-0 rounded-lg object-contain" />@else<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700"><x-heroicon-o-cube class="h-8 w-8 text-gray-400" /></div>@endif
-                                        <div class="min-w-0"><p class="font-bold text-gray-950 dark:text-white">{{ $preview['name'] }}</p><p class="text-sm text-gray-500">{{ $preview['sku'] }}</p><p class="mt-1 text-xs text-gray-500">{{ $preview['category'] ?: 'Uncategorized' }} · {{ number_format($preview['quantity']) }} units in stock</p></div>
-                                    </div>
+                                <div class="grid gap-5 lg:grid-cols-2">
+                                    <section class="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/40">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <h3 class="text-xl font-extrabold text-gray-950 dark:text-white">Selected inventory item</h3>
+                                            <button type="button" wire:click="barcodeBackToCatalog" class="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-bold text-violet-700 dark:bg-gray-800">Change</button>
+                                        </div>
+                                        <div class="mt-4 flex flex-col gap-4 sm:flex-row">
+                                            <div class="flex h-36 w-full shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-800 sm:w-36">
+                                                @if($preview['image'])<img src="{{ $preview['image'] }}" alt="" class="h-full w-full object-contain" />@else<x-heroicon-o-cube class="h-12 w-12 text-gray-400" />@endif
+                                            </div>
+                                            <div class="min-w-0"><p class="text-lg font-extrabold text-gray-950 dark:text-white">{{ $preview['name'] }}</p><p class="mt-1 text-sm text-gray-500">SKU: {{ $preview['sku'] ?: 'None' }}</p><p class="mt-2 text-xs text-gray-500">{{ $preview['category'] ?: 'Uncategorized' }}</p><p class="mt-4 text-xs font-bold text-gray-500">Current stock</p><p class="text-2xl font-extrabold text-emerald-700">{{ number_format($preview['quantity']) }} units</p></div>
+                                        </div>
+                                    </section>
+                                    <section class="rounded-2xl border border-violet-200 bg-white p-5 dark:border-violet-900 dark:bg-gray-900">
+                                        <h3 class="text-xl font-extrabold text-gray-950 dark:text-white">Link this barcode</h3>
+                                        <p class="mt-1 text-sm text-gray-500">Assign {{ $unmatchedBarcode }} to this item. Nothing changes until you confirm.</p>
+                                        <label class="mt-5 flex min-h-12 items-center gap-3 rounded-xl border border-gray-200 p-3 text-sm font-bold dark:border-gray-700">
+                                            <input type="checkbox" wire:model.live="addStockAfterResolve" class="h-5 w-5 rounded border-gray-300 text-violet-600" /> Add stock at the same time (optional)
+                                        </label>
+                                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                            <label class="block text-xs font-bold">Quantity<input type="number" min="0.01" step="1" wire:model="qaQty" class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                                            <label class="block text-xs font-bold">Stock location<select wire:model="qaLocationId" class="mt-1 min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                                        </div>
+                                        <p class="mt-2 text-xs text-gray-500">Stock fields stay editable. Stock is added only if checked.</p>
+                                        <button type="button" wire:click="linkScannedBarcode({{ $catalogSelectedItemId }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="mt-5 min-h-12 w-full rounded-xl bg-violet-600 px-4 text-sm font-extrabold text-white disabled:opacity-50">Confirm &amp; Link Barcode</button>
+                                    </section>
                                 </div>
                             @else
                                 <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
@@ -297,7 +316,7 @@
                             </div>
                             <p class="text-xs text-gray-500">Barcode {{ $unmatchedBarcode }} will be assigned automatically. You can add a photo after saving the item.</p>
                         </div>
-                        <div x-show="choice === 'new' || $wire.barcodeStep === 'confirm'" class="mt-4 rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20 sm:p-4">
+                        <div x-show="choice === 'new'" class="mt-4 rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20 sm:p-4">
                             <label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold"><input type="checkbox" wire:model.live="addStockAfterResolve" class="h-5 w-5 rounded border-gray-300 text-violet-600" /> Add stock now <span class="font-normal text-gray-500">(optional)</span></label>
                             <div class="mt-2 grid gap-3 sm:grid-cols-2">
                                 <label class="block text-xs font-semibold">Quantity<input type="number" min="0.01" step="1" wire:model="qaQty" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
@@ -308,9 +327,7 @@
                     <footer class="flex shrink-0 flex-wrap gap-2 border-t border-gray-100 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_14px_rgba(0,0,0,0.05)] dark:border-gray-800 dark:bg-gray-900 sm:px-6">
                         <button type="button" wire:click="{{ $barcodeStep === 'confirm' ? 'barcodeBackToCatalog' : "switchMode('lookup')" }}" class="min-h-11 flex-1 rounded-lg border border-gray-200 px-4 text-sm font-semibold dark:border-gray-700">{{ $barcodeStep === 'confirm' ? 'Back to catalog' : 'Cancel / Scan again' }}</button>
                         <button x-show="choice === 'new'" type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" class="min-h-11 flex-1 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">Create Item &amp; Link Barcode</button>
-                        @if($barcodeStep === 'confirm' && $this->catalogSelectedItem)
-                            <button x-show="choice === 'link'" type="button" wire:click="linkScannedBarcode({{ $catalogSelectedItemId }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="min-h-11 flex-1 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-50">Link to This Item</button>
-                        @endif
+
                     </footer>
                 </section>
             </div>

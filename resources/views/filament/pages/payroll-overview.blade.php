@@ -59,7 +59,7 @@
         @media(max-width:1100px){[data-vx-page=payroll] .vxw-split{grid-template-columns:1fr}}
     </style>
     <div class="vx-payroll-head">
-        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" aria-label="Next pay period">›</button></div>
+        <div class="vx-payroll-period"><button type="button" wire:click="changePeriod(-1)" wire:loading.attr="disabled" wire:target="changePeriod" aria-label="Previous pay period">‹</button><div><p class="vxw-meta">Pay period · {{ $runStatus }}</p><strong>{{ $periodStart->format('M j') }} – {{ $periodEnd->format('M j, Y') }}</strong></div><input type="date" wire:model.live="period_date" aria-label="Choose pay period"><button type="button" wire:click="changePeriod(1)" wire:loading.attr="disabled" wire:target="changePeriod" aria-label="Next pay period">›</button></div>
         <div class="flex flex-wrap items-center gap-2"><a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">History</a>@if($current)<a class="vxw-btn" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$current]) }}">Review run</a>@endif<a class="vxw-btn vxw-btn--primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}">+ Create Pay Run</a></div>
     </div>
     <div class="vx-payroll-kpis">
@@ -69,7 +69,7 @@
     </div>
     <div class="vx-payroll-insights">
         <section class="vxw-card"><div class="vxw-card-body"><div class="flex items-center justify-between gap-3"><h3 class="vxw-h2">Payout trend</h3><span class="vxw-meta">Last 8 weeks</span></div><p class="vxw-sub">Paid runs grouped by period start.</p><div class="vx-payroll-trend" role="img" aria-label="Paid pay run totals for the last eight weeks">@foreach($trend as $point)<div class="vx-payroll-trend-point" title="{{ $point['label'] }}: {{ $money($point['total']) }}"><div class="vx-payroll-bar" style="height:{{ $point['total'] ? round($point['total']/$trendMax*145) : 3 }}px"></div><span>{{ $point['label'] }}</span></div>@endforeach</div>@if(!array_sum(array_column($trend,'total')))<p class="vxw-meta mt-3">No paid runs in this range.</p>@endif</div></section>
-        <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Pay period status</h3><p class="vxw-sub">{{ $processed }} of {{ $progress['total'] }} shows ready, in a run or paid</p><div class="vx-payroll-progress" role="progressbar" aria-valuenow="{{ $processedPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Payroll progress"><span style="width:{{ $processedPercent }}%"></span></div>@foreach([['paid','Completed & paid',$workflow['paid']],['ready','Ready for a run',$workflow['ready']],['in_run','In a pay run',$workflow['in_run']],['review','Pending approval',$progress['needs_review']],['blocked','Blocked',$workflow['blocked']]] as [$filter,$label,$count])<button type="button" class="vx-payroll-status-row" wire:click="setWorkflow('{{ $filter }}')"><span>{{ $label }}</span><strong>{{ $count }} ›</strong></button>@endforeach</div></section>
+        <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Pay period status</h3><p class="vxw-sub">{{ $processed }} of {{ $progress['total'] }} shows ready, in a run or paid</p><div class="vx-payroll-progress" role="progressbar" aria-valuenow="{{ $processedPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Payroll progress"><span style="width:{{ $processedPercent }}%"></span></div>@foreach([['paid','Completed & paid',$workflow['paid']],['ready','Ready for a run',$workflow['ready']],['in_run','In a pay run',$workflow['in_run']],['review','Pending approval',$progress['needs_review']],['blocked','Blocked',$workflow['blocked']]] as [$filter,$label,$count])<button type="button" class="vx-payroll-status-row" wire:click="setWorkflow('{{ $filter }}')" wire:loading.attr="disabled" wire:target="setWorkflow"><span>{{ $label }}</span><strong>{{ $count }} ›</strong></button>@endforeach</div></section>
         <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
     </div>
 
@@ -78,7 +78,7 @@
         <section class="vxw-card" aria-labelledby="vxw-queue-heading">
             <nav class="vxw-pipeline" aria-label="Filter shows by payroll stage">
                 @foreach($stages as $key => [$label, $count, $attention])
-                    <button type="button" wire:click="setWorkflow('{{ $key }}')"
+                    <button type="button" wire:click="setWorkflow('{{ $key }}')" wire:loading.attr="disabled" wire:target="setWorkflow"
                         @class(['vxw-tab', 'vxw-tab--attn' => $attention && $count > 0])
                         aria-current="{{ $activeWorkflow === $key ? 'true' : 'false' }}">
                         <span class="vxw-tab-label">{{ $label }}</span>
@@ -93,7 +93,7 @@
                     <p class="vxw-sub">Shows that need you are listed first. Upcoming shows stay in the period and join the queue after they air.</p>
                 </div>
                 @if($activeWorkflow !== 'all')
-                    <button type="button" class="vxw-btn vxw-btn--ghost vxw-btn--sm" wire:click="setWorkflow('all')">Clear filter</button>
+                    <button type="button" class="vxw-btn vxw-btn--ghost vxw-btn--sm" wire:click="setWorkflow('all')" wire:loading.attr="disabled" wire:target="setWorkflow">Clear filter</button>
                 @endif
             </div>
 
@@ -184,11 +184,11 @@
                     <span class="vxw-meta">{{ (($page - 1) * $perPage) + 1 }}–{{ min($page * $perPage, $totalFilteredShows) }} of {{ $totalFilteredShows }}</span>
                     @if($lastPage > 1)
                         <nav class="vxw-pager" aria-label="Show pages">
-                            <button type="button" class="vxw-page" wire:click="goToQueuePage({{ $page - 1 }})" @disabled($page <= 1) aria-label="Previous page">‹</button>
+                            <button type="button" class="vxw-page" wire:click="goToQueuePage({{ $page - 1 }})" wire:loading.attr="disabled" wire:target="goToQueuePage" @disabled($page <= 1) aria-label="Previous page">‹</button>
                             @for($p = max(1, $page - 1); $p <= min($lastPage, $page + 1); $p++)
                                 <button type="button" @class(['vxw-page', 'is-active' => $p === $page]) wire:click="goToQueuePage({{ $p }})" @if($p === $page) aria-current="page" @endif>{{ $p }}</button>
                             @endfor
-                            <button type="button" class="vxw-page" wire:click="goToQueuePage({{ $page + 1 }})" @disabled($page >= $lastPage) aria-label="Next page">›</button>
+                            <button type="button" class="vxw-page" wire:click="goToQueuePage({{ $page + 1 }})" wire:loading.attr="disabled" wire:target="goToQueuePage" @disabled($page >= $lastPage) aria-label="Next page">›</button>
                         </nav>
                     @endif
                 </div>

@@ -7,7 +7,7 @@
  *  - Livewire / JSON / POST: pass-through (no caching)
  */
 
-const CACHE      = 'vortexops-v2';
+const CACHE      = 'vortexops-v3';
 const OFFLINE_URL = '/offline.html';
 
 // ── Install: precache the offline page ───────────────────────────────────────
@@ -42,7 +42,7 @@ self.addEventListener('fetch', event => {
     if (accept.includes('application/json') || accept.includes('text/event-stream')) return;
     if (url.searchParams.has('livewire')) return;
 
-    // Cache-first for immutable assets: Vite build output, fonts, icons, images
+    // Never cache unversioned scripts/styles. Deployments must reach all devices.\n    // Vite /build/ assets have content hashes and remain safe to cache.\n    if (/\\.(js|css)$/i.test(url.pathname) && !url.pathname.startsWith('/build/')) {\n        event.respondWith(fetch(req, { cache: 'no-store' }));\n        return;\n    }\n\n    // Cache-first for immutable assets: Vite build output, fonts, icons, images
     if (
         url.pathname.startsWith('/build/') ||
         url.pathname.startsWith('/fonts/') ||

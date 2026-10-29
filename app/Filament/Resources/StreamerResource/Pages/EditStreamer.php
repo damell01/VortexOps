@@ -104,77 +104,32 @@ class EditStreamer extends EditRecord
                     Notification::make()->title('Using team calculation')->success()->send();
                 }),
 
-            Action::make('transfer_duplicate_shows')
-                ->label('Transfer Duplicate Shows')
-                ->icon('heroicon-o-arrows-right-left')
+            Action::make('merge_duplicate_profile')
+                ->label('Merge Duplicate Profile')
+                ->icon('heroicon-o-arrows-pointing-in')
                 ->color('warning')
                 ->visible(fn (): bool => (bool) (auth()->user()?->isOwner() || auth()->user()?->isAdmin()) && $this->record->isStreamer())
-                ->modalHeading('Transfer show assignments to the correct profile')
-                ->modalDescription(fn (): string => 'Source: '.$this->record->name.' (ID '.$this->record->id.'). This transfers show assignments only. Payouts, reports, loans, logins and historical payroll remain unchanged. The source profile will be marked inactive, not deleted.')
+                ->modalHeading('Merge duplicate streamer profile')
+                ->modalDescription(fn (): string => 'Duplicate: '.$this->record->name.' (#'.$this->record->id.'). Transfers show assignments, reports, draft payouts, loans, aliases, profit share packets and inventory locations where supported. Conflicting records and finalized payouts block the merge. The duplicate is deactivated, not deleted.')
                 ->form([
                     Select::make('target_id')
-                        ->label('Keep this streamer profile')
-                        ->options(fn (): array => \App\Models\Streamer::query()
+                        ->label('Keep this profile')
+                        ->options(fn (): array => \App\Models\\Streamer::query()
                             ->streamers()->where('status', 'active')
                             ->whereKeyNot($this->record->id)
                             ->where('business_id', $this->record->business_id)
                             ->orderBy('name')->get()
                             ->mapWithKeys(fn ($p) => [$p->id => $p->name.' (#'.$p->id.')'])->all())
-                        ->searchable()->required()
-                        ->helperText('Only active streamer profiles in the same business are eligible.'),
+                        ->searchable()->required(),
                 ])
                 ->requiresConfirmation()
-                ->modalSubmitActionLabel('Transfer shows and deactivate duplicate')
+                ->modalSubmitActionLabel('Merge profiles')
                 ->action(function (array $data): void {
                     abort_unless(auth()->user()?->isOwner() || auth()->user()?->isAdmin(), 403);
-                    $sourceId = (int) $this->record->id;
-                    $targetId = (int) ($data['target_id'] ?? 0);
-                    if ($sourceId === $targetId) {
-                        throw ValidationException::withMessages(['target_id' => 'Choose a different profile.']);
-                    }
-
-                    $moved = DB::transaction(function () use ($sourceId, $targetId): int {
-                        $profiles = \App\Models\Streamer::query()
-                            ->whereIn('id', [$sourceId, $targetId])
-                            ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
-                        $source = $profiles->get($sourceId);
-                        $target = $profiles->get($targetId);
-                        if (! $source || ! $target || ! $source->isStreamer() || ! $target->isStreamer()
-                            || $source->status !== 'active' || $target->status !== 'active'
-                            || (int) $source->business_id !== (int) $target->business_id) {
-                            throw ValidationException::withMessages(['target_id' => 'Profiles must be active streamers in the same business.']);
-                        }
-                        $rows = DB::table('show_streamer')->where('streamer_id', $sourceId)
-                            ->orderBy('show_id')->lockForUpdate()->get();
-                        foreach ($rows as $row) {
-                            $existing = DB::table('show_streamer')
-                                ->where('show_id', $row->show_id)->where('streamer_id', $targetId)->first();
-                            if ($existing) {
-                                if ($row->is_primary && ! $existing->is_primary) {
-                                    DB::table('show_streamer')->where('show_id', $row->show_id)
-                                        ->where('streamer_id', $targetId)->update(['is_primary' => true, 'updated_at' => now()]);
-                                }
-                            } else {
-                                DB::table('show_streamer')->insert([
-                                    'show_id' => $row->show_id, 'streamer_id' => $targetId,
-                                    'is_primary' => $row->is_primary,
-                                    'created_at' => now(), 'updated_at' => now(),
-                                ]);
-                            }
-                            DB::table('show_streamer')->where('show_id', $row->show_id)
-                                ->where('streamer_id', $sourceId)->delete();
-                        }
-                        $source->update(['status' => 'inactive']);
-                        return $rows->count();
-                    });
-
-                    activity('streamer_profile_transfer')
-                        ->causedBy(auth()->user())
-                        ->performedOn($this->record)
-                        ->withProperties(['source_streamer_id' => $sourceId, 'target_streamer_id' => $targetId, 'show_assignments_transferred' => $moved])
-                        ->log('Duplicate streamer show assignments transferred');
-                    Notification::make()->title('Show assignments transferred')
-                        ->body($moved.' show assignments moved. The duplicate is inactive; payroll and other linked records were not changed.')
+                    $counts = app(\App\Services\\StreamerProfileMergeService::class)
+                        ->merge((int) $this->record->id, (int) $data['target_id']);
+                    Notification::make()->title('Streamer profiles merged')
+                        ->body(array_sum($counts).' linked records transferred. The duplicate profile is inactive.')
                         ->success()->send();
                     $this->redirect(StreamerResource::getUrl('index'));
                 }),

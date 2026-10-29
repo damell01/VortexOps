@@ -9,7 +9,7 @@ async function settle(page:Page) {
     // Wait for that real component to mount before a full-document test navigation.
     await expect.poll(() => page.evaluate(() => {
         const livewire = (window as any).Livewire;
-        if (!livewire) return true;
+        if (!livewire) return false;
         return livewire.all().some((component:any) =>
             component.name === 'Filament\\Livewire\\DatabaseNotifications'
             && component.snapshot.memo.lazyLoaded === false

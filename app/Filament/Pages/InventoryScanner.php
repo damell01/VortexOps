@@ -329,7 +329,8 @@ class InventoryScanner extends Page
         }
 
         $this->unmatchedBarcode = '';
-        $this->lookupItem($item);
+        $this->mode = 'quickadd';
+        $this->selectScannedItem($item);
     }
 
     /**
@@ -598,8 +599,23 @@ class InventoryScanner extends Page
             ->map(fn ($item) => ['id' => $item->id, 'name' => $item->name, 'sku' => $item->sku])->toArray();
     }
 
+    private function validateOptionalInitialStock(): bool
+    {
+        if (! $this->addStockAfterResolve) return true;
+        if (! is_numeric($this->qaQty) || ! is_finite((float) $this->qaQty) || (float) $this->qaQty <= 0) {
+            $this->errorMessage = 'Enter a valid stock quantity greater than zero.';
+            return false;
+        }
+        if (! $this->qaLocationId || ! $this->locations->contains('id', $this->qaLocationId)) {
+            $this->errorMessage = 'Select a permitted stock location.';
+            return false;
+        }
+        return true;
+    }
+
     public function linkScannedBarcode(int $itemId): void
     {
+        if (! $this->validateOptionalInitialStock()) return;
         $code = trim($this->unmatchedBarcode);
         if ($code === '' || mb_strlen($code) > 255) {
             $this->errorMessage = 'Scan a valid barcode first.';
@@ -642,6 +658,7 @@ class InventoryScanner extends Page
 
     public function createScannedItem(): void
     {
+        if (! $this->validateOptionalInitialStock()) return;
         $code = trim($this->unmatchedBarcode);
         $name = trim($this->newItemName);
         if ($code === '' || mb_strlen($code) > 255 || $name === '' || mb_strlen($name) > 255) {

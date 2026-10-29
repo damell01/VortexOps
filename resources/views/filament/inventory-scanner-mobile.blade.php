@@ -409,8 +409,9 @@
         window.addEventListener('inventory-scanner-unknown', event => {
             const barcode = String(event.detail?.barcode || '').trim();
             if (!barcode || !document.querySelector('[data-vx-page="inventory-scanner"]')) return;
+            // Livewire now owns the centered catalog/create/stock dialog.
+            // Do not show the legacy API-driven dialog on top of it.
             lastUnknown = barcode;
-            showChooser(barcode);
         });
         document.addEventListener('livewire:navigating', closeSheet);
         document.addEventListener('keydown', event => { if (event.key === 'Escape' && sheet) closeSheet(); });

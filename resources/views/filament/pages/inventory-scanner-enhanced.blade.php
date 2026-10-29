@@ -226,22 +226,61 @@
                     <button type="button" @click="choice='link'" :class="choice === 'link' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-14 rounded-xl px-3 text-sm font-bold shadow-sm">Link to Existing Item</button>
                     <button type="button" @click="choice='new'" :class="choice === 'new' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-14 rounded-xl px-3 text-sm font-bold shadow-sm">Create New Item</button>
                 </div>
-                <div x-show="choice === 'link'" class="mt-4">
-                    <p class="mb-2 text-xs text-gray-500">Browse the catalog below or search to narrow the list.</p>
-                    <label for="vx-link-item" class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Search existing items</label>
-                    <input id="vx-link-item" type="search" wire:model.live.debounce.400ms="barcodeLinkSearch" placeholder="Search name, SKU or barcode…" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
-                    @if($barcodeLinkOptions !== null)
-                        <div class="mt-2 max-h-72 divide-y divide-gray-100 overflow-auto rounded-xl border border-gray-200 bg-white dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-900">
-                            @forelse($barcodeLinkOptions as $option)
-                                <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
-                                    <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['name'] }} <span class="block text-xs font-normal text-gray-500">{{ $option['sku'] }}</span></span>
-                                    <span class="shrink-0 text-xs font-bold text-violet-600">Link →</span>
-                                </button>
-                            @empty
-                                <p class="p-3 text-sm text-gray-500">No matches found.</p>
-                            @endforelse
+                <div x-show="choice === 'link'" class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                    <div class="min-w-0">
+                        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Find an inventory item
+                                <input type="search" wire:model.live.debounce.400ms="barcodeLinkSearch" placeholder="Search by name, SKU or barcode…" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
+                            </label>
+                            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Sort
+                                <select wire:model.live="catalogSort" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">
+                                    <option value="name">Name A–Z</option><option value="newest">Newest first</option>
+                                </select>
+                            </label>
                         </div>
-                    @endif
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button type="button" wire:click="$set('catalogCategory', '')" class="rounded-full border px-3 py-2 text-xs font-semibold {{ $catalogCategory === '' ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200' }}">All items</button>
+                            @foreach($this->catalogCategories as $category)
+                                <button type="button" wire:click="$set('catalogCategory', @js($category))" class="rounded-full border px-3 py-2 text-xs font-semibold {{ $catalogCategory === $category ? 'border-violet-600 bg-violet-600 text-white' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200' }}">{{ $category }}</button>
+                            @endforeach
+                        </div>
+                        @if($barcodeLinkOptions !== null)
+                            <div class="mt-3 flex items-center justify-between text-xs text-gray-500"><span>{{ number_format($barcodeLinkOptions['total']) }} matching items</span><span>Page {{ $catalogPage }} of {{ $barcodeLinkOptions['pages'] }}</span></div>
+                            <div class="mt-2 grid max-h-[min(42vh,420px)] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                                @forelse($barcodeLinkOptions['items'] as $option)
+                                    <button type="button" wire:key="catalog-item-{{ $option['id'] }}" wire:click="catalogSelectItem({{ $option['id'] }})" class="min-w-0 rounded-xl border p-2 text-left transition hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-gray-800 {{ $catalogSelectedItemId === $option['id'] ? 'border-violet-600 ring-2 ring-violet-300' : 'border-gray-200 dark:border-gray-700' }}">
+                                        <div class="flex h-20 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                                            @if($option['image'])<img src="{{ $option['image'] }}" alt="" loading="lazy" class="h-full w-full object-contain" />@else<x-filament::icon icon="heroicon-o-cube" class="h-8 w-8 text-gray-400" />@endif
+                                        </div>
+                                        <div class="mt-2 line-clamp-2 min-h-9 text-xs font-bold text-gray-900 dark:text-white">{{ $option['name'] }}</div>
+                                        <div class="truncate text-xs text-gray-500">{{ $option['sku'] ?: 'No SKU' }}</div>
+                                    </button>
+                                @empty
+                                    <p class="col-span-full rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500 dark:bg-gray-800">No matching items. Try another search or category.</p>
+                                @endforelse
+                            </div>
+                            <div class="mt-3 flex items-center justify-between gap-2">
+                                <button type="button" wire:click="catalogGoToPage({{ max(1, $catalogPage - 1) }})" @disabled($catalogPage <= 1) class="rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold disabled:opacity-40 dark:border-gray-700">Previous</button>
+                                <span class="text-xs text-gray-500">{{ $catalogPage }} / {{ $barcodeLinkOptions['pages'] }}</span>
+                                <button type="button" wire:click="catalogGoToPage({{ min($barcodeLinkOptions['pages'], $catalogPage + 1) }})" @disabled($catalogPage >= $barcodeLinkOptions['pages']) class="rounded-lg border border-gray-200 px-4 py-2 text-xs font-semibold disabled:opacity-40 dark:border-gray-700">Next</button>
+                            </div>
+                        @else
+                            <p class="mt-4 text-sm text-gray-500">Loading catalog…</p>
+                        @endif
+                    </div>
+                    <aside class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                        <h3 class="text-sm font-bold text-gray-900 dark:text-white">Selected item</h3>
+                        @if($this->catalogSelectedItem)
+                            @php($preview = $this->catalogSelectedItem)
+                            <div class="mt-3 flex items-center gap-3 lg:flex-col lg:items-start">
+                                @if($preview['image'])<img src="{{ $preview['image'] }}" alt="" class="h-20 w-20 rounded-lg object-contain lg:h-28 lg:w-full" />@endif
+                                <div class="min-w-0"><p class="text-sm font-bold text-gray-900 dark:text-white">{{ $preview['name'] }}</p><p class="text-xs text-gray-500">{{ $preview['sku'] }}</p><p class="mt-2 text-xs text-gray-500">{{ number_format($preview['quantity']) }} units on hand</p><p class="text-xs text-gray-500">{{ $preview['category'] ?: 'Uncategorized' }}</p></div>
+                            </div>
+                            <button type="button" wire:click="linkScannedBarcode({{ $preview['id'] }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="mt-4 min-h-12 w-full rounded-lg bg-violet-600 px-3 text-sm font-bold text-white disabled:opacity-50">Link to this item</button>
+                        @else
+                            <p class="mt-3 text-xs text-gray-500">Select a product card to preview it and link this barcode.</p>
+                        @endif
+                    </aside>
                 </div>
                 <div x-show="choice === 'new'" x-cloak class="mt-4 space-y-3">
                     <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Item name *</span><input wire:model="newItemName" type="text" maxlength="255" placeholder="Product name" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>

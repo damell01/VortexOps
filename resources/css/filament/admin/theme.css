@@ -1027,3 +1027,47 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   .fi-btn, .fi-input-wrp, .fi-select-input { transition:none !important; }
   .fi-modal-window { scroll-behavior:auto; }
 }
+
+
+/* UI UX Pro Max refinement: operational density, predictable feedback, accessible controls.
+   Shared Filament primitives only; no SPA or Livewire event interception. */
+:root {
+  --vx-space-1:4px; --vx-space-2:8px; --vx-space-3:12px; --vx-space-4:16px;
+  --vx-control-height:44px; --vx-elevation:0 3px 12px rgb(15 23 42 / .045);
+}
+.fi-page-header { gap:12px; }
+.fi-page-header .fi-header-actions { gap:8px; }
+.fi-section-header { gap:10px; }
+.fi-section-content { min-width:0; }
+.fi-ta-header { gap:12px; }
+.fi-ta-filters, .fi-ta-header-toolbar { min-width:0; }
+.fi-ta-header-toolbar > *, .fi-ta-filters > * { max-width:100%; }
+.fi-ta-table { width:100%; }
+.fi-ta-cell { vertical-align:middle; }
+.fi-ta-row:hover { background:color-mix(in srgb,var(--vx-soft-primary) 30%,transparent); }
+.dark .fi-ta-row:hover { background:rgb(167 139 250 / .055); }
+.fi-input-wrp:focus-within { outline:2px solid rgb(124 58 237 / .55); outline-offset:1px; }
+.fi-input-wrp input, .fi-input-wrp select, .fi-input-wrp textarea { min-width:0; }
+.fi-modal-window .fi-modal-header { position:sticky; top:0; z-index:2; background:var(--vx-surface); }
+.fi-modal-window .fi-modal-footer { position:sticky; bottom:0; z-index:2; background:var(--vx-surface); }
+.fi-modal-window .fi-modal-header, .fi-modal-window .fi-modal-footer { flex-shrink:0; }
+.fi-modal-window .fi-modal-content { min-height:0; }
+.fi-notification { max-width:min(420px,calc(100vw - 24px)); overflow-wrap:anywhere; }
+.fi-btn[wire\\:loading\\.attr="disabled"], .fi-btn[aria-busy="true"] { cursor:progress; }
+@media(min-width:1024px) {
+  .fi-page { gap:18px; }
+  .fi-page-content { gap:18px; }
+  .fi-page-header .fi-header-heading { line-height:1.2; }
+}
+@media(max-width:767px) {
+  .fi-section-header { padding:14px; }
+  .fi-section-content { padding:14px; }
+  .fi-page-header .fi-header-actions { display:flex; flex-wrap:wrap; align-items:center; }
+  .fi-ta-header-toolbar { flex-wrap:wrap; gap:8px; }
+  .fi-modal-window .fi-modal-header, .fi-modal-window .fi-modal-footer { padding-inline:14px; }
+  .fi-modal-window .fi-modal-footer .fi-btn { min-height:44px; }
+  .fi-ta-cell { overflow-wrap:anywhere; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .fi-ta-row, .fi-notification { transition:none !important; }
+}

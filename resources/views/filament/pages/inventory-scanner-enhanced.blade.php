@@ -372,7 +372,11 @@
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
                     <button type="button" wire:click="switchMode('lookup')" class="min-h-11 flex-1 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white">Scan another</button>
-                    <button type="button" wire:click="$set('barcodeSuccess', null)" class="min-h-11 flex-1 rounded-lg border border-gray-200 px-4 text-sm font-semibold dark:border-gray-700">View item / Add stock</button>
+                    <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $barcodeSuccess['item_id']]) }}" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-violet-200 px-4 text-sm font-bold text-violet-700 dark:border-violet-900 dark:text-violet-300">View Item</a>
+                    @if(\App\Filament\Resources\InventoryItemResource::canEdit(\App\Models\InventoryItem::find($barcodeSuccess['item_id'])))
+                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $barcodeSuccess['item_id']]) }}" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-bold dark:border-gray-700">Edit Item</a>
+                    @endif
+                    <button type="button" wire:click="$set('barcodeSuccess', null)" class="min-h-11 flex-1 rounded-lg border border-gray-200 px-4 text-sm font-semibold dark:border-gray-700">More Stock Actions</button>
                 </div>
             </section>
         @endif
@@ -399,7 +403,10 @@
                         <h3 class="text-sm font-bold text-gray-950 dark:text-white">What would you like to do?</h3>
                         <button type="button" @click="stockOpen = !stockOpen; photoOpen = false" :aria-expanded="stockOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"><span>Add / change stock</span><x-heroicon-o-plus class="h-5 w-5" /></button>
                         <button type="button" @click="photoOpen = !photoOpen; stockOpen = false" :aria-expanded="photoOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Add / change item photo</span><x-heroicon-o-camera class="h-5 w-5" /></button>
-                        <a href="{{ url('/admin/inventory-items') }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-red-200 px-4 text-sm font-bold text-red-700 dark:border-red-900 dark:text-red-300"><span>Manage / delete item</span><x-heroicon-o-arrow-top-right-on-square class="h-5 w-5" /></a>
+                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-violet-200 px-4 text-sm font-bold text-violet-700 dark:border-violet-900 dark:text-violet-300"><span>View item details</span><x-heroicon-o-arrow-top-right-on-square class="h-5 w-5" /></a>
+                        @if($photoItem && \App\Filament\Resources\InventoryItemResource::canEdit($photoItem))
+                            <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Edit item / manage barcodes</span><x-heroicon-o-pencil-square class="h-5 w-5" /></a>
+                        @endif
                     </div>
                     <div x-show="stockOpen" x-cloak class="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20 lg:col-span-2">
                         <h3 class="text-sm font-extrabold">Add stock</h3>
@@ -444,7 +451,7 @@
 
         @if($qaFlash)
             <section class="rounded-xl border p-3.5 sm:p-4 {{ isset($qaFlash['error']) ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200' : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200' }}">
-                @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div><div class="mt-1 text-xs font-semibold">Now {{ number_format((float)($qaFlash['location_total'] ?? 0)) }} units at {{ $qaFlash['location'] }}</div></div></div>@endif
+                @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div><div class="mt-1 text-xs font-semibold">Now {{ number_format((float)($qaFlash['location_total'] ?? 0)) }} units at {{ $qaFlash['location'] }}</div>@if($selectedItemId)<div class="mt-3 flex flex-wrap gap-2"><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800">View Item</a>@if(($flashItem = \App\Models\InventoryItem::find($selectedItemId)) && \App\Filament\Resources\InventoryItemResource::canEdit($flashItem))<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800">Edit Item</a>@endif</div>@endif</div></div>@endif
             </section>
         @endif
 

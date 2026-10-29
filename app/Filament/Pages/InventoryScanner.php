@@ -193,6 +193,7 @@ class InventoryScanner extends Page
         if ($main !== null && in_array($main, $changeable, true)
             && InventoryLocation::whereKey($main)->where('status', 'active')->exists()) {
             $this->qaLocationId = $main;
+            $this->initializeBarcodeFromRequest();
             return;
         }
 
@@ -200,6 +201,16 @@ class InventoryScanner extends Page
             ->whereIn('id', $changeable)->orderBy('name')->value('id');
         if ($first) {
             $this->qaLocationId = (int) $first;
+        }
+        $this->initializeBarcodeFromRequest();
+    }
+
+    private function initializeBarcodeFromRequest(): void
+    {
+        $code = trim((string) request()->query('barcode', ''));
+        if ($code !== '' && mb_strlen($code) <= 255) {
+            $this->scanInput = $code;
+            $this->doLookup();
         }
     }
 

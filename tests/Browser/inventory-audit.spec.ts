@@ -37,7 +37,7 @@ test.beforeEach(async ({page})=>{
     page.on('pageerror',error=>errors.push(error.message+' '+error.stack));
     page.on('response',response=>{if(response.status()>=400 && /\/livewire[^/]*\/|\/inventory-scanner-api\//.test(response.url())) errors.push(response.status()+' '+response.url())});
     (page as any).auditErrors=errors;
-    await visit(page,'/admin/login');
+    await visit(page,'/admin/inventory-scanner');
     await page.locator('input[type=email]').fill(fixture().email);
     await page.locator('input[type=password]').fill('inventory-audit-local');
     await page.locator('button[type=submit]').click();
@@ -65,18 +65,28 @@ test('scan-to-move and stock corrections persist after reload',async({page})=>{
     await expect(field(page,'newQuantity')).toHaveValue('7');
 });
 
-test('continuous scans submit once per operation and unknown barcode recovery closes',async({page})=>{
+test('continuous lookups do not change stock and explicit add commits once',async({page})=>{
     const f=fixture();await visit(page,'/admin/inventory-scanner');
-    await page.locator('button[wire\\:click="switchMode(\'quickadd\')"]').click();
-    await select(page,'qaLocationId',f.source);await field(page,'qaQty').fill('1');
+    await scan(page);
+    await expect(page.getByText('Existing item found',{exact:true})).toBeVisible();
+    const total=()=>page.evaluate(()=>{
+        const root=document.querySelector('[data-vx-page="inventory-scanner"]')!.closest('[wire\\:id]')!;
+        return Number((window as any).Livewire.find(root.getAttribute('wire:id')).get('selectedItem').total_qty);
+    });
+    const before=await total();
     let requests=0;page.on('request',request=>{if(/\/livewire[^/]*\/update/.test(request.url()))requests++});
     await page.evaluate(()=>{for(let i=0;i<3;i++)window.dispatchEvent(new CustomEvent('barcode-scanned',{detail:{value:'012345678905'},cancelable:true}))});
-    await expect(page.getByText('Stock added: Browser Audit Box')).toBeVisible();
     await expect.poll(()=>requests).toBe(3);
-    await page.locator('button[wire\\:click="switchMode(\'lookup\')"]').click();
+    await page.waitForLoadState('networkidle');
+    expect(await total()).toBe(before);
+    await page.getByRole('button',{name:'Add / change stock',exact:true}).click();
+    await select(page,'qaLocationId',f.source);await field(page,'qaQty').fill('1');
+    await page.getByRole('button',{name:'Confirm Add Stock',exact:true}).click();
+    await expect.poll(total).toBe(before+1);
+    await page.locator('button[wire\\:click="switchMode(\'lookup\')"]').filter({visible:true}).first().click();
     await scan(page,'AUDIT-UNKNOWN-CODE');
-    const sheet=page.getByRole('dialog',{name:'Unknown barcode'});
-    await expect(sheet).toBeVisible();await sheet.getByRole('button',{name:'Close',exact:true}).click();
+    const sheet=page.getByRole('dialog',{name:'New barcode detected'});
+    await expect(sheet).toBeVisible();await sheet.getByRole('button',{name:'Close barcode dialog',exact:true}).click();
     await expect(sheet).toHaveCount(0);
     await scan(page);await expect(page.getByRole('link',{name:'Move / Correct Stock'})).toBeVisible();
 });
@@ -103,18 +113,17 @@ test('inventory pages render without horizontal overflow or browser errors',asyn
     await page.screenshot({path:'tests/Browser/output/inventory-audit/'+testInfo.project.name+'-inventory.png',fullPage:true});
 });
 
-test('quick add stock persists through the standalone form',async({page})=>{
+test('legacy quick add links open the scanner and explicit stock addition persists',async({page})=>{
     const f=fixture();
     await visit(page,'/admin/quick-add-stock');
-    await field(page,'barcode').fill('012345678905');
-    await page.locator('button[wire\\:click="scanBarcode"]').click();
-    await expect(page.getByText('Browser Audit Box',{exact:true}).first()).toBeVisible();
-    await select(page,'locationId',f.source);
-    await page.locator('input[wire\\:model\\.number="quantity"]').fill('2');
-    await page.locator('button[wire\\:click="addStock"]').click();
-    await expect(page.getByText('Stock Added',{exact:true})).toBeVisible();
-    await reload(page);
-    await expect(page.getByText('Browser Audit Box',{exact:true}).first()).toBeHidden();
+    await expect(page).toHaveURL(/inventory-scanner/);
+    await scan(page);
+    await page.getByRole('button',{name:'Add / change stock',exact:true}).click();
+    await select(page,'qaLocationId',f.source);await field(page,'qaQty').fill('2');
+    await page.getByRole('button',{name:'Confirm Add Stock',exact:true}).click();
+    await expect(page.getByText('Stock added: Browser Audit Box')).toBeVisible();
+    await reload(page);await scan(page);
+    await expect(page.getByText('Existing item found',{exact:true})).toBeVisible();
 });
 
 test('receiving scan updates cases and survives reopening the delivery',async({page},testInfo)=>{
@@ -150,7 +159,7 @@ test('camera manual fallback submits and closes without a stuck layer',async({pa
 
 async function signInAs(page:Page,email:string) {
     await visit(page,'about:blank');
-    await page.context().clearCookies();await visit(page,'/admin/login');
+    await page.context().clearCookies();await visit(page,'/admin/inventory-items');
     await page.locator('input[type=email]').fill(email);
     await page.locator('input[type=password]').fill('inventory-audit-local');
     await page.locator('button[type=submit]').click();
@@ -158,14 +167,14 @@ async function signInAs(page:Page,email:string) {
     await page.waitForLoadState('networkidle');
 }
 
-test('admins cannot see another assigned location and streamers have no card controls',async({page})=>{
+test('admins can inspect all locations and streamers have no card controls',async({page})=>{
     const f=fixture();await signInAs(page,f.adminEmail);
     await visit(page,'/admin/inventory-items');
     await expect(page.locator('.vx-product-card').first()).toBeVisible();
-    await expect(page.locator('.fi-main')).not.toContainText('Audit Personal Shelf');
-    await expect(page.locator('.fi-main')).not.toContainText('Audit Back');
+    await expect(page.locator('select[wire\\:model\\.live="inventoryLocation"]')).toContainText('Audit Personal Shelf');
+    await expect(page.locator('select[wire\\:model\\.live="inventoryLocation"]')).toContainText('Audit Back');
     const hidden = await visit(page,'/admin/inventory-locations/'+f.readerLocation);
-    expect([403,404]).toContain(hidden!.status());
+    expect(hidden!.status()).toBe(200);
     await signInAs(page,f.streamerEmail);
     await visit(page,'/admin/inventory-items');
     await expect(page.locator('.vx-product-card').first()).toBeVisible();

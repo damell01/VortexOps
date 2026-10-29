@@ -215,7 +215,8 @@ class EndOfStreamForm extends Page implements HasForms
         $locations = collect(\App\Support\InventoryVisibility::reportLocationIdsForStreamer($this->reportStreamerId()));
         $user = auth()->user();
         if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            return $locations->intersect(\App\Support\InventoryVisibility::locationIdsFor($user) ?? [])->values();
+            $visible = \App\Support\InventoryVisibility::locationIdsFor($user);
+            return $visible === null ? $locations : $locations->intersect($visible)->values();
         }
         return $locations;
     }

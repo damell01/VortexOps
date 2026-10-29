@@ -485,6 +485,8 @@ class ListInventoryItems extends ListRecords
     public function addStockAction(): Action
     {
         return Action::make('add_stock')
+            ->visible(fn (): bool => InventoryItemResource::canManageStock())
+            ->authorize(fn (): bool => InventoryItemResource::canManageStock())
             ->label('Add Stock')
             ->icon('heroicon-o-plus-circle')
             ->color('primary')
@@ -636,9 +638,9 @@ class ListInventoryItems extends ListRecords
         // Keep page-level actions in the purple quick-action strip below.
         // The only Filament action retained here is the hidden modal action
         // used by each product card's Add Stock button.
-        return [
+        return InventoryItemResource::canManageStock() ? [
             $this->addStockAction()->extraAttributes(['class' => 'hidden']),
-        ];
+        ] : [];
     }
 }
 

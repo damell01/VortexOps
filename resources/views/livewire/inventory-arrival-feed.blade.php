@@ -4,7 +4,7 @@
 <ul>
 @foreach ($events as $event)
 <li wire:key="arrival-{{ $event->id }}" class="py-2 text-sm">
-<strong>{{ $event->kind === 'restocked' ? 'Restocked' : 'New arrival' }}</strong> — {{ $event->name }}
+<strong>{{ match($event->kind) {'sold_out' => 'Sold out', 'restocked' => 'Restocked', 'stock_added' => 'Stock added', 'new_item' => 'New item', default => 'New stock'} }}</strong> — {{ $event->name }}
 </li>
 @endforeach
 </ul>

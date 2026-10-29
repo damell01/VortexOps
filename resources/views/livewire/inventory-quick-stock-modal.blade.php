@@ -8,7 +8,7 @@
         <div class="vx-quick-stock-overlay fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-[max(.5rem,env(safe-area-inset-top))] pb-[max(.5rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4" wire:key="inventory-quick-stock-modal">
             <button type="button" class="absolute inset-0 cursor-default" wire:click="close" aria-label="Close Add Stock modal"></button>
 
-            <div class="vx-quick-stock-modal relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 sm:max-h-[min(92dvh,860px)]">
+            <div class="vx-quick-stock-modal relative z-10 flex max-h-[calc(100dvh-1rem)] w-full max-w-lg lg:max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 sm:max-h-[min(92dvh,860px)] lg:max-h-[calc(100dvh-3rem)]">
                 <div class="flex shrink-0 items-start justify-between gap-4 border-b border-gray-200 px-4 py-3 dark:border-gray-700 sm:px-5 sm:py-4">
                     <div class="min-w-0">
                         <div class="text-xs font-bold uppercase tracking-wide text-emerald-600">Add Stock</div>
@@ -20,7 +20,7 @@
                 </div>
 
                 <form wire:submit="save" class="flex min-h-0 flex-1 flex-col" novalidate>
-                    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
+                    <div class="min-h-0 flex-1 grid content-start grid-cols-1 gap-4 overflow-y-auto overscroll-contain p-4 sm:p-5 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-4">
                         <label class="block">
                             <span class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">Location</span>
                             <select wire:model="locationId" class="min-h-11 w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
@@ -80,7 +80,7 @@
                             @error('itemPhoto')<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
 
-                        <div class="grid gap-4 sm:grid-cols-2">
+                        <div class="grid gap-4 sm:grid-cols-2 lg:col-span-2">
                             <label class="block">
                                 <span class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">Vendor <span class="font-normal text-gray-400">optional</span></span>
                                 <select wire:model="vendorId" class="min-h-11 w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
@@ -98,7 +98,7 @@
                             </label>
                         </div>
 
-                        <label class="block">
+                        <label class="block lg:col-span-2">
                             <span class="mb-1 block text-sm font-semibold text-gray-700 dark:text-gray-200">Note / Reason <span class="font-normal text-gray-400">optional</span></span>
                             <textarea wire:model="reason" rows="2" class="w-full rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Restock, count correction, vendor shipment…"></textarea>
                             @error('reason')<div class="mt-1 text-xs text-red-600">{{ $message }}</div>@enderror

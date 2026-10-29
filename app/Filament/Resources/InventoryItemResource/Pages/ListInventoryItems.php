@@ -120,8 +120,11 @@ class ListInventoryItems extends ListRecords
     {
         $query = $this->getFilteredTableQuery()->reorder();
         $shown = array_filter([$this->inventoryPageLocationId()]);
+        // The location filter already configures stock eager loading. Replace
+        // it with one explicit relation load for cards; avoid redundant nested
+        // eager-load definitions and fetching stock from other warehouses.
         if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) {
-            $query->with(['stock.location']);
+            $query->with(['stock' => fn ($q) => $q->with('location')]);
         } else {
             $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
         }

@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+<div x-data="{ pendingStock: null }" x-on:livewire:commit.window="pendingStock = null">
 <style>
 .vx-health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.vx-health{border:1px solid rgb(229 231 235);border-radius:14px;padding:14px;text-align:left;background:white;transition:.15s}.dark .vx-health{background:#101827;border-color:#263248}.vx-health:hover,.vx-health.active{border-color:#7c3aed;box-shadow:0 0 0 1px #7c3aed}.vx-health strong{display:block;font-size:1.65rem}.vx-health{min-height:92px}.vx-health-label{font-weight:700}.vx-health-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px}.vx-health-label{font-size:.76rem;color:#94a3b8}.vx-health-percent{font-size:.72rem;font-weight:700;color:#7c3aed}
 .vx-inv-toolbar{display:flex;gap:.65rem;align-items:center;flex-wrap:wrap}.vx-inv-search{flex:1;min-width:220px}.vx-inv-input{width:100%;min-height:44px;border:1px solid rgb(209 213 219);border-radius:.75rem;background:white;padding:.65rem .8rem;font-size:.875rem}.dark .vx-inv-input{background:rgb(17 24 39);border-color:rgb(75 85 99);color:white}.vx-view-toggle{display:inline-flex;padding:3px;border:1px solid rgb(229 231 235);border-radius:.75rem;background:rgb(249 250 251);flex-shrink:0}.dark .vx-view-toggle{background:rgb(17 24 39);border-color:rgb(55 65 81)}.vx-view-btn{min-height:38px;border-radius:.55rem;padding:.45rem .8rem;font-size:.76rem;font-weight:800;color:rgb(107 114 128);display:inline-flex;align-items:center;justify-content:center;gap:.35rem}.vx-view-btn.active{background:white;color:rgb(17 24 39);box-shadow:0 1px 3px rgba(15,23,42,.08)}.dark .vx-view-btn.active{background:rgb(31 41 55);color:white}
@@ -41,6 +42,12 @@
 .vx-select-check{width:30px;height:30px;top:6px;left:6px;border-radius:8px}.vx-select-check input{width:16px;height:16px}
 @media(max-width:639px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}.vx-product-card .vx-product-image{aspect-ratio:16/9;height:auto}.vx-product-card .vx-product-title{display:-webkit-box;-webkit-line-clamp:2;font-size:.84rem;line-height:1.1rem;overflow:hidden}.vx-product-card .vx-product-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vx-product-tags{flex-wrap:nowrap}.vx-product-tags .vx-product-meta{display:none}.vx-product-card .vx-card-action{min-height:40px!important}.vx-card-figs{grid-template-columns:1fr 1fr}.vx-card-fig:last-child{grid-column:1/-1;border-left:0;border-top:1px solid #e5e7eb}}
 @media(max-width:359px){.vx-inventory-list .vx-catalog-view .vx-catalog-grid{grid-template-columns:minmax(0,1fr)!important}}
+
+/* Align all stock/type badges consistently, including multi-word labels. */
+.vx-product-tags{flex-wrap:wrap;align-items:center;justify-content:flex-start;row-gap:5px}
+.vx-product-tags .vx-stock,.vx-product-tags .vx-type{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;text-align:center;min-height:22px;line-height:1.1;padding:4px 8px;white-space:normal}
+.vx-product-tags .vx-product-meta{margin-left:0}
+.vx-health[wire\\:loading]{cursor:progress}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
@@ -86,8 +93,8 @@
  </section>
  <div class="vx-health-grid">
   @foreach($this->getStats() as $stat)
-   @if($stat['key'])<button type="button" wire:click="filterStock('{{ $stat['key'] }}')" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>
-   @else<button type="button" wire:click="filterStock(null)" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>@endif
+   @if($stat['key'])<button type="button" wire:click="filterStock('{{ $stat['key'] }}')" x-on:click="pendingStock = '{{ $stat['key'] }}'" x-bind:class="{ 'active': pendingStock === '{{ $stat['key'] }}' }" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>
+   @else<button type="button" wire:click="filterStock(null)" x-on:click="pendingStock = 'all'" x-bind:class="{ 'active': pendingStock === 'all' }" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>@endif
   @endforeach
  </div>
 
@@ -194,5 +201,6 @@
 </div>
 {{-- Card view does not render the table that normally owns the action modals. --}}
 <x-filament-actions::modals />
+</div>
 </x-filament-panels::page>
 

@@ -89,29 +89,31 @@
                 {{-- Quantity Selector --}}
                 <div class="border-t border-green-200 dark:border-green-700 pt-4">
                     <label class="block text-sm font-medium text-green-900 dark:text-green-100 mb-3">Quantity</label>
-                    <div class="flex items-center gap-3">
-                        <button
-                            wire:click="decrementQuantity"
-                            class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xl transition active:opacity-75 touch-manipulation"
-                        >
-                            −
-                        </button>
-                        <input
-                            wire:model.live.number="quantity"
-                            type="number"
-                            inputmode="numeric"
-                            pattern="[0-9]*"
-                            aria-label="Type quantity to add"
-                            min="1"
-                            class="w-20 px-4 py-2 text-center text-lg font-bold rounded-lg border-2 border-green-600 dark:border-green-500 bg-white dark:bg-gray-700 text-green-900 dark:text-green-100"
-                            style="min-height: 44px;"
-                        />
-                        <button
-                            wire:click="incrementQuantity"
-                            class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-xl transition active:opacity-75 touch-manipulation"
-                        >
-                            +
-                        </button>
+                    <div x-data="{ keypad: false, digits: String($wire.quantity || 1), typeDigit(d) { this.digits = this.digits === '0' ? d : this.digits + d; $wire.set('quantity', Number(this.digits || 0)); }, erase() { this.digits = this.digits.slice(0, -1); $wire.set('quantity', Number(this.digits || 0)); } }" class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <input wire:model.live.number="quantity" type="number" min="1" step="1"
+                                inputmode="numeric" autocomplete="off" aria-label="Quantity to add"
+                                x-on:input="digits = $event.target.value"
+                                class="min-h-12 w-32 rounded-lg border-2 border-green-600 bg-white px-3 text-center text-lg font-bold text-green-900 dark:border-green-500 dark:bg-gray-800 dark:text-white" />
+                            <button type="button" x-on:click="digits = String($wire.quantity || 1); keypad = !keypad"
+                                x-bind:aria-expanded="keypad.toString()" aria-label="Toggle on-screen number pad"
+                                class="min-h-12 rounded-lg border border-green-600 bg-white px-4 font-semibold text-green-800 dark:bg-gray-800 dark:text-green-200">
+                                Number pad
+                            </button>
+                        </div>
+                        <div x-show="keypad" x-cloak class="grid max-w-xs grid-cols-3 gap-2" aria-label="On-screen quantity keypad">
+                            <template x-for="digit in ['1','2','3','4','5','6','7','8','9']" :key="digit">
+                                <button type="button" x-on:click="typeDigit(digit)" x-text="digit"
+                                    class="min-h-12 rounded-lg border border-green-300 bg-white text-lg font-bold text-green-900 dark:bg-gray-800 dark:text-white"></button>
+                            </template>
+                            <button type="button" x-on:click="digits = ''; $wire.set('quantity', 0)"
+                                class="min-h-12 rounded-lg border border-green-300 bg-white font-semibold text-green-900 dark:bg-gray-800 dark:text-white">Clear</button>
+                            <button type="button" x-on:click="typeDigit('0')"
+                                class="min-h-12 rounded-lg border border-green-300 bg-white text-lg font-bold text-green-900 dark:bg-gray-800 dark:text-white">0</button>
+                            <button type="button" x-on:click="erase()"
+                                class="min-h-12 rounded-lg border border-green-300 bg-white font-semibold text-green-900 dark:bg-gray-800 dark:text-white">⌫</button>
+                        </div>
+                        <p class="text-xs text-green-800 dark:text-green-200">If your Bluetooth scanner hides the phone keyboard, use Number pad.</p>
                     </div>
                 </div>
 

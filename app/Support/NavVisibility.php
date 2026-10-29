@@ -34,15 +34,7 @@ class NavVisibility
         \App\Filament\Pages\QuickAddStock::class => [\App\Filament\Pages\InventoryScanner::class],
     ];
 
-    /**
-     * What a role sees before anyone picks its pages on Roles & Permissions.
-     *
-     * A role with no saved list is unrestricted, which is right for the
-     * built-in admin and streamer roles but left streamer assistants able to
-     * open payouts, profit share, pallets and the rest of the admin pages.
-     * They clock in, look stock up and follow their streamers' shows; saving
-     * a list for the role on the Roles screen replaces this.
-     */
+    /** Default page grants. Assistants have a fixed clock-and-paid-pay workspace. */
     public const ROLE_DEFAULTS = [
         'streamer_assistant' => [\App\Filament\Pages\DashboardImproved::class],
     ];
@@ -82,6 +74,8 @@ class NavVisibility
         if (! $user || ! method_exists($user, 'getRoleNames')) {
             return false;
         }
+
+        if (method_exists($user, 'isStreamerAssistant') && $user->isStreamerAssistant()) return false;
 
         foreach ($user->getRoleNames() as $role) {
             if (self::hasExplicitVisibility($role) && in_array($class, self::visibleForRole($role), true)) {

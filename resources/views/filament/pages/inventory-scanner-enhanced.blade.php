@@ -246,11 +246,16 @@
                                             <h3 class="text-xl font-extrabold text-gray-950 dark:text-white">Selected inventory item</h3>
                                             <button type="button" wire:click="barcodeBackToCatalog" class="min-h-11 rounded-lg border border-gray-200 bg-white px-3 text-sm font-bold text-violet-700 dark:bg-gray-800">Change</button>
                                         </div>
-                                        <div class="mt-4 flex flex-col gap-4 sm:flex-row">
-                                            <div class="flex h-36 w-full shrink-0 items-center justify-center rounded-xl bg-white dark:bg-gray-800 sm:w-36">
-                                                @if($preview['image'])<img src="{{ $preview['image'] }}" alt="" class="h-full w-full object-contain" />@else<x-heroicon-o-cube class="h-12 w-12 text-gray-400" />@endif
+                                        <div class="mt-4 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+                                            <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-gray-800">
+                                                @if($preview['image'])<img src="{{ $preview['image'] }}" alt="" class="h-full w-full object-contain" onerror="this.style.display='none'" />@else<x-heroicon-o-cube class="h-12 w-12 text-gray-400" />@endif
                                             </div>
-                                            <div class="min-w-0"><p class="text-lg font-extrabold text-gray-950 dark:text-white">{{ $preview['name'] }}</p><p class="mt-1 text-sm text-gray-500">SKU: {{ $preview['sku'] ?: 'None' }}</p><p class="mt-2 text-xs text-gray-500">{{ $preview['category'] ?: 'Uncategorized' }}</p><p class="mt-4 text-xs font-bold text-gray-500">Current stock</p><p class="text-2xl font-extrabold text-emerald-700">{{ number_format($preview['quantity']) }} units</p></div>
+                                            <div class="min-w-0 flex-1 break-words">
+                                                <p class="text-base font-extrabold leading-snug text-gray-950 dark:text-white">{{ $preview['name'] }}</p>
+                                                <p class="mt-2 break-all text-xs text-gray-500">SKU: {{ $preview['sku'] ?: 'None' }}</p>
+                                                <p class="mt-2 text-xs text-gray-500">{{ $preview['category'] ?: 'Uncategorized' }}</p>
+                                                <div class="mt-4 rounded-xl bg-white p-3 dark:bg-gray-900"><p class="text-xs font-bold text-gray-500">Current stock</p><p class="text-xl font-extrabold text-emerald-700">{{ number_format($preview['quantity']) }} units</p></div>
+                                            </div>
                                         </div>
                                     </section>
                                     <section class="rounded-2xl border border-violet-200 bg-white p-5 dark:border-violet-900 dark:bg-gray-900">
@@ -329,7 +334,11 @@
                                 <label class="block text-xs font-semibold">Target sale price (optional)<span class="mt-0.5 block font-normal text-gray-500">What you want to sell it for</span><input wire:model="newItemPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="$0.00" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                             </div>
                             <label class="block rounded-xl border border-dashed border-violet-200 bg-violet-50/40 p-3 text-xs font-bold text-gray-700 dark:border-violet-900 dark:text-gray-200">Item photo (optional)
-                                <input type="file" wire:model="newItemPhoto" accept="image/jpeg,image/png,image/webp" class="mt-2 block w-full text-sm" />
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" />Take Photo<input type="file" wire:model="newItemPhoto" accept="image/jpeg,image/png,image/webp" capture="environment" class="sr-only" /></label>
+                                    <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-violet-200 bg-white px-4 py-2 text-sm font-bold text-violet-700 dark:border-violet-900 dark:bg-gray-900"><x-heroicon-o-photo class="h-5 w-5" />Choose Photo<input type="file" wire:model="newItemPhoto" accept="image/jpeg,image/png,image/webp" class="sr-only" /></label>
+                                    @if($newItemPhoto)<span class="self-center text-xs font-semibold text-emerald-700">Photo selected</span><button type="button" wire:click="$set('newItemPhoto', null)" class="min-h-11 rounded-lg border px-3 text-xs font-bold">Clear</button>@endif
+                                </div>
                                 <span class="mt-1 block font-normal text-gray-500">Choose a photo or use your device camera. Maximum 5 MB.</span>
                                 <span wire:loading wire:target="newItemPhoto" class="mt-1 block text-violet-700">Uploading photo…</span>
                                 @error('newItemPhoto')<span class="mt-1 block text-red-600">{{ $message }}</span>@enderror
@@ -428,7 +437,11 @@
                             <div class="min-w-0 flex-1">
                                 <label for="vx-scanned-item-photo" class="block text-sm font-semibold text-gray-900 dark:text-white">Item photo <span class="font-normal text-gray-500">(optional)</span></label>
                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Choose a photo from your device or camera. JPG, PNG or WebP, up to 5 MB.</p>
-                                <input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" wire:model="itemPhoto" class="mt-2 block w-full min-w-0 text-xs text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-800 dark:text-gray-200" />
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" />Take Photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" wire:model="itemPhoto" class="sr-only" /></label>
+                                    <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-violet-200 px-4 py-2 text-xs font-bold text-violet-700"><x-heroicon-o-photo class="h-5 w-5" />Choose Photo<input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" wire:model="itemPhoto" class="sr-only" /></label>
+                                    @if($itemPhoto)<button type="button" wire:click="$set('itemPhoto', null)" class="min-h-11 rounded-lg border px-3 text-xs font-bold">Clear</button>@endif
+                                </div>
                                 @error('itemPhoto')<p class="mt-1 text-xs font-semibold text-red-600" role="alert">{{ $message }}</p>@enderror
                                 @if($photoFeedback)<p class="mt-1 text-xs font-semibold text-green-700" role="status">{{ $photoFeedback }}</p>@endif
                                 <div wire:loading wire:target="itemPhoto" class="mt-1 text-xs text-violet-700" role="status">Uploading photo…</div>

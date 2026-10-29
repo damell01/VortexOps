@@ -3,12 +3,26 @@ import fs from 'node:fs';
 const fixture = () => JSON.parse(fs.readFileSync('storage/framework/testing/inventory-audit-fixture.json','utf8'));
 const field = (page:Page, name:string) => page.locator('[wire\\:model="'+name+'"],[wire\\:model\\.live="'+name+'"],[wire\\:model\\.live\\.debounce\\.400ms="'+name+'"]').filter({visible:true});
 
-async function visit(page:Page, url:string) {
+async function settle(page:Page) {
+    if (!page.url().startsWith('http')) return;
+    // WebKit can start the intersect-driven notification load after networkidle.
+    // Wait for that real component to mount before a full-document test navigation.
+    await expect.poll(() => page.evaluate(() => {
+        const livewire = (window as any).Livewire;
+        if (!livewire) return true;
+        return livewire.all().some((component:any) =>
+            component.name === 'Filament\\Livewire\\DatabaseNotifications'
+            && component.snapshot.memo.lazyLoaded === false);
+    }), { message: 'notification lazy loading settled' }).toBe(false);
     await page.waitForLoadState('networkidle');
+}
+
+async function visit(page:Page, url:string) {
+    await settle(page);
     return page.goto(url);
 }
 async function reload(page:Page) {
-    await page.waitForLoadState('networkidle');
+    await settle(page);
     return page.reload();
 }
 async function scan(page:Page, code='012345678905') {
@@ -51,15 +65,15 @@ test.beforeEach(async ({page})=>{
     await page.locator('input[type=password]').fill('inventory-audit-local');
     await page.locator('button[type=submit]').click();
     await expect(page.locator('input[type=password]')).toHaveCount(0,{timeout:30000});
-    await page.waitForLoadState('networkidle');
+    await settle(page);
 });
-test.afterEach(async ({page})=>{await page.waitForLoadState('networkidle');expect((page as any).auditErrors).toEqual([]);expect((page as any).auditResizeDeferrals.length,'repeated browser resize deferrals').toBeLessThanOrEqual(3)});
+test.afterEach(async ({page})=>{await settle(page);expect((page as any).auditErrors).toEqual([]);expect((page as any).auditResizeDeferrals.length,'repeated browser resize deferrals').toBeLessThanOrEqual(3)});
 
 test('scan-to-move and stock corrections persist after reload',async({page})=>{
     const f=fixture();
     await visit(page,'/admin/inventory-scanner');await scan(page);
     await expect(page.getByText('Browser Audit Box',{exact:true})).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    await settle(page);
     await page.getByRole('link',{name:'Move / Correct Stock'}).click();
     await page.getByRole('button',{name:'Move stock',exact:true}).click();
     await select(page,'fromLocationId',f.source);await select(page,'toLocationId',f.destination);
@@ -86,7 +100,7 @@ test('continuous lookups do not change stock and explicit add commits once',asyn
     let requests=0;page.on('request',request=>{if(/\/livewire[^/]*\/update/.test(request.url()))requests++});
     await page.evaluate(()=>{for(let i=0;i<3;i++)window.dispatchEvent(new CustomEvent('barcode-scanned',{detail:{value:'012345678905'},cancelable:true}))});
     await expect.poll(()=>requests).toBe(3);
-    await page.waitForLoadState('networkidle');
+    await settle(page);
     expect(await total()).toBe(before);
     await page.getByRole('button',{name:'Add / change stock',exact:true}).click();
     await select(page,'qaLocationId',f.source);await field(page,'qaQty').fill('1');
@@ -173,7 +187,7 @@ async function signInAs(page:Page,email:string) {
     await page.locator('input[type=password]').fill('inventory-audit-local');
     await page.locator('button[type=submit]').click();
     await expect(page.locator('input[type=password]')).toHaveCount(0);
-    await page.waitForLoadState('networkidle');
+    await settle(page);
 }
 
 test('admins can inspect all locations and streamers have no card controls',async({page})=>{

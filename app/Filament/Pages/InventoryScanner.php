@@ -124,6 +124,7 @@ class InventoryScanner extends Page
     public ?array $qaFlash      = null; // ['name', 'qty', 'location', 'created']
     public ?int $selectedItemId = null;
     public $itemPhoto = null;
+    public $newItemPhoto = null;
     public ?string $photoFeedback = null;
     public ?array $selectedItem = null;
     public string $unmatchedBarcode = '';
@@ -541,6 +542,7 @@ class InventoryScanner extends Page
         $this->reset('itemPhoto');
         $this->photoFeedback = null;
         $this->selectedItem = $this->buildResultFromItem($item);
+        $this->dispatch('vx-scanner-item-ready');
         $this->unmatchedBarcode = '';
         $this->errorMessage = null;
         $this->qaFlash = null;
@@ -782,6 +784,9 @@ class InventoryScanner extends Page
             $this->errorMessage = 'Enter a valid non-negative price.';
             return;
         }
+        if ($this->newItemPhoto) {
+            $this->validate(['newItemPhoto' => ['image', 'mimes:jpeg,jpg,png,webp', 'max:5120']]);
+        }
         $withStock = $this->addStockAfterResolve;
         try {
             $item = \Illuminate\Support\Facades\DB::transaction(function () use ($code, $name, $withStock) {
@@ -809,13 +814,25 @@ class InventoryScanner extends Page
             return;
         }
         $stock = $withStock ? $this->qaFlash : null;
+        $photoError = null;
+        if ($this->newItemPhoto) {
+            try {
+                $photoPath = $this->newItemPhoto->store('inventory-items', InventoryItem::IMAGE_DISK);
+                if (! $photoPath) throw new \RuntimeException('Photo storage failed.');
+                $item->update(['image_path' => $photoPath]);
+            } catch (\Throwable $e) {
+                report($e);
+                $photoError = 'Item saved, but its photo could not be uploaded. Use Update Item Photo to retry.';
+            }
+            $this->reset('newItemPhoto');
+        }
         $this->newItemName = '';
         $this->newItemCost = '';
         $this->newItemPrice = '';
         $this->unmatchedBarcode = '';
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
-        $this->barcodeSuccess = ['action' => 'created', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $stock, 'stock_error' => null];
+        $this->barcodeSuccess = ['action' => 'created', 'barcode' => $code, 'name' => $item->name, 'item_id' => $item->id, 'stock' => $stock, 'stock_error' => $photoError];
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

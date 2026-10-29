@@ -66,8 +66,16 @@ class StreamerAssistantDashboardTest extends TestCase
         $this->assertTrue($user->isStreamerAssistant());
         $this->assertFalse($user->isAdmin());
         $this->assertFalse($user->canSwitchChannels());
+        $this->assertFalse(\App\Support\InventoryPopupPolicy::enabledFor($user));
         $this->get(ShowResource::getUrl('index'))->assertForbidden();
         $this->get(DashboardImproved::getUrl())->assertOk();
+    }
+
+    public function test_assistants_can_still_log_out(): void
+    {
+        $this->assistant();
+        $this->post(filament()->getLogoutUrl())->assertRedirect();
+        $this->assertGuest();
     }
 
     public function test_owner_access_is_unchanged(): void

@@ -93,12 +93,12 @@
                         <div class="flex items-center gap-2">
                             <input wire:model.live.number="quantity" type="number" min="1" step="1"
                                 inputmode="numeric" autocomplete="off" aria-label="Quantity to add"
-                                x-on:input="digits = $event.target.value"
+                                x-on:focus="digits = $event.target.value || String($wire.quantity || 1); keypad = true" x-on:input="digits = $event.target.value"
                                 class="min-h-12 w-32 rounded-lg border-2 border-green-600 bg-white px-3 text-center text-lg font-bold text-green-900 dark:border-green-500 dark:bg-gray-800 dark:text-white" />
                             <button type="button" x-on:click="digits = String($wire.quantity || 1); keypad = !keypad"
-                                x-bind:aria-expanded="keypad.toString()" aria-label="Toggle on-screen number pad"
+                                x-bind:aria-expanded="keypad.toString()" aria-label="Show or hide on-screen number pad"
                                 class="min-h-12 rounded-lg border border-green-600 bg-white px-4 font-semibold text-green-800 dark:bg-gray-800 dark:text-green-200">
-                                Number pad
+                                Show / hide number pad
                             </button>
                         </div>
                         <div x-show="keypad" x-cloak class="grid max-w-xs grid-cols-3 gap-2" aria-label="On-screen quantity keypad">

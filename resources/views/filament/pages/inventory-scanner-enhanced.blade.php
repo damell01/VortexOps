@@ -236,7 +236,7 @@
                             <button type="button" @click="choice='link'; $wire.barcodeBackToCatalog()" :class="choice === 'link' ? 'border-violet-600 bg-violet-50 text-violet-700 dark:bg-violet-950' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200'" class="min-h-14 rounded-xl border-2 px-3 text-left text-sm font-bold">Link to Existing Item<span class="block text-xs font-normal">Search catalog</span></button>
                             <button type="button" @click="choice='new'" :class="choice === 'new' ? 'border-violet-600 bg-violet-50 text-violet-700 dark:bg-violet-950' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200'" class="min-h-14 rounded-xl border-2 px-3 text-left text-sm font-bold">Create New Item<span class="block text-xs font-normal">Quick create</span></button>
                         </div>
-                        <div x-show="choice === 'link'" class="mt-4">
+                        <div x-show="choice === 'link'" x-data="{ browse: false, query: @js($barcodeLinkSearch) }" class="mt-4">
                             @if($barcodeStep === 'confirm' && $this->catalogSelectedItem)
                                 @php($preview = $this->catalogSelectedItem)
                                 <div class="grid gap-5 lg:grid-cols-2">
@@ -267,15 +267,27 @@
                                     </section>
                                 </div>
                             @else
-                                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
-                                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Search inventory
-                                        <input type="search" wire:model.live.debounce.300ms="barcodeLinkSearch" placeholder="Name, SKU or barcode…" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
-                                    </label>
-                                    <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200">Sort
-                                        <select wire:model.live="catalogSort" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"><option value="name">Name A–Z</option><option value="newest">Newest</option></select>
+                                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/40 sm:p-5">
+                                    <label for="vx-barcode-catalog-search" class="block text-sm font-bold text-gray-900 dark:text-white">Find an existing inventory item</label>
+                                    <p class="mt-1 text-xs text-gray-500">Start typing to search, or open the complete inventory catalog.</p>
+                                    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                                        <input id="vx-barcode-catalog-search" type="search" x-model="query" wire:model.live.debounce.300ms="barcodeLinkSearch" placeholder="Search item name, SKU, or barcode…" autocomplete="off" class="min-h-12 min-w-0 flex-1 rounded-lg border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900" />
+                                        <button type="button" @click="browse = !browse" class="min-h-12 shrink-0 rounded-lg border border-violet-200 bg-white px-4 text-sm font-bold text-violet-700 dark:border-violet-900 dark:bg-gray-900 dark:text-violet-300"><span x-text="browse ? 'Hide full inventory' : 'Browse full inventory'"></span></button>
+                                    </div>
+                                </div>
+                                <div x-show="!browse && query.trim().length === 0" class="mt-4 rounded-xl border border-dashed border-gray-200 p-8 text-center dark:border-gray-700">
+                                    <x-heroicon-o-magnifying-glass class="mx-auto h-9 w-9 text-violet-400" />
+                                    <p class="mt-3 text-sm font-bold text-gray-800 dark:text-gray-200">Search to find the right product</p>
+                                    <p class="mt-1 text-xs text-gray-500">No need to scroll through the whole inventory.</p>
+                                </div>
+                                <div x-show="browse || query.trim().length > 0" x-cloak>
+                                <div class="mt-3 flex flex-wrap items-end justify-between gap-2">
+                                    <p class="text-xs font-semibold text-gray-500" x-text="browse ? 'Full inventory catalog' : 'Search results'"></p>
+                                    <label class="text-xs font-semibold text-gray-700 dark:text-gray-200">Sort
+                                        <select wire:model.live="catalogSort" class="ml-2 min-h-10 rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800"><option value="name">Name A–Z</option><option value="newest">Newest</option></select>
                                     </label>
                                 </div>
-                                <div class="mt-3 flex gap-2 overflow-x-auto pb-2">
+                                <div x-show="browse" class="mt-3 flex gap-2 overflow-x-auto pb-2">
                                     <button type="button" wire:click="$set('catalogCategory', '')" class="min-h-11 shrink-0 rounded-lg px-3 text-xs font-bold {{ $catalogCategory === '' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}">All Items</button>
                                     @foreach($this->catalogCategories as $category)
                                         <button type="button" wire:click="$set('catalogCategory', @js($category))" class="min-h-11 shrink-0 rounded-lg px-3 text-xs font-bold {{ $catalogCategory === $category ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}">{{ $category }}</button>
@@ -305,6 +317,7 @@
                                 @else
                                     <p class="p-4 text-sm text-gray-500">Loading catalog…</p>
                                 @endif
+                                </div>
                             @endif
                         </div>
                         <div x-show="choice === 'new'" x-cloak class="mt-4 space-y-3">

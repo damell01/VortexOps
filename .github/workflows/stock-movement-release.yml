@@ -1,0 +1,229 @@
+name: Verified stock movement release
+'on':
+  push:
+    branches:
+    - fix/stock-movement-release
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Verify inventory movement and scanner regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    - uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.4'
+        extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+        coverage: none
+    - uses: actions/cache@v4
+      with:
+        path: vendor
+        key: composer-${{ hashFiles('composer.lock') }}
+        restore-keys: composer-
+    - run: composer install --no-interaction --prefer-dist --no-progress
+    - run: cp .env.example .env
+    - run: 'php artisan test tests/Feature/Inventory/InventoryMovementVisibilityTest.php
+        tests/Feature/Inventory/ManageStockPageTest.php tests/Feature/Inventory/InventoryScannerTest.php
+        tests/Feature/Inventory/ScannerNumberFormattingTest.php tests/Feature/Inventory/InventoryCatalogAddStockTest.php
+        tests/Feature/Reports/LedgerTipReportTest.php tests/Feature/Payroll/OtherPaymentInPayRunTest.php
+        tests/Feature/Reliability/InventoryAdminNavigationTest.php tests/Feature/Reliability/ReceivingNavigationTest.php
+
+        node --test tests/Browser/camera-scanner.test.cjs
+
+        node scripts/check-modal-opening.cjs'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: npm
+    - run: npm ci
+    - run: npm run build
+  release:
+    needs:
+    - verify
+    - browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 10m
+        script: "set -eu\ncd /var/www/vortexops\nTARGET=c8fd289851efc31181256c23b28edb542bd7e92b\n\
+          git diff --quiet\ngit diff --cached --quiet\ngit fetch origin Production\n\
+          [ \"$(git rev-parse origin/Production)\" = \"$TARGET\" ] || { echo 'Production\
+          \ advanced; refusing a stale release'; exit 1; }\nOLD_SHA=$(git rev-parse\
+          \ HEAD)\necho \"LIVE_SOURCE $(git rev-parse --short HEAD)\"\ngit diff --name-only\
+          \ \"$OLD_SHA\" \"$TARGET\" | while IFS= read -r FILE; do\n  case \"$FILE\"\
+          \ in\n    '.github/workflows/inventory-transfer-audit.yml'|'app/Filament/Pages/EndOfStreamForm.php'|'app/Filament/Resources/InventoryItemResource/Pages/ListInventoryItems.php'|'app/Models/InventoryMovement.php'|'docs/operations-verification-2026-10-29.md'|'resources/views/filament/pages/inventory-scanner-enhanced.blade.php'|'tests/Browser/inventory-audit.spec.ts'|'tests/Feature/Inventory/InventoryMovementVisibilityTest.php'|'tests/Feature/Inventory/InventoryScannerTest.php'|'tests/Feature/Inventory/ScannerNumberFormattingTest.php'|'tests/Feature/Payroll/OtherPaymentInPayRunTest.php'|'tests/Feature/Reports/LedgerTipReportTest.php')\
+          \ ;;\n    *) echo \"Unrelated undeployed change: $FILE\"; exit 1 ;;\n  esac\n\
+          done\nBACKUP=$(mktemp -d /tmp/vortex-stock-assets.XXXXXX)\nif [ -d public/build\
+          \ ]; then cp -a public/build \"$BACKUP/build\"; fi\nrollback() {\n  git\
+          \ checkout -B Production \"$OLD_SHA\"\n  if [ -d \"$BACKUP/build\" ]; then\
+          \ rm -rf public/build; cp -a \"$BACKUP/build\" public/build; fi\n  php artisan\
+          \ optimize:clear >/dev/null 2>&1 || true\n  php artisan config:cache >/dev/null\
+          \ 2>&1 || true\n  php artisan route:cache >/dev/null 2>&1 || true\n  for\
+          \ FPM_UNIT in $(systemctl list-units --type=service --all --no-legend \"\
+          php*-fpm.service\" 2>/dev/null | awk '{print $1}'); do sudo -n systemctl\
+          \ reload \"$FPM_UNIT\" || true; done\n}\ntrap rollback EXIT\ngit checkout\
+          \ -B Production \"$TARGET\"\nnpm ci --no-audit --no-fund\nnpm run build\n\
+          php artisan optimize:clear\nphp artisan config:cache\nphp artisan route:cache\n\
+          php artisan filament:optimize\nFPM_UNITS=$(systemctl list-units --type=service\
+          \ --all --no-legend 'php*-fpm.service' 2>/dev/null | awk '{print $1}')\n\
+          for FPM_UNIT in $FPM_UNITS; do sudo -n systemctl reload \"$FPM_UNIT\"; done\n\
+          php artisan health:check >/dev/null\ntrap - EXIT\necho \"STOCK_MOVEMENT_RELEASED\
+          \ $(git rev-parse --short HEAD)\"\n"
+  verify-serving:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 90s
+        script: "set -eu\ncd /var/www/vortexops\nCHECK_FILE=$(mktemp /var/www/vortexops/storage/framework/inventory-fpm-check.XXXXXX.php)\n\
+          trap 'rm -f \"$CHECK_FILE\"' EXIT\ncat > \"$CHECK_FILE\" <<'PHP'\n<?php\n\
+          try {\n    require '/var/www/vortexops/vendor/autoload.php';\n    $app =\
+          \ require '/var/www/vortexops/bootstrap/app.php';\n    $request = Illuminate\\\
+          Http\\Request::create('https://vortexops.tech/admin/inventory-items', 'GET');\n\
+          \    $app->instance('request', $request);\n    $kernel = $app->make(Illuminate\\\
+          Contracts\\Http\\Kernel::class);\n    $kernel->bootstrap();\n    $app->instance(Illuminate\\\
+          Contracts\\Debug\\ExceptionHandler::class, new class($app) extends Illuminate\\\
+          Foundation\\Exceptions\\Handler {\n        public function report(Throwable\
+          \ $e): void\n        {\n            do {\n                echo 'CHECK_ERROR_CLASS\
+          \ '.get_class($e).\"\\n\";\n                echo 'CHECK_ERROR_SOURCE '.str_replace('/var/www/vortexops/',\
+          \ '', $e->getFile()).':'.$e->getLine().\"\\n\";\n                foreach\
+          \ (['Permission denied', 'failed to open stream', 'file_put_contents', 'memory',\
+          \ 'SQLSTATE', 'Unknown column', 'stock_sum_quantity', 'manifest', 'Undefined',\
+          \ 'must be of type', 'not found', 'Session', 'Redis', 'Connection refused',\
+          \ 'Cannot', 'syntax', 'Call to', 'readonly', 'decrypt', 'No such file',\
+          \ 'Maximum execution'] as $word) {\n                    if (stripos($e->getMessage(),\
+          \ $word) !== false) echo 'CHECK_ERROR_KIND '.$word.\"\\n\";\n          \
+          \      }\n                foreach (['/Unknown column [\\x27\\x22]([A-Za-z0-9_.]+)[\\\
+          x27\\x22]/', '/Undefined variable \\$([A-Za-z0-9_]+)/', '/Call to undefined\
+          \ method ([A-Za-z0-9_\\\\\\\\]+::[A-Za-z0-9_]+)\\(/'] as $pattern) {\n \
+          \                   if (preg_match($pattern, $e->getMessage(), $m)) echo\
+          \ 'CHECK_ERROR_IDENTIFIER '.$m[1].\"\\n\";\n                }\n        \
+          \    } while ($e = $e->getPrevious());\n        }\n    });\n    $owner =\
+          \ App\\Models\\User::where('email', config('app.owner_email'))->firstOrFail();\n\
+          \    auth()->guard('web')->setUser($owner);\n    $response = $kernel->handle($request);\n\
+          \    $assistant = App\\Models\\User::role('streamer_assistant')->where('email',\
+          \ '!=', config('app.owner_email') ?: 'dbellcreations@gmail.com')->where('must_change_password',\
+          \ false)->whereNull('two_factor_confirmed_at')->first();\n    echo 'CHECK_ASSISTANT_AVAILABLE\
+          \ '.($assistant ? 'yes' : 'no').\"\\n\";\n    if ($assistant) {\n      \
+          \  session()->forget('password_hash_web');\n        auth()->guard('web')->setUser($assistant);\n\
+          \        $assistantResponse = $kernel->handle(Illuminate\\Http\\Request::create('https://vortexops.tech/admin',\
+          \ 'GET'));\n        echo 'CHECK_ASSISTANT_STATUS '.$assistantResponse->getStatusCode().\"\
+          \\n\";\n        $html = $assistantResponse->getContent();\n        echo\
+          \ 'CHECK_ASSISTANT_CLOCK '.(str_contains($html, 'data-vx=\"assistant-clock\"\
+          ') ? 'yes' : 'no').\"\\n\";\n        echo 'CHECK_ASSISTANT_PAID_HISTORY\
+          \ '.(str_contains($html, 'Paid pay runs') ? 'yes' : 'no').\"\\n\";\n   \
+          \     auth()->guard('web')->setUser($assistant);\n        $blocked = $kernel->handle(Illuminate\\\
+          Http\\Request::create('https://vortexops.tech/admin/shows', 'GET'));\n \
+          \       echo 'CHECK_ASSISTANT_SHOWS_BLOCKED '.$blocked->getStatusCode().\"\
+          \\n\";\n    }\n    echo 'CHECK_FPM_VERSION '.PHP_VERSION.\"\\n\";\n    echo\
+          \ 'CHECK_INVENTORY_STATUS '.$response->getStatusCode().\"\\n\";\n    echo\
+          \ 'CHECK_CATALOG_VISIBLE '.(str_contains($response->getContent(), 'vx-inventory-list')\
+          \ && str_contains($response->getContent(), 'Products') ? 'yes' : 'no').\"\
+          \\n\";\n} catch (Throwable $e) {\n    echo 'CHECK_EXCEPTION_CLASS '.get_class($e).\"\
+          \\n\";\n}\nPHP\nchmod 644 \"$CHECK_FILE\"\npython3 - \"$CHECK_FILE\" <<'PY'\n\
+          import socket, struct, sys\ndef record(kind, data):\n    return struct.pack('!BBHHBB',\
+          \ 1, kind, 1, len(data), 0, 0) + data\ndef encoded(value):\n    value =\
+          \ value.encode()\n    n = len(value)\n    return (bytes([n]) if n < 128\
+          \ else struct.pack('!I', n | 0x80000000)) + value\nparams = {'SCRIPT_FILENAME':sys.argv[1],\
+          \ 'SCRIPT_NAME':'/inventory-internal-verification.php', 'REQUEST_METHOD':'GET',\
+          \ 'REQUEST_URI':'/admin/inventory-items', 'SERVER_NAME':'vortexops.tech',\
+          \ 'HTTP_HOST':'vortexops.tech', 'SERVER_PORT':'443', 'HTTPS':'on', 'SERVER_PROTOCOL':'HTTP/1.1',\
+          \ 'GATEWAY_INTERFACE':'CGI/1.1', 'REMOTE_ADDR':'127.0.0.1', 'CONTENT_LENGTH':'0'}\n\
+          s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)\ns.settimeout(70)\n\
+          s.connect('/run/php/php8.4-fpm.sock')\ndef pair(k,v):\n    key,value=k.encode(),v.encode()\n\
+          \    def size(n): return bytes([n]) if n < 128 else struct.pack('!I', n\
+          \ | 0x80000000)\n    return size(len(key))+size(len(value))+key+value\n\
+          payload = b''.join(pair(k,v) for k,v in params.items())\ns.sendall(record(1,\
+          \ struct.pack('!HB5x',1,0)) + record(4,payload) + record(4,b'') + record(5,b''))\n\
+          def exact(n):\n    out=b''\n    while len(out)<n:\n        part=s.recv(n-len(out))\n\
+          \        if not part: raise RuntimeError('Incomplete FastCGI response')\n\
+          \        out+=part\n    return out\nstdout=b''\nwhile True:\n    version,kind,req,size,pad,_=struct.unpack('!BBHHBB',exact(8))\n\
+          \    data=exact(size)\n    if pad: exact(pad)\n    if kind==6: stdout+=data\n\
+          \    if kind==3: break\ns.close()\nlines=[line for line in stdout.decode(errors='replace').splitlines()\
+          \ if line.startswith('CHECK_')]\nfor line in lines: print(line)\nexpected\
+          \ = ['CHECK_INVENTORY_STATUS 200', 'CHECK_CATALOG_VISIBLE yes']\nif 'CHECK_ASSISTANT_AVAILABLE\
+          \ yes' in lines:\n    expected += ['CHECK_ASSISTANT_STATUS 200', 'CHECK_ASSISTANT_CLOCK\
+          \ yes', 'CHECK_ASSISTANT_PAID_HISTORY yes', 'CHECK_ASSISTANT_SHOWS_BLOCKED\
+          \ 403']\nif any(item not in lines for item in expected):\n    raise SystemExit('Serving\
+          \ PHP inventory verification failed')\nPY\n"
+    needs: release
+  browser:
+    name: Verify administrator and streamer permissions in three browsers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'true'
+      APP_URL: http://127.0.0.1:8000
+      APP_KEY: base64:3P8d9fK5jjdq1DdRwrn9PkiikXcuF/OFu80W3RN9dmw=
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /tmp/inventory-audit.sqlite
+      CACHE_STORE: array
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+    steps:
+    - uses: actions/checkout@v4
+    - uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.4'
+        extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+        coverage: none
+    - run: composer install --no-interaction --prefer-dist --no-progress
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: npm
+    - run: npm ci
+    - run: npm run build
+    - run: node --test tests/Browser/camera-scanner.test.cjs
+    - run: npx playwright install --with-deps chromium webkit
+    - name: Prepare isolated inventory fixtures
+      run: 'cp .env.example .env
+
+        mkdir -p storage/framework/testing
+
+        touch /tmp/inventory-audit.sqlite
+
+        php artisan migrate --force
+
+        php tests/Browser/fixtures/inventory-audit.php
+
+        '
+    - name: Exercise inventory user workflows
+      shell: bash
+      run: 'php artisan serve --host=127.0.0.1 --port=8000 > /tmp/inventory-server.log
+        2>&1 &
+
+        SERVER_PID=$!
+
+        trap ''kill "$SERVER_PID" 2>/dev/null || true'' EXIT
+
+        for i in {1..30}; do curl -fsS http://127.0.0.1:8000/admin/login >/dev/null
+        && break; sleep 2; done
+
+        npx playwright test --config=playwright.inventory-audit.config.ts --grep "admins
+        can inspect" || { cat /tmp/inventory-server.log; tail -n 100 storage/logs/laravel.log;
+        exit 1; }
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: inventory-audit-browser-results
+        path: tests/Browser/output/inventory-audit

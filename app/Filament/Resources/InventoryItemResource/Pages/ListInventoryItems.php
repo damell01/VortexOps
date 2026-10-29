@@ -9,6 +9,7 @@ use App\Filament\Resources\PalletResource;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\Product;
+use App\Models\ProductIdentity;
 use App\Models\Vendor;
 use App\Services\InventoryService;
 use Filament\Actions\Action;
@@ -16,6 +17,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
@@ -481,12 +483,62 @@ class ListInventoryItems extends ListRecords
                     'movement_type' => 'opening',
                 ]);
             })
-            ->form(InventoryItemResource::addStockFields(fn () => $this->startQuickStockBarcodeScan()))
+            ->form([
+                ...InventoryItemResource::addStockFields(fn () => $this->startQuickStockBarcodeScan()),
+                \Filament\Schemas\Components\Section::make('Barcode & Photo')
+                    ->description('Optional. Add another barcode without replacing the current one, or add/change the product photo.')
+                    ->schema([
+                        TextInput::make('additional_barcode')
+                            ->label('Add another barcode')
+                            ->placeholder('Scan or enter a new barcode')
+                            ->maxLength(191)
+                            ->helperText('The existing barcode stays linked. Leave blank to keep barcodes unchanged.'),
+                        FileUpload::make('new_item_photo')
+                            ->label('Add / Change Photo')
+                            ->image()
+                            ->imageEditor(false)
+                            ->disk(Product::IMAGE_DISK)
+                            ->directory('inventory-items')
+                            ->visibility('public')
+                            ->maxSize(5120)
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                            ->helperText('JPG, PNG or WebP, up to 5 MB. Leave blank to keep the current photo.'),
+                    ])->columns(1),
+            ])
             ->action(function (array $data, array $arguments): void {
                 $record = InventoryItem::findOrFail((int) ($arguments['product'] ?? 0));
                 abort_unless(InventoryItemResource::canManageStock(), 403);
 
+                $extraBarcode = trim((string) ($data['additional_barcode'] ?? ''));
+                if ($extraBarcode !== '') {
+                    $conflict = Product::withTrashed()->whereKeyNot($record->getKey())
+                        ->where(fn ($q) => $q->where('barcode', $extraBarcode)->orWhere('upc', $extraBarcode)->orWhere('sku', $extraBarcode))
+                        ->exists()
+                        || ProductIdentity::where('value', $extraBarcode)
+                            ->whereIn('type', ProductIdentity::SCANNABLE_TYPES)
+                            ->where('product_id', '!=', $record->getKey())->exists();
+                    if ($conflict) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'mountedActionsData.0.additional_barcode' => 'This barcode is already assigned to another product.',
+                        ]);
+                    }
+                }
+
                 $location = InventoryItemResource::bookAddStock($record, $data);
+
+                if ($extraBarcode !== '' && ! in_array($extraBarcode, array_filter([$record->barcode, $record->upc, $record->sku]), true)) {
+                    ProductIdentity::firstOrCreate([
+                        'product_id' => $record->getKey(),
+                        'type' => ProductIdentity::TYPE_BARCODE,
+                        'value' => $extraBarcode,
+                    ]);
+                }
+
+                $newPhoto = $data['new_item_photo'] ?? null;
+                if (is_array($newPhoto)) $newPhoto = reset($newPhoto);
+                if (is_string($newPhoto) && $newPhoto !== '') {
+                    $record->update(['image_path' => $newPhoto]);
+                }
 
                 $this->selectedStockProductId = null;
                 $this->quickStockScanTargetId = null;

@@ -2,6 +2,7 @@ name: Inventory transfer and current workflow audit
 on:
   push:
     branches: [fix/inventory-transfer-visibility]
+    paths-ignore: ['docs/**']
 concurrency:
   group: inventory-transfer-audit-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -28,7 +29,7 @@ jobs:
       - run: npm run build
       - run: cp .env.example .env
       - name: Verify existing inventory, payroll, timekeeping, notifications and role access
-        run: php artisan test tests/Feature/Inventory/InventoryMovementVisibilityTest.php tests/Feature/Inventory/ManageStockPageTest.php tests/Feature/Inventory/InventoryScannerTest.php tests/Feature/Inventory/ScannerNumberFormattingTest.php tests/Feature/Inventory/InventoryCatalogAddStockTest.php tests/Feature/Reports/LedgerTipReportTest.php tests/Feature/Reliability/InventoryAdminNavigationTest.php tests/Feature/Reliability/ReceivingNavigationTest.php
+        run: php artisan test tests/Feature/Inventory/InventoryMovementVisibilityTest.php tests/Feature/Inventory/ManageStockPageTest.php tests/Feature/Inventory/InventoryScannerTest.php tests/Feature/Inventory/ScannerNumberFormattingTest.php tests/Feature/Inventory/InventoryCatalogAddStockTest.php tests/Feature/Reports/LedgerTipReportTest.php tests/Feature/Payroll/OtherPaymentInPayRunTest.php tests/Feature/Reliability/InventoryAdminNavigationTest.php tests/Feature/Reliability/ReceivingNavigationTest.php
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite

@@ -34,7 +34,16 @@ async function select(page:Page, name:string, value:string|number) {
 
 test.beforeEach(async ({page})=>{
     const errors:string[]=[];
-    page.on('pageerror',error=>errors.push(error.message+' '+error.stack));
+    const resizeDeferrals:string[]=[];
+    page.on('pageerror',error=>{
+        // A stackless browser ResizeObserver deferral is not a thrown app error.
+        // Count it separately so a continuous resize loop still fails the audit.
+        if (!error.stack && error.message === 'ResizeObserver loop completed with undelivered notifications.') {
+            resizeDeferrals.push(error.message);return;
+        }
+        errors.push(error.message+' '+error.stack);
+    });
+    (page as any).auditResizeDeferrals=resizeDeferrals;
     page.on('response',response=>{if(response.status()>=400 && /\/livewire[^/]*\/|\/inventory-scanner-api\//.test(response.url())) errors.push(response.status()+' '+response.url())});
     (page as any).auditErrors=errors;
     await visit(page,'/admin/inventory-scanner');
@@ -44,7 +53,7 @@ test.beforeEach(async ({page})=>{
     await expect(page.locator('input[type=password]')).toHaveCount(0,{timeout:30000});
     await page.waitForLoadState('networkidle');
 });
-test.afterEach(async ({page})=>{await page.waitForLoadState('networkidle');expect((page as any).auditErrors).toEqual([])});
+test.afterEach(async ({page})=>{await page.waitForLoadState('networkidle');expect((page as any).auditErrors).toEqual([]);expect((page as any).auditResizeDeferrals.length,'repeated browser resize deferrals').toBeLessThanOrEqual(3)});
 
 test('scan-to-move and stock corrections persist after reload',async({page})=>{
     const f=fixture();

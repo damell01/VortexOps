@@ -173,6 +173,20 @@ class ListInventoryItems extends ListRecords
     #[Computed]
     public function catalogTotal(): int
     {
+        // With no text search, the health tiles have already counted every
+        // product in the selected warehouse. Reuse that aggregate instead of
+        // executing another grouped stock-sum subquery for every filter click.
+        // Keep the existing query for searches, whose count is search-specific.
+        if (blank($this->catalogSearch)) {
+            $stats = $this->getStats();
+            $key = in_array($this->stockHealth, ['in', 'low', 'out'], true) ? $this->stockHealth : null;
+            foreach ($stats as $stat) {
+                if ($stat['key'] === $key) {
+                    return (int) str_replace(',', '', (string) $stat['value']);
+                }
+            }
+        }
+
         return \Illuminate\Support\Facades\DB::query()
             ->fromSub($this->catalogQuery()->reorder()->toBase(), 'matching_inventory')->count();
     }

@@ -18,6 +18,6 @@
         .vx-inventory-page-nav a:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
         .vx-inventory-page-nav .vx-inventory-guide{margin-inline-start:auto;background:transparent;border-color:transparent}
         @media(max-width:1023px){.vx-inventory-page-nav{padding-inline:24px}}
-        @media(max-width:639px){.vx-inventory-page-nav{padding-inline:16px;gap:6px}.vx-inventory-page-nav a{min-height:44px;padding:8px 10px}.vx-inventory-page-nav .vx-inventory-guide{margin-inline-start:0}}
+        @media(max-width:639px){.vx-inventory-page-nav{padding-inline:12px;gap:6px;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;max-width:100%}.vx-inventory-page-nav a{flex:0 0 auto;min-height:44px;padding:8px 10px;white-space:nowrap}.vx-inventory-page-nav .vx-inventory-guide{margin-inline-start:0}}
     </style>
 @endif

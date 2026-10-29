@@ -9,6 +9,25 @@
         $fmt = fn (?int $m) => $m === null ? '—' : intdiv($m, 60) . 'h ' . str_pad((string) ($m % 60), 2, '0', STR_PAD_LEFT) . 'm';
     @endphp
 
+    <style>
+        [data-vx-page="timekeeping"] { min-width:0; }
+        [data-vx-page="timekeeping"] button,
+        [data-vx-page="timekeeping"] a { touch-action:manipulation; }
+        [data-vx-page="timekeeping"] button:focus-visible,
+        [data-vx-page="timekeeping"] a:focus-visible,
+        [data-vx-page="timekeeping"] input:focus-visible,
+        [data-vx-page="timekeeping"] select:focus-visible {
+            outline:3px solid #8b5cf6; outline-offset:2px;
+        }
+        [data-vx-page="timekeeping"] button:disabled { opacity:.55; cursor:wait; }
+        @media(max-width:639px) {
+            [data-vx-page="timekeeping"] { overflow-wrap:anywhere; }
+            [data-vx-page="timekeeping"] input,
+            [data-vx-page="timekeeping"] select,
+            [data-vx-page="timekeeping"] textarea { font-size:16px; max-width:100%; }
+            [data-vx-page="timekeeping"] .vxr-stats { min-width:0; }
+        }
+    </style>
     <div class="vxw" style="grid-template-columns:minmax(0,1fr)" data-vx-page="timekeeping">
         @if (! $user?->timezone)
             <div class="vxw-alert vxw-alert--warn" x-data="{ busy: false }" style="align-items:center">

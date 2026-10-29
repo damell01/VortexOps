@@ -4,9 +4,14 @@
         .vx-catalog-search{flex:1;min-width:220px}
         .vx-catalog-input,.vx-catalog-select{width:100%;min-height:44px;border:1px solid rgb(209 213 219);border-radius:.75rem;background:white;padding:.65rem .8rem;font-size:.875rem}
         .dark .vx-catalog-input,.dark .vx-catalog-select{background:rgb(17 24 39);border-color:rgb(75 85 99);color:white}
-        .vx-catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+        .vx-catalog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}
         .vx-product-card{overflow:hidden;border:1px solid rgb(229 231 235);border-radius:1rem;background:white;transition:.15s ease;display:flex;flex-direction:column;min-width:0}
-        .vx-product-card:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(15,23,42,.08);border-color:rgb(191 219 254)}
+        .vx-product-card:hover{box-shadow:0 8px 24px rgba(15,23,42,.08);border-color:rgb(167 139 250)}
+        .vx-product-card:focus-within{outline:2px solid rgb(139 92 246);outline-offset:2px}
+        .vx-product-card a:focus-visible,.vx-product-card button:focus-visible,.vx-catalog-toolbar :focus-visible{outline:3px solid rgb(139 92 246);outline-offset:3px}
+        .vx-product-card a,.vx-product-card button{touch-action:manipulation}
+        .vx-product-card button:disabled{opacity:.55;cursor:wait}
+        @media(prefers-reduced-motion:reduce){.vx-product-card{transition:none}}
         .dark .vx-product-card{background:rgb(17 24 39);border-color:rgb(55 65 81)}
         .vx-product-image{aspect-ratio:4/3;background:rgb(249 250 251);display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid rgb(243 244 246)}
         .dark .vx-product-image{background:rgb(31 41 55);border-color:rgb(55 65 81)}
@@ -15,7 +20,8 @@
         .vx-product-body{padding:.8rem;display:flex;flex-direction:column;gap:.55rem;flex:1}
         .vx-product-title{font-weight:750;font-size:.875rem;line-height:1.2rem;color:rgb(17 24 39);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
         .dark .vx-product-title{color:white}
-        .vx-product-meta{font-size:.7rem;color:rgb(107 114 128);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .vx-product-meta{font-size:.72rem;color:rgb(75 85 99);overflow-wrap:anywhere;min-width:0}
+        .dark .vx-product-meta{color:rgb(209 213 219)}
         .vx-product-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
         .vx-stock{display:inline-flex;align-items:center;border-radius:999px;padding:.25rem .5rem;font-size:.67rem;font-weight:800}
         .vx-stock-in{background:rgb(236 253 245);color:rgb(4 120 87)}
@@ -28,6 +34,7 @@
         .dark .vx-figure{color:rgb(229 231 235)}
         .vx-empty{border:1px dashed rgb(209 213 219);border-radius:1rem;padding:3rem 1rem;text-align:center;color:rgb(107 114 128)}
         .vx-catalog-note{font-size:.75rem;color:rgb(107 114 128)}
+        @media(max-width:380px){.vx-catalog-grid{grid-template-columns:minmax(0,1fr)}.vx-catalog-search{min-width:100%;}.vx-catalog-toolbar>div[style]{flex:1 1 100%}}
         @media(min-width:720px){.vx-catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.vx-product-body{padding:1rem}.vx-product-title{font-size:.95rem}}
         @media(min-width:1100px){.vx-catalog-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
         @media(min-width:1450px){.vx-catalog-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
@@ -46,10 +53,12 @@
 
             <div class="vx-catalog-toolbar mt-4">
                 <div class="vx-catalog-search">
-                    <input wire:model.live.debounce.300ms="search" class="vx-catalog-input" type="search" placeholder="Search products, SKU, UPC, brand…" />
+                    <label for="vx-catalog-search" class="sr-only">Search inventory catalog</label>
+                    <input id="vx-catalog-search" wire:model.live.debounce.300ms="search" class="vx-catalog-input" type="search" placeholder="Search products, SKU, UPC, brand…" />
                 </div>
                 <div style="min-width:160px">
-                    <select wire:model.live="stock" class="vx-catalog-select">
+                    <label for="vx-catalog-stock" class="sr-only">Filter by stock status</label>
+                    <select id="vx-catalog-stock" wire:model.live="stock" class="vx-catalog-select">
                         <option value="all">All stock</option>
                         <option value="in">In stock</option>
                         <option value="low">Low stock</option>
@@ -77,7 +86,7 @@
                         $locations = $item->stock->where('quantity', '>', 0)->pluck('location.name')->filter()->unique()->take(2)->implode(', ');
                     @endphp
                     <div class="vx-product-card">
-                    <a href="{{ $this->itemUrl($item->id) }}" class="flex flex-1 flex-col">
+                    <a href="{{ $this->itemUrl($item->id) }}" class="flex flex-1 flex-col" aria-label="View {{ $item->name }} inventory details">
                         <div @class(['vx-product-image', 'has-photo' => $item->hasImage()])>
                             @if($item->imageUrl())<img loading="lazy" src="{{ $item->imageUrl() }}" alt="{{ $item->name }}" />@endif
                         </div>
@@ -98,7 +107,7 @@
                             </div>
                         </div>
                     </a>
-                        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->id }} })" wire:loading.attr="disabled" class="min-h-11 border-t border-gray-200 px-3 text-sm font-semibold text-primary-600 dark:border-gray-700">Item history</button>
+                        <button type="button" wire:click="mountAction('itemHistory', { item: {{ $item->id }} })" wire:loading.attr="disabled" aria-label="View item history for {{ $item->name }}" class="min-h-11 border-t border-gray-200 px-3 text-sm font-semibold text-primary-600 dark:border-gray-700">Item history</button>
                     </div>
                 @endforeach
             </div>

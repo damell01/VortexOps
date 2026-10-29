@@ -713,7 +713,7 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
    and use !important so deployment order cannot restore the 1100px takeover. */
 @media(min-width:641px){
   .fi-modal-window:has(.fi-database-notifications),
-  .fi-modal-window:has([wire\\:key*="database-notification"]),
+  .fi-modal-window:has([wire\:key*="database-notification"]),
   .fi-modal-window:has([class*="database-notification"]){
     width:min(440px,calc(100vw - 32px)) !important;
     max-width:440px !important;
@@ -724,7 +724,7 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
     overflow:hidden !important;
   }
   .fi-modal-window:has(.fi-database-notifications) .fi-modal-content,
-  .fi-modal-window:has([wire\\:key*="database-notification"]) .fi-modal-content,
+  .fi-modal-window:has([wire\:key*="database-notification"]) .fi-modal-content,
   .fi-modal-window:has([class*="database-notification"]) .fi-modal-content{
     overflow-y:auto !important;
     overflow-x:hidden !important;
@@ -960,14 +960,20 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .dark .vx-mobile-submenu a svg.vx-mm-link-icon{color:#a78bfa}
 .dark .vx-mega-menu a.has-icon .vx-mega-link-icon{color:#a78bfa}
 
-/* Consistent, spacious application dialogs on desktop. Keep compact confirmation
-   dialogs compact, and leave phone dialogs within the viewport. */
+/* Dialogs: confirmations stay compact; data-entry forms get working room.
+   Avoid widening every confirmation to 1320px. */
 @media (min-width: 768px) {
-  .fi-modal-window:not(:has(.fi-modal-content:empty)) {
-    width: min(94vw, 1320px) !important;
-    max-width: min(94vw, 1320px) !important;
+  .fi-modal-window:not([role="alertdialog"]) {
+    max-width: min(92vw, 960px);
   }
-  .fi-modal-window .fi-modal-content { max-height: min(78vh, 900px); overflow-y: auto; }
+  .fi-modal-window:has(.fi-fo-field-wrp:nth-of-type(5)) {
+    max-width: min(94vw, 1120px);
+  }
+  .fi-modal-window .fi-modal-content {
+    max-height: min(78dvh, 900px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 /* Operational page actions own the phone's bottom row, as on end-of-stream.
@@ -984,3 +990,130 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   .vxr > *, .vxr-card, .vxr-table-wrap { min-width: 0; max-width: 100%; }
   .vxr-table-wrap { width: 100%; overflow-x: auto; }
 }
+
+
+/* 2026-10 UI consistency pass — scoped to shared Filament primitives.
+   No changes to SPA lifecycle, forms, scanner handlers or authorization. */
+:root {
+  --vx-ui-radius:12px;
+  --vx-ui-focus:#7c3aed;
+  --vx-ui-shadow:0 4px 18px rgb(15 23 42 / .055);
+}
+.fi-page-content, .fi-page, .fi-section, .fi-ta, .fi-modal-window { min-width:0; }
+.fi-section, .fi-ta, .fi-wi { overflow-wrap:break-word; }
+.fi-section, .fi-ta, .fi-wi, .fi-modal-window { border-radius:var(--vx-ui-radius); }
+.fi-btn, .fi-input-wrp, .fi-select-input { transition:background-color .14s ease,border-color .14s ease,box-shadow .14s ease; }
+.fi-btn:focus-visible, .fi-icon-btn:focus-visible, .fi-tabs-item:focus-visible,
+.fi-sidebar-item-btn:focus-visible, .vx-tabbar-item:focus-visible,
+.fi-ta a:focus-visible, .fi-modal-window button:focus-visible {
+  outline:3px solid var(--vx-ui-focus); outline-offset:2px;
+}
+.fi-btn:disabled, .fi-btn[aria-disabled="true"] { cursor:not-allowed; opacity:.58; }
+.fi-ta-table { font-variant-numeric:tabular-nums; }
+.fi-modal-window { max-height:calc(100dvh - 24px); }
+.fi-modal-window .fi-modal-content { overscroll-behavior:contain; }
+@media(max-width:639px) {
+  .fi-page-content { padding-inline:12px; }
+  .fi-page-header { min-width:0; }
+  .fi-page-header .fi-header-actions { flex-wrap:wrap; gap:8px; }
+  .fi-page-header .fi-header-actions > * { max-width:100%; }
+  .fi-modal-window { width:calc(100vw - 16px) !important; max-width:calc(100vw - 16px) !important; }
+  .fi-modal-window .fi-modal-content { max-height:calc(100dvh - 160px); overflow-y:auto; }
+  .fi-input, .fi-select-input, .fi-fo-field-wrp input, .fi-fo-field-wrp select,
+  .fi-fo-field-wrp textarea { font-size:16px; }
+  .fi-btn, .fi-icon-btn { touch-action:manipulation; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .fi-btn, .fi-input-wrp, .fi-select-input { transition:none !important; }
+  .fi-modal-window { scroll-behavior:auto; }
+}
+
+
+/* UI UX Pro Max refinement: operational density, predictable feedback, accessible controls.
+   Shared Filament primitives only; no SPA or Livewire event interception. */
+:root {
+  --vx-space-1:4px; --vx-space-2:8px; --vx-space-3:12px; --vx-space-4:16px;
+  --vx-control-height:44px; --vx-elevation:0 3px 12px rgb(15 23 42 / .045);
+}
+.fi-page-header { gap:12px; }
+.fi-page-header .fi-header-actions { gap:8px; }
+.fi-section-header { gap:10px; }
+.fi-section-content { min-width:0; }
+.fi-ta-header { gap:12px; }
+.fi-ta-filters, .fi-ta-header-toolbar { min-width:0; }
+.fi-ta-header-toolbar > *, .fi-ta-filters > * { max-width:100%; }
+.fi-ta-table { width:100%; }
+.fi-ta-cell { vertical-align:middle; }
+.fi-ta-row:hover { background:color-mix(in srgb,var(--vx-soft-primary) 30%,transparent); }
+.dark .fi-ta-row:hover { background:rgb(167 139 250 / .055); }
+.fi-input-wrp:focus-within { outline:2px solid rgb(124 58 237 / .55); outline-offset:1px; }
+.fi-input-wrp input, .fi-input-wrp select, .fi-input-wrp textarea { min-width:0; }
+.fi-modal-window .fi-modal-header { position:sticky; top:0; z-index:2; background:var(--vx-surface); }
+.fi-modal-window .fi-modal-footer { position:sticky; bottom:0; z-index:2; background:var(--vx-surface); }
+.fi-modal-window .fi-modal-header, .fi-modal-window .fi-modal-footer { flex-shrink:0; }
+.fi-modal-window .fi-modal-content { min-height:0; }
+.fi-notification { max-width:min(420px,calc(100vw - 24px)); overflow-wrap:anywhere; }
+.fi-btn[wire\:loading\.attr="disabled"], .fi-btn[aria-busy="true"] { cursor:progress; }
+@media(min-width:1024px) {
+  .fi-page { gap:18px; }
+  .fi-page-content { gap:18px; }
+  .fi-page-header .fi-header-heading { line-height:1.2; }
+}
+@media(max-width:767px) {
+  .fi-section-header { padding:14px; }
+  .fi-section-content { padding:14px; }
+  .fi-page-header .fi-header-actions { display:flex; flex-wrap:wrap; align-items:center; }
+  .fi-ta-header-toolbar { flex-wrap:wrap; gap:8px; }
+  .fi-modal-window .fi-modal-header, .fi-modal-window .fi-modal-footer { padding-inline:14px; }
+  .fi-modal-window .fi-modal-footer .fi-btn { min-height:44px; }
+  .fi-ta-cell { overflow-wrap:anywhere; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .fi-ta-row, .fi-notification { transition:none !important; }
+}
+
+
+/* Operational table readability and modal sizes — no custom JS or sorting changes. */
+.fi-ta-table thead th { white-space:nowrap; }
+.fi-ta-table tbody tr { border-color:var(--vx-divider); }
+.fi-ta-table .fi-ta-cell .fi-badge { max-width:100%; }
+.fi-ta-header-toolbar .fi-input-wrp { max-width:100%; }
+.fi-modal-window[role="alertdialog"] { max-width:min(92vw,440px); }
+@media(min-width:768px) {
+  .fi-modal-window:has(.fi-modal-content .fi-fo-component-ctn) { width:min(92vw,800px); }
+  .fi-modal-window:has(.fi-modal-content .fi-fo-component-ctn .fi-fo-field-wrp:nth-of-type(5)) { width:min(94vw,1080px); }
+}
+@media(max-width:767px) {
+  .fi-ta-header { gap:10px; }
+  .fi-ta-header-toolbar > * { min-width:0; }
+  .fi-modal-window { margin-inline:auto; }
+  .fi-modal-window .fi-modal-content { overscroll-behavior-y:contain; }
+}
+
+
+/* Progressive polish for shared admin controls. Keep page-specific dialogs and
+   operational bottom bars in control of their own positioning. */
+.dark .fi-modal-window .fi-modal-header,
+.dark .fi-modal-window .fi-modal-footer { background:var(--gray-900,#111827); }
+.fi-modal-window .fi-modal-header { border-bottom:1px solid var(--vx-divider); }
+.fi-modal-window .fi-modal-footer { border-top:1px solid var(--vx-divider); }
+.fi-ta-table thead th { position:sticky; top:0; z-index:1; background:var(--vx-surface); }
+.dark .fi-ta-table thead th { background:var(--gray-900,#111827); }
+.fi-ta-table tbody td { padding-block:10px; }
+.fi-badge { white-space:normal; text-align:center; line-height:1.25; }
+.fi-btn[disabled], .fi-btn[aria-busy="true"] { pointer-events:none; }
+@media(max-width:767px) {
+  .fi-ta-table-container { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; }
+  .fi-ta-table thead th { position:static; }
+  .fi-modal-window .fi-modal-footer { padding-bottom:max(14px,env(safe-area-inset-bottom)); }
+  .fi-modal-window .fi-modal-content { scroll-padding-bottom:80px; }
+  .fi-page-header .fi-header-heading { font-size:clamp(19px,5vw,24px); }
+}
+
+/* Dev QA: keep short status pills readable; avoid tall approval rows. */
+.fi-ta-table .fi-badge { white-space:nowrap; width:max-content; max-width:none; overflow-wrap:normal; word-break:normal; line-height:1.3; }
+.fi-ta-table .fi-badge span { white-space:nowrap; overflow-wrap:normal; word-break:normal; }
+.fi-ta-table .fi-ta-cell { overflow-wrap:normal; word-break:normal; }
+.fi-ta-table tbody td { vertical-align:middle; }
+.fi-ta-table-container { overflow-x:auto; }
+@media (min-width:1024px) { .fi-ta-table .fi-badge { min-width:max-content; } }

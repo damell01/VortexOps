@@ -71,13 +71,9 @@ class QuickAddStock extends Page
 
         $product = Product::findByScan($this->barcode);
 
-        if (!$product) {
-            Notification::make()
-                ->title('Product Not Found')
-                ->body("Barcode '{$this->barcode}' not found in system. Try searching by name below instead.")
-                ->danger()
-                ->send();
-            $this->barcode = '';
+        if (! $product) {
+            // Use the same catalog / create / optional stock workflow as Scan Inventory.
+            $this->redirect(InventoryScanner::getUrl(panel: 'admin') . '?barcode=' . rawurlencode(trim($this->barcode)), navigate: true);
             return;
         }
 

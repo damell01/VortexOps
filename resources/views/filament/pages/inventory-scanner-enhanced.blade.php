@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <div
-        class="mx-auto max-w-4xl space-y-3 pb-24 sm:space-y-5 sm:pb-0"
+        class="mx-auto w-full max-w-7xl space-y-4 pb-24 sm:space-y-5 sm:pb-0"
         data-vx-page="inventory-scanner"
         data-vx-touch-page
         x-data="{
@@ -15,27 +15,12 @@
     >
         <x-touch-mode-toggle />
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-            <div class="p-4 sm:p-5">
-                <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Quick Scan</div>
-                <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">Scan an item, then decide what you need</h2>
-                <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Lookup is read-only. Add Stock puts units into a location. Receive works a delivery off a pallet — scan it, or just say how much turned up.</p>
-            </div>
-            <div class="grid grid-cols-3 gap-px bg-gray-100 dark:bg-gray-800">
-                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 bg-white px-2 py-3 text-xs font-semibold dark:bg-gray-900 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'text-primary-600 shadow-[inset_0_-2px_0_currentColor]' : 'text-gray-500 dark:text-gray-400' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Look Up</button>
-                <button type="button" wire:click="switchMode('quickadd')" class="min-h-12 bg-white px-2 py-3 text-xs font-semibold dark:bg-gray-900 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'text-emerald-600 shadow-[inset_0_-2px_0_currentColor]' : 'text-gray-500 dark:text-gray-400' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
-                <button type="button" wire:click="switchMode('receive')" class="min-h-12 bg-white px-2 py-3 text-xs font-semibold dark:bg-gray-900 sm:px-3 sm:text-sm {{ $mode === 'receive' ? 'text-amber-600 shadow-[inset_0_-2px_0_currentColor]' : 'text-gray-500 dark:text-gray-400' }}"><x-heroicon-o-inbox-arrow-down class="mr-1 inline h-4 w-4" /> Receive</button>
+            <div class="grid grid-cols-2 gap-2 bg-white p-2 dark:bg-gray-900 sm:gap-3 sm:p-3">
+                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Scan & Add Stock</button>
+                <button type="button" wire:click="switchMode('quickadd')" class="hidden min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
+                <button type="button" wire:click="switchMode('receive')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'receive' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-inbox-arrow-down class="mr-1 inline h-4 w-4" /> Receive</button>
             </div>
         </section>
-
-        @if($mode === 'quickadd')
-            <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
-                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_130px]">
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Destination location</span><select wire:model="qaLocationId" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Quantity</span><input wire:model="qaQty" type="number" step="0.01" min="0.01" inputmode="decimal" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /></label>
-                </div>
-                <label class="mt-3 block"><span class="mb-1 block text-xs font-semibold text-gray-700 dark:text-gray-200">Name only if this is a brand-new barcode</span><input wire:model="qaName" type="text" autocomplete="off" placeholder="Leave blank for an item already in inventory" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /><p class="mt-1 text-[10px] leading-4 text-gray-500 sm:text-xs">If the barcode is unknown, VortexOps can create the product using this name and add the scanned quantity.</p></label>
-            </section>
-        @endif
 
         @if($mode === 'receive')
             <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
@@ -191,12 +176,18 @@
             @endif
         @endif
 
-        <section class="rounded-xl border-2 @if($mode === 'lookup') border-primary-300 bg-primary-50/40 dark:border-primary-800 dark:bg-primary-950/20 @elseif($mode === 'receive') border-amber-300 bg-amber-50/40 dark:border-amber-800 dark:bg-amber-950/20 @else border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20 @endif p-4 sm:rounded-2xl sm:p-5">
-            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
-            <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <input wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
-                <button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
-                <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 @if($mode === 'lookup') bg-primary-600 @elseif($mode === 'receive') bg-amber-600 @else bg-emerald-600 @endif"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
+        <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+            <h2 class="text-base font-bold text-gray-950 dark:text-white">Scan or Enter Barcode</h2>
+            <button data-camera-scan type="button" @click="openScanner()" class="mt-3 flex min-h-36 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-violet-400 bg-violet-50 p-4 text-violet-700 dark:bg-violet-950/30 dark:text-violet-200 sm:hidden">
+                <x-heroicon-o-camera class="h-9 w-9" />
+                <span class="text-sm font-bold">Tap to open camera</span>
+                <span class="text-xs">Point your camera at the barcode</span>
+            </button>
+            <label for="vx-scanner-code" class="mt-3 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
+            <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <input id="vx-scanner-code" wire:model="scanInput" wire:keydown.enter.prevent="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
+                <button data-camera-scan type="button" @click="openScanner()" class="hidden min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold sm:inline-flex text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
+                <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"><span wire:loading.remove>@if($mode === 'lookup') Look Up @elseif($mode === 'receive') Receive @else Add Stock @endif</span><span wire:loading>Working…</span></button>
             </div>
             <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">USB/Bluetooth scanner: scan directly into this field. Camera: tap Camera and center the barcode in the scan box.</p>
 
@@ -224,11 +215,103 @@
             @endif
         </section>
 
+        @if($unmatchedBarcode && $mode === 'lookup')
+            <div class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6" role="presentation">
+            <section role="dialog" aria-modal="true" aria-label="Assign unknown barcode" class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-violet-200 bg-white p-4 shadow-2xl dark:border-violet-900 dark:bg-gray-900 sm:p-5" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()">
+                <h2 class="text-lg font-bold text-gray-950 dark:text-white">New barcode detected</h2>
+                <p class="mt-1 break-all font-mono text-sm text-violet-700 dark:text-violet-300">{{ $unmatchedBarcode }}</p>
+                <p class="mt-2 text-sm text-gray-500">Choose an item from the catalog or create one. You can optionally add stock at the same time.</p>
+                @if($errorMessage)<p class="mt-3 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-200" role="alert">{{ $errorMessage }}</p>@endif
+                <div class="mt-4 grid grid-cols-2 gap-2">
+                    <button type="button" @click="choice='link'" :class="choice === 'link' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Link to Existing</button>
+                    <button type="button" @click="choice='new'" :class="choice === 'new' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Create New Item</button>
+                </div>
+                <div x-show="choice === 'link'" class="mt-4">\n                    <p class="mb-2 text-xs text-gray-500">Browse the catalog below or search to narrow the list.</p>
+                    <label for="vx-link-item" class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Search existing items</label>
+                    <input id="vx-link-item" type="search" wire:model.live.debounce.400ms="barcodeLinkSearch" placeholder="Search name, SKU or barcode…" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
+                    @if($barcodeLinkOptions !== null)
+                        <div class="mt-2 max-h-48 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                            @forelse($barcodeLinkOptions as $option)
+                                <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
+                                    <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['name'] }} <span class="block text-xs font-normal text-gray-500">{{ $option['sku'] }}</span></span>
+                                    <span class="shrink-0 text-xs font-bold text-violet-600">Link →</span>
+                                </button>
+                            @empty
+                                <p class="p-3 text-sm text-gray-500">No matches found.</p>
+                            @endforelse
+                        </div>
+                    @endif
+                </div>
+                <div x-show="choice === 'new'" x-cloak class="mt-4 space-y-3">
+                    <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Item name *</span><input wire:model="newItemName" type="text" maxlength="255" placeholder="Product name" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Category</span><input wire:model="newItemCategory" type="text" placeholder="Sports Cards" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                        <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Sale price</span><input wire:model="newItemPrice" type="number" min="0" step="0.01" placeholder="0.00" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                    </div>
+                    <button type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" class="min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="createScannedItem">Create Item</span><span wire:loading wire:target="createScannedItem">Creating item…</span></button>
+                    <p class="text-xs text-gray-500">Leave stock unchecked below to create the item with zero stock.</p>
+                </div>
+                <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
+                    <label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model.live="addStockAfterResolve" class="rounded border-gray-300 text-violet-600" /> Add stock now (optional)</label>
+                    @if($addStockAfterResolve)
+                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <label class="block text-xs font-semibold">Quantity<input type="number" min="0.01" step="0.01" wire:model="qaQty" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                            <label class="block text-xs font-semibold">Stock location<select wire:model="qaLocationId" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                        </div>
+                    @endif
+                </div>
+                <button type="button" wire:click="switchMode('lookup')" class="mt-4 w-full rounded-lg border border-gray-200 p-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Cancel / Scan again</button>
+            </section>
+            </div>
+        @endif
+
+        @if($mode === 'quickadd' && $selectedItem)
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                <div class="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
+                    <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">Item found</span>
+                    <h2 class="mt-2 text-lg font-bold text-gray-950 dark:text-white">{{ $selectedItem['name'] }}</h2>
+                    <p class="mt-1 text-xs text-gray-500">SKU {{ $selectedItem['sku'] }} · {{ number_format((float) $selectedItem['total_qty']) }} units on hand</p>
+                </div>
+                <div class="p-4 sm:p-5">
+                    <div class="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                        <div class="flex items-start gap-3">
+                            @php($photoItem = \App\Models\InventoryItem::find($selectedItemId))
+                            @if($photoItem?->hasImage())
+                                <img src="{{ $photoItem->imageUrl() }}" alt="Current item photo" class="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                            @else
+                                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-200 text-gray-500 dark:bg-gray-700" aria-hidden="true"><x-heroicon-o-camera class="h-7 w-7" /></div>
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <label for="vx-scanned-item-photo" class="block text-sm font-semibold text-gray-900 dark:text-white">Item photo <span class="font-normal text-gray-500">(optional)</span></label>
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Take a photo or choose one from your device. JPG, PNG or WebP, up to 5 MB.</p>
+                                <input id="vx-scanned-item-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" wire:model="itemPhoto" class="mt-2 block w-full min-w-0 text-xs text-gray-700 file:mr-2 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-800 dark:text-gray-200" />
+                                @error('itemPhoto')<p class="mt-1 text-xs font-semibold text-red-600" role="alert">{{ $message }}</p>@enderror
+                                @if($photoFeedback)<p class="mt-1 text-xs font-semibold text-green-700" role="status">{{ $photoFeedback }}</p>@endif
+                                <div wire:loading wire:target="itemPhoto" class="mt-1 text-xs text-violet-700" role="status">Uploading photo…</div>
+                                @if($itemPhoto)
+                                    <button type="button" wire:click="saveSelectedItemPhoto" wire:loading.attr="disabled" wire:target="itemPhoto,saveSelectedItemPhoto" class="mt-2 min-h-11 rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60">
+                                        <span wire:loading.remove wire:target="saveSelectedItemPhoto">Save item photo</span>
+                                        <span wire:loading wire:target="saveSelectedItemPhoto">Saving photo…</span>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    <h3 class="mb-3 text-sm font-bold text-gray-950 dark:text-white">Add to Inventory</h3>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="block"><span class="mb-1 block text-xs font-bold">Quantity</span><input wire:model="qaQty" type="number" min="0.01" step="0.01" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                        <label class="block"><span class="mb-1 block text-xs font-bold">Location</span><select wire:model="qaLocationId" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                    </div>
+                    <button type="button" wire:click="addSelectedStock" wire:loading.attr="disabled" wire:target="addSelectedStock" class="mt-4 min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="addSelectedStock">Confirm Add Stock</span><span wire:loading wire:target="addSelectedStock">Adding stock…</span></button>
+                </div>
+            </section>
+        @endif
+
         @if($errorMessage)<section class="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Not found.</strong> {{ $errorMessage }}</section>@endif
 
         @if($qaFlash)
             <section class="rounded-xl border p-3.5 sm:p-4 {{ isset($qaFlash['error']) ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200' : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200' }}">
-                @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div></div></div>@endif
+                @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div><div class="mt-1 text-xs font-semibold">Now {{ number_format((float)($qaFlash['location_total'] ?? 0)) }} units at {{ $qaFlash['location'] }}</div></div></div>@endif
             </section>
         @endif
 
@@ -236,7 +319,7 @@
             <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-5">
                     <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0"><div class="text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">{{ $result['name'] }}</div><div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs"><span>SKU {{ $result['sku'] ?: '—' }}</span>@if($result['barcode'])<span>UPC {{ $result['barcode'] }}</span>@endif</div></div>
+                        <div class="min-w-0"><div class="mb-1 text-xs font-bold uppercase tracking-wider text-violet-600 dark:text-violet-300">Scan Result · Item Found</div><div class="text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">{{ $result['name'] }}</div><div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 dark:text-gray-400 sm:text-xs"><span>SKU {{ $result['sku'] ?: '—' }}</span>@if($result['barcode'])<span>UPC {{ $result['barcode'] }}</span>@endif</div></div>
                         <span class="rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs {{ $result['is_low'] ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200' : 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' }}">{{ $result['is_low'] ? 'Low stock' : 'In stock' }}</span>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
@@ -247,7 +330,7 @@
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2">
                         <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $result['id']]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">View Item</a>
-                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $result['id']]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-violet-600 px-3 text-sm font-semibold text-white">Move / Correct Stock</a>
+                        <button type="button" wire:click="switchMode('quickadd')" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-violet-600 px-3 text-sm font-semibold text-white">Add Stock</button>
                     </div>
                 </div>
                 <div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5">
@@ -258,6 +341,6 @@
             </section>
         @endif
 
-        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg {{ $mode === 'lookup' ? 'bg-primary-600' : 'bg-emerald-600' }} px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> {{ $mode === 'lookup' ? 'Scan Item' : 'Scan & Add Stock' }}</button></div>
+        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Open Camera Scanner</button></div>
     </div>
 </x-filament-panels::page>

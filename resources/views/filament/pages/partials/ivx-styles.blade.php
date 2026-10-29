@@ -17,7 +17,7 @@
 .ivx .ivx-tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow-x:auto;scrollbar-width:none}
 .dark .ivx .ivx-tabs{background:#0f172a}
 .ivx .ivx-tabs::-webkit-scrollbar{display:none}
-.ivx .ivx-tabs>*{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:9px;font-size:.8rem;font-weight:700;color:var(--muted);white-space:nowrap}
+.ivx .ivx-tabs>*{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:9px;font-size:.8rem;font-weight:700;color:var(--muted);white-space:nowrap}
 .ivx .ivx-tabs>.on{background:var(--p);color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--p) 35%,transparent)}
 .ivx .ivx-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .ivx .ivx-kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -54,8 +54,8 @@
 .ivx a.ivx-row:hover{background:var(--soft)}
 .ivx .ivx-thumb{width:46px;height:46px;border-radius:10px;object-fit:cover;background:var(--soft);border:1px solid var(--line);flex:none;display:grid;place-items:center;color:var(--faint)}
 .ivx .ivx-thumb svg{width:20px;height:20px}
-.ivx .ivx-name{font-size:.86rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ivx .ivx-meta{font-size:.7rem;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ivx .ivx-name{font-size:.86rem;font-weight:700;overflow-wrap:anywhere;line-height:1.35}
+.ivx .ivx-meta{font-size:.72rem;color:var(--muted);overflow-wrap:anywhere}
 .ivx .ivx-right{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;text-align:right}
 .ivx .ivx-chev{width:16px;height:16px;color:var(--faint);flex:none}
 .ivx .ivx-bar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden;display:flex}
@@ -66,4 +66,9 @@
 .ivx .ivx-grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
 @media(min-width:900px){.ivx .ivx-grid2{grid-template-columns:repeat(2,minmax(0,1fr))}.ivx .ivx-kpis.wide4{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:520px){.ivx .ivx-kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.ivx .ivx-kpis.k4 .ivx-kpi{padding:10px 4px}.ivx .ivx-kpis.k4 .v{font-size:1.05rem}.ivx .ivx-kpis.k4 .l{font-size:.62rem}.ivx .ivx-kpis.k4 .ivx-ic{width:28px;height:28px;border-radius:8px}.ivx .ivx-kpis.k4 .ivx-ic svg{width:15px;height:15px}.ivx .ivx-kpis.k3 .ivx-kpi{padding:12px 10px}}
+.ivx button,.ivx a,.ivx select{touch-action:manipulation}
+.ivx button:focus-visible,.ivx a:focus-visible,.ivx input:focus-visible,.ivx select:focus-visible{outline:3px solid #8b5cf6;outline-offset:2px}
+.ivx button:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:520px){.ivx .ivx-kpis.k4{grid-template-columns:repeat(2,minmax(0,1fr))}.ivx .ivx-kpis.k4 .ivx-kpi{padding:12px}.ivx .ivx-kpis.k4 .v{font-size:1.15rem}.ivx .ivx-kpis.k4 .l{font-size:.7rem}}
+@media(prefers-reduced-motion:reduce){.ivx *{scroll-behavior:auto!important}}
 </style>

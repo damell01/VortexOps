@@ -53,10 +53,15 @@
         backdrop-filter: blur(4px);
     }
 
+    .vx-scan-sheet:focus-visible, .vx-scan-sheet button:focus-visible, .vx-scan-sheet input:focus-visible, .vx-scan-sheet select:focus-visible { outline: 3px solid rgb(139 92 246); outline-offset: 2px; }
+    .vx-scan-sheet button:disabled { opacity: .55; cursor: wait; }
+    @media (prefers-reduced-motion: reduce) { .vx-scan-sheet-backdrop { backdrop-filter: none; } }
+
     .vx-scan-sheet {
         width: min(100%, 34rem);
-        max-height: min(88vh, 760px);
+        max-height: min(88dvh, 760px);
         overflow-y: auto;
+        overscroll-behavior: contain;
         border-radius: 1rem;
         background: white;
         box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
@@ -84,7 +89,7 @@
 
     .dark .vx-scan-sheet-header { border-color: rgb(55 65 81); }
     .vx-scan-sheet-body { padding: 1rem; }
-    .vx-scan-eyebrow { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: rgb(37 99 235); }
+    .vx-scan-eyebrow { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: rgb(109 40 217); }
     .vx-scan-title { margin-top: .2rem; font-size: 1.15rem; font-weight: 800; line-height: 1.25; }
     .vx-scan-code { margin-top: .45rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; color: rgb(107 114 128); word-break: break-all; }
     .vx-scan-close { width: 44px; height: 44px; flex: 0 0 44px; border-radius: .75rem; border: 1px solid rgb(209 213 219); font-size: 1.35rem; line-height: 1; }
@@ -104,7 +109,7 @@
         gap: .75rem;
     }
     .vx-scan-action small { display: block; margin-top: .15rem; font-weight: 500; opacity: .82; }
-    .vx-scan-action-primary { background: rgb(37 99 235); color: white; }
+    .vx-scan-action-primary { background: rgb(109 40 217); color: white; }
     .vx-scan-action-create { background: rgb(5 150 105); color: white; }
     .vx-scan-action-secondary { border: 1px solid rgb(209 213 219); background: rgb(249 250 251); color: rgb(55 65 81); }
     .dark .vx-scan-action-secondary { border-color: rgb(75 85 99); background: rgb(31 41 55); color: rgb(229 231 235); }
@@ -125,7 +130,7 @@
     .dark .vx-scan-result { border-color: rgb(55 65 81); }
     .vx-scan-result strong { display: block; font-size: .9rem; }
     .vx-scan-result small { display: block; margin-top: .15rem; color: rgb(107 114 128); }
-    .vx-scan-result em { font-style: normal; color: rgb(37 99 235); font-weight: 800; font-size: .8rem; }
+    .vx-scan-result em { font-style: normal; color: rgb(109 40 217); font-weight: 800; font-size: .8rem; }
 
     .vx-scan-status { margin-top: .75rem; border-radius: .7rem; padding: .7rem .8rem; font-size: .82rem; }
     .vx-scan-status-error { background: rgb(254 242 242); color: rgb(185 28 28); }
@@ -404,8 +409,9 @@
         window.addEventListener('inventory-scanner-unknown', event => {
             const barcode = String(event.detail?.barcode || '').trim();
             if (!barcode || !document.querySelector('[data-vx-page="inventory-scanner"]')) return;
+            // Livewire now owns the centered catalog/create/stock dialog.
+            // Do not show the legacy API-driven dialog on top of it.
             lastUnknown = barcode;
-            showChooser(barcode);
         });
         document.addEventListener('livewire:navigating', closeSheet);
         document.addEventListener('keydown', event => { if (event.key === 'Escape' && sheet) closeSheet(); });

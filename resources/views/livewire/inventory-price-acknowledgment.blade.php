@@ -5,7 +5,7 @@
     <header class="shrink-0 border-b border-gray-800 p-4 sm:p-6">
       <div class="flex items-center gap-3"><div class="rounded-xl bg-amber-500/15 p-3 text-amber-400"><x-heroicon-o-bell-alert class="h-6 w-6"/></div>
         <div><h2 id="inventory-update-title" class="text-xl font-bold">Inventory updates</h2><p class="text-sm text-gray-400">Review changes before selling.</p></div></div>
-      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div class="mt-4 grid grid-cols-3 gap-2">
         @foreach ([['Price changes',count($changes)],['Stock updates',count($arrivals)],['Coming soon',count($comingSoon)]] as $summary)
         <div class="rounded-lg bg-gray-900 px-3 py-2"><div class="text-xl font-bold">{{ $summary[1] }}</div><div class="text-xs text-gray-400">{{ $summary[0] }}</div></div>
         @endforeach
@@ -27,7 +27,7 @@
       <article wire:key="stock-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-3">
         @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
         <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="text-sm text-gray-400">{{ $item['kind'] === 'sold_out' ? 'Stock depleted' : 'Quantity after change: '.$item['quantity'] }}</div></div>
-        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $item['kind'] === 'sold_out' ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ match($item['kind']) {'sold_out' => 'Sold out','restocked' => 'Restocked','stock_added' => 'Stock added',default => 'New stock'} }}</span>
+        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $item['kind'] === 'sold_out' ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ match($item['kind']) {'sold_out' => 'Sold out','restocked' => 'Restocked','stock_added' => 'Stock added','new_item' => 'New item',default => 'New stock'} }}</span>
       </article>
       @endforeach</div></section>@endif
       @if (count($comingSoon))

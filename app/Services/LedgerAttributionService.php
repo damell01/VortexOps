@@ -15,6 +15,30 @@ class LedgerAttributionService
 
     public function suggestedShow(WhatnotLedgerEntry $entry): ?Show
     {
+        // A source-provided livestream identifier can establish ownership even
+        // when Whatnot omits the order ID (notably on some adjustments).
+        // Never derive a livestream ID from a URL, timestamp or imported show link.
+        $raw = is_array($entry->raw_data) ? $entry->raw_data : [];
+        $explicit = [];
+        foreach (['live_id', 'whatnot_live_id', 'livestream_id', 'source_live_id'] as $field) {
+            $value = $raw[$field] ?? null;
+            if (is_string($value) && preg_match('/^[a-f0-9-]{32,36}$/i', $value)) {
+                $explicit[] = strtolower($value);
+            }
+        }
+        if (count(array_unique($explicit)) > 1) {
+            return null; // Conflicting source identifiers: never silently choose one.
+        }
+        if ($explicit !== [] && $entry->whatnot_channel_id !== null) {
+            $matches = Show::query()
+                ->where('whatnot_channel_id', $entry->whatnot_channel_id)
+                ->whereRaw('LOWER(whatnot_show_id) = ?', [$explicit[0]])
+                ->limit(2)->get();
+            if ($matches->count() === 1) {
+                return $matches->first();
+            }
+        }
+
         if (! filled($entry->whatnot_order_id) || $entry->whatnot_order_id === '-') {
             return null;
         }

@@ -120,12 +120,16 @@
     </section>
 
     @if($periodShows !== null)
-        <section class="vxw-card" aria-label="Shows in this period">
+        <section class="vxw-card" aria-label="Shows in this period" x-data="{ showsExpanded: false }">
             <div class="vxw-card-head">
                 <div><h3 class="vxw-h2">Shows in this period · {{ $periodShows->total() }}</h3>
                 <p class="vxw-sub">Shows assigned to people in this business, including shows awaiting reports or approval. Pending shows do not add to pay.</p></div>
+                <button type="button" class="vxw-btn vxw-btn--sm shrink-0" @click="showsExpanded = !showsExpanded" :aria-expanded="showsExpanded.toString()" aria-controls="payrun-period-shows">
+                    <span x-text="showsExpanded ? 'Hide shows' : 'View shows'">View shows</span>
+                    <x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4 transition-transform" x-bind:class="showsExpanded ? 'rotate-180' : ''" />
+                </button>
             </div>
-            <div class="vxw-card-body grid gap-4">
+            <div id="payrun-period-shows" x-show="showsExpanded" x-cloak class="vxw-card-body grid gap-4">
                 @forelse($periodShows as $show)
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div>

@@ -18,6 +18,6 @@ $tab('Fulfill','heroicon-o-truck',fn()=>\App\Filament\Pages\FulfillmentCenter::c
 $current=url()->current();
 @endphp
 <nav class="vx-tabbar" aria-label="Quick navigation">
-@foreach($tabs as $t)<a href="{{ $t['url'] }}" class="vx-tabbar-item" wire:navigate @if(str_starts_with($current,rtrim(strtok($t['url'],'?'),'/'))) aria-current="page" @endif><x-filament::icon :icon="$t['icon']"/><span>{{ $t['label'] }}</span></a>@endforeach
-<button type="button" class="vx-tabbar-item" x-data x-on:click="window.dispatchEvent(new CustomEvent('vx-open-mobile-menu'))" aria-label="Open full menu"><x-filament::icon icon="heroicon-o-bars-3"/><span>More</span></button>
+@foreach($tabs as $t)<a href="{{ $t['url'] }}" class="vx-tabbar-item" wire:navigate @if(rtrim($current,'/') === rtrim(strtok($t['url'],'?'),'/')) aria-current="page" @endif><x-filament::icon :icon="$t['icon']"/><span>{{ $t['label'] }}</span></a>@endforeach
+<button type="button" class="vx-tabbar-item" x-data x-on:click="window.dispatchEvent(new CustomEvent('vx-open-mobile-menu'))" aria-label="Open full menu" aria-haspopup="menu"><x-filament::icon icon="heroicon-o-bars-3"/><span>More</span></button>
 </nav>

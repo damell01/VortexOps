@@ -217,21 +217,21 @@
 
         @if($unmatchedBarcode && $mode === 'lookup')
             <div class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6" role="presentation">
-            <section role="dialog" aria-modal="true" aria-label="Assign unknown barcode" class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-violet-200 bg-white p-4 shadow-2xl dark:border-violet-900 dark:bg-gray-900 sm:p-5" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()">
+            <section role="dialog" aria-modal="true" aria-label="Assign unknown barcode" class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-4xl overflow-y-auto rounded-2xl border border-violet-200 bg-white p-4 shadow-2xl dark:border-violet-900 dark:bg-gray-900 sm:p-6" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()">
                 <h2 class="text-lg font-bold text-gray-950 dark:text-white">New barcode detected</h2>
                 <p class="mt-1 break-all font-mono text-sm text-violet-700 dark:text-violet-300">{{ $unmatchedBarcode }}</p>
                 <p class="mt-2 text-sm text-gray-500">Choose an item from the catalog or create one. You can optionally add stock at the same time.</p>
                 @if($errorMessage)<p class="mt-3 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-200" role="alert">{{ $errorMessage }}</p>@endif
-                <div class="mt-4 grid grid-cols-2 gap-2">
-                    <button type="button" @click="choice='link'" :class="choice === 'link' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Link to Existing</button>
-                    <button type="button" @click="choice='new'" :class="choice === 'new' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Create New Item</button>
+                <div class="mt-4 grid grid-cols-2 gap-3">
+                    <button type="button" @click="choice='link'" :class="choice === 'link' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-14 rounded-xl px-3 text-sm font-bold shadow-sm">Link to Existing Item</button>
+                    <button type="button" @click="choice='new'" :class="choice === 'new' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-14 rounded-xl px-3 text-sm font-bold shadow-sm">Create New Item</button>
                 </div>
                 <div x-show="choice === 'link'" class="mt-4">
                     <p class="mb-2 text-xs text-gray-500">Browse the catalog below or search to narrow the list.</p>
                     <label for="vx-link-item" class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Search existing items</label>
                     <input id="vx-link-item" type="search" wire:model.live.debounce.400ms="barcodeLinkSearch" placeholder="Search name, SKU or barcode…" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
                     @if($barcodeLinkOptions !== null)
-                        <div class="mt-2 max-h-48 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                        <div class="mt-2 max-h-72 divide-y divide-gray-100 overflow-auto rounded-xl border border-gray-200 bg-white dark:divide-gray-700 dark:border-gray-700 dark:bg-gray-900">
                             @forelse($barcodeLinkOptions as $option)
                                 <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
                                     <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['name'] }} <span class="block text-xs font-normal text-gray-500">{{ $option['sku'] }}</span></span>

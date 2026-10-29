@@ -75,14 +75,13 @@ class StockGate
 
         $own = $user->streamer?->id;
         $manager = static::runsSharedLocations($user);
-        $admin = $user->isOwner() || ($user->isAdmin() && ! InventoryVisibility::isReadOnlyStreamer($user));
+        if ($user->isOwner() || ($user->isAdmin() && ! InventoryVisibility::isReadOnlyStreamer($user))) {
+            return InventoryLocation::query()->visibleTo($user)
+                ->where('status', 'active')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
 
         return InventoryLocation::query()->visibleTo($user)
-            ->where(function ($q) use ($own, $manager, $admin) {
-                if ($admin) {
-                    // Admins can select all locations, including streamer inventory.
-                    return;
-                }
+            ->where(function ($q) use ($own, $manager) {
                 if ($manager) {
                     $q->orWhereNull('streamer_id');
                 }

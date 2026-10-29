@@ -33,6 +33,12 @@ trait FiltersInventoryLocation
 
     public function updatedInventoryLocation(): void
     {
+        // A location can change within the same Livewire request; invalidate
+        // the per-request selected-warehouse memo before rendering.
+        if (property_exists($this, 'inventoryPageLocationResolved')) {
+            $this->inventoryPageLocationResolved = false;
+            $this->inventoryPageLocationMemo = null;
+        }
         $this->clearSelection();
         $this->selectedTableRecords = [];
         $this->deselectedTableRecords = [];

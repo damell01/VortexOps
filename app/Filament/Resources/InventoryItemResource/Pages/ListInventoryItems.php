@@ -34,7 +34,19 @@ class ListInventoryItems extends ListRecords
     protected static string $resource = InventoryItemResource::class;
 
     /** Default to Main; honor a permitted warehouse selection without changing any stock. */
+    protected bool $inventoryPageLocationResolved = false;
+    protected ?int $inventoryPageLocationMemo = null;
+
     public function inventoryPageLocationId(): ?int
+    {
+        if ($this->inventoryPageLocationResolved) {
+            return $this->inventoryPageLocationMemo;
+        }
+        $this->inventoryPageLocationResolved = true;
+        return $this->inventoryPageLocationMemo = $this->resolveInventoryPageLocationId();
+    }
+
+    private function resolveInventoryPageLocationId(): ?int
     {
         $options = $this->inventoryLocationOptions();
         if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) return null;

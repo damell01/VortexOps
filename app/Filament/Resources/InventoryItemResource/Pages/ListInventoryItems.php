@@ -179,10 +179,19 @@ class ListInventoryItems extends ListRecords
 
     public function filterStock(?string $status): void
     {
+        $startedAt = microtime(true);
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
         $this->clearSelection();
         $this->resetPage();
         unset($this->catalogItems, $this->catalogTotal);
+        // Measure only the action itself here; the Livewire render and SQL
+        // queries run afterward and are captured by request-level monitoring.
+        if (config('app.debug')) {
+            \Illuminate\Support\Facades\Log::debug('Inventory stock filter action', [
+                'filter' => $this->stockHealth,
+                'action_ms' => round((microtime(true) - $startedAt) * 1000, 1),
+            ]);
+        }
     }
 
     public function setViewMode(string $mode): void

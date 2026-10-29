@@ -33,7 +33,7 @@ class AdminMainViewAndCountImportTest extends TestCase
         $this->shelf = InventoryLocation::create(['name' => 'Ty & Luna', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $ty->id]);
     }
 
-    public function test_admins_see_main_and_not_streamer_shelves(): void
+    public function test_admins_can_select_streamer_shelves_but_default_to_main(): void
     {
         $box = InventoryItem::create(['name' => 'Hobby Box', 'sku' => 'HB-1', 'unit_cost' => 10, 'is_active' => true]);
         InventoryStock::create(['inventory_item_id' => $box->id, 'inventory_location_id' => $this->main->id, 'quantity' => 5]);
@@ -42,9 +42,12 @@ class AdminMainViewAndCountImportTest extends TestCase
         InventoryStock::create(['inventory_item_id' => $theirsOnly->id, 'inventory_location_id' => $this->shelf->id, 'quantity' => 9]);
 
         $page = Livewire::test(ListInventoryItems::class);
-        $this->assertSame([$this->main->id => 'Main Warehouse'], $page->instance()->inventoryLocationOptions());
+        $this->assertSame([$this->main->id => 'Main Warehouse', $this->shelf->id => 'Ty & Luna'], $page->instance()->inventoryLocationOptions());
+        $this->assertSame($this->main->id, $page->instance()->inventoryPageLocationId());
+        $this->assertTrue(\App\Support\StockGate::canChange(auth()->user(), $this->shelf));
+        $this->assertContains($this->shelf->id, \App\Support\StockGate::changeableIds(auth()->user()));
 
-        // Only Main products are listed for an admin without an owned location.
+        // Main remains the default despite streamer shelves being available.
         $stats = collect($page->instance()->getStats())->keyBy('key');
         $this->assertSame('1', $stats['']['value']);
         $this->assertSame('5 units on hand', $stats['']['percentage']);

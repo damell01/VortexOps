@@ -960,14 +960,20 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .dark .vx-mobile-submenu a svg.vx-mm-link-icon{color:#a78bfa}
 .dark .vx-mega-menu a.has-icon .vx-mega-link-icon{color:#a78bfa}
 
-/* Consistent, spacious application dialogs on desktop. Keep compact confirmation
-   dialogs compact, and leave phone dialogs within the viewport. */
+/* Dialogs: confirmations stay compact; data-entry forms get working room.
+   Avoid widening every confirmation to 1320px. */
 @media (min-width: 768px) {
-  .fi-modal-window:not(:has(.fi-modal-content:empty)) {
-    width: min(94vw, 1320px) !important;
-    max-width: min(94vw, 1320px) !important;
+  .fi-modal-window:not([role="alertdialog"]) {
+    max-width: min(92vw, 960px);
   }
-  .fi-modal-window .fi-modal-content { max-height: min(78vh, 900px); overflow-y: auto; }
+  .fi-modal-window:has(.fi-fo-field-wrp:nth-of-type(5)) {
+    max-width: min(94vw, 1120px);
+  }
+  .fi-modal-window .fi-modal-content {
+    max-height: min(78dvh, 900px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 /* Operational page actions own the phone's bottom row, as on end-of-stream.

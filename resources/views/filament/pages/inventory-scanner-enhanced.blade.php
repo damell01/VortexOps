@@ -12,11 +12,12 @@
             }
         }"
         x-on:barcode-scanned.window="useScan($event)"
+        x-on:vx-scanner-item-ready.window="$nextTick(() => { const el = document.getElementById('vx-scanner-found-item'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); })"
     >
         <x-touch-mode-toggle />
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="grid grid-cols-2 gap-2 bg-white p-2 dark:bg-gray-900 sm:gap-3 sm:p-3">
-                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Scan & Add Stock</button>
+                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Lookup</button>
                 <button type="button" wire:click="switchMode('quickadd')" class="hidden min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
                 <button type="button" wire:click="switchMode('receive')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'receive' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-inbox-arrow-down class="mr-1 inline h-4 w-4" /> Receive</button>
             </div>
@@ -327,7 +328,13 @@
                                 <label class="block text-xs font-semibold">Item cost (optional)<span class="mt-0.5 block font-normal text-gray-500">What you paid per unit</span><input wire:model="newItemCost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="$0.00" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                                 <label class="block text-xs font-semibold">Target sale price (optional)<span class="mt-0.5 block font-normal text-gray-500">What you want to sell it for</span><input wire:model="newItemPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="$0.00" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                             </div>
-                            <p class="text-xs text-gray-500">Barcode {{ $unmatchedBarcode }} will be assigned automatically. You can add a photo after saving the item.</p>
+                            <label class="block rounded-xl border border-dashed border-violet-200 bg-violet-50/40 p-3 text-xs font-bold text-gray-700 dark:border-violet-900 dark:text-gray-200">Item photo (optional)
+                                <input type="file" wire:model="newItemPhoto" accept="image/jpeg,image/png,image/webp" class="mt-2 block w-full text-sm" />
+                                <span class="mt-1 block font-normal text-gray-500">Choose a photo or use your device camera. Maximum 5 MB.</span>
+                                <span wire:loading wire:target="newItemPhoto" class="mt-1 block text-violet-700">Uploading photo…</span>
+                                @error('newItemPhoto')<span class="mt-1 block text-red-600">{{ $message }}</span>@enderror
+                            </label>
+                            <p class="text-xs text-gray-500">Barcode {{ $unmatchedBarcode }} will be assigned automatically.</p>
                         </div>
                         <div x-show="choice === 'new'" class="mt-4 rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20 sm:p-4">
                             <label class="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold"><input type="checkbox" wire:model.live="addStockAfterResolve" class="h-5 w-5 rounded border-gray-300 text-violet-600" /> Add stock now <span class="font-normal text-gray-500">(optional)</span></label>
@@ -371,7 +378,7 @@
         @endif
 
         @if($mode === 'quickadd' && $selectedItem && !$barcodeSuccess)
-            <section x-data="{ stockOpen: false, photoOpen: false }" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <section id="vx-scanner-found-item" style="scroll-margin-top:110px" x-data="{ stockOpen: false, photoOpen: false }" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 p-4 dark:border-gray-800 sm:p-6">
                     <div class="min-w-0">
                         <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">Existing item found</span>
@@ -390,8 +397,9 @@
                     </div>
                     <div class="space-y-3">
                         <h3 class="text-sm font-bold text-gray-950 dark:text-white">What would you like to do?</h3>
-                        <button type="button" @click="stockOpen = !stockOpen; photoOpen = false" :aria-expanded="stockOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"><span>Add stock to this item</span><x-heroicon-o-plus class="h-5 w-5" /></button>
-                        <button type="button" @click="photoOpen = !photoOpen; stockOpen = false" :aria-expanded="photoOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Update item photo</span><x-heroicon-o-camera class="h-5 w-5" /></button>
+                        <button type="button" @click="stockOpen = !stockOpen; photoOpen = false" :aria-expanded="stockOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl bg-violet-600 px-4 text-sm font-bold text-white"><span>Add / change stock</span><x-heroicon-o-plus class="h-5 w-5" /></button>
+                        <button type="button" @click="photoOpen = !photoOpen; stockOpen = false" :aria-expanded="photoOpen" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-gray-200 px-4 text-sm font-bold text-gray-800 dark:border-gray-700 dark:text-white"><span>Add / change item photo</span><x-heroicon-o-camera class="h-5 w-5" /></button>
+                        <a href="{{ url('/admin/inventory-items') }}" class="flex min-h-12 w-full items-center justify-between rounded-xl border border-red-200 px-4 text-sm font-bold text-red-700 dark:border-red-900 dark:text-red-300"><span>Manage / delete item</span><x-heroicon-o-arrow-top-right-on-square class="h-5 w-5" /></a>
                     </div>
                     <div x-show="stockOpen" x-cloak class="rounded-xl border border-violet-200 bg-violet-50/40 p-4 dark:border-violet-900 dark:bg-violet-950/20 lg:col-span-2">
                         <h3 class="text-sm font-extrabold">Add stock</h3>

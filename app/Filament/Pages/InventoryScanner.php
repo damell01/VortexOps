@@ -132,7 +132,7 @@ class InventoryScanner extends Page
     public string $newItemCost = '';
     public string $newItemPrice = '';
     public string $barcodeLinkSearch = '';
-    public bool $addStockAfterResolve = false;
+    public bool $addStockAfterResolve = true;
     public ?array $barcodeLinkOptions = null;
     public ?array $barcodeSuccess = null;
     public string $catalogCategory = '';
@@ -284,7 +284,7 @@ class InventoryScanner extends Page
         $this->catalogPage = 1;
         $this->catalogCategory = '';
         $this->barcodeLinkSearch = '';
-        $this->addStockAfterResolve = false;
+        $this->addStockAfterResolve = true;
     }
 
     // ── Unified scan entry point ──────────────────────────────────────────────
@@ -348,6 +348,8 @@ class InventoryScanner extends Page
             $this->result       = null;
             $this->errorMessage = "This barcode is not linked to an inventory item yet.";
             $this->unmatchedBarcode = $code;
+            $this->qaQty = '0';
+            $this->addStockAfterResolve = true;
             $this->costWarnings = null;
             $this->dispatch('inventory-scanner-unknown', barcode: $code);
             return;
@@ -700,11 +702,11 @@ class InventoryScanner extends Page
     private function validateOptionalInitialStock(): bool
     {
         if (! $this->addStockAfterResolve) return true;
-        if (! is_numeric($this->qaQty) || ! is_finite((float) $this->qaQty) || (float) $this->qaQty <= 0) {
-            $this->errorMessage = 'Enter a valid stock quantity greater than zero.';
+        if (! is_numeric($this->qaQty) || ! is_finite((float) $this->qaQty) || (float) $this->qaQty < 0) {
+            $this->errorMessage = 'Enter a valid stock quantity of zero or greater.';
             return false;
         }
-        if (! $this->qaLocationId || ! $this->locations->contains('id', $this->qaLocationId)) {
+        if ((float) $this->qaQty > 0 && (! $this->qaLocationId || ! $this->locations->contains('id', $this->qaLocationId))) {
             $this->errorMessage = 'Select a permitted stock location.';
             return false;
         }
@@ -729,7 +731,7 @@ class InventoryScanner extends Page
             return;
         }
 
-        $withStock = $this->addStockAfterResolve;
+        $withStock = $this->addStockAfterResolve && (float) $this->qaQty > 0;
         try {
             \Illuminate\Support\Facades\DB::transaction(function () use ($item, $code, $withStock) {
                 if (InventoryItem::findByScan($code)) {

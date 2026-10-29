@@ -228,6 +228,19 @@
                                             </div>
                                         @endif
                                     </div>
+                                    @if($payout->calculation_notes)
+                                        <details class="col-span-full rounded-lg border border-gray-200 p-2 text-xs dark:border-gray-700">
+                                            <summary class="cursor-pointer font-semibold">How this payout was calculated</summary>
+                                            <div class="mt-2 whitespace-pre-wrap break-words text-gray-600 dark:text-gray-300">{{ $payout->calculation_notes }}</div>
+                                        </details>
+                                    @endif
+                                    @if($run->status === 'draft')
+                                        <div class="col-span-full flex justify-end">
+                                            <button type="button" class="vxw-btn vxw-btn--sm" wire:click="mountAction('override_payout', { payout_id: {{ (int) $payout->id }} })">
+                                                <x-filament::icon icon="heroicon-m-pencil-square" /> Adjust payout
+                                            </button>
+                                        </div>
+                                    @endif
                                     <div><div class="vxw-fig-label">Hours</div><div class="vxw-num">{{ number_format((float)$payout->hours_worked, 2) }}</div></div>
                                     <div><div class="vxw-fig-label">Shipments</div><div class="vxw-num">{{ number_format((int)$payout->shipments_count) }}</div></div>
                                     <div><div class="vxw-fig-label">Labels</div><div class="vxw-num">{{ number_format((int)$payout->label_count) }}</div></div>

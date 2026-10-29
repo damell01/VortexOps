@@ -30,15 +30,14 @@ jobs:
         tests/Feature/Reports/LedgerTipReportTest.php tests/Feature/Payroll/OtherPaymentInPayRunTest.php
         tests/Feature/Reliability/InventoryAdminNavigationTest.php tests/Feature/Reliability/ReceivingNavigationTest.php
 
-        node --test tests/Browser/camera-scanner.test.cjs
-
-        node scripts/check-modal-opening.cjs'
+        node --test tests/Browser/camera-scanner.test.cjs'
     - uses: actions/setup-node@v4
       with:
         node-version: '24'
         cache: npm
     - run: npm ci
     - run: npm run build
+    - run: node scripts/check-modal-opening.cjs
   release:
     needs:
     - verify

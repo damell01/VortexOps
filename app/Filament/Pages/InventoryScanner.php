@@ -478,6 +478,7 @@ class InventoryScanner extends Page
             'name'     => $item->name,
             'qty'      => $qty,
             'location' => $location->name,
+            'location_total' => (float) InventoryStock::query()->where('inventory_item_id', $item->id)->where('inventory_location_id', $location->id)->value('quantity'),
             'created'  => $createdItem,
         ];
 

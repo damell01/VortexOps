@@ -15,9 +15,9 @@
     >
         <x-touch-mode-toggle />
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-            <div class="grid grid-cols-3 gap-2 bg-white p-2 dark:bg-gray-900 sm:gap-3 sm:p-3">
-                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Look Up</button>
-                <button type="button" wire:click="switchMode('quickadd')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
+            <div class="grid grid-cols-2 gap-2 bg-white p-2 dark:bg-gray-900 sm:gap-3 sm:p-3">
+                <button type="button" wire:click="switchMode('lookup')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'lookup' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-magnifying-glass class="mr-1 inline h-4 w-4" /> Scan & Add Stock</button>
+                <button type="button" wire:click="switchMode('quickadd')" class="hidden min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'quickadd' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-plus-circle class="mr-1 inline h-4 w-4" /> Add Stock</button>
                 <button type="button" wire:click="switchMode('receive')" class="min-h-12 rounded-xl border border-gray-200 px-2 py-3 text-xs font-semibold transition-colors dark:border-gray-700 sm:min-h-16 sm:px-3 sm:text-sm {{ $mode === 'receive' ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}"><x-heroicon-o-inbox-arrow-down class="mr-1 inline h-4 w-4" /> Receive</button>
             </div>
         </section>
@@ -216,19 +216,20 @@
         </section>
 
         @if($unmatchedBarcode && $mode === 'lookup')
-            <section class="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm dark:border-violet-900 dark:bg-gray-900 sm:p-5" x-data="{ choice: 'link' }">
+            <div class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6" role="presentation">
+            <section role="dialog" aria-modal="true" aria-label="Assign unknown barcode" class="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-violet-200 bg-white p-4 shadow-2xl dark:border-violet-900 dark:bg-gray-900 sm:p-5" x-data="{ choice: 'link' }" x-init="$wire.openBarcodeCatalog()">
                 <h2 class="text-lg font-bold text-gray-950 dark:text-white">New barcode detected</h2>
                 <p class="mt-1 break-all font-mono text-sm text-violet-700 dark:text-violet-300">{{ $unmatchedBarcode }}</p>
-                <p class="mt-2 text-sm text-gray-500">This barcode isn't assigned. Link it to an existing item or create a new item. Nothing has been added to stock.</p>
+                <p class="mt-2 text-sm text-gray-500">Choose an item from the catalog or create one. You can optionally add stock at the same time.</p>
                 <div class="mt-4 grid grid-cols-2 gap-2">
                     <button type="button" @click="choice='link'" :class="choice === 'link' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Link to Existing</button>
                     <button type="button" @click="choice='new'" :class="choice === 'new' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Create New Item</button>
                 </div>
-                <div x-show="choice === 'link'" class="mt-4">
+                <div x-show="choice === 'link'" class="mt-4">\n                    <p class="mb-2 text-xs text-gray-500">Browse the catalog below or search to narrow the list.</p>
                     <label for="vx-link-item" class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Search existing items</label>
                     <input id="vx-link-item" type="search" wire:model.live.debounce.400ms="barcodeLinkSearch" placeholder="Search name, SKU or barcode…" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
                     @if($barcodeLinkOptions !== null)
-                        <div class="mt-2 max-h-64 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                        <div class="mt-2 max-h-48 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
                             @forelse($barcodeLinkOptions as $option)
                                 <button type="button" wire:click="linkScannedBarcode({{ $option['id'] }})" wire:loading.attr="disabled" wire:target="linkScannedBarcode" class="flex min-h-12 w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-gray-800">
                                     <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $option['name'] }} <span class="block text-xs font-normal text-gray-500">{{ $option['sku'] }}</span></span>
@@ -247,9 +248,20 @@
                         <label class="block"><span class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Sale price</span><input wire:model="newItemPrice" type="number" min="0" step="0.01" placeholder="0.00" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
                     </div>
                     <button type="button" wire:click="createScannedItem" wire:loading.attr="disabled" wire:target="createScannedItem" class="min-h-12 w-full rounded-lg bg-violet-600 px-4 text-sm font-bold text-white disabled:opacity-60"><span wire:loading.remove wire:target="createScannedItem">Create Item</span><span wire:loading wire:target="createScannedItem">Creating item…</span></button>
-                    <p class="text-xs text-gray-500">After creation, choose a quantity and location to add stock, or leave the new item at zero.</p>
+                    <p class="text-xs text-gray-500">Leave stock unchecked below to create the item with zero stock.</p>
                 </div>
+                <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-700">
+                    <label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" wire:model.live="addStockAfterResolve" class="rounded border-gray-300 text-violet-600" /> Add stock now (optional)</label>
+                    @if($addStockAfterResolve)
+                        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                            <label class="block text-xs font-semibold">Quantity<input type="number" min="0.01" step="0.01" wire:model="qaQty" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" /></label>
+                            <label class="block text-xs font-semibold">Stock location<select wire:model="qaLocationId" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800">@foreach($this->locations as $location)<option value="{{ $location->id }}">{{ $location->name }}</option>@endforeach</select></label>
+                        </div>
+                    @endif
+                </div>
+                <button type="button" wire:click="switchMode('lookup')" class="mt-4 w-full rounded-lg border border-gray-200 p-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-200">Cancel / Scan again</button>
             </section>
+            </div>
         @endif
 
         @if($mode === 'quickadd' && $selectedItem)

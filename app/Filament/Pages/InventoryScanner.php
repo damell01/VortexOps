@@ -131,6 +131,7 @@ class InventoryScanner extends Page
     public string $newItemCategory = '';
     public string $newItemPrice = '';
     public string $barcodeLinkSearch = '';
+    public bool $addStockAfterResolve = false;
     public ?array $barcodeLinkOptions = null;
 
     // ── Receive Pallet state ──────────────────────────────────────────────────
@@ -258,6 +259,7 @@ class InventoryScanner extends Page
         }
         $this->unmatchedBarcode = '';
         $this->barcodeLinkOptions = null;
+        $this->addStockAfterResolve = false;
     }
 
     // ── Unified scan entry point ──────────────────────────────────────────────
@@ -575,6 +577,15 @@ class InventoryScanner extends Page
         }
     }
 
+    /** Open a searchable catalog immediately, without requiring a search term. */
+    public function openBarcodeCatalog(): void
+    {
+        $this->barcodeLinkOptions = InventoryItem::query()
+            ->where('is_active', true)->orderBy('name')->limit(24)
+            ->get(['id', 'name', 'sku'])
+            ->map(fn ($item) => ['id' => $item->id, 'name' => $item->name, 'sku' => $item->sku])->toArray();
+    }
+
     public function updatedBarcodeLinkSearch(): void
     {
         $term = trim($this->barcodeLinkSearch);
@@ -624,7 +635,9 @@ class InventoryScanner extends Page
         $this->barcodeLinkOptions = null;
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
-        $this->qaFlash = null;
+        if ($this->addStockAfterResolve) {
+            $this->addSelectedStock();
+        }
     }
 
     public function createScannedItem(): void
@@ -666,6 +679,9 @@ class InventoryScanner extends Page
         // is available whether the item was newly created or already existed.
         $this->mode = 'quickadd';
         $this->selectScannedItem($item);
+        if ($this->addStockAfterResolve) {
+            $this->addSelectedStock();
+        }
     }
 
     private function quickAddResolvedItem(InventoryItem $item): void

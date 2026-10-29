@@ -133,6 +133,11 @@ class InventoryScanner extends Page
     public string $barcodeLinkSearch = '';
     public bool $addStockAfterResolve = false;
     public ?array $barcodeLinkOptions = null;
+    public string $catalogCategory = '';
+    public string $catalogSort = 'name';
+    public int $catalogPage = 1;
+    public int $catalogPerPage = 12;
+    public ?int $catalogSelectedItemId = null;
 
     // ── Receive Pallet state ──────────────────────────────────────────────────
 
@@ -270,6 +275,10 @@ class InventoryScanner extends Page
         }
         $this->unmatchedBarcode = '';
         $this->barcodeLinkOptions = null;
+        $this->catalogSelectedItemId = null;
+        $this->catalogPage = 1;
+        $this->catalogCategory = '';
+        $this->barcodeLinkSearch = '';
         $this->addStockAfterResolve = false;
     }
 
@@ -589,25 +598,89 @@ class InventoryScanner extends Page
         }
     }
 
-    /** Open a searchable catalog immediately, without requiring a search term. */
+    /** Catalog picker: server-side filtering, pagination and preview; no large Livewire payloads. */
+    public function getCatalogCategoriesProperty(): array
+    {
+        return InventoryItem::query()->where('is_active', true)->whereNotNull('category')
+            ->where('category', '!=', '')->distinct()->orderBy('category')
+            ->pluck('category')->all();
+    }
+
+    public function getCatalogSelectedItemProperty(): ?array
+    {
+        if (! $this->catalogSelectedItemId) return null;
+        $item = InventoryItem::query()->where('is_active', true)->find($this->catalogSelectedItemId);
+        if (! $item) return null;
+        return [
+            'id' => $item->id, 'name' => $item->name, 'sku' => $item->sku,
+            'category' => $item->category, 'image' => $item->imageUrl(),
+            'quantity' => (float) $item->totalQuantity(),
+            'price' => $item->sale_price,
+        ];
+    }
+
     public function openBarcodeCatalog(): void
     {
-        $this->barcodeLinkOptions = InventoryItem::query()
-            ->where('is_active', true)->orderBy('name')->limit(24)
-            ->get(['id', 'name', 'sku'])
-            ->map(fn ($item) => ['id' => $item->id, 'name' => $item->name, 'sku' => $item->sku])->toArray();
+        $this->refreshBarcodeCatalog();
+    }
+
+    public function refreshBarcodeCatalog(): void
+    {
+        $term = trim($this->barcodeLinkSearch);
+        $query = InventoryItem::query()->where('is_active', true);
+        if ($term !== '') {
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                    ->orWhere('sku', 'like', "%{$term}%")
+                    ->orWhere('barcode', 'like', "%{$term}%");
+            });
+        }
+        if ($this->catalogCategory !== '') $query->where('category', $this->catalogCategory);
+        $total = (clone $query)->count();
+        $pages = max(1, (int) ceil($total / $this->catalogPerPage));
+        $this->catalogPage = max(1, min($this->catalogPage, $pages));
+        $query = $this->catalogSort === 'newest'
+            ? $query->orderByDesc('id')
+            : $query->orderBy('name')->orderBy('id');
+        $this->barcodeLinkOptions = [
+            'items' => $query->forPage($this->catalogPage, $this->catalogPerPage)->get()
+                ->map(fn ($item) => [
+                    'id' => $item->id, 'name' => $item->name, 'sku' => $item->sku,
+                    'category' => $item->category, 'image' => $item->imageUrl(),
+                ])->all(),
+            'total' => $total, 'pages' => $pages,
+        ];
     }
 
     public function updatedBarcodeLinkSearch(): void
     {
-        $term = trim($this->barcodeLinkSearch);
-        $this->barcodeLinkOptions = mb_strlen($term) < 2 ? null : InventoryItem::query()
-            ->where('is_active', true)
-            ->where(fn ($q) => $q->where('name', 'like', "%{$term}%")
-                ->orWhere('sku', 'like', "{$term}%")
-                ->orWhere('barcode', 'like', "{$term}%"))
-            ->orderBy('name')->limit(8)->get(['id', 'name', 'sku'])
-            ->map(fn ($item) => ['id' => $item->id, 'name' => $item->name, 'sku' => $item->sku])->toArray();
+        $this->catalogPage = 1;
+        $this->refreshBarcodeCatalog();
+    }
+
+    public function updatedCatalogCategory(): void
+    {
+        $this->catalogPage = 1;
+        $this->refreshBarcodeCatalog();
+    }
+
+    public function updatedCatalogSort(): void
+    {
+        $this->catalogPage = 1;
+        $this->refreshBarcodeCatalog();
+    }
+
+    public function catalogGoToPage(int $page): void
+    {
+        $this->catalogPage = $page;
+        $this->refreshBarcodeCatalog();
+    }
+
+    public function catalogSelectItem(int $id): void
+    {
+        if (InventoryItem::query()->where('is_active', true)->whereKey($id)->exists()) {
+            $this->catalogSelectedItemId = $id;
+        }
     }
 
     private function validateOptionalInitialStock(): bool

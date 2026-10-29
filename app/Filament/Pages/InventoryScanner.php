@@ -128,7 +128,7 @@ class InventoryScanner extends Page
     public ?array $selectedItem = null;
     public string $unmatchedBarcode = '';
     public string $newItemName = '';
-    public string $newItemCategory = '';
+    public string $newItemCost = '';
     public string $newItemPrice = '';
     public string $barcodeLinkSearch = '';
     public bool $addStockAfterResolve = false;
@@ -774,6 +774,10 @@ class InventoryScanner extends Page
             $this->errorMessage = 'This barcode now belongs to an item. Scan it again.';
             return;
         }
+        if ($this->newItemCost !== '' && (! is_numeric($this->newItemCost) || (float) $this->newItemCost < 0)) {
+            $this->errorMessage = 'Enter a valid non-negative item cost.';
+            return;
+        }
         if ($this->newItemPrice !== '' && (! is_numeric($this->newItemPrice) || (float) $this->newItemPrice < 0)) {
             $this->errorMessage = 'Enter a valid non-negative price.';
             return;
@@ -787,7 +791,7 @@ class InventoryScanner extends Page
                 $item = InventoryItem::create([
                     'name' => $name,
                     'barcode' => $code,
-                    'category' => trim($this->newItemCategory) ?: null,
+                    'unit_cost' => $this->newItemCost === '' ? null : (float) $this->newItemCost,
                     'sale_price' => $this->newItemPrice === '' ? null : (float) $this->newItemPrice,
                     'is_active' => true,
                 ]);
@@ -806,7 +810,7 @@ class InventoryScanner extends Page
         }
         $stock = $withStock ? $this->qaFlash : null;
         $this->newItemName = '';
-        $this->newItemCategory = '';
+        $this->newItemCost = '';
         $this->newItemPrice = '';
         $this->unmatchedBarcode = '';
         $this->mode = 'quickadd';

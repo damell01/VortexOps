@@ -12,7 +12,9 @@ async function settle(page:Page) {
         if (!livewire) return true;
         return livewire.all().some((component:any) =>
             component.name === 'Filament\\Livewire\\DatabaseNotifications'
-            && component.snapshot.memo.lazyLoaded === false);
+            && component.snapshot.memo.lazyLoaded === false
+            && component.el.getBoundingClientRect().width > 0
+            && component.el.getBoundingClientRect().height > 0);
     }), { message: 'notification lazy loading settled' }).toBe(false);
     const traffic = (page as any).auditTraffic;
     if (traffic) await expect.poll(() => traffic.pending.size === 0

@@ -621,7 +621,8 @@ class InventoryScanner extends Page
         $this->unmatchedBarcode = '';
         $this->barcodeLinkSearch = '';
         $this->barcodeLinkOptions = null;
-        $this->lookupItem($item);
+        $this->mode = 'quickadd';
+        $this->selectScannedItem($item);
         $this->qaFlash = null;
     }
 

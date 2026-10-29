@@ -53,7 +53,7 @@ jobs:
         key: ${{ secrets.VPS_SSH_KEY }}
         timeout: 60s
         command_timeout: 10m
-        script: "set -eu\ncd /var/www/vortexops\nTARGET=c8fd289851efc31181256c23b28edb542bd7e92b\n\
+        script: "set -eu\ncd /var/www/vortexops\nTARGET=849f5e284250635bacd087e863f3075902f5334c\n\
           git diff --quiet\ngit diff --cached --quiet\ngit fetch origin Production\n\
           [ \"$(git rev-parse origin/Production)\" = \"$TARGET\" ] || { echo 'Production\
           \ advanced; refusing a stale release'; exit 1; }\nOLD_SHA=$(git rev-parse\

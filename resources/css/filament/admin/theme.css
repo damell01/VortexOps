@@ -713,7 +713,7 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
    and use !important so deployment order cannot restore the 1100px takeover. */
 @media(min-width:641px){
   .fi-modal-window:has(.fi-database-notifications),
-  .fi-modal-window:has([wire\\:key*="database-notification"]),
+  .fi-modal-window:has([wire\:key*="database-notification"]),
   .fi-modal-window:has([class*="database-notification"]){
     width:min(440px,calc(100vw - 32px)) !important;
     max-width:440px !important;
@@ -724,7 +724,7 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
     overflow:hidden !important;
   }
   .fi-modal-window:has(.fi-database-notifications) .fi-modal-content,
-  .fi-modal-window:has([wire\\:key*="database-notification"]) .fi-modal-content,
+  .fi-modal-window:has([wire\:key*="database-notification"]) .fi-modal-content,
   .fi-modal-window:has([class*="database-notification"]) .fi-modal-content{
     overflow-y:auto !important;
     overflow-x:hidden !important;
@@ -1053,7 +1053,7 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .fi-modal-window .fi-modal-header, .fi-modal-window .fi-modal-footer { flex-shrink:0; }
 .fi-modal-window .fi-modal-content { min-height:0; }
 .fi-notification { max-width:min(420px,calc(100vw - 24px)); overflow-wrap:anywhere; }
-.fi-btn[wire\\:loading\\.attr="disabled"], .fi-btn[aria-busy="true"] { cursor:progress; }
+.fi-btn[wire\:loading\.attr="disabled"], .fi-btn[aria-busy="true"] { cursor:progress; }
 @media(min-width:1024px) {
   .fi-page { gap:18px; }
   .fi-page-content { gap:18px; }

@@ -226,7 +226,8 @@
                     <button type="button" @click="choice='link'" :class="choice === 'link' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Link to Existing</button>
                     <button type="button" @click="choice='new'" :class="choice === 'new' ? 'bg-violet-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'" class="min-h-12 rounded-lg px-3 text-sm font-bold">Create New Item</button>
                 </div>
-                <div x-show="choice === 'link'" class="mt-4">\n                    <p class="mb-2 text-xs text-gray-500">Browse the catalog below or search to narrow the list.</p>
+                <div x-show="choice === 'link'" class="mt-4">
+                    <p class="mb-2 text-xs text-gray-500">Browse the catalog below or search to narrow the list.</p>
                     <label for="vx-link-item" class="mb-1 block text-xs font-bold text-gray-700 dark:text-gray-200">Search existing items</label>
                     <input id="vx-link-item" type="search" wire:model.live.debounce.400ms="barcodeLinkSearch" placeholder="Search name, SKU or barcode…" class="min-h-12 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-800" />
                     @if($barcodeLinkOptions !== null)

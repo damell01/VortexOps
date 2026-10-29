@@ -38,7 +38,6 @@ class Timekeeping extends Page
             || $user?->isOwner()
             || $user?->isStreamerAssistant()
             || $user?->isStreamer()
-            || $user?->isStreamerAssistant()
             || $user?->isFulfillment()
             || $user?->isFulfillmentAdmin()) ?? false;
     }

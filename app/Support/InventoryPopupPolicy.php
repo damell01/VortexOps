@@ -13,7 +13,7 @@ final class InventoryPopupPolicy
 
     public static function enabledFor(?User $user): bool
     {
-        if (! $user || ! Setting::getBool(self::ENABLED, false)) return false;
+        if (! $user || ! Setting::getBool(self::ENABLED, true)) return false;
         $roles = json_decode((string) Setting::get(self::ROLES, '["streamer"]'), true);
         $roles = is_array($roles) ? $roles : ['streamer'];
         $ids = json_decode((string) Setting::get(self::USER_IDS, '[]'), true);

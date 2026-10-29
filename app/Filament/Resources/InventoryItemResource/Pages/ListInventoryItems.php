@@ -154,6 +154,9 @@ class ListInventoryItems extends ListRecords
         // One correlated subquery for the visible cards, not a query per SKU.
         // Only receipts into a location the viewer can see count as new stock.
         $query = $this->catalogQuery();
+        // Only the current page of product IDs needs the expensive latest-receipt
+        // lookup. Apply the receipt subquery after limiting the result set.
+        $query->limit($this->catalogVisible);
         $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
         if ($this->inventoryLocation !== 'all') {
             $selectedLocation = $this->inventoryPageLocationId();
@@ -167,7 +170,7 @@ class ListInventoryItems extends ListRecords
             ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
             ->latest('created_at')
             ->limit(1)]);
-        return $query->limit($this->catalogVisible)->get();
+        return $query->get();
     }
 
     #[Computed]

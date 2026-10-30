@@ -8,7 +8,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     environment: production
     steps:
     - uses: appleboy/ssh-action@v1
@@ -17,7 +17,7 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         timeout: 60s
-        command_timeout: 480s
+        command_timeout: 1300s
         script: "set -eu\ncd /var/www/vortexops\ngit fetch origin fix/order-source-filter\n\
           PROBE_CODE=$(mktemp -d /tmp/vortex-order-source.XXXXXX)\ngit archive FETCH_HEAD\
           \ scripts tests/Python | tar -x -C \"$PROBE_CODE\"\n(cd \"$PROBE_CODE\"\
@@ -27,8 +27,8 @@ jobs:
           \ <<'PHP'\n<?php\ntry {\n    require '/var/www/vortexops/vendor/autoload.php';\n\
           \    $app = require '/var/www/vortexops/bootstrap/app.php';\n    $app->make(Illuminate\\\
           Contracts\\Console\\Kernel::class)->bootstrap();\n    config(['vortex.whatnot.browser_lock_fail_fast'\
-          \ => false, 'vortex.whatnot.browser_lock_wait' => 120, 'vortex.whatnot.runtime_deadline'\
-          \ => microtime(true) + 300]);\n    putenv('WHATNOT_BROWSER_LOCK_WAIT=120');\n\
+          \ => false, 'vortex.whatnot.browser_lock_wait' => 900, 'vortex.whatnot.runtime_deadline'\
+          \ => microtime(true) + 1200]);\n    putenv('WHATNOT_BROWSER_LOCK_WAIT=120');\n\
           \    $code = getenv('ORDER_PROBE_CODE');\n    putenv('WHATNOT_USER_DATA_DIR=/var/www/vortexops/storage/whatnot-scrapling-profile');\n\
           \    putenv('WHATNOT_BROWSER_LOCK_FILE=/var/www/vortexops/storage/whatnot-browser.lock');\n\
           \    putenv('WHATNOT_PYTHON_BIN=/var/www/vortexops/.venv/bin/python');\n\
@@ -36,12 +36,14 @@ jobs:
           \    $scraper = $app->make(App\\Services\\WhatnotScraper::class);\n    (new\
           \ ReflectionProperty($scraper, 'scriptPath'))->setValue($scraper, $code.'/scripts/whatnot-runner.cjs');\n\
           \    $app->instance(App\\Services\\WhatnotScraper::class, $scraper);\n \
-          \   $out = new Symfony\\Component\\Console\\Output\\BufferedOutput();\n\
-          \    $exit = Illuminate\\Support\\Facades\\Artisan::call('whatnot:probe-order-filter',\
-          \ [], $out);\n    $content = $out->fetch();\n    foreach (explode(\"\\n\"\
-          ,$content) as $line) {\n        if (preg_match('/ORDER_SOURCE_EVIDENCE (\\\
-          [.*\\])/', $line, $m)) {\n            $metadata = json_decode($m[1], true);\n\
-          \            if (is_array($metadata)) echo 'ORDER_FILTER_EVIDENCE '.json_encode($metadata).\"\
+          \   $holder=App\\Support\\WhatnotBrowserLock::holder();\n    echo 'ORDER_PROBE_BROWSER_BUSY\
+          \ '.($holder && $holder['alive'] ? 'yes':'no').\"\\n\";\n    $out = new\
+          \ Symfony\\Component\\Console\\Output\\BufferedOutput();\n    $exit = Illuminate\\\
+          Support\\Facades\\Artisan::call('whatnot:probe-order-filter', [], $out);\n\
+          \    $content = $out->fetch();\n    foreach (explode(\"\\n\",$content) as\
+          \ $line) {\n        if (preg_match('/ORDER_SOURCE_EVIDENCE (\\[.*\\])/',\
+          \ $line, $m)) {\n            $metadata = json_decode($m[1], true);\n   \
+          \         if (is_array($metadata)) echo 'ORDER_FILTER_EVIDENCE '.json_encode($metadata).\"\
           \\n\";\n        }\n    }\n    echo 'ORDER_PROBE_EXIT '.$exit.\"\\n\";\n\
           \    foreach (['ORDER_SOURCE_FILTER_COLLISION', 'CLOUDFLARE_CHALLENGE',\
           \ 'LOGIN_REQUIRED', 'BROWSER_LOCK_TIMEOUT', 'SOURCE FILTER FAILED', 'SOURCE_FILTER_UNTRUSTED',\

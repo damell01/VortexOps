@@ -16,6 +16,8 @@ return [
 
     'whatnot_seller' => [
         'base_url' => env('WHATNOT_SELLER_API_BASE_URL', 'https://api.whatnot.com/seller-api/rest/v2'),
+        // Explicit opt-in after checking the actual Whatnot pagination response.
+        'pagination_verified' => env('WHATNOT_SELLER_PAGINATION_VERIFIED', false),
     ],
 
     'postmark' => [

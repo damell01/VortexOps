@@ -1940,6 +1940,7 @@ class InventoryScanner extends Page
             // was why this card could show "$0.00" for an item whose Edit page
             // showed a real List Unit Cost.
             'avg_cost'         => (float) ($item->costBasis() ?? 0),
+            'item_cost'        => (float) ($item->unit_cost ?? 0),
             'sale_price'       => (float) ($item->sale_price ?? 0),
             'total_qty'        => (float) $totalQty,
             'inventory_value'  => (float) $inventoryValue,

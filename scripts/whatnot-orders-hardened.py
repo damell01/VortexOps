@@ -356,7 +356,7 @@ def install(module) -> None:
                         # Seller Hub also renders this as a custom text control.
                         import re
                         try:
-                            opened = page.evaluate(r"""() => {const el=[...document.querySelectorAll('div,button,span,[role="button"]')].reverse().find(el=>/^Show\s*100$/.test((el.innerText||'').trim())&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');if(!el)return false;el.click();return true;}""")
+                            opened = page.evaluate(r"""() => {const el=[...document.querySelectorAll('*')].reverse().find(el=>!el.closest('tbody,tr')&&/^Show\s*100$/.test((el.innerText||'').trim())&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');if(!el)return false;el.click();return true;}""")
                             if opened:
                                 for _ in range(20):
                                     chosen = page.evaluate(r"""() => {const el=[...document.querySelectorAll('[role="dialog"] div')].reverse().find(el=>/^Show\s*20$/.test((el.innerText||'').trim())&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');if(!el)return false;el.click();return true;}""")
@@ -462,7 +462,7 @@ def install(module) -> None:
                 rows = list(found.values())
                 if rows and not verified_response_ids:
                     module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([json.loads(v) for v in sorted(response_shapes)]))
-                    controls = page.evaluate(r"""() => ({selects:[...document.querySelectorAll('select')].map(el=>({role:el.getAttribute('role'),options:[...el.options].map(o=>({label:o.textContent,value:o.value}))})),pageButtons:[...document.querySelectorAll('button,[role=button],[role=combobox],div,span')].filter(el=>!el.closest('tbody,tr')&&/^Show\s*(?:20|50|100)(?:\D|$)/i.test((el.innerText||'').trim())&&(el.innerText||'').length<100).slice(-20).map(el=>({tag:el.tagName,role:el.getAttribute('role'),label:el.innerText.trim(),visible:Boolean(el.getClientRects().length)&&getComputedStyle(el).visibility!=='hidden'}))})""")
+                    controls = page.evaluate(r"""() => ({selects:[...document.querySelectorAll('select')].map(el=>({role:el.getAttribute('role'),options:[...el.options].map(o=>({label:o.textContent,value:o.value}))})),pageButtons:[...document.querySelectorAll('*')].filter(el=>!el.closest('tbody,tr')&&/^Show\s*(?:20|50|100)(?:\D|$)/i.test((el.innerText||'').trim())&&(el.innerText||'').length<100).slice(-20).map(el=>({tag:el.tagName,role:el.getAttribute('role'),label:el.innerText.trim(),visible:Boolean(el.getClientRects().length)&&getComputedStyle(el).visibility!=='hidden'}))})""")
                     module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([{'pagination_controls':controls}]))
                 for row in rows:
                     if not probe_max_pages and str(row.get('order_id') or '') in verified_response_ids:

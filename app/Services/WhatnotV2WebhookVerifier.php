@@ -12,7 +12,7 @@ final class WhatnotV2WebhookVerifier
 {
     public function verify(string $body, ?string $eventId, ?string $timestamp, ?string $signatures, string $secret): array
     {
-        if ($body === '' || strlen($body) > 1048576 || ! is_string($eventId) || ! preg_match('/^[a-f0-9-]{36}$/i', $eventId)
+        if ($body === '' || strlen($body) > 1048576 || ! is_string($eventId) || ! preg_match('/^[A-Za-z0-9_-]{1,255}$/', $eventId)
             || ! is_string($timestamp) || ! ctype_digit($timestamp)
             || ! is_string($signatures) || $signatures === '' || $secret === '') {
             throw new RuntimeException('Invalid webhook headers or payload.');

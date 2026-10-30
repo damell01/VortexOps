@@ -62,10 +62,8 @@ class InventoryVisibility
         $key = $user->id . ':' . ($user->streamer?->id ?? 'none');
         $memo = request()->attributes->get('vx.inventory.visibility', []);
         if (array_key_exists($key, $memo)) return $memo[$key];
-        $ids = array_values(array_unique(array_filter([
-            InventoryLocation::mainId(),
-            ...static::ownLocationIds($user),
-        ], fn ($id) => $id !== null)));
+        $own = static::ownLocationIds($user);
+        $ids = $own ?: array_values(array_filter([InventoryLocation::mainId()], fn ($id) => $id !== null));
         $memo[$key] = $ids;
         request()->attributes->set('vx.inventory.visibility', $memo);
         return $ids;

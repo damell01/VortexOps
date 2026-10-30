@@ -11,3 +11,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: python3 -m unittest discover -s tests/Python -p 'test_order*.py'
       - run: python3 -m py_compile scripts/whatnot-orders-hardened.py
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env
+      - run: php artisan test tests/Feature/Console/WhatnotExitCodeTest.php tests/Feature/Console/WhatnotStderrSurfacesTest.php

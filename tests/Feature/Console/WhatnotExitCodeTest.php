@@ -73,4 +73,11 @@ class WhatnotExitCodeTest extends TestCase
         $this->assertStringContainsString('Ray ID: a2d958538f57fef2', $e->getMessage());
         $this->assertStringContainsString('blocked: BOT_CHALLENGE', $e->getMessage());
     }
+    public function test_order_source_collision_is_not_reported_as_a_selector_failure(): void
+    {
+        $e = $this->throwFor(WhatnotScraper::EXIT_SELECTOR_MISS, 'ORDER_SOURCE_FILTER_COLLISION: duplicate source order');
+        $this->assertNotNull($e);
+        $this->assertStringContainsString('source filter failed verification', $e->getMessage());
+        $this->assertStringNotContainsString('selectors', $e->getMessage());
+    }
 }

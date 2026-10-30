@@ -8,17 +8,25 @@ show, or it may be a truncated first page. In that state we abort the batch so
 Laravel never receives a partial result that could replace existing rows.
 """
 
+import base64
 import json
 import os
-from urllib.parse import urlsplit, parse_qsl
+from urllib.parse import urlsplit, parse_qsl, urlencode
 from pathlib import Path
 
 
-def summarize_order_source_evidence(variables, payload, expected_live_id):
+def order_dashboard_url(base, live_id):
+    """Use Seller Hub's native single-show filter, copied from its UI."""
+    filters = {"salesChannel": {"type": "single", "value": str(live_id)}}
+    encoded = base64.b64encode(json.dumps(filters, separators=(',', ':')).encode()).decode()
+    return f"{base}/dashboard/orders?{urlencode({'filters': encoded, 'first': 100})}"
+
+
+def summarize_order_source_evidence(variables, payload, expected_live_id, query_document=None):
     """Field paths/types and expected-source comparisons only; never emit values."""
     import re
     def walk(value, path='', depth=0):
-        if depth > 9:
+        if depth > 15:
             return []
         if isinstance(value, dict):
             out = []
@@ -38,7 +46,8 @@ def summarize_order_source_evidence(variables, payload, expected_live_id):
         return [{'path': path, 'type': kind, 'matches_expected_live': isinstance(value,str) and value == expected_live_id}]
     def unique(rows):
         return [json.loads(item) for item in sorted({json.dumps(row,sort_keys=True) for row in rows})]
-    return {'variables': unique(walk(variables)), 'response': unique(walk(payload))}
+    return {'variables': unique(walk(variables)), 'response': unique(walk(payload)),
+            'variable_definitions': re.findall(r'\$([A-Za-z_][A-Za-z_0-9]*)\s*:\s*([A-Za-z_][A-Za-z_0-9!\[\]]*|\[[A-Za-z_][A-Za-z_0-9!\[\]]*)', query_document or '')}
 
 
 def install(module) -> None:
@@ -264,7 +273,7 @@ def install(module) -> None:
                                     if name == 'SellerHubGetMyOrders' and len(order_source_evidence) < 4:
                                         body = response.json()
                                         order_source_evidence.append(summarize_order_source_evidence(
-                                            entry.get('variables', {}), body, active_source['live_id']))
+                                            entry.get('variables', {}), body, active_source['live_id'], entry.get('query')))
                             except Exception:
                                 pass
                     except Exception:
@@ -280,11 +289,15 @@ def install(module) -> None:
 
                 active_source["live_id"] = str(live_id)
                 page.goto(
-                    f"{module.BASE}/dashboard/orders?source={live_id}&first=100",
+                    order_dashboard_url(module.BASE, live_id),
                     wait_until="domcontentloaded",
                     timeout=30000,
                 )
                 page.wait_for_timeout(1200)
+                if probe_max_pages:
+                    controls = page.evaluate(r"""() => [...document.querySelectorAll('button,input,select,[role=combobox]')].filter(el=>!el.closest('tbody,tr,[data-testid*=row]')).map(el=>({tag:el.tagName,role:el.getAttribute('role'),testid:el.getAttribute('data-testid'),label:el.getAttribute('aria-label')||el.getAttribute('placeholder')||(el.innerText||'').trim()})).filter(el=>/filter|channel|source|live|show|search/i.test(el.label||'')).slice(0,30)""")
+                    module.info('ORDER_SOURCE_EVIDENCE '+json.dumps([{'ui_controls':controls}]))
+
 
                 found = {}
                 visited_signatures: set[str] = set()
@@ -388,7 +401,7 @@ def install(module) -> None:
                         )
                     observed_order_owners[order_id] = str(live_id)
                 module.info(
-                    f"orders-batch: [{idx}/{len(sources)}] {key} complete=true "
+                    f"orders-batch: [{idx}/{len(sources)}] {key} complete={not bool(probe_max_pages)} "
                     f"pages={page_number} -> {len(rows)} row(s)"
                 )
                 output.append(

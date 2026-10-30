@@ -1,0 +1,84 @@
+name: Apply audited ledger test with visible picker trigger
+'on':
+  push:
+    branches:
+    - audit/visible-picker-ledger-test
+permissions:
+  contents: read
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 13
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 660s
+        script: "set -eu\ncd /var/www/vortexops\nphp artisan --version\nTARGET=7008d6c3f6892dd1e52e9ec62130784f101a4004\n\
+          git diff --quiet\ngit diff --cached --quiet\ngit fetch origin Production\n\
+          [ \"$(git rev-parse origin/Production)\" = \"$TARGET\" ] || { echo VERIFIED_RELEASE_BRANCH_ADVANCED;\
+          \ exit 1; }\nOLD=$(git rev-parse HEAD)\ngit diff --name-only \"$OLD\" \"\
+          $TARGET\" | while IFS= read -r FILE; do\ncase \"$FILE\" in\n.github/workflows/verified-orders.yml|app/Services/WhatnotScraper.php|app/Services/LedgerAttributionService.php|app/Services/VerifiedOrderSource.php|scripts/whatnot-orders-hardened.py|tests/Python/test_order_filter_routing.py|tests/Python/test_order_response_provenance.py|tests/Feature/Reports/VerifiedOrderSourceTest.php)\
+          \ ;;\n*) echo VERIFIED_RELEASE_UNRELATED_CHANGE; exit 1 ;;\nesac\ndone\n\
+          trap 'git checkout -B Production \"$OLD\"' EXIT\ngit checkout -B Production\
+          \ \"$TARGET\"\npython3 -m unittest discover -s tests/Python -p 'test_order*.py'\n\
+          python3 -m py_compile scripts/whatnot-orders-hardened.py\nphp -l app/Services/WhatnotScraper.php\n\
+          php -l app/Services/LedgerAttributionService.php\nphp -l app/Services/VerifiedOrderSource.php\n\
+          php -r 'require \"vendor/autoload.php\"; if (!class_exists(App\\Services\\\
+          VerifiedOrderSource::class)) { fwrite(STDERR, \"VERIFIED_CLASS_NOT_LOADABLE\\\
+          n\"); exit(1); }'\nphp artisan --version\nLOGIN_STATUS=$(curl --silent --location\
+          \ --output /dev/null --write-out '%{http_code}' https://vortexops.tech/admin/login)\n\
+          echo \"VERIFIED_SITE_LOGIN_HTTP $LOGIN_STATUS\"\n[ \"$LOGIN_STATUS\" = 200\
+          \ ]\ntrap - EXIT\necho VERIFIED_ORDER_PROVENANCE_RELEASED\nAPPLY_FILE=$(mktemp\
+          \ /var/www/vortexops/storage/framework/verified-order-apply.XXXXXX.php)\n\
+          trap 'rm -f \"$APPLY_FILE\"' EXIT\ncat > \"$APPLY_FILE\" <<'PHP'\n<?php\n\
+          use App\\Models\\{Show, WhatnotLedgerEntry, WhatnotShowOrder};\nuse App\\\
+          Services\\{WhatnotScraper, VerifiedOrderSource, LedgerAutoMatcher};\nuse\
+          \ Illuminate\\Support\\Facades\\DB;\ntry {\n    require '/var/www/vortexops/vendor/autoload.php';\n\
+          \    $app=require '/var/www/vortexops/bootstrap/app.php';\n    $app->make(Illuminate\\\
+          Contracts\\Console\\Kernel::class)->bootstrap();\n    config(['vortex.whatnot.browser_lock_fail_fast'=>false,'vortex.whatnot.browser_lock_wait'=>180,'vortex.whatnot.runtime_deadline'=>microtime(true)+540]);\n\
+          \    $show=Show::with('channel','streamers')->findOrFail(3529);\n    $primary=$show->streamers->filter(fn($s)=>(bool)$s->pivot->is_primary)->values();\n\
+          \    if((int)$show->whatnot_channel_id!==1||$primary->count()!==1||(int)$primary[0]->id!==23||(int)$primary[0]->business_id!==1)throw\
+          \ new RuntimeException('APPLY_TARGET_CHANGED');\n    if(!preg_match('/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i',(string)$show->detail_url,$live)||strtolower((string)$show->whatnot_show_id)!==strtolower($live[1]))throw\
+          \ new RuntimeException('APPLY_SHOW_IDENTITY_MISMATCH');\n    $rows=$app->make(WhatnotScraper::class)->fetchOrdersForShows([['show_key'=>$show->id,'live_id'=>$live[1]]],$show->channel?->whatnot_username,false,function($line){if(str_contains($line,\"\
+          ORDER_NATIVE_PAGE_SIZE_CLICKED\"))echo \"VERIFIED_NATIVE_PAGE_SIZE_SELECTED\\\
+          n\";if(preg_match('/ORDER_PROVENANCE_SCHEMA (\\[.*\\])/',$line,$schema)){echo\
+          \ 'VERIFIED_RESPONSE_SCHEMA '.$schema[1].\"\\n\";}if(preg_match('/page=(\\\
+          d+) page_rows=(\\d+) total_unique=(\\d+)/',$line,$m))echo 'VERIFIED_APPLY_PAGE\
+          \ '.json_encode(array_slice($m,1)).\"\\n\";},false)[$show->id]??[];\n  \
+          \  $verified=collect($rows)->filter(fn($r)=>VerifiedOrderSource::matches($r,(string)($r['order_id']??''),(string)$show->whatnot_show_id));\n\
+          \    echo 'VERIFIED_APPLY_FETCH '.json_encode(['rows'=>count($rows),'verified'=>$verified->count()]).\"\
+          \\n\";\n    if(count($rows)!==99||$verified->count()!==99)throw new RuntimeException('APPLY_EVIDENCE_INCOMPLETE');\n\
+          \    $ids=$verified->pluck('order_id')->unique()->values()->all();\n   \
+          \ if(count($ids)!==99)throw new RuntimeException('APPLY_ORDER_COUNT_MISMATCH');\n\
+          \    $result=DB::transaction(function()use($show,$rows,$ids,$app){\n   \
+          \     $entries=WhatnotLedgerEntry::whereIn('whatnot_order_id',$ids)->lockForUpdate()->get();\n\
+          \        if($entries->count()!==99||$entries->where('whatnot_channel_id',1)->count()!==99||abs((float)$entries->sum('amount')-1547.66)>0.005)throw\
+          \ new RuntimeException('APPLY_LEDGER_CHANGED');\n        if(WhatnotShowOrder::whereIn('whatnot_order_id',$ids)->where('show_id','!=',$show->id)->exists())throw\
+          \ new RuntimeException('APPLY_EXISTING_ORDER_CONFLICT');\n        $existing=DB::table('ledger_attributions')->whereIn('whatnot_ledger_entry_id',$entries->pluck('id'))->lockForUpdate()->get();\n\
+          \        foreach($existing as $a)if($a->submitted_by!==null||(int)$a->show_id!==3529||(int)$a->streamer_id!==23||(int)$a->business_id!==1||$a->status!=='approved')throw\
+          \ new RuntimeException('APPLY_EXISTING_ATTRIBUTION_CONFLICT');\n       \
+          \ $import=$app->make(WhatnotScraper::class)->persistShowOrders($show,$rows);\n\
+          \        $stored=WhatnotShowOrder::where('show_id',$show->id)->whereIn('whatnot_order_id',$ids)->get();\n\
+          \        if($stored->count()!==99||$stored->filter(fn($r)=>VerifiedOrderSource::matches($r->raw_data??[],(string)$r->whatnot_order_id,(string)$show->whatnot_show_id))->count()!==99)throw\
+          \ new RuntimeException('APPLY_PERSISTENCE_INCOMPLETE');\n        $matcher=$app->make(LedgerAutoMatcher::class);\n\
+          \        foreach($entries as $entry)if($matcher->match($entry)!=='matched')throw\
+          \ new RuntimeException('APPLY_MATCH_FAILED');\n        $events=DB::table('ledger_attribution_events')->whereIn('whatnot_ledger_entry_id',$entries->pluck('id'))->count();\n\
+          \        foreach($entries as $entry)if($matcher->match($entry)!=='matched')throw\
+          \ new RuntimeException('APPLY_REPEAT_FAILED');\n        $eventsAfter=DB::table('ledger_attribution_events')->whereIn('whatnot_ledger_entry_id',$entries->pluck('id'))->count();\n\
+          \        $assigned=DB::table('ledger_attributions')->whereIn('whatnot_ledger_entry_id',$entries->pluck('id'))->where('show_id',3529)->where('streamer_id',23)->where('business_id',1)->where('status','approved')->whereNull('submitted_by')->count();\n\
+          \        if($assigned!==99||$eventsAfter!==$events)throw new RuntimeException('APPLY_IDEMPOTENCE_FAILED');\n\
+          \        return ['show_id'=>3529,'order_rows_with_verified_evidence'=>$stored->count(),'import'=>$import,'ledger_entries_assigned'=>$assigned,'ledger_total'=>1547.66,'streamer_id'=>23,'business_id'=>1,'repeat_created_extra_events'=>false,'payroll_recalculated'=>false];\n\
+          \    });\n    echo 'VERIFIED_APPLY_COMMITTED '.json_encode($result).\"\\\
+          n\";\n} catch(Throwable $e) {\n    echo 'VERIFIED_APPLY_ERROR_CLASS '.get_class($e).\"\
+          \\n\";\n    if(preg_match('/\\bAPPLY_[A-Z_]+\\b/',$e->getMessage(),$m))echo\
+          \ 'VERIFIED_APPLY_ERROR_KIND '.$m[0].\"\\n\";\n    foreach(['Timed out waiting\
+          \ for the shared Whatnot browser lock','AUTH_REQUIRED','LOGIN_REQUIRED','CHANNEL_CONTEXT_MISMATCH','ORDER_PAGINATION_AMBIGUOUS','ORDER_PAGINATION_INCOMPLETE','SQLSTATE']\
+          \ as $flag)if(stripos($e->getMessage(),$flag)!==false)echo 'VERIFIED_APPLY_ERROR_KIND\
+          \ '.$flag.\"\\n\";\n    exit(1);\n}\n\nPHP\nphp -l \"$APPLY_FILE\"\nphp\
+          \ \"$APPLY_FILE\"\n\ncurl --silent --location --output /dev/null --write-out\
+          \ \"VERIFIED_SITE_FINAL_HTTP %{http_code}\\n\" https://vortexops.tech/admin/login\n"

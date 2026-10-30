@@ -281,16 +281,22 @@ def install(module) -> None:
                     parsed = urlsplit(response.url)
                     if 'graphql' in parsed.path:
                         status = getattr(response, 'status', None)
-                        response_shapes.add(json.dumps({'graphql_endpoint': parsed.path, 'whatnot_host': bool(parsed.hostname and (parsed.hostname == 'whatnot.com' or parsed.hostname.endswith('.whatnot.com'))), 'method_is_post': request.method == 'POST', 'http_status': status if isinstance(status, int) else None}))
-                    if parsed.hostname not in ('www.whatnot.com', 'whatnot.com') or parsed.path != '/services/graphql/' or request.method != 'POST' or response.status != 200:
+                        response_shapes.add(json.dumps({'graphql_endpoint': parsed.path, 'graphql_host': parsed.hostname, 'whatnot_host': bool(parsed.hostname and (parsed.hostname == 'whatnot.com' or parsed.hostname.endswith('.whatnot.com'))), 'method_is_post': request.method == 'POST', 'http_status': status if isinstance(status, int) else None}))
+                    if not (parsed.hostname and (parsed.hostname == 'whatnot.com' or parsed.hostname.endswith('.whatnot.com'))) or parsed.path != '/services/graphql/' or request.method != 'POST' or response.status != 200:
                         return
                     payload = request.post_data_json
                     entries = payload if isinstance(payload, list) else [payload]
+                    url_operation = dict(parse_qsl(parsed.query)).get('operationName')
                     body = response.json()
                     bodies = body if isinstance(body, list) else [body]
                     for index, entry in enumerate(entries):
                         if not isinstance(entry, dict) or index >= len(bodies):
                             continue
+                        if not entry.get('operationName') and url_operation:
+                            entry = dict(entry, operationName=url_operation)
+                        name = entry.get('operationName')
+                        if isinstance(name,str) and name.isidentifier():
+                            response_shapes.add(json.dumps({'operation':name,'data_fields': sorted((bodies[index].get('data') or {}).keys())}))
                         if entry.get('operationName') == 'SellerHubGetMyOrders':
                             import re
                             body_part = bodies[index]

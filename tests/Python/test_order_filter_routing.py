@@ -14,7 +14,7 @@ helper=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 
 class RoutingTest(unittest.TestCase):
-    def run_batch(self, probe, collision=False):
+    def run_batch(self, probe, collision=False, verified_response=False):
         urls=[]
         class Locator:
             @property
@@ -22,10 +22,16 @@ class RoutingTest(unittest.TestCase):
             def count(self): return 0
         class Page:
             url = 'https://www.whatnot.com/dashboard/orders'
-            def on(self,*args):pass
+            def on(self,event,handler):self.handler=handler
             def goto(self,url,**kwargs):
                 self.url=url
                 urls.append(url)
+                if verified_response:
+                    filters=json.loads(base64.b64decode(parse_qs(urlsplit(url).query)['filters'][0]))
+                    request=SimpleNamespace(method='POST',post_data_json={'variables':{'salesChannels':[{'id':filters['salesChannel']['value']}]}})
+                    response=SimpleNamespace(url='https://api.whatnot.com/services/graphql/?operationName=SellerHubGetMyOrders',status=200,request=request,
+                        json=lambda:{'data':{'me':{'orders':{'edges':[{'node':{'id':str(len(urls))}}]}}}})
+                    self.handler(response)
             def wait_for_timeout(self,*args):pass
             def locator(self,*args):return Locator()
             def evaluate(self,script):return [] if 'querySelectorAll' in script else None
@@ -68,6 +74,11 @@ class RoutingTest(unittest.TestCase):
         self.assertEqual(
             'eyJzYWxlc0NoYW5uZWwiOnsidHlwZSI6InNpbmdsZSIsInZhbHVlIjoiNWJmMGFhNGEtNTc0Ny00NzcwLTkzOGYtYzRiNWQ4YjRlZThhIn19',
             parse_qs(urlsplit(url).query)['filters'][0])
+
+    def test_api_subdomain_and_url_operation_produce_verified_order_evidence(self):
+        urls,rows=self.run_batch(0,verified_response=True)
+        self.assertTrue(all(row['orders'][0]['_source_evidence']['pagination_complete'] for row in rows))
+        self.assertTrue(all(row['orders'][0]['_source_evidence']['order_id']==row['orders'][0]['order_id'] for row in rows))
 
     def test_source_collision_still_aborts_without_returning_payload(self):
         with self.assertRaisesRegex(RuntimeError,'ORDER_SOURCE_FILTER_COLLISION'):

@@ -1,5 +1,6 @@
 name: Verified order provenance checks
 on:
+  pull_request:
   push:
     branches: [fix/verified-order-provenance]
 permissions:

@@ -14,6 +14,10 @@ final class WhatnotSellerApiClient
 {
     public function get(WhatnotApiConnection $connection, string $resource, array $query = []): Response
     {
+        // Dev/staging must never contact Whatnot, even with accidentally copied credentials.
+        if (! config('services.whatnot_seller.live_requests_enabled', false)) {
+            throw new RuntimeException('Live Whatnot API requests are disabled.');
+        }
         if (blank($connection->access_token)) {
             throw new RuntimeException('Whatnot API credentials are missing.');
         }

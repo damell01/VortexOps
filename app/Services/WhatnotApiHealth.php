@@ -36,7 +36,7 @@ class WhatnotApiHealth
 
         try {
             $response = Http::withToken($connection->access_token)
-                ->acceptJson()->timeout(12)->get('https://api.whatnot.com/v2/shows', ['limit' => 1]);
+                ->acceptJson()->timeout(12)->get('https://api.whatnot.com/seller-api/rest/v2/shows', ['limit' => 1]);
 
             $status = $response->successful() ? 'connected' : 'error';
             $message = $response->successful() ? null : 'Whatnot returned HTTP '.$response->status();

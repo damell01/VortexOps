@@ -38,7 +38,12 @@ final class WhatnotSellerApiClient
         return Http::withToken($connection->access_token)
             ->acceptJson()
             ->timeout(20)
-            ->retry(2, 500, throw: false)
+            ->retry(2, 500, function ($error) {
+                if ($error instanceof \Illuminate\Http\Client\RequestException) {
+                    return $error->response->status() === 429 || $error->response->serverError();
+                }
+                return $error instanceof \Illuminate\Http\Client\ConnectionException;
+            }, throw: false)
             ->get($base.$paths[$resource], $query);
     }
 }

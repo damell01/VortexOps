@@ -22,7 +22,8 @@ jobs:
           PROBE_CODE=$(mktemp -d /tmp/vortex-order-source.XXXXXX)\ngit archive FETCH_HEAD\
           \ scripts tests/Python | tar -x -C \"$PROBE_CODE\"\n(cd \"$PROBE_CODE\"\
           \ && python3 -m unittest discover -s tests/Python -p 'test_order*.py')\n\
-          export ORDER_PROBE_CODE=\"$PROBE_CODE\"\nAUDIT_FILE=$(mktemp /var/www/vortexops/storage/framework/order-probe.XXXXXX.php)\n\
+          ln -s /var/www/vortexops/.venv \"$PROBE_CODE/.venv\"\nexport ORDER_PROBE_CODE=\"\
+          $PROBE_CODE\"\nAUDIT_FILE=$(mktemp /var/www/vortexops/storage/framework/order-probe.XXXXXX.php)\n\
           trap 'rm -f \"$AUDIT_FILE\"; rm -rf \"$PROBE_CODE\"' EXIT\ncat > \"$AUDIT_FILE\"\
           \ <<'PHP'\n<?php\ntry {\n    require '/var/www/vortexops/vendor/autoload.php';\n\
           \    $app = require '/var/www/vortexops/bootstrap/app.php';\n    $app->make(Illuminate\\\
@@ -31,7 +32,6 @@ jobs:
           \ => microtime(true) + 1200]);\n    putenv('WHATNOT_BROWSER_LOCK_WAIT=120');\n\
           \    $code = getenv('ORDER_PROBE_CODE');\n    putenv('WHATNOT_USER_DATA_DIR=/var/www/vortexops/storage/whatnot-scrapling-profile');\n\
           \    putenv('WHATNOT_BROWSER_LOCK_FILE=/var/www/vortexops/storage/whatnot-browser.lock');\n\
-          \    putenv('WHATNOT_PYTHON_BIN=/var/www/vortexops/.venv/bin/python');\n\
           \    putenv('WHATNOT_SCRAPLING_DIAGNOSTICS_DIR='.$code.'/diagnostics');\n\
           \    $scraper = $app->make(App\\Services\\WhatnotScraper::class);\n    (new\
           \ ReflectionProperty($scraper, 'scriptPath'))->setValue($scraper, $code.'/scripts/whatnot-runner.cjs');\n\
@@ -48,9 +48,12 @@ jobs:
           \    preg_match_all('/\\b(?:ERR_[A-Z_]+|[A-Za-z_]*(?:Error|Exception)|Page\\\
           .[A-Za-z_]+|BrowserType\\.[A-Za-z_]+)\\b/', $content, $types);\n    foreach\
           \ (array_unique($types[0]) as $type) echo 'ORDER_PROBE_ERROR_TYPE '.$type.\"\
-          \\n\";\n    preg_match_all('/File \"[^\"\\n]*\\/(whatnot-[a-z-]+\\.py)\"\
-          , line ([0-9]+), in ([A-Za-z_][A-Za-z_0-9]*)/', $content, $frames, PREG_SET_ORDER);\n\
-          \    foreach ($frames as $frame) echo 'ORDER_PROBE_ERROR_FRAME '.$frame[1].':'.$frame[2].'\
+          \\n\";\n    preg_match_all('/No module named [\\x27\\x22]([A-Za-z_][A-Za-z_0-9.]*)[\\\
+          x27\\x22]/', $content, $modules);\n    foreach (array_unique($modules[1])\
+          \ as $module) echo 'ORDER_PROBE_MISSING_MODULE '.$module.\"\\n\";\n\n  \
+          \  preg_match_all('/File \"[^\"\\n]*\\/(whatnot-[a-z-]+\\.py)\", line ([0-9]+),\
+          \ in ([A-Za-z_][A-Za-z_0-9]*)/', $content, $frames, PREG_SET_ORDER);\n \
+          \   foreach ($frames as $frame) echo 'ORDER_PROBE_ERROR_FRAME '.$frame[1].':'.$frame[2].'\
           \ '.$frame[3].\"\\n\";\n    foreach (['No such file','Permission denied','not\
           \ found','xauth','xvfb','MODULE_NOT_FOUND','SyntaxError','unrecognized arguments','LOGIN_REQUIRED','PROFILE_BUSY','ProcessSingleton','CHANNEL_CONTEXT_MISMATCH','ORDER_SOURCE_FILTER_COLLISION','CLOUDFLARE_CHALLENGE']\
           \ as $kind) if(stripos($content,$kind)!==false)echo 'ORDER_PROBE_ERROR_KIND\

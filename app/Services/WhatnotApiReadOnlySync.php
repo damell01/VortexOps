@@ -24,6 +24,13 @@ final class WhatnotApiReadOnlySync
         }
         $response = $client->get($connection, $resource, $query);
         if (! $response->successful()) {
+            WhatnotApiSyncAudit::create([
+                'whatnot_channel_id' => $connection->whatnot_channel_id,
+                'resource' => $resource,
+                'status' => 'failed',
+                'summary' => ['http_status' => $response->status()],
+                'started_at' => now(), 'finished_at' => now(),
+            ]);
             return ['ok' => false, 'http_status' => $response->status(), 'saved' => false];
         }
         $payload = $response->json();

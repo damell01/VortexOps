@@ -139,4 +139,51 @@ final class WhatnotApiReadOnlySync
             'writes_performed' => false, 'complete_source_verified' => false];
     }
 
+    /**
+     * Offline order-ID coverage preview. Does not infer show attribution.
+     * A matching order ID alone is never sufficient for ledger approval.
+     */
+    public function previewOrders(int $channelId, int $snapshotId): array
+    {
+        $row = DB::table('whatnot_api_snapshots')
+            ->where('whatnot_channel_id', $channelId)
+            ->where('resource', 'orders')
+            ->where('id', $snapshotId)->first();
+        if (! $row) {
+            throw new RuntimeException('Order snapshot not found for this channel.');
+        }
+        $json = Crypt::decryptString($row->payload);
+        if (! hash_equals($row->payload_sha256, hash('sha256', $json))) {
+            throw new RuntimeException('Snapshot integrity check failed.');
+        }
+        $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        $items = $payload['data'] ?? null;
+        if (! is_array($items) || ! array_is_list($items)) {
+            throw new RuntimeException('Unverified order response shape; expected data list.');
+        }
+        $seen = [];
+        $counts = ['existing_order_id' => 0, 'new_order_id' => 0, 'duplicate_source_id' => 0, 'invalid' => 0];
+        foreach ($items as $item) {
+            $id = is_array($item) ? ($item['id'] ?? null) : null;
+            if ((! is_string($id) && ! is_int($id)) || trim((string) $id) === '' || strlen((string) $id) > 191) {
+                $counts['invalid']++;
+                continue;
+            }
+            $id = trim((string) $id);
+            if (isset($seen[$id])) {
+                $counts['duplicate_source_id']++;
+                continue;
+            }
+            $seen[$id] = true;
+            $exists = DB::table('whatnot_show_orders as o')
+                ->join('shows as s', 's.id', '=', 'o.show_id')
+                ->where('s.whatnot_channel_id', $channelId)
+                ->where('o.whatnot_order_id', $id)->exists();
+            $counts[$exists ? 'existing_order_id' : 'new_order_id']++;
+        }
+        return ['snapshot_id' => $snapshotId, 'channel_id' => $channelId,
+            'counts' => $counts, 'show_attribution_verified' => false,
+            'writes_performed' => false, 'complete_source_verified' => false];
+    }
+
 }

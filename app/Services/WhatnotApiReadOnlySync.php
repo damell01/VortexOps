@@ -48,4 +48,44 @@ final class WhatnotApiReadOnlySync
         ]);
         return ['ok' => true, 'http_status' => $response->status(), 'saved' => $inserted > 0, 'payload_sha256' => $hash, 'next_cursor' => $cursorPath === null ? null : WhatnotApiPagination::nextCursor($payload, $cursorPath)];
     }
+    /**
+     * Return schema metadata only, never customer data or decrypted payloads.
+     * Useful for validating API response shapes before mapping operational records.
+     */
+    public function inspect(int $channelId, string $resource, int $limit = 5): array
+    {
+        if ($channelId < 1 || ! in_array($resource, ['shows', 'orders'], true) || $limit < 1 || $limit > 20) {
+            throw new RuntimeException('Invalid snapshot inspection request.');
+        }
+
+        return DB::table('whatnot_api_snapshots')
+            ->where('whatnot_channel_id', $channelId)
+            ->where('resource', $resource)
+            ->orderByDesc('id')
+            ->limit($limit)
+            ->get()
+            ->map(function ($row) {
+                $json = \\Illuminate\\Support\\Facades\\Crypt::decryptString($row->payload);
+                if (! hash_equals($row->payload_sha256, hash('sha256', $json))) {
+                    throw new RuntimeException('Snapshot integrity check failed.');
+                }
+                $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+                if (! is_array($payload)) {
+                    throw new RuntimeException('Invalid snapshot structure.');
+                }
+                $data = $payload['data'] ?? null;
+                return [
+                    'snapshot_id' => $row->id,
+                    'fetched_at' => $row->fetched_at,
+                    'payload_sha256' => $row->payload_sha256,
+                    'top_level_keys' => array_slice(array_keys($payload), 0, 30),
+                    'data_is_list' => is_array($data) && array_is_list($data),
+                    'data_count' => is_array($data) && array_is_list($data) ? count($data) : null,
+                    'item_keys' => is_array($data) && array_is_list($data) && isset($data[0]) && is_array($data[0])
+                        ? array_slice(array_keys($data[0]), 0, 40) : [],
+                ];
+            })
+            ->all();
+    }
+
 }

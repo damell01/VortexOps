@@ -252,13 +252,13 @@ class InventoryLocationResource extends Resource
             Section::make('Admin inventory visibility')
                 ->description('Admins can see this location by default. Select individual admins to hide it from their inventory screens and location picker. Owners always retain access.')
                 ->columnSpanFull()->schema([
-                    \\Filament\\Forms\\Components\\CheckboxList::make('hidden_admin_user_ids')
+                    \Filament\Forms\Components\CheckboxList::make('hidden_admin_user_ids')
                         ->label('Hide this location from these admins')
-                        ->options(fn () => \\App\\Models\\User::role(['admin', 'super_admin', 'fulfillment_admin'])->orderBy('name')->get()->reject(fn ($user) => $user->isOwner())->pluck('name', 'id')->all())
+                        ->options(fn () => \App\Models\User::role(['admin', 'super_admin', 'fulfillment_admin'])->orderBy('name')->get()->reject(fn ($user) => $user->isOwner())->pluck('name', 'id')->all())
                         ->columns(2)
                         ->afterStateHydrated(function ($component, ?InventoryLocation $record) {
                             if (! $record) return;
-                            $raw = \\App\\Models\\Setting::get('inventory_hidden_admins:' . $record->id);
+                            $raw = \App\Models\Setting::get('inventory_hidden_admins:' . $record->id);
                             $ids = is_array($raw) ? $raw : json_decode((string) ($raw ?? '[]'), true);
                             $component->state(is_array($ids) ? array_map('strval', $ids) : []);
                         }),

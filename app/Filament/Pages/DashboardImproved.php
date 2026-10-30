@@ -301,7 +301,12 @@ class DashboardImproved extends Dashboard
     private function inventoryHealth(): array
     {
         try {
-            $products = InventoryItem::query()->where('is_active', true)->with('stock')->get();
+            $visible = \\App\\Support\\InventoryVisibility::shownLocationIdsFor(auth()->user());
+            $products = InventoryItem::query()
+                ->where('is_active', true)
+                ->when($visible !== null, fn ($q) => $q->whereHas('stock', fn ($stock) => $stock->whereIn('inventory_location_id', $visible)))
+                ->with(['stock' => fn ($stock) => $stock->when($visible !== null, fn ($q) => $q->whereIn('inventory_location_id', $visible))])
+                ->get();
             $in = $products->filter(fn ($p) => (float) $p->stock->sum('quantity') > 0)->count();
             $out = $products->count() - $in;
             $low = $products->filter(function ($p) {
@@ -309,13 +314,17 @@ class DashboardImproved extends Dashboard
                 return $qty > 0 && $p->reorder_level !== null && $qty <= (float) $p->reorder_level;
             })->count();
             return compact('in', 'low', 'out');
-        } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
+        } catch (\\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
     }
 
     private function recentInventoryActivity(): array
     {
         try {
+            $visible = \\App\\Support\\InventoryVisibility::shownLocationIdsFor(auth()->user());
             $movements = InventoryMovement::query()
+                ->when($visible !== null, fn ($q) => $q->where(function ($locations) use ($visible) {
+                    $locations->whereIn('from_location_id', $visible)->orWhereIn('to_location_id', $visible);
+                }))
                 ->with('item')
                 // A deleted item's history is kept but not shown here, like
                 // Recent Movements: listing it reads as the delete not working.

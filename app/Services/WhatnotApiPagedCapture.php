@@ -34,16 +34,18 @@ final class WhatnotApiPagedCapture
         $seen = [];
         $cursor = null;
         $captured = 0;
+        $newSnapshots = 0;
         for ($page = 1; $page <= $maxPages; $page++) {
             $query = $cursor === null ? [] : [$cursorParameter => $cursor];
             $result = $sync->capture($connection, $resource, $client, $query, $cursorPath);
             if (! $result['ok']) {
-                return ['ok' => false, 'pages' => $captured, 'http_status' => $result['http_status']];
+                return ['ok' => false, 'pages' => $captured, 'new_snapshots' => $newSnapshots, 'http_status' => $result['http_status']];
             }
             $captured++;
+            $newSnapshots += $result['saved'] ? 1 : 0;
             $cursor = $result['next_cursor'];
             if ($cursor === null) {
-                return ['ok' => true, 'pages' => $captured, 'complete' => true];
+                return ['ok' => true, 'pages' => $captured, 'new_snapshots' => $newSnapshots, 'complete' => true];
             }
             WhatnotApiPagination::assertUnseen($cursor, $seen);
         }

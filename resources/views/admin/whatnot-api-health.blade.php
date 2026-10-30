@@ -25,6 +25,7 @@
 <div class="meta">API capture: <strong>{{ $connection['sync_enabled'] ? 'Enabled (read-only)' : 'Disabled' }}</strong></div>
 <div class="meta">Live API requests: {{ $connection['live_requests_allowed'] ? 'Allowed by server configuration' : 'Blocked by server configuration' }}</div>
 <div class="meta">Shows data: {{ str_replace('_', ' ', $connection['data_health']['shows']) }} | Captured: {{ $connection['snapshots']['shows']['count'] }} | Last: {{ $connection['snapshots']['shows']['last_capture'] ?: 'Never' }}</div>
+<div class="meta">Reports data: {{ str_replace('_', ' ', $connection['data_health']['reports']) }} | Captured: {{ $connection['snapshots']['reports']['count'] }} | Last: {{ $connection['snapshots']['reports']['last_capture'] ?: 'Never' }}</div>
 <div class="meta">Orders data: {{ str_replace('_', ' ', $connection['data_health']['orders']) }} | Captured: {{ $connection['snapshots']['orders']['count'] }} | Last: {{ $connection['snapshots']['orders']['last_capture'] ?: 'Never' }}</div>
 @if(count($connection['recent_audits']))
 <div class="meta"><strong>Recent capture activity</strong></div>

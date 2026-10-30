@@ -41,8 +41,12 @@ class WhatnotApiSnapshotTest extends TestCase
         Http::fake(['*' => Http::response(['data' => [['id' => 'fixture-show']]], 200)]);
         $service = app(WhatnotApiReadOnlySync::class);
         $client = app(WhatnotSellerApiClient::class);
-        $this->assertTrue($service->capture($connection, 'shows', $client)['ok']);
-        $this->assertTrue($service->capture($connection, 'shows', $client)['ok']);
+        $first = $service->capture($connection, 'shows', $client);
+        $second = $service->capture($connection, 'shows', $client);
+        $this->assertTrue($first['ok']);
+        $this->assertTrue($first['saved']);
+        $this->assertTrue($second['ok']);
+        $this->assertFalse($second['saved']);
         $this->assertSame(1, DB::table('whatnot_api_snapshots')->count());
         $stored = DB::table('whatnot_api_snapshots')->first()->payload;
         $this->assertStringNotContainsString('fixture-show', $stored);

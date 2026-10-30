@@ -27,6 +27,10 @@ final class WhatnotApiAudit extends Command
             if (! $this->option('live') || ! $configured) {
                 continue;
             }
+            if (! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false)) {
+                $this->warn('  Live API probes are disabled in this environment.');
+                continue;
+            }
             try {
                 $response = $client->get($connection, 'shows');
                 $payload = $response->json();

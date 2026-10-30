@@ -274,6 +274,7 @@ def install(module) -> None:
             order_source_evidence = []
             active_source = {"live_id": None}
             verified_response_ids = set()
+            response_shapes = set()
             def observe_response(response):
                 try:
                     request = response.request
@@ -287,12 +288,35 @@ def install(module) -> None:
                     for index, entry in enumerate(entries):
                         if not isinstance(entry, dict) or index >= len(bodies):
                             continue
+                        if entry.get('operationName') == 'SellerHubGetMyOrders':
+                            import re
+                            body_part = bodies[index]
+                            nodes = (((body_part.get('data') or {}).get('me') or {}).get('orders') or {}).get('edges', [])
+                            fields = {}
+                            for field, value in ((nodes[0].get('node') or {}) if nodes else {}).items():
+                                if field not in ('id', 'uuid', 'orderNumber', 'orderId'):
+                                    continue
+                                text = str(value or '')
+                                shape = {'numeric': text.isdecimal(), 'length': len(text)}
+                                try:
+                                    decoded = base64.b64decode(text, validate=True).decode()
+                                    prefix = decoded.split(':')[0]
+                                    shape['relay_type'] = prefix if re.fullmatch(r'Order[A-Za-z0-9_]{0,30}', prefix) else 'other'
+                                    shape['numeric_tail'] = bool(re.search(r':[0-9]+$', decoded))
+                                    shape['decoded_length'] = len(decoded)
+                                except (ValueError, UnicodeError):
+                                    pass
+                                fields[field] = shape
+                            channels = entry.get('variables', {}).get('salesChannels')
+                            response_shapes.add(json.dumps({'channel_count': len(channels) if isinstance(channels, list) else None,
+                                'filter_matches': isinstance(channels, list) and any(isinstance(c,dict) and c.get('id') == active_source['live_id'] for c in channels),
+                                'node_id_fields': fields, 'node_keys': sorted((nodes[0].get('node') or {}).keys()) if nodes else []}, sort_keys=True))
                         verified_response_ids.update(filtered_response_order_ids(entry, bodies[index], active_source['live_id']))
                         if probe_max_pages and entry.get('operationName') == 'SellerHubGetMyOrders' and len(order_source_evidence) < 4:
                             order_source_evidence.append(summarize_order_source_evidence(entry.get('variables', {}), bodies[index], active_source['live_id'], entry.get('query')))
-                except Exception:
-                    # Missing evidence never confers verified ownership.
-                    pass
+                except Exception as exc:
+                    # Only exception class names; never response/customer values.
+                    response_shapes.add(json.dumps({'observer_error': type(exc).__name__}))
             page.on('response', observe_response)
 
             for idx, source in enumerate(sources, 1):
@@ -303,6 +327,7 @@ def install(module) -> None:
                     continue
 
                 verified_response_ids.clear()
+                response_shapes.clear()
                 active_source["live_id"] = str(live_id)
                 page.goto(
                     order_dashboard_url(module.BASE, live_id),
@@ -403,6 +428,8 @@ def install(module) -> None:
                                            separators=(',', ':')))
                     network_endpoints.clear()
                 rows = list(found.values())
+                if rows and not verified_response_ids:
+                    module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([json.loads(v) for v in sorted(response_shapes)]))
                 for row in rows:
                     if not probe_max_pages and str(row.get('order_id') or '') in verified_response_ids:
                         row['_source_evidence'] = {

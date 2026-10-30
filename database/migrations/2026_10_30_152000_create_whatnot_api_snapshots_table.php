@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->foreignId('whatnot_channel_id')->constrained('whatnot_channels')->cascadeOnDelete();
             $table->string('resource', 32);
             $table->string('payload_sha256', 64);
-            $table->json('payload');
+            $table->longText('payload'); // Laravel encrypted ciphertext is not JSON
             $table->timestamp('fetched_at');
             $table->timestamps();
             $table->unique(['whatnot_channel_id', 'resource', 'payload_sha256'], 'whatnot_api_snapshot_dedup');

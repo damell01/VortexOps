@@ -22,13 +22,14 @@ class WhatnotApiHealth
                 ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at']);
             return [
                 'live_requests_allowed' => app()->environment('production') && (bool) config('services.whatnot_seller.live_requests_enabled', false),
-                'snapshots' => collect(['shows', 'orders'])->mapWithKeys(fn ($resource) => [$resource => [
+                'snapshots' => collect(['shows', 'orders', 'reports'])->mapWithKeys(fn ($resource) => [$resource => [
                     'count' => (int) ($snapshots->get($resource)?->total ?? 0),
                     'last_capture' => $snapshots->get($resource)?->last_capture,
                 ]])->all(),
                 'data_health' => [
                     'shows' => $this->freshness($snapshots->get('shows')?->last_capture),
                     'orders' => $this->freshness($snapshots->get('orders')?->last_capture),
+                    'reports' => $this->freshness($snapshots->get('reports')?->last_capture),
                 ],
                 'recent_audits' => $audits->map(fn ($audit) => [
                     'resource' => $audit->resource, 'status' => $audit->status,

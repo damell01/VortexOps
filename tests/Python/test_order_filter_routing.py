@@ -73,4 +73,37 @@ class RoutingTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'ORDER_SOURCE_FILTER_COLLISION'):
             self.run_batch(2,collision=True)
 
+class SmallerPageTest(unittest.TestCase):
+    def test_enabled_next_is_followed_even_when_native_page_has_only_50_rows(self):
+        class Locator:
+            def __init__(self,page,selector):self.page=page;self.selector=selector
+            @property
+            def first(self):return self
+            def count(self):return 0 if self.selector.startswith('select') else 1
+            def is_visible(self,**kwargs):return True
+            def evaluate(self,*args):return {'exists':True,'disabled':self.page.number==2}
+            def scroll_into_view_if_needed(self,**kwargs):pass
+            def click(self,**kwargs):self.page.number+=1
+        class Page:
+            number=1
+            def on(self,*args):pass
+            def goto(self,*args,**kwargs):pass
+            def wait_for_timeout(self,*args):pass
+            def locator(self,selector):return Locator(self,selector)
+            def evaluate(self,*args):return None
+        class Session:
+            def fetch(self,*args,page_action,**kwargs):page_action(Page())
+        def fail(message,code=1):raise RuntimeError(message)
+        module=SimpleNamespace(batch=lambda *a:[],BASE='https://www.whatnot.com',prepare=lambda p:None,
+            check_login=lambda p:None,extract_orders=lambda p:[{'order_id':f'{p.number}-{i}'} for i in range(50 if p.number==1 else 49)],
+            page_signature=lambda p,*a:str(p.number),info=lambda *a:None,fail=fail)
+        helper.install(module)
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/'sources.json';source.write_text(json.dumps([{'live_id':'show','show_key':1}]))
+            with patch.dict(os.environ,{'WHATNOT_ORDER_SOURCES_FILE':str(source),'WHATNOT_ORDER_PROBE_MAX_PAGES':'0'}):
+                rows=module.batch(Session())
+        self.assertEqual(99,rows[0]['order_count'])
+        self.assertEqual(2,rows[0]['pages'])
+        self.assertTrue(rows[0]['pagination_complete'])
+
 if __name__=='__main__':unittest.main()

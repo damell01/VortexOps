@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 
 final class WhatnotApiCapture extends Command
 {
-    protected $signature = 'whatnot:api-capture {channel : Channel ID} {resource : shows or orders} {--confirm-read-only : Explicitly permit API request and snapshot storage} {--inspect : Show safe schema metadata from stored snapshots without API requests} {--preview-show-snapshot= : Offline dry-run match of a stored shows snapshot by ID} {--preview-order-snapshot= : Offline order ID coverage preview}';
+    protected $signature = 'whatnot:api-capture {channel : Channel ID} {resource : shows, orders or reports} {--confirm-read-only : Explicitly permit API request and snapshot storage} {--inspect : Show safe schema metadata from stored snapshots without API requests} {--preview-show-snapshot= : Offline dry-run match of a stored shows snapshot by ID} {--preview-order-snapshot= : Offline order ID coverage preview}';
     protected $description = 'Manually capture one read-only API response; does not update shows, orders, ledger or payroll.';
 
     public function handle(WhatnotApiReadOnlySync $sync, WhatnotSellerApiClient $client): int
@@ -32,7 +32,7 @@ final class WhatnotApiCapture extends Command
         }
         if ($this->option('inspect')) {
             $resource = (string) $this->argument('resource');
-            if (! in_array($resource, ['shows', 'orders'], true) || (int) $this->argument('channel') < 1) {
+            if (! in_array($resource, ['shows', 'orders', 'reports'], true) || (int) $this->argument('channel') < 1) {
                 $this->error('Use an existing positive channel ID and resource shows or orders.');
                 return self::FAILURE;
             }

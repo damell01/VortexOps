@@ -82,3 +82,11 @@ No API calls occur automatically. No API scheduler or webhooks are installed. Sa
 - Webhooks: https://developers.whatnot.com/getting-started/webhooks
 - Financial report schema: https://developers.whatnot.com/reports
 - Inventory syncing remains deferred per owner request.
+
+## REST v2 webhook intake (code committed; not yet deployed or exercised)
+- HTTPS callback path: `/integrations/whatnot/v2/webhook`.
+- Configure `WHATNOT_SELLER_WEBHOOK_SECRET=wn_wh_<base64 key>`, `WHATNOT_SELLER_WEBHOOK_SELLER_IDS=<comma-separated official seller IDs>`, and `WHATNOT_SELLER_WEBHOOKS_ENABLED=true` **only after** validating production migration, signing secret, and ownership of each seller.
+- Signed delivery validation checks `webhook-id`, `webhook-timestamp`, `webhook-signature`, HMAC-SHA256, replay window and v2 payload envelope. Duplicate event IDs are idempotently acknowledged. Accepted payloads are encrypted and stored in `whatnot_api_webhook_events`.
+- Incoming events do **not** update operational tables. A separate consumer, strict seller-to-channel mapping, and end-to-end verified order/show reconciliation must be completed before activation.
+- Webhook deliveries should never be used as the only completeness guarantee; REST backfill and reconciliation must catch missed events.
+- Existing Whatnot Playwright scraper schedules, browser session and inventory deduction rules remain unchanged.

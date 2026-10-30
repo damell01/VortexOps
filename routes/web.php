@@ -174,6 +174,7 @@ Route::get('/brand/manifest.json', [\App\Http\Controllers\BrandIconController::c
 
 // Whatnot Seller API: owner-only, manual diagnostics. No automatic API sync.
 Route::middleware(['web', 'auth', 'throttle:12,1'])->prefix('admin/whatnot-api')->name('whatnot-api.')->group(function () {
+    Route::get('dashboard', [\App\Http\Controllers\WhatnotApiHealthController::class, 'dashboard'])->name('dashboard');
     Route::get('health', [\App\Http\Controllers\WhatnotApiHealthController::class, 'index'])->name('health');
     Route::post('channels/{channel}/credentials', [\App\Http\Controllers\WhatnotApiHealthController::class, 'save'])->name('credentials');
     Route::post('channels/{channel}/test', [\App\Http\Controllers\WhatnotApiHealthController::class, 'test'])->name('test');

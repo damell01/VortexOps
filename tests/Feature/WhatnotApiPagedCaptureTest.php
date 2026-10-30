@@ -59,7 +59,7 @@ class WhatnotApiPagedCaptureTest extends TestCase
             ->push(['data' => [['id' => 'first']], 'meta' => ['next_cursor' => 'page-2']], 200)
             ->push(['data' => [['id' => 'second']], 'meta' => ['next_cursor' => null]], 200);
         $result = $this->capture($connection);
-        $this->assertSame(['ok' => true, 'pages' => 2, 'complete' => true], $result);
+        $this->assertSame(['ok' => true, 'pages' => 2, 'new_snapshots' => 2, 'complete' => true], $result);
         $this->assertSame(2, DB::table('whatnot_api_snapshots')->count());
         $this->assertSame(0, DB::table('whatnot_ledger_entries')->count());
         Http::assertSentCount(2);
@@ -72,5 +72,6 @@ class WhatnotApiPagedCaptureTest extends TestCase
         $result = $this->capture($this->connection(), 1);
         $this->assertFalse($result['complete']);
         $this->assertSame(1, $result['pages']);
+        $this->assertSame(1, $result['new_snapshots']);
     }
 }

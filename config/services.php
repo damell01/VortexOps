@@ -18,6 +18,8 @@ return [
         'base_url' => env('WHATNOT_SELLER_API_BASE_URL', 'https://api.whatnot.com/seller-api/rest/v2'),
         // Explicit opt-in after checking the actual Whatnot pagination response.
         'pagination_verified' => env('WHATNOT_SELLER_PAGINATION_VERIFIED', false),
+        // Keep false on dev/staging. Never share the production scraper profile.
+        'live_requests_enabled' => env('WHATNOT_SELLER_LIVE_REQUESTS_ENABLED', false),
     ],
 
     'postmark' => [

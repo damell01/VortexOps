@@ -26,4 +26,12 @@ class WhatnotApiHealthAccessTest extends TestCase
         $user = User::factory()->create(['email' => 'not-owner-whatnot@example.test']);
         $this->actingAs($user)->postJson('/admin/whatnot-api/channels/1/credentials', ['token' => 'dummy'])->assertForbidden();
     }
+    public function test_non_owner_cannot_activate_api_capture(): void
+    {
+        $user = User::factory()->create(['email' => 'non-owner-api-toggle@example.test']);
+        $this->actingAs($user)->postJson('/admin/whatnot-api/channels/1/toggle', [
+            'enabled' => true, 'confirmation' => 'ENABLE READ ONLY',
+        ])->assertForbidden();
+    }
+
 }

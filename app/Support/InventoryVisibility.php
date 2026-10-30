@@ -25,6 +25,23 @@ use App\Models\User;
  */
 class InventoryVisibility
 {
+    /** Admins are allowed every location unless explicitly hidden on that location. */
+    public static function adminCanSeeLocation(?User $user, int $locationId): bool
+    {
+        if ($user === null) return false;
+        if ($user->isOwner()) return true;
+        if (! $user->isAdmin() || self::isReadOnlyStreamer($user)) return false;
+        $raw = Setting::get('inventory_hidden_admins:' . $locationId);
+        $hidden = is_array($raw) ? $raw : json_decode((string) ($raw ?? '[]'), true);
+        return ! in_array((int) $user->id, array_map('intval', is_array($hidden) ? $hidden : []), true);
+    }
+
+    public static function adminVisibleLocationIds(User $user): array
+    {
+        return InventoryLocation::query()->pluck('id')->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => self::adminCanSeeLocation($user, $id))->values()->all();
+    }
+
     /** Locations chosen in Settings as visible to streamers. */
     public const SETTING_KEY = 'streamer_visible_location_ids';
 
@@ -38,7 +55,8 @@ class InventoryVisibility
      */
     public static function locationIdsFor(?User $user): ?array
     {
-        if (self::$unrestrictedDepth > 0 || ($user !== null && ($user->isOwner() || ($user->isAdmin() && ! self::isReadOnlyStreamer($user))))) return null;
+        if (self::$unrestrictedDepth > 0 || ($user !== null && $user->isOwner())) return null;
+        if ($user !== null && $user->isAdmin() && ! self::isReadOnlyStreamer($user)) return self::adminVisibleLocationIds($user);
         if ($user === null) return [];
 
         $key = $user->id . ':' . ($user->streamer?->id ?? 'none');

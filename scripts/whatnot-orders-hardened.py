@@ -14,6 +14,33 @@ from urllib.parse import urlsplit, parse_qsl
 from pathlib import Path
 
 
+def summarize_order_source_evidence(variables, payload, expected_live_id):
+    """Field paths/types and expected-source comparisons only; never emit values."""
+    import re
+    def walk(value, path='', depth=0):
+        if depth > 9:
+            return []
+        if isinstance(value, dict):
+            out = []
+            for key, child in list(value.items())[:100]:
+                if not isinstance(key, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]{0,79}', key):
+                    continue
+                if any(word in key.lower() for word in ['token', 'password', 'cookie', 'authorization']):
+                    continue
+                out.extend(walk(child, path+'.'+key if path else key, depth+1))
+            return out[:250]
+        if isinstance(value, list):
+            out = [{'path': path, 'type': 'array'}]
+            for child in value[:2]:
+                out.extend(walk(child, path+'[]', depth+1))
+            return out[:250]
+        kind = 'null' if value is None else ('boolean' if isinstance(value, bool) else ('number' if isinstance(value, (int,float)) else 'string'))
+        return [{'path': path, 'type': kind, 'matches_expected_live': isinstance(value,str) and value == expected_live_id}]
+    def unique(rows):
+        return [json.loads(item) for item in sorted({json.dumps(row,sort_keys=True) for row in rows})]
+    return {'variables': unique(walk(variables)), 'response': unique(walk(payload))}
+
+
 def install(module) -> None:
     original_batch = module.batch
 
@@ -207,6 +234,8 @@ def install(module) -> None:
             # cookies, response bodies, or query values.
             network_endpoints = set()
             graphql_operations = set()
+            order_source_evidence = []
+            active_source = {"live_id": None}
             if probe_max_pages:
                 def observe_response(response):
                     try:
@@ -232,6 +261,10 @@ def install(module) -> None:
                                     name = entry.get('operationName')
                                     if isinstance(name, str) and name.isidentifier() and len(name) <= 100:
                                         graphql_operations.add(name)
+                                    if name == 'SellerHubGetMyOrders' and len(order_source_evidence) < 4:
+                                        body = response.json()
+                                        order_source_evidence.append(summarize_order_source_evidence(
+                                            entry.get('variables', {}), body, active_source['live_id']))
                             except Exception:
                                 pass
                     except Exception:
@@ -245,6 +278,7 @@ def install(module) -> None:
                     output.append({"show_key": key, "live_id": None, "order_count": 0, "orders": []})
                     continue
 
+                active_source["live_id"] = str(live_id)
                 page.goto(
                     f"{module.BASE}/dashboard/orders?source={live_id}&first=100",
                     wait_until="domcontentloaded",
@@ -330,6 +364,8 @@ def install(module) -> None:
                     page_number += 1
 
                 if probe_max_pages:
+                    module.info('ORDER_SOURCE_EVIDENCE ' + json.dumps(order_source_evidence,separators=(',', ':')))
+                    order_source_evidence.clear()
                     module.info('ORDER_SOURCE_GRAPHQL_OPERATIONS show=' + str(key) + ' ' + json.dumps(sorted(graphql_operations)))
                     graphql_operations.clear()
                     module.info('ORDER_SOURCE_NETWORK_ENDPOINTS show=' + str(key) + ' ' +

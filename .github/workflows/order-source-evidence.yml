@@ -1,0 +1,13 @@
+name: Order source evidence checks
+on:
+  push:
+    branches: [fix/order-source-filter]
+permissions:
+  contents: read
+jobs:
+  evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tests/Python -p 'test_order*.py'
+      - run: python3 -m py_compile scripts/whatnot-orders-hardened.py

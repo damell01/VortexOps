@@ -52,3 +52,19 @@ No API calls occur automatically. No API scheduler or webhooks are installed. Sa
 - After merging, run production migrations during a controlled deployment; keep `WHATNOT_SELLER_LIVE_REQUESTS_ENABLED=false` and per-channel `sync_enabled=false`.
 - Existing production scraper schedules and browser sessions remain the authoritative source until verified API imports are implemented and approved.
 - No automatic API scheduler or operational importer is present yet; merging code alone does not activate API synchronization.
+
+## Owner-controlled capture activation (implemented but not runtime verified)
+- Owner dashboard: `/admin/whatnot-api/dashboard`. Each channel supports encrypted token save, manual connection test, and enable/disable of read-only API capture.
+- The per-channel enable action requires a production environment, `WHATNOT_SELLER_LIVE_REQUESTS_ENABLED=true`, `WHATNOT_SELLER_CONTRACT_VERIFIED=true`, `WHATNOT_SELLER_SYNC_SCHEDULER_ENABLED=true`, a stored token, successful connection status within 24 hours, and explicit confirmation. Disable remains available independently.
+- A registered `whatnot:api-sync-tick` command runs every 30 minutes via the EXISTING Laravel scheduler, only after all gates are enabled. No additional Dev cron is needed. It uses independent API HTTP requests, not the Playwright browser profile.
+- Capture is **read-only**: encrypted API response snapshots, audit entries, and dashboard freshness status. It does not yet import operational shows/orders, apply ledger matches, or populate business dashboards.
+- Freshness measures the age of the last captured *unique* payload. An unchanged response can be healthy but appear stale; use connection test, audit timestamps, and completeness checks before interpreting staleness.
+- The first production activation must validate the official API paths, auth, seller identity, pagination, rate limits and real response schema. Current client endpoint paths and expected `data` shape are provisional.
+- The schedule captures one page per resource per run. It is NOT a complete paginated importer; do not rely on it for full financial reconciliation.
+- No automatic fallback switch or scraper shutdown is included. Existing production scraper stays running.
+
+## Required before claiming day-one end-to-end readiness
+- Verify official API contract with keys or official schema examples, including permission checks for each of the four channels.
+- Implement validated complete paginated show/order importer with idempotent channel-scoped mapping to VortexOps tables.
+- Verify financial attribution, ledger conflicts, streamer reporting, and locked payroll protection with realistic fixtures.
+- Execute tests, run migrations on a safe copy, and complete a controlled production smoke test.

@@ -78,7 +78,7 @@ class OtherPaymentInPayRunTest extends TestCase
 
     public function test_show_recalculation_does_not_reuse_the_manual_adjustment_as_wages(): void
     {
-        $show = Show::create(['title' => 'Other pay show', 'show_date' => '2026-10-20', 'status' => 'completed']);
+        $show = Show::create(['title' => 'Other pay show', 'show_date' => '2026-10-20', 'status' => 'draft']);
         $show->streamers()->attach($this->person->id, ['is_primary' => true]);
         $this->payout->update(['show_id' => $show->id]);
         $extra = app(OtherPayService::class)->add($this->payout, 19.99, 'Show bonus');

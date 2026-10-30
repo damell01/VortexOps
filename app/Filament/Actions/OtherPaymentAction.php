@@ -79,7 +79,9 @@ final class OtherPaymentAction
                     }
                     $previous = (float) $payout->calculated_payout;
                     $source = clone $payout;
-                    if (empty($data['assign_show'])) { $source->show_id = null; }
+                    if (empty($data['assign_show'])) {
+                        $source->show_id = null;
+                    }
                     $extra = app(\App\Services\OtherPayService::class)->add($source, $amount, $description);
                     activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
                         ->withProperties(['pay_run_id' => $run->id, 'amount' => $amount, 'description' => $description, 'previous_amount' => $previous, 'streamer_id' => $streamerId, 'adjustment_payout_id' => $extra->id, 'show_selected' => ! empty($data['assign_show'])])

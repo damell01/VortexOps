@@ -1,0 +1,62 @@
+name: Read-only full show ledger audit
+'on':
+  push:
+    branches:
+    - audit/full-show-ledger
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 600s
+        script: "set -eu\ncd /var/www/vortexops\n[ \"$(git rev-parse HEAD)\" = \"\
+          14cfb06b9dfb092396d2ed747cdf24e8b98cc035\" ] || { echo FULL_SHOW_AUDIT_RELEASE_MISMATCH;\
+          \ exit 1; }\nAUDIT_FILE=$(mktemp /var/www/vortexops/storage/framework/full-show-audit.XXXXXX.php)\n\
+          trap 'rm -f \"$AUDIT_FILE\"' EXIT\ncat > \"$AUDIT_FILE\" <<'PHP'\n<?php\n\
+          use App\\Models\\Show;\nuse App\\Services\\WhatnotScraper;\nuse Illuminate\\\
+          Support\\Facades\\DB;\nuse Illuminate\\Support\\Facades\\Schema;\ntry {\n\
+          \    require '/var/www/vortexops/vendor/autoload.php';\n    $app = require\
+          \ '/var/www/vortexops/bootstrap/app.php';\n    $app->make(Illuminate\\Contracts\\\
+          Console\\Kernel::class)->bootstrap();\n    config(['vortex.whatnot.browser_lock_fail_fast'=>false,'vortex.whatnot.browser_lock_wait'=>180,'vortex.whatnot.runtime_deadline'=>microtime(true)+540]);\n\
+          \    $latest=DB::table('whatnot_ledger_entries')->where('whatnot_channel_id',1)->max('created_date');\n\
+          \    if (!$latest) throw new RuntimeException('AUDIT_NO_LEDGER_COVERAGE');\n\
+          \    $cutoff=min(now()->subDays(2)->toDateString(), \\Carbon\\Carbon::parse($latest)->subDay()->toDateString());\n\
+          \    $shows=Show::with('channel','streamers.business')->where('whatnot_channel_id',1)->whereBetween('show_date',['2026-06-01',$cutoff])->whereBetween('units_sold',[10,150])->whereNotNull('detail_url')->orderByDesc('show_date')->limit(50)->get();\n\
+          \    $show=$shows->first(fn($s)=>preg_match('/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i',(string)$s->detail_url));\n\
+          \    if (!$show) throw new RuntimeException('AUDIT_NO_SUITABLE_SHOW');\n\
+          \    preg_match('/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i',(string)$show->detail_url,$live);\n\
+          \    $primary=$show->streamers->filter(fn($s)=>(bool)$s->pivot->is_primary)->values();\n\
+          \    echo 'FULL_SHOW_AUDIT_TARGET '.json_encode(['show_id'=>$show->id,'date'=>$show->show_date->toDateString(),'channel_id'=>$show->whatnot_channel_id,'units_sold'=>$show->units_sold,'latest_channel_ledger_date'=>substr($latest,0,10),'primary_streamers'=>$primary->map(fn($s)=>['id'=>$s->id,'name'=>$s->name,'business_id'=>$s->business_id,'business'=>$s->business?->name])->all()]).\"\
+          \\n\";\n    $pages=[]; $completed=false;\n    $progress=function(string\
+          \ $line)use(&$pages,&$completed){\n        if(preg_match('/page=(\\d+) page_rows=(\\\
+          d+) total_unique=(\\d+)/',$line,$m)) {\n            $pages[]=['page'=>(int)$m[1],'rows'=>(int)$m[2],'unique'=>(int)$m[3]];\n\
+          \            echo 'FULL_SHOW_AUDIT_PAGE '.json_encode(end($pages)).\"\\\
+          n\";\n        }\n        if(str_contains($line,'complete=True')) $completed=true;\n\
+          \    };\n    // Full pagination, in-memory only: deliberately never call\
+          \ persist/import/match.\n    $result=$app->make(WhatnotScraper::class)->fetchOrdersForShows([['show_key'=>$show->id,'live_id'=>$live[1]]],$show->channel?->whatnot_username,false,$progress,false);\n\
+          \    $rows=collect($result[$show->id]??[]);\n    $ids=$rows->pluck('order_id')->map(fn($v)=>trim((string)$v))->filter(fn($v)=>$v!==''&&$v!=='-')->unique()->values()->all();\n\
+          \    if(!$completed||!$ids) throw new RuntimeException('AUDIT_NO_COMPLETE_ORDER_IDS');\n\
+          \    $ledger=DB::table('whatnot_ledger_entries')->whereIn('whatnot_order_id',$ids)->get(['id','whatnot_order_id','whatnot_channel_id','transaction_type','amount','status']);\n\
+          \    $same=$ledger->where('whatnot_channel_id',$show->whatnot_channel_id);\n\
+          \    $other=$ledger->where('whatnot_channel_id','!=',$show->whatnot_channel_id);\n\
+          \    $local=DB::table('whatnot_show_orders as o')->leftJoin('shows as s','s.id','=','o.show_id')->whereIn('o.whatnot_order_id',$ids)->get(['o.whatnot_order_id','o.show_id','s.whatnot_channel_id']);\n\
+          \    $otherShows=$local->where('show_id','!=',$show->id);\n    $matchedIds=$same->pluck('whatnot_order_id')->unique()->values()->all();\n\
+          \    $groups=$same->groupBy('transaction_type')->map(fn($g)=>['entries'=>$g->count(),'net_amount'=>round($g->sum(fn($v)=>(float)$v->amount),2)])->all();\n\
+          \    $attributions=Schema::hasTable('ledger_attributions')&&$ledger->isNotEmpty()?DB::table('ledger_attributions')->whereIn('whatnot_ledger_entry_id',$ledger->pluck('id'))->get(['whatnot_ledger_entry_id','show_id','status','submitted_by']):collect();\n\
+          \    $evidence=$rows->filter(function($r)use($live){foreach(['live_id','whatnot_live_id','livestream_id','source_live_id']\
+          \ as $key)if(strtolower((string)($r[$key]??''))===strtolower($live[1]))return\
+          \ true;return false;})->count();\n    echo 'FULL_SHOW_AUDIT_RESULT '.json_encode(['pagination_complete'=>$completed,'pages'=>count($pages),'fetched_rows'=>$rows->count(),'unique_order_ids'=>count($ids),'orders_found_in_same_channel_ledger'=>count($matchedIds),'same_channel_ledger_entries'=>$same->count(),'orders_absent_from_all_ledger_channels'=>count(array_diff($ids,$ledger->pluck('whatnot_order_id')->all())),'other_channel_ledger_entries'=>$other->count(),'existing_order_rows_for_this_show'=>$local->where('show_id',$show->id)->count(),'order_ids_already_attached_to_other_shows'=>$otherShows->pluck('whatnot_order_id')->unique()->count(),'other_existing_show_ids'=>$otherShows->pluck('show_id')->unique()->values()->take(30)->all(),'multiple_existing_show_links'=>$local->groupBy('whatnot_order_id')->filter(fn($g)=>$g->pluck('show_id')->unique()->count()>1)->count(),'ledger_by_transaction_type'=>$groups,'existing_attributions'=>$attributions->count(),'existing_attributions_to_other_shows'=>$attributions->filter(fn($a)=>$a->show_id!==null&&(int)$a->show_id!==(int)$show->id)->count(),'order_rows_with_explicit_source_live_id'=>$evidence,'example_matching_order_ids'=>array_slice($matchedIds,0,5),'show_has_exactly_one_primary'=>$primary->count()===1,'show_has_primary_business'=>$primary->count()===1&&$primary->first()->business_id!==null,'database_records_changed'=>0]).\"\
+          \\n\";\n} catch(Throwable $e) {\n    echo 'FULL_SHOW_AUDIT_ERROR_CLASS '.get_class($e).\"\
+          \\n\";\n    foreach(['AUDIT_NO_LEDGER_COVERAGE','AUDIT_NO_SUITABLE_SHOW','AUDIT_NO_COMPLETE_ORDER_IDS','ORDER_SOURCE_FILTER_COLLISION','AUTH_REQUIRED','LOGIN_REQUIRED','CHANNEL_CONTEXT_MISMATCH','CHANNEL_SWITCH_FAILED','BROWSER_LOCK_TIMEOUT','ORDER_PAGINATION_AMBIGUOUS','ORDER_PAGINATION_INCOMPLETE','timeout','SQLSTATE']\
+          \ as $flag)if(stripos($e->getMessage(),$flag)!==false)echo 'FULL_SHOW_AUDIT_ERROR_KIND\
+          \ '.$flag.\"\\n\";\n    exit(1);\n}\n\nPHP\nphp -l \"$AUDIT_FILE\"\nphp\
+          \ \"$AUDIT_FILE\"\n"

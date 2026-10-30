@@ -16,7 +16,7 @@ final class WhatnotApiReadOnlySync
 {
     public function capture(WhatnotApiConnection $connection, string $resource, WhatnotSellerApiClient $client, array $query = [], ?string $cursorPath = null): array
     {
-        if (! in_array($resource, ['shows', 'orders'], true)) {
+        if (! in_array($resource, ['shows', 'orders', 'reports'], true)) {
             throw new RuntimeException('Unsupported API resource.');
         }
         if (! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false)) {

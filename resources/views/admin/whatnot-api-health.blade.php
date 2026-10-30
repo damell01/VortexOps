@@ -24,8 +24,8 @@
 <div class="meta">Credentials: {{ $connection['configured'] ? 'Stored securely' : 'Not configured' }}</div>
 <div class="meta">API sync: {{ $connection['sync_enabled'] ? 'Configured (not scheduled)' : 'Disabled' }}</div>
 <div class="meta">Live API requests: {{ $connection['live_requests_allowed'] ? 'Allowed by server configuration' : 'Blocked by server configuration' }}</div>
-<div class="meta">Shows captured: {{ $connection['snapshots']['shows']['count'] }} | Last: {{ $connection['snapshots']['shows']['last_capture'] ?: 'Never' }}</div>
-<div class="meta">Orders captured: {{ $connection['snapshots']['orders']['count'] }} | Last: {{ $connection['snapshots']['orders']['last_capture'] ?: 'Never' }}</div>
+<div class="meta">Shows data: {{ str_replace('_', ' ', $connection['data_health']['shows']) }} | Captured: {{ $connection['snapshots']['shows']['count'] }} | Last: {{ $connection['snapshots']['shows']['last_capture'] ?: 'Never' }}</div>
+<div class="meta">Orders data: {{ str_replace('_', ' ', $connection['data_health']['orders']) }} | Captured: {{ $connection['snapshots']['orders']['count'] }} | Last: {{ $connection['snapshots']['orders']['last_capture'] ?: 'Never' }}</div>
 @if(count($connection['recent_audits']))
 <div class="meta"><strong>Recent capture activity</strong></div>
 @foreach($connection['recent_audits'] as $audit)

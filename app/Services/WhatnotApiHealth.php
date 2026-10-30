@@ -30,6 +30,9 @@ class WhatnotApiHealth
 
     public function check(WhatnotApiConnection $connection): array
     {
+        if (! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false)) {
+            return ['ok' => false, 'status' => 'disabled', 'message' => 'Live API checks are disabled in this environment'];
+        }
         if (blank($connection->access_token)) {
             return ['ok' => false, 'status' => 'not_configured', 'message' => 'No API token configured'];
         }

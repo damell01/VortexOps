@@ -1,4 +1,4 @@
-name: Order fetch timeout diagnosis
+name: Classify order source probe without waiting behind other jobs
 'on':
   push:
     branches:
@@ -17,18 +17,33 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         timeout: 60s
-        command_timeout: 180s
+        command_timeout: 200s
         script: "set -eu\ncd /var/www/vortexops\nAUDIT_FILE=$(mktemp /var/www/vortexops/storage/framework/order-diagnose.XXXXXX.php)\n\
           trap 'rm -f \"$AUDIT_FILE\"' EXIT\ncat > \"$AUDIT_FILE\" <<'PHP'\n<?php\n\
-          $paths=glob('/var/www/vortexops/storage/logs/laravel*.log');\nusort($paths,fn($a,$b)=>filemtime($a)<=>filemtime($b));\n\
-          $data='';\nforeach(array_slice($paths,-3) as $path){$f=fopen($path,'rb');$size=filesize($path);fseek($f,max(0,$size-3000000));$data.=stream_get_contents($f).\"\
-          \\n\";fclose($f);}\n$last=null;\nforeach(explode(\"\\n\",$data) as $line){\n\
-          \ if(!str_contains($line,'WhatnotScraper orders-batch stderr')) continue;\n\
-          \ $pos=strpos($line,'{\"output\":');\n if($pos!==false){$parsed=json_decode(substr($line,$pos),true);if(is_array($parsed))$last=$parsed['output']??null;}\n\
-          }\necho 'ORDER_DIAG_STDERR_AVAILABLE '.($last!==null?'yes':'no').\"\\n\"\
-          ;\nif(!is_string($last))exit;\nforeach(['BROWSER_LOCK_TIMEOUT','BROWSER_HARD_TIMEOUT_REACHED','CLOUDFLARE_CHALLENGE','LOGIN_REQUIRED','CHANNEL_CONTEXT_MISMATCH','CHANNEL_SWITCH_FAILED','FETCH_FAILED','TimeoutError','TargetClosedError','ConnectionRefusedError','ModuleNotFoundError','BrowserType.launch_persistent_context','Page.goto','Page.wait_for','database\
-          \ is locked','SingletonLock','navigation','ERR_CONNECTION','ERR_PROXY','ERR_TIMED_OUT','localhost','127.0.0.1:9222','60000ms']\
-          \ as $s){if(stripos($last,$s)!==false)echo 'ORDER_DIAG_MARKER '.$s.\"\\\
-          n\";}\nforeach(['/dashboard/home','/dashboard/orders','/dashboard/shipments','/login','/graphql','/json/version']\
-          \ as $s){if(str_contains($last,$s))echo 'ORDER_DIAG_ENDPOINT '.$s.\"\\n\"\
-          ;}\n\nPHP\nphp \"$AUDIT_FILE\"\n"
+          try {\n    require '/var/www/vortexops/vendor/autoload.php';\n    $app =\
+          \ require '/var/www/vortexops/bootstrap/app.php';\n    $app->make(Illuminate\\\
+          Contracts\\Console\\Kernel::class)->bootstrap();\n    config(['vortex.whatnot.browser_lock_fail_fast'\
+          \ => true, 'vortex.whatnot.browser_lock_wait' => 5, 'vortex.whatnot.runtime_deadline'\
+          \ => microtime(true) + 150]);\n    putenv('WHATNOT_BROWSER_LOCK_WAIT=2');\n\
+          \    $out = new Symfony\\Component\\Console\\Output\\BufferedOutput();\n\
+          \    $exit = Illuminate\\Support\\Facades\\Artisan::call('whatnot:probe-order-filter',\
+          \ [], $out);\n    $content = $out->fetch();\n    echo 'ORDER_PROBE_EXIT\
+          \ '.$exit.\"\\n\";\n    foreach (['SOURCE FILTER FAILED', 'SOURCE_FILTER_UNTRUSTED',\
+          \ 'AUTH_REQUIRED', 'LOGIN_REQUIRED', 'FETCH_FAILED', 'CHALLENGE_BLOCKED',\
+          \ 'Navigation timeout', 'Page.goto', 'CHANNEL_CONTEXT_MISMATCH', 'CHANNEL_SWITCH_FAILED',\
+          \ 'CHANNEL_SWITCH_', 'CLOUDFLARE_CHALLENGE', 'BROWSER_LOCK_TIMEOUT', 'BROWSER_HARD_TIMEOUT_REACHED',\
+          \ 'TimeoutError', 'TargetClosedError', 'BrowserType.launch_persistent_context',\
+          \ 'Page.goto', 'FETCH_FAILED', 'CHALLENGE', 'SELECTOR_MISS', 'Timed out',\
+          \ 'timed out', 'timeout', 'window ended', 'already active', 'INCONCLUSIVE',\
+          \ 'Could not auto-select', 'No orders were imported'] as $flag) {\n    \
+          \    if (stripos($content, $flag) !== false) echo 'ORDER_PROBE_SIGNAL '.$flag.\"\
+          \\n\";\n    }\n    if (preg_match('/\\{\\s*\"show_order_counts\"\\s*:.*?\\\
+          }\\s*(?:,\\s*\"overlapping_order_ids\"\\s*:\\s*\\d+\\s*\\})?/s', $content,\
+          \ $m)) {\n        $data = json_decode($m[0], true);\n        if ($data)\
+          \ echo 'ORDER_PROBE_COUNTS '.json_encode(['counts' => array_values($data['show_order_counts']),\
+          \ 'overlap' => $data['overlapping_order_ids'] ?? null]).\"\\n\";\n    }\n\
+          \    echo \"ORDER_PROBE_IMPORTS_PERFORMED 0\\n\";\n} catch (Throwable $e)\
+          \ {\n    echo 'ORDER_PROBE_ERROR_CLASS '.get_class($e).\"\\n\";\n    foreach\
+          \ (['AUTH_REQUIRED','CHANNEL_SWITCH','Cloudflare','timeout','already active']\
+          \ as $flag) if (stripos($e->getMessage(),$flag)!==false) echo 'ORDER_PROBE_SIGNAL\
+          \ '.$flag.\"\\n\";\n    exit(1);\n}\n\nPHP\nphp \"$AUDIT_FILE\"\n"

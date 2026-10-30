@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\WhatnotApiConnection;
 use App\Models\WhatnotChannel;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class WhatnotApiHealth
@@ -13,7 +13,23 @@ class WhatnotApiHealth
     {
         return WhatnotChannel::query()->orderBy('id')->get()->map(function (WhatnotChannel $channel): array {
             $connection = WhatnotApiConnection::query()->where('whatnot_channel_id', $channel->id)->first();
+            $snapshots = DB::table('whatnot_api_snapshots')
+                ->where('whatnot_channel_id', $channel->id)
+                ->selectRaw('resource, COUNT(*) as total, MAX(fetched_at) as last_capture')
+                ->groupBy('resource')->get()->keyBy('resource');
+            $audits = DB::table('whatnot_api_sync_audits')
+                ->where('whatnot_channel_id', $channel->id)
+                ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at']);
             return [
+                'live_requests_allowed' => app()->environment('production') && (bool) config('services.whatnot_seller.live_requests_enabled', false),
+                'snapshots' => collect(['shows', 'orders'])->mapWithKeys(fn ($resource) => [$resource => [
+                    'count' => (int) ($snapshots->get($resource)?->total ?? 0),
+                    'last_capture' => $snapshots->get($resource)?->last_capture,
+                ]])->all(),
+                'recent_audits' => $audits->map(fn ($audit) => [
+                    'resource' => $audit->resource, 'status' => $audit->status,
+                    'finished_at' => $audit->finished_at,
+                ])->all(),
                 'channel_id' => $channel->id,
                 'name' => $channel->name,
                 'username' => $channel->whatnot_username,

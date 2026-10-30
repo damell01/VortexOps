@@ -12,9 +12,11 @@ class EditInventoryLocation extends EditRecord
 
     /** @var list<int> businesses the location is shared by */
     protected array $sharedBy = [];
+    protected array $hiddenAdmins = [];
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $this->hiddenAdmins = (array) ($data['hidden_admin_user_ids'] ?? []);
         ['data' => $data, 'business_ids' => $this->sharedBy] = InventoryLocationResource::applyAudience($data);
 
         return $data;
@@ -23,6 +25,8 @@ class EditInventoryLocation extends EditRecord
     protected function afterSave(): void
     {
         $this->record->businesses()->sync($this->sharedBy);
+        \\App\\Models\\Setting::set('inventory_hidden_admins:' . $this->record->id, json_encode(array_values(array_map('intval', $this->hiddenAdmins))));
+        \\App\\Support\\InventoryVisibility::flushMemo();
     }
 
     protected function getHeaderActions(): array

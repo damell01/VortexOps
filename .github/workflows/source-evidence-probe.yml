@@ -45,7 +45,16 @@ jobs:
           \ $line, $m)) {\n            $metadata = json_decode($m[1], true);\n   \
           \         if (is_array($metadata)) echo 'ORDER_FILTER_EVIDENCE '.json_encode($metadata).\"\
           \\n\";\n        }\n    }\n    echo 'ORDER_PROBE_EXIT '.$exit.\"\\n\";\n\
-          \    foreach (['ORDER_SOURCE_FILTER_COLLISION', 'CLOUDFLARE_CHALLENGE',\
+          \    preg_match_all('/\\b(?:ERR_[A-Z_]+|[A-Za-z_]*(?:Error|Exception)|Page\\\
+          .[A-Za-z_]+|BrowserType\\.[A-Za-z_]+)\\b/', $content, $types);\n    foreach\
+          \ (array_unique($types[0]) as $type) echo 'ORDER_PROBE_ERROR_TYPE '.$type.\"\
+          \\n\";\n    preg_match_all('/File \"[^\"\\n]*\\/(whatnot-[a-z-]+\\.py)\"\
+          , line ([0-9]+), in ([A-Za-z_][A-Za-z_0-9]*)/', $content, $frames, PREG_SET_ORDER);\n\
+          \    foreach ($frames as $frame) echo 'ORDER_PROBE_ERROR_FRAME '.$frame[1].':'.$frame[2].'\
+          \ '.$frame[3].\"\\n\";\n    foreach (['No such file','Permission denied','not\
+          \ found','xauth','xvfb','MODULE_NOT_FOUND','SyntaxError','unrecognized arguments','LOGIN_REQUIRED','PROFILE_BUSY','ProcessSingleton','CHANNEL_CONTEXT_MISMATCH','ORDER_SOURCE_FILTER_COLLISION','CLOUDFLARE_CHALLENGE']\
+          \ as $kind) if(stripos($content,$kind)!==false)echo 'ORDER_PROBE_ERROR_KIND\
+          \ '.$kind.\"\\n\";\n\n    foreach (['ORDER_SOURCE_FILTER_COLLISION', 'CLOUDFLARE_CHALLENGE',\
           \ 'LOGIN_REQUIRED', 'BROWSER_LOCK_TIMEOUT', 'SOURCE FILTER FAILED', 'SOURCE_FILTER_UNTRUSTED',\
           \ 'AUTH_REQUIRED', 'CHANNEL_CONTEXT_MISMATCH', 'CHANNEL_SWITCH_FAILED',\
           \ 'CHANNEL_SWITCH_', 'Cloudflare', 'CHALLENGE', 'SELECTOR_MISS', 'Timed\

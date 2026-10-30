@@ -9,11 +9,19 @@ use Illuminate\Console\Command;
 
 final class WhatnotApiCapture extends Command
 {
-    protected $signature = 'whatnot:api-capture {channel : Channel ID} {resource : shows or orders} {--confirm-read-only : Explicitly permit API request and snapshot storage} {--inspect : Show safe schema metadata from stored snapshots without API requests} {--preview-show-snapshot= : Offline dry-run match of a stored shows snapshot by ID}';
+    protected $signature = 'whatnot:api-capture {channel : Channel ID} {resource : shows or orders} {--confirm-read-only : Explicitly permit API request and snapshot storage} {--inspect : Show safe schema metadata from stored snapshots without API requests} {--preview-show-snapshot= : Offline dry-run match of a stored shows snapshot by ID} {--preview-order-snapshot= : Offline order ID coverage preview}';
     protected $description = 'Manually capture one read-only API response; does not update shows, orders, ledger or payroll.';
 
     public function handle(WhatnotApiReadOnlySync $sync, WhatnotSellerApiClient $client): int
     {
+        if ($this->option('preview-order-snapshot') !== null) {
+            if ((string) $this->argument('resource') !== 'orders' || (int) $this->option('preview-order-snapshot') < 1) {
+                $this->error('Specify resource orders and a positive snapshot ID.');
+                return self::FAILURE;
+            }
+            $this->line(json_encode($sync->previewOrders((int) $this->argument('channel'), (int) $this->option('preview-order-snapshot')), JSON_PRETTY_PRINT));
+            return self::SUCCESS;
+        }
         if ($this->option('preview-show-snapshot') !== null) {
             if ((string) $this->argument('resource') !== 'shows' || (int) $this->option('preview-show-snapshot') < 1) {
                 $this->error('Specify resource shows and a positive snapshot ID.');

@@ -56,7 +56,7 @@ final class WhatnotV2WebhookController
             return response()->json(['accepted' => true, 'duplicate' => true]);
         }
 
-        DB::table('whatnot_api_webhook_events')->insertOrIgnore([
+        $inserted = DB::table('whatnot_api_webhook_events')->insertOrIgnore([
             'webhook_id' => $id,
             'seller_id' => $event['seller_id'],
             'topic' => $event['type'],
@@ -68,6 +68,13 @@ final class WhatnotV2WebhookController
             'updated_at' => now(),
         ]);
 
+        if ($inserted === 0) {
+            $stored = DB::table('whatnot_api_webhook_events')->where('webhook_id', $id)->first();
+            if (! $stored || ! hash_equals($stored->payload_sha256, $digest)) {
+                return response()->json(['message' => 'Conflicting event ID'], 409);
+            }
+            return response()->json(['accepted' => true, 'duplicate' => true]);
+        }
         return response()->json(['accepted' => true], 202);
     }
 }

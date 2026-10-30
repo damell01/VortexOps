@@ -352,6 +352,19 @@ def install(module) -> None:
                     if size.count() > 0:
                         size.select_option('20')
                         page.wait_for_timeout(1500)
+                    else:
+                        # Seller Hub also renders this as a custom text control.
+                        import re
+                        try:
+                            trigger = page.get_by_text(re.compile(r'^Show\s*100(?:\D|$)')).last
+                            if trigger.count() > 0:
+                                trigger.click(timeout=3000)
+                                option = page.get_by_text(re.compile(r'^(?:Show\s*)?20$')).last
+                                if option.count() > 0:
+                                    option.click(timeout=3000)
+                                    page.wait_for_timeout(1500)
+                        except Exception:
+                            pass
                 if probe_max_pages:
                     controls = page.evaluate(r"""() => [...document.querySelectorAll('button,input,select,[role=combobox]')].filter(el=>!el.closest('tbody,tr,[data-testid*=row]')).map(el=>({tag:el.tagName,role:el.getAttribute('role'),testid:el.getAttribute('data-testid'),label:el.getAttribute('aria-label')||el.getAttribute('placeholder')||(el.innerText||'').trim()})).filter(el=>/filter|channel|source|live|show|search/i.test(el.label||'')).slice(0,30)""")
                     module.info('ORDER_SOURCE_EVIDENCE '+json.dumps([{'ui_controls':controls}]))
@@ -447,7 +460,7 @@ def install(module) -> None:
                 rows = list(found.values())
                 if rows and not verified_response_ids:
                     module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([json.loads(v) for v in sorted(response_shapes)]))
-                    controls = page.evaluate(r"""() => ({selects:[...document.querySelectorAll('select')].map(el=>({role:el.getAttribute('role'),options:[...el.options].map(o=>({label:o.textContent,value:o.value}))})),pageButtons:[...document.querySelectorAll('button,[role=combobox]')].filter(el=>/^(?:Show\s+)?(?:20|50|100)$/i.test((el.innerText||'').trim())).map(el=>({tag:el.tagName,role:el.getAttribute('role'),label:el.innerText.trim()}))})""")
+                    controls = page.evaluate(r"""() => ({selects:[...document.querySelectorAll('select')].map(el=>({role:el.getAttribute('role'),options:[...el.options].map(o=>({label:o.textContent,value:o.value}))})),pageButtons:[...document.querySelectorAll('button,[role=button],[role=combobox],div,span')].filter(el=>!el.closest('tbody,tr')&&/^Show\s*(?:20|50|100)(?:\D|$)/i.test((el.innerText||'').trim())&&(el.innerText||'').length<100).slice(-20).map(el=>({tag:el.tagName,role:el.getAttribute('role'),label:el.innerText.trim()}))})""")
                     module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([{'pagination_controls':controls}]))
                 for row in rows:
                     if not probe_max_pages and str(row.get('order_id') or '') in verified_response_ids:

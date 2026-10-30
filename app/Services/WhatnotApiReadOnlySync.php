@@ -19,6 +19,9 @@ final class WhatnotApiReadOnlySync
         if (! in_array($resource, ['shows', 'orders'], true)) {
             throw new RuntimeException('Unsupported API resource.');
         }
+        if (! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false)) {
+            throw new RuntimeException('Live Whatnot capture is disabled outside approved production mode.');
+        }
         $response = $client->get($connection, $resource, $query);
         if (! $response->successful()) {
             return ['ok' => false, 'http_status' => $response->status(), 'saved' => false];

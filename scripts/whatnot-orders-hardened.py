@@ -14,11 +14,11 @@ from urllib.parse import urlsplit, parse_qsl
 from pathlib import Path
 
 
-def summarize_order_source_evidence(variables, payload, expected_live_id):
+def summarize_order_source_evidence(variables, payload, expected_live_id, query_document=None):
     """Field paths/types and expected-source comparisons only; never emit values."""
     import re
     def walk(value, path='', depth=0):
-        if depth > 9:
+        if depth > 15:
             return []
         if isinstance(value, dict):
             out = []
@@ -38,7 +38,8 @@ def summarize_order_source_evidence(variables, payload, expected_live_id):
         return [{'path': path, 'type': kind, 'matches_expected_live': isinstance(value,str) and value == expected_live_id}]
     def unique(rows):
         return [json.loads(item) for item in sorted({json.dumps(row,sort_keys=True) for row in rows})]
-    return {'variables': unique(walk(variables)), 'response': unique(walk(payload))}
+    return {'variables': unique(walk(variables)), 'response': unique(walk(payload)),
+            'variable_definitions': re.findall(r'\$([A-Za-z_][A-Za-z_0-9]*)\s*:\s*([A-Za-z_][A-Za-z_0-9!\[\]]*|\[[A-Za-z_][A-Za-z_0-9!\[\]]*)', query_document or '')}
 
 
 def install(module) -> None:
@@ -264,7 +265,7 @@ def install(module) -> None:
                                     if name == 'SellerHubGetMyOrders' and len(order_source_evidence) < 4:
                                         body = response.json()
                                         order_source_evidence.append(summarize_order_source_evidence(
-                                            entry.get('variables', {}), body, active_source['live_id']))
+                                            entry.get('variables', {}), body, active_source['live_id'], entry.get('query')))
                             except Exception:
                                 pass
                     except Exception:
@@ -285,6 +286,10 @@ def install(module) -> None:
                     timeout=30000,
                 )
                 page.wait_for_timeout(1200)
+                if probe_max_pages:
+                    controls = page.evaluate(r"""() => [...document.querySelectorAll('button,input,select,[role=combobox]')].filter(el=>!el.closest('tbody,tr,[data-testid*=row]')).map(el=>({tag:el.tagName,role:el.getAttribute('role'),testid:el.getAttribute('data-testid'),label:el.getAttribute('aria-label')||el.getAttribute('placeholder')||(el.innerText||'').trim()})).filter(el=>/filter|channel|source|live|show|search/i.test(el.label||'')).slice(0,30)""")
+                    module.info('ORDER_SOURCE_EVIDENCE '+json.dumps([{'ui_controls':controls}]))
+
 
                 found = {}
                 visited_signatures: set[str] = set()

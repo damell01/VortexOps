@@ -136,7 +136,8 @@ class ListInventoryItems extends ListRecords
         // it with one explicit relation load for cards; avoid redundant nested
         // eager-load definitions and fetching stock from other warehouses.
         if ($this->inventoryLocation === 'all' && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user())) {
-            $query->with(['stock' => fn ($q) => $q->with('location')]);
+            $allowed = \\App\\Support\\InventoryVisibility::locationIdsFor(auth()->user());
+            $query->with(['stock' => fn ($q) => $q->when($allowed !== null, fn ($q) => $q->whereIn('inventory_location_id', $allowed))->with('location')]);
         } else {
             $query->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $shown)->with('location')]);
         }

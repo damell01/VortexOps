@@ -27,8 +27,26 @@ final class WhatnotApiPagedCapture
             throw new RuntimeException('Unsupported cursor query parameter.');
         }
 
-        // This workflow is intentionally not enabled until the API contract is
-        // confirmed; the single-page capture remains safe to use meanwhile.
-        throw new RuntimeException('Paged capture is disabled pending verified API pagination contract.');
+        // Never enable a paged run without an explicit, verified API contract.
+        if (! config('services.whatnot_seller.pagination_verified', false)) {
+            throw new RuntimeException('Pagination is disabled until the API contract is verified.');
+        }
+        $seen = [];
+        $cursor = null;
+        $captured = 0;
+        for ($page = 1; $page <= $maxPages; $page++) {
+            $query = $cursor === null ? [] : [$cursorParameter => $cursor];
+            $result = $sync->capture($connection, $resource, $client, $query, $cursorPath);
+            if (! $result['ok']) {
+                return ['ok' => false, 'pages' => $captured, 'http_status' => $result['http_status']];
+            }
+            $captured++;
+            $cursor = $result['next_cursor'];
+            if ($cursor === null) {
+                return ['ok' => true, 'pages' => $captured, 'complete' => true];
+            }
+            WhatnotApiPagination::assertUnseen($cursor, $seen);
+        }
+        return ['ok' => true, 'pages' => $captured, 'complete' => false];
     }
 }

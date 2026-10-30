@@ -92,4 +92,51 @@ final class WhatnotApiReadOnlySync
             ->all();
     }
 
+    /**
+     * Dry-run identity reconciliation. Only exact external show IDs are considered.
+     * No API request, no writes, and no inferred timestamp/title matches.
+     */
+    public function previewShows(int $channelId, int $snapshotId): array
+    {
+        $row = DB::table('whatnot_api_snapshots')
+            ->where('whatnot_channel_id', $channelId)
+            ->where('resource', 'shows')
+            ->where('id', $snapshotId)
+            ->first();
+        if (! $row) {
+            throw new RuntimeException('Show snapshot not found for this channel.');
+        }
+        $json = Crypt::decryptString($row->payload);
+        if (! hash_equals($row->payload_sha256, hash('sha256', $json))) {
+            throw new RuntimeException('Snapshot integrity check failed.');
+        }
+        $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        $items = $payload['data'] ?? null;
+        if (! is_array($items) || ! array_is_list($items)) {
+            throw new RuntimeException('Unverified show response shape; expected data list.');
+        }
+        $seen = [];
+        $results = ['matched' => 0, 'unmatched' => 0, 'ambiguous' => 0, 'invalid' => 0];
+        foreach ($items as $item) {
+            $id = is_array($item) ? ($item['id'] ?? null) : null;
+            if (! is_string($id) || ! preg_match('/^[a-f0-9-]{32,36}$/i', $id)) {
+                $results['invalid']++;
+                continue;
+            }
+            $id = strtolower($id);
+            if (isset($seen[$id])) {
+                $results['ambiguous']++;
+                continue;
+            }
+            $seen[$id] = true;
+            $count = DB::table('shows')
+                ->where('whatnot_channel_id', $channelId)
+                ->whereRaw('LOWER(whatnot_show_id) = ?', [$id])
+                ->limit(2)->count();
+            $results[$count === 1 ? 'matched' : ($count === 0 ? 'unmatched' : 'ambiguous')]++;
+        }
+        return ['snapshot_id' => $snapshotId, 'channel_id' => $channelId, 'counts' => $results,
+            'writes_performed' => false, 'complete_source_verified' => false];
+    }
+
 }

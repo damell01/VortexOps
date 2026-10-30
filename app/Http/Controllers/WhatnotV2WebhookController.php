@@ -41,6 +41,11 @@ final class WhatnotV2WebhookController
             return response()->json(['message' => 'Invalid delivery'], 401);
         }
 
+        $allowed = array_filter(array_map('trim', explode(',', (string) config('services.whatnot_seller.webhook_seller_ids', ''))));
+        if ($allowed === [] || ! in_array($event['seller_id'], $allowed, true)) {
+            return response()->json(['message' => 'Unrecognized seller'], 403);
+        }
+
         $id = (string) $request->header('webhook-id');
         $digest = hash('sha256', $raw);
         $existing = DB::table('whatnot_api_webhook_events')->where('webhook_id', $id)->first();

@@ -73,4 +73,18 @@ class VerifiedOrderSourceTest extends TestCase
         $this->assertSame('manual',app(LedgerAutoMatcher::class)->match($entry));
         $this->assertSame('house',DB::table('ledger_attributions')->sole()->target);
     }
+    public function test_automatic_match_preserves_approved_historical_streamer_when_primary_changes(): void
+    {
+        [$show, $original, $entry] = $this->fixture();
+        $matcher = app(LedgerAutoMatcher::class);
+        $this->assertSame('matched', $matcher->match($entry));
+        $replacement = Streamer::create(['name' => 'Replacement', 'status' => 'active']);
+        $show->streamers()->updateExistingPivot($original->id, ['is_primary' => false]);
+        $show->streamers()->attach($replacement->id, ['is_primary' => true]);
+        $this->assertSame('matched', $matcher->match($entry));
+        $row = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->first();
+        $this->assertSame($original->id, (int) $row->streamer_id);
+        $this->assertSame(1, DB::table('ledger_attribution_events')->count());
+    }
+
 }

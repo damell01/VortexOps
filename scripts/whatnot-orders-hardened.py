@@ -281,7 +281,7 @@ def install(module) -> None:
 
                 active_source["live_id"] = str(live_id)
                 page.goto(
-                    f"{module.BASE}/dashboard/orders?source={live_id}&first=100",
+                    f"{module.BASE}/dashboard/orders?channel={live_id}&first=100",
                     wait_until="domcontentloaded",
                     timeout=30000,
                 )

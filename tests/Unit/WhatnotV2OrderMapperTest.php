@@ -14,10 +14,10 @@ final class WhatnotV2OrderMapperTest extends TestCase
             'show_id' => '0b6f3c1e-8a52-4d2e-9f7a-3c5d1e2f4a6b',
             'status' => 'pending_fulfillment',
             'amounts' => [
-                'subtotal' => ['amount' => ['amount' => '42', 'currency' => 'USD']],
-                'shipping' => ['amount' => ['amount' => '5.99', 'currency' => 'USD']],
-                'tax' => ['amount' => ['amount' => '3.78', 'currency' => 'USD']],
-                'total' => ['amount' => ['amount' => '49.77', 'currency' => 'USD']],
+                'subtotal' => ['amount' => '42', 'currency' => 'USD'],
+                'shipping' => ['amount' => '5.99', 'currency' => 'USD'],
+                'tax' => ['amount' => '3.78', 'currency' => 'USD'],
+                'total' => ['amount' => '49.77', 'currency' => 'USD'],
             ],
         ];
     }
@@ -34,7 +34,7 @@ final class WhatnotV2OrderMapperTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         $order = $this->order();
-        $order['amounts']['total']['amount']['currency'] = 'CAD';
+        $order['amounts']['total']['currency'] = 'CAD';
         (new WhatnotV2OrderMapper())->map($order);
     }
 

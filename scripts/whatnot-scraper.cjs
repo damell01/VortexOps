@@ -4616,7 +4616,8 @@ async function extractLedgerFromPage(page) {
       // ?source=<livestreamId> param (same param the shipments view uses). Rows
       // are paginated (~20/page) via a "Next page" button. We scrape each page,
       // dedup by order id, and click Next until it's disabled or a page cap.
-      const PAGE_CAP = 40; // ~800 orders/show ceiling to bound runtime
+      const probePages = Number.parseInt(process.env.WHATNOT_ORDER_PROBE_MAX_PAGES || "0", 10);
+      const PAGE_CAP = probePages > 0 ? Math.min(probePages, 40) : 40; // bounded read-only probe or normal import cap
       const out = [];
       // Fail closed if a dashboard filter returns the same order for two distinct
       // livestream IDs. This indicates the source filter was not trustworthy.

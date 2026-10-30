@@ -1,0 +1,17 @@
+name: Bounded order probe checks
+on:
+  push:
+    branches: [fix/bounded-order-probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests/Python -p test_order_probe_limit.py
+      - run: python -m py_compile scripts/whatnot-scrapling.py
+      - run: node --check scripts/whatnot-scraper.cjs

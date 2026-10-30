@@ -681,6 +681,7 @@ def batch(session: DynamicSession, shipments=False):
         fail("WHATNOT_ORDER_SOURCES_FILE is required")
     sources = json.loads(Path(source_file).read_text())
     output = []
+    probe_pages = max(0, int(os.getenv("WHATNOT_ORDER_PROBE_MAX_PAGES", "0"))) if not shipments else 0
 
     def action(page):
         prepare(page)
@@ -721,6 +722,10 @@ def batch(session: DynamicSession, shipments=False):
                     f"{'shipments' if shipments else 'orders'}-batch: [{idx}/{len(sources)}] "
                     f"{key} page={page_number} page_rows={len(current_rows)} total_unique={len(found)}"
                 )
+
+                if probe_pages and page_number >= probe_pages:
+                    info(f"orders-batch: probe stopped at {probe_pages} pages; result is a sample")
+                    break
 
                 advanced, next_signature = advance_next_page(page, signature, shipments)
                 if not advanced:

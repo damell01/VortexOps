@@ -111,4 +111,28 @@ class WhatnotApiSnapshotTest extends TestCase
         $sync->inspect($connection->whatnot_channel_id, 'orders');
     }
 
+    public function test_show_preview_only_matches_exact_channel_scoped_identifiers(): void
+    {
+        $connection = $this->connection();
+        app()->detectEnvironment(fn () => 'production');
+        config()->set('services.whatnot_seller.live_requests_enabled', true);
+        $live = '11111111-1111-4111-8111-111111111111';
+        Http::fake(['*' => Http::response(['data' => [
+            ['id' => $live],
+            ['id' => '22222222-2222-4222-8222-222222222222'],
+            ['id' => 'not-a-live-id'],
+        ]], 200)]);
+        $sync = app(WhatnotApiReadOnlySync::class);
+        $sync->capture($connection, 'shows', app(WhatnotSellerApiClient::class));
+        $snapshotId = DB::table('whatnot_api_snapshots')->value('id');
+
+        $preview = $sync->previewShows($connection->whatnot_channel_id, $snapshotId);
+        $this->assertSame(0, $preview['counts']['matched']);
+        $this->assertSame(2, $preview['counts']['unmatched']);
+        $this->assertSame(1, $preview['counts']['invalid']);
+        $this->assertFalse($preview['writes_performed']);
+        $this->assertSame(0, DB::table('shows')->count());
+        $this->assertSame(0, DB::table('whatnot_ledger_entries')->count());
+    }
+
 }

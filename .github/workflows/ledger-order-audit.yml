@@ -1,0 +1,72 @@
+name: Read-only ledger order coverage audit
+'on':
+  push:
+    branches:
+    - audit/ledger-order-coverage
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 180s
+        script: "set -eu\ncd /var/www/vortexops\nAUDIT_FILE=$(mktemp /var/www/vortexops/storage/framework/ledger-read-only.XXXXXX.php)\n\
+          trap 'rm -f \"$AUDIT_FILE\"' EXIT\ncat > \"$AUDIT_FILE\" <<'PHP'\n<?php\n\
+          try {\n    require '/var/www/vortexops/vendor/autoload.php';\n    $app =\
+          \ require '/var/www/vortexops/bootstrap/app.php';\n    $app->make(Illuminate\\\
+          Contracts\\Console\\Kernel::class)->bootstrap();\n    $db = Illuminate\\\
+          Support\\Facades\\DB::connection();\n    $db->statement('SET TRANSACTION\
+          \ READ ONLY');\n    $db->beginTransaction();\n    $valid = fn ($q) => $q->whereNotNull('whatnot_order_id')->whereRaw(\"\
+          TRIM(whatnot_order_id) NOT IN ('', '-')\");\n    $ledger = fn () => $db->table('whatnot_ledger_entries');\n\
+          \    $orders = fn () => $db->table('whatnot_show_orders');\n    $ids = $valid($ledger())->select('whatnot_order_id')->distinct();\n\
+          \    $metrics = [\n        'ledger_entries' => $ledger()->count(),\n   \
+          \     'ledger_entries_with_order_id' => $valid($ledger())->count(),\n  \
+          \      'distinct_ledger_order_ids' => $db->query()->fromSub(clone $ids,\
+          \ 'ids')->count(),\n        'shows' => $db->table('shows')->count(),\n \
+          \       'shows_with_source_livestream_id' => $db->table('shows')->whereNotNull('whatnot_show_id')->where('whatnot_show_id',\
+          \ '!=', '')->count(),\n        'local_order_rows' => $orders()->count(),\n\
+          \        'shows_with_local_order_rows' => $orders()->distinct()->count('show_id'),\n\
+          \        'local_distinct_order_ids' => $db->query()->fromSub($valid($orders())->select('whatnot_order_id')->distinct(),\
+          \ 'ids')->count(),\n    ];\n    $metrics['ledger_order_ids_with_any_local_row']\
+          \ = $db->query()->fromSub(clone $ids, 'l')->whereExists(function ($q) {\n\
+          \        $q->selectRaw('1')->from('whatnot_show_orders as o')->whereColumn('o.whatnot_order_id',\
+          \ 'l.whatnot_order_id');\n    })->count();\n    $metrics['ledger_order_ids_missing_locally']\
+          \ = $metrics['distinct_ledger_order_ids'] - $metrics['ledger_order_ids_with_any_local_row'];\n\
+          \    $ambiguous = $valid($orders())->select('whatnot_order_id')->groupBy('whatnot_order_id')->havingRaw('COUNT(DISTINCT\
+          \ show_id) > 1');\n    $metrics['local_order_ids_attached_to_multiple_shows']\
+          \ = $db->query()->fromSub($ambiguous, 'a')->count();\n    $metrics['ledger_order_ids_attached_to_multiple_shows']\
+          \ = $db->query()->fromSub(clone $ids, 'l')->joinSub($ambiguous, 'a', 'a.whatnot_order_id',\
+          \ '=', 'l.whatnot_order_id')->count();\n    foreach (['whatnot_ledger_entries'\
+          \ => 'ledger', 'whatnot_show_orders' => 'orders'] as $table => $prefix)\
+          \ {\n        $withLive = 0; $conflicting = 0; $fields = array_fill_keys(['live_id',\
+          \ 'whatnot_live_id', 'livestream_id', 'source_live_id'], 0);\n        $db->table($table)->select('id',\
+          \ 'raw_data')->whereNotNull('raw_data')->orderBy('id')->chunkById(1000,\
+          \ function ($rows) use (&$withLive, &$conflicting, &$fields) {\n       \
+          \     foreach ($rows as $row) {\n                $raw = json_decode((string)\
+          \ $row->raw_data, true);\n                if (! is_array($raw)) continue;\n\
+          \                $found = [];\n                foreach ($fields as $key\
+          \ => $_) {\n                    $value = $raw[$key] ?? null;\n         \
+          \           if (is_string($value) && preg_match('/^[a-f0-9-]{32,36}$/i',\
+          \ $value)) {\n                        $fields[$key]++; $found[] = strtolower($value);\n\
+          \                    }\n                }\n                if ($found) $withLive++;\n\
+          \                if (count(array_unique($found)) > 1) $conflicting++;\n\
+          \            }\n        });\n        $metrics[$prefix.'_rows_with_explicit_source_live_id']\
+          \ = $withLive;\n        $metrics[$prefix.'_rows_with_conflicting_source_live_ids']\
+          \ = $conflicting;\n        $metrics[$prefix.'_source_live_fields'] = $fields;\n\
+          \    }\n    $metrics['ledger_by_channel'] = $ledger()->select('whatnot_channel_id')->selectRaw('COUNT(*)\
+          \ as entries')->selectRaw(\"SUM(CASE WHEN whatnot_order_id IS NOT NULL AND\
+          \ TRIM(whatnot_order_id) NOT IN ('', '-') THEN 1 ELSE 0 END) as with_order_id\"\
+          )->groupBy('whatnot_channel_id')->get()->toArray();\n    $db->rollBack();\n\
+          \    echo 'LEDGER_AUDIT_RESULT '.json_encode($metrics, JSON_THROW_ON_ERROR).\"\
+          \\n\";\n    echo \"LEDGER_AUDIT_READ_ONLY yes\\n\";\n} catch (Throwable\
+          \ $e) {\n    if (isset($db) && $db->transactionLevel() > 0) $db->rollBack();\n\
+          \    echo 'LEDGER_AUDIT_ERROR_CLASS '.get_class($e).\"\\n\";\n    exit(1);\n\
+          }\n\nPHP\nphp \"$AUDIT_FILE\"\n"

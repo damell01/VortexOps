@@ -19,8 +19,11 @@ class RoutingTest(unittest.TestCase):
             def first(self): return self
             def count(self): return 0
         class Page:
+            url = 'https://www.whatnot.com/dashboard/orders'
             def on(self,*args):pass
-            def goto(self,url,**kwargs):urls.append(url)
+            def goto(self,url,**kwargs):
+                self.url=url
+                urls.append(url)
             def wait_for_timeout(self,*args):pass
             def locator(self,*args):return Locator()
             def evaluate(self,script):return [] if 'querySelectorAll' in script else None

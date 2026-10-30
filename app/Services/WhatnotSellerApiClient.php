@@ -27,6 +27,10 @@ final class WhatnotSellerApiClient
         }
 
         $base = rtrim((string) config('services.whatnot_seller.base_url'), '/');
+        $host = parse_url($base, PHP_URL_HOST);
+        if (! is_string($host) || ($host !== 'whatnot.com' && ! str_ends_with($host, '.whatnot.com'))) {
+            throw new RuntimeException('API host is not approved.');
+        }
         if (! str_starts_with($base, 'https://')) {
             throw new RuntimeException('Whatnot API base URL must use HTTPS.');
         }

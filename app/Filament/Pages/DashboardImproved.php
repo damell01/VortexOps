@@ -301,7 +301,7 @@ class DashboardImproved extends Dashboard
     private function inventoryHealth(): array
     {
         try {
-            $visible = \\App\\Support\\InventoryVisibility::shownLocationIdsFor(auth()->user());
+            $visible = \App\Support\InventoryVisibility::shownLocationIdsFor(auth()->user());
             $products = InventoryItem::query()
                 ->where('is_active', true)
                 ->when($visible !== null, fn ($q) => $q->whereHas('stock', fn ($stock) => $stock->whereIn('inventory_location_id', $visible)))
@@ -314,13 +314,13 @@ class DashboardImproved extends Dashboard
                 return $qty > 0 && $p->reorder_level !== null && $qty <= (float) $p->reorder_level;
             })->count();
             return compact('in', 'low', 'out');
-        } catch (\\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
+        } catch (\Throwable) { return ['in' => 0, 'low' => 0, 'out' => 0]; }
     }
 
     private function recentInventoryActivity(): array
     {
         try {
-            $visible = \\App\\Support\\InventoryVisibility::shownLocationIdsFor(auth()->user());
+            $visible = \App\Support\InventoryVisibility::shownLocationIdsFor(auth()->user());
             $movements = InventoryMovement::query()
                 ->when($visible !== null, fn ($q) => $q->where(function ($locations) use ($visible) {
                     $locations->whereIn('from_location_id', $visible)->orWhereIn('to_location_id', $visible);

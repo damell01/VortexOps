@@ -58,7 +58,7 @@ final class WhatnotApiReadOnlySync
      */
     public function inspect(int $channelId, string $resource, int $limit = 5): array
     {
-        if ($channelId < 1 || ! in_array($resource, ['shows', 'orders'], true) || $limit < 1 || $limit > 20) {
+        if ($channelId < 1 || ! in_array($resource, ['shows', 'orders', 'reports'], true) || $limit < 1 || $limit > 20) {
             throw new RuntimeException('Invalid snapshot inspection request.');
         }
 
@@ -119,7 +119,7 @@ final class WhatnotApiReadOnlySync
         $results = ['matched' => 0, 'unmatched' => 0, 'ambiguous' => 0, 'invalid' => 0];
         foreach ($items as $item) {
             $id = is_array($item) ? ($item['id'] ?? null) : null;
-            if (! is_string($id) || ! preg_match('/^[a-f0-9-]{32,36}$/i', $id)) {
+            if (! is_string($id) || ! preg_match('/^[a-f0-9-]{36}$/i', $id)) {
                 $results['invalid']++;
                 continue;
             }

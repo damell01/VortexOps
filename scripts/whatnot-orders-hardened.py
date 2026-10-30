@@ -393,7 +393,7 @@ def install(module) -> None:
                         )
                     observed_order_owners[order_id] = str(live_id)
                 module.info(
-                    f"orders-batch: [{idx}/{len(sources)}] {key} complete=true "
+                    f"orders-batch: [{idx}/{len(sources)}] {key} complete={not bool(probe_max_pages)} "
                     f"pages={page_number} -> {len(rows)} row(s)"
                 )
                 output.append(

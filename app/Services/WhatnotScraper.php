@@ -438,6 +438,9 @@ class WhatnotScraper
     protected function throwForExitCode(int $exitCode,string $stderr,?string $commandLine=null):void
     {
         if($exitCode===0)return;
+        if (str_contains($stderr, 'ORDER_SOURCE_FILTER_COLLISION')) {
+            throw new \RuntimeException('ORDER_SOURCE_FILTER_COLLISION: Whatnot returned overlapping orders for different shows. The order source filter failed verification; no import payload was returned.');
+        }
         $diagnostics=implode("\n",array_slice(array_values(array_filter(explode("\n",$stderr),fn($l)=>trim($l)!=='')),0,80));if($diagnostics==='')$diagnostics="The scraper exited {$exitCode} without diagnostics. Command: ".($commandLine??'(not recorded)');if($exitCode===self::EXIT_AUTH_REQUIRED)throw new \App\Exceptions\WhatnotBlockedException("Whatnot returned an authentication/challenge page.\n".$diagnostics);if($exitCode===self::EXIT_RATE_LIMITED)throw new \App\Exceptions\WhatnotBlockedException("Whatnot is rate limiting this account. Wait and retry.\n\n".$diagnostics);if($exitCode===self::EXIT_SELECTOR_MISS)throw new \RuntimeException("Whatnot scraper: page selectors didn't match.\n\n".$diagnostics);
     }
 

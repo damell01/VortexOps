@@ -23,7 +23,7 @@ final class WhatnotV2OrderMapper
             throw new \InvalidArgumentException('Invalid order amounts.');
         }
         $money = function (string $field) use ($amounts): ?string {
-            $value = $amounts[$field]['amount'] ?? null;
+            $value = $amounts[$field] ?? null;
             if ($value === null) {
                 return null;
             }

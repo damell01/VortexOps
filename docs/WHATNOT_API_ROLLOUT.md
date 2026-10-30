@@ -68,3 +68,17 @@ No API calls occur automatically. No API scheduler or webhooks are installed. Sa
 - Implement validated complete paginated show/order importer with idempotent channel-scoped mapping to VortexOps tables.
 - Verify financial attribution, ledger conflicts, streamer reporting, and locked payroll protection with realistic fixtures.
 - Execute tests, run migrations on a safe copy, and complete a controlled production smoke test.
+
+## Official REST v2 reference verified 2026-10-30
+- Official base URL: `https://api.whatnot.com/seller-api/rest/v2`. Personal access tokens use `Authorization: Bearer ...` and are issued in the developer dashboard. Token expirations may be finite.
+- Read scopes: `read:shows`, `read:orders`, `read:reports`. Customer data requires `read:customers`; do not request it without a business need.
+- Confirmed read endpoints: `GET /shows`, `GET /orders`, `GET /reports`, `GET /analytics/shows/{show_id}`. Reports are asynchronous: report creation produces a run, and a completed run provides a presigned CSV URL.
+- Official financial report columns include `order_id`, `livestream_id`, `ledger_transaction_id`, `transaction_amount`, `commission_fee`, `processing_fee` and `transaction_type`. Use exact source IDs to reconcile; never infer show attribution from time alone.
+- Rate limit: 10 requests/sec per seller and connected app. Respect `Retry-After` on HTTP 429 and self-throttle; existing fixed-delay retry needs improvement before production enablement.
+- New REST v2 webhook format uses Standard Webhooks signature headers `webhook-id`, `webhook-timestamp`, `webhook-signature`, with an envelope containing `type`, `timestamp`, `data`, `version`, `seller_id`. Do not mix with the legacy GraphQL/old webhook documentation.
+- Official reference: https://developers.whatnot.com/getting-started/introduction
+- Authentication: https://developers.whatnot.com/getting-started/authentication
+- Rate limits: https://developers.whatnot.com/getting-started/rate-limits
+- Webhooks: https://developers.whatnot.com/getting-started/webhooks
+- Financial report schema: https://developers.whatnot.com/reports
+- Inventory syncing remains deferred per owner request.

@@ -44,6 +44,9 @@ class WhatnotApiSnapshotTest extends TestCase
         $this->assertTrue($service->capture($connection, 'shows', $client)['ok']);
         $this->assertTrue($service->capture($connection, 'shows', $client)['ok']);
         $this->assertSame(1, DB::table('whatnot_api_snapshots')->count());
+        $stored = DB::table('whatnot_api_snapshots')->first()->payload;
+        $this->assertStringNotContainsString('fixture-show', $stored);
+        $this->assertStringContainsString('fixture-show', \Illuminate\Support\Facades\Crypt::decryptString($stored));
         $this->assertSame(2, DB::table('whatnot_api_sync_audits')->count());
         $this->assertSame(0, DB::table('whatnot_ledger_entries')->count());
         $this->assertSame(0, DB::table('shows')->count());

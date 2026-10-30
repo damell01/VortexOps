@@ -26,6 +26,10 @@ class WhatnotApiHealth
                     'count' => (int) ($snapshots->get($resource)?->total ?? 0),
                     'last_capture' => $snapshots->get($resource)?->last_capture,
                 ]])->all(),
+                'data_health' => [
+                    'shows' => $this->freshness($snapshots->get('shows')?->last_capture),
+                    'orders' => $this->freshness($snapshots->get('orders')?->last_capture),
+                ],
                 'recent_audits' => $audits->map(fn ($audit) => [
                     'resource' => $audit->resource, 'status' => $audit->status,
                     'finished_at' => $audit->finished_at,
@@ -42,6 +46,15 @@ class WhatnotApiHealth
                 'last_error' => $connection?->last_error,
             ];
         })->all();
+    }
+
+    private function freshness(?string $timestamp): string
+    {
+        if ($timestamp === null) {
+            return 'no_data';
+        }
+        return \Illuminate\Support\Carbon::parse($timestamp)->lt(now()->subHours(24))
+            ? 'stale' : 'recent';
     }
 
     public function check(WhatnotApiConnection $connection): array

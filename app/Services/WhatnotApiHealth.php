@@ -25,7 +25,16 @@ class WhatnotApiHealth
             $audits = DB::table('whatnot_api_sync_audits')
                 ->where('whatnot_channel_id', $channel->id)
                 ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at']);
+            $webhookStats = DB::table('whatnot_api_webhook_events')
+                ->selectRaw('status, COUNT(*) as total')
+                ->groupBy('status')->pluck('total', 'status');
             return [
+                'webhook_inbox' => [
+                    'pending' => (int) ($webhookStats['pending'] ?? 0),
+                    'staged' => (int) ($webhookStats['staged'] ?? 0),
+                    'failed' => (int) ($webhookStats['failed'] ?? 0),
+                    'ignored' => (int) ($webhookStats['ignored'] ?? 0),
+                ],
                 'live_requests_allowed' => app()->environment('production') && (bool) config('services.whatnot_seller.live_requests_enabled', false),
                 'snapshots' => collect(['shows', 'orders', 'reports'])->mapWithKeys(fn ($resource) => [$resource => [
                     'count' => (int) ($snapshots->get($resource)?->total ?? 0),

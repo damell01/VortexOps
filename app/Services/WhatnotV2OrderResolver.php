@@ -28,6 +28,14 @@ final class WhatnotV2OrderResolver
             return ['status' => $shows->isEmpty() ? 'show_not_imported' : 'ambiguous_show',
                 'order_id' => (string) $id, 'show_uuid' => strtolower($showId)];
         }
+        $conflicts = DB::table('whatnot_show_orders as o')
+            ->join('shows as s', 's.id', '=', 'o.show_id')
+            ->where('s.whatnot_channel_id', $channelId)
+            ->where('o.whatnot_order_id', (string) $id)
+            ->where('o.show_id', '<>', $shows[0])->count();
+        if ($conflicts > 0) {
+            return ['status' => 'conflicting_order_show', 'order_id' => (string) $id, 'writes_performed' => false];
+        }
         $existing = DB::table('whatnot_show_orders')
             ->where('show_id', $shows[0])->where('whatnot_order_id', (string) $id)->count();
         return [

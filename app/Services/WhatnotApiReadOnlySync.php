@@ -28,11 +28,12 @@ final class WhatnotApiReadOnlySync
         }
         $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $hash = hash('sha256', $encoded);
+        $secured = \Illuminate\Support\Facades\Crypt::encryptString($encoded);
         DB::table('whatnot_api_snapshots')->insertOrIgnore([
             'whatnot_channel_id' => $connection->whatnot_channel_id,
             'resource' => $resource,
             'payload_sha256' => $hash,
-            'payload' => $encoded,
+            'payload' => $secured,
             'fetched_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),

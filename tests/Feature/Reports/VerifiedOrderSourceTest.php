@@ -87,4 +87,14 @@ class VerifiedOrderSourceTest extends TestCase
         $this->assertSame(1, DB::table('ledger_attribution_events')->count());
     }
 
+    public function test_missing_evidence_does_not_revoke_existing_approved_attribution(): void
+    {
+        [,, $entry, $order] = $this->fixture();
+        $matcher = app(LedgerAutoMatcher::class);
+        $this->assertSame('matched', $matcher->match($entry));
+        $order->update(['raw_data' => []]);
+        $this->assertSame('flagged', $matcher->match($entry));
+        $this->assertSame('approved', DB::table('ledger_attributions')->sole()->status);
+    }
+
 }

@@ -49,6 +49,6 @@ final class WhatnotApiPagedCapture
             }
             WhatnotApiPagination::assertUnseen($cursor, $seen);
         }
-        return ['ok' => true, 'pages' => $captured, 'complete' => false];
+        return ['ok' => true, 'pages' => $captured, 'new_snapshots' => $newSnapshots, 'complete' => false];
     }
 }

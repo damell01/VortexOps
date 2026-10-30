@@ -70,4 +70,34 @@ class WhatnotApiSnapshotTest extends TestCase
         $this->expectException(RuntimeException::class);
         app(WhatnotApiReadOnlySync::class)->capture($this->connection(), 'payouts', app(WhatnotSellerApiClient::class));
     }
+    public function test_inspection_returns_schema_but_never_customer_values(): void
+    {
+        $connection = $this->connection();
+        Http::fake(['*' => Http::response(['data' => [
+            ['id' => 'private-order-123', 'buyer_email' => 'buyer@example.test', 'status' => 'shipped'],
+        ]], 200)]);
+        $sync = app(WhatnotApiReadOnlySync::class);
+        $sync->capture($connection, 'orders', app(WhatnotSellerApiClient::class));
+
+        $inspection = $sync->inspect($connection->whatnot_channel_id, 'orders');
+        $this->assertCount(1, $inspection);
+        $this->assertSame(1, $inspection[0]['data_count']);
+        $this->assertContains('buyer_email', $inspection[0]['item_keys']);
+        $this->assertStringNotContainsString('buyer@example.test', json_encode($inspection));
+        $this->assertStringNotContainsString('private-order-123', json_encode($inspection));
+        $this->assertSame(0, DB::table('whatnot_ledger_entries')->count());
+    }
+
+    public function test_inspection_rejects_tampered_snapshot(): void
+    {
+        $connection = $this->connection();
+        Http::fake(['*' => Http::response(['data' => []], 200)]);
+        $sync = app(WhatnotApiReadOnlySync::class);
+        $sync->capture($connection, 'orders', app(WhatnotSellerApiClient::class));
+        DB::table('whatnot_api_snapshots')->update(['payload_sha256' => str_repeat('0', 64)]);
+
+        $this->expectException(RuntimeException::class);
+        $sync->inspect($connection->whatnot_channel_id, 'orders');
+    }
+
 }

@@ -27,6 +27,15 @@ class WhatnotApiSnapshotTest extends TestCase
         ]);
     }
 
+    public function test_live_api_is_blocked_in_non_production_even_with_credentials(): void
+    {
+        $connection = $this->connection();
+        config()->set('services.whatnot_seller.live_requests_enabled', true);
+        Http::fake();
+        $this->expectException(RuntimeException::class);
+        app(WhatnotSellerApiClient::class)->get($connection, 'shows');
+    }
+
     public function test_tokens_are_encrypted_and_hidden(): void
     {
         $connection = $this->connection();
@@ -38,6 +47,8 @@ class WhatnotApiSnapshotTest extends TestCase
     public function test_capture_is_idempotent_and_does_not_touch_financial_tables(): void
     {
         $connection = $this->connection();
+        app()->detectEnvironment(fn () => 'production');
+        config()->set('services.whatnot_seller.live_requests_enabled', true);
         Http::fake(['*' => Http::response(['data' => [['id' => 'fixture-show']]], 200)]);
         $service = app(WhatnotApiReadOnlySync::class);
         $client = app(WhatnotSellerApiClient::class);

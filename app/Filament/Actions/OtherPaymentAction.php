@@ -45,7 +45,7 @@ final class OtherPaymentAction
                     ->options(fn (Get $get) => $batch->payouts()
                         ->with('show')
                         ->where('streamer_id', (int) $get('streamer_id'))
-                        ->whereNotNull('show_id')->get()
+                        ->whereNotNull('show_id')->where('payout_type', '!=', \App\Services\OtherPayService::TYPE)->get()
                         ->mapWithKeys(fn ($p) => [$p->id => ($p->show?->title ?? 'Show #'.$p->show_id)
                             . ' · payout #'.$p->id])->all())
                     ->searchable()
@@ -78,13 +78,11 @@ final class OtherPaymentAction
                         throw ValidationException::withMessages(['amount' => 'Enter a positive amount and a description.']);
                     }
                     $previous = (float) $payout->calculated_payout;
-                    $scope = ! empty($data['assign_show']) ? 'SHOW' : 'PERSON';
-                    $payout->update([
-                        'calculated_payout' => round($previous + $amount, 2),
-                        'calculation_notes' => trim(($payout->calculation_notes ?: '')."\n[OTHER_PAYMENT] +$".number_format($amount, 2).': '.$description),
-                    ]);
+                    $source = clone $payout;
+                    if (empty($data['assign_show'])) { $source->show_id = null; }
+                    $extra = app(\App\Services\OtherPayService::class)->add($source, $amount, $description);
                     activity('pay_run')->causedBy(auth()->user())->performedOn($payout)
-                        ->withProperties(['pay_run_id' => $run->id, 'amount' => $amount, 'description' => $description, 'previous_amount' => $previous, 'streamer_id' => $streamerId, 'show_selected' => ! empty($data['assign_show'])])
+                        ->withProperties(['pay_run_id' => $run->id, 'amount' => $amount, 'description' => $description, 'previous_amount' => $previous, 'streamer_id' => $streamerId, 'adjustment_payout_id' => $extra->id, 'show_selected' => ! empty($data['assign_show'])])
                         ->log('Other payment added');
                     $run->recalculateTotal();
                 });

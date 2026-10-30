@@ -137,6 +137,10 @@ class PayRunAutomationService
                 ];
             }
 
+            foreach ($batch->payouts()->where('status', 'draft')->get() as $line) {
+                app(OtherPayService::class)->preserveLegacy($line);
+            }
+
             $warnings = [];
             $showCount = 0;
             $eligibleShowIds = collect();
@@ -207,6 +211,7 @@ class PayRunAutomationService
                 ->where('weekly_payout_batch_id', $batch->id)
                 ->where('status', 'draft')
                 ->whereNotNull('show_id')
+                ->where('payout_type', '!=', OtherPayService::TYPE)
                 ->tap($ofKind)
                 ->when(
                     $eligibleShowIds->isNotEmpty(),
@@ -221,6 +226,7 @@ class PayRunAutomationService
                 ->where('weekly_payout_batch_id', $batch->id)
                 ->where('status', 'draft')
                 ->whereNotIn('id', $paysHere)
+                ->where('payout_type', '!=', OtherPayService::TYPE)
                 ->update(['weekly_payout_batch_id' => null]);
 
             // Someone moved to another business takes their unpaid pay with them.
@@ -228,6 +234,7 @@ class PayRunAutomationService
                 $detached += Payout::query()
                     ->where('weekly_payout_batch_id', $batch->id)
                     ->where('status', 'draft')
+                    ->where('payout_type', '!=', OtherPayService::TYPE)
                     ->whereDoesntHave('streamer', fn ($s) => $s->where('business_id', $businessId))
                     ->update(['weekly_payout_batch_id' => null]);
             }

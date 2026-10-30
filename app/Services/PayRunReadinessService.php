@@ -72,6 +72,10 @@ class PayRunReadinessService
         }
 
         foreach ($payouts as $payout) {
+            if ($payout->payout_type === OtherPayService::TYPE && $batch->business_id !== null
+                && (int) $payout->streamer?->business_id !== (int) $batch->business_id) {
+                $problems[] = 'Other Pay for '.($payout->streamer?->name ?? 'an unassigned person').' needs review: their business differs from this Pay Run.';
+            }
             $person = $payout->streamer?->name ?? "Team member #{$payout->streamer_id}";
             $show = $payout->show_id ? $shows->get($payout->show_id) : null;
             $showTitle = $payout->show_id ? ($show?->title ?? "Show #{$payout->show_id}") : 'Manual payout';

@@ -217,7 +217,7 @@
                                 <article class="vx-payroll-line-card">
                                     <div>
                                         <div class="truncate font-semibold text-[var(--vxw-text)]">{{ $payout->show?->title ?? 'General payroll line' }}</div>
-                                        <div class="vxw-meta">{{ \App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? '')) }}@if($payout->show?->show_date) · {{ $payout->show->show_date->format('M j') }}@endif</div>
+                                        <div class="vxw-meta">{{ $payout->payout_type === \App\Services\OtherPayService::TYPE ? 'Other Pay' : (\App\Models\Streamer::payoutTypeLabels()[$payout->payout_type] ?? ucfirst(str_replace('_',' ',$payout->payout_type ?? ''))) }}@if($payout->show?->show_date) · {{ $payout->show->show_date->format('M j') }}@endif</div>
                                         @if(str_contains((string) $payout->calculation_notes, '[OTHER_PAYMENT:'))
                                             <div class="vxw-meta" style="margin-top:4px">
                                                 @foreach(preg_split('/\\r?\\n/', (string) $payout->calculation_notes) as $note)

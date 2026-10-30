@@ -13,7 +13,7 @@
 <a href="/admin">← Back to VortexOps</a>
 <div class="eyebrow">Owner tools / Integrations</div>
 <h1>Whatnot Seller API Health</h1>
-<p>Configure and test each seller channel independently. API synchronization is disabled, and the existing scraper remains active.</p>
+<p>Configure and test each seller channel independently. Inspect captured data freshness and errors before activation. The existing scraper remains active.</p>
 <div class="note">Infrastructure preview: no scheduled API imports, webhooks, or automatic financial updates are enabled. Tokens are encrypted at rest and never returned to the browser.</div>
 <div class="grid">
 @foreach ($connections as $connection)
@@ -22,7 +22,16 @@
 <span class="status">{{ str_replace('_', ' ', ucfirst($connection['status'])) }}</span>
 <div class="meta">Seller: {{ $connection['username'] ?: 'Not specified' }}</div>
 <div class="meta">Credentials: {{ $connection['configured'] ? 'Stored securely' : 'Not configured' }}</div>
-<div class="meta">API sync: Disabled</div>
+<div class="meta">API sync: {{ $connection['sync_enabled'] ? 'Configured (not scheduled)' : 'Disabled' }}</div>
+<div class="meta">Live API requests: {{ $connection['live_requests_allowed'] ? 'Allowed by server configuration' : 'Blocked by server configuration' }}</div>
+<div class="meta">Shows captured: {{ $connection['snapshots']['shows']['count'] }} | Last: {{ $connection['snapshots']['shows']['last_capture'] ?: 'Never' }}</div>
+<div class="meta">Orders captured: {{ $connection['snapshots']['orders']['count'] }} | Last: {{ $connection['snapshots']['orders']['last_capture'] ?: 'Never' }}</div>
+@if(count($connection['recent_audits']))
+<div class="meta"><strong>Recent capture activity</strong></div>
+@foreach($connection['recent_audits'] as $audit)
+<div class="meta">{{ $audit['resource'] }} — {{ $audit['status'] }} — {{ $audit['finished_at'] ?: 'Pending' }}</div>
+@endforeach
+@endif
 <div class="meta">Last check: {{ $connection['last_checked_at'] ?: 'Never' }}</div>
 <div class="meta">Last success: {{ $connection['last_success_at'] ?: 'Never' }}</div>
 @if($connection['last_error']) <div class="meta">Last error: {{ $connection['last_error'] }}</div> @endif

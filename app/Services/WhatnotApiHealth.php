@@ -11,7 +11,10 @@ class WhatnotApiHealth
 {
     public function overview(): array
     {
-        return WhatnotChannel::query()->orderBy('id')->get()->map(function (WhatnotChannel $channel): array {
+        $webhookStats = DB::table('whatnot_api_webhook_events')
+            ->selectRaw('status, COUNT(*) as total')
+            ->groupBy('status')->pluck('total', 'status');
+        return WhatnotChannel::query()->orderBy('id')->get()->map(function (WhatnotChannel $channel) use ($webhookStats): array {
             $connection = WhatnotApiConnection::query()->where('whatnot_channel_id', $channel->id)->first();
             $snapshots = DB::table('whatnot_api_snapshots')
                 ->where('whatnot_channel_id', $channel->id)
@@ -25,9 +28,6 @@ class WhatnotApiHealth
             $audits = DB::table('whatnot_api_sync_audits')
                 ->where('whatnot_channel_id', $channel->id)
                 ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at']);
-            $webhookStats = DB::table('whatnot_api_webhook_events')
-                ->selectRaw('status, COUNT(*) as total')
-                ->groupBy('status')->pluck('total', 'status');
             return [
                 'webhook_inbox' => [
                     'pending' => (int) ($webhookStats['pending'] ?? 0),

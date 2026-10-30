@@ -135,4 +135,27 @@ class WhatnotApiSnapshotTest extends TestCase
         $this->assertSame(0, DB::table('whatnot_ledger_entries')->count());
     }
 
+    public function test_order_preview_reports_coverage_without_financial_mutations(): void
+    {
+        $connection = $this->connection();
+        app()->detectEnvironment(fn () => 'production');
+        config()->set('services.whatnot_seller.live_requests_enabled', true);
+        Http::fake(['*' => Http::response(['data' => [
+            ['id' => 'order-123'],
+            ['id' => 'order-123'],
+            ['id' => 'order-456'],
+            ['id' => null],
+        ]], 200)]);
+        $sync = app(WhatnotApiReadOnlySync::class);
+        $sync->capture($connection, 'orders', app(WhatnotSellerApiClient::class));
+        $id = DB::table('whatnot_api_snapshots')->value('id');
+        $preview = $sync->previewOrders($connection->whatnot_channel_id, $id);
+        $this->assertSame(2, $preview['counts']['new_order_id']);
+        $this->assertSame(1, $preview['counts']['duplicate_source_id']);
+        $this->assertSame(1, $preview['counts']['invalid']);
+        $this->assertFalse($preview['show_attribution_verified']);
+        $this->assertFalse($preview['writes_performed']);
+        $this->assertSame(0, DB::table('whatnot_ledger_entries')->count());
+    }
+
 }

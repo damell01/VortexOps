@@ -359,10 +359,13 @@ def install(module) -> None:
                             trigger = page.get_by_text(re.compile(r'^Show\s*100(?:\D|$)')).last
                             if trigger.count() > 0:
                                 trigger.click(timeout=3000)
-                                option = page.get_by_text(re.compile(r'^(?:Show\s*)?20$')).last
-                                option.wait_for(state='visible', timeout=5000)
-                                option.click(timeout=3000)
-                                page.wait_for_timeout(1500)
+                                for _ in range(20):
+                                    chosen = page.evaluate(r"""() => {const el=[...document.querySelectorAll('[role="dialog"] div')].reverse().find(el=>/^Show\s*20$/.test((el.innerText||'').trim())&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');if(!el)return false;el.click();return true;}""")
+                                    if chosen:
+                                        module.info('ORDER_NATIVE_PAGE_SIZE_CLICKED 20')
+                                        page.wait_for_timeout(2000)
+                                        break
+                                    page.wait_for_timeout(250)
                         except Exception:
                             pass
                 if probe_max_pages:

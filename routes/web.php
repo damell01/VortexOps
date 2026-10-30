@@ -180,3 +180,9 @@ Route::middleware(['web', 'auth', 'throttle:12,1'])->prefix('admin/whatnot-api')
     Route::post('channels/{channel}/test', [\App\Http\Controllers\WhatnotApiHealthController::class, 'test'])->name('test');
     Route::post('channels/{channel}/toggle', [\App\Http\Controllers\WhatnotApiHealthController::class, 'toggle'])->name('toggle');
 });
+
+// Public signed REST v2 webhook intake. No session authentication; HMAC and seller allowlist are mandatory.
+Route::post('/integrations/whatnot/v2/webhook', \App\Http\Controllers\WhatnotV2WebhookController::class)
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+    ->middleware('throttle:120,1')
+    ->name('whatnot-v2.webhook');

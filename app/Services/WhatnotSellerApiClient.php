@@ -25,6 +25,7 @@ final class WhatnotSellerApiClient
         $paths = [
             'shows' => '/shows',
             'orders' => '/orders',
+            'reports' => '/reports',
         ];
         if (! isset($paths[$resource])) {
             throw new RuntimeException('Unsupported read-only Whatnot API resource.');

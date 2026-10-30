@@ -1,0 +1,37 @@
+name: Restore site autoload after failed release
+on:
+  push:
+    branches: [ops/restore-site-autoload]
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 240s
+          script: |
+            set -eu
+            cd /var/www/vortexops
+            echo SITE_RESTORE_START
+            composer dump-autoload --optimize --dev --no-interaction --no-scripts 2>&1 | tail -n 8
+            if ! php artisan --version; then
+              echo SITE_REBUILDING_PROVIDER_MANIFESTS
+              rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+              php artisan package:discover --ansi
+              php artisan --version
+            fi
+            for unit in $(systemctl list-units --type=service --state=running --no-legend 'php*-fpm.service' | awk '{print $1}'); do
+              systemctl reload "$unit"
+              echo SITE_FPM_RELOADED
+            done
+            curl --silent --output /dev/null --write-out 'SITE_HOME_HTTP %{http_code}\n' https://vortexops.tech/
+            curl --silent --output /dev/null --write-out 'SITE_INVENTORY_HTTP %{http_code}\n' https://vortexops.tech/admin/inventory-items
+            echo SITE_RESTORE_FINISHED
+            

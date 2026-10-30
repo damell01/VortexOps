@@ -26,6 +26,12 @@ class WhatnotApiPagedCaptureTest extends TestCase
         ]);
     }
 
+    private function enableFakeApi(): void
+    {
+        app()->detectEnvironment(fn () => 'production');
+        config()->set('services.whatnot_seller.live_requests_enabled', true);
+    }
+
     private function capture(WhatnotApiConnection $connection, int $maxPages = 10): array
     {
         return app(WhatnotApiPagedCapture::class)->capture(
@@ -55,6 +61,7 @@ class WhatnotApiPagedCaptureTest extends TestCase
     {
         config(['services.whatnot_seller.pagination_verified' => true]);
         $connection = $this->connection();
+        $this->enableFakeApi();
         Http::fakeSequence()
             ->push(['data' => [['id' => 'first']], 'meta' => ['next_cursor' => 'page-2']], 200)
             ->push(['data' => [['id' => 'second']], 'meta' => ['next_cursor' => null]], 200);
@@ -68,6 +75,7 @@ class WhatnotApiPagedCaptureTest extends TestCase
     public function test_page_limit_reports_incomplete_capture(): void
     {
         config(['services.whatnot_seller.pagination_verified' => true]);
+        $this->enableFakeApi();
         Http::fake(['*' => Http::response(['meta' => ['next_cursor' => 'more']], 200)]);
         $result = $this->capture($this->connection(), 1);
         $this->assertFalse($result['complete']);

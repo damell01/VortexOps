@@ -19,6 +19,9 @@ class LedgerAutoMatcher
             // merely because a show's primary streamer or business later changed.
             $show = $service->suggestedShow($entry);
             if (! $show) {
+                if ($existing && $existing->status === 'approved') {
+                    return 'flagged';
+                }
                 if ($existing && $existing->submitted_by === null &&
                     $existing->status === 'approved' && $existing->target === 'show') {
                     DB::table('ledger_attributions')->where('id', $existing->id)->update([

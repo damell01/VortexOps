@@ -178,4 +178,5 @@ Route::middleware(['web', 'auth', 'throttle:12,1'])->prefix('admin/whatnot-api')
     Route::get('health', [\App\Http\Controllers\WhatnotApiHealthController::class, 'index'])->name('health');
     Route::post('channels/{channel}/credentials', [\App\Http\Controllers\WhatnotApiHealthController::class, 'save'])->name('credentials');
     Route::post('channels/{channel}/test', [\App\Http\Controllers\WhatnotApiHealthController::class, 'test'])->name('test');
+    Route::post('channels/{channel}/toggle', [\App\Http\Controllers\WhatnotApiHealthController::class, 'toggle'])->name('toggle');
 });

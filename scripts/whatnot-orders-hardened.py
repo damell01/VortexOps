@@ -360,9 +360,9 @@ def install(module) -> None:
                             if trigger.count() > 0:
                                 trigger.click(timeout=3000)
                                 option = page.get_by_text(re.compile(r'^(?:Show\s*)?20$')).last
-                                if option.count() > 0:
-                                    option.click(timeout=3000)
-                                    page.wait_for_timeout(1500)
+                                option.wait_for(state='visible', timeout=5000)
+                                option.click(timeout=3000)
+                                page.wait_for_timeout(1500)
                         except Exception:
                             pass
                 if probe_max_pages:

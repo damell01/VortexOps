@@ -46,6 +46,10 @@ final class WhatnotV2ProcessInbox extends Command
                         throw new \RuntimeException('Invalid stored v2 envelope.');
                     }
                     $status = in_array($current->topic, $known, true) ? 'staged' : 'ignored';
+                    if (str_starts_with($current->topic, 'orders.') && $status === 'staged') {
+                        // Fail closed on malformed v2 order money or identity fields.
+                        app(\\App\\Services\\WhatnotV2OrderMapper::class)->map($payload['data']);
+                    }
                     DB::table('whatnot_api_webhook_events')->where('id', $current->id)->update([
                         'status' => $status, 'processed_at' => now(), 'updated_at' => now(),
                     ]);

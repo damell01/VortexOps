@@ -67,6 +67,12 @@ class LedgerAttributionService
                 continue;
             }
 
+            if (VerifiedOrderSource::matches($raw, (string) $entry->whatnot_order_id, (string) $row->whatnot_show_id)) {
+                if ((int) $row->whatnot_channel_id !== (int) $entry->whatnot_channel_id) return null;
+                $verified[(int) $row->show_id] = true;
+                continue;
+            }
+
             $liveIds = [];
             foreach (['live_id', 'whatnot_live_id', 'livestream_id', 'source_live_id'] as $key) {
                 $value = $raw[$key] ?? null;

@@ -12,7 +12,7 @@ final class WhatnotApiPagination
 {
     public static function nextCursor(array $payload, string $path): ?string
     {
-        if (! in_array($path, ['next_cursor', 'pagination.next_cursor', 'meta.next_cursor'], true)) {
+        if (! in_array($path, ['next_cursor', 'pagination.next_cursor', 'meta.next_cursor', 'page_info.next_cursor'], true)) {
             throw new RuntimeException('Unsupported pagination cursor path.');
         }
 

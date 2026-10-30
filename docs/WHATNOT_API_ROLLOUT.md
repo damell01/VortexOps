@@ -11,8 +11,8 @@ Infrastructure only. Existing Whatnot scraper and scheduled jobs remain unchange
 These routes require authentication and isOwner(). Never expose tokens in responses or logs.
 
 ## Rollout
-1. Run migrations on the Dev server and verify owner-only access.
-2. Obtain separate seller authorization for each of the four channels.
+1. Prepare migrations and verify owner-only access using automated tests or local fixtures; no Dev cron, scraper, or live API setup is required.
+2. After merging to Production and receiving keys, obtain separate seller authorization for each of the four channels.
 3. Confirm the official API base URL, authentication mechanism, and endpoint query schema against the live Whatnot API documentation before enabling connection tests.
 4. Test each channel separately and validate returned seller identity.
 5. Build API read-only importers with idempotent external-ID matching and dry-run comparison.
@@ -45,3 +45,10 @@ No API calls occur automatically. No API scheduler or webhooks are installed. Sa
 - `php artisan whatnot:api-audit` reports configured channels without contacting Whatnot.
 - `php artisan whatnot:api-capture 1 orders --inspect` reads stored encrypted snapshots and emits only field names and counts.
 - `php artisan whatnot:api-capture 1 orders --confirm-read-only` is a manual API request and requires the Production-only global gate. Do not run before endpoint verification.
+
+## Merge-first workflow
+- Dev is a code branch only: do not configure cron, browser profiles, Whatnot credentials, or external API connections there.
+- Merge can ship dormant API components and migrations without starting a new background process.
+- After merging, run production migrations during a controlled deployment; keep `WHATNOT_SELLER_LIVE_REQUESTS_ENABLED=false` and per-channel `sync_enabled=false`.
+- Existing production scraper schedules and browser sessions remain the authoritative source until verified API imports are implemented and approved.
+- No automatic API scheduler or operational importer is present yet; merging code alone does not activate API synchronization.

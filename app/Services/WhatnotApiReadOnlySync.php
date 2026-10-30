@@ -132,7 +132,7 @@ final class WhatnotApiReadOnlySync
             $count = DB::table('shows')
                 ->where('whatnot_channel_id', $channelId)
                 ->whereRaw('LOWER(whatnot_show_id) = ?', [$id])
-                ->limit(2)->count();
+                ->count();
             $results[$count === 1 ? 'matched' : ($count === 0 ? 'unmatched' : 'ambiguous')]++;
         }
         return ['snapshot_id' => $snapshotId, 'channel_id' => $channelId, 'counts' => $results,

@@ -15,6 +15,12 @@ class WhatnotApiHealthController extends Controller
         abort_unless($request->user()?->isOwner(), 403);
     }
 
+    public function dashboard(Request $request, WhatnotApiHealth $health): \Illuminate\View\View
+    {
+        $this->authorizeOwner($request);
+        return view('admin.whatnot-api-health', ['connections' => $health->overview()]);
+    }
+
     public function index(Request $request, WhatnotApiHealth $health): JsonResponse
     {
         $this->authorizeOwner($request);

@@ -97,4 +97,30 @@ class VerifiedOrderSourceTest extends TestCase
         $this->assertSame('approved', DB::table('ledger_attributions')->sole()->status);
     }
 
+    public function test_conflicting_verified_show_never_reassigns_approved_ledger_entry(): void
+    {
+        [$originalShow, $originalStreamer, $entry, $order] = $this->fixture();
+        $matcher = app(LedgerAutoMatcher::class);
+        $this->assertSame('matched', $matcher->match($entry));
+
+        $otherLive = '22222222-2222-4222-8222-222222222222';
+        $otherShow = Show::withoutEvents(fn () => Show::create([
+            'title' => 'Different verified show',
+            'show_date' => today()->subDay(),
+            'status' => 'draft',
+            'whatnot_channel_id' => $entry->whatnot_channel_id,
+            'whatnot_show_id' => $otherLive,
+        ]));
+        $raw = $order->raw_data;
+        $raw['_source_evidence']['live_id'] = $otherLive;
+        $order->update(['show_id' => $otherShow->id, 'raw_data' => $raw]);
+
+        $this->assertSame('flagged', $matcher->match($entry));
+        $attribution = DB::table('ledger_attributions')->sole();
+        $this->assertSame('approved', $attribution->status);
+        $this->assertSame($originalShow->id, (int) $attribution->show_id);
+        $this->assertSame($originalStreamer->id, (int) $attribution->streamer_id);
+        $this->assertSame(1, DB::table('ledger_attribution_events')->count());
+    }
+
 }

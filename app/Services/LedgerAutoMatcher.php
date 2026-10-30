@@ -15,6 +15,8 @@ class LedgerAutoMatcher
             if ($existing && $existing->submitted_by !== null) return 'manual';
 
             $service = app(LedgerAttributionService::class);
+            // An automatic match must never reassign a previously approved recipient
+            // merely because a show's primary streamer or business later changed.
             $show = $service->suggestedShow($entry);
             if (! $show) {
                 if ($existing && $existing->submitted_by === null &&
@@ -43,12 +45,17 @@ class LedgerAutoMatcher
                 'target' => 'show', 'show_id' => $show->id,
                 'streamer_id' => $streamer?->id,
                 'business_id' => $streamer?->business_id,
-                'status' => 'approved', 'reason' => 'Automatic exact order ID + channel match',
+                'status' => 'approved', 'reason' => 'Automatic verified source livestream/order evidence + channel match',
                 'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                 'updated_at' => now(),
             ];
             if ($existing) {
-                // Keep historical auto attribution synchronized when show primary changes.
+                // Preserve approved financial attribution. Reassignment requires an
+                // explicit correction, not a background sync or profile change.
+                if ($existing->status === 'approved' && $existing->target === 'show' &&
+                    (int) $existing->show_id === (int) $show->id) {
+                    return 'matched';
+                }
                 DB::table('ledger_attributions')->where('id', $existing->id)->update($payload);
             } else {
                 DB::table('ledger_attributions')->insert($payload + [

@@ -31,7 +31,9 @@ class PayoutService
 
         $allExisting = Payout::with('batch')->where('show_id', $show->id)
             ->whereIn('streamer_id', $streamers->pluck('id'))
+            ->where('payout_type', '!=', OtherPayService::TYPE)
             ->get();
+        foreach ($allExisting as $line) app(OtherPayService::class)->preserveLegacy($line);
         // Wages and profit share always remain separate pay lines, and so do
         // tips a business pays monthly. SPLIT_LINES names those extra lines.
         $existingPayouts = $allExisting->whereNotIn('payout_type', array_keys(self::SPLIT_LINES))->keyBy('streamer_id');

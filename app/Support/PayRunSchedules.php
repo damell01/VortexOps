@@ -44,8 +44,8 @@ class PayRunSchedules
             'tips' => $query->whereIn('payout_type', self::TIP_TYPES),
             'other' => $query->where('payout_type', 'other_payment'),
             'share' => $query->whereIn('payout_type', self::SHARE_TYPES),
-            'wages' => $query->whereNotIn('payout_type', [...self::SHARE_TYPES, ...self::TIP_TYPES, 'other_payment']),
-            default => $query->whereNotIn('payout_type', [...self::TIP_TYPES, 'other_payment']),
+            'wages' => $query->whereNotIn('payout_type', [...self::SHARE_TYPES, ...self::TIP_TYPES, 'other_payment', \App\Services\OtherPayService::TYPE]),
+            default => $query->whereNotIn('payout_type', [...self::TIP_TYPES, 'other_payment', \App\Services\OtherPayService::TYPE]),
         };
     }
 

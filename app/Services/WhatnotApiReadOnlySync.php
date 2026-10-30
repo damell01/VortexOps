@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\WhatnotApiConnection;
 use App\Models\WhatnotApiSyncAudit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Crypt;
 use RuntimeException;
 
 /**
@@ -65,7 +66,7 @@ final class WhatnotApiReadOnlySync
             ->limit($limit)
             ->get()
             ->map(function ($row) {
-                $json = \\Illuminate\\Support\\Facades\\Crypt::decryptString($row->payload);
+                $json = Crypt::decryptString($row->payload);
                 if (! hash_equals($row->payload_sha256, hash('sha256', $json))) {
                     throw new RuntimeException('Snapshot integrity check failed.');
                 }

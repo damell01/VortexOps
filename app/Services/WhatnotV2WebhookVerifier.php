@@ -20,7 +20,7 @@ final class WhatnotV2WebhookVerifier
         if (abs(time() - (int) $timestamp) > 300) {
             throw new RuntimeException('Webhook delivery timestamp is outside the permitted window.');
         }
-        $key = str_starts_with($secret, 'whsec_') ? substr($secret, 6) : $secret;
+        $key = str_starts_with($secret, 'wn_wh_') ? substr($secret, 6) : $secret;
         $decoded = base64_decode($key, true);
         if ($decoded === false || strlen($decoded) < 16) {
             throw new RuntimeException('Invalid webhook signing key configuration.');

@@ -1,0 +1,34 @@
+name: Order fetch timeout diagnosis
+'on':
+  push:
+    branches:
+    - audit/order-fetch-diagnosis
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: production
+    steps:
+    - uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        timeout: 60s
+        command_timeout: 180s
+        script: "set -eu\ncd /var/www/vortexops\nAUDIT_FILE=$(mktemp /var/www/vortexops/storage/framework/order-diagnose.XXXXXX.php)\n\
+          trap 'rm -f \"$AUDIT_FILE\"' EXIT\ncat > \"$AUDIT_FILE\" <<'PHP'\n<?php\n\
+          $path='/var/www/vortexops/storage/logs/laravel.log';\nif (!is_file($path))\
+          \ { echo \"ORDER_DIAG_LOG_AVAILABLE no\\n\"; exit; }\n$f=fopen($path,'rb');$size=filesize($path);fseek($f,max(0,$size-3000000));$data=stream_get_contents($f);fclose($f);\n\
+          $last=null;\nforeach(explode(\"\\n\",$data) as $line){\n if(!str_contains($line,'WhatnotScraper\
+          \ orders-batch stderr')) continue;\n $pos=strpos($line,'{\"output\":');\n\
+          \ if($pos!==false){$parsed=json_decode(substr($line,$pos),true);if(is_array($parsed))$last=$parsed['output']??null;}\n\
+          }\necho 'ORDER_DIAG_STDERR_AVAILABLE '.($last!==null?'yes':'no').\"\\n\"\
+          ;\nif(!is_string($last))exit;\nforeach(['CLOUDFLARE_CHALLENGE','LOGIN_REQUIRED','CHANNEL_CONTEXT_MISMATCH','CHANNEL_SWITCH_FAILED','FETCH_FAILED','TimeoutError','TargetClosedError','ConnectionRefusedError','ModuleNotFoundError','BrowserType.launch_persistent_context','Page.goto','Page.wait_for','database\
+          \ is locked','SingletonLock','navigation','ERR_CONNECTION','ERR_PROXY','ERR_TIMED_OUT','localhost','127.0.0.1:9222','60000ms']\
+          \ as $s){if(stripos($last,$s)!==false)echo 'ORDER_DIAG_MARKER '.$s.\"\\\
+          n\";}\nforeach(['/dashboard/home','/dashboard/orders','/dashboard/shipments','/login','/graphql','/json/version']\
+          \ as $s){if(str_contains($last,$s))echo 'ORDER_DIAG_ENDPOINT '.$s.\"\\n\"\
+          ;}\n\nPHP\nphp \"$AUDIT_FILE\"\n"

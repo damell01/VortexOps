@@ -8,10 +8,18 @@ show, or it may be a truncated first page. In that state we abort the batch so
 Laravel never receives a partial result that could replace existing rows.
 """
 
+import base64
 import json
 import os
-from urllib.parse import urlsplit, parse_qsl
+from urllib.parse import urlsplit, parse_qsl, urlencode
 from pathlib import Path
+
+
+def order_dashboard_url(base, live_id):
+    """Use Seller Hub's native single-show filter, copied from its UI."""
+    filters = {"salesChannel": {"type": "single", "value": str(live_id)}}
+    encoded = base64.b64encode(json.dumps(filters, separators=(',', ':')).encode()).decode()
+    return f"{base}/dashboard/orders?{urlencode({'filters': encoded, 'first': 100})}"
 
 
 def summarize_order_source_evidence(variables, payload, expected_live_id, query_document=None):
@@ -281,7 +289,7 @@ def install(module) -> None:
 
                 active_source["live_id"] = str(live_id)
                 page.goto(
-                    f"{module.BASE}/dashboard/orders?{'channel' if probe_max_pages else 'source'}={live_id}&first=100",
+                    order_dashboard_url(module.BASE, live_id),
                     wait_until="domcontentloaded",
                     timeout=30000,
                 )

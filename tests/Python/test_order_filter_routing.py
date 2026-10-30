@@ -1,9 +1,11 @@
+import base64
 import importlib.util
 import json
 import os
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
+from urllib.parse import urlsplit, parse_qs
 import unittest
 from unittest.mock import patch
 
@@ -41,15 +43,31 @@ class RoutingTest(unittest.TestCase):
                 result=module.batch(Session())
         return urls,result
 
-    def test_candidate_native_filter_is_only_used_in_read_only_probe(self):
+    def assert_native_show_filters(self, urls):
+        for url, live_id in zip(urls, ['first', 'second']):
+            query = parse_qs(urlsplit(url).query)
+            self.assertNotIn('source', query)
+            self.assertNotIn('channel', query)
+            self.assertEqual({'salesChannel': {'type': 'single', 'value': live_id}},
+                             json.loads(base64.b64decode(query['filters'][0])))
+            self.assertEqual(['100'], query['first'])
+
+    def test_probe_uses_native_single_show_filter(self):
         urls,rows=self.run_batch(2)
-        self.assertTrue(all('?channel=' in url for url in urls))
+        self.assert_native_show_filters(urls)
         self.assertTrue(all(row['probe_sample'] and not row['pagination_complete'] for row in rows))
 
-    def test_normal_import_routing_is_preserved_until_native_filter_is_verified(self):
+    def test_normal_import_uses_same_native_filter(self):
         urls,rows=self.run_batch(0)
-        self.assertTrue(all('?source=' in url for url in urls))
+        self.assert_native_show_filters(urls)
         self.assertTrue(all(row['pagination_complete'] for row in rows))
+
+    def test_filter_matches_url_copied_from_seller_hub(self):
+        live_id = '5bf0aa4a-5747-4770-938f-c4b5d8b4ee8a'
+        url = helper.order_dashboard_url('https://www.whatnot.com', live_id)
+        self.assertEqual(
+            'eyJzYWxlc0NoYW5uZWwiOnsidHlwZSI6InNpbmdsZSIsInZhbHVlIjoiNWJmMGFhNGEtNTc0Ny00NzcwLTkzOGYtYzRiNWQ4YjRlZThhIn19',
+            parse_qs(urlsplit(url).query)['filters'][0])
 
     def test_source_collision_still_aborts_without_returning_payload(self):
         with self.assertRaisesRegex(RuntimeError,'ORDER_SOURCE_FILTER_COLLISION'):

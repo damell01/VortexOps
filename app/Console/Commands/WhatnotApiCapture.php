@@ -9,11 +9,20 @@ use Illuminate\Console\Command;
 
 final class WhatnotApiCapture extends Command
 {
-    protected $signature = 'whatnot:api-capture {channel : Channel ID} {resource : shows or orders} {--confirm-read-only : Explicitly permit API request and snapshot storage}';
+    protected $signature = 'whatnot:api-capture {channel : Channel ID} {resource : shows or orders} {--confirm-read-only : Explicitly permit API request and snapshot storage} {--inspect : Show safe schema metadata from stored snapshots without API requests}';
     protected $description = 'Manually capture one read-only API response; does not update shows, orders, ledger or payroll.';
 
     public function handle(WhatnotApiReadOnlySync $sync, WhatnotSellerApiClient $client): int
     {
+        if ($this->option('inspect')) {
+            $resource = (string) $this->argument('resource');
+            if (! in_array($resource, ['shows', 'orders'], true) || (int) $this->argument('channel') < 1) {
+                $this->error('Use an existing positive channel ID and resource shows or orders.');
+                return self::FAILURE;
+            }
+            $this->line(json_encode($sync->inspect((int) $this->argument('channel'), $resource), JSON_PRETTY_PRINT));
+            return self::SUCCESS;
+        }
         if (! $this->option('confirm-read-only')) {
             $this->error('Add --confirm-read-only to explicitly request a snapshot.');
             return self::FAILURE;

@@ -22,6 +22,34 @@ def order_dashboard_url(base, live_id):
     return f"{base}/dashboard/orders?{urlencode({'filters': encoded, 'first': 100})}"
 
 
+def filtered_response_order_ids(entry, body, live_id):
+    """Only order-node IDs returned by a successful, single-show native query."""
+    import re
+    variables = entry.get('variables', {})
+    channels = variables.get('salesChannels')
+    if entry.get('operationName') != 'SellerHubGetMyOrders' or not isinstance(channels, list) or len(channels) != 1:
+        return set()
+    if not isinstance(channels[0], dict) or channels[0].get('id') != live_id or not isinstance(body, dict) or body.get('errors'):
+        return set()
+    orders = ((body.get('data') or {}).get('me') or {}).get('orders') or {}
+    result = set()
+    for edge in orders.get('edges', []):
+        node = edge.get('node') or {}
+        for key in ('id', 'uuid', 'orderNumber', 'orderId'):
+            value = str(node.get(key) or '')
+            if re.fullmatch(r'[0-9]+', value):
+                result.add(value)
+            else:
+                try:
+                    decoded = base64.b64decode(value, validate=True).decode()
+                    match = re.fullmatch(r'Order(?:Record)?(?:Node)?:([0-9]+)', decoded)
+                    if match:
+                        result.add(match[1])
+                except (ValueError, UnicodeError):
+                    pass
+    return result
+
+
 def summarize_order_source_evidence(variables, payload, expected_live_id, query_document=None):
     """Field paths/types and expected-source comparisons only; never emit values."""
     import re
@@ -245,40 +273,27 @@ def install(module) -> None:
             graphql_operations = set()
             order_source_evidence = []
             active_source = {"live_id": None}
-            if probe_max_pages:
-                def observe_response(response):
-                    try:
-                        request = response.request
-                        if request.resource_type not in ('xhr', 'fetch'):
-                            return
-                        parsed = urlsplit(response.url)
-                        if not parsed.hostname or not (
-                            parsed.hostname == 'whatnot.com'
-                            or parsed.hostname.endswith('.whatnot.com')
-                        ):
-                            return
-                        keys = tuple(sorted({key for key, _ in parse_qsl(parsed.query)}))
-                        network_endpoints.add((request.method, parsed.hostname, parsed.path, keys))
-                        if parsed.path == '/services/graphql/' and request.method == 'POST':
-                            # Operation names only: no variables, bodies, IDs, or response data.
-                            try:
-                                payload = request.post_data_json
-                                entries = payload if isinstance(payload, list) else [payload]
-                                for entry in entries:
-                                    if not isinstance(entry, dict):
-                                        continue
-                                    name = entry.get('operationName')
-                                    if isinstance(name, str) and name.isidentifier() and len(name) <= 100:
-                                        graphql_operations.add(name)
-                                    if name == 'SellerHubGetMyOrders' and len(order_source_evidence) < 4:
-                                        body = response.json()
-                                        order_source_evidence.append(summarize_order_source_evidence(
-                                            entry.get('variables', {}), body, active_source['live_id'], entry.get('query')))
-                            except Exception:
-                                pass
-                    except Exception:
-                        pass
-                page.on('response', observe_response)
+            verified_response_ids = set()
+            def observe_response(response):
+                try:
+                    request = response.request
+                    parsed = urlsplit(response.url)
+                    if parsed.hostname not in ('www.whatnot.com', 'whatnot.com') or parsed.path != '/services/graphql/' or request.method != 'POST' or response.status != 200:
+                        return
+                    payload = request.post_data_json
+                    entries = payload if isinstance(payload, list) else [payload]
+                    body = response.json()
+                    bodies = body if isinstance(body, list) else [body]
+                    for index, entry in enumerate(entries):
+                        if not isinstance(entry, dict) or index >= len(bodies):
+                            continue
+                        verified_response_ids.update(filtered_response_order_ids(entry, bodies[index], active_source['live_id']))
+                        if probe_max_pages and entry.get('operationName') == 'SellerHubGetMyOrders' and len(order_source_evidence) < 4:
+                            order_source_evidence.append(summarize_order_source_evidence(entry.get('variables', {}), bodies[index], active_source['live_id'], entry.get('query')))
+                except Exception:
+                    # Missing evidence never confers verified ownership.
+                    pass
+            page.on('response', observe_response)
 
             for idx, source in enumerate(sources, 1):
                 live_id = source.get("live_id")
@@ -287,6 +302,7 @@ def install(module) -> None:
                     output.append({"show_key": key, "live_id": None, "order_count": 0, "orders": []})
                     continue
 
+                verified_response_ids.clear()
                 active_source["live_id"] = str(live_id)
                 page.goto(
                     order_dashboard_url(module.BASE, live_id),
@@ -388,6 +404,12 @@ def install(module) -> None:
                     network_endpoints.clear()
                 rows = list(found.values())
                 for row in rows:
+                    if not probe_max_pages and str(row.get('order_id') or '') in verified_response_ids:
+                        row['_source_evidence'] = {
+                            'version': 1, 'method': 'seller_hub_filtered_response',
+                            'live_id': str(live_id), 'order_id': str(row['order_id']),
+                            'pagination_complete': True,
+                        }
                     order_id = str(row.get('order_id') or '').strip()
                     if not order_id or order_id == '-':
                         continue

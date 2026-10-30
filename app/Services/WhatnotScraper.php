@@ -234,7 +234,21 @@ class WhatnotScraper
                 $skipped++;
                 continue;
             }
-            if($orderId&&$existingByOrderId->has($orderId)){if($this->mergeShipmentFields($existingByOrderId->get($orderId),$row))$updated++;else$skipped++;continue;}if(empty($row['buyer'])&&empty($row['item_name'])){$skipped++;continue;}if(!$orderId){$key=($row['buyer']??'').'|'.($row['item_name']??'').'|'.($row['lot_number']??'');if(isset($existingFallbackKeys[$key])){$skipped++;continue;}$existingFallbackKeys[$key]=true;}
+            if($orderId&&$existingByOrderId->has($orderId)){
+                $existing = $existingByOrderId->get($orderId);
+                $changed = $this->mergeShipmentFields($existing, $row);
+                if (VerifiedOrderSource::matches($row, (string) $orderId, (string) $show->whatnot_show_id)) {
+                    $raw = $existing->raw_data ?? [];
+                    if (($raw['_source_evidence'] ?? null) !== $row['_source_evidence']) {
+                        $raw['_source_evidence'] = $row['_source_evidence'];
+                        $existing->raw_data = $raw;
+                        $existing->save();
+                        $changed = true;
+                    }
+                }
+                if($changed)$updated++;else$skipped++;
+                continue;
+            }if(empty($row['buyer'])&&empty($row['item_name'])){$skipped++;continue;}if(!$orderId){$key=($row['buyer']??'').'|'.($row['item_name']??'').'|'.($row['lot_number']??'');if(isset($existingFallbackKeys[$key])){$skipped++;continue;}$existingFallbackKeys[$key]=true;}
             WhatnotShowOrder::create(['show_id'=>$show->id,'whatnot_order_id'=>$orderId,'whatnot_show_url'=>$show->detail_url,'inventory_location_id'=>$defaultLocationId,'buyer_username'=>$row['buyer']??null,'lot_number'=>$row['lot_number']??null,'item_name'=>$row['item_name']??null,'quantity'=>$row['quantity']??1,'unit_price'=>$row['unit_price']??null,'total_price'=>$row['total_price']??null,'status'=>$row['status']??'completed','show_date'=>$show->show_date,'raw_data'=>$row]);$created++;}
         Log::info('WhatnotScraper persistShowOrders complete',['show_id'=>$show->id,'created'=>$created,'updated'=>$updated,'skipped'=>$skipped]);return compact('created','skipped','updated');
     }

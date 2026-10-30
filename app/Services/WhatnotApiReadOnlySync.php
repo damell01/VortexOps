@@ -13,7 +13,7 @@ use RuntimeException;
  */
 final class WhatnotApiReadOnlySync
 {
-    public function capture(WhatnotApiConnection $connection, string $resource, WhatnotSellerApiClient $client, array $query = []): array
+    public function capture(WhatnotApiConnection $connection, string $resource, WhatnotSellerApiClient $client, array $query = [], ?string $cursorPath = null): array
     {
         if (! in_array($resource, ['shows', 'orders'], true)) {
             throw new RuntimeException('Unsupported API resource.');
@@ -46,6 +46,6 @@ final class WhatnotApiReadOnlySync
             'started_at' => now(),
             'finished_at' => now(),
         ]);
-        return ['ok' => true, 'http_status' => $response->status(), 'saved' => true, 'payload_sha256' => $hash, 'response' => $payload];
+        return ['ok' => true, 'http_status' => $response->status(), 'saved' => true, 'payload_sha256' => $hash, 'next_cursor' => $cursorPath === null ? null : WhatnotApiPagination::nextCursor($payload, $cursorPath)];
     }
 }

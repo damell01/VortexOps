@@ -30,29 +30,30 @@ class CreateInventoryItem extends CreateRecord
     public function getSteps(): array
     {
         return [
-            Step::make('Item Details')
-                ->description('What it is')
+            Step::make('Basic Info')
+                ->description('Name, photo and barcode')
                 ->icon('heroicon-o-identification')
-                ->schema([
-                    InventoryItemResource::itemIdentificationSection(),
-                    InventoryItemResource::containerSettingsSection(),
-                    InventoryItemResource::classificationSection(),
-                    InventoryItemResource::pricingSection(),
-                ]),
+                ->schema([InventoryItemResource::itemIdentificationSection()]),
+
+            Step::make('Pricing')
+                ->description('Costs and sale price')
+                ->icon('heroicon-o-currency-dollar')
+                ->schema([InventoryItemResource::pricingSection()]),
+
+            Step::make('Product Details')
+                ->description('Category, vendor and notes')
+                ->icon('heroicon-o-tag')
+                ->schema([InventoryItemResource::classificationSection(), InventoryItemResource::notesSection()]),
+
+            Step::make('Case / Container')
+                ->description('Packaging and contents')
+                ->icon('heroicon-o-cube')
+                ->schema([InventoryItemResource::containerSettingsSection()]),
 
             Step::make('Stock & Location')
-                ->description('Where it lives')
+                ->description('Opening stock')
                 ->icon('heroicon-o-map-pin')
-                ->schema([
-                    InventoryItemResource::initialStockSection(),
-                ]),
-
-            Step::make('Item Settings')
-                ->description('Notes and extras')
-                ->icon('heroicon-o-adjustments-horizontal')
-                ->schema([
-                    InventoryItemResource::notesSection(),
-                ]),
+                ->schema([InventoryItemResource::initialStockSection()]),
 
             Step::make('Review & Save')
                 ->description('Check it over')

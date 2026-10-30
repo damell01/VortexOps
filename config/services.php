@@ -20,6 +20,8 @@ return [
         'pagination_verified' => env('WHATNOT_SELLER_PAGINATION_VERIFIED', false),
         // Keep false on dev/staging. Never share the production scraper profile.
         'live_requests_enabled' => env('WHATNOT_SELLER_LIVE_REQUESTS_ENABLED', false),
+        'contract_verified' => env('WHATNOT_SELLER_CONTRACT_VERIFIED', false),
+        'sync_scheduler_enabled' => env('WHATNOT_SELLER_SYNC_SCHEDULER_ENABLED', false),
     ],
 
     'postmark' => [

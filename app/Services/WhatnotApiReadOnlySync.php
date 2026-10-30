@@ -29,7 +29,7 @@ final class WhatnotApiReadOnlySync
         $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $hash = hash('sha256', $encoded);
         $secured = \Illuminate\Support\Facades\Crypt::encryptString($encoded);
-        DB::table('whatnot_api_snapshots')->insertOrIgnore([
+        $inserted = DB::table('whatnot_api_snapshots')->insertOrIgnore([
             'whatnot_channel_id' => $connection->whatnot_channel_id,
             'resource' => $resource,
             'payload_sha256' => $hash,
@@ -46,6 +46,6 @@ final class WhatnotApiReadOnlySync
             'started_at' => now(),
             'finished_at' => now(),
         ]);
-        return ['ok' => true, 'http_status' => $response->status(), 'saved' => true, 'payload_sha256' => $hash, 'next_cursor' => $cursorPath === null ? null : WhatnotApiPagination::nextCursor($payload, $cursorPath)];
+        return ['ok' => true, 'http_status' => $response->status(), 'saved' => $inserted > 0, 'payload_sha256' => $hash, 'next_cursor' => $cursorPath === null ? null : WhatnotApiPagination::nextCursor($payload, $cursorPath)];
     }
 }

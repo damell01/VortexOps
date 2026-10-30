@@ -22,7 +22,7 @@
 <span class="status">{{ str_replace('_', ' ', ucfirst($connection['status'])) }}</span>
 <div class="meta">Seller: {{ $connection['username'] ?: 'Not specified' }}</div>
 <div class="meta">Credentials: {{ $connection['configured'] ? 'Stored securely' : 'Not configured' }}</div>
-<div class="meta">API sync: {{ $connection['sync_enabled'] ? 'Configured (not scheduled)' : 'Disabled' }}</div>
+<div class="meta">API capture: <strong>{{ $connection['sync_enabled'] ? 'Enabled (read-only)' : 'Disabled' }}</strong></div>
 <div class="meta">Live API requests: {{ $connection['live_requests_allowed'] ? 'Allowed by server configuration' : 'Blocked by server configuration' }}</div>
 <div class="meta">Shows data: {{ str_replace('_', ' ', $connection['data_health']['shows']) }} | Captured: {{ $connection['snapshots']['shows']['count'] }} | Last: {{ $connection['snapshots']['shows']['last_capture'] ?: 'Never' }}</div>
 <div class="meta">Orders data: {{ str_replace('_', ' ', $connection['data_health']['orders']) }} | Captured: {{ $connection['snapshots']['orders']['count'] }} | Last: {{ $connection['snapshots']['orders']['last_capture'] ?: 'Never' }}</div>
@@ -40,6 +40,7 @@
 <div class="actions">
 <button type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'credentials', this)">Save token</button>
 <button class="secondary" type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'test', this)">Test connection</button>
+<button class="secondary" type="button" onclick="toggleCapture({{ $connection['channel_id'] }}, {{ $connection['sync_enabled'] ? 'true' : 'false' }}, this)">{{ $connection['sync_enabled'] ? 'Disable API capture' : 'Enable API capture' }}</button>
 </div>
 <output aria-live="polite"></output>
 </section>
@@ -63,6 +64,23 @@ async function apiAction(id, action, button) {
     output.textContent=response.ok?(action==='credentials'?'Token saved. API sync remains disabled.':(data.ok?'Connected successfully.':data.message||'Connection test failed.')):'Request failed ('+response.status+').';
     if(response.ok && action==='credentials')input.value='';
   } catch(e){output.textContent='Network error. Please retry.';}
+  finally{button.disabled=false;}
+}
+async function toggleCapture(id, enabled, button) {
+  const output=button.closest('.card').querySelector('output');
+  if(!enabled && !confirm('Enable read-only API snapshot capture for this channel? The scraper will remain active.'))return;
+  const confirmation=enabled?'':'ENABLE READ ONLY';
+  button.disabled=true; output.textContent='Checking activation requirements…';
+  try {
+    const response=await fetch('/admin/whatnot-api/channels/'+id+'/toggle',{
+      method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
+      body:JSON.stringify({enabled:!enabled,confirmation})
+    });
+    const data=await response.json();
+    output.textContent=data.message||'Unable to change capture state.';
+    if(response.ok)window.location.reload();
+  }catch(e){output.textContent='Network error. Please retry.';}
   finally{button.disabled=false;}
 }
 </script>

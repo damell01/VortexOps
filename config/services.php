@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'whatnot_seller' => [
+        'base_url' => env('WHATNOT_SELLER_API_BASE_URL', 'https://api.whatnot.com/seller-api/rest/v2'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

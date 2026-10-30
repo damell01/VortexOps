@@ -17,6 +17,11 @@ class WhatnotApiHealth
                 ->where('whatnot_channel_id', $channel->id)
                 ->selectRaw('resource, COUNT(*) as total, MAX(fetched_at) as last_capture')
                 ->groupBy('resource')->get()->keyBy('resource');
+            $successfulCaptures = DB::table('whatnot_api_sync_audits')
+                ->where('whatnot_channel_id', $channel->id)
+                ->where('status', 'captured')
+                ->selectRaw('resource, MAX(finished_at) as last_successful_fetch')
+                ->groupBy('resource')->get()->keyBy('resource');
             $audits = DB::table('whatnot_api_sync_audits')
                 ->where('whatnot_channel_id', $channel->id)
                 ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at']);
@@ -25,11 +30,12 @@ class WhatnotApiHealth
                 'snapshots' => collect(['shows', 'orders', 'reports'])->mapWithKeys(fn ($resource) => [$resource => [
                     'count' => (int) ($snapshots->get($resource)?->total ?? 0),
                     'last_capture' => $snapshots->get($resource)?->last_capture,
+                    'last_successful_fetch' => $successfulCaptures->get($resource)?->last_successful_fetch,
                 ]])->all(),
                 'data_health' => [
-                    'shows' => $this->freshness($snapshots->get('shows')?->last_capture),
-                    'orders' => $this->freshness($snapshots->get('orders')?->last_capture),
-                    'reports' => $this->freshness($snapshots->get('reports')?->last_capture),
+                    'shows' => $this->freshness($successfulCaptures->get('shows')?->last_successful_fetch),
+                    'orders' => $this->freshness($successfulCaptures->get('orders')?->last_successful_fetch),
+                    'reports' => $this->freshness($successfulCaptures->get('reports')?->last_successful_fetch),
                 ],
                 'recent_audits' => $audits->map(fn ($audit) => [
                     'resource' => $audit->resource, 'status' => $audit->status,

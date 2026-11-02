@@ -254,7 +254,8 @@ class InventoryLocationResource extends Resource
                 ->columnSpanFull()->schema([
                     \Filament\Forms\Components\CheckboxList::make('hidden_admin_user_ids')
                         ->label('Hide this location from these admins')
-                        ->options(fn () => \App\Models\User::role(['admin', 'super_admin', 'fulfillment_admin'])->orderBy('name')->get()->reject(fn ($user) => $user->isOwner())->pluck('name', 'id')->all())
+                        // whereHas, not User::role(): role() throws when one of these roles does not exist.
+                        ->options(fn () => \App\Models\User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'super_admin', 'fulfillment_admin']))->orderBy('name')->get()->reject(fn ($user) => $user->isOwner())->pluck('name', 'id')->all())
                         ->columns(2)
                         ->afterStateHydrated(function ($component, ?InventoryLocation $record) {
                             if (! $record) return;

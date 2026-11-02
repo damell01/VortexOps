@@ -37,7 +37,9 @@ class DeductionApprovalServiceTest extends TestCase
         Queue::fake();
 
         $this->service  = app(DeductionApprovalService::class);
-        $this->user     = User::factory()->create();
+        // Approvals are made by the owner/an admin; a role-less user only sees
+        // stock at Main, so reads at other locations came back empty.
+        $this->user     = User::factory()->create(['email' => config('app.owner_email')]);
         $this->actingAs($this->user);
 
         $channel = WhatnotChannel::create(['name' => 'Test Channel', 'status' => 'active']);

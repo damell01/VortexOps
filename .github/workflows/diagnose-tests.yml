@@ -38,7 +38,7 @@ jobs:
                   e=tc.find(k)
                   if e is not None:
                       print('=====', k, tc.get('class'), '::', tc.get('name'))
-                      print((e.text or '')[:1800])
+                      t=(e.text or ''); print(t[:700] + ('\n   [...]\n' + t[-900:] if len(t) > 1600 else t[700:1600]))
           PY
       - uses: actions/upload-artifact@v4
         if: always()

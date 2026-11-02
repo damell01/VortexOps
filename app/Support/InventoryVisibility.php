@@ -56,14 +56,19 @@ class InventoryVisibility
     public static function locationIdsFor(?User $user): ?array
     {
         if (self::$unrestrictedDepth > 0 || ($user !== null && $user->isOwner())) return null;
-        if ($user !== null && $user->isAdmin() && ! self::isReadOnlyStreamer($user)) return self::adminVisibleLocationIds($user);
         if ($user === null) return [];
 
+        // Memoised per request: the stock and movement global scopes ask on
+        // every query, and the admin answer reads one setting per location.
         $key = $user->id . ':' . ($user->streamer?->id ?? 'none');
         $memo = request()->attributes->get('vx.inventory.visibility', []);
         if (array_key_exists($key, $memo)) return $memo[$key];
-        $own = static::ownLocationIds($user);
-        $ids = $own ?: array_values(array_filter([InventoryLocation::mainId()], fn ($id) => $id !== null));
+        if ($user->isAdmin() && ! self::isReadOnlyStreamer($user)) {
+            $ids = self::adminVisibleLocationIds($user);
+        } else {
+            $own = static::ownLocationIds($user);
+            $ids = $own ?: array_values(array_filter([InventoryLocation::mainId()], fn ($id) => $id !== null));
+        }
         $memo[$key] = $ids;
         request()->attributes->set('vx.inventory.visibility', $memo);
         return $ids;

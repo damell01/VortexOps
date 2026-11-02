@@ -25,5 +25,6 @@ class CreateInventoryLocation extends CreateRecord
     {
         $this->record->businesses()->sync($this->sharedBy);
         \App\Models\Setting::set('inventory_hidden_admins:' . $this->record->id, json_encode(array_values(array_map('intval', $this->hiddenAdmins))));
+        \App\Support\InventoryVisibility::flushMemo();
     }
 }

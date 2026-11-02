@@ -46,15 +46,37 @@ class InventoryAccessGatingTest extends TestCase
         }
     }
 
-    private function admin(): User
+    /**
+     * An admin. Admins see every location unless a location hides them
+     * (Edit location → "Hide this location from these admins"). By default
+     * this one has the other streamer's shelf and the back room hidden, so the
+     * restriction paths below are exercised; pass false for an unrestricted one.
+     */
+    private function admin(bool $hideOthers = true): User
     {
         $user = User::factory()->create();
         $user->assignRole('admin');
+        if ($hideOthers) {
+            foreach ([$this->other, $this->back] as $location) {
+                \App\Models\Setting::set('inventory_hidden_admins:' . $location->id, json_encode([$user->id]));
+            }
+        }
+        InventoryVisibility::flushMemo();
         $this->actingAs($user);
         return $user;
     }
 
-    public function test_admin_without_an_assignment_sees_only_main_in_queries_selectors_and_totals(): void
+    public function test_admin_with_nothing_hidden_sees_every_location(): void
+    {
+        $user = $this->admin(hideOthers: false);
+        $ids = InventoryVisibility::locationIdsFor($user);sort($ids);
+        $expected = [$this->main->id, $this->other->id, $this->back->id];sort($expected);
+        $this->assertSame($expected, $ids);
+        $this->assertSame(110.0, $this->item->fresh()->totalQuantity());
+        $this->assertTrue(StockGate::canChange($user, $this->other));
+    }
+
+    public function test_admin_sees_only_locations_not_hidden_from_them_in_queries_selectors_and_totals(): void
     {
         $user = $this->admin();
         $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($user));
@@ -67,7 +89,7 @@ class InventoryAccessGatingTest extends TestCase
         $this->get(InventoryLocationResource::getUrl('view', ['record' => $this->other]))->assertNotFound();
     }
 
-    public function test_staff_admin_with_an_owned_location_sees_main_and_their_own_only(): void
+    public function test_staff_admin_with_an_owned_location_sees_it_alongside_what_is_not_hidden(): void
     {
         $user = $this->admin();
         $profile = Streamer::create(['name' => 'Admin Staff', 'member_type' => 'fulfillment', 'user_id' => $user->id, 'status' => 'active']);

@@ -26,6 +26,9 @@ class LedgerAttributionCoverage extends Command
             'unmatched' => (clone $base)->whereNull('a.id')->count(),
             'unassigned' => (clone $base)->where('a.status', 'approved')->where('a.target', 'unassigned')->count(),
         ];
+        $stats['approved_uncategorized'] = (clone $base)->where('a.status', 'approved')->where('a.category', 'other')->count();
+        $stats['approved_without_business'] = (clone $base)->where('a.status', 'approved')->whereNull('a.business_id')->count();
+        $stats['approved_show_without_streamer'] = (clone $base)->where('a.status', 'approved')->where('a.target', 'show')->whereNull('a.streamer_id')->count();
         $stats['approved_total'] = $stats['approved_show'] + $stats['approved_streamer'] + $stats['approved_house'];
         $stats['approved_percent'] = $total ? round(100 * $stats['approved_total'] / $total, 2) : 0;
 

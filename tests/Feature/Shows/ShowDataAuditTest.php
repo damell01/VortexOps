@@ -21,6 +21,16 @@ class ShowDataAuditTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The page opens on "this month" and the shows below are dated three
+        // days back, so in the first days of a month they fell into the
+        // previous one and every count read zero. Run mid-month.
+        $this->travelTo(now()->startOfMonth()->addDays(14)->setTime(12, 0));
+    }
+
     private function admin(): User
     {
         return User::factory()->create(['email' => 'dbellcreations@gmail.com']);

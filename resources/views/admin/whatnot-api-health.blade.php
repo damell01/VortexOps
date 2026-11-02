@@ -81,7 +81,15 @@ async function apiAction(id, action, button) {
 }
 async function toggleCapture(id, enabled, button) {
   const output=button.closest('.card').querySelector('output');
-  if(!enabled && !confirm('Enable read-only API snapshot capture for this channel? The scraper will remain active.'))return;
+  // Turning capture on takes a second click on the same button (no browser dialog).
+  if(!enabled && button.dataset.armed!=='1'){
+    button.dataset.armed='1'; button.dataset.label=button.textContent;
+    button.textContent='Click again to enable';
+    output.textContent='Enables read-only API snapshot capture for this channel. The scraper stays active.';
+    setTimeout(()=>{ if(button.dataset.armed==='1'){ button.dataset.armed=''; button.textContent=button.dataset.label; output.textContent=''; } },6000);
+    return;
+  }
+  button.dataset.armed='';
   const confirmation=enabled?'':'ENABLE READ ONLY';
   button.disabled=true; output.textContent='Checking activation requirements…';
   try {

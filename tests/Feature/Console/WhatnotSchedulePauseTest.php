@@ -24,8 +24,26 @@ class WhatnotSchedulePauseTest extends TestCase
     {
         return array_values(array_filter(
             $this->events(),
-            fn ($e) => str_contains((string) $e->command, 'whatnot:'),
+            // The Seller API tick has its own production-only switches (below),
+            // separate from the scraper schedule this flag pauses.
+            fn ($e) => str_contains((string) $e->command, 'whatnot:')
+                && ! str_contains((string) $e->command, 'whatnot:api-sync-tick'),
         ));
+    }
+
+    public function test_the_seller_api_tick_stays_off_until_its_own_switches_are_on(): void
+    {
+        config(['vortex.whatnot.schedule_enabled' => true]);
+
+        $ticks = array_filter(
+            $this->events(),
+            fn ($e) => str_contains((string) $e->command, 'whatnot:api-sync-tick'),
+        );
+
+        $this->assertNotEmpty($ticks);
+        foreach ($ticks as $event) {
+            $this->assertFalse($event->filtersPass($this->app), 'the Seller API tick ran outside production with its switches off');
+        }
     }
 
     public function test_there_are_whatnot_jobs_to_guard(): void

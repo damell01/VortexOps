@@ -278,7 +278,7 @@
                         @endif
                     </div>
                     @if ($this->canReconcile())
-                        @php($attribution = $this->selectedAttribution())
+                        @php $attribution = $this->selectedAttribution(); @endphp
                         <section class="vxr-card" style="padding:16px;display:grid;gap:12px">
                             <h3 style="font-weight:700">Categorize & assign transaction</h3>
                             <p class="vxr-subtitle">Corrections require approval. Imported amounts and finalized payroll are never edited here.</p>

@@ -27,6 +27,13 @@ class WhatnotApiSnapshotTest extends TestCase
         ]);
     }
 
+    /** Capture refuses to run outside production with live requests switched on. */
+    private function allowLiveCapture(): void
+    {
+        app()->detectEnvironment(fn () => 'production');
+        config()->set('services.whatnot_seller.live_requests_enabled', true);
+    }
+
     public function test_live_api_is_blocked_in_non_production_even_with_credentials(): void
     {
         $connection = $this->connection();
@@ -70,6 +77,7 @@ class WhatnotApiSnapshotTest extends TestCase
     public function test_failed_response_is_not_saved(): void
     {
         $connection = $this->connection();
+        $this->allowLiveCapture();
         Http::fake(['*' => Http::response(['error' => 'unauthorized'], 401)]);
         $result = app(WhatnotApiReadOnlySync::class)->capture($connection, 'orders', app(WhatnotSellerApiClient::class));
         $this->assertFalse($result['ok']);
@@ -84,6 +92,7 @@ class WhatnotApiSnapshotTest extends TestCase
     public function test_inspection_returns_schema_but_never_customer_values(): void
     {
         $connection = $this->connection();
+        $this->allowLiveCapture();
         Http::fake(['*' => Http::response(['data' => [
             ['id' => 'private-order-123', 'buyer_email' => 'buyer@example.test', 'status' => 'shipped'],
         ]], 200)]);
@@ -102,6 +111,7 @@ class WhatnotApiSnapshotTest extends TestCase
     public function test_inspection_rejects_tampered_snapshot(): void
     {
         $connection = $this->connection();
+        $this->allowLiveCapture();
         Http::fake(['*' => Http::response(['data' => []], 200)]);
         $sync = app(WhatnotApiReadOnlySync::class);
         $sync->capture($connection, 'orders', app(WhatnotSellerApiClient::class));

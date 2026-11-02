@@ -181,6 +181,11 @@ Route::middleware(['web', 'auth', 'throttle:12,1'])->prefix('admin/whatnot-api')
 
 // Public signed REST v2 webhook intake. No session authentication; HMAC and seller allowlist are mandatory.
 Route::post('/integrations/whatnot/v2/webhook', \App\Http\Controllers\WhatnotV2WebhookController::class)
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+    // Laravel 13's web group runs PreventRequestForgery; ValidateCsrfToken is only
+    // a subclass alias, so excluding it alone left every delivery answered 419.
+    ->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    ])
     ->middleware('throttle:120,1')
     ->name('whatnot-v2.webhook');

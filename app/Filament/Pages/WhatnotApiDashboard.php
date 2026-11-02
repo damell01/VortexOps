@@ -10,6 +10,8 @@ class WhatnotApiDashboard extends Page
     protected static ?string $navigationLabel = 'Whatnot API Control Center';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-signal';
     protected static ?int $navigationSort = 98;
+    // Opened from the top menu's Owner tools, which checks canAccess() itself.
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {

@@ -13,6 +13,8 @@ class InventoryPopupSettings extends Page
 {
     protected static ?string $title = 'Streamer Login Notifications';
     protected static ?string $navigationLabel = 'Streamer Login Notifications';
+    // Opened from the top menu's Owner tools, which checks canAccess() itself.
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Owner Tools'; }
     public static function getNavigationSort(): ?int { return 20; }

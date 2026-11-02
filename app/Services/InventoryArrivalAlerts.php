@@ -19,11 +19,12 @@ class InventoryArrivalAlerts
             ->whereNull('products.deleted_at')->whereNull('reviews.id');
         if ($ids !== null) $query->whereIn('events.location_id', $ids);
         return $query->orderBy('events.id')->limit(100)
-            ->get(['events.id', 'events.kind', 'products.name', 'products.image_path', 'events.quantity_after'])
+            ->get(['events.id', 'events.kind', 'products.name', 'products.image_path', 'events.quantity_before', 'events.quantity_after'])
             ->map(fn ($e) => [
                 'id' => (int) $e->id, 'kind' => $e->kind, 'name' => $e->name,
                 'image' => $e->image_path ? \Illuminate\Support\Facades\Storage::disk('public')->url($e->image_path) : null,
                 'quantity' => $e->quantity_after,
+                'previous_quantity' => $e->quantity_before,
             ])->all();
     }
 

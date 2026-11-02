@@ -226,6 +226,7 @@ class AdminPanelProvider extends PanelProvider
                     && ! auth()->user()->isStreamerAssistant()
                     && request()->is('admin/inventory-items*', 'admin/inventory-overview*', 'admin/inventory-search*', 'admin/inventory-scanner*')
                     && \App\Support\AdminModules::isEnabled('inventory')
+                    && \App\Filament\Resources\InventoryItemResource::canAccess()
                     ? Blade::render("@livewire('inventory-recent-changes')")
                     : '',
             )

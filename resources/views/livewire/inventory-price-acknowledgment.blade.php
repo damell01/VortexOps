@@ -33,8 +33,12 @@
       @foreach ($arrivals as $item)
       <article wire:key="stock-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-3">
         @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
-        <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="text-sm text-gray-400">{{ $item['kind'] === 'sold_out' ? 'Stock depleted' : 'Quantity after change: '.$item['quantity'] }}</div></div>
-        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $item['kind'] === 'sold_out' ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ match($item['kind']) {'sold_out' => 'Sold out','restocked' => 'Restocked','stock_added' => 'Stock added','new', 'new_item' => 'New item',default => 'New stock'} }}</span>
+        <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span class="text-gray-400 line-through">{{ number_format((float) ($item['previous_quantity'] ?? 0)) }} units</span>
+          <span class="text-gray-500" aria-hidden="true">→</span>
+          <span class="rounded-md border px-2.5 py-1 font-bold {{ $item['kind'] === 'sold_out' ? 'border-red-500/40 bg-red-500/15 text-red-300' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' }}">{{ number_format((float) $item['quantity']) }} units</span>
+        </div></div>
+        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $item['kind'] === 'sold_out' ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ match($item['kind']) {'sold_out' => 'Sold out','restocked' => 'Back in stock','stock_added' => 'Stock added','new', 'new_item' => 'New item',default => 'New stock'} }}</span>
       </article>
       @endforeach</div></section>@endif
       @if (count($comingSoon))

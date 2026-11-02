@@ -42,7 +42,9 @@ self.addEventListener('fetch', event => {
     if (accept.includes('application/json') || accept.includes('text/event-stream')) return;
     if (url.searchParams.has('livewire')) return;
 
-    // Never cache unversioned scripts/styles. Deployments must reach all devices.\n    // Vite /build/ assets have content hashes and remain safe to cache.\n    if (/\\.(js|css)$/i.test(url.pathname) && !url.pathname.startsWith('/build/')) {\n        event.respondWith(fetch(req, { cache: 'no-store' }));\n        return;\n    }\n\n    // Cache-first for immutable assets: Vite build output, fonts, icons, images
+    // Unversioned scripts/styles outside /build/ (Filament's published assets)
+    // fall through to network-first below, so a deploy reaches every device
+    // while the browser's own HTTP cache still keeps repeat loads fast.
     if (
         url.pathname.startsWith('/build/') ||
         url.pathname.startsWith('/fonts/') ||

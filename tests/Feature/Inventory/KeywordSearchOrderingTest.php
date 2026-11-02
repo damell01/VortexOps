@@ -55,8 +55,28 @@ class KeywordSearchOrderingTest extends TestCase
         $this->assertSame('Alpha Booster Box', $names[0]);
     }
 
+    /**
+     * Staff granted Quick Add but not the scanner: the only people the old
+     * Quick Add form still opens for. Anyone with the scanner is redirected
+     * to it (QuickAddStock::mount, 44ea3e3e). Staff like this see Main.
+     */
+    private function actAsQuickAddOnlyStaff(): void
+    {
+        \Spatie\Permission\Models\Role::findOrCreate('warehouse', 'web');
+        $user = User::factory()->create(['email' => 'quick-add-staff@example.test']);
+        $user->assignRole('warehouse');
+        \App\Support\NavVisibility::setVisibleForRole('warehouse', [
+            \App\Filament\Resources\InventoryItemResource::class,
+            QuickAddStock::class,
+        ]);
+        \App\Support\NavVisibility::flushMemo();
+        \App\Support\InventoryVisibility::flushMemo();
+        $this->actingAs($user->fresh());
+    }
+
     public function test_quick_add_stock_search_ranks_a_name_starting_with_the_term_first(): void
     {
+        $this->actAsQuickAddOnlyStaff();
         $names = array_column(
             Livewire::test(QuickAddStock::class)->set('productSearch', 'alp')->get('productOptions'),
             'name',

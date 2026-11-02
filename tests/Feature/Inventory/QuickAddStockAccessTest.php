@@ -43,13 +43,16 @@ class QuickAddStockAccessTest extends TestCase
         $item = InventoryItem::create(['name' => 'Hobby Box', 'sku' => 'HB-1', 'barcode' => '0001', 'unit_cost' => 10, 'is_active' => true]);
 
         $this->get(InventoryOverview::getUrl(['tab' => 'tools']))->assertOk()->assertSee(QuickAddStock::getUrl(), false);
-        $this->get(QuickAddStock::getUrl())->assertOk();
+        // The old Quick Add address opens the scanner for anyone who has it
+        // (44ea3e3e), where scan → quantity → Confirm Add Stock books it.
+        $this->get(QuickAddStock::getUrl())->assertRedirect(InventoryScanner::getUrl());
 
-        Livewire::test(QuickAddStock::class)
-            ->call('handleBarcodeScan', '0001')
-            ->set('locationId', $main->id)
-            ->set('quantity', 4)
-            ->call('addStock');
+        Livewire::test(InventoryScanner::class)
+            ->set('scanInput', '0001')
+            ->call('submitScan')
+            ->set('qaLocationId', $main->id)
+            ->set('qaQty', '4')
+            ->call('addSelectedStock');
 
         $this->assertSame(4.0, (float) InventoryStock::where('inventory_item_id', $item->id)->value('quantity'));
     }

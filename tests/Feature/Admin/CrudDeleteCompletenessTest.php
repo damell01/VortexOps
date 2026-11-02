@@ -317,14 +317,17 @@ class CrudDeleteCompletenessTest extends TestCase
         $this->assertTrue(InventoryItemResource::canDelete($item));
     }
 
-    public function test_item_with_stock_cannot_be_deleted(): void
+    public function test_item_with_stock_is_deletable_through_the_write_off_confirmation(): void
     {
+        // Stock on hand no longer blocks deleting outright: the delete action
+        // shows it and asks for it to be written off on purpose, and the item
+        // is soft-deleted so "Deleted items" can restore it.
         $this->actingAs($this->admin());
         $item     = InventoryItem::create(['sku' => 'SKU2', 'name' => 'Item', 'is_active' => true]);
         $location = \App\Models\InventoryLocation::create(['name' => 'L', 'type' => 'main_storage', 'status' => 'active']);
         InventoryStock::create(['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id, 'quantity' => 5]);
 
-        $this->assertFalse(InventoryItemResource::canDelete($item));
+        $this->assertTrue(InventoryItemResource::canDelete($item));
     }
 
     // ── PalletResource ───────────────────────────────────────────────────────

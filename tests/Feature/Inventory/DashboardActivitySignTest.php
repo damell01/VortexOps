@@ -20,6 +20,11 @@ class DashboardActivitySignTest extends TestCase
 
     private function activity(): array
     {
+        // The dashboard is only ever seen signed in; signed out, no location is visible.
+        if (! auth()->check()) {
+            $this->actingAs(\App\Models\User::factory()->create(['email' => config('app.owner_email')]));
+        }
+
         $method = new \ReflectionMethod(DashboardImproved::class, 'recentInventoryActivity');
 
         return collect($method->invoke(new DashboardImproved))->keyBy('name')->all();

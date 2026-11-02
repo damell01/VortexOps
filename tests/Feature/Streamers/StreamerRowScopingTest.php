@@ -119,7 +119,7 @@ class StreamerRowScopingTest extends TestCase
         $this->assertEquals($myStreamer->id, $requests->first()->streamer_id);
     }
 
-    public function test_streamer_can_access_and_only_sees_their_own_or_shared_inventory_locations(): void
+    public function test_streamer_can_access_and_only_sees_their_own_inventory_location(): void
     {
         $me = User::factory()->create();
         $me->assignRole('streamer');
@@ -139,6 +139,7 @@ class StreamerRowScopingTest extends TestCase
         $locations = InventoryLocationResource::getEloquentQuery()->get();
         $names     = $locations->pluck('name')->sort()->values()->all();
 
-        $this->assertEqualsCanonicalizing(['My Bin', 'Warehouse'], $names, 'streamer sees their own + shared locations, not another streamer\'s');
+        // A streamer with a shelf runs their shows from it: it is all they see.
+        $this->assertEqualsCanonicalizing(['My Bin'], $names, 'streamer sees only their own shelf, not shared or another streamer\'s');
     }
 }

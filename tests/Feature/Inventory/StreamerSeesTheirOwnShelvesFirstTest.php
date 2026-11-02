@@ -79,13 +79,15 @@ class StreamerSeesTheirOwnShelvesFirstTest extends TestCase
         $this->assertStringNotContainsString('INWAREHOUSE', $html, 'the warehouse is showing before it was asked for');
     }
 
-    public function test_turning_the_filter_off_reveals_what_they_can_transfer_from(): void
+    public function test_turning_the_filter_off_still_shows_only_their_shelf(): void
     {
+        // A streamer with a shelf works from it (085aea12), so the warehouse
+        // is not theirs to see with or without the filter.
         $html = $this->table()
             ->set('tableFilters.mine_only.isActive', false)
             ->html();
 
-        $this->assertStringContainsString('INWAREHOUSE', $html, 'the warehouse stayed hidden with the filter off');
+        $this->assertStringNotContainsString('INWAREHOUSE', $html);
         $this->assertStringContainsString('ONMYSHELF', $html);
     }
 

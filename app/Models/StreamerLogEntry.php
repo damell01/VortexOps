@@ -435,7 +435,13 @@ class StreamerLogEntry extends Model
             // Serialize retries before reading deducted quantities. Stock and the
             // posting marker must commit together, including on approval/retry.
             static::whereKey($this->id)->lockForUpdate()->firstOrFail();
-            return $this->postInventoryMovementsWithinTransaction();
+            // Where stock may come from is the report's rule
+            // (inventoryPostingLocations), not what the approving person's own
+            // inventory view shows; an admin with this shelf hidden, or a
+            // role-less approver, otherwise read 0 on hand and posting failed.
+            return \App\Support\InventoryVisibility::withoutLocationRestrictions(
+                fn () => $this->postInventoryMovementsWithinTransaction()
+            );
         }, 3);
     }
 

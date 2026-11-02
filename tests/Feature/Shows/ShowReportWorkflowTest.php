@@ -130,7 +130,8 @@ class ShowReportWorkflowTest extends TestCase
         $this->entry->submitReport();
         $this->assertEquals(20, InventoryStock::where('inventory_item_id', $this->item->id)->value('quantity'));
 
-        $this->actingAs($this->creator);
+        // Approved by the owner, as in real use.
+        $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
         $firstProblems = $this->entry->fresh()->approveByAdmin();
         $this->assertSame([], $firstProblems);
         $this->assertEquals(16, InventoryStock::where('inventory_item_id', $this->item->id)->value('quantity'));

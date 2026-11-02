@@ -343,30 +343,51 @@ class InventoryActionsWorkTest extends TestCase
 
     // ── The standalone stock pages ────────────────────────────────────────────
 
+    /**
+     * Staff granted Quick Add but not the scanner: the only people the old
+     * Quick Add form still opens for. Anyone with the scanner is redirected
+     * to it (QuickAddStock::mount, 44ea3e3e). Staff like this see Main.
+     */
+    private function actAsQuickAddOnlyStaff(): void
+    {
+        \Spatie\Permission\Models\Role::findOrCreate('warehouse', 'web');
+        $user = User::factory()->create(['email' => 'quick-add-staff@example.test']);
+        $user->assignRole('warehouse');
+        \App\Support\NavVisibility::setVisibleForRole('warehouse', [
+            \App\Filament\Resources\InventoryItemResource::class,
+            QuickAddStock::class,
+        ]);
+        \App\Support\NavVisibility::flushMemo();
+        \App\Support\InventoryVisibility::flushMemo();
+        $this->actingAs($user->fresh());
+    }
+
+
     public function test_quick_add_stock_books_units_in(): void
     {
         // Press the button, as the Tools tab does: only opening the page let a
         // crash on Add slip through (it handed the service a Product).
+        $this->actAsQuickAddOnlyStaff();
         Livewire::test(QuickAddStock::class)
             ->call('handleBarcodeScan', '012345678905')
             ->assertSet('product.id', $this->item->id)
-            ->set('locationId', $this->back->id)
+            ->set('locationId', $this->main->id)
             ->set('quantity', 5)
             ->set('unitCost', 90)
             ->call('addStock')
             ->assertSet('product', null)
             ->assertCount('recentAdds', 1);
 
-        $this->assertEqualsWithDelta(20.0, $this->stockAt($this->main), 0.01);
-        $this->assertEqualsWithDelta(5.0, $this->stockAt($this->back), 0.01);
+        $this->assertEqualsWithDelta(25.0, $this->stockAt($this->main), 0.01);
         $this->assertSame(5.0, (float) InventoryMovement::where('inventory_item_id', $this->item->id)
-            ->where('to_location_id', $this->back->id)->value('quantity'));
+            ->where('to_location_id', $this->main->id)->value('quantity'));
         $this->assertSame(1, \App\Models\InventoryLot::where('product_id', $this->item->id)->where('unit_cost', 90)->count(),
             'one cost lot for the restock, not two');
     }
 
     public function test_quick_add_stock_found_by_name_search_books_units_in(): void
     {
+        $this->actAsQuickAddOnlyStaff();
         Livewire::test(QuickAddStock::class)
             ->set('productSearch', 'Chrome Hob')
             ->assertCount('productOptions', 1)

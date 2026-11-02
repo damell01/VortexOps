@@ -221,13 +221,16 @@ class ManageStockPageTest extends TestCase
             'status' => 'active', 'streamer_id' => $streamer->id,
         ]);
         cache()->forget('inv_loc:active');
+        // Some on their shelf, so the item is on their screens at all: a
+        // streamer with a shelf works from it and does not see Main.
+        InventoryStock::create(['inventory_item_id' => $this->item->id, 'inventory_location_id' => $mine->id, 'quantity' => 2]);
 
         $this->actingAs($streamerUser);
 
         $page = Livewire::test(ManageStock::class, ['record' => $this->item->id]);
 
-        // Main is the business's (App\Support\StockGate): nothing to take from
-        // there, and nothing of theirs here, so the page is view-only.
+        // Streamers are read-only, their own shelf included: the page is
+        // view-only, with nothing offered to take from.
         $this->assertSame([], $page->instance()->sourceOptions);
         $this->assertFalse($page->instance()->canChange());
         $page->assertSet('operation', ManageStock::ADJUST);

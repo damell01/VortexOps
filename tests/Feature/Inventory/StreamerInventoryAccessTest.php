@@ -16,17 +16,13 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * A streamer cannot ask for a case they cannot see exists.
+ * What a streamer sees and can move.
  *
- * Inventory used to show streamers their own shelf and nothing else, so the
- * main store was invisible to them and every move had to be asked for in a
- * message and done by somebody else. Showing them everything is the other
- * wrong answer: another streamer's shelf, the damaged bin and the returns pile
- * are none of their business and turn a useful screen into a list to scroll
- * past.
- *
- * So it is configured, in one place, and every screen asks there. These pin
- * both halves — that the main store is reachable, and that the rest is not.
+ * A streamer runs their shows from their own shelf, so that shelf is their
+ * whole inventory view: Main, another streamer's shelf and the damaged bin
+ * are not on their screens (085aea12). A streamer with no shelf yet sees Main.
+ * Streamers are read-only; stock reaches their shelf when the owner or an
+ * admin sends it. Admins see every location unless a location hides them.
  */
 class StreamerInventoryAccessTest extends TestCase
 {
@@ -84,6 +80,15 @@ class StreamerInventoryAccessTest extends TestCase
             ->call('submit');
     }
 
+    /** Stock at a location, read past the viewer's visibility scope. */
+    private function qtyAt(InventoryItem $item, InventoryLocation $at): ?float
+    {
+        $value = InventoryVisibility::withoutLocationRestrictions(fn () => InventoryStock::where('inventory_item_id', $item->id)
+            ->where('inventory_location_id', $at->id)->value('quantity'));
+
+        return $value === null ? null : (float) $value;
+    }
+
     private function stocked(string $name, InventoryLocation $at, float $qty = 10): InventoryItem
     {
         $item = InventoryItem::create(['name' => $name, 'unit_cost' => 5, 'average_cost' => 5, 'is_active' => true]);
@@ -108,14 +113,12 @@ class StreamerInventoryAccessTest extends TestCase
 
     public function test_an_empty_selection_is_a_decision_and_is_honoured(): void
     {
-        // Distinct from unset: ticking nothing adds no extra locations. The
-        // shared main store stays visible regardless — streamers pull from it.
+        // Distinct from unset: ticking nothing adds no extra locations. A
+        // streamer with a shelf works from that shelf either way.
         Setting::set(InventoryVisibility::SETTING_KEY, json_encode([]));
 
         $this->assertSame([], InventoryVisibility::configuredForStreamers());
-        $visible = InventoryVisibility::locationIdsFor($this->streamerUser);
-        sort($visible);
-        $this->assertSame([$this->main->id, $this->mine->id], $visible);
+        $this->assertSame([$this->mine->id], InventoryVisibility::locationIdsFor($this->streamerUser));
     }
 
     public function test_their_own_location_is_visible_however_it_is_configured(): void
@@ -129,13 +132,20 @@ class StreamerInventoryAccessTest extends TestCase
         $this->assertContains($this->mine->id, $visible);
     }
 
-    public function test_an_admin_is_not_limited_at_all(): void
+    public function test_an_admin_sees_every_location_unless_one_hides_them(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($admin));
-        $this->assertTrue(InventoryVisibility::isLimited($admin));
+        $all = [$this->main->id, $this->damaged->id, $this->mine->id, $this->theirs->id];
+        sort($all);
+        $visible = InventoryVisibility::locationIdsFor($admin);
+        sort($visible);
+        $this->assertSame($all, $visible);
+
+        Setting::set('inventory_hidden_admins:' . $this->damaged->id, json_encode([$admin->id]));
+        InventoryVisibility::flushMemo();
+        $this->assertNotContains($this->damaged->id, InventoryVisibility::locationIdsFor($admin));
     }
 
     public function test_a_signed_out_visitor_sees_nothing(): void
@@ -145,18 +155,26 @@ class StreamerInventoryAccessTest extends TestCase
 
     // ── What reaches the list ─────────────────────────────────────────────
 
-    public function test_a_streamer_can_now_see_the_main_store(): void
+    public function test_a_streamer_with_a_shelf_does_not_see_the_main_store(): void
     {
-        // The point of the change. Before this the query was limited to their
-        // own shelf, so a case in the warehouse simply did not exist for them.
         $this->stocked('Warehouse Case', $this->main);
 
         $this->actingAs($this->streamerUser);
 
-        $this->assertSame(
-            ['Warehouse Case'],
-            InventoryItemResource::getEloquentQuery()->pluck('name')->all(),
-        );
+        $this->assertSame([], InventoryItemResource::getEloquentQuery()->pluck('name')->all());
+    }
+
+    public function test_a_streamer_with_no_shelf_yet_sees_the_main_store(): void
+    {
+        $this->stocked('Warehouse Case', $this->main);
+        $newcomer = User::factory()->create();
+        $newcomer->assignRole('streamer');
+        Streamer::create(['name' => 'New', 'user_id' => $newcomer->id, 'status' => 'active']);
+
+        $this->actingAs($newcomer->fresh());
+
+        $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($newcomer->fresh()));
+        $this->assertSame(['Warehouse Case'], InventoryItemResource::getEloquentQuery()->pluck('name')->all());
     }
 
     public function test_a_streamer_does_not_see_another_streamers_shelf(): void
@@ -200,7 +218,8 @@ class StreamerInventoryAccessTest extends TestCase
 
         $sources = InventoryVisibility::sourceOptionsFor($this->streamerUser);
 
-        $this->assertArrayHasKey($this->main->id, $sources);
+        // Their shelf is all they see, so there is nothing else to offer.
+        $this->assertSame([], $sources);
         $this->assertArrayNotHasKey($this->mine->id, $sources);
         $this->assertArrayNotHasKey($this->theirs->id, $sources);
     }
@@ -233,11 +252,14 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->actingAs($this->streamerUser);
 
-        $this->send($item, $this->main, 4, 'Friday break');
+        // Main is not on their screens, so the page cannot even resolve the item.
+        try {
+            $this->send($item, $this->main, 4, 'Friday break');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+        }
 
-        $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
-            ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);
-        $this->assertNull(InventoryStock::where('inventory_item_id', $item->id)->where('inventory_location_id', $this->mine->id)->value('quantity'));
+        $this->assertEqualsWithDelta(10.0, $this->qtyAt($item, $this->main), 0.01);
+        $this->assertNull($this->qtyAt($item, $this->mine));
     }
 
     public function test_the_owner_sending_main_stock_to_a_shelf_is_recorded_as_a_transfer_with_both_ends(): void
@@ -296,7 +318,7 @@ class StreamerInventoryAccessTest extends TestCase
         // the main store — but the form is submitted naming a location they may
         // not take from. Options are rebuilt on every open, and a page left
         // sitting is a page whose options are old.
-        $item = $this->stocked('Warehouse Case', $this->main, 10);
+        $item = $this->stocked('On My Shelf Too', $this->mine, 10);
         InventoryStock::create([
             'inventory_item_id'     => $item->id,
             'inventory_location_id' => $this->theirs->id,
@@ -316,41 +338,48 @@ class StreamerInventoryAccessTest extends TestCase
     public function test_more_than_is_there_is_refused_rather_than_going_negative(): void
     {
         $item = $this->stocked('Warehouse Case', $this->main, 3);
+        $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
 
-        $this->actingAs($this->streamerUser);
+        \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ManageStock::class, ['record' => $item->id])
+            ->call('setOperation', \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::TRANSFER)
+            ->set('fromLocationId', $this->main->id)
+            ->set('toLocationId', $this->mine->id)
+            ->set('moveQuantity', '99')
+            ->call('submit');
 
-        $this->send($item, $this->main, 99);
-
-        $this->assertEqualsWithDelta(3.0, (float) InventoryStock::where('inventory_item_id', $item->id)
-            ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);
+        $this->assertEqualsWithDelta(3.0, $this->qtyAt($item, $this->main), 0.01);
+        $this->assertNull($this->qtyAt($item, $this->mine));
     }
 
-    public function test_report_overrides_do_not_hide_an_owned_location_from_inventory_views(): void
+    public function test_report_overrides_do_not_change_what_inventory_views_show(): void
     {
+        // The per-streamer report override decides which locations a show
+        // report may pick from. It neither hides their shelf nor widens the
+        // inventory screens past it.
         $this->actingAs($this->streamerUser);
-        $allowed = $this->stocked('Allowed', $this->main, 3);
-        $owned = $this->stocked('Hidden', $this->mine, 9);
+        $this->stocked('In Main', $this->main, 3);
+        $owned = $this->stocked('On My Shelf', $this->mine, 9);
         Setting::set('streamer_inventory_locations:'.$this->streamerUser->streamer->id, json_encode([$this->main->id]));
-        $this->assertSame([$this->main->id, $this->mine->id], InventoryVisibility::locationIdsFor($this->streamerUser));
+        $this->assertSame([$this->mine->id], InventoryVisibility::locationIdsFor($this->streamerUser));
         $this->assertSame([$this->main->id], InventoryVisibility::reportLocationIdsForStreamer($this->streamerUser->streamer->id));
-        $this->assertSame(12.0, (float) InventoryStock::sum('quantity'));
-        $this->assertSame([$allowed->id, $owned->id], InventoryItemResource::getEloquentQuery()->orderBy('id')->pluck('id')->all());
+        $this->assertSame(9.0, (float) InventoryStock::sum('quantity'));
+        $this->assertSame([$owned->id], InventoryItemResource::getEloquentQuery()->orderBy('id')->pluck('id')->all());
     }
 
 
     public function test_hidden_location_movements_are_excluded_and_transfer_endpoints_are_masked(): void
     {
-        $item = $this->stocked('Shared item', $this->main);
+        $item = $this->stocked('Shared item', $this->mine);
         $hidden = \App\Models\InventoryMovement::create(['inventory_item_id' => $item->id,
             'to_location_id' => $this->theirs->id, 'quantity' => 100, 'movement_type' => 'opening']);
         $transfer = \App\Models\InventoryMovement::create(['inventory_item_id' => $item->id,
-            'from_location_id' => $this->theirs->id, 'to_location_id' => $this->main->id,
+            'from_location_id' => $this->theirs->id, 'to_location_id' => $this->mine->id,
             'quantity' => 1, 'movement_type' => 'transfer']);
         $this->actingAs($this->streamerUser);
         $this->assertNull(\App\Models\InventoryMovement::find($hidden->id));
         $visible = \App\Models\InventoryMovement::with(['fromLocation', 'toLocation'])->findOrFail($transfer->id);
         $this->assertNull($visible->fromLocation);
-        $this->assertSame($this->main->id, $visible->toLocation->id);
+        $this->assertSame($this->mine->id, $visible->toLocation->id);
     }
 
 }

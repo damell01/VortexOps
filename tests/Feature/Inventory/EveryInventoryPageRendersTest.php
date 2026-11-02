@@ -139,7 +139,7 @@ class EveryInventoryPageRendersTest extends TestCase
             \App\Filament\Pages\InventoryReconciliation::class,
             \App\Filament\Pages\DuplicateProductDetector::class,
             \App\Filament\Pages\BarcodePrinter::class,
-            \App\Filament\Pages\QuickAddStock::class,
+            // QuickAddStock: opens the scanner instead, see the test below.
             \App\Filament\Pages\QuickAddContainerScan::class,
             \App\Filament\Pages\StockTransfer::class,
             \App\Filament\Pages\PalletStatusDashboard::class,
@@ -177,6 +177,13 @@ class EveryInventoryPageRendersTest extends TestCase
         }
 
         Livewire::test($page)->assertOk();
+    }
+
+    public function test_the_old_quick_add_page_opens_the_scanner(): void
+    {
+        // Legacy Quick Add links land on the scanner for anyone who has it (44ea3e3e).
+        Livewire::test(\App\Filament\Pages\QuickAddStock::class)
+            ->assertRedirect(\App\Filament\Pages\InventoryScanner::getUrl(panel: 'admin'));
     }
 
     // ── Pages that need a record ──────────────────────────────────────────────

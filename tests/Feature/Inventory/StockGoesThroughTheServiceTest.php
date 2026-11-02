@@ -128,24 +128,8 @@ class StockGoesThroughTheServiceTest extends TestCase
 
     // ── Each screen that books stock ──────────────────────────────────────
 
-    public function test_the_desktop_scanner_records_a_reduction_as_a_reduction(): void
-    {
-        $page = new \App\Filament\Pages\InventoryScanner();
-        $page->scanInput = 'TCH-1';
-        $page->submitScan();
-
-        $page->adjustLocationId = $this->location->id;
-        $page->adjustQty        = '-5';
-        $page->applyAdjust();
-
-        $movement = InventoryMovement::latest('id')->first();
-
-        $this->assertEqualsWithDelta(-5.0, $movement->signedChange(), 0.01);
-        $this->assertSame($this->location->id, $movement->from_location_id);
-        $this->assertNull($movement->to_location_id, 'A reduction is not stock arriving.');
-        $this->assertEqualsWithDelta(20.0, (float) $movement->quantity_before, 0.01);
-        $this->assertEqualsWithDelta(15.0, (float) $movement->quantity_after, 0.01);
-    }
+    // The scanner's own adjust panel is gone: scanning selects the item and
+    // "Confirm Add Stock" books it (reductions are made on Manage stock).
 
     public function test_the_desktop_scanner_records_an_increase_as_an_increase(): void
     {
@@ -153,12 +137,13 @@ class StockGoesThroughTheServiceTest extends TestCase
         $page->scanInput = 'TCH-1';
         $page->submitScan();
 
-        $page->adjustLocationId = $this->location->id;
-        $page->adjustQty        = '5';
-        $page->applyAdjust();
+        $page->qaLocationId = $this->location->id;
+        $page->qaQty        = '5';
+        $page->addSelectedStock();
 
         $movement = InventoryMovement::latest('id')->first();
 
+        $this->assertNotNull($movement, 'Confirm Add Stock booked nothing.');
         $this->assertEqualsWithDelta(5.0, $movement->signedChange(), 0.01);
         $this->assertSame($this->location->id, $movement->to_location_id);
         $this->assertEqualsWithDelta(25.0, (float) $movement->quantity_after, 0.01);
@@ -172,6 +157,7 @@ class StockGoesThroughTheServiceTest extends TestCase
         $page->qaLocationId = $this->location->id;
         $page->qaQty        = '3';
         $page->submitScan();
+        $page->addSelectedStock();
 
         $movement = InventoryMovement::latest('id')->first();
 

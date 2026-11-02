@@ -130,7 +130,10 @@ class ScanBarcodeOntoItemTest extends TestCase
     {
         $product = $this->product();
 
+        // The list follows the location picker; a product never stocked
+        // anywhere is listed under "All locations".
         Livewire::test(ListInventoryItems::class)
+            ->set('inventoryLocation', 'all')
             ->loadTable()
             ->assertTableActionExists('scan_barcode')
             ->assertTableActionVisible('scan_barcode', $product);

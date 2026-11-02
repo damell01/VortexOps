@@ -23,7 +23,8 @@ class InventoryMovementVisibilityTest extends TestCase
         $location = InventoryLocation::create(['name' => 'Main', 'type' => 'main_storage', 'status' => 'active']);
         $item = InventoryItem::create(['name' => 'Scanned stock fixture', 'sku' => 'STOCK-LINK-1']);
         $movement = InventoryMovement::create(['inventory_item_id' => $item->id, 'to_location_id' => $location->id, 'quantity' => 2, 'movement_type' => 'opening']);
-        $this->assertNull(InventoryVisibility::locationIdsFor($user));
+        // Admins see every location unless one hides them (e78ce440).
+        $this->assertSame([$location->id], InventoryVisibility::locationIdsFor($user));
         $this->assertTrue(InventoryMovement::whereKey($movement->id)->exists());
         Livewire::test(InventoryScanner::class)->set('scanInput', 'STOCK-LINK-1')->call('submitScan')
             ->assertSee('Move / Correct Stock')->assertSee(InventoryItemResource::getUrl('stock', ['record' => $item]), false);

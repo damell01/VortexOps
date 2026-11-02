@@ -90,7 +90,7 @@ class WhatnotApiHealth
             $connection->forceFill([
                 'status' => $status,
                 'last_checked_at' => now(),
-                'last_success_at' => $response->successful() ? now() : $connection->last_success_at,
+                'last_success_at' => $response->successful() ? now() : null,
                 'last_error' => $message,
             ])->save();
 
@@ -99,6 +99,7 @@ class WhatnotApiHealth
             $connection->forceFill([
                 'status' => 'error',
                 'last_checked_at' => now(),
+                'last_success_at' => null,
                 'last_error' => 'Connection failed: '.$e::class,
             ])->save();
             return ['ok' => false, 'status' => 'error', 'message' => 'Connection failed'];

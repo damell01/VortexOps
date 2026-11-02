@@ -1,0 +1,53 @@
+name: Ledger and API reconciliation checks
+
+on:
+  push:
+    branches: [Dev, Production]
+    paths:
+      - 'app/Services/Ledger*'
+      - 'app/Console/Commands/Ledger*'
+      - 'app/Console/Commands/WhatnotApiDiagnose.php'
+      - 'app/Console/Commands/WhatnotV2ProcessInbox.php'
+      - 'app/Filament/Resources/WhatnotLedgerResource/**'
+      - 'resources/views/filament/resources/whatnot-ledger-resource/**'
+      - 'tests/Feature/Reports/Ledger*'
+      - 'tests/Feature/WhatnotApiDiagnoseCommandTest.php'
+      - '.github/workflows/ledger-api-reconciliation.yml'
+  pull_request:
+    paths:
+      - 'app/Services/Ledger*'
+      - 'app/Console/Commands/Ledger*'
+      - 'app/Console/Commands/WhatnotApiDiagnose.php'
+      - 'app/Console/Commands/WhatnotV2ProcessInbox.php'
+      - 'app/Filament/Resources/WhatnotLedgerResource/**'
+      - 'resources/views/filament/resources/whatnot-ledger-resource/**'
+      - 'tests/Feature/Reports/Ledger*'
+      - 'tests/Feature/WhatnotApiDiagnoseCommandTest.php'
+      - '.github/workflows/ledger-api-reconciliation.yml'
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist --no-progress
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Syntax and view compilation
+        run: |
+          php -l app/Services/LedgerAutoMatcher.php
+          php -l app/Console/Commands/LedgerAttributionCoverage.php
+          php -l app/Console/Commands/LedgerBusinessSummary.php
+          php -l app/Console/Commands/WhatnotApiDiagnose.php
+          php -l app/Console/Commands/WhatnotV2ProcessInbox.php
+          php artisan view:cache
+      - name: Ledger attribution and API diagnostics tests
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test tests/Feature/Reports/LedgerAttributionTest.php tests/Feature/Reports/LedgerHouseMarketingAutoMatchTest.php tests/Feature/Reports/LedgerCoverageCommandTest.php tests/Feature/WhatnotApiDiagnoseCommandTest.php --stop-on-failure

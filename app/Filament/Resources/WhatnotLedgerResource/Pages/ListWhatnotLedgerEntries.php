@@ -391,6 +391,25 @@ class ListWhatnotLedgerEntries extends Page
         ];
     }
 
+    /** Attribution status for the currently filtered ledger rows, without bypassing channel scope. */
+    public function getAttributionSummaryProperty(): array
+    {
+        $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
+        $row = DB::table('whatnot_ledger_entries as le')
+            ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
+            ->leftJoin('ledger_attributions as a', 'a.whatnot_ledger_entry_id', '=', 'le.id')
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw("SUM(CASE WHEN a.id IS NULL THEN 1 ELSE 0 END) as unmatched")
+            ->selectRaw("SUM(CASE WHEN a.status = 'pending' THEN 1 ELSE 0 END) as pending")
+            ->selectRaw("SUM(CASE WHEN a.status = 'rejected' THEN 1 ELSE 0 END) as rejected")
+            ->selectRaw("SUM(CASE WHEN a.status = 'approved' AND a.target = 'show' THEN 1 ELSE 0 END) as shows")
+            ->selectRaw("SUM(CASE WHEN a.status = 'approved' AND a.target = 'streamer' THEN 1 ELSE 0 END) as streamers")
+            ->selectRaw("SUM(CASE WHEN a.status = 'approved' AND a.target = 'house' THEN 1 ELSE 0 END) as house")
+            ->first();
+
+        return collect((array) $row)->map(fn ($value) => (int) $value)->all();
+    }
+
     /** @return Collection<int, WhatnotLedgerEntry> */
     public function getEntriesProperty(): Collection
     {

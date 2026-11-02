@@ -8,7 +8,7 @@ foreach ($comingSoon as $entry) { $slides->push(['type'=>'soon','item'=>$entry])
 $types = $slides->pluck('type')->all();
 @endphp
 <div role="dialog" aria-modal="true" aria-labelledby="updates-title" x-data="{tab:'all',index:0,startX:null,types:@js($types),visible(){return this.types.map((t,i)=>this.tab==='all'||t===this.tab?i:-1).filter(i=>i>=0)},active(){return this.visible()[this.index]??-1},go(n){const c=this.visible().length;this.index=c?(this.index+n+c)%c:0},choose(t){this.tab=t;this.index=0}}" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-2 sm:p-4">
-<section class="flex w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-purple-600 bg-[#100d23] text-white" style="height:min(700px,calc(100dvh - 24px));max-height:calc(100dvh - 24px)">
+<section class="flex w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl border border-purple-600 bg-[#100d23] text-white" style="height:min(700px,calc(100dvh - 24px));max-height:calc(100dvh - 24px)">
 <header class="shrink-0 border-b border-purple-900 p-3">
 <h2 id="updates-title" class="text-xl font-bold text-purple-200">Inventory Updates</h2>
 <p class="text-xs text-gray-400">Review changes before selling.</p>
@@ -40,10 +40,10 @@ $types = $slides->pluck('type')->all();
 <button type="button" @click="go(1)" :disabled="visible().length<2" class="rounded-lg border border-purple-600 px-4 py-2 disabled:opacity-40" aria-label="Next">→</button>
 </div>
 </div>
-<div class="hidden min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto p-4 sm:grid">
+<div class="hidden min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto p-4 sm:grid lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
 @foreach($slides as $slide)
-<article x-show="tab==='all'||tab==='{{ $slide['type'] }}'" class="flex min-h-32 gap-3 rounded-xl border border-purple-800 bg-[#211631] p-3 shadow-lg">
-@if($slide['item']['image'] ?? null)<img src="{{ $slide['item']['image'] }}" alt="" loading="lazy" class="h-24 w-24 shrink-0 rounded-lg bg-white/10 object-contain">@else<div class="grid h-24 w-24 shrink-0 place-items-center rounded-lg bg-purple-950 text-xs text-purple-300">No image</div>@endif
+<article x-show="tab==='all'||tab==='{{ $slide['type'] }}'" class="flex min-w-0 flex-col gap-2 rounded-xl border border-purple-800 bg-[#211631] p-3 shadow-lg">
+@if($slide['item']['image'] ?? null)<img src="{{ $slide['item']['image'] }}" alt="" loading="lazy" class="h-28 w-full rounded-lg bg-white/10 object-contain">@else<div class="grid h-28 w-full place-items-center rounded-lg bg-purple-950 text-xs text-purple-300">No image</div>@endif
 <div class="min-w-0 flex-1"><span class="mb-1 inline-block rounded bg-purple-800/60 px-2 py-0.5 text-xs uppercase text-purple-200">{{ $slide['type']==='price'?'Price changed':($slide['type']==='stock'?'Stock update':'Coming soon') }}</span><div class="font-semibold leading-snug">{{ $slide['item']['name'] }}</div>
 @if($slide['type']==='price')
 <div class="mt-2 flex flex-wrap items-center gap-2"><span class="text-sm text-gray-400 line-through">{{ $slide['item']['old_price']===null?'Not set':number_format((float)$slide['item']['old_price'],2) }}</span><span class="rounded-lg px-2 py-1 text-base font-extrabold {{ ($slide['item']['decreased']??false)?'bg-emerald-500/20 text-emerald-300':'bg-amber-400/20 text-amber-200' }}">{{ $slide['item']['new_price']===null?'Not set':number_format((float)$slide['item']['new_price'],2) }}</span></div>

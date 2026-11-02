@@ -25,4 +25,18 @@ class LedgerCoverageCommandTest extends TestCase
         $this->assertSame(2, WhatnotLedgerEntry::count());
         $this->assertSame(1, DB::table('ledger_attributions')->count());
     }
+
+    public function test_business_summary_only_includes_approved_attributions(): void
+    {
+        $entry = WhatnotLedgerEntry::create([
+            'dedup_key' => 'summary-marketing', 'transaction_type' => 'Marketing', 'amount' => -12,
+        ]);
+        $this->artisan('ledger:match-shows', ['--limit' => 1])->assertSuccessful();
+        $this->artisan('ledger:business-summary --json')
+            ->expectsOutputToContain('"category":"marketing"')
+            ->expectsOutputToContain('"net_amount":-12')
+            ->assertSuccessful();
+        $this->assertSame('approved', DB::table('ledger_attributions')
+            ->where('whatnot_ledger_entry_id', $entry->id)->value('status'));
+    }
 }

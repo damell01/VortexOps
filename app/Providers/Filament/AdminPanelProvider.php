@@ -220,12 +220,8 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
             )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn () => auth()->check() && \App\Support\InventoryPopupPolicy::enabledFor(auth()->user())
-                    ? Blade::render("@livewire('inventory-price-acknowledgment')")
-                    : '',
-            )
+            // Inventory acknowledgment popup temporarily disabled while investigating
+            // a streamer login HTTP 500. Keep the rest of the panel available.
             ->renderHook(
                 // "How this page works", beside every page's title that has help
                 // written for it (App\Support\HelpContent). The words load on the

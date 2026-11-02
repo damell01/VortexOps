@@ -58,6 +58,6 @@ class InventoryPriceAcknowledgment extends Component
 
     public function render()
     {
-        return view('livewire.inventory-price-acknowledgment');
+        return view('livewire.inventory-price-acknowledgment-safe');
     }
 }

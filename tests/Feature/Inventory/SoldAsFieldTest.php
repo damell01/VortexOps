@@ -116,6 +116,7 @@ class SoldAsFieldTest extends TestCase
 
         Livewire::actingAs($this->admin())
             ->test(ListInventoryItems::class)
+            ->set('inventoryLocation', 'all') // unstocked products are listed under All locations
             ->set('viewMode', 'table')
             ->loadTable()
             ->assertCanSeeTableRecords([$auction, $bin])

@@ -32,7 +32,9 @@ class InventoryReportPageRenderTest extends TestCase
 
     public function test_the_redesigned_report_renders_its_sections_and_real_figures(): void
     {
-        $page = Livewire::test(InventoryReport::class)->assertOk()
+        // The report opens on the default location; never-stocked products
+        // (Sold Out Tin) are counted across all locations.
+        $page = Livewire::test(InventoryReport::class)->set('reportLocation', '')->assertOk()
             ->assertSee('Inventory Report &amp; Analytics', false)
             ->assertSee('Stock health, movement and money tied up in inventory.')
             ->assertSee('Stock values reflect current inventory; activity uses selected period.')
@@ -51,7 +53,7 @@ class InventoryReportPageRenderTest extends TestCase
 
     public function test_every_tab_renders(): void
     {
-        $page = Livewire::test(InventoryReport::class);
+        $page = Livewire::test(InventoryReport::class)->set('reportLocation', '');
         foreach (array_keys(InventoryReport::TABS) as $tab) {
             $page->call('setTab', $tab)->assertOk()->assertSet('activeTab', $tab);
         }

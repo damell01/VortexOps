@@ -116,7 +116,8 @@ class StockGateTest extends TestCase
 
         $page = Livewire::test(ListInventoryItems::class)->set('inventoryLocation', (string) $this->main->id);
         $this->assertSame(['here' => 1, 'units' => 10.0, 'total' => 5, 'elsewhere' => ['Receiving Bay' => 3], 'unstocked' => 1], $page->instance()->locationCoverage());
-        $page->assertSee('Main Storage: 1 product, 10 units on hand.')->assertSee('3 stocked at Receiving Bay')->assertSee('1 with no stock anywhere');
+        // The sentence form of this (inventory-location-filter partial) is no
+        // longer rendered on All Inventory; the Warehouse inventory card is.
         $this->assertSame('10 units on hand', $page->instance()->getStats()[0]['percentage']);
     }
 

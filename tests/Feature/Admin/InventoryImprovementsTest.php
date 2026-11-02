@@ -177,9 +177,11 @@ class InventoryImprovementsTest extends TestCase
         // created_at isn't fillable on InventoryMovement — force it after create()
         // so the two rows fall on opposite sides of the filter window.
         $item = $this->item();
-        $inRange = InventoryMovement::create(['inventory_item_id' => $item->id, 'quantity' => 1, 'movement_type' => 'opening']);
+        // A movement belongs to a location; ones with none are hidden from non-owners.
+        $loc = $this->location();
+        $inRange = InventoryMovement::create(['inventory_item_id' => $item->id, 'to_location_id' => $loc->id, 'quantity' => 1, 'movement_type' => 'opening']);
         $inRange->forceFill(['created_at' => now()->subDays(2)])->save();
-        $outOfRange = InventoryMovement::create(['inventory_item_id' => $item->id, 'quantity' => 1, 'movement_type' => 'opening']);
+        $outOfRange = InventoryMovement::create(['inventory_item_id' => $item->id, 'to_location_id' => $loc->id, 'quantity' => 1, 'movement_type' => 'opening']);
         $outOfRange->forceFill(['created_at' => now()->subDays(30)])->save();
 
         Livewire::test(ListInventoryMovements::class)

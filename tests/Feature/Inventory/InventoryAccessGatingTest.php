@@ -119,6 +119,8 @@ class InventoryAccessGatingTest extends TestCase
         $user = User::factory()->create();$user->assignRole('streamer');
         $profile = Streamer::create(['name' => 'Read Only Streamer', 'user_id' => $user->id, 'status' => 'active']);
         $mine = InventoryLocation::create(['name' => 'My Streamer Shelf', 'type' => 'streamer_inventory', 'streamer_id' => $profile->id, 'status' => 'active']);
+        // On their shelf, so it is on their screens: a streamer with a shelf sees only it.
+        InventoryStock::create(['inventory_item_id' => $this->item->id, 'inventory_location_id' => $mine->id, 'quantity' => 2]);
         $this->actingAs($user->fresh());
         $this->assertContains($mine->id, InventoryVisibility::locationIdsFor(auth()->user()));
         $this->assertFalse(StockGate::canChange(auth()->user(), $mine));

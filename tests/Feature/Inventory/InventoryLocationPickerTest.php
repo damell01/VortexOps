@@ -41,7 +41,7 @@ class InventoryLocationPickerTest extends TestCase
 
     public function test_main_list_scopes_products_quantities_location_names_and_stats_in_both_views(): void
     {
-        $page = Livewire::test(ListInventoryItems::class)->assertSee('Inventory location')
+        $page = Livewire::test(ListInventoryItems::class)->assertSeeHtml('id="vx-warehouse-location"')
             ->set('inventoryLocation', (string) $this->main->id)->assertSee('Shared picker product')->assertDontSee('Shelf only product');
         $item = $page->instance()->catalogItems->sole();
         $this->assertEquals(3, $item->stock_sum_quantity);
@@ -52,7 +52,7 @@ class InventoryLocationPickerTest extends TestCase
         $page->call('filterStock', null);
         $page->call('setViewMode', 'table')->call('loadTable')->assertCanSeeTableRecords([$this->shared])->assertCanNotSeeTableRecords([$this->elsewhere]);
         $this->assertEquals(3, $page->instance()->getTableRecords()->first()->stock_sum_quantity);
-        $page->set('inventoryLocation', '')->assertCanSeeTableRecords([$this->shared, $this->elsewhere]);
+        $page->set('inventoryLocation', 'all')->assertCanSeeTableRecords([$this->shared, $this->elsewhere]);
     }
 
     public function test_location_change_clears_bulk_selection_and_resets_loaded_cards(): void
@@ -83,10 +83,12 @@ class InventoryLocationPickerTest extends TestCase
         $this->actingAs($user);
         $page = Livewire::test(ListInventoryItems::class);
         $this->assertArrayNotHasKey($this->second->id, $page->instance()->inventoryLocationOptions());
+        // A location they may not see, or one that does not exist, falls back
+        // to their own default (Main, with no shelf of their own): never wider.
         $page->set('inventoryLocation', (string) $this->second->id);
-        $this->assertCount(0, $page->instance()->catalogItems);
+        $this->assertSame([$this->shared->id], $page->instance()->catalogItems->modelKeys());
         $page->set('inventoryLocation', '99999999');
-        $this->assertCount(0, $page->instance()->catalogItems);
+        $this->assertSame([$this->shared->id], $page->instance()->catalogItems->modelKeys());
     }
 
     public function test_owner_can_select_inactive_locations_from_a_direct_link(): void

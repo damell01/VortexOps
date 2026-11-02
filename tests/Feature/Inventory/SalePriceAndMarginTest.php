@@ -106,6 +106,7 @@ class SalePriceAndMarginTest extends TestCase
         $product = $this->product(['unit_cost' => 50, 'sale_price' => 92]);
 
         Livewire::test(ListInventoryItems::class)
+            ->set('inventoryLocation', 'all') // unstocked products are listed under All locations
             ->set('viewMode', 'table')
             ->loadTable()
             ->assertTableColumnExists('sale_price')
@@ -129,6 +130,7 @@ class SalePriceAndMarginTest extends TestCase
         $unpriced = $this->product(['name' => 'Unpriced', 'unit_cost' => 50]);
 
         Livewire::test(ListInventoryItems::class)
+            ->set('inventoryLocation', 'all') // unstocked products are listed under All locations
             ->set('viewMode', 'table')
             ->loadTable()
             ->filterTable('no_sale_price')
@@ -156,6 +158,7 @@ class SalePriceAndMarginTest extends TestCase
         ]);
 
         Livewire::test(ListInventoryItems::class)
+            ->set('inventoryLocation', 'all') // unstocked products are listed under All locations
             ->set('viewMode', 'table')
             ->loadTable()
             ->filterTable('thin_margin')

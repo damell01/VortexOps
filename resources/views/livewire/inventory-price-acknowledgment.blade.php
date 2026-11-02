@@ -33,7 +33,127 @@
         @endforeach
       </div>
     </header>
-    <div class="vx-inventory-updates-scroll min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#0b0b19] p-3 sm:p-4">
+    <div class="flex min-h-0 flex-1 flex-col bg-[#0b0b19] p-3 sm:hidden">
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain" x-on:touchstart.passive="touchX=$event.changedTouches[0].screenX" x-on:touchend.passive="if(touchX!==null){let d=$event.changedTouches[0].screenX-touchX;if(Math.abs(d)>55)go(slide+(d<0?1:-1));touchX=null}">
+        @foreach($mobileItems as $i => $item)
+          <article x-cloak x-show="activeIndex() === {{ $i }}" class="rounded-2xl border border-purple-600/60 bg-[#1c142e] p-4">
+            <div class="mb-3 flex justify-between gap-2"><span class="rounded-lg bg-purple-700/50 px-2 py-1 text-xs font-bold uppercase text-purple-200">{{ match($item['category']) {'price'=>'Price change','out'=>'Out of stock','back'=>'Back in stock','soon'=>'Coming soon',default=>'Stock update'} }}</span><span class="text-xs text-gray-400" x-text="(slide+1)+' / '+visibleIndices().length"></span></div>
+            @if($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="mx-auto mb-3 h-28 w-28 rounded-xl bg-white object-contain">@else<div class="mx-auto mb-3 grid h-28 w-28 place-items-center rounded-xl bg-gray-800 text-xs text-gray-400">No photo</div>@endif
+            <h3 class="mb-3 text-center text-lg font-bold text-white">{{ $item['name'] }}</h3>
+            @if($item['category']==='price')
+              <div class="flex items-center justify-center gap-3"><span class="text-gray-400 line-through">{{ $item['old']===null?'Not set':'
+      @if (count($changes))
+      <section x-show="tab === 'all' || tab === 'price'" aria-label="Price changes"><h3 class="mb-2 font-semibold">Price changes</h3><div class="space-y-2">
+      @foreach ($changes as $change)
+      <article wire:key="price-{{ $change['id'] }}" class="flex items-center gap-3 rounded-xl border p-2.5 transition-colors {{ $change['decreased'] ? 'border-red-600/60 bg-red-950/20' : 'border-purple-900/60 bg-[#181426]' }}">
+        @if ($change['image'] ?? null)<img src="{{ $change['image'] }}" alt="" loading="lazy" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-gray-800 text-[10px] text-gray-400">No photo</div>@endif
+        <div class="min-w-0 flex-1">
+          <div class="truncate font-semibold" title="{{ $change['name'] }}">{{ $change['name'] }}</div>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-gray-400 line-through decoration-gray-500" aria-label="Old price">{{ $change['old_price'] === null ? 'Not set' : '$'.number_format((float)$change['old_price'], 2) }}</span>
+            <x-heroicon-o-arrow-right class="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
+            <span class="rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-base font-bold text-emerald-300" aria-label="New price">{{ $change['new_price'] === null ? 'Not set' : '$'.number_format((float)$change['new_price'], 2) }}</span>
+          </div>
+        </div>
+        <span class="shrink-0 rounded-full px-2 py-1 text-xs font-bold {{ $change['decreased'] ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ $change['decreased'] ? 'Decreased' : 'Increased' }}</span>
+      </article>
+      @endforeach</div></section>@endif
+      @if (count($arrivals))
+      <section x-show="tab === 'all' || tab === 'stock' || tab === 'out' || tab === 'back'" aria-label="Stock changes"><h3 class="mb-2 font-semibold">Stock changes</h3><div class="space-y-2">
+      @foreach ($arrivals as $item)
+      <article x-show="tab !== 'out' && tab !== 'back' || (tab === 'out' && @js($item['kind'] === 'sold_out')) || (tab === 'back' && @js($item['kind'] === 'restocked'))" wire:key="stock-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-2.5">
+        @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
+        <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span class="text-gray-400 line-through">{{ number_format((float) ($item['previous_quantity'] ?? 0)) }} units</span>
+          <span class="text-gray-500" aria-hidden="true">→</span>
+          <span class="rounded-md border px-2.5 py-1 font-bold {{ $item['kind'] === 'sold_out' ? 'border-red-500/40 bg-red-500/15 text-red-300' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' }}">{{ number_format((float) $item['quantity']) }} units</span>
+        </div></div>
+        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $item['kind'] === 'sold_out' ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ match($item['kind']) {'sold_out' => 'Sold out','restocked' => 'Back in stock','stock_added' => 'Stock added','new', 'new_item' => 'New item',default => 'New stock'} }}</span>
+      </article>
+      @endforeach</div></section>@endif
+      @if (count($comingSoon))
+      <section x-show="tab === 'all' || tab === 'soon'" aria-label="Coming soon"><h3 class="mb-2 font-semibold">Coming soon · awaiting pallet receipt</h3><div class="space-y-2">
+      @foreach ($comingSoon as $item)
+      <article wire:key="pallet-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-3">
+        @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
+        <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="text-sm text-gray-400">{{ $item['pallet'] }} · {{ $item['cases'] }} cases @if ($item['expected']) · Expected {{ $item['expected'] }} @endif</div></div>
+        <span class="rounded-full bg-blue-900 px-2 py-1 text-xs font-bold text-blue-200">Coming soon</span>
+      </article>
+      @endforeach</div></section>@endif
+    </div>
+    <footer class="shrink-0 border-t border-purple-900/70 bg-[#100d23] p-3 sm:p-4">
+      <button type="button" wire:click="acknowledge" wire:loading.attr="disabled" wire:target="acknowledge" class="w-full rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-4 py-3 text-lg font-extrabold text-gray-950 shadow-lg shadow-amber-500/20 hover:from-yellow-200 hover:to-amber-300 disabled:opacity-50">Acknowledge &amp; continue</button>
+    </footer>
+  </section>
+</div>
+@endif
+</div>
+.number_format((float)$item['old'],2) }}</span><span>→</span><span class="rounded-lg border px-3 py-1 text-xl font-bold {{ $item['decreased']?'border-green-500/50 text-green-300':'border-rose-500/50 text-rose-300' }}">{{ $item['new']===null?'Not set':'
+      @if (count($changes))
+      <section x-show="tab === 'all' || tab === 'price'" aria-label="Price changes"><h3 class="mb-2 font-semibold">Price changes</h3><div class="space-y-2">
+      @foreach ($changes as $change)
+      <article wire:key="price-{{ $change['id'] }}" class="flex items-center gap-3 rounded-xl border p-2.5 transition-colors {{ $change['decreased'] ? 'border-red-600/60 bg-red-950/20' : 'border-purple-900/60 bg-[#181426]' }}">
+        @if ($change['image'] ?? null)<img src="{{ $change['image'] }}" alt="" loading="lazy" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-gray-800 text-[10px] text-gray-400">No photo</div>@endif
+        <div class="min-w-0 flex-1">
+          <div class="truncate font-semibold" title="{{ $change['name'] }}">{{ $change['name'] }}</div>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-gray-400 line-through decoration-gray-500" aria-label="Old price">{{ $change['old_price'] === null ? 'Not set' : '$'.number_format((float)$change['old_price'], 2) }}</span>
+            <x-heroicon-o-arrow-right class="h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
+            <span class="rounded-md border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 text-base font-bold text-emerald-300" aria-label="New price">{{ $change['new_price'] === null ? 'Not set' : '$'.number_format((float)$change['new_price'], 2) }}</span>
+          </div>
+        </div>
+        <span class="shrink-0 rounded-full px-2 py-1 text-xs font-bold {{ $change['decreased'] ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ $change['decreased'] ? 'Decreased' : 'Increased' }}</span>
+      </article>
+      @endforeach</div></section>@endif
+      @if (count($arrivals))
+      <section x-show="tab === 'all' || tab === 'stock' || tab === 'out' || tab === 'back'" aria-label="Stock changes"><h3 class="mb-2 font-semibold">Stock changes</h3><div class="space-y-2">
+      @foreach ($arrivals as $item)
+      <article x-show="tab !== 'out' && tab !== 'back' || (tab === 'out' && @js($item['kind'] === 'sold_out')) || (tab === 'back' && @js($item['kind'] === 'restocked'))" wire:key="stock-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-2.5">
+        @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
+        <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span class="text-gray-400 line-through">{{ number_format((float) ($item['previous_quantity'] ?? 0)) }} units</span>
+          <span class="text-gray-500" aria-hidden="true">→</span>
+          <span class="rounded-md border px-2.5 py-1 font-bold {{ $item['kind'] === 'sold_out' ? 'border-red-500/40 bg-red-500/15 text-red-300' : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300' }}">{{ number_format((float) $item['quantity']) }} units</span>
+        </div></div>
+        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $item['kind'] === 'sold_out' ? 'bg-red-900 text-red-200' : 'bg-emerald-900 text-emerald-200' }}">{{ match($item['kind']) {'sold_out' => 'Sold out','restocked' => 'Back in stock','stock_added' => 'Stock added','new', 'new_item' => 'New item',default => 'New stock'} }}</span>
+      </article>
+      @endforeach</div></section>@endif
+      @if (count($comingSoon))
+      <section x-show="tab === 'all' || tab === 'soon'" aria-label="Coming soon"><h3 class="mb-2 font-semibold">Coming soon · awaiting pallet receipt</h3><div class="space-y-2">
+      @foreach ($comingSoon as $item)
+      <article wire:key="pallet-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-3">
+        @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
+        <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="text-sm text-gray-400">{{ $item['pallet'] }} · {{ $item['cases'] }} cases @if ($item['expected']) · Expected {{ $item['expected'] }} @endif</div></div>
+        <span class="rounded-full bg-blue-900 px-2 py-1 text-xs font-bold text-blue-200">Coming soon</span>
+      </article>
+      @endforeach</div></section>@endif
+    </div>
+    <footer class="shrink-0 border-t border-purple-900/70 bg-[#100d23] p-3 sm:p-4">
+      <button type="button" wire:click="acknowledge" wire:loading.attr="disabled" wire:target="acknowledge" class="w-full rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-4 py-3 text-lg font-extrabold text-gray-950 shadow-lg shadow-amber-500/20 hover:from-yellow-200 hover:to-amber-300 disabled:opacity-50">Acknowledge &amp; continue</button>
+    </footer>
+  </section>
+</div>
+@endif
+</div>
+.number_format((float)$item['new'],2) }}</span></div>
+              <p class="mt-3 text-center text-sm {{ $item['decreased']?'text-green-300':'text-rose-300' }}">{{ $item['decreased']?'Price decreased':'Price increased' }}</p>
+            @elseif($item['category']==='soon')
+              <p class="text-center text-sm text-sky-300">{{ $item['pallet'] }} · {{ $item['cases'] }} cases</p>
+            @else
+              <div class="flex justify-center gap-3"><span class="text-gray-400 line-through">{{ number_format((float)$item['old']) }}</span><span>→</span><span class="text-xl font-bold {{ $item['category']==='out'?'text-rose-300':'text-green-300' }}">{{ number_format((float)$item['new']) }} units</span></div>
+            @endif
+          </article>
+        @endforeach
+        <p x-show="!visibleIndices().length" class="py-12 text-center text-sm text-gray-400">No updates in this category.</p>
+      </div>
+      <div class="mt-3 flex shrink-0 items-center justify-between gap-2">
+        <button type="button" @click="go(slide-1)" :disabled="visibleIndices().length<2" class="rounded-xl border border-purple-600 px-4 py-2 disabled:opacity-40" aria-label="Previous update">←</button>
+        <span class="text-xs font-semibold text-purple-200" aria-live="polite"><span x-text="visibleIndices().length?slide+1:0"></span> of <span x-text="visibleIndices().length"></span></span>
+        <button type="button" @click="go(slide+1)" :disabled="visibleIndices().length<2" class="rounded-xl border border-purple-600 px-4 py-2 disabled:opacity-40" aria-label="Next update">→</button>
+      </div>
+      <p class="mt-1 text-center text-[11px] text-gray-400">Swipe left or right to browse</p>
+    </div>
+    <div class="vx-inventory-updates-scroll hidden min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#0b0b19] p-3 sm:block sm:p-4">
       @if (count($changes))
       <section x-show="tab === 'all' || tab === 'price'" aria-label="Price changes"><h3 class="mb-2 font-semibold">Price changes</h3><div class="space-y-2">
       @foreach ($changes as $change)

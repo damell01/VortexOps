@@ -281,16 +281,22 @@ def install(module) -> None:
                     parsed = urlsplit(response.url)
                     if 'graphql' in parsed.path:
                         status = getattr(response, 'status', None)
-                        response_shapes.add(json.dumps({'graphql_endpoint': parsed.path, 'whatnot_host': bool(parsed.hostname and (parsed.hostname == 'whatnot.com' or parsed.hostname.endswith('.whatnot.com'))), 'method_is_post': request.method == 'POST', 'http_status': status if isinstance(status, int) else None}))
-                    if parsed.hostname not in ('www.whatnot.com', 'whatnot.com') or parsed.path != '/services/graphql/' or request.method != 'POST' or response.status != 200:
+                        response_shapes.add(json.dumps({'graphql_endpoint': parsed.path, 'graphql_host': parsed.hostname, 'whatnot_host': bool(parsed.hostname and (parsed.hostname == 'whatnot.com' or parsed.hostname.endswith('.whatnot.com'))), 'method_is_post': request.method == 'POST', 'http_status': status if isinstance(status, int) else None}))
+                    if not (parsed.hostname and (parsed.hostname == 'whatnot.com' or parsed.hostname.endswith('.whatnot.com'))) or parsed.path != '/services/graphql/' or request.method != 'POST' or response.status != 200:
                         return
                     payload = request.post_data_json
                     entries = payload if isinstance(payload, list) else [payload]
+                    url_operation = dict(parse_qsl(parsed.query)).get('operationName')
                     body = response.json()
                     bodies = body if isinstance(body, list) else [body]
                     for index, entry in enumerate(entries):
                         if not isinstance(entry, dict) or index >= len(bodies):
                             continue
+                        if not entry.get('operationName') and url_operation:
+                            entry = dict(entry, operationName=url_operation)
+                        name = entry.get('operationName')
+                        if isinstance(name,str) and name.isidentifier():
+                            response_shapes.add(json.dumps({'operation':name,'data_fields': sorted((bodies[index].get('data') or {}).keys())}))
                         if entry.get('operationName') == 'SellerHubGetMyOrders':
                             import re
                             body_part = bodies[index]
@@ -346,6 +352,21 @@ def install(module) -> None:
                     if size.count() > 0:
                         size.select_option('20')
                         page.wait_for_timeout(1500)
+                    else:
+                        # Seller Hub also renders this as a custom text control.
+                        import re
+                        try:
+                            opened = page.evaluate(r"""() => {const el=[...document.querySelectorAll('*')].reverse().find(el=>!el.closest('tbody,tr')&&/^Show\s*100$/.test((el.innerText||'').trim())&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');if(!el)return false;el.click();return true;}""")
+                            if opened:
+                                for _ in range(20):
+                                    chosen = page.evaluate(r"""() => {const el=[...document.querySelectorAll('[role="dialog"] div')].reverse().find(el=>/^Show\s*20$/.test((el.innerText||'').trim())&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden');if(!el)return false;el.click();return true;}""")
+                                    if chosen:
+                                        module.info('ORDER_NATIVE_PAGE_SIZE_CLICKED 20')
+                                        page.wait_for_timeout(2000)
+                                        break
+                                    page.wait_for_timeout(250)
+                        except Exception:
+                            pass
                 if probe_max_pages:
                     controls = page.evaluate(r"""() => [...document.querySelectorAll('button,input,select,[role=combobox]')].filter(el=>!el.closest('tbody,tr,[data-testid*=row]')).map(el=>({tag:el.tagName,role:el.getAttribute('role'),testid:el.getAttribute('data-testid'),label:el.getAttribute('aria-label')||el.getAttribute('placeholder')||(el.innerText||'').trim()})).filter(el=>/filter|channel|source|live|show|search/i.test(el.label||'')).slice(0,30)""")
                     module.info('ORDER_SOURCE_EVIDENCE '+json.dumps([{'ui_controls':controls}]))
@@ -441,7 +462,7 @@ def install(module) -> None:
                 rows = list(found.values())
                 if rows and not verified_response_ids:
                     module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([json.loads(v) for v in sorted(response_shapes)]))
-                    controls = page.evaluate(r"""() => ({selects:[...document.querySelectorAll('select')].map(el=>({role:el.getAttribute('role'),options:[...el.options].map(o=>({label:o.textContent,value:o.value}))})),pageButtons:[...document.querySelectorAll('button,[role=combobox]')].filter(el=>/^(?:Show\s+)?(?:20|50|100)$/i.test((el.innerText||'').trim())).map(el=>({tag:el.tagName,role:el.getAttribute('role'),label:el.innerText.trim()}))})""")
+                    controls = page.evaluate(r"""() => ({selects:[...document.querySelectorAll('select')].map(el=>({role:el.getAttribute('role'),options:[...el.options].map(o=>({label:o.textContent,value:o.value}))})),pageButtons:[...document.querySelectorAll('*')].filter(el=>!el.closest('tbody,tr')&&/^Show\s*(?:20|50|100)(?:\D|$)/i.test((el.innerText||'').trim())&&(el.innerText||'').length<100).slice(-20).map(el=>({tag:el.tagName,role:el.getAttribute('role'),label:el.innerText.trim(),visible:Boolean(el.getClientRects().length)&&getComputedStyle(el).visibility!=='hidden'}))})""")
                     module.info('ORDER_PROVENANCE_SCHEMA ' + json.dumps([{'pagination_controls':controls}]))
                 for row in rows:
                     if not probe_max_pages and str(row.get('order_id') or '') in verified_response_ids:

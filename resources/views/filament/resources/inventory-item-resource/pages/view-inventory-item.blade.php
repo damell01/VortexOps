@@ -75,7 +75,7 @@ body:has(.vx-item-shell) .fi-header .fi-ac{display:none!important}
  @if($tab==='overview')
  <div class="ivx-stats">
   <div class="ivx-stat"><b @class(['neg' => $totalQty <= 0])>{{number_format($totalQty)}}</b><span>In Stock</span></div>
-  <div class="ivx-stat"><b>${{number_format($cost,2)}}</b><span>Avg Cost</span></div>
+  <div class="ivx-stat"><b>${{number_format((float)$record->unit_cost,2)}}</b><span>Item Cost</span></div>
   <div class="ivx-stat"><b>${{number_format(max(0,$totalQty)*$cost,2)}}</b><span>Total Value</span></div>
   <div class="ivx-stat"><b>{{$target?'$'.number_format($target,2):'—'}}</b><span>Sale Target</span></div>
  </div>

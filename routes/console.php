@@ -170,7 +170,6 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
 
 // Reconcile imported ledger transactions against exact Whatnot orders and shows.
 Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo(storage_path('logs/ledger-show-matching.log'));
-
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
 Schedule::command('whatnot:api-sync-tick')

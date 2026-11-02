@@ -647,8 +647,7 @@ class InventoryItemResource extends Resource
                         ->minValue(0)
                         ->step(0.01)
                         ->placeholder('—')
-                        ->helperText('What this should sell for')
-                        ->live(onBlur: true),
+                        ->helperText('What this should sell for'),
                     Placeholder::make('margin_potential')
                         ->label('Margin Potential')
                         ->content(function ($record, $get) {

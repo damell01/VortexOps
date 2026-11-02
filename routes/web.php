@@ -170,8 +170,6 @@ Route::middleware(['web', 'auth', 'throttle:60,1'])->get('/admin/communications/
 // Browser and app icons drawn from the uploaded logo (see App\Support\BrandIcons).
 Route::get('/brand/icon-{size}.png', [\App\Http\Controllers\BrandIconController::class, 'icon'])->where('size', '32|180|192|512|maskable')->name('brand.icon');
 Route::get('/brand/manifest.json', [\App\Http\Controllers\BrandIconController::class, 'manifest'])->name('brand.manifest');
-
-
 // Whatnot Seller API: owner-only, manual diagnostics. No automatic API sync.
 Route::middleware(['web', 'auth', 'throttle:12,1'])->prefix('admin/whatnot-api')->name('whatnot-api.')->group(function () {
     Route::get('dashboard', [\App\Http\Controllers\WhatnotApiHealthController::class, 'dashboard'])->name('dashboard');

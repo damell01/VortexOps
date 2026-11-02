@@ -163,8 +163,8 @@
                             <th class="px-6 py-3 text-left text-gray-600 dark:text-gray-300 font-medium">SKU / Barcode</th>
                             <th class="px-6 py-3 text-center text-gray-600 dark:text-gray-300 font-medium">Stock</th>
                             <th class="px-6 py-3 text-left text-gray-600 dark:text-gray-300 font-medium">Category</th>
-                            <th class="px-6 py-3 text-right text-gray-600 dark:text-gray-300 font-medium">Avg Cost</th>
-                            <th class="px-6 py-3 text-right text-gray-600 dark:text-gray-300 font-medium">Value</th>
+                            <th class="px-6 py-3 text-right text-gray-600 dark:text-gray-300 font-medium">Item Cost</th>
+                            <th class="px-6 py-3 text-right text-gray-600 dark:text-gray-300 font-medium">Sell Price</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -185,9 +185,9 @@
                                 {{ number_format($item->totalQuantity()) }}
                             </td>
                             <td class="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">{{ $item->category ?? '—' }}</td>
-                            <td class="px-6 py-3 text-right text-gray-900 dark:text-white">${{ number_format($item->average_cost, 2) }}</td>
+                            <td class="px-6 py-3 text-right text-gray-900 dark:text-white">${{ number_format((float) $item->unit_cost, 2) }}</td>
                             <td class="px-6 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                                ${{ number_format($item->totalQuantity() * $item->average_cost, 2) }}
+                                ${{ number_format((float) $item->sale_price, 2) }}
                             </td>
                         </tr>
                         @endforeach

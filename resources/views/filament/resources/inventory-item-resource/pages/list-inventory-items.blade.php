@@ -163,7 +163,7 @@
        <div class="vx-product-meta vx-product-where" title="{{ $locations ?: 'No stocked location' }}"><x-heroicon-m-map-pin class="inline h-3 w-3 align-[-2px]" /> {{ $locations ?: 'No stocked location' }}</div>
        <div class="vx-card-figs">
         <div class="vx-card-fig is-qty {{ $stockState }}"><div class="vx-metric-label">Qty</div><div class="vx-metric-value">{{ number_format($onHand) }}</div></div>
-        <div class="vx-card-fig"><div class="vx-metric-label">Avg. cost</div><div class="vx-metric-value" title="Average cost ${{ number_format((float)$item->costBasis(),2) }}">${{ number_format((float)$item->costBasis(),2) }}</div></div>
+        <div class="vx-card-fig"><div class="vx-metric-label">Item Cost</div><div class="vx-metric-value" title="Item cost ${{ number_format((float)$item->unit_cost,2) }}">${{ number_format((float)$item->unit_cost,2) }}</div></div>
         <div class="vx-card-fig"><div class="vx-metric-label">Value</div><div class="vx-metric-value" title="Total value ${{ number_format($onHand*(float)$item->costBasis(),2) }}">${{ number_format($onHand*(float)$item->costBasis(),2) }}</div></div>
        </div>
       </div>

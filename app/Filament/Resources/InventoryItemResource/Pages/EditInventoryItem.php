@@ -11,6 +11,30 @@ class EditInventoryItem extends EditRecord
 {
     protected static string $resource = InventoryItemResource::class;
 
+    /** Organize the edit screen into jump-to sections without changing save behavior. */
+    public function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
+    {
+        return $schema->components([
+            \Filament\Schemas\Components\Tabs::make('Product editor')->tabs([
+                \Filament\Schemas\Components\Tabs\Tab::make('Basic Info')
+                    ->icon('heroicon-o-identification')
+                    ->schema([InventoryItemResource::itemIdentificationSection()]),
+                \Filament\Schemas\Components\Tabs\Tab::make('Pricing')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->schema([InventoryItemResource::pricingSection()]),
+                \Filament\Schemas\Components\Tabs\Tab::make('Product Details')
+                    ->icon('heroicon-o-tag')
+                    ->schema([InventoryItemResource::classificationSection(), InventoryItemResource::notesSection()]),
+                \Filament\Schemas\Components\Tabs\Tab::make('Case / Container')
+                    ->icon('heroicon-o-cube')
+                    ->schema([InventoryItemResource::containerSettingsSection()]),
+                \Filament\Schemas\Components\Tabs\Tab::make('Stock')
+                    ->icon('heroicon-o-archive-box')
+                    ->schema([InventoryItemResource::initialStockSection(), InventoryItemResource::stockByLocationSection()]),
+            ])->columnSpanFull(),
+        ]);
+    }
+
     public function getView(): string
     {
         return 'filament.resources.inventory-item-resource.pages.edit-inventory-item';

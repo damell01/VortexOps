@@ -25,25 +25,31 @@ jobs:
           cache: npm
       - run: npm ci && npm run build
       - run: cp .env.example .env && php artisan key:generate
-      - name: Crashing file alone
+      - name: Crashing test with PHP errors shown
         env: { APP_ENV: testing, DB_CONNECTION: sqlite, DB_DATABASE: ':memory:' }
         run: |
           set +e
-          vendor/bin/phpunit tests/Feature/Shows/WhatnotScraperTest.php --debug 2>&1 | tail -80
-          echo "exit=${PIPESTATUS[0]}"
-      - name: Shows folder (to find what interacts)
-        env: { APP_ENV: testing, DB_CONNECTION: sqlite, DB_DATABASE: ':memory:' }
-        run: |
-          set +e
-          vendor/bin/phpunit tests/Feature/Shows --no-progress 2>&1 | tail -40
-          echo "exit=${PIPESTATUS[0]}"
+          php -d display_errors=stderr -d log_errors=1 -d error_log=/dev/stderr -d memory_limit=1G vendor/bin/phpunit tests/Feature/Shows/WhatnotScraperTest.php --filter test_order_guard_skips_when_scrape_far_exceeds_expected 2>&1 | tail -60
+          echo "phpunit-exit=${PIPESTATUS[0]}"
+          echo "---- laravel.log"; tail -c 6000 storage/logs/laravel.log 2>/dev/null
+          echo "---- strace"; sudo apt-get install -y -qq strace >/dev/null 2>&1
+          strace -f -e trace=kill,tgkill,exit_group -o st.txt php vendor/bin/phpunit tests/Feature/Shows/WhatnotScraperTest.php --filter test_order_guard_skips_when_scrape_far_exceeds_expected >/dev/null 2>&1
+          grep -E "kill|exit_group|killed|SIG" st.txt | tail -20
       - name: Full suite without the crashing file
         env: { APP_ENV: testing, DB_CONNECTION: sqlite, DB_DATABASE: ':memory:' }
         run: |
           set +e
           vendor/bin/phpunit --exclude-filter WhatnotScraperTest --no-progress --log-junit junit.xml > full.txt 2>&1
           echo "exit=$?"
-          tail -5 full.txt
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          for tc in ET.parse('junit.xml').getroot().iter('testcase'):
+              for k in ('failure','error'):
+                  e=tc.find(k)
+                  if e is not None:
+                      print('=====', k, tc.get('class'), '::', tc.get('name'))
+                      print((e.text or '')[:1800])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -10,9 +10,12 @@
             <h2 class="text-lg font-semibold text-gray-950 dark:text-white">My time history</h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Your recent clock-ins and clock-outs, newest first.</p>
         </div>
-        <div class="rounded-xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/40">
+        <div class="flex flex-wrap items-center gap-3">
+            {{ $this->addAssistantManualTimeAction }}
+            <div class="rounded-xl bg-blue-50 px-4 py-3 text-right dark:bg-blue-950/40">
             <p class="text-xs font-medium text-blue-700 dark:text-blue-300">Hours this week</p>
             <p class="text-xl font-bold text-blue-900 dark:text-blue-100">{{ \App\Models\TimeEntry::formatMinutes((int) $assistantWeekMinutes) }}</p>
+            </div>
         </div>
     </div>
     <div class="mt-5 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">

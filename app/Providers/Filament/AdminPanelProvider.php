@@ -222,16 +222,6 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => auth()->check()
-                    && ! auth()->user()->isStreamerAssistant()
-                    && request()->is('admin/inventory-items*', 'admin/inventory-overview*', 'admin/inventory-search*', 'admin/inventory-scanner*')
-                    && \App\Support\AdminModules::isEnabled('inventory')
-                    && \App\Filament\Resources\InventoryItemResource::canAccess()
-                    ? Blade::render("@livewire('inventory-recent-changes')")
-                    : '',
-            )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
                 fn () => auth()->check() && \App\Support\InventoryPopupPolicy::enabledFor(auth()->user())
                     ? Blade::render("@livewire('inventory-price-acknowledgment')")
                     : '',

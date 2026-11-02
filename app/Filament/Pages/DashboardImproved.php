@@ -23,6 +23,13 @@ use App\Models\StreamerLogItem;
 use Illuminate\Support\Facades\Schema;
 use App\Support\ChannelContext;
 use Filament\Pages\Dashboard;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class DashboardImproved extends Dashboard
 {
@@ -99,6 +106,42 @@ class DashboardImproved extends Dashboard
         }
 
         return [];
+    }
+
+
+    public function addAssistantManualTimeAction(): Action
+    {
+        return Action::make('addAssistantManualTime')
+            ->label('Add missed time')
+            ->icon('heroicon-m-plus')
+            ->color('primary')
+            ->visible(fn () => (bool) auth()->user()?->isStreamerAssistant())
+            ->modalHeading('Submit missed time')
+            ->modalDescription('Manual entries require an admin to approve them before they count toward payroll.')
+            ->modalSubmitActionLabel('Submit for approval')
+            ->schema([
+                DateTimePicker::make('in')->label('Clock in')->timezone(auth()->user()?->timezone ?: config('app.timezone'))->seconds(false)->required(),
+                DateTimePicker::make('out')->label('Clock out')->timezone(auth()->user()?->timezone ?: config('app.timezone'))->seconds(false)->required()->after('in'),
+                Select::make('reason')->label('Reason for work')->options(\App\Models\TimeEntry::REASONS)->required(),
+                Textarea::make('why')->label('Why was this time missed?')->rows(3)->required()->maxLength(500),
+            ])
+            ->action(function (array $data, Action $action): void {
+                abort_unless(auth()->user()?->isStreamerAssistant(), 403);
+                $user = auth()->user();
+                try {
+                    app(\App\Services\TimeTrackingService::class)->addManual(
+                        $user, $user,
+                        Carbon::parse($data['in'], $user->timezone ?: config('app.timezone')),
+                        Carbon::parse($data['out'], $user->timezone ?: config('app.timezone')),
+                        $data['why'], null, $data['reason']
+                    );
+                } catch (ValidationException $e) {
+                    Notification::make()->title(collect($e->errors())->flatten()->first())->danger()->send();
+                    $action->halt();
+                }
+                $this->assistantTimePage = 1;
+                Notification::make()->title('Time submitted for admin approval')->success()->send();
+            });
     }
 
     public int $assistantPayPage = 1;

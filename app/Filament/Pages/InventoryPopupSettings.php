@@ -14,7 +14,7 @@ class InventoryPopupSettings extends Page
     protected static ?string $title = 'Streamer Login Notifications';
     protected static ?string $navigationLabel = 'Streamer Login Notifications';
 
-    public static function getNavigationGroup(): string|\\UnitEnum|null { return 'Owner Tools'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Owner Tools'; }
     public static function getNavigationSort(): ?int { return 20; }
     protected string $view = 'filament.pages.inventory-popup-settings';
 

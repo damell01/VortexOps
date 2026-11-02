@@ -54,6 +54,22 @@
 </style>
 
 <div class="vxr vxled">
+    @php $allocation = $this->attributionSummary; @endphp
+    <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
+        @foreach([
+            ['label'=>'Unmatched', 'key'=>'unmatched'],
+            ['label'=>'Pending review', 'key'=>'pending'],
+            ['label'=>'Rejected', 'key'=>'rejected'],
+            ['label'=>'Assigned to shows', 'key'=>'shows'],
+            ['label'=>'Assigned to streamers', 'key'=>'streamers'],
+            ['label'=>'House / business', 'key'=>'house'],
+        ] as $metric)
+            <div class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
+                <div class="text-xs" style="color:var(--vxw-muted)">{{ $metric['label'] }}</div>
+                <div class="mt-1 text-xl font-bold tabular-nums">{{ number_format($allocation[$metric['key']] ?? 0) }}</div>
+            </div>
+        @endforeach
+    </div>
     <div class="vxr-head">
         <div>
             <h1 class="vxr-title">Whatnot Ledger</h1>

@@ -1,0 +1,53 @@
+name: Diagnose tests (temporary)
+on:
+  push:
+    branches: [ci/diagnose-tests]
+jobs:
+  diag:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+      - uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - run: cp .env.example .env && php artisan key:generate
+      - name: Crashing file alone
+        env: { APP_ENV: testing, DB_CONNECTION: sqlite, DB_DATABASE: ':memory:' }
+        run: |
+          set +e
+          vendor/bin/phpunit tests/Feature/Shows/WhatnotScraperTest.php --debug 2>&1 | tail -80
+          echo "exit=${PIPESTATUS[0]}"
+      - name: Shows folder (to find what interacts)
+        env: { APP_ENV: testing, DB_CONNECTION: sqlite, DB_DATABASE: ':memory:' }
+        run: |
+          set +e
+          vendor/bin/phpunit tests/Feature/Shows --no-progress 2>&1 | tail -40
+          echo "exit=${PIPESTATUS[0]}"
+      - name: Full suite without the crashing file
+        env: { APP_ENV: testing, DB_CONNECTION: sqlite, DB_DATABASE: ':memory:' }
+        run: |
+          set +e
+          vendor/bin/phpunit --exclude-filter WhatnotScraperTest --no-progress --log-junit junit.xml > full.txt 2>&1
+          echo "exit=$?"
+          tail -5 full.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results
+          path: |
+            full.txt
+            junit.xml

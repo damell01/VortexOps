@@ -1,4 +1,37 @@
 <x-filament-panels::page>
+<style>
+/* Pay-run header: keep the title readable when Filament has many actions. */
+.fi-page:has(.vxw[data-vx-page="pay-run"]) .fi-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 1.5rem;
+}
+.fi-page:has(.vxw[data-vx-page="pay-run"]) .fi-header > :first-child {
+    flex: 1 1 22rem;
+    min-width: min(100%, 22rem);
+}
+.fi-page:has(.vxw[data-vx-page="pay-run"]) .fi-header-heading {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+    line-height: 1.2;
+}
+.fi-page:has(.vxw[data-vx-page="pay-run"]) .fi-header-actions {
+    flex: 1 1 auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: .5rem;
+}
+@media (max-width: 640px) {
+    .fi-page:has(.vxw[data-vx-page="pay-run"]) .fi-header > :first-child {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+}
+</style>
+
 @php
     $run = $this->record;
     $run->loadMissing(['payouts.streamer','payouts.show','createdBy','finalizedBy']);

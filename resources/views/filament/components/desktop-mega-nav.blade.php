@@ -86,6 +86,8 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
    ['Show Ingestion Logs',\App\Filament\Resources\ShowIngestionLogResource::getUrl('index')],
    ['Whatnot Scraper',\App\Filament\Pages\WhatnotSyncPage::getUrl(panel:'admin')],
+   ... (\App\Filament\Pages\InventoryPopupSettings::canAccess() ? [['Streamer Login Notifications',\App\Filament\Pages\InventoryPopupSettings::getUrl(panel:'admin')]] : []),
+   ... (\App\Filament\Pages\WhatnotApiDashboard::canAccess() ? [['Whatnot API Control Center',\App\Filament\Pages\WhatnotApiDashboard::getUrl(panel:'admin')]] : []),
  ] : []),
  ['Activity Logs',\App\Filament\Resources\ActivityLogResource::getUrl('index')],
  ['Notifications',\App\Filament\Pages\NotificationSettings::getUrl(panel:'admin')],
@@ -122,7 +124,7 @@ foreach ($groups as $label => $links) {
     }));
     if ($groups[$label] === []) unset($groups[$label]);
 }
-$ownerLabels = ['Messages & Announcements','Import Status','Show Data Audit','Show Ingestion Logs','Whatnot Scraper','Email Log'];
+$ownerLabels = ['Messages & Announcements','Import Status','Show Data Audit','Show Ingestion Logs','Whatnot Scraper','Streamer Login Notifications','Whatnot API Control Center','Email Log'];
 $ownerLinks = $user?->isOwner() ? array_values(array_filter($groups['Admin'] ?? [], fn ($link) => in_array($link[0], $ownerLabels, true))) : [];
 if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($groups['Admin'], fn ($link) => ! in_array($link[0], $ownerLabels, true)));
 @endphp

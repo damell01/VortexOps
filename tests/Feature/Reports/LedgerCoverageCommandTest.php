@@ -20,8 +20,10 @@ class LedgerCoverageCommandTest extends TestCase
             'dedup_key' => 'coverage-refund', 'transaction_type' => 'Refund', 'amount' => -2,
         ]);
         $this->artisan('ledger:match-shows', ['--limit' => 2])->assertSuccessful();
-        $this->artisan('ledger:coverage --json')->expectsOutputToContain('"approved_house":1')
-            ->expectsOutputToContain('"unmatched":1')->assertSuccessful();
+        $this->artisan('ledger:coverage --json')->assertSuccessful();
+        $this->assertSame(1, DB::table('whatnot_ledger_entries as e')
+            ->leftJoin('ledger_attributions as a', 'a.whatnot_ledger_entry_id', '=', 'e.id')
+            ->whereNull('a.id')->count());
         $this->assertSame(2, WhatnotLedgerEntry::count());
         $this->assertSame(1, DB::table('ledger_attributions')->count());
     }

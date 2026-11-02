@@ -100,7 +100,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $end = $this->record->week_end?->format('M j, Y');
         $business = $this->record->business_id ? $this->record->businessLabel() : null;
         $kind = $this->record->kind ? ' · ' . $this->record->kindLabel() : '';
-        return ($start && $end ? "Pay Run · {$start}–{$end}" : 'Pay Run') . ($business ? " · {$business}" : '') . $kind;
+        return $start && $end ? "Pay Run · {$start}–{$end}" : 'Pay Run';
     }
 
     public function getSubheading(): ?string
@@ -108,7 +108,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $status = WeeklyPayoutBatch::statusLabels()[$this->record->status] ?? ucfirst((string) $this->record->status);
         $entries = $this->record->payouts()->count();
         $total = '$' . number_format((float) $this->record->total_payout, 2);
-        return "{$status} · {$entries} payout " . ($entries === 1 ? 'entry' : 'entries') . " · {$total} total";
+        return ($this->record->business_id ? $this->record->businessLabel() . " · " : "") . ($this->record->kind ? $this->record->kindLabel() . " · " : "") . "{$status} · {$entries} payout " . ($entries === 1 ? 'entry' : 'entries') . " · {$total} total";
     }
 
     public function assistantAndTipSummary(): array

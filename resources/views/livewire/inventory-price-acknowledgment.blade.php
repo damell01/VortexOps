@@ -1,28 +1,28 @@
 <div>
 @if (count($changes) || count($comingSoon) || count($arrivals))
-<div role="dialog" aria-modal="true" aria-labelledby="inventory-update-title" x-data="{ tab: 'all' }" x-trap.inert.noscroll="true" x-on:keydown.escape.window.prevent.stop class="fixed inset-0 z-[9999] grid place-items-center bg-black/80 p-3 sm:p-6">
-  <section class="vx-inventory-modal flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-purple-500 bg-[#0d0b1d] text-white shadow-2xl" style="box-shadow:0 0 0 1px rgba(168,85,247,.35),0 0 55px rgba(124,58,237,.35)" style="max-height:92dvh">
-    <header class="shrink-0 border-b border-purple-900/60 bg-gradient-to-r from-[#17102f] via-[#241044] to-[#10182e] p-4 sm:p-6">
+<div role="dialog" aria-modal="true" aria-labelledby="inventory-update-title" x-data="{ tab: 'all' }" x-trap.inert.noscroll="true" x-on:keydown.escape.window.prevent.stop class="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black/80 p-2 sm:p-4">
+  <section class="vx-inventory-modal flex min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-purple-500 bg-[#0d0b1d] text-white shadow-2xl" style="height:min(780px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);box-shadow:0 0 0 1px rgba(168,85,247,.35),0 0 35px rgba(124,58,237,.3)">
+    <header class="shrink-0 border-b border-purple-900/60 bg-gradient-to-r from-[#17102f] via-[#241044] to-[#10182e] p-3 sm:p-4">
       <div class="flex items-center gap-3"><div class="rounded-xl bg-purple-500/20 p-3 text-purple-300"><x-heroicon-o-bell-alert class="h-6 w-6"/></div>
         <div><h2 id="inventory-update-title" class="text-2xl font-extrabold tracking-tight text-purple-100 sm:text-3xl">Inventory Updates</h2><p class="text-sm text-gray-400">Review the latest pricing and stock changes before selling.</p></div></div>
       @php
         $outCount = collect($arrivals)->where('kind','sold_out')->count();
         $backCount = collect($arrivals)->where('kind','restocked')->count();
       @endphp
-      <div class="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         @foreach ([['Price Changes',count($changes),'border-purple-500/50','text-purple-300'],['Stock Updates',count($arrivals),'border-sky-500/50','text-sky-300'],['Back in Stock',$backCount,'border-emerald-500/50','text-emerald-300'],['Out of Stock',$outCount,'border-rose-500/50','text-rose-300']] as [$label,$count,$borderClass,$textClass])
-          <div class="rounded-2xl border {{ $borderClass }} bg-black/30 p-3 shadow-inner">
+          <div class="rounded-xl border {{ $borderClass }} bg-black/30 p-2 shadow-inner">
             <div class="text-2xl font-black">{{ $count }}</div><div class="text-xs font-semibold {{ $textClass }} sm:text-sm">{{ $label }}</div>
           </div>
         @endforeach
       </div>
-      <div class="mt-5 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Inventory update filters">
+      <div class="mt-3 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Inventory update filters">
         @foreach ([['all','All Updates',count($changes)+count($arrivals)+count($comingSoon)],['price','Price Changes',count($changes)],['stock','Stock Updates',count($arrivals)],['out','Out of Stock',$outCount],['back','Back in Stock',$backCount],['soon','Coming Soon',count($comingSoon)]] as [$key,$label,$count])
           <button type="button" role="tab" :aria-selected="tab === '{{ $key }}'" @click="tab='{{ $key }}'" :class="tab === '{{ $key }}' ? 'bg-purple-700 border-purple-400 text-white shadow-lg shadow-purple-800/40' : 'bg-black/30 border-gray-700 text-gray-300 hover:border-purple-600'" class="shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold sm:text-sm">{{ $label }} ({{ $count }})</button>
         @endforeach
       </div>
     </header>
-    <div class="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[#0b0b19] p-4 sm:p-6">
+    <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#0b0b19] p-3 sm:p-4">
       @if (count($changes))
       <section x-show="tab === 'all' || tab === 'price'" aria-label="Price changes"><h3 class="mb-2 font-semibold">Price changes</h3><div class="space-y-2">
       @foreach ($changes as $change)
@@ -62,7 +62,7 @@
       </article>
       @endforeach</div></section>@endif
     </div>
-    <footer class="shrink-0 border-t border-purple-900/70 bg-[#100d23] p-4 sm:p-5">
+    <footer class="shrink-0 border-t border-purple-900/70 bg-[#100d23] p-3 sm:p-4">
       <button type="button" wire:click="acknowledge" wire:loading.attr="disabled" wire:target="acknowledge" class="w-full rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-4 py-3 text-lg font-extrabold text-gray-950 shadow-lg shadow-amber-500/20 hover:from-yellow-200 hover:to-amber-300 disabled:opacity-50">Acknowledge &amp; continue</button>
     </footer>
   </section>

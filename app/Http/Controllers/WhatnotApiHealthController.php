@@ -43,6 +43,9 @@ class WhatnotApiHealthController extends Controller
         if (filled($data['token'] ?? null)) {
             $connection->access_token = $data['token'];
             $connection->status = 'pending_test';
+            $connection->last_success_at = null;
+            $connection->last_checked_at = null;
+            $connection->last_error = null;
         }
         $connection->enabled = false;
         $connection->sync_enabled = false;

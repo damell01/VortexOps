@@ -1,0 +1,92 @@
+# Whatnot Seller API rollout (Dev)
+
+## Status
+Infrastructure only. Existing Whatnot scraper and scheduled jobs remain unchanged. API synchronization is intentionally disabled.
+
+## Owner-only endpoints
+- GET /admin/whatnot-api/health — status for all channels
+- POST /admin/whatnot-api/channels/{channel}/credentials — save encrypted token, keep sync disabled
+- POST /admin/whatnot-api/channels/{channel}/test — explicitly test a configured connection
+
+These routes require authentication and isOwner(). Never expose tokens in responses or logs.
+
+## Rollout
+1. Prepare migrations and verify owner-only access using automated tests or local fixtures; no Dev cron, scraper, or live API setup is required.
+2. After merging to Production and receiving keys, obtain separate seller authorization for each of the four channels.
+3. Confirm the official API base URL, authentication mechanism, and endpoint query schema against the live Whatnot API documentation before enabling connection tests.
+4. Test each channel separately and validate returned seller identity.
+5. Build API read-only importers with idempotent external-ID matching and dry-run comparison.
+6. Only after field parity and financial reconciliation, enable sync per channel; keep scraper fallback.
+7. Preserve locked financials, payroll, and approved COGS. Never overwrite them from API responses.
+
+## Safety
+No API calls occur automatically. No API scheduler or webhooks are installed. Saving credentials never enables sync.
+
+## Environment separation (mandatory)
+- Development and staging are UI / mocked-data test environments only. Do not run Whatnot browser scraping, import jobs, or real Seller API probes there.
+- The Seller API client, snapshot capture and owner health check require BOTH APP_ENV=production and WHATNOT_SELLER_LIVE_REQUESTS_ENABLED=true. Default is false.
+- Never copy, reset, relogin, or reuse the existing production Playwright browser profile or its cookies for Seller API authorization.
+- The API uses independent bearer credentials. Saving a token leaves per-channel enabled and sync_enabled false.
+- Keep WHATNOT_SELLER_PAGINATION_VERIFIED=false until official cursor semantics are checked. API routes and response fields remain unverified.
+- Production rollout must use a separate controlled deployment. A GitHub Dev commit does not update the running server.
+
+## Before merge to Production
+1. Run PHP lint and the Whatnot feature/unit test suite in an isolated environment using mocked HTTP only. Never run browser login/scraper commands.
+2. Check all new migrations and existing schema on a database copy; take a production backup before running migrations.
+3. Verify the owner-only connection dashboard on Dev without a live token or external requests.
+4. Verify no new scheduled job, webhook, or API call is activated by a deploy. Confirm the existing scraper scheduler and browser profile remain untouched.
+5. Keep the API live-request flag false in Production after merging. Credentials may be entered later without enabling traffic.
+6. After receiving keys, verify actual API host, authentication, channel identity, scopes, resource paths, pagination, rate limits, and available webhooks against official documentation.
+7. Enable read-only capture on Production only after the API contract is verified; inspect schemas and compare with existing scraper data before mapping orders, shows, or ledger.
+8. Require idempotent matching, rollback plans, financial discrepancy checks, and explicit approval before any operational imports or automatic writes.
+9. Preserve the approved End of Stream inventory deduction rule. Whatnot order imports must not also decrement stock.
+
+## Read-only operational commands
+- `php artisan whatnot:api-audit` reports configured channels without contacting Whatnot.
+- `php artisan whatnot:api-capture 1 orders --inspect` reads stored encrypted snapshots and emits only field names and counts.
+- `php artisan whatnot:api-capture 1 orders --confirm-read-only` is a manual API request and requires the Production-only global gate. Do not run before endpoint verification.
+
+## Merge-first workflow
+- Dev is a code branch only: do not configure cron, browser profiles, Whatnot credentials, or external API connections there.
+- Merge can ship dormant API components and migrations without starting a new background process.
+- After merging, run production migrations during a controlled deployment; keep `WHATNOT_SELLER_LIVE_REQUESTS_ENABLED=false` and per-channel `sync_enabled=false`.
+- Existing production scraper schedules and browser sessions remain the authoritative source until verified API imports are implemented and approved.
+- No automatic API scheduler or operational importer is present yet; merging code alone does not activate API synchronization.
+
+## Owner-controlled capture activation (implemented but not runtime verified)
+- Owner dashboard: `/admin/whatnot-api/dashboard`. Each channel supports encrypted token save, manual connection test, and enable/disable of read-only API capture.
+- The per-channel enable action requires a production environment, `WHATNOT_SELLER_LIVE_REQUESTS_ENABLED=true`, `WHATNOT_SELLER_CONTRACT_VERIFIED=true`, `WHATNOT_SELLER_SYNC_SCHEDULER_ENABLED=true`, a stored token, successful connection status within 24 hours, and explicit confirmation. Disable remains available independently.
+- A registered `whatnot:api-sync-tick` command runs every 30 minutes via the EXISTING Laravel scheduler, only after all gates are enabled. No additional Dev cron is needed. It uses independent API HTTP requests, not the Playwright browser profile.
+- Capture is **read-only**: encrypted API response snapshots, audit entries, and dashboard freshness status. It does not yet import operational shows/orders, apply ledger matches, or populate business dashboards.
+- Freshness measures the age of the last captured *unique* payload. An unchanged response can be healthy but appear stale; use connection test, audit timestamps, and completeness checks before interpreting staleness.
+- The first production activation must validate the official API paths, auth, seller identity, pagination, rate limits and real response schema. Current client endpoint paths and expected `data` shape are provisional.
+- The schedule captures one page per resource per run. It is NOT a complete paginated importer; do not rely on it for full financial reconciliation.
+- No automatic fallback switch or scraper shutdown is included. Existing production scraper stays running.
+
+## Required before claiming day-one end-to-end readiness
+- Verify official API contract with keys or official schema examples, including permission checks for each of the four channels.
+- Implement validated complete paginated show/order importer with idempotent channel-scoped mapping to VortexOps tables.
+- Verify financial attribution, ledger conflicts, streamer reporting, and locked payroll protection with realistic fixtures.
+- Execute tests, run migrations on a safe copy, and complete a controlled production smoke test.
+
+## Official REST v2 reference verified 2026-10-30
+- Official base URL: `https://api.whatnot.com/seller-api/rest/v2`. Personal access tokens use `Authorization: Bearer ...` and are issued in the developer dashboard. Token expirations may be finite.
+- Read scopes: `read:shows`, `read:orders`, `read:reports`. Customer data requires `read:customers`; do not request it without a business need.
+- Confirmed read endpoints: `GET /shows`, `GET /orders`, `GET /reports`, `GET /analytics/shows/{show_id}`. Reports are asynchronous: report creation produces a run, and a completed run provides a presigned CSV URL.
+- Official financial report columns include `order_id`, `livestream_id`, `ledger_transaction_id`, `transaction_amount`, `commission_fee`, `processing_fee` and `transaction_type`. Use exact source IDs to reconcile; never infer show attribution from time alone.
+- Rate limit: 10 requests/sec per seller and connected app. Respect `Retry-After` on HTTP 429 and self-throttle; existing fixed-delay retry needs improvement before production enablement.
+- New REST v2 webhook format uses Standard Webhooks signature headers `webhook-id`, `webhook-timestamp`, `webhook-signature`, with an envelope containing `type`, `timestamp`, `data`, `version`, `seller_id`. Do not mix with the legacy GraphQL/old webhook documentation.
+- Official reference: https://developers.whatnot.com/getting-started/introduction
+- Authentication: https://developers.whatnot.com/getting-started/authentication
+- Rate limits: https://developers.whatnot.com/getting-started/rate-limits
+- Webhooks: https://developers.whatnot.com/getting-started/webhooks
+- Financial report schema: https://developers.whatnot.com/reports
+- Inventory syncing remains deferred per owner request.
+
+## REST v2 webhook intake (code committed; not yet deployed or exercised)
+- HTTPS callback path: `/integrations/whatnot/v2/webhook`.
+- Configure `WHATNOT_SELLER_WEBHOOK_SECRET=wn_wh_<base64 key>`, `WHATNOT_SELLER_WEBHOOK_SELLER_IDS=<comma-separated official seller IDs>`, and `WHATNOT_SELLER_WEBHOOKS_ENABLED=true` **only after** validating production migration, signing secret, and ownership of each seller.
+- Signed delivery validation checks `webhook-id`, `webhook-timestamp`, `webhook-signature`, HMAC-SHA256, replay window and v2 payload envelope. Duplicate event IDs are idempotently acknowledged. Accepted payloads are encrypted and stored in `whatnot_api_webhook_events`.
+- Incoming events do **not** update operational tables. A separate consumer, strict seller-to-channel mapping, and end-to-end verified order/show reconciliation must be completed before activation.
+- Webhook deliveries should never be used as the only completeness guarantee; REST backfill and reconciliation must catch missed events.
+- Existing Whatnot Playwright scraper schedules, browser session and inventory deduction rules remain unchanged.

@@ -15,7 +15,7 @@ class LedgerBusinessSummary extends Command
         foreach (['from', 'to'] as $option) {
             $value = $this->option($option);
             if ($value !== null && (! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $value)
-                || ! \Carbon\CarbonImmutable::createFromFormat('!Y-m-d', (string) $value))) {
+                || ! checkdate((int) substr($value, 5, 2), (int) substr($value, 8, 2), (int) substr($value, 0, 4)))) {
                 $this->error('Invalid '.$option.' date; expected YYYY-MM-DD.');
                 return self::FAILURE;
             }

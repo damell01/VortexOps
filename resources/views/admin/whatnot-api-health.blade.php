@@ -53,7 +53,7 @@
 <div class="actions">
 <button type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'credentials', this)">Save token</button>
 <button class="secondary" type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'test', this)">Test connection</button>
-<button class="secondary" type="button" onclick="toggleCapture({{ $connection['channel_id'] }}, {{ $connection['sync_enabled'] ? 'true' : 'false' }}, this)">{{ $connection['sync_enabled'] ? 'Disable API capture' : 'Enable API capture' }}</button>
+<button class="secondary" type="button" @disabled(! $connection['sync_enabled'] && (! $connection['live_requests_allowed'] || $connection['status'] !== 'connected' || ! $connection['last_success_at'] || ! $apiFlags['contract_verified'] || ! $apiFlags['pagination_verified'] || ! $apiFlags['scheduler_enabled'])) onclick="toggleCapture({{ $connection['channel_id'] }}, {{ $connection['sync_enabled'] ? 'true' : 'false' }}, this)">{{ $connection['sync_enabled'] ? 'Disable API capture' : 'Enable API capture' }}</button>
 </div>
 <output aria-live="polite"></output>
 </section>

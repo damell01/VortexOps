@@ -32,7 +32,10 @@ class LedgerAutoMatcher
                     && (float) $entry->amount < 0;
 
                 if ($existing && $existing->status === 'approved') {
-                    return 'flagged';
+                    return $houseMarketing && $existing->target === 'house'
+                        && $existing->category === 'marketing'
+                        && $existing->show_id === null
+                        && $existing->streamer_id === null ? 'matched' : 'flagged';
                 }
                 if (! $houseMarketing || $existing) {
                     return 'unmatched';

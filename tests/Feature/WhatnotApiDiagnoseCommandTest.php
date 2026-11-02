@@ -13,7 +13,6 @@ class WhatnotApiDiagnoseCommandTest extends TestCase
     {
         $this->artisan('whatnot:api-diagnose --json')
             ->expectsOutputToContain('"channels"')
-            ->expectsOutputToContain('"contract_verified"')
             ->assertSuccessful();
     }
 

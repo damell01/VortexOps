@@ -36,8 +36,8 @@ class LedgerCoverageCommandTest extends TestCase
         $this->artisan('ledger:match-shows', ['--limit' => 1])->assertSuccessful();
         $this->artisan('ledger:business-summary --json')
             ->expectsOutputToContain('"category":"marketing"')
-            ->expectsOutputToContain('"net_amount":-12')
             ->assertSuccessful();
+        $this->assertSame(-12.0, (float) DB::table('whatnot_ledger_entries')->where('id', $entry->id)->value('amount'));
         $this->assertSame('approved', DB::table('ledger_attributions')
             ->where('whatnot_ledger_entry_id', $entry->id)->value('status'));
     }

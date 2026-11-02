@@ -1,7 +1,13 @@
 <div>
+<style>
+.vx-inventory-updates-scroll { scrollbar-width: thin; scrollbar-color: #7041a4 #171127; }
+.vx-inventory-updates-scroll::-webkit-scrollbar { width: 8px; }
+.vx-inventory-updates-scroll::-webkit-scrollbar-track { background: #171127; }
+.vx-inventory-updates-scroll::-webkit-scrollbar-thumb { background: #7041a4; border: 2px solid #171127; border-radius: 999px; }
+</style>
 @if (count($changes) || count($comingSoon) || count($arrivals))
 <div role="dialog" aria-modal="true" aria-labelledby="inventory-update-title" x-data="{ tab: 'all' }" x-trap.inert.noscroll="true" x-on:keydown.escape.window.prevent.stop class="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black/80 p-2 sm:p-4">
-  <section class="vx-inventory-modal flex min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-purple-500 bg-[#0d0b1d] text-white shadow-2xl" style="height:min(780px,calc(100dvh - 24px));max-height:calc(100dvh - 24px);box-shadow:0 0 0 1px rgba(168,85,247,.35),0 0 35px rgba(124,58,237,.3)">
+  <section class="vx-inventory-modal flex min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-purple-500 bg-[#0d0b1d] text-white shadow-2xl" style="height:min(740px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);box-shadow:0 0 0 1px rgba(168,85,247,.35),0 0 35px rgba(124,58,237,.3)">
     <header class="shrink-0 border-b border-purple-900/60 bg-gradient-to-r from-[#17102f] via-[#241044] to-[#10182e] p-3 sm:p-4">
       <div class="flex items-center gap-3"><div class="rounded-xl bg-purple-500/20 p-3 text-purple-300"><x-heroicon-o-bell-alert class="h-6 w-6"/></div>
         <div><h2 id="inventory-update-title" class="text-2xl font-extrabold tracking-tight text-purple-100 sm:text-3xl">Inventory Updates</h2><p class="text-sm text-gray-400">Review the latest pricing and stock changes before selling.</p></div></div>
@@ -16,18 +22,18 @@
           </div>
         @endforeach
       </div>
-      <div class="mt-3 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Inventory update filters">
+      <div class="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6" role="tablist" aria-label="Inventory update filters">
         @foreach ([['all','All Updates',count($changes)+count($arrivals)+count($comingSoon)],['price','Price Changes',count($changes)],['stock','Stock Updates',count($arrivals)],['out','Out of Stock',$outCount],['back','Back in Stock',$backCount],['soon','Coming Soon',count($comingSoon)]] as [$key,$label,$count])
-          <button type="button" role="tab" :aria-selected="tab === '{{ $key }}'" @click="tab='{{ $key }}'" :class="tab === '{{ $key }}' ? 'bg-purple-700 border-purple-400 text-white shadow-lg shadow-purple-800/40' : 'bg-black/30 border-gray-700 text-gray-300 hover:border-purple-600'" class="shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold sm:text-sm">{{ $label }} ({{ $count }})</button>
+          <button type="button" role="tab" :aria-selected="tab === '{{ $key }}'" @click="tab='{{ $key }}'" :class="tab === '{{ $key }}' ? 'bg-purple-700 border-purple-400 text-white shadow-lg shadow-purple-800/40' : 'bg-black/30 border-gray-700 text-gray-300 hover:border-purple-600'" class="min-w-0 rounded-lg border px-2 py-2 text-center text-xs font-semibold leading-tight">{{ $label }} ({{ $count }})</button>
         @endforeach
       </div>
     </header>
-    <div class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-[#0b0b19] p-3 sm:p-4">
+    <div class="vx-inventory-updates-scroll min-h-0 flex-1 space-y-3 overflow-x-hidden overflow-y-auto overscroll-contain bg-[#0b0b19] p-3 sm:p-4">
       @if (count($changes))
       <section x-show="tab === 'all' || tab === 'price'" aria-label="Price changes"><h3 class="mb-2 font-semibold">Price changes</h3><div class="space-y-2">
       @foreach ($changes as $change)
-      <article wire:key="price-{{ $change['id'] }}" class="flex items-center gap-3 rounded-xl border p-3 transition-colors {{ $change['decreased'] ? 'border-red-600/60 bg-red-950/20' : 'border-purple-900/60 bg-[#181426]' }}">
-        @if ($change['image'] ?? null)<img src="{{ $change['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
+      <article wire:key="price-{{ $change['id'] }}" class="flex items-center gap-3 rounded-xl border p-2.5 transition-colors {{ $change['decreased'] ? 'border-red-600/60 bg-red-950/20' : 'border-purple-900/60 bg-[#181426]' }}">
+        @if ($change['image'] ?? null)<img src="{{ $change['image'] }}" alt="" loading="lazy" class="h-12 w-12 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-gray-800 text-[10px] text-gray-400">No photo</div>@endif
         <div class="min-w-0 flex-1">
           <div class="truncate font-semibold" title="{{ $change['name'] }}">{{ $change['name'] }}</div>
           <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -42,7 +48,7 @@
       @if (count($arrivals))
       <section x-show="tab === 'all' || tab === 'stock' || tab === 'out' || tab === 'back'" aria-label="Stock changes"><h3 class="mb-2 font-semibold">Stock changes</h3><div class="space-y-2">
       @foreach ($arrivals as $item)
-      <article x-show="tab !== 'out' && tab !== 'back' || (tab === 'out' && @js($item['kind'] === 'sold_out')) || (tab === 'back' && @js($item['kind'] === 'restocked'))" wire:key="stock-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-3">
+      <article x-show="tab !== 'out' && tab !== 'back' || (tab === 'out' && @js($item['kind'] === 'sold_out')) || (tab === 'back' && @js($item['kind'] === 'restocked'))" wire:key="stock-{{ $item['id'] }}" class="flex items-center gap-3 rounded-xl border border-gray-700 bg-gray-900 p-2.5">
         @if ($item['image'])<img src="{{ $item['image'] }}" alt="" loading="lazy" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain">@else<div class="grid h-14 w-14 shrink-0 place-items-center rounded-lg bg-gray-800 text-xs text-gray-400">No photo</div>@endif
         <div class="min-w-0 flex-1"><div class="truncate font-semibold">{{ $item['name'] }}</div><div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <span class="text-gray-400 line-through">{{ number_format((float) ($item['previous_quantity'] ?? 0)) }} units</span>

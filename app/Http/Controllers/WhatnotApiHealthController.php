@@ -18,7 +18,15 @@ class WhatnotApiHealthController extends Controller
     public function dashboard(Request $request, WhatnotApiHealth $health): \Illuminate\View\View
     {
         $this->authorizeOwner($request);
-        return view('admin.whatnot-api-health', ['connections' => $health->overview()]);
+        return view('admin.whatnot-api-health', [
+            'connections' => $health->overview(),
+            'apiFlags' => [
+                'live_requests' => (bool) config('services.whatnot_seller.live_requests_enabled', false),
+                'contract_verified' => (bool) config('services.whatnot_seller.contract_verified', false),
+                'pagination_verified' => (bool) config('services.whatnot_seller.pagination_verified', false),
+                'scheduler_enabled' => (bool) config('services.whatnot_seller.sync_scheduler_enabled', false),
+            ],
+        ]);
     }
 
     public function index(Request $request, WhatnotApiHealth $health): JsonResponse
@@ -61,6 +69,7 @@ class WhatnotApiHealthController extends Controller
             if (! app()->environment('production')
                 || ! config('services.whatnot_seller.live_requests_enabled', false)
                 || ! config('services.whatnot_seller.contract_verified', false)
+                || ! config('services.whatnot_seller.pagination_verified', false)
                 || ! config('services.whatnot_seller.sync_scheduler_enabled', false)
                 || $data['confirmation'] !== 'ENABLE READ ONLY'
                 || blank($connection->access_token)

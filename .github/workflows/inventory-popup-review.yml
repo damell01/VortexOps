@@ -22,5 +22,10 @@ jobs:
           restore-keys: composer-
       - run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
       - run: cp .env.example .env
+      - name: Compile and syntax-check all Blade views
+        run: |
+          php artisan view:clear
+          php artisan view:cache
+          find storage/framework/views -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
       - name: Detail, edit and catalog deletion regression checks
         run: php artisan test tests/Feature/InventoryPopupReviewTest.php tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php

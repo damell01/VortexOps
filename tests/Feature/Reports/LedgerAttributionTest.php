@@ -48,14 +48,14 @@ class LedgerAttributionTest extends TestCase
         $this->assertSame(25.0, (float) $entry->fresh()->amount);
     }
 
-    public function test_exact_order_match_suggests_show_but_duplicate_show_matches_do_not(): void
+    public function test_unverified_order_links_do_not_suggest_show_even_when_unique(): void
     {
         $author = User::factory()->create();
         $show = Show::withoutEvents(fn () => Show::create(['title' => 'Matching show', 'show_date' => today(), 'created_by' => $author->id, 'status' => 'reconciled']));
         $entry = WhatnotLedgerEntry::create(['dedup_key' => 'match-entry', 'whatnot_order_id' => 'order-123', 'transaction_type' => 'Tips']);
         WhatnotShowOrder::create(['show_id' => $show->id, 'whatnot_order_id' => 'order-123']);
         $service = app(LedgerAttributionService::class);
-        $this->assertSame($show->id, $service->suggestedShow($entry)?->id);
+        $this->assertNull($service->suggestedShow($entry));
         $this->assertSame('tips', $service->suggestedCategory($entry));
 
         $other = Show::withoutEvents(fn () => Show::create(['title' => 'Another show', 'show_date' => today(), 'created_by' => $author->id, 'status' => 'reconciled']));

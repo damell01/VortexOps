@@ -9,6 +9,7 @@ import '../css/page-layout-fixes.css';
 import './confirmation-dialog.js';
 import './guided-help.js';
 import './app-shell.js';
+import './spa-links.js';
 import './mobile-controls.js';
 import './kpi-fit.js';
 import './carousels.js';

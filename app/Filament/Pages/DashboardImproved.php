@@ -102,6 +102,18 @@ class DashboardImproved extends Dashboard
     }
 
     public int $assistantPayPage = 1;
+    public int $assistantTimePage = 1;
+
+    public function previousAssistantTimePage(): void
+    {
+        $this->assistantTimePage = max(1, $this->assistantTimePage - 1);
+    }
+
+    public function nextAssistantTimePage(): void
+    {
+        $this->assistantTimePage++;
+    }
+
 
     public function previousAssistantPayPage(): void
     {
@@ -121,6 +133,12 @@ class DashboardImproved extends Dashboard
             return [
                 'roleMode' => 'assistant',
                 'assistantPaidTotal' => \App\Support\AssistantPaidPay::query($user)->sum('calculated_payout'),
+                'assistantTimeEntries' => \App\Models\TimeEntry::query()->where('user_id', $user->id)
+                    ->with('show:id,title')->orderByDesc('clocked_in_at')
+                    ->paginate(10, ['*'], 'assistantTimePage', max(1, $this->assistantTimePage)),
+                'assistantWeekMinutes' => \App\Models\TimeEntry::query()->where('user_id', $user->id)
+                    ->where('clocked_in_at', '>=', now()->startOfWeek())->whereNotNull('clocked_out_at')
+                    ->get()->sum(fn ($entry) => (int) ($entry->duration_minutes ?? 0)),
                 'assistantRecentPay' => \App\Support\AssistantPaidPay::query($user)->with('batch')->latest('id')
                     ->paginate(10, ['*'], 'assistantPayPage', max(1, $this->assistantPayPage)),
             ];

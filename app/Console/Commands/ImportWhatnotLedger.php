@@ -37,6 +37,7 @@ class ImportWhatnotLedger extends Command
         $this->info("Importing Whatnot ledger {$from} → {$to} for {$channels->count()} channel(s)…");
 
         $rows = [];
+        $failures = 0;
         foreach ($channels as $channel) {
             $this->line("  → {$channel->name} (@{$channel->whatnot_username})");
             try {
@@ -45,13 +46,14 @@ class ImportWhatnotLedger extends Command
             } catch (\RuntimeException $e) {
                 $this->error("    {$e->getMessage()}");
                 $rows[] = [$channel->name, 'ERROR', 'ERROR', $e->getMessage()];
+                $failures++;
             }
         }
 
         $this->newLine();
         $this->table(['Channel', 'Created', 'Skipped', 'Windows'], $rows);
 
-        return self::SUCCESS;
+        return $failures > 0 ? self::FAILURE : self::SUCCESS;
     }
 
     /** @return \Illuminate\Support\Collection<int,WhatnotChannel> */

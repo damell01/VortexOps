@@ -14,7 +14,19 @@
 <div class="eyebrow">Owner tools / Integrations</div>
 <h1>Whatnot Seller API Health</h1>
 <p>Configure and test each seller channel independently. Inspect captured data freshness and errors before activation. The existing scraper remains active.</p>
-<div class="note">Infrastructure preview: no scheduled API imports, webhooks, or automatic financial updates are enabled. Tokens are encrypted at rest and never returned to the browser.</div>
+<div class="note">API capture is disabled by default and requires a successful connection test before activation. The scraper remains active; API snapshots do not automatically change financial allocations. Tokens are encrypted at rest and never returned to the browser.</div>
+<section class="card" style="margin-top:18px" aria-label="API activation readiness">
+<h2>Owner tools — API activation</h2>
+<p>API capture is off by default for each channel. Saving credentials never enables capture. A successful connection test is required before enabling read-only synchronization.</p>
+<div class="meta">Live requests: {{ $apiFlags['live_requests'] ? 'Allowed' : 'Disabled' }} · Contract verified: {{ $apiFlags['contract_verified'] ? 'Yes' : 'No' }}</div>
+<div class="meta">Pagination verified: {{ $apiFlags['pagination_verified'] ? 'Yes' : 'No' }} · Scheduler allowed: {{ $apiFlags['scheduler_enabled'] ? 'Yes' : 'No' }}</div>
+<div class="meta">Activation requires all server flags, stored credentials, and a successful test within the last 24 hours.</div>
+</section>
+<section class="card" style="margin-top:16px" aria-label="Ledger reconciliation">
+<h2>Ledger reconciliation</h2>
+<p>Review unmatched sales, refunds, tips, fees and business marketing allocations. Imports must not overwrite approved manual decisions.</p>
+<div class="meta">Server diagnostics: <code>php artisan ledger:coverage --json</code> · <code>php artisan ledger:business-summary --json</code> · <code>php artisan whatnot:api-diagnose --json</code></div>
+</section>
 <div class="grid">
 @foreach ($connections as $connection)
 <section class="card" data-channel="{{ $connection['channel_id'] }}">

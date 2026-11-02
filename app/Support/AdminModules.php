@@ -162,14 +162,14 @@ class AdminModules
             ->all();
 
         if (! empty($custom)) {
-            return $custom;
+            return array_values(array_unique(array_merge($custom, ['Owner Tools'])));
         }
 
         $defaults = count(static::visibleOperationalGroups()) <= 1
             ? []
             : static::visibleOperationalGroups();
 
-        return array_values(array_unique(array_merge($defaults, ['System'])));
+        return array_values(array_unique(array_merge($defaults, ['System', 'Owner Tools'])));
     }
 
     public static function navigationGroupFor(string $slug): string|\UnitEnum|null

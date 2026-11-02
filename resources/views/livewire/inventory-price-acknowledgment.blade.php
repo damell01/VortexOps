@@ -6,12 +6,17 @@
 .vx-inventory-updates-scroll::-webkit-scrollbar-thumb { background: #7041a4; border: 2px solid #171127; border-radius: 999px; }
 </style>
 @if (count($changes) || count($comingSoon) || count($arrivals))
-<div role="dialog" aria-modal="true" aria-labelledby="inventory-update-title" x-data="{ tab: 'all' }" x-trap.inert.noscroll="true" x-on:keydown.escape.window.prevent.stop class="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black/80 p-2 sm:p-4">
+<div role="dialog" aria-modal="true" aria-labelledby="inventory-update-title" x-data="{ tab: 'all', slide: 0, touchX: null, categories: @js($mobileCategories), visibleIndices() { return this.categories.map((c,i) => (this.tab === 'all' || c === this.tab || (this.tab === 'stock' && ['stock','out','back'].includes(c))) ? i : -1).filter(i => i >= 0) }, activeIndex() { return this.visibleIndices()[this.slide] ?? -1 }, go(n) { const count = this.visibleIndices().length; this.slide = count ? (n + count) % count : 0 }, choose(key) { this.tab = key; this.slide = 0 } }" x-trap.inert.noscroll="true" x-on:keydown.escape.window.prevent.stop class="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-black/80 p-2 sm:p-4">
   <section class="vx-inventory-modal flex min-h-0 w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-purple-500 bg-[#0d0b1d] text-white shadow-2xl" style="height:min(740px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);box-shadow:0 0 0 1px rgba(168,85,247,.35),0 0 35px rgba(124,58,237,.3)">
     <header class="shrink-0 border-b border-purple-900/60 bg-gradient-to-r from-[#17102f] via-[#241044] to-[#10182e] p-3 sm:p-4">
       <div class="flex items-center gap-3"><div class="rounded-xl bg-purple-500/20 p-3 text-purple-300"><x-heroicon-o-bell-alert class="h-6 w-6"/></div>
         <div><h2 id="inventory-update-title" class="text-2xl font-extrabold tracking-tight text-purple-100 sm:text-3xl">Inventory Updates</h2><p class="text-sm text-gray-400">Review the latest pricing and stock changes before selling.</p></div></div>
       @php
+        $mobileItems = collect();
+        foreach ($changes as $change) $mobileItems->push(['category'=>'price','name'=>$change['name'],'image'=>$change['image'] ?? null,'old'=>$change['old_price'],'new'=>$change['new_price'],'decreased'=>$change['decreased']]);
+        foreach ($arrivals as $item) $mobileItems->push(['category'=>$item['kind'] === 'sold_out' ? 'out' : ($item['kind'] === 'restocked' ? 'back' : 'stock'),'name'=>$item['name'],'image'=>$item['image'] ?? null,'old'=>$item['previous_quantity'] ?? 0,'new'=>$item['quantity']]);
+        foreach ($comingSoon as $item) $mobileItems->push(['category'=>'soon','name'=>$item['name'],'image'=>$item['image'] ?? null,'pallet'=>$item['pallet'],'cases'=>$item['cases'],'expected'=>$item['expected']]);
+        $mobileCategories = $mobileItems->pluck('category')->all();
         $outCount = collect($arrivals)->where('kind','sold_out')->count();
         $backCount = collect($arrivals)->where('kind','restocked')->count();
       @endphp
@@ -24,7 +29,7 @@
       </div>
       <div class="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-6" role="tablist" aria-label="Inventory update filters">
         @foreach ([['all','All Updates',count($changes)+count($arrivals)+count($comingSoon)],['price','Price Changes',count($changes)],['stock','Stock Updates',count($arrivals)],['out','Out of Stock',$outCount],['back','Back in Stock',$backCount],['soon','Coming Soon',count($comingSoon)]] as [$key,$label,$count])
-          <button type="button" role="tab" :aria-selected="tab === '{{ $key }}'" @click="tab='{{ $key }}'" :class="tab === '{{ $key }}' ? 'bg-purple-700 border-purple-400 text-white shadow-lg shadow-purple-800/40' : 'bg-black/30 border-gray-700 text-gray-300 hover:border-purple-600'" class="min-w-0 rounded-lg border px-2 py-2 text-center text-xs font-semibold leading-tight">{{ $label }} ({{ $count }})</button>
+          <button type="button" role="tab" :aria-selected="tab === '{{ $key }}'" @click="choose('{{ $key }}')" :class="tab === '{{ $key }}' ? 'bg-purple-700 border-purple-400 text-white shadow-lg shadow-purple-800/40' : 'bg-black/30 border-gray-700 text-gray-300 hover:border-purple-600'" class="min-w-0 rounded-lg border px-2 py-2 text-center text-xs font-semibold leading-tight">{{ $label }} ({{ $count }})</button>
         @endforeach
       </div>
     </header>

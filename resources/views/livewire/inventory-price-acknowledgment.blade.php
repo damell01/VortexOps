@@ -10,9 +10,9 @@
         $backCount = collect($arrivals)->where('kind','restocked')->count();
       @endphp
       <div class="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        @foreach ([['Price Changes',count($changes),'purple'],['Stock Updates',count($arrivals),'sky'],['Back in Stock',$backCount,'emerald'],['Out of Stock',$outCount,'rose']] as [$label,$count,$tone])
-          <div class="rounded-2xl border border-{{ $tone }}-500/50 bg-black/30 p-3 shadow-inner">
-            <div class="text-2xl font-black">{{ $count }}</div><div class="text-xs font-semibold text-{{ $tone }}-300 sm:text-sm">{{ $label }}</div>
+        @foreach ([['Price Changes',count($changes),'border-purple-500/50','text-purple-300'],['Stock Updates',count($arrivals),'border-sky-500/50','text-sky-300'],['Back in Stock',$backCount,'border-emerald-500/50','text-emerald-300'],['Out of Stock',$outCount,'border-rose-500/50','text-rose-300']] as [$label,$count,$borderClass,$textClass])
+          <div class="rounded-2xl border {{ $borderClass }} bg-black/30 p-3 shadow-inner">
+            <div class="text-2xl font-black">{{ $count }}</div><div class="text-xs font-semibold {{ $textClass }} sm:text-sm">{{ $label }}</div>
           </div>
         @endforeach
       </div>

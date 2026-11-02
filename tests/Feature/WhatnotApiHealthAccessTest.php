@@ -34,4 +34,11 @@ class WhatnotApiHealthAccessTest extends TestCase
         ])->assertForbidden();
     }
 
+    public function test_owner_tools_api_page_is_owner_only_and_defaults_to_disabled(): void
+    {
+        $user = User::factory()->create(['email' => 'non-owner-control-center@example.test']);
+        $this->actingAs($user)->get('/admin/whatnot-api/health')->assertForbidden();
+        $this->assertFalse((bool) config('services.whatnot_seller.live_requests_enabled'));
+        $this->assertFalse((bool) config('services.whatnot_seller.sync_scheduler_enabled'));
+    }
 }

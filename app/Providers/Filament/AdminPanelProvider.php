@@ -86,6 +86,9 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
             ->viteTheme('resources/css/filament/admin/theme.css')
+            // Light for everyone who hasn't picked a theme; a saved choice (the
+            // theme switcher stores it in localStorage) is still respected.
+            ->defaultThemeMode(\Filament\Enums\ThemeMode::Light)
             // Desktop uses the custom top navigation. Keep Filament's native
             // sidebar behavior for mobile only; do not render a desktop toggle.
             // Mobile-optimized: 6xl on desktop, full width on mobile

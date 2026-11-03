@@ -1144,3 +1144,85 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+
+/* ==========================================================================
+   VortexOps design system — 2026-11 redesign (light default, dark supported)
+   One layer over the earlier passes: brand tokens for both themes, and shared
+   Filament primitives (page header, cards, tables, tabs, badges, buttons,
+   inputs, modals, empty states). Layout and behaviour are unchanged.
+   ========================================================================== */
+:root {
+  /* Brand palette */
+  --vx-brand: #7c3aed;          /* primary */
+  --vx-brand-2: #a855f7;        /* accent */
+  --vx-brand-soft: #f3eefe;     /* tinted surfaces, active pills */
+  --vx-navy: #0f172a;           /* headings */
+  --vx-success: #10b981; --vx-warning: #f59e0b; --vx-danger: #ef4444; --vx-info: #3b82f6;
+  /* Surfaces & text (light) — AA contrast on white and on the page */
+  --vx-page: #f7f7fb; --vx-surface: #ffffff; --vx-surface-2: #fafafd;
+  --vx-border: #e7e7ef; --vx-divider: #f0f0f5;
+  --vx-text: #0f172a; --vx-muted: #556070; --vx-faint: #7d8796;
+  --vx-soft-primary: #f3eefe; --vx-primary-text: #5b21b6;
+  --vx-radius: 14px; --vx-radius-sm: 10px;
+  --vx-shadow: 0 1px 2px rgb(15 23 42 / .04), 0 4px 14px rgb(15 23 42 / .04);
+  --vx-shadow-pop: 0 10px 30px rgb(15 23 42 / .12);
+}
+.dark {
+  --vx-brand-soft: rgb(124 58 237 / .18);
+  --vx-page: #0b0d1a; --vx-surface: #131629; --vx-surface-2: #181b31;
+  --vx-border: #262a42; --vx-divider: #1f2338;
+  --vx-text: #f1f3f9; --vx-muted: #a7aec4; --vx-faint: #7f87a3;
+  --vx-soft-primary: rgb(124 58 237 / .18); --vx-primary-text: #c4b5fd;
+  --vx-shadow: 0 1px 2px rgb(0 0 0 / .3);
+  --vx-shadow-pop: 0 12px 32px rgb(0 0 0 / .45);
+}
+
+body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); }
+
+/* Page header: one compact row — title, subtitle, actions */
+.fi-header-heading { font-size: 24px; line-height: 1.2; font-weight: 750; letter-spacing: -.02em; color: var(--vx-text); }
+.fi-header-subheading { font-size: 13.5px; color: var(--vx-muted); }
+@media (max-width: 639px) { .fi-header-heading { font-size: 21px; } }
+
+/* Cards: sections, tables, widgets, modals */
+.fi-section, .fi-ta, .fi-wi, .vx-card, .vxr-card {
+  background: var(--vx-surface); border: 1px solid var(--vx-border);
+  border-radius: var(--vx-radius); box-shadow: var(--vx-shadow);
+}
+.fi-modal-window { border-radius: var(--vx-radius); box-shadow: var(--vx-shadow-pop); background: var(--vx-surface); }
+.fi-section-header-heading, .fi-ta-header-heading { font-size: 15px; font-weight: 700; color: var(--vx-text); }
+.fi-section-header-description, .fi-ta-header-description { font-size: 13px; color: var(--vx-muted); }
+
+/* Tables: quiet header, compact rows, clear hover */
+.fi-ta-header-cell { background: var(--vx-surface-2); border-bottom: 1px solid var(--vx-border); height: 38px; }
+.fi-ta-header-cell-label { font-size: 11.5px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; color: var(--vx-muted); }
+.fi-ta-row { height: 52px; }
+.fi-ta-row:hover > .fi-ta-cell { background: var(--vx-surface-2); }
+.fi-ta-cell { border-bottom: 1px solid var(--vx-divider); }
+
+/* Tabs: active tab as a soft purple pill (mockup) */
+.fi-tabs { gap: 6px; border-bottom: 1px solid var(--vx-border); padding-bottom: 6px; }
+.fi-tabs-item { border-radius: 999px; border-bottom: 0; padding: 7px 14px; color: var(--vx-muted); font-weight: 600; }
+.fi-tabs-item:hover { background: var(--vx-surface-2); color: var(--vx-text); }
+.fi-tabs-item.fi-active { background: var(--vx-brand-soft); color: var(--vx-primary-text); border-bottom: 0; }
+
+/* Buttons & inputs: consistent height and radius */
+.fi-btn { border-radius: var(--vx-radius-sm); font-weight: 650; }
+.fi-input-wrp, .fi-select-input { border-radius: var(--vx-radius-sm); }
+.fi-input-wrp { background: var(--vx-surface); }
+
+/* Status badges: soft fills */
+.fi-badge { border-radius: 999px; font-weight: 650; }
+
+/* Empty states: one compact line, not a tall box */
+.fi-ta-empty-state-heading { font-size: 15px; }
+.fi-ta-empty-state-description { font-size: 13px; color: var(--vx-muted); }
+
+/* Dropdowns & popovers: on-brand surface, kept inside the viewport */
+.fi-dropdown-panel { border-radius: var(--vx-radius-sm); border: 1px solid var(--vx-border); box-shadow: var(--vx-shadow-pop); background: var(--vx-surface); }
+
+/* Respect reduced motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

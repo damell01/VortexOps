@@ -10,7 +10,8 @@ class WhatnotDailyOverview extends Model
 {
     protected $guarded = ['id'];
 
-    protected $casts = ['date' => 'date'];
+    // Saved as a plain Y-m-d day so the (channel, date) lookup matches on every database.
+    protected $casts = ['date' => 'date:Y-m-d'];
 
     public function channel(): BelongsTo
     {

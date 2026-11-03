@@ -15,8 +15,8 @@ App-wide passes applied to every screen:
 6. Accessibility: icon-only buttons labelled; light-mode secondary text raised to AA contrast (361 elements); reduced motion respected.
 7. Buttons in the mockup style: gradient primary, tinted secondary colours, bordered gray; solid buttons kept in modal footers.
 8. Reports and workflow screens use the same palette tokens; stat tiles (report tiles and Filament stat widgets) with tinted icon chips.
-10. Module screens: gradient primary actions and purple selected chips on workflow/report screens; compact report tables.
 9. Top navigation: white bar in light mode with a purple pill for hover and the current section; logos on a navy chip; navy bar kept in dark mode.
+10. Module screens: gradient primary actions and purple selected chips on workflow/report screens; compact report tables.
 Total: 209
 
 

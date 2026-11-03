@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <div class="flex flex-wrap items-center gap-3"><livewire:inventory-recent-changes wire:key="inventory-list-recent-changes" /></div>
 <div x-data="{ pendingStock: null }" x-on:livewire:commit.window="pendingStock = null">
 <style>
 .vx-health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.vx-health{border:1px solid rgb(229 231 235);border-radius:14px;padding:14px;text-align:left;background:white;transition:.15s}.dark .vx-health{background:#101827;border-color:#263248}.vx-health:hover,.vx-health.active{border-color:#7c3aed;box-shadow:0 0 0 1px #7c3aed}.vx-health strong{display:block;font-size:1.65rem}.vx-health{min-height:92px}.vx-health-label{font-weight:700}.vx-health-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px}.vx-health-label{font-size:.76rem;color:#94a3b8}.vx-health-percent{font-size:.72rem;font-weight:700;color:#7c3aed}

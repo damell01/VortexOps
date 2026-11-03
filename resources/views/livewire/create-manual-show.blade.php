@@ -15,7 +15,7 @@
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Create Manual Show</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Add a new show to your account</p>
                 </div>
-                <button wire:click="closeModal" type="button"
+                <button aria-label="Close" wire:click="closeModal" type="button"
                     class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
                     <x-heroicon-o-x-mark class="h-5 w-5" />
                 </button>

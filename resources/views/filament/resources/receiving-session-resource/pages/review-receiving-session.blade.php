@@ -6,7 +6,7 @@
     <div class="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-5 py-3 flex items-center gap-3">
         <x-heroicon-o-check-circle class="h-5 w-5 text-green-500 flex-shrink-0" />
         <span class="text-sm text-green-800 dark:text-green-200">{{ $flashOk }}</span>
-        <button wire:click="$set('flashOk', null)" class="ml-auto text-green-400 hover:text-green-600">
+        <button aria-label="Dismiss message" wire:click="$set('flashOk', null)" class="ml-auto text-green-400 hover:text-green-600">
             <x-heroicon-o-x-mark class="h-4 w-4" />
         </button>
     </div>
@@ -15,7 +15,7 @@
     <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-5 py-3 flex items-center gap-3">
         <x-heroicon-o-exclamation-circle class="h-5 w-5 text-red-400 flex-shrink-0" />
         <span class="text-sm text-red-700 dark:text-red-300">{{ $flashError }}</span>
-        <button wire:click="$set('flashError', null)" class="ml-auto text-red-400 hover:text-red-600">
+        <button aria-label="Dismiss error" wire:click="$set('flashError', null)" class="ml-auto text-red-400 hover:text-red-600">
             <x-heroicon-o-x-mark class="h-4 w-4" />
         </button>
     </div>

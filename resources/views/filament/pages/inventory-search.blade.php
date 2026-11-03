@@ -132,7 +132,7 @@
                     <button wire:click="loadFilter('{{ $filter }}')" class="hover:underline font-medium">
                         {{ $filter }}
                     </button>
-                    <button wire:click="deleteFilter('{{ $filter }}')" class="hover:text-primary-600 dark:hover:text-primary-200">
+                    <button aria-label="Remove filter" wire:click="deleteFilter('{{ $filter }}')" class="hover:text-primary-600 dark:hover:text-primary-200">
                         <x-heroicon-o-x-mark class="h-4 w-4" />
                     </button>
                 </div>

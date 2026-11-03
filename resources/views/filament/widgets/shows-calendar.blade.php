@@ -22,14 +22,14 @@
         <div class="flex items-center justify-between w-full">
             <span>Show Calendar</span>
             <div class="flex items-center gap-2">
-                <button
+                <button aria-label="Previous month"
                     wire:click="previousMonth"
                     class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
                 >
                     <x-heroicon-o-chevron-left class="h-4 w-4" />
                 </button>
                 <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 w-36 text-center">{{ $monthLabel }}</span>
-                <button
+                <button aria-label="Next month"
                     wire:click="nextMonth"
                     class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
                     @if ($isFuture) disabled @endif

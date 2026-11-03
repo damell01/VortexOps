@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <style>
         .vx-inventory-edit{width:100%;max-width:none;margin:0}.vx-inventory-edit-intro{display:none}
-        .vx-barcode-card{margin:0 0 1rem;border:1px solid rgb(226 232 240);border-radius:1rem;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+        .vx-barcode-card{margin:1rem 0 0;border:1px solid rgb(226 232 240);border-radius:1rem;background:#fff;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
         .dark .vx-barcode-card{border-color:rgb(51 65 85);background:rgb(15 23 42)}
         .vx-barcode-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1rem 1.1rem;border-bottom:1px solid rgb(226 232 240)}
         .dark .vx-barcode-head{border-color:rgb(51 65 85)}
@@ -29,7 +29,7 @@
         .vx-code-primary{background:rgb(220 252 231);color:rgb(21 128 61)}.dark .vx-code-primary{background:rgba(22,163,74,.2);color:rgb(134 239 172)}
         .vx-code-delete{border:1px solid rgb(254 202 202);border-radius:.55rem;padding:.35rem .55rem;font-size:.72rem;font-weight:700;color:rgb(185 28 28)}
         .dark .vx-code-delete{border-color:rgb(127 29 29);color:rgb(252 165 165)}
-        .vx-barcode-empty{padding:1rem;border:1px dashed rgb(203 213 225);border-radius:.75rem;text-align:center;font-size:.8rem;color:rgb(71 85 105)}.dark .vx-barcode-empty{border-color:rgb(71 85 105);color:rgb(203 213 225)}
+        .vx-barcode-empty{padding:.55rem .75rem;border:1px dashed rgb(203 213 225);border-radius:.75rem;text-align:center;font-size:.8rem;color:rgb(71 85 105)}.dark .vx-barcode-empty{border-color:rgb(71 85 105);color:rgb(203 213 225)}
         .vx-barcode-status{margin-top:.65rem;font-size:.78rem;color:rgb(71 85 105)}.dark .vx-barcode-status{color:rgb(203 213 225)}
         .vx-barcode-status.error{color:rgb(185 28 28)}.dark .vx-barcode-status.error{color:rgb(252 165 165)}
         @media(max-width:640px){
@@ -52,6 +52,11 @@
             <p>Update the product, barcode, pricing, case contents, and reorder settings. Stock quantity changes stay in Move / Correct Stock.</p>
         </div>
 
+        <form wire:submit="save" novalidate>
+            {{ $this->form }}
+            <div class="fi-form-actions mt-6 flex flex-wrap gap-3"><x-filament::button type="submit" icon="heroicon-o-check">Save changes</x-filament::button><x-filament::button tag="a" color="gray" :href="\App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $this->record])">Cancel</x-filament::button></div>
+        </form>
+
         <section class="vx-barcode-card" data-vx-barcode-manager>
             <div class="vx-barcode-head"><div><div class="vx-barcode-title">Barcodes / UPCs</div><p class="vx-barcode-copy">Add another scannable code for this item without replacing the primary barcode.</p></div></div>
             <div class="vx-barcode-body">
@@ -68,10 +73,7 @@
             </div>
         </section>
 
-        <form wire:submit="save" novalidate>
-            {{ $this->form }}
-            <div class="fi-form-actions mt-6 flex flex-wrap gap-3"><x-filament::button type="submit" icon="heroicon-o-check">Save changes</x-filament::button><x-filament::button tag="a" color="gray" :href="\App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $this->record])">Cancel</x-filament::button></div>
-        </form>
+
     </div>
 
     <script>

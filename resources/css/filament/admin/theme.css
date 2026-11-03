@@ -1311,3 +1311,29 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
 .vxr-stat--compact .vxr-stat-value { font-size: 19px; }
 .vxt-stats .vxr-stat { min-height: 0; }
 .vxt-stats .vxr-stat-icon { font-size: 20px; }
+
+/* ── Design system: top navigation (mockup) ─────────────────────────────
+   Light: white bar, dark labels, soft purple pill for hover and the section
+   you are in. Dark keeps the navy bar. */
+@media(min-width:1024px){
+  html:not(.dark) .fi-topbar{background:var(--vx-surface)!important;border-bottom:1px solid var(--vx-border)!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger){color:var(--vx-text)}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger) svg{color:var(--vx-muted)}
+  .fi-topbar :is(.vx-mega-home,.vx-mega-trigger){transition:background-color .15s,color .15s}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger):hover,
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger)[aria-expanded="true"]{background:var(--vx-brand-soft);color:var(--vx-brand)}
+  html:not(.dark) .fi-topbar :is(.vx-mega-trigger.is-here,[aria-current="page"]){background:var(--vx-brand-soft);color:var(--vx-brand);box-shadow:inset 0 0 0 1px rgba(124,58,237,.18)}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger):hover svg,
+  html:not(.dark) .fi-topbar .vx-mega-trigger.is-here svg{color:var(--vx-brand)}
+  .dark .fi-topbar .vx-mega-trigger.is-here{background:rgba(124,58,237,.24);color:#fff}
+  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select-wrp{border-color:var(--vx-border);background:var(--vx-surface-2)}
+  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select{color:var(--vx-text)}
+  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel :is(.vx-channel-switcher-icon,.vx-channel-switcher-chevron){color:var(--vx-muted)}
+  html:not(.dark) .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){background:var(--vx-surface-2);border-color:var(--vx-border)}
+  html:not(.dark) .fi-topbar .fi-topbar-end .fi-icon-btn{color:var(--vx-muted)}
+  html:not(.dark) .fi-topbar .fi-topbar-end .fi-icon-btn:hover{background:var(--vx-brand-soft);color:var(--vx-brand)}
+  .dark .vx-mega-menu{background:var(--vx-surface);border-color:var(--vx-border)}
+  .dark .vx-mega-menu a{color:var(--vx-text)}
+  .dark .vx-mega-menu a:hover{background:rgba(124,58,237,.18);color:#fff}
+  .dark .vx-mega-section{border-top-color:var(--vx-border)}
+}

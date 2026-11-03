@@ -348,7 +348,7 @@
                                 </div>
                             </article>
                         @empty
-                            <div class="px-5 py-12 text-center">
+                            <div class="px-5 py-8 text-center">
                                 <x-heroicon-o-inbox class="mx-auto h-9 w-9 text-gray-300" />
                                 <div class="mt-2 text-sm font-semibold text-gray-700 dark:text-gray-200">No manifest items yet</div>
                                 <p class="mt-1 text-xs text-gray-500">Add the expected items before receiving.</p>

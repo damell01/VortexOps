@@ -40,7 +40,7 @@
                     </div>
                 </a>
             @empty
-                <div class="col-span-full py-8 text-center text-sm text-gray-500">No completed shows from the previous 7 days.</div>
+                <div class="col-span-full py-5 text-center text-sm text-gray-500">No completed shows from the previous 7 days.</div>
             @endforelse
         </div>
     </section>

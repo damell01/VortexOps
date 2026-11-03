@@ -188,7 +188,7 @@
                     <div class="flex flex-wrap items-center justify-end gap-1">@foreach($miss as $m)<span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{{ $m }} missing</span>@endforeach <span class="ml-2 text-xs font-semibold text-primary-600">Open →</span></div>
                 </a>
             @empty
-                <div class="p-8 text-center text-sm text-gray-500">No past shows match this filter in this period.</div>
+                <div class="p-5 text-center text-sm text-gray-500">No past shows match this filter in this period.</div>
             @endforelse
         </div>
         @if($d['followUpPages'] > 1)

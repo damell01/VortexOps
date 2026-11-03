@@ -28,7 +28,7 @@
     <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center;">
         <div class="relative grid gap-5 lg:grid-cols-[1fr_260px]">
             <div class="min-w-0">
-                <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
+                <h1 class="text-2xl font-bold tracking-tight sm:text-2xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
                 <p class="mt-2 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
                 <div class="mt-6 flex flex-wrap gap-2">
                     @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)
@@ -70,7 +70,7 @@
             <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse(($recentInventoryActivity ?? []) as $activity)
                 <div class="flex items-center gap-3 py-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950"><x-heroicon-o-cube class="h-5 w-5" /></span><div class="min-w-0 flex-1"><span class="text-[10px] text-gray-400">{{ $activity['time'] }}</span><div class="truncate text-xs font-semibold text-gray-900 dark:text-white">{{ $activity['name'] }}</div></div>@php $moved = $activity['transfer'] ?? false; $q = (float) $activity['qty']; @endphp<span class="shrink-0 rounded-lg px-2 py-1 text-xs font-bold {{ $moved || $q == 0 ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' : ($q > 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-300') }}">{{ $moved ? 'Moved ' : ($q > 0 ? '+' : ($q < 0 ? '−' : '')) }}{{ rtrim(rtrim(number_format(abs($q), 2), '0'), '.') }}</span><span class="hidden max-w-16 text-[10px] text-gray-400 xl:block">{{ $activity['type'] }}</span></div>
-                @empty<p class="py-8 text-center text-xs text-gray-500">No recent inventory activity.</p>@endforelse
+                @empty<p class="py-5 text-center text-xs text-gray-500">No recent inventory activity.</p>@endforelse
             </div>
         </section>
         <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardNeedsAttentionWidget::class]" :columns="1" /></div>

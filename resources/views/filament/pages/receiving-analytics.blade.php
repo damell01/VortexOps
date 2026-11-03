@@ -5,26 +5,26 @@
 {{-- ── Summary KPIs ──────────────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $s['sessions'] }}</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $s['sessions'] }}</p>
         <p class="text-xs text-gray-400 mt-1">Sessions Completed</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $s['total_lines'] }}</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $s['total_lines'] }}</p>
         <p class="text-xs text-gray-400 mt-1">Lines Processed</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold {{ (float)$s['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ((float)$s['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+        <p class="text-2xl font-bold {{ (float)$s['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ((float)$s['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
             {{ $s['auto_match_rate'] > 0 ? $s['auto_match_rate'] . '%' : '—' }}
         </p>
         <p class="text-xs text-gray-400 mt-1">Auto-Match Rate</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($s['total_aliases']) }}</p>
+        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($s['total_aliases']) }}</p>
         <p class="text-xs text-gray-400 mt-1">Aliases Learned</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $s['confirmed'] }} confirmed</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center col-span-2 sm:col-span-2">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">${{ $s['receiving_cost'] }}</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ $s['receiving_cost'] }}</p>
         <p class="text-xs text-gray-400 mt-1">Total Receiving Cost</p>
         <p class="text-xs text-gray-500 mt-0.5">all received lots</p>
     </div>
@@ -83,7 +83,7 @@
             $totalMatched = array_sum(array_column($stages, 'count'));
         @endphp
         @if(count($stages) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No match data yet.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-400">No match data yet.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($stages as $stage)
@@ -130,7 +130,7 @@
             </a>
         </div>
         @if(count($this->topVendors) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No vendor data yet.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-400">No vendor data yet.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->topVendors as $v)

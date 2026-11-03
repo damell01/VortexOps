@@ -73,7 +73,7 @@
                             <p class="mt-1 text-xs text-gray-500">JPG, PNG or WebP, up to 5 MB. Leave blank to keep the current photo.</p>
                             <div class="mt-3 flex flex-wrap gap-2">
                                 <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white"><x-heroicon-o-camera class="h-5 w-5" />Take Photo<input type="file" wire:model="itemPhoto" accept="image/jpeg,image/png,image/webp" capture="environment" class="sr-only" /></label>
-                                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-violet-200 bg-white px-4 py-2 text-xs font-bold text-violet-700"><x-heroicon-o-photo class="h-5 w-5" />Choose Photo<input type="file" wire:model="itemPhoto" accept="image/jpeg,image/png,image/webp" class="sr-only" /></label>
+                                <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-violet-200 bg-white px-4 py-2 text-xs font-bold text-violet-700 dark:bg-gray-900 dark:border-gray-700"><x-heroicon-o-photo class="h-5 w-5" />Choose Photo<input type="file" wire:model="itemPhoto" accept="image/jpeg,image/png,image/webp" class="sr-only" /></label>
                                 @if($itemPhoto)<span class="self-center text-xs font-semibold text-emerald-700">Photo selected</span><button type="button" wire:click="$set('itemPhoto', null)" class="min-h-11 rounded-lg border px-3 text-xs font-bold">Clear</button>@endif
                             </div>
                             <span wire:loading wire:target="itemPhoto" class="mt-2 block text-xs font-semibold text-violet-700">Uploading photo…</span>

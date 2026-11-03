@@ -1,6 +1,6 @@
 <div class="space-y-4">
     @if($sessions->isEmpty())
-    <div class="text-center text-gray-500 dark:text-gray-400 py-8">
+    <div class="text-center text-gray-500 dark:text-gray-400 py-5">
         <p>No receiving sessions recorded for this pallet</p>
     </div>
     @else

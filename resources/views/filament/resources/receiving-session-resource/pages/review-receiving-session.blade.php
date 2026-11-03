@@ -573,7 +573,7 @@
 
 {{-- ── Empty state --}}
 @if($total === 0)
-<div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-8 py-14 text-center space-y-2">
+<div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-5 py-14 text-center space-y-2">
     <x-heroicon-o-inbox-arrow-down class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No lines yet</p>
     <p class="text-xs text-gray-400 dark:text-gray-500">Use the manual import above or attach a pallet to this session</p>

@@ -3,7 +3,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Workflow Status</h3>
 
-        <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center justify-between mb-5">
             {{-- Step 1: Streamer Review --}}
             <div class="flex flex-col items-center flex-1">
                 <div @class([
@@ -241,7 +241,7 @@
 
             @case('completed')
                 <div class="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <span class="text-4xl">✓</span>
+                    <span class="text-3xl">✓</span>
                     <div>
                         <p class="font-semibold text-gray-900 dark:text-white">All Steps Complete</p>
                         <p class="text-sm text-gray-600 dark:text-gray-400">This streamer log has been fully processed and approved.</p>

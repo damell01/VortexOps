@@ -191,7 +191,7 @@
                             </template>
                         </div>
                     </template>
-                    <div x-show="list.length === 0" class="px-4 py-10 text-center">
+                    <div x-show="list.length === 0" class="px-4 py-6 text-center">
                         <div class="font-semibold">No shows match</div>
                         <div class="vxw-meta mt-1" x-text="tab === 'mine' ? 'Your assigned upcoming shows and shows from the last two weeks are listed. Pick a reason instead, or link the show later.' : 'Try a different search.'"></div>
                     </div>

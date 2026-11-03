@@ -54,7 +54,7 @@
 
             @if ($submitted)
                 {{-- Success state --}}
-                <div class="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <div class="flex flex-col items-center justify-center py-10 px-6 text-center">
                     <div class="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>

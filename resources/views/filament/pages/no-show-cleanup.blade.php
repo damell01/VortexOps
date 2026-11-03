@@ -56,7 +56,7 @@
                     </div>
                 </div>
             @empty
-                <div class="p-10 text-center text-sm text-gray-500">No confirmed no-shows found. Any that come up during a future analytics sync will land here.</div>
+                <div class="p-6 text-center text-sm text-gray-500">No confirmed no-shows found. Any that come up during a future analytics sync will land here.</div>
             @endforelse
         </div>
     </section>
@@ -125,7 +125,7 @@
                     </div>
                 </div>
             @empty
-                <div class="p-10 text-center text-sm text-gray-500">Nothing flagged right now.</div>
+                <div class="p-6 text-center text-sm text-gray-500">Nothing flagged right now.</div>
             @endforelse
         </div>
     </section>

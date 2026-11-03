@@ -4,7 +4,7 @@
         <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg p-4 md:p-5 text-white">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                    <h1 class="text-2xl md:text-3xl font-bold mb-1">Welcome back, {{ $this->getStreamer()->name }}! 👋</h1>
+                    <h1 class="text-2xl md:text-2xl font-bold mb-1">Welcome back, {{ $this->getStreamer()->name }}! 👋</h1>
                     <p class="text-indigo-100">Here's your streaming dashboard. Quick access to everything you need.</p>
                 </div>
                 <div class="flex gap-2 flex-wrap md:flex-nowrap">
@@ -25,25 +25,25 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 md:p-4">
                 <p class="text-xs md:text-sm text-blue-600 dark:text-blue-400 uppercase font-semibold">Total Shows</p>
-                <p class="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $stats['total_shows'] }}</p>
+                <p class="text-2xl md:text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $stats['total_shows'] }}</p>
                 <p class="text-xs text-blue-600 dark:text-blue-400 mt-1">{{ $stats['upcoming_shows'] }} upcoming</p>
             </div>
 
             <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3 md:p-4">
                 <p class="text-xs md:text-sm text-green-600 dark:text-green-400 uppercase font-semibold">Total Revenue</p>
-                <p class="text-2xl md:text-3xl font-bold text-green-900 dark:text-green-100 mt-2">${{ number_format($stats['total_revenue'], 0) }}</p>
+                <p class="text-2xl md:text-2xl font-bold text-green-900 dark:text-green-100 mt-2">${{ number_format($stats['total_revenue'], 0) }}</p>
                 <p class="text-xs text-green-600 dark:text-green-400 mt-1">All time</p>
             </div>
 
             <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 md:p-4">
                 <p class="text-xs md:text-sm text-amber-600 dark:text-amber-400 uppercase font-semibold">Logs Pending</p>
-                <p class="text-2xl md:text-3xl font-bold text-amber-900 dark:text-amber-100 mt-2">{{ $stats['logs_pending'] }}</p>
+                <p class="text-2xl md:text-2xl font-bold text-amber-900 dark:text-amber-100 mt-2">{{ $stats['logs_pending'] }}</p>
                 <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Need logging</p>
             </div>
 
             <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-3 md:p-4">
                 <p class="text-xs md:text-sm text-purple-600 dark:text-purple-400 uppercase font-semibold">Share Pending</p>
-                <p class="text-2xl md:text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">{{ $stats['profit_share_pending'] }}</p>
+                <p class="text-2xl md:text-2xl font-bold text-purple-900 dark:text-purple-100 mt-2">{{ $stats['profit_share_pending'] }}</p>
                 <p class="text-xs text-purple-600 dark:text-purple-400 mt-1">Awaiting approval</p>
             </div>
         </div>

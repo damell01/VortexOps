@@ -139,7 +139,7 @@
 
                                                     <div class="flex-1 overflow-y-auto p-2">
                                                         <template x-if="!loading && results.length === 0">
-                                                            <div class="px-3 py-10 text-center text-sm text-gray-500">
+                                                            <div class="px-3 py-6 text-center text-sm text-gray-500">
                                                                 No matching inventory.<br>Close this and type a new item name instead.
                                                             </div>
                                                         </template>

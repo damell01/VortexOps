@@ -38,9 +38,9 @@
 
 {{-- ── Results ───────────────────────────────────────────────────────────────── --}}
 @if($scanning)
-<div class="text-center py-12 text-gray-400 text-sm">Scanning products…</div>
+<div class="text-center py-8 text-gray-400 text-sm">Scanning products…</div>
 @elseif(count($pairs) === 0 && ! $scanning)
-<div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-8 py-14 text-center space-y-2">
+<div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-5 py-14 text-center space-y-2">
     <x-heroicon-o-document-duplicate class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No duplicate candidates found</p>
     <p class="text-xs text-gray-400 dark:text-gray-500">Click "Scan for Duplicates" to analyze your product catalog</p>

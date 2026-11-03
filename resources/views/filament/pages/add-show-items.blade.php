@@ -62,7 +62,7 @@
             </div>
 
             @if ($this->lines->isEmpty())
-                <div class="px-6 py-10 text-center">
+                <div class="px-6 py-6 text-center">
                     <x-heroicon-o-archive-box class="mx-auto h-8 w-8 text-gray-400 mb-2" />
                     <p class="text-sm text-gray-500">No items added yet — use the form above.</p>
                 </div>

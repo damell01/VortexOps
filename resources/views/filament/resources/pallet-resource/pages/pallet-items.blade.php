@@ -134,7 +134,7 @@
                 </div>
             @endif
         @empty
-            <div class="px-3 py-10 text-center">
+            <div class="px-3 py-6 text-center">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Nothing has been received from this pallet yet.</p>
                 <p class="mt-1 text-xs text-gray-400">Items appear here as they are scanned in.</p>
             </div>

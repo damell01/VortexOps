@@ -160,7 +160,7 @@
                 </div>
             </div>
         @empty
-            <div class="px-5 py-8 text-center text-sm text-gray-400">
+            <div class="px-5 py-5 text-center text-sm text-gray-400">
                 No channels configured.
                 <a href="{{ \App\Filament\Resources\WhatnotChannelResource::getUrl('create') }}" class="text-violet-600 dark:text-violet-400 hover:underline ml-1">Add a channel →</a>
             </div>
@@ -174,7 +174,7 @@
         </div>
 
         @if (count($this->recentShows) === 0)
-            <div class="px-5 py-8 text-center text-sm text-gray-400">No shows imported yet.</div>
+            <div class="px-5 py-5 text-center text-sm text-gray-400">No shows imported yet.</div>
         @else
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">

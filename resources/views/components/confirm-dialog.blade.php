@@ -13,7 +13,7 @@
     <div class="text-center">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full
                   {{ $isDangerous ? 'bg-red-100 dark:bg-red-900/30' : 'bg-blue-100 dark:bg-blue-900/30' }} mb-4">
-            <span class="text-4xl">{{ $icon }}</span>
+            <span class="text-3xl">{{ $icon }}</span>
         </div>
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">{{ $title }}</h2>
         <p class="text-gray-600 dark:text-gray-400">{{ $description }}</p>

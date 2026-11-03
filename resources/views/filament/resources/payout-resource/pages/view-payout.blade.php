@@ -53,8 +53,8 @@
                 <div class="px-5 py-3.5 border-b border-emerald-100 dark:border-emerald-800">
                     <h2 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Final Payout</h2>
                 </div>
-                <div class="flex-1 flex flex-col items-center justify-center px-5 py-8">
-                    <p class="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                <div class="flex-1 flex flex-col items-center justify-center px-5 py-5">
+                    <p class="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
                         ${{ number_format((float) $payout->calculated_payout, 2) }}
                     </p>
                     <p class="mt-2 text-xs text-emerald-600 dark:text-emerald-500 text-center">

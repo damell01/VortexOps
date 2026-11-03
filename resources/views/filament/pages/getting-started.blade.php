@@ -1,8 +1,8 @@
 <x-filament-panels::page>
-    <div class="space-y-8">
+    <div class="space-y-5">
         <!-- Header -->
-        <div class="rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-800 dark:to-primary-900 px-6 py-8 text-white">
-            <h2 class="text-3xl font-bold mb-2">Welcome to VortexOps</h2>
+        <div class="rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-800 dark:to-primary-900 px-6 py-5 text-white">
+            <h2 class="text-2xl font-bold mb-2">Welcome to VortexOps</h2>
             <p class="text-primary-100 text-lg">Your operations hub for managing shows, inventory, and payouts</p>
         </div>
 

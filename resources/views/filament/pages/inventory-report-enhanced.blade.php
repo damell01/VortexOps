@@ -110,7 +110,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Inventory Value</p>
-                    <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+                    <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
                         ${{ number_format($snapshot->total_value, 2) }}
                     </p>
                     @php
@@ -127,19 +127,19 @@
 
                 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Items</p>
-                    <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $snapshot->total_items }}</p>
+                    <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $snapshot->total_items }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">SKUs in inventory</p>
                 </div>
 
                 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Total Units</p>
-                    <p class="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($snapshot->total_quantity) }}</p>
+                    <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($snapshot->total_quantity) }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Quantity on hand</p>
                 </div>
 
                 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stock Alerts</p>
-                    <p class="mt-2 text-3xl font-bold text-amber-600 dark:text-amber-400">
+                    <p class="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-400">
                         {{ collect($snapshot->stock_outs ?? [])->count() }}
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Items out of stock</p>
@@ -194,25 +194,25 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-400">✓ Healthy</p>
-                    <p class="mt-2 text-3xl font-bold text-green-900 dark:text-green-100">{{ $health['healthy'] }}</p>
+                    <p class="mt-2 text-2xl font-bold text-green-900 dark:text-green-100">{{ $health['healthy'] }}</p>
                     <p class="text-xs text-green-700 dark:text-green-400 mt-2">{{ round(($health['healthy']/$health['total'])*100) }}% of inventory</p>
                 </div>
 
                 <div class="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-yellow-700 dark:text-yellow-400">⚠ Low Stock</p>
-                    <p class="mt-2 text-3xl font-bold text-yellow-900 dark:text-yellow-100">{{ $health['low_stock'] }}</p>
+                    <p class="mt-2 text-2xl font-bold text-yellow-900 dark:text-yellow-100">{{ $health['low_stock'] }}</p>
                     <p class="text-xs text-yellow-700 dark:text-yellow-400 mt-2">Below reorder level</p>
                 </div>
 
                 <div class="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-400">📦 Over Stock</p>
-                    <p class="mt-2 text-3xl font-bold text-orange-900 dark:text-orange-100">{{ $health['over_stock'] }}</p>
+                    <p class="mt-2 text-2xl font-bold text-orange-900 dark:text-orange-100">{{ $health['over_stock'] }}</p>
                     <p class="text-xs text-orange-700 dark:text-orange-400 mt-2">Above 3x reorder</p>
                 </div>
 
                 <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
                     <p class="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-400">🔴 Out</p>
-                    <p class="mt-2 text-3xl font-bold text-red-900 dark:text-red-100">{{ $health['out_of_stock'] }}</p>
+                    <p class="mt-2 text-2xl font-bold text-red-900 dark:text-red-100">{{ $health['out_of_stock'] }}</p>
                     <p class="text-xs text-red-700 dark:text-red-400 mt-2">No inventory</p>
                 </div>
             </div>
@@ -486,7 +486,7 @@
 
         {{-- TAB: BREAKDOWNS --}}
         @if($activeTab === 'breakdowns')
-        <div class="space-y-8">
+        <div class="space-y-5">
             {{-- Category Breakdown --}}
             <div>
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">By Category</h3>

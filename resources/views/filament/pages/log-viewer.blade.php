@@ -120,7 +120,7 @@
                     </div>
                 </div>
             @empty
-                <div class="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500">
+                <div class="flex flex-col items-center justify-center py-10 text-gray-400 dark:text-gray-500">
                     <x-heroicon-o-check-circle class="h-10 w-10 mb-2 text-emerald-400" />
                     <p class="text-sm font-medium">No log entries</p>
                     <p class="text-xs mt-1">{{ $levelFilter ? 'No ' . $levelFilter . ' entries found' : 'The log file is empty' }}</p>

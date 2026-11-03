@@ -43,7 +43,7 @@
                     <div class="vx-fc-next">Next: {{ $stage['next'] }} →</div>
                 </a>
             @empty
-                <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">No fulfillment work is currently queued.</div>
+                <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-5 text-center text-sm text-gray-500 dark:border-gray-700">No fulfillment work is currently queued.</div>
             @endforelse
         </div>
     </div>

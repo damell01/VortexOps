@@ -136,7 +136,7 @@
                             <td class="px-4 py-2.5">{{ ['ok' => 'OK', 'flagged' => 'Needs review', 'approved' => 'Approved', 'rejected' => 'Not paid'][$e->status] ?? $e->status }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No entries.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-5 text-center text-gray-500">No entries.</td></tr>
                     @endforelse
                 </tbody>
             </table>

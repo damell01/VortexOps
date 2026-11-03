@@ -83,7 +83,7 @@
                     </div>
                 </article>
             @empty
-                <div class="col-span-full rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center dark:border-gray-700">
+                <div class="col-span-full rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center dark:border-gray-700">
                     <x-heroicon-o-truck class="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600" />
                     <div class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">No shipment shows found</div>
                     <p class="mt-1 text-xs text-gray-500">Try changing the filters or search.</p>

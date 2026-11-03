@@ -154,7 +154,7 @@
                             </div>
                         @endif
                     @empty
-                        <div class="py-12 text-center text-xs text-slate-500">No visible navigation for this role.</div>
+                        <div class="py-8 text-center text-xs text-slate-500">No visible navigation for this role.</div>
                     @endforelse
                 </div>
             </div>

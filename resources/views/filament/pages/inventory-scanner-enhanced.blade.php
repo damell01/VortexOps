@@ -107,7 +107,7 @@
                                 @endunless
                             </div>
                         @empty
-                            <div class="p-6 text-center text-sm text-gray-500 sm:p-8">
+                            <div class="p-6 text-center text-sm text-gray-500 sm:p-5">
                                 Nothing on this delivery yet. Scan an item below to put it in, or add lines from the pallet.
                             </div>
                         @endforelse
@@ -281,7 +281,7 @@
                                         <button type="button" @click="browse = !browse" class="min-h-12 shrink-0 rounded-lg border border-violet-200 bg-white px-4 text-sm font-bold text-violet-700 dark:border-violet-900 dark:bg-gray-900 dark:text-violet-300"><span x-text="browse ? 'Hide full inventory' : 'Browse full inventory'"></span></button>
                                     </div>
                                 </div>
-                                <div x-show="!browse && query.trim().length === 0" class="mt-4 rounded-xl border border-dashed border-gray-200 p-8 text-center dark:border-gray-700">
+                                <div x-show="!browse && query.trim().length === 0" class="mt-4 rounded-xl border border-dashed border-gray-200 p-5 text-center dark:border-gray-700">
                                     <x-heroicon-o-magnifying-glass class="mx-auto h-9 w-9 text-violet-400" />
                                     <p class="mt-3 text-sm font-bold text-gray-800 dark:text-gray-200">Search to find the right product</p>
                                     <p class="mt-1 text-xs text-gray-500">No need to scroll through the whole inventory.</p>
@@ -406,7 +406,7 @@
                         <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white dark:bg-gray-800">
                             @if($photoItem?->hasImage())<img src="{{ $photoItem->imageUrl() }}" alt="" class="h-full w-full object-contain" />@else<x-heroicon-o-cube class="h-12 w-12 text-gray-400" />@endif
                         </div>
-                        <div class="min-w-0"><p class="text-xs font-bold uppercase text-gray-500">On hand</p><p class="text-3xl font-extrabold text-emerald-700">{{ number_format((float)$selectedItem['total_qty']) }} <span class="text-sm">units</span></p><p class="mt-2 text-xs text-gray-500">Select an action to continue.</p></div>
+                        <div class="min-w-0"><p class="text-xs font-bold uppercase text-gray-500">On hand</p><p class="text-2xl font-extrabold text-emerald-700">{{ number_format((float)$selectedItem['total_qty']) }} <span class="text-sm">units</span></p><p class="mt-2 text-xs text-gray-500">Select an action to continue.</p></div>
                     </div>
                     <div class="space-y-3">
                         <h3 class="text-sm font-bold text-gray-950 dark:text-white">What would you like to do?</h3>
@@ -481,7 +481,7 @@
 
         @if($qaFlash)
             <section class="rounded-xl border p-3.5 sm:p-4 {{ isset($qaFlash['error']) ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200' : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200' }}">
-                @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div><div class="mt-1 text-xs font-semibold">Now {{ number_format((float)($qaFlash['location_total'] ?? 0)) }} units at {{ $qaFlash['location'] }}</div>@if($selectedItemId)<div class="mt-3 flex flex-wrap gap-2"><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800">View Item</a>@if(($flashItem = \App\Models\InventoryItem::find($selectedItemId)) && \App\Filament\Resources\InventoryItemResource::canEdit($flashItem))<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800">Edit Item</a>@endif</div>@endif</div></div>@endif
+                @if(isset($qaFlash['error']))<div class="text-sm font-semibold">{{ $qaFlash['error'] }}</div>@else<div class="flex items-start gap-2.5"><x-heroicon-o-check-circle class="mt-0.5 h-5 w-5 shrink-0" /><div><div class="text-sm font-semibold">{{ $qaFlash['created'] ? 'Created and stocked' : 'Stock added' }}: {{ $qaFlash['name'] }}</div><div class="mt-0.5 text-xs">+{{ number_format((float)$qaFlash['qty']) }} at {{ $qaFlash['location'] }}</div><div class="mt-1 text-xs font-semibold">Now {{ number_format((float)($qaFlash['location_total'] ?? 0)) }} units at {{ $qaFlash['location'] }}</div>@if($selectedItemId)<div class="mt-3 flex flex-wrap gap-2"><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 dark:bg-gray-900 dark:border-gray-700">View Item</a>@if(($flashItem = \App\Models\InventoryItem::find($selectedItemId)) && \App\Filament\Resources\InventoryItemResource::canEdit($flashItem))<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('edit', ['record' => $selectedItemId]) }}" class="inline-flex min-h-10 items-center rounded-lg border border-emerald-300 bg-white px-3 text-xs font-bold text-emerald-800 dark:bg-gray-900 dark:border-gray-700">Edit Item</a>@endif</div>@endif</div></div>@endif
             </section>
         @endif
 

@@ -34,7 +34,7 @@
                 <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-300 dark:text-gray-600" />
             </a>
         @empty
-            <div class="px-5 py-10 text-center">
+            <div class="px-5 py-6 text-center">
                 <x-heroicon-o-calendar-days class="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600" />
                 <div class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">No upcoming shows</div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">New Whatnot shows will appear here automatically.</p>

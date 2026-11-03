@@ -62,7 +62,7 @@
 
             <!-- Items List -->
             @if(count($this->sourceStock) === 0)
-            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div class="text-center py-5 text-gray-500 dark:text-gray-400">
                 <x-heroicon-o-inbox class="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No items available at this location.</p>
             </div>
@@ -147,7 +147,7 @@
         </div>
         @endif
         @else
-        <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
             <x-heroicon-o-arrow-path class="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p class="text-gray-600 dark:text-gray-400">Select a source location to begin stock transfer</p>
         </div>

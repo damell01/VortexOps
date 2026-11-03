@@ -137,7 +137,7 @@
                             @livewire('admin-match-show-item', ['line' => $line], key('admin-match-show-item-'.$line->id))
                         </article>
                     @empty
-                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center dark:border-gray-700">
+                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-5 text-center dark:border-gray-700">
                             <div class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $items->isEmpty() ? 'No inventory lines yet' : 'Every line is matched to inventory' }}</div>
                             <p class="mt-1 text-xs text-gray-500">The streamer has not added items to this report.</p>
                         </div>

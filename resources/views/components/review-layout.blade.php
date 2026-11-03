@@ -168,7 +168,7 @@
         </div>
     @endif
 
-    <main class="review-main mx-auto max-w-7xl px-4 py-8">
+    <main class="review-main mx-auto max-w-7xl px-4 py-5">
         {{ $slot }}
     </main>
 </body>

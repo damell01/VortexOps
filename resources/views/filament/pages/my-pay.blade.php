@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-6">
         <h2 class="text-sm font-semibold">Total paid</h2>
-        <p class="mt-2 text-3xl font-bold text-emerald-600">${{ number_format((float) $paidTotal, 2) }}</p>
+        <p class="mt-2 text-2xl font-bold text-emerald-600">${{ number_format((float) $paidTotal, 2) }}</p>
         <p class="mt-2 text-sm text-gray-500">Your payments from pay runs marked paid.</p>
     </section>
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

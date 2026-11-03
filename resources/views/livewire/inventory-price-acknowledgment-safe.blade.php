@@ -22,7 +22,7 @@ $types = $slides->pluck('type')->all();
 @foreach($slides as $i=>$slide)
 <article x-cloak x-show="active()==={{ $i }}" class="rounded-xl border border-purple-700 bg-[#211631] p-4">
 <div class="mb-3 flex justify-between"><span class="text-xs font-bold uppercase text-purple-300">{{ $slide['type'] }}</span><span class="text-xs text-gray-400" x-text="(index+1)+' / '+visible().length"></span></div>
-@if($slide['item']['image'] ?? null)<img src="{{ $slide['item']['image'] }}" alt="" class="mx-auto mb-3 h-28 w-28 rounded-lg bg-white object-contain">@endif
+@if($slide['item']['image'] ?? null)<img src="{{ $slide['item']['image'] }}" alt="" class="mx-auto mb-3 h-28 w-28 rounded-lg bg-white object-contain dark:bg-gray-900">@endif
 <h3 class="mb-3 text-center text-lg font-bold">{{ $slide['item']['name'] }}</h3>
 @if($slide['type']==='price')
 <div class="flex items-center justify-center gap-3"><span class="text-gray-400 line-through">{{ $slide['item']['old_price']===null?'Not set':number_format((float)$slide['item']['old_price'],2) }}</span><strong class="rounded-lg px-3 py-2 text-xl {{ ($slide['item']['decreased']??false)?'bg-emerald-500/20 text-emerald-300':'bg-amber-400/20 text-amber-200' }}">{{ $slide['item']['new_price']===null?'Not set':number_format((float)$slide['item']['new_price'],2) }}</strong></div>

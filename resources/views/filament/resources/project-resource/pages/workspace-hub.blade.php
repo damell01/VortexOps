@@ -4,7 +4,7 @@
 
     <div class="space-y-6">
         <section class="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-violet-900 text-white shadow-xl">
-            <div class="grid gap-6 px-6 py-6 lg:grid-cols-[1.5fr,1fr] lg:px-8">
+            <div class="grid gap-6 px-6 py-6 lg:grid-cols-[1.5fr,1fr] lg:px-5">
                 <div>
                     <div class="flex flex-wrap items-center gap-3">
                         <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-violet-100">
@@ -15,7 +15,7 @@
                         </span>
                     </div>
 
-                    <h1 class="mt-4 text-3xl font-semibold tracking-tight">{{ $project->name }}</h1>
+                    <h1 class="mt-4 text-2xl font-semibold tracking-tight">{{ $project->name }}</h1>
                     <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-200/90">
                         {{ $project->summary ?: 'This workspace tracks rollout progress, approvals, notes, milestones, and annotated feedback in one place.' }}
                     </p>
@@ -24,17 +24,17 @@
                         @if ($reviewsEnabled)
                             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
                                 <p class="text-xs uppercase tracking-[0.16em] text-slate-300">Open Feedback</p>
-                                <p class="mt-2 text-3xl font-semibold">{{ $project->open_review_items_count }}</p>
+                                <p class="mt-2 text-2xl font-semibold">{{ $project->open_review_items_count }}</p>
                             </div>
                         @endif
                         <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
                             <p class="text-xs uppercase tracking-[0.16em] text-slate-300">Pending Approvals</p>
-                            <p class="mt-2 text-3xl font-semibold">{{ $project->pending_approvals_count }}</p>
+                            <p class="mt-2 text-2xl font-semibold">{{ $project->pending_approvals_count }}</p>
                         </div>
                         @if ($reviewsEnabled)
                             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
                                 <p class="text-xs uppercase tracking-[0.16em] text-slate-300">Resolved</p>
-                                <p class="mt-2 text-3xl font-semibold">{{ $project->resolved_review_items_count }}</p>
+                                <p class="mt-2 text-2xl font-semibold">{{ $project->resolved_review_items_count }}</p>
                             </div>
                         @endif
                     </div>
@@ -74,7 +74,7 @@
         <div class="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
             <div class="space-y-6">
                 <section class="grid gap-6 lg:grid-cols-2">
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                         <div class="flex items-center justify-between">
                             <h2 class="text-lg font-semibold text-slate-950">Current Focus</h2>
                             <span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700">Now</span>
@@ -82,7 +82,7 @@
                         <div class="mt-4 whitespace-pre-line text-sm leading-6 text-slate-700">{{ $project->current_focus ?: 'Add current sprint focus, blockers, or the next rollout priorities here.' }}</div>
                     </div>
 
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                         <div class="flex items-center justify-between">
                             <h2 class="text-lg font-semibold text-slate-950">Needed From Client</h2>
                             <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">Pending</span>
@@ -91,7 +91,7 @@
                     </div>
                 </section>
 
-                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-950">Milestones</h2>
@@ -129,7 +129,7 @@
                 </section>
 
                 @if ($reviewsEnabled)
-                    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
                                 <h2 class="text-lg font-semibold text-slate-950">Latest Review Items</h2>
@@ -170,7 +170,7 @@
             </div>
 
             <div class="space-y-6">
-                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-950">Project Conversation</h2>
@@ -194,7 +194,7 @@
                     </div>
                 </section>
 
-                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-950">Approvals</h2>
@@ -224,7 +224,7 @@
                     </div>
                 </section>
 
-                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-gray-900 dark:border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-lg font-semibold text-slate-950">Status Updates</h2>

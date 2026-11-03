@@ -158,7 +158,7 @@
                                 </tr>
                             @endif
                         @endforeach
-                        @if ($this->visibleRows === [])<tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-400">Nothing in this group.</td></tr>@endif
+                        @if ($this->visibleRows === [])<tr><td colspan="8" class="px-4 py-5 text-center text-sm text-gray-400">Nothing in this group.</td></tr>@endif
                     </tbody>
                 </table>
             </div>

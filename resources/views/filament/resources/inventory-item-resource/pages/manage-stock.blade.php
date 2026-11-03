@@ -38,7 +38,7 @@
                     <span class="ml-3 text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100">{{ number_format($row['quantity']) }}</span>
                 </button>
             @empty
-                <div class="px-4 py-7 text-center sm:px-5 sm:py-8">
+                <div class="px-4 py-7 text-center sm:px-5 sm:py-5">
                     <p class="text-xs text-gray-500 dark:text-gray-400 sm:text-sm">None of this item is in stock anywhere you can see.</p>
                 </div>
             @endforelse

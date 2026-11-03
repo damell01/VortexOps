@@ -10,7 +10,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-amber-600 dark:text-amber-400">Pending</p>
-                        <p class="text-3xl font-bold text-amber-900 dark:text-amber-100 mt-2">{{ $this->getPalletStatsProperty()['pending'] }}</p>
+                        <p class="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-2">{{ $this->getPalletStatsProperty()['pending'] }}</p>
                     </div>
                     <x-heroicon-o-clock class="h-10 w-10 text-amber-200 dark:text-amber-800 opacity-50" />
                 </div>
@@ -21,7 +21,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-blue-600 dark:text-blue-400">In Transit</p>
-                        <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $this->getPalletStatsProperty()['shipped'] }}</p>
+                        <p class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $this->getPalletStatsProperty()['shipped'] }}</p>
                     </div>
                     <x-heroicon-o-truck class="h-10 w-10 text-blue-200 dark:text-blue-800 opacity-50" />
                 </div>
@@ -32,7 +32,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-violet-600 dark:text-violet-400">Receiving</p>
-                        <p class="text-3xl font-bold text-violet-900 dark:text-violet-100 mt-2">{{ $this->getPalletStatsProperty()['receiving'] }}</p>
+                        <p class="text-2xl font-bold text-violet-900 dark:text-violet-100 mt-2">{{ $this->getPalletStatsProperty()['receiving'] }}</p>
                     </div>
                     <x-heroicon-o-arrow-path class="h-10 w-10 text-violet-200 dark:text-violet-800 opacity-50" />
                 </div>
@@ -43,7 +43,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-green-600 dark:text-green-400">Received</p>
-                        <p class="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $this->getPalletStatsProperty()['received'] }}</p>
+                        <p class="text-2xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $this->getPalletStatsProperty()['received'] }}</p>
                     </div>
                     <x-heroicon-o-check-circle class="h-10 w-10 text-green-200 dark:text-green-800 opacity-50" />
                 </div>

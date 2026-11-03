@@ -11,7 +11,7 @@
     </div>
 
     @if($total === 0)
-        <div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-5 py-8 text-center">
+        <div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-5 py-5 text-center">
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 Nothing listed yet. Lines are typed as a table — one row each, with running totals.
             </p>

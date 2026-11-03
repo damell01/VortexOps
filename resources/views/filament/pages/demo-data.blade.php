@@ -18,7 +18,7 @@
         ];
     @endphp
 
-    <div class="space-y-8">
+    <div class="space-y-5">
         {{-- What gets loaded --}}
         <section>
             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">What gets loaded</h2>

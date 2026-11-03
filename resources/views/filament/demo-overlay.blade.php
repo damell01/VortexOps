@@ -33,7 +33,7 @@
             <div class="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-600 mb-6 shadow-lg">
                 <svg class="h-9 w-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
             </div>
-            <h1 class="text-3xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">
+            <h1 class="text-2xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight">
                 Welcome to {{ \App\Models\Setting::get('brand_name', 'VortexOps') }}
             </h1>
             <p class="mt-4 text-base text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
@@ -122,7 +122,7 @@
                 @endforeach
             </div>
 
-            <p class="text-center text-xs text-gray-400 dark:text-gray-600 mt-8">
+            <p class="text-center text-xs text-gray-400 dark:text-gray-600 mt-5">
                 Contact us to get full access to your VortexOps workspace.
             </p>
         </div>

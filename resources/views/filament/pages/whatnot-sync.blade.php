@@ -227,7 +227,7 @@
                         </div>
                     </a>
                 @empty
-                    <div class="px-5 py-8 text-center text-sm text-gray-500">No scraper activity recorded yet.</div>
+                    <div class="px-5 py-5 text-center text-sm text-gray-500">No scraper activity recorded yet.</div>
                 @endforelse
             </div>
         </div>
@@ -344,7 +344,7 @@
                     </div>
                 </div>
             @empty
-                <div class="px-6 py-8 text-center">
+                <div class="px-6 py-5 text-center">
                     <p class="text-sm text-gray-500 dark:text-gray-400">No active channels configured for sync.</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         Enable channels in <a href="{{ route('filament.admin.resources.whatnot-channels.index') }}" class="text-blue-600 hover:underline">Whatnot Channels</a>.
@@ -428,7 +428,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                <td colspan="9" class="px-4 py-5 text-center text-sm text-gray-500 dark:text-gray-400">
                                     No sync runs yet. Click "Sync All" above to start the first sync.
                                 </td>
                             </tr>

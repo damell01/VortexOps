@@ -54,7 +54,7 @@
                 </span>
             </button>
         @empty
-            <div class="p-10 text-center text-sm" style="color:var(--muted)">No emails{{ $search || $status || $event ? ' match these filters' : ' have been sent yet' }}. Use “Send test” in Settings → Notifications to see one here.</div>
+            <div class="p-6 text-center text-sm" style="color:var(--muted)">No emails{{ $search || $status || $event ? ' match these filters' : ' have been sent yet' }}. Use “Send test” in Settings → Notifications to see one here.</div>
         @endforelse
 
         @if($logs->hasPages())

@@ -151,7 +151,7 @@
             </div>
         </div>
         @else
-        <div class="bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+        <div class="bg-gray-50 dark:bg-gray-800/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-5 text-center">
             <p class="text-gray-500 dark:text-gray-400 text-lg">
                 👇 Scan a barcode, enter an SKU, or search by name to get started
             </p>

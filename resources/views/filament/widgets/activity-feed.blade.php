@@ -6,7 +6,7 @@
         </x-slot>
 
         @if ($activities->isEmpty())
-            <div class="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div class="py-5 text-center text-sm text-gray-400 dark:text-gray-500">
                 No activity recorded yet.
             </div>
         @else

@@ -5,24 +5,24 @@
 {{-- ── Top KPIs ──────────────────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($m['total_products']) }}</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($m['total_products']) }}</p>
         <p class="text-xs text-gray-400 mt-1">Total Products</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $m['active_products'] }} active</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($m['total_aliases']) }}</p>
+        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($m['total_aliases']) }}</p>
         <p class="text-xs text-gray-400 mt-1">Total Aliases</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $m['with_aliases'] }} products covered</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold {{ $m['avg_confidence'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['avg_confidence'] >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+        <p class="text-2xl font-bold {{ $m['avg_confidence'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['avg_confidence'] >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
             {{ $m['avg_confidence'] > 0 ? $m['avg_confidence'] . '%' : '—' }}
         </p>
         <p class="text-xs text-gray-400 mt-1">Avg Match Confidence</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $m['sessions_done'] }} sessions complete</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold {{ $m['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+        <p class="text-2xl font-bold {{ $m['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
             {{ $m['auto_match_rate'] > 0 ? $m['auto_match_rate'] . '%' : '—' }}
         </p>
         <p class="text-xs text-gray-400 mt-1">Auto-Match Rate</p>
@@ -89,7 +89,7 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Most Aliases (best matched)</h3>
         </div>
         @if(count($this->mostAliased) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No aliases yet — they build during receiving.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-400">No aliases yet — they build during receiving.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->mostAliased as $row)
@@ -110,7 +110,7 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Most Received</h3>
         </div>
         @if(count($this->mostReceived) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No receiving history yet.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-400">No receiving history yet.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->mostReceived as $row)

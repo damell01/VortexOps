@@ -7,11 +7,11 @@
     <div class="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700 p-4 md:p-6">
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-                <h1 class="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Profit Share Packet</h1>
+                <h1 class="text-2xl md:text-2xl font-bold text-gray-900 dark:text-white">Profit Share Packet</h1>
                 <p class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">{{ $currentPacket->getMonthLabel() }}</p>
             </div>
             <div class="text-right">
-                <p class="text-2xl md:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+                <p class="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
                     ${{ number_format($currentPacket->profit_share_amount, 2) }}
                 </p>
                 <p class="text-xs md:text-sm text-gray-600 dark:text-gray-400">Your share this month</p>
@@ -29,7 +29,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-6">
         <div class="flex items-center justify-between mb-3">
             <h2 class="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Month Progress</h2>
-            <span class="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">{{ round($monthProgress) }}%</span>
+            <span class="text-2xl md:text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ round($monthProgress) }}%</span>
         </div>
 
         <!-- Progress Bar -->
@@ -278,7 +278,7 @@
                         <h2 class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{{ $selectedPacket->getMonthLabel() }}</h2>
                     </div>
                     <button wire:click="$set('selectedPacket', null)"
-                        class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl md:text-3xl">&times;</button>
+                        class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 text-2xl md:text-2xl">&times;</button>
                 </div>
 
                 <div class="p-4 md:p-6 space-y-6">

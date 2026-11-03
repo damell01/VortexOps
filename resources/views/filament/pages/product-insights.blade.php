@@ -83,8 +83,8 @@
                 <div class="mt-5 space-y-3">@forelse($topProducts as $product)<div><div class="mb-1 flex items-center justify-between gap-3 text-xs"><span class="truncate font-semibold text-gray-700 dark:text-gray-200">{{ $product['name'] }}</span><span class="font-bold tabular-nums text-gray-950 dark:text-white">${{ number_format($product['revenue'],0) }}</span></div><div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5"><div class="h-full rounded-full bg-primary-500" style="width:{{ max(4,($product['revenue']/$maxProductRevenue)*100) }}%"></div></div></div>@empty<p class="text-sm text-gray-400">No product revenue in this view.</p>@endforelse</div>
             </section>
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                <button type="button" wire:click="setView('reorder')" class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-500/20 dark:bg-amber-950/20"><div class="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Reorder attention</div><div class="mt-2 text-3xl font-black text-amber-800 dark:text-amber-200">{{ number_format($reorderCount) }}</div><p class="mt-1 text-xs text-amber-700/80 dark:text-amber-300/70">Products in this view that may need replenishment.</p></button>
-                <button type="button" wire:click="setView('dead_stock')" class="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-left shadow-sm transition hover:border-rose-300 dark:border-rose-500/20 dark:bg-rose-950/20"><div class="text-xs font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300">Dead stock</div><div class="mt-2 text-3xl font-black text-rose-800 dark:text-rose-200">{{ number_format($deadCount) }}</div><p class="mt-1 text-xs text-rose-700/80 dark:text-rose-300/70">Products in this view with no sale inside the dead-stock window.</p></button>
+                <button type="button" wire:click="setView('reorder')" class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-500/20 dark:bg-amber-950/20"><div class="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">Reorder attention</div><div class="mt-2 text-2xl font-black text-amber-800 dark:text-amber-200">{{ number_format($reorderCount) }}</div><p class="mt-1 text-xs text-amber-700/80 dark:text-amber-300/70">Products in this view that may need replenishment.</p></button>
+                <button type="button" wire:click="setView('dead_stock')" class="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-left shadow-sm transition hover:border-rose-300 dark:border-rose-500/20 dark:bg-rose-950/20"><div class="text-xs font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300">Dead stock</div><div class="mt-2 text-2xl font-black text-rose-800 dark:text-rose-200">{{ number_format($deadCount) }}</div><p class="mt-1 text-xs text-rose-700/80 dark:text-rose-300/70">Products in this view with no sale inside the dead-stock window.</p></button>
             </div>
         </div>
 
@@ -151,7 +151,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="px-3 py-8 text-center text-gray-400">No products match this view.</td>
+                            <td colspan="9" class="px-3 py-5 text-center text-gray-400">No products match this view.</td>
                         </tr>
                     @endforelse
                 </tbody>

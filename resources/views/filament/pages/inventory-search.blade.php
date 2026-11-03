@@ -150,7 +150,7 @@
             </div>
 
             @if(count($this->results) === 0)
-            <div class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+            <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                 <x-heroicon-o-magnifying-glass class="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>No inventory items found matching your search criteria.</p>
             </div>

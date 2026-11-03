@@ -34,7 +34,7 @@
                         <td class="px-4 py-3"><span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200">{{ $entry->is_open ? 'In progress' : match($entry->status) { 'ok' => 'Recorded', 'approved' => 'Approved', 'flagged' => 'Needs review', 'rejected' => 'Rejected', default => ucfirst((string) $entry->status) } }}</span></td>
                     </tr>
                 @empty
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">No time clock history yet. Your shifts will appear here after you clock in.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-5 text-center text-gray-500">No time clock history yet. Your shifts will appear here after you clock in.</td></tr>
                 @endforelse
             </tbody>
         </table>

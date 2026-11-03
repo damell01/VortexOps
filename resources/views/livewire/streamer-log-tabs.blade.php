@@ -119,25 +119,25 @@
                         <!-- Revenue Card -->
                         <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-900/10 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
                             <p class="text-sm text-emerald-800 dark:text-emerald-300 font-medium">Gross Revenue</p>
-                            <p class="text-3xl font-bold text-emerald-900 dark:text-emerald-100 mt-2">${{ number_format($show?->gross_revenue ?? 0, 2) }}</p>
+                            <p class="text-2xl font-bold text-emerald-900 dark:text-emerald-100 mt-2">${{ number_format($show?->gross_revenue ?? 0, 2) }}</p>
                         </div>
 
                         <!-- Product Cost Card -->
                         <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
                             <p class="text-sm text-blue-800 dark:text-blue-300 font-medium">Product Cost</p>
-                            <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">${{ number_format($record->product_cost ?? 0, 2) }}</p>
+                            <p class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">${{ number_format($record->product_cost ?? 0, 2) }}</p>
                         </div>
 
                         <!-- Profit Share Card -->
                         <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
                             <p class="text-sm text-purple-800 dark:text-purple-300 font-medium">Profit Share</p>
-                            <p class="text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">${{ number_format($record->profit_share_amount ?? 0, 2) }}</p>
+                            <p class="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-2">${{ number_format($record->profit_share_amount ?? 0, 2) }}</p>
                         </div>
 
                         <!-- Items Count Card -->
                         <div class="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-900/10 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
                             <p class="text-sm text-orange-800 dark:text-orange-300 font-medium">Items Sold</p>
-                            <p class="text-3xl font-bold text-orange-900 dark:text-orange-100 mt-2">{{ $orders->count() }}</p>
+                            <p class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-2">{{ $orders->count() }}</p>
                         </div>
                     </div>
 
@@ -181,7 +181,7 @@
                             </div>
                         </div>
                     @empty
-                        <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                        <div class="text-center py-8 text-gray-500 dark:text-gray-400">
                             <p>No items logged yet</p>
                         </div>
                     @endforelse
@@ -248,7 +248,7 @@
                             @endforeach
                         </div>
                     @else
-                        <div class="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                        <div class="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
                             <svg class="w-16 h-16 mx-auto mb-3 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                             </svg>

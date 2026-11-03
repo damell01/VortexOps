@@ -94,7 +94,7 @@
                         </div>
                     </a>
                 @empty
-                    <div class="px-4 py-7 text-center sm:px-5 sm:py-8">
+                    <div class="px-4 py-7 text-center sm:px-5 sm:py-5">
                         <x-heroicon-o-check-circle class="mx-auto h-8 w-8 text-green-400" />
                         <div class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">Nothing urgent right now</div>
                         <p class="mt-1 text-xs text-gray-500">Shows needing review or operational attention will surface here.</p>
@@ -133,7 +133,7 @@
                     <x-heroicon-m-chevron-right class="h-5 w-5 shrink-0 text-gray-300 group-hover:text-primary-500" />
                 </a>
             @empty
-                <div class="px-4 py-8 text-center sm:px-5 sm:py-10">
+                <div class="px-4 py-5 text-center sm:px-5 sm:py-6">
                     <x-heroicon-o-calendar-days class="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600" />
                     <div class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">No upcoming shows</div>
                     <p class="mt-1 text-xs text-gray-500">Imported future shows will appear here.</p>
@@ -202,7 +202,7 @@
                     </div>
                 </a>
             @empty
-                <div class="px-4 py-8 text-center sm:px-5 sm:py-10">
+                <div class="px-4 py-5 text-center sm:px-5 sm:py-6">
                     <x-heroicon-o-clock class="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600" />
                     <div class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">No recent shows</div>
                 </div>

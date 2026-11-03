@@ -80,7 +80,7 @@
                 </div>
             </div>
         @empty
-            <div class="text-center py-12 text-slate-500 dark:text-slate-400">
+            <div class="text-center py-8 text-slate-500 dark:text-slate-400">
                 <p class="text-sm font-medium">No items found</p>
                 @if ($search)
                     <p class="text-xs">Try a different search</p>

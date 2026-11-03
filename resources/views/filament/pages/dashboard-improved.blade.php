@@ -85,7 +85,7 @@
                                 <span class="hidden text-[11px] text-gray-400 sm:block">{{ $activity['type'] }}</span>
                             </div>
                         @empty
-                            <div class="py-8 text-center text-xs text-gray-500">No recent inventory activity.</div>
+                            <div class="py-5 text-center text-xs text-gray-500">No recent inventory activity.</div>
                         @endforelse
                     </div>
                 </div>

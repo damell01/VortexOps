@@ -31,5 +31,5 @@
             </li>
         </template>
     </ul>
-    @else<p class="py-12 text-center text-sm text-gray-500">No recorded channel performance yet this month.</p>@endif
+    @else<p class="py-8 text-center text-sm text-gray-500">No recorded channel performance yet this month.</p>@endif
 </section>

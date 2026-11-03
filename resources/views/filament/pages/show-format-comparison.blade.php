@@ -48,7 +48,7 @@
         </section>
 
         @if (empty($rows))
-            <section class="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="rounded-xl border border-gray-200 bg-white p-5 text-center dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <x-heroicon-o-scale class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
                 <h2 class="mt-3 text-base font-semibold text-gray-950 dark:text-white">No shows in this period</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Widen the period, or pick a different channel.</p>

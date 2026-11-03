@@ -1,23 +1,23 @@
 <div class="space-y-6">
     <!-- Header & Stats -->
     <div class="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-700 p-6">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Profit Share Approvals</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Profit Share Approvals</h1>
         <p class="text-gray-600 dark:text-gray-400 mb-6">Review and approve streamer profit share packets for {{ auth()->user()->name }}</p>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-purple-200 dark:border-purple-700">
                 <p class="text-sm text-gray-600 dark:text-gray-400 font-semibold">Pending Review</p>
-                <p class="text-4xl font-bold text-yellow-600 dark:text-yellow-400">{{ $stats['pending'] }}</p>
+                <p class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ $stats['pending'] }}</p>
             </div>
 
             <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-green-700">
                 <p class="text-sm text-gray-600 dark:text-gray-400 font-semibold">Approved</p>
-                <p class="text-4xl font-bold text-green-600 dark:text-green-400">{{ $stats['approved'] }}</p>
+                <p class="text-3xl font-bold text-green-600 dark:text-green-400">{{ $stats['approved'] }}</p>
             </div>
 
             <div class="bg-white dark:bg-gray-800 rounded-lg p-4 border border-red-200 dark:border-red-700">
                 <p class="text-sm text-gray-600 dark:text-gray-400 font-semibold">Rejected</p>
-                <p class="text-4xl font-bold text-red-600 dark:text-red-400">{{ $stats['rejected'] }}</p>
+                <p class="text-3xl font-bold text-red-600 dark:text-red-400">{{ $stats['rejected'] }}</p>
             </div>
         </div>
     </div>
@@ -125,7 +125,7 @@
             @endforeach
         </div>
     @else
-        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
             <p class="text-gray-600 dark:text-gray-400 text-lg">No packets to review</p>
         </div>
     @endif

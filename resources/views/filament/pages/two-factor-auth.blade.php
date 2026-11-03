@@ -55,7 +55,7 @@
                     </x-slot>
 
                     <div class="flex flex-col items-start gap-4">
-                        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white p-3 shadow-sm">
+                        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white p-3 shadow-sm dark:bg-gray-900">
                             {!! $user->twoFactorQrCodeSvg() !!}
                         </div>
 

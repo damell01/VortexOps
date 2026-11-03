@@ -45,7 +45,7 @@
     </div>
    </div>
   @empty
-   <div class="p-12 text-center"><div class="text-sm font-semibold">No shipments in this view.</div><div class="mt-1 text-xs text-gray-500">Try another tab, status, or search.</div></div>
+   <div class="p-8 text-center"><div class="text-sm font-semibold">No shipments in this view.</div><div class="mt-1 text-xs text-gray-500">Try another tab, status, or search.</div></div>
   @endforelse
  </section>
 </div>

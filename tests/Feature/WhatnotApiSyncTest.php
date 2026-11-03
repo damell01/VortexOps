@@ -186,7 +186,7 @@ class WhatnotApiSyncTest extends TestCase
         $this->assertSame(1, $result['ledger']['created']);
         $this->assertSame(0, WhatnotShowOrder::count());
         $this->assertSame(0, WhatnotLedgerEntry::count());
-        $this->assertNull($this->show->fresh()->gross_revenue);
+        $this->assertEquals(0.0, (float) $this->show->fresh()->gross_revenue); // column defaults to 0.00
     }
 
     public function test_ledger_rows_wait_for_the_chosen_start_date(): void
@@ -220,7 +220,7 @@ class WhatnotApiSyncTest extends TestCase
     {
         $applier = app(WhatnotApiShowAnalyticsApplier::class);
         $this->assertSame('not_ready', $applier->apply($this->channel->id, $this->analytics('PENDING'), dryRun: false)['outcome']);
-        $this->assertNull($this->show->fresh()->gross_revenue);
+        $this->assertEquals(0.0, (float) $this->show->fresh()->gross_revenue); // column defaults to 0.00
 
         $this->show->forceFill(['status' => 'reconciled', 'gross_revenue' => 1200])->save();
         $this->assertSame('updated', $applier->apply($this->channel->id, $this->analytics(), dryRun: false)['outcome']);

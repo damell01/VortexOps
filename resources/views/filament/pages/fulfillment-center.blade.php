@@ -9,7 +9,7 @@
   @endforeach
  </div>
 
- <section class="vx-card p-4">
+ <section class="vx-card p-3 sm:p-4">
   <div class="flex flex-wrap items-center gap-3">
    <div class="flex gap-5 overflow-x-auto border-b border-[var(--vx-border)]">
     <button type="button" wire:click="setTab('queue')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='queue'?'active':''}}">Queue</button>
@@ -17,7 +17,7 @@
     <button type="button" wire:click="setTab('history')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='history'?'active':''}}">History</button>
    </div>
    <div class="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-2">
-    <input type="search" wire:model.live.debounce.400ms="searchQuery" aria-label="Search shipments" placeholder="Buyer, show, order or tracking…" class="min-w-[220px] flex-1 rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
+    <input type="search" wire:model.live.debounce.400ms="searchQuery" aria-label="Search shipments" placeholder="Buyer, show, order or tracking…" class="w-full min-w-0 flex-1 basis-full sm:basis-[220px] rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
     <select wire:model.live="statusFilter" aria-label="Filter shipment status" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
      <option value="all">All statuses</option><option value="ready_to_ship">Ready to ship</option><option value="packed">Packed</option><option value="shipped">Shipped</option><option value="in_transit">In transit</option><option value="delivered">Delivered</option><option value="returned">Returned</option>
     </select>

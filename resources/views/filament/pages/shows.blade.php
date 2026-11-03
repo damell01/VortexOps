@@ -368,8 +368,9 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
     @include('filament.pages.partials.shows-channel-toggles')
 
     @if($viewMode === 'month')
-        {{-- Month: each day shows its first three shows, a strip of its channel
-             mix and "+N more"; clicking a day lists all of it in the panel. --}}
+        {{-- Month (as in the mockups): each day shows its count and a strip of
+             its channel mix; clicking a day lists all of it in the panel. The
+             per-show chips below are hidden by the theme ("Shows month view"). --}}
         <div class="vx-month-wrap">
         <div class="vx-month-main">
         <div class="vx-dows">@foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $d)<div>{{ strtoupper($d) }}</div>@endforeach</div>
@@ -384,8 +385,9 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
                          :class="sel === '{{ $iso }}' && 'picked'" @click="pick('{{ $iso }}')" title="{{ $cell['date']->format('l, M j') }}">
                         <div class="vx-cell-h">
                             <button type="button" class="vx-num" wire:click.stop="openDay('{{ $iso }}')" @click.stop aria-label="Open {{ $cell['date']->format('l, F j') }}">{{ $cell['date']->day === 1 || $loop->parent->first && $loop->first ? $cell['date']->format('M j') : $cell['date']->day }}</button>
-                            @if($isToday)<span class="vx-today-tag">Today</span>@elseif($count)<span class="vx-cell-count">{{ $count }} {{ Str::plural('show', $count) }}</span>@endif
+                            @if($isToday)<span class="vx-today-tag">Today</span>@endif
                         </div>
+                        @if($count)<span class="vx-cell-count">{{ $count }} {{ Str::plural('show', $count) }}</span>@endif
                         @if($count)
                             <div class="vx-mix" aria-hidden="true">@foreach($mix as $color => $n)<i style="flex:{{ $n }};background:{{ $color }}"></i>@endforeach</div>
                             <div class="vx-cell-list">

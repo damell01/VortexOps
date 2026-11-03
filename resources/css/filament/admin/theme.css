@@ -1433,3 +1433,16 @@ html:not(.dark) .vx-install-banner__close{color:var(--vx-muted);top:.15rem}
 /* Hero: the mockup's violet banner; the page header above it stays small. */
 .vx-dashboard-reference .vx-dashboard-hero h1{font-size:clamp(1.4rem,2.1vw,1.75rem);font-weight:800}
 @media(min-width:1024px){.dark .fi-topbar :is(.vx-mega-home,.vx-mega-trigger)[aria-current="page"]{background:rgba(124,58,237,.24);color:#fff}}
+
+/* ── Shows month view (mockup): date, count and channel bar per day ───── */
+@media(min-width:768px){
+  .fi-page .vx-month .vx-cell{height:auto!important;min-height:96px!important;padding:10px 10px 12px!important;gap:4px!important}
+  .fi-page .vx-month .vx-cell-list{display:none!important}
+  .fi-page .vx-month .vx-cell-h{justify-content:flex-start;gap:6px}
+  .fi-page .vx-month .vx-num{font-size:.9rem;font-weight:800;padding:2px 4px}
+  .fi-page .vx-month .vx-cell-count{display:block;padding-left:4px;font-size:.75rem;font-weight:600;color:var(--vx-muted)}
+  .fi-page .vx-month .vx-mix{height:5px;margin:auto 4px 0;max-width:70%}
+  .fi-page .vx-month .vx-cell.today{border-radius:12px;background:var(--vx-brand-soft);box-shadow:inset 0 0 0 2px rgba(124,58,237,.45)}
+  .dark .fi-page .vx-month .vx-cell.today{background:rgba(124,58,237,.16)}
+  .fi-page .vx-month .vx-cell.today .vx-num{color:var(--vx-brand)}
+}

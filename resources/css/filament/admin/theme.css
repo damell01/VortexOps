@@ -1351,9 +1351,9 @@ a.fi-wi-stats-overview-stat:hover{border-color:#c4b5fd!important;box-shadow:0 6p
 /* Brand: the built-in wordmark at full width, dark lettering in light mode
    (vb-logo-light.svg) and white lettering in dark mode. An uploaded logo was
    made for the navy bar, so it sits on a navy chip in light mode. */
-.vx-mega-brand .vx-logo-on-dark{display:none!important}
-.dark .vx-mega-brand .vx-logo-on-dark{display:block!important}
-.dark .vx-mega-brand .vx-logo-on-light{display:none!important}
+.vx-logo-on-dark{display:none!important}
+.dark .vx-logo-on-dark{display:block!important}
+.dark .vx-logo-on-light{display:none!important}
 @media(min-width:1024px){
   .fi-topbar .vx-mega-brand.is-wordmark{width:128px!important;flex:0 0 128px!important;height:44px!important;margin-right:10px!important;justify-content:flex-start!important;background:none!important;padding:0!important;border-radius:0!important}
   .fi-topbar .vx-mega-brand.is-wordmark img{width:128px!important;height:36px!important;object-fit:contain!important;object-position:left center!important}

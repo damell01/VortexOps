@@ -82,7 +82,10 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin')),
             ])
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
-            ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
+            // The built-in mark has white lettering (made for the old navy bar):
+            // on the light bar use the dark-lettered wordmark, white in dark mode.
+            ->brandLogo(fn (): ?string => static::themedBuiltInLogo(static::resolveBrandLogo(ChannelContext::current(), $logoPath), 'light'))
+            ->darkModeBrandLogo(fn (): ?string => static::themedBuiltInLogo(static::resolveBrandLogo(ChannelContext::current(), $logoPath), 'dark'))
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
             ->viteTheme('resources/css/filament/admin/theme.css')
@@ -490,6 +493,17 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return $brandName;
+    }
+
+    /** The built-in logo swapped for its light- or dark-bar wordmark; any uploaded logo unchanged. */
+    public static function themedBuiltInLogo(?string $logo, string $mode): ?string
+    {
+        $file = 'images/vx-nav-logo-'.($mode === 'dark' ? 'dark' : 'light').'.svg';
+        if ($logo !== null && str_ends_with($logo, 'images/vb-logo-sidebar.svg') && file_exists(public_path($file))) {
+            return asset($file);
+        }
+
+        return $logo;
     }
 
     /** Precedence: the active channel's own logo, else the global logo, else the built-in SVG. */

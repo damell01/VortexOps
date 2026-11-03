@@ -13,6 +13,9 @@ App-wide passes applied to every screen:
 4. Dark mode: white cards and near-black text without dark variants fixed.
 5. Popovers capped at the screen width (Filament and custom panels).
 6. Accessibility: icon-only buttons labelled; light-mode secondary text raised to AA contrast (361 elements); reduced motion respected.
+7. Buttons in the mockup style: gradient primary, tinted secondary colours, bordered gray; solid buttons kept in modal footers.
+8. Reports and workflow screens use the same palette tokens; stat tiles (report tiles and Filament stat widgets) with tinted icon chips.
+9. Top navigation: white bar in light mode with a purple pill for hover and the current section; logos on a navy chip; navy bar kept in dark mode.
 Total: 209
 
 

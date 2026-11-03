@@ -1,6 +1,6 @@
 <div>
-    <div class="fixed bottom-5 right-5 z-40">
-        <button type="button" wire:click="show" class="rounded-2xl border border-purple-400/60 bg-[#241047] px-5 py-3 text-sm font-bold text-white shadow-xl shadow-purple-900/40 hover:bg-purple-700">
+    <div class="inline-flex items-center">
+        <button type="button" wire:click="show" class="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700">
             ✦ Recent Inventory Changes
         </button>
     </div>

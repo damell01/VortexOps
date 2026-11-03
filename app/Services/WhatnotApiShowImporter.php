@@ -79,6 +79,7 @@ final class WhatnotApiShowImporter
             if ($streamer = $show->primaryStreamer()) {
                 StreamerLogEntry::firstOrCreate(['show_id' => $show->id], ['streamer_id' => $streamer->id, 'status' => 'pending', 'gross_revenue' => $show->gross_revenue]);
             }
+            $this->thumbnail($show, $api);
             return ['outcome' => 'created', 'show_id' => $show->id];
         }
 
@@ -96,6 +97,9 @@ final class WhatnotApiShowImporter
         if ($ended && $show->end_time === null) $changes['end_time'] = $ended->format('H:i:s');
         if ($status === 'cancelled' && $show->status === 'draft') $changes['status'] = 'cancelled';
 
+        if (! $dryRun) {
+            $this->thumbnail($show, $api);
+        }
         if ($changes === []) {
             return ['outcome' => 'unchanged', 'show_id' => $show->id];
         }
@@ -128,6 +132,23 @@ final class WhatnotApiShowImporter
                 'notes' => $notes,
             ]);
         }
+    }
+
+    /**
+     * Keep the show's thumbnail (Show.thumbnail, a Media image) through the
+     * existing cover pipeline, which stores a local copy. Whatnot's image links
+     * carry a signature that can change between responses, so the same image
+     * is recognised by its link without the query string.
+     */
+    private function thumbnail(Show $show, array $api): void
+    {
+        $url = is_array($api['thumbnail'] ?? null) && is_string($api['thumbnail']['url'] ?? null) ? $api['thumbnail']['url'] : null;
+        if (! $url || ! str_starts_with($url, 'https://')) return;
+        $previous = is_array($show->raw_import_payload) ? ($show->raw_import_payload['cover_image_url'] ?? null) : null;
+        if (is_string($previous) && strtok($previous, '?') === strtok($url, '?') && str_starts_with((string) $show->cover_image_url, '/storage/')) {
+            return;
+        }
+        app(\App\Services\ShowCoverImages::class)->capture($show, ['cover_image_url' => $url]);
     }
 
     /** @return Show|null|false false = the ID belongs to another channel's show */

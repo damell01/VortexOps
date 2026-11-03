@@ -70,6 +70,28 @@
             </div>
         @endforeach
     </div>
+    @php $byStreamer = $this->streamerTotals; @endphp
+    @if ($byStreamer)
+        <details class="mb-4 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
+            <summary class="cursor-pointer text-sm font-semibold">By streamer ({{ count($byStreamer) }}) — for the current filters</summary>
+            <div class="mt-3 overflow-x-auto">
+                <table class="w-full min-w-[640px] text-left text-sm">
+                    <thead class="text-xs" style="color:var(--vxw-muted)"><tr><th class="py-1 pr-3">Streamer</th><th class="py-1 pr-3 text-right">Tips</th><th class="py-1 pr-3 text-right">Sales</th><th class="py-1 pr-3 text-right">Refunds</th><th class="py-1 pr-3 text-right">Shipping</th><th class="py-1 pr-3 text-right">Other</th><th class="py-1 text-right">Net</th></tr></thead>
+                    <tbody>
+                        @foreach ($byStreamer as $row)
+                            <tr class="border-t" style="border-color:var(--vxw-border)">
+                                <td class="py-1.5 pr-3 font-medium">{{ $row['streamer'] }} <span class="text-xs" style="color:var(--vxw-muted)">· {{ $row['entries'] }}</span></td>
+                                @foreach (['tips', 'sales', 'refunds', 'shipping', 'other', 'net'] as $col)
+                                    <td class="py-1.5 pr-3 text-right tabular-nums {{ $row[$col] < 0 ? 'vxr-val-bad' : '' }}">${{ number_format($row[$col], 2) }}</td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-2 text-xs" style="color:var(--vxw-muted)">Approved matches only. Entries still unmatched or pending review are counted above, not here.</p>
+        </details>
+    @endif
     <div class="vxr-head">
         <div>
             <h1 class="vxr-title">Whatnot Ledger</h1>

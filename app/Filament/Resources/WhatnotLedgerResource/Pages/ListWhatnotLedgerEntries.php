@@ -410,6 +410,38 @@ class ListWhatnotLedgerEntries extends Page
         return collect((array) $row)->map(fn ($value) => (int) $value)->all();
     }
 
+    /**
+     * Money per streamer for the entries matching the current filters, from
+     * approved matches (to a show's primary streamer or to a streamer
+     * directly), split by category. Business/house entries are not included.
+     *
+     * @return list<array{streamer:string, tips:float, sales:float, refunds:float, shipping:float, other:float, net:float, entries:int}>
+     */
+    public function getStreamerTotalsProperty(): array
+    {
+        $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
+        $rows = DB::table('whatnot_ledger_entries as le')
+            ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
+            ->join('ledger_attributions as a', 'a.whatnot_ledger_entry_id', '=', 'le.id')
+            ->join('streamers as s', 's.id', '=', 'a.streamer_id')
+            ->where('a.status', 'approved')
+            ->groupBy('a.streamer_id', 's.name', 'a.category')
+            ->selectRaw('a.streamer_id, s.name, a.category, SUM(le.amount) as total, COUNT(*) as entries')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $out[$row->streamer_id] ??= ['streamer' => $row->name, 'tips' => 0.0, 'sales' => 0.0, 'refunds' => 0.0, 'shipping' => 0.0, 'other' => 0.0, 'net' => 0.0, 'entries' => 0];
+            $bucket = in_array($row->category, ['tips', 'sales', 'refunds', 'shipping'], true) ? $row->category : 'other';
+            $out[$row->streamer_id][$bucket] += (float) $row->total;
+            $out[$row->streamer_id]['net'] += (float) $row->total;
+            $out[$row->streamer_id]['entries'] += (int) $row->entries;
+        }
+        usort($out, fn ($a, $b) => $b['net'] <=> $a['net']);
+
+        return array_values($out);
+    }
+
     /** @return Collection<int, WhatnotLedgerEntry> */
     public function getEntriesProperty(): Collection
     {

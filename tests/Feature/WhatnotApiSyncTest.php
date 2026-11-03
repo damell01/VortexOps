@@ -92,7 +92,7 @@ class WhatnotApiSyncTest extends TestCase
 
     private function financialCsv(array $rows): string
     {
-        $cols = ['transaction_completed_at_utc', 'order_placed_at_utc', 'seller_id', 'transaction_type', 'transaction_message', 'order_id', 'livestream_id', 'buyer_name', 'buyer_state', 'transaction_currency', 'transaction_amount', 'ledger_transaction_id'];
+        $cols = ['transaction_completed_at_utc', 'order_placed_at_utc', 'seller_id', 'transaction_type', 'transaction_message', 'order_id', 'livestream_id', 'buyer_name', 'buyer_state', 'transaction_currency', 'transaction_amount', 'ledger_transaction_id', 'shipment_id'];
         $lines = [implode(',', $cols)];
         foreach ($rows as $row) {
             $lines[] = implode(',', array_map(fn ($c) => '"'.str_replace('"', '""', (string) ($row[$c] ?? '')).'"', $cols));
@@ -343,5 +343,37 @@ class WhatnotApiSyncTest extends TestCase
 
         \Livewire\Livewire::test(\App\Filament\Pages\WhatnotApiChanges::class)
             ->assertSee('Friday Breaks')->assertSee('1250');
+    }
+
+    public function test_a_carrier_adjustment_reaches_its_show_through_the_shipment_and_shows_as_after_the_show(): void
+    {
+        config()->set('services.whatnot_seller.ledger_start', now()->subDays(10)->toDateString());
+        WhatnotShowOrder::create(['show_id' => $this->show->id, 'whatnot_order_id' => '1485136575', 'whatnot_shipment_id' => 'sh-9', 'item_name' => 'Box', 'quantity' => 1]);
+        $later = now()->addHours(30)->utc()->format('Y-m-d H:i:s'); // after the show (yesterday) ended
+
+        $result = app(WhatnotApiLedgerImporter::class)->import($this->channel->id, $this->financialCsv([
+            ['transaction_completed_at_utc' => $later, 'transaction_type' => 'CARRIER_ADJUSTMENT', 'transaction_currency' => 'USD',
+             'transaction_amount' => '-4.10', 'ledger_transaction_id' => 'L-9', 'shipment_id' => 'sh-9'],
+        ]), dryRun: false);
+
+        $this->assertSame(1, $result['counts']['show_via_shipment']);
+        $entry = WhatnotLedgerEntry::where('dedup_key', 'wn_api:L-9')->sole();
+        $this->assertSame(self::SHOW_UUID, $entry->raw_data['livestream_id']);
+        $this->assertSame('shipping', app(\App\Services\LedgerAttributionService::class)->suggestedCategory($entry));
+
+        $summary = app(\App\Services\ShowLedgerSummary::class)->for($this->show->fresh());
+        $this->assertCount(1, $summary['after_show']);
+        $this->assertEquals(-4.10, $summary['after_show_net']);
+    }
+
+    public function test_the_show_thumbnail_is_kept_through_the_cover_pipeline(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+        app(\App\Services\WhatnotApiShowImporter::class)->import($this->channel->id, [
+            'id' => self::SHOW_UUID, 'title' => 'Friday Breaks', 'status' => 'ended', 'scheduled_start_at' => now()->subDay()->toIso8601ZuluString(),
+            'thumbnail' => ['id' => '1', 'url' => 'https://images.whatnot.com/abc.jpeg?signature=one', 'alt' => null],
+        ], dryRun: false);
+
+        $this->assertSame('https://images.whatnot.com/abc.jpeg?signature=one', $this->show->fresh()->raw_import_payload['cover_image_url']);
     }
 }

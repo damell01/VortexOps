@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\WhatnotLedgerEntry;
+use App\Services\LedgerAutoMatcher;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -45,10 +46,12 @@ final class WhatnotApiLedgerImporter
         $rows = $this->parse($csv);
         $start = $this->ledgerStart();
         $counts = ['received' => count($rows), 'created' => 0, 'linked' => 0, 'unchanged' => 0,
-            'ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0];
+            'ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
+            'show_via_shipment' => 0, 'matched_to_show' => 0];
+        $matcher = app(LedgerAutoMatcher::class);
         $coveredDays = [];
 
-        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, &$counts, &$coveredDays) {
+        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, &$counts, &$coveredDays) {
             foreach ($rows as $row) {
                 $entry = $this->toEntry($channelId, $row);
                 if ($entry === null) {
@@ -56,6 +59,7 @@ final class WhatnotApiLedgerImporter
                     continue;
                 }
                 if (strcasecmp($entry['transaction_type'], 'Tip') === 0) $counts['tips']++;
+                if ($this->showViaShipment($channelId, $entry)) $counts['show_via_shipment']++;
 
                 if (WhatnotLedgerEntry::where('dedup_key', $entry['dedup_key'])->exists()) {
                     $counts['unchanged']++;
@@ -78,6 +82,7 @@ final class WhatnotApiLedgerImporter
                         }
                         $raw['_seller_api_report'] = $entry['raw_data'];
                         $existing->forceFill(['raw_data' => $raw])->save();
+                        if ($matcher->match($existing) === 'matched') $counts['matched_to_show']++;
                     }
                     continue;
                 }
@@ -103,7 +108,8 @@ final class WhatnotApiLedgerImporter
 
                 $counts['created']++;
                 if (! $dryRun) {
-                    WhatnotLedgerEntry::create($entry);
+                    // Tie it to its show and streamer now, not at the next hourly match.
+                    if ($matcher->match(WhatnotLedgerEntry::create($entry)) === 'matched') $counts['matched_to_show']++;
                 }
             }
         };
@@ -170,6 +176,30 @@ final class WhatnotApiLedgerImporter
             'dedup_key' => 'wn_api:'.$id,
             'raw_data' => $raw,
         ];
+    }
+
+    /**
+     * Carrier adjustments carry no show (Whatnot's docs), but they do carry the
+     * shipment: shipment → its orders → their show. Only when that resolves to
+     * exactly one show is the show recorded, as livestream_id for the matcher.
+     */
+    private function showViaShipment(int $channelId, array &$entry): bool
+    {
+        $raw = $entry['raw_data'];
+        $shipmentId = $raw['shipment_id'] ?? null;
+        if (! empty($raw['livestream_id']) || ! is_string($shipmentId) || $shipmentId === '') {
+            return false;
+        }
+        $shows = DB::table('whatnot_show_orders as o')->join('shows as s', 's.id', '=', 'o.show_id')
+            ->where('o.whatnot_shipment_id', $shipmentId)->where('s.whatnot_channel_id', $channelId)
+            ->whereNotNull('s.whatnot_show_id')->distinct()->limit(2)->pluck('s.whatnot_show_id');
+        if ($shows->count() !== 1) {
+            return false;
+        }
+        $entry['raw_data']['livestream_id'] = strtolower((string) $shows->first());
+        $entry['raw_data']['_livestream_via'] = 'shipment';
+
+        return true;
     }
 
     /** Scraper rows that are this same transaction. */

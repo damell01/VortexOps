@@ -36,11 +36,12 @@
 <div class="vx-show-detail space-y-5" style="font-size:14px">
 <section class="vx-card overflow-hidden" style="border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04)">
 <div class="p-5 sm:p-6"><div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+<div class="flex min-w-0 items-start gap-4">@if($show->cover_image_url)<img src="{{ $show->cover_image_url }}" alt="" loading="lazy" class="h-20 w-20 shrink-0 rounded-xl object-cover sm:h-24 sm:w-24">@endif
 <div class="min-w-0"><div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-500">@if($show->channel)<span>{{ $show->channel->name }}</span><span>•</span>@endif<span class="text-primary-600">Show #{{ $show->id }}</span></div>
 <h1 class="mt-1 text-2xl font-black tracking-tight text-gray-950 dark:text-white sm:text-3xl">{{ $show->title ?: 'Show #'.$show->id }}</h1>
 <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500"><span>{{ $show->show_date?->format('M j, Y') ?? 'Date not set' }}</span>@if($show->start_time)<span>• {{ $show->start_time->format('g:i A') }}</span>@endif<span>• {{ ucfirst(str_replace('_',' ',$show->status ?? 'unknown')) }}</span></div>
 <div class="mt-3 flex flex-wrap gap-2"><span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">{{ $workflow['label'] ?? ucfirst(str_replace('_',' ',$workflowKey)) }}</span>@foreach($show->streamers as $streamer)<span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{{ $streamer->name }}</span>@endforeach @if((float) ($show->tips ?? 0) > 0)<span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">Tips: ${{ number_format((float) $show->tips, 2) }}</span>@endif @if($analyticsMissing)<span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">Whatnot analytics missing</span>@endif</div></div>
-<div class="flex shrink-0 flex-wrap gap-2"><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('edit',['record'=>$show]) }}">Edit Show</a><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShipmentResource::getUrl('index',['show'=>$show->id]) }}">Shipments</a><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('inventory',['record'=>$show]) }}">Inventory / COGS</a></div>
+</div><div class="flex shrink-0 flex-wrap gap-2"><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('edit',['record'=>$show]) }}">Edit Show</a><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShipmentResource::getUrl('index',['show'=>$show->id]) }}">Shipments</a><a class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[var(--vx-border)] px-4 text-xs font-semibold" href="{{ \App\Filament\Resources\ShowResource::getUrl('inventory',['record'=>$show]) }}">Inventory / COGS</a></div>
 </div></div>
 <div class="grid grid-cols-2 gap-3 border-t border-[var(--vx-divider)] p-4 md:grid-cols-3 xl:grid-cols-4">
 <div class="rounded-xl border border-[var(--vx-divider)] p-4"><label class="block text-[10px] font-bold uppercase tracking-wider text-gray-400">Gross Sales</label><strong class="mt-1 block text-xl font-black tabular-nums">${{ number_format((float)$pnl['gross'],2) }}</strong></div>
@@ -66,7 +67,45 @@
                 <div class="flex items-center justify-between gap-4 border-t border-[var(--vx-divider)] py-3"><div><div class="text-sm font-semibold">Payroll</div><div class="mt-1 text-xs text-[var(--vx-muted)]">{{ $payouts->count() }} payout line(s) · ${{ number_format((float)$payouts->sum('calculated_payout'),2) }}</div></div>@if($payouts->first()?->batch)<a class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view',['record'=>$payouts->first()->batch]) }}">Open Run</a>@else<a class="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-[var(--vx-border)] px-3 text-xs font-semibold" href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}">Payroll</a>@endif</div>
             </section>
 
-
+            @php $ledger = app(\App\Services\ShowLedgerSummary::class)->for($show); @endphp
+            <section class="vx-card p-5" aria-labelledby="show-ledger-h">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div><h3 id="show-ledger-h" class="text-base font-bold">Ledger</h3><div class="mt-1 text-xs text-[var(--vx-muted)]">Money Whatnot actually recorded for this show: sales, refunds, shipping and carrier adjustments, plus tips.</div></div>
+                    <div class="text-right"><div class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Ledger net</div><div class="text-lg font-black tabular-nums {{ $ledger['ledger_net'] < 0 ? 'vx-bad' : '' }}">${{ number_format($ledger['ledger_net'], 2) }}</div><div class="text-xs text-[var(--vx-muted)]">Tips ${{ number_format($ledger['tips'], 2) }}</div></div>
+                </div>
+                @if($ledger['lines']->isEmpty())
+                    <p class="mt-3 border-t border-[var(--vx-divider)] pt-3 text-xs text-[var(--vx-muted)]">No ledger entries tied to this show yet.</p>
+                @else
+                    <div class="mt-3 flex flex-wrap gap-2 border-t border-[var(--vx-divider)] pt-3 text-xs">
+                        @foreach($ledger['by_category'] as $category => $total)
+                            <span class="rounded-full bg-gray-100 px-3 py-1 font-semibold dark:bg-gray-800">{{ ucfirst($category) }} <span class="tabular-nums {{ $total < 0 ? 'vx-bad' : '' }}">${{ number_format($total, 2) }}</span></span>
+                        @endforeach
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-sm font-semibold">After the show</div>
+                        @if($ledger['after_show']->isEmpty())
+                            <p class="mt-1 text-xs text-[var(--vx-muted)]">Nothing has landed since the show ended.</p>
+                        @else
+                            <p class="mt-1 text-xs {{ $ledger['after_show_net'] < 0 ? 'vx-bad' : 'text-[var(--vx-muted)]' }}">{{ $ledger['after_show_net'] < 0 ? 'This show lost' : 'This show gained' }} ${{ number_format(abs($ledger['after_show_net']), 2) }} after it ended{{ $ledger['after_show_tips'] > 0 ? ', plus $'.number_format($ledger['after_show_tips'], 2).' in late tips' : '' }}.</p>
+                            <div class="mt-2 divide-y divide-[var(--vx-divider)]">
+                                @foreach($ledger['after_show'] as $line)
+                                    <div class="flex items-center justify-between gap-3 py-2 text-xs">
+                                        <div class="min-w-0"><span class="font-semibold">{{ $line['at']?->format('M j') }}</span> · {{ ucfirst($line['category']) }}@if($line['order']) · order {{ $line['order'] }}@endif @if($line['status'] === 'waiting')<span class="text-amber-600">· not matched yet</span>@endif<div class="truncate text-[var(--vx-muted)]">{{ $line['message'] }}</div></div>
+                                        <span class="shrink-0 font-semibold tabular-nums {{ $line['amount'] < 0 ? 'vx-bad' : 'vx-good' }}">{{ $line['amount'] < 0 ? '−' : '+' }}${{ number_format(abs($line['amount']), 2) }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    <details class="mt-3"><summary class="cursor-pointer text-xs font-semibold text-primary-600">All {{ $ledger['lines']->count() }} ledger entries</summary>
+                        <div class="mt-2 divide-y divide-[var(--vx-divider)]">
+                            @foreach($ledger['lines'] as $line)
+                                <div class="flex items-center justify-between gap-3 py-1.5 text-xs"><span>{{ $line['at']?->format('M j, g:ia') }} · {{ $line['type'] }}@if($line['order']) · {{ $line['order'] }}@endif</span><span class="tabular-nums {{ $line['amount'] < 0 ? 'vx-bad' : '' }}">${{ number_format($line['amount'], 2) }}</span></div>
+                            @endforeach
+                        </div>
+                    </details>
+                @endif
+            </section>
         </div>
 
         <aside class="space-y-3">

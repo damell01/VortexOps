@@ -1,6 +1,8 @@
 # UI redesign — page inventory
 
-Generated from the code (Filament pages, resource pages, Livewire components). Status: `todo` → `done` (redesigned and checked) or `n/a` (no UI / redirect).
+Generated from the code (Filament pages, resource pages, Livewire components). Status: `todo` → `done` (on the new design system; checked) or `n/a` (no UI / redirect).
+
+Phase 1 (light default + design-system layer) applies to every screen that uses Filament sections, tables, tabs, badges and the --vx tokens; `done` below means the screen's own layout has also been reviewed against the mockups.
 
 Total: 209
 
@@ -9,7 +11,7 @@ Total: 209
 
 | Status | Screen | Kind | View |
 |---|---|---|---|
-| todo | DashboardImproved | Page | `filament.pages.dashboard-improved` |
+| done | DashboardImproved | Page | `filament.pages.dashboard-improved` |
 | todo | HorizonDashboard | Page | `filament.pages.horizon-dashboard` |
 
 ## Fulfillment

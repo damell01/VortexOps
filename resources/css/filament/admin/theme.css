@@ -1373,3 +1373,12 @@ a.fi-wi-stats-overview-stat:hover{border-color:#c4b5fd!important;box-shadow:0 6p
 /* Payroll: tighter KPI tiles; pastel icon chips toned down in dark mode. */
 [data-vx-page=payroll] .vx-payroll-kpi{padding:14px 16px;border-radius:var(--vx-radius,14px)}
 .dark [data-vx-page=payroll] .vx-payroll-kpi .vx-payroll-icon{background:color-mix(in srgb,currentColor 18%,transparent)!important;filter:brightness(1.35)}
+/* Report library: compact cards, about four to a row (mockup). */
+.vxr-tiles{gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.vxr-tile{padding:14px 16px;gap:12px;border-radius:var(--vx-radius,14px);transition:border-color .15s,box-shadow .15s,transform .15s}
+.vxr-tile:hover{border-color:#c4b5fd;box-shadow:0 8px 20px -10px rgba(124,58,237,.4);transform:translateY(-1px)}
+.vxr-tile .vxr-stat-icon{width:40px;height:40px;border-radius:12px}
+.vxr-tile .vxr-stat-icon svg{width:20px;height:20px}
+.vxr-tile b{font-size:14px}
+.vxr-tile p{font-size:12.5px;margin:2px 0 6px}
+@media (prefers-reduced-motion:reduce){.vxr-tile:hover{transform:none}}

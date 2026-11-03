@@ -26,17 +26,14 @@
                     <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Work by show first. Open the show, then handle its Whatnot shipments and packing lines.</p>
                 </div>
 
-                <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">
+                <div class="vxr-stats border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
                     @foreach ([
-                        ['Shows to Work', $showsToFulfill ?? 0],
-                        ['Open Shipments', $openShipments ?? 0],
-                        ['Delivered Today', $deliveredToday ?? 0],
-                        ['Unassigned', $unassignedShows ?? 0],
-                    ] as [$label, $value])
-                        <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
-                            <div class="truncate text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
-                            <div class="mt-0.5 text-xl font-semibold leading-none text-gray-950 dark:text-white sm:mt-1 sm:text-2xl">{{ number_format((float)$value) }}</div>
-                        </div>
+                        ['Shows to Work', $showsToFulfill ?? 0, 'heroicon-o-video-camera', 'accent'],
+                        ['Open Shipments', $openShipments ?? 0, 'heroicon-o-truck', 'info'],
+                        ['Delivered Today', $deliveredToday ?? 0, 'heroicon-o-check-circle', 'ok'],
+                        ['Unassigned', $unassignedShows ?? 0, 'heroicon-o-user-minus', 'warn'],
+                    ] as [$label, $value, $icon, $tone])
+                        <x-vxr.stat :label="$label" :value="number_format((float) $value)" :icon="$icon" :tone="$tone" compact />
                     @endforeach
                 </div>
             </section>
@@ -55,7 +52,7 @@
                         <div class="text-sm font-semibold text-blue-900 dark:text-blue-100">Ready to work the queue?</div>
                         <p class="mt-0.5 text-xs leading-5 text-blue-700 dark:text-blue-300">The Fulfillment Center keeps the list show-first so mobile users do not have to scan a giant shipment table.</p>
                     </div>
-                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('index') }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-500">Open Fulfillment Center</a>
+                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('index') }}" class="vxr-btn vxr-btn--primary">Open Fulfillment Center</a>
                 </div>
             </section>
         @elseif($pageMode === 'admin')

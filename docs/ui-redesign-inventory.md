@@ -85,7 +85,7 @@ Total: 209
 | system | StockTransfer | Page | `filament.pages.stock-transfer` |
 | system | InventoryItemResource › CreateInventoryItem | Resource page | `filament.pages.create-inventory-item-wrapper` |
 | system | InventoryItemResource › EditInventoryItem | Resource page | `filament.resources.inventory-item-resource.pages.edit-inventory-item` |
-| system | InventoryItemResource › ListInventoryItems | Resource page | `filament.resources.inventory-item-resource.pages.list-inventory-items` |
+| done | InventoryItemResource › ListInventoryItems | Resource page | `filament.resources.inventory-item-resource.pages.list-inventory-items` |
 | system | InventoryItemResource › ManageStock | Resource page | `filament.resources.inventory-item-resource.pages.manage-stock` |
 | system | InventoryItemResource › QuickAddInventoryItem | Resource page | `filament.pages.quick-add-inventory-item` |
 | done | InventoryItemResource › ViewInventoryItem | Resource page | `filament.resources.inventory-item-resource.pages.view-inventory-item` |
@@ -213,8 +213,8 @@ Total: 209
 | system | ManagerProfitShare | Page | `filament.pages.manager-profit-share` |
 | system | ProfitLoss | Page | `filament.pages.profit-loss` |
 | system | ProfitSharePacket | Page | `filament.pages.profit-share-packet` |
-| system | Reports | Page | `filament.pages.reports` |
-| system | ReportsOverview | Page | `filament.pages.reports-overview` |
+| done | Reports | Page | `filament.pages.reports` |
+| done | ReportsOverview | Page | `filament.pages.reports-overview` |
 | system | ShowPerformance | Page | `filament.pages.show-performance` |
 | system | StreamerAnalytics | Page | `filament.pages.streamer-analytics` |
 | system | StreamerProfitShare | Page | `filament.pages.streamer-profit-share` |
@@ -277,4 +277,4 @@ Total: 209
 | Status | Screen | Kind | View |
 |---|---|---|---|
 | system | TimeAttendance | Page | `filament.pages.time-attendance` |
-| system | Timekeeping | Page | `filament.pages.timekeeping` |
+| done | Timekeeping | Page | `filament.pages.timekeeping` |

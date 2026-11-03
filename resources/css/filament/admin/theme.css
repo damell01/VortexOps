@@ -1244,3 +1244,55 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
 .vx-mega-menu, .vx-more-menu, .vx-menu-panel, .vx-edit-panel, .vx-picker-menu {
   max-width: calc(100vw - 24px);
 }
+
+/* ==========================================================================
+   Buttons — mockup style
+   Primary: solid purple. Other colours: soft tint (light fill, coloured text,
+   faint ring), e.g. "Quick Scan", "Receive". Gray: white with a thin border
+   ("Import"). Compact and rounded. Confirm buttons inside modals stay solid so
+   destructive actions remain unmistakable.
+   ========================================================================== */
+.fi-btn { min-height: 38px; padding-inline: 14px; gap: 6px; border-radius: 10px; font-size: 13.5px; letter-spacing: -.005em; }
+.fi-btn.fi-size-sm, .fi-btn.fi-size-xs { min-height: 32px; padding-inline: 10px; font-size: 12.5px; }
+
+/* Primary: solid brand purple with a soft lift */
+.fi-btn.fi-color-primary:not(.fi-outlined) {
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-600));
+  color: #fff; box-shadow: 0 1px 2px rgb(91 33 182 / .25), 0 4px 12px rgb(124 58 237 / .18);
+}
+.fi-btn.fi-color-primary:not(.fi-outlined):not([disabled]):hover { background: var(--primary-600); color: #fff; }
+.fi-btn.fi-color-primary:not(.fi-outlined) > .fi-icon { color: #fff; }
+
+/* Success / warning / info / danger / custom colours: soft tint */
+.fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) {
+  background: var(--color-50); color: var(--color-700);
+  box-shadow: inset 0 0 0 1px var(--color-200);
+}
+.fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label):not([disabled]):hover {
+  background: var(--color-100); color: var(--color-800);
+}
+.fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) > .fi-icon { color: var(--color-600); }
+.dark .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) {
+  background: color-mix(in srgb, var(--color-500) 16%, transparent); color: var(--color-300);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-500) 32%, transparent);
+}
+.dark .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label):not([disabled]):hover {
+  background: color-mix(in srgb, var(--color-500) 24%, transparent); color: var(--color-200);
+}
+.dark .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) > .fi-icon { color: var(--color-400); }
+
+/* Gray: white, thin border ("Import") */
+.fi-btn.fi-color-gray:not(.fi-outlined), .fi-btn:not(.fi-color):not(label) {
+  background: var(--vx-surface); color: var(--vx-text); box-shadow: inset 0 0 0 1px var(--vx-border);
+}
+.fi-btn.fi-color-gray:not(.fi-outlined):not([disabled]):hover, .fi-btn:not(.fi-color):not(label):not([disabled]):hover { background: var(--vx-surface-2); }
+
+/* Modal confirm buttons stay solid (Delete, Approve…) */
+.fi-modal-footer .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-gray):not(label) {
+  background: var(--color-600); color: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .15);
+}
+.fi-modal-footer .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-gray):not(label):not([disabled]):hover { background: var(--color-700); color: #fff; }
+.fi-modal-footer .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-gray):not(label) > .fi-icon { color: #fff; }
+
+/* App's own buttons follow the same shapes */
+.vxr-btn { min-height: 38px; border-radius: 10px; font-weight: 650; }

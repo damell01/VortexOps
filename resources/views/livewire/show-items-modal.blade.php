@@ -27,7 +27,7 @@
             <div class="mt-4">
                 <label class="block text-sm font-medium text-emerald-50 mb-2">Inventory Location</label>
                 <select wire:model.live="selectedLocationId"
-                    class="w-full rounded-lg bg-white/90 text-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50">
+                    class="w-full rounded-lg bg-white/90 text-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50 dark:text-white">
                     <option value="">Choose a location...</option>
                     @foreach($locations as $id => $name)
                         <option value="{{ $id }}">{{ $name }}</option>
@@ -47,7 +47,7 @@
                         type="text"
                         wire:model.live.debounce-300ms="search"
                         placeholder="Search items by name or SKU..."
-                        class="w-full rounded-lg bg-white/90 py-2 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        class="w-full rounded-lg bg-white/90 py-2 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50 dark:text-white"
                     >
                 </div>
             @endif

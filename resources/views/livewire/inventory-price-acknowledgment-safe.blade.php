@@ -55,7 +55,7 @@ $types = $slides->pluck('type')->all();
 </div></article>
 @endforeach
 </div>
-<footer class="shrink-0 border-t border-purple-900 p-3"><button type="button" wire:click="acknowledge" wire:loading.attr="disabled" wire:target="acknowledge" class="w-full rounded-xl bg-amber-300 p-3 font-bold text-gray-950">Acknowledge &amp; continue</button></footer>
+<footer class="shrink-0 border-t border-purple-900 p-3"><button type="button" wire:click="acknowledge" wire:loading.attr="disabled" wire:target="acknowledge" class="w-full rounded-xl bg-amber-300 p-3 font-bold text-gray-950 dark:text-white">Acknowledge &amp; continue</button></footer>
 </section>
 </div>
 @endif

@@ -28,7 +28,7 @@
                         type="text"
                         wire:model.live.debounce-300ms="search"
                         placeholder="Search by item name, SKU, or barcode..."
-                        class="w-full rounded-lg bg-white/90 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        class="w-full rounded-lg bg-white/90 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50 dark:text-white"
                         autofocus
                         @onfocus="document.dispatchEvent(new CustomEvent('showRecentSearches'))"
                     >

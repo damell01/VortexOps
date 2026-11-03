@@ -48,7 +48,7 @@
                         <p class="rounded-xl border border-gray-700 p-5 text-center text-gray-400">No matching inventory changes recorded for this period.</p>
                     @endif
                 </div>
-                <footer class="shrink-0 border-t border-purple-900 bg-[#100d23] p-4 text-right"><button type="button" wire:click="close" class="rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-5 py-3 font-extrabold text-gray-950">Done</button></footer>
+                <footer class="shrink-0 border-t border-purple-900 bg-[#100d23] p-4 text-right"><button type="button" wire:click="close" class="rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-5 py-3 font-extrabold text-gray-950 dark:text-white">Done</button></footer>
             </section>
         </div>
     @endif

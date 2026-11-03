@@ -106,7 +106,7 @@
                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <h3 class="font-semibold text-slate-900">{{ $milestone->title }}</h3>
+                                            <h3 class="font-semibold text-slate-900 dark:text-white">{{ $milestone->title }}</h3>
                                             <span class="rounded-full px-2.5 py-1 text-[11px] font-medium {{ match($milestone->status) { 'completed', 'approved' => 'bg-emerald-50 text-emerald-700', 'in_progress' => 'bg-blue-50 text-blue-700', 'blocked' => 'bg-rose-50 text-rose-700', default => 'bg-slate-100 text-slate-600' } }}">
                                                 {{ \App\Models\ProjectMilestone::statusLabels()[$milestone->status] ?? ucfirst($milestone->status) }}
                                             </span>
@@ -157,7 +157,7 @@
                                             </span>
                                             <span class="text-xs text-slate-400">{{ $item->created_at->copy()->timezone(\App\Support\BusinessTime::zone())->format('M j') }}</span>
                                         </div>
-                                        <h3 class="mt-3 line-clamp-1 font-semibold text-slate-900">{{ $item->page_title ?: 'Untitled page' }}</h3>
+                                        <h3 class="mt-3 line-clamp-1 font-semibold text-slate-900 dark:text-white">{{ $item->page_title ?: 'Untitled page' }}</h3>
                                         <p class="mt-2 line-clamp-2 text-sm text-slate-600">{{ $item->comment ?: 'Open the item to add more detail.' }}</p>
                                     </div>
                                 </a>
@@ -183,7 +183,7 @@
                         @forelse ($project->comments->take(8) as $comment)
                             <div class="rounded-2xl bg-slate-50 p-4">
                                 <div class="flex items-center justify-between gap-3">
-                                    <p class="text-sm font-semibold text-slate-900">{{ $comment->user?->name ?: 'Unknown user' }}</p>
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ $comment->user?->name ?: 'Unknown user' }}</p>
                                     <p class="text-xs text-slate-400">{{ $comment->created_at->diffForHumans() }}</p>
                                 </div>
                                 <p class="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{{ $comment->body }}</p>
@@ -208,7 +208,7 @@
                             <div class="rounded-2xl border border-slate-200 p-4">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
-                                        <h3 class="font-semibold text-slate-900">{{ $approval->label }}</h3>
+                                        <h3 class="font-semibold text-slate-900 dark:text-white">{{ $approval->label }}</h3>
                                         @if ($approval->description)
                                             <p class="mt-2 text-sm leading-6 text-slate-600">{{ $approval->description }}</p>
                                         @endif
@@ -237,7 +237,7 @@
                             <div class="border-l-2 border-violet-200 pl-4">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
-                                        <h3 class="font-semibold text-slate-900">{{ $update->title }}</h3>
+                                        <h3 class="font-semibold text-slate-900 dark:text-white">{{ $update->title }}</h3>
                                         @if ($update->body)
                                             <p class="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600">{{ $update->body }}</p>
                                         @endif

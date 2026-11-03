@@ -99,7 +99,8 @@ final class WhatnotApiShipmentImporter
                 Shipment::updateOrCreate(
                     ['show_id' => $showId, 'tracking_number' => $tracking['tracking_code']],
                     array_filter([
-                        'whatnot_order_id' => (string) $showOrders->first()->whatnot_order_id,
+                        // A link to the local order row (whatnot_show_orders.id), despite the name.
+                        'whatnot_order_id' => $showOrders->first()->id,
                         'buyer_username' => $recipient['username'] ?? null,
                         'item_count' => count($items),
                         'shipping_cost' => is_array($money) && ($money['currency'] ?? null) === 'USD' && is_numeric($money['amount'] ?? null) ? (float) $money['amount'] : null,

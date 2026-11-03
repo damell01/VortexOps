@@ -1337,3 +1337,16 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
   .dark .vx-mega-menu a:hover{background:rgba(124,58,237,.18);color:#fff}
   .dark .vx-mega-section{border-top-color:var(--vx-border)}
 }
+
+/* ── Design system: Filament stat widgets as mockup tiles ─────────────── */
+.fi-wi-stats-overview-stats-ctn{gap:12px!important}
+.fi-wi-stats-overview-stat{padding:14px 16px!important;border-radius:var(--vx-radius,14px)!important;background:var(--vx-surface)!important;border:1px solid var(--vx-border)!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important;--tw-ring-shadow:0 0 #0000!important}
+a.fi-wi-stats-overview-stat:hover{border-color:#c4b5fd!important;box-shadow:0 6px 18px -8px rgba(124,58,237,.35)!important}
+.fi-wi-stats-overview-stat-label-ctn{gap:10px!important;align-items:center}
+.fi-wi-stats-overview-stat-label-ctn>.fi-icon{box-sizing:content-box;width:18px!important;height:18px!important;padding:8px;border-radius:10px;background:var(--vx-brand-soft);color:var(--vx-brand)}
+.dark .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:rgba(124,58,237,.2);color:#c4b5fd}
+.fi-wi-stats-overview-stat-label{font-size:12px!important;font-weight:650!important;color:var(--vx-muted)!important}
+.fi-wi-stats-overview-stat-value{margin-top:6px;font-size:clamp(1.25rem,1.5vw,1.6rem)!important;font-weight:750!important;color:var(--vx-text)}
+.fi-wi-stats-overview-stat-description{font-size:12px!important}
+/* Logos were made for the navy bar (white lettering): keep them on a navy chip in light mode. */
+@media(min-width:1024px){html:not(.dark) .fi-topbar .vx-mega-brand{background:var(--vx-navy);border-radius:12px;padding:3px;box-sizing:border-box}}

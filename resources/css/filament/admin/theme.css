@@ -1446,3 +1446,17 @@ html:not(.dark) .vx-install-banner__close{color:var(--vx-muted);top:.15rem}
   .dark .fi-page .vx-month .vx-cell.today{background:rgba(124,58,237,.16)}
   .fi-page .vx-month .vx-cell.today .vx-num{color:var(--vx-brand)}
 }
+
+/* ── Inventory list (mockup): tinted shortcut buttons ─────────────────── */
+.fi-page .vx-inv-shortcuts>a{min-height:40px;border-width:1px;box-shadow:none!important;font-weight:650!important;transition:filter .15s,box-shadow .15s}
+.fi-page .vx-inv-shortcuts>a:hover{box-shadow:0 4px 12px -6px rgba(15,23,42,.25)!important}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-600{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-blue-600{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-emerald-600{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-violet-600{background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand));border-color:transparent;color:#fff}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--vx-surface);border-color:var(--vx-border);color:var(--vx-text)}
+.dark .fi-page .vx-inv-shortcuts>a.text-blue-600{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.35)}
+.dark .fi-page .vx-inv-shortcuts>a.text-emerald-600{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.35)}
+.dark .fi-page .vx-inv-shortcuts>a.text-primary-600{background:rgba(99,102,241,.14);border-color:rgba(99,102,241,.35)}
+/* KPI tiles: number first, bold; label beneath (mockup). */
+.fi-page .vx-health strong{font-size:1.5rem;font-weight:800;color:var(--vx-text)}

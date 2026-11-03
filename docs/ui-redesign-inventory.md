@@ -73,7 +73,7 @@ Total: 209
 | todo | InventoryItemResource › ListInventoryItems | Resource page | `filament.resources.inventory-item-resource.pages.list-inventory-items` |
 | todo | InventoryItemResource › ManageStock | Resource page | `filament.resources.inventory-item-resource.pages.manage-stock` |
 | todo | InventoryItemResource › QuickAddInventoryItem | Resource page | `filament.pages.quick-add-inventory-item` |
-| todo | InventoryItemResource › ViewInventoryItem | Resource page | `filament.resources.inventory-item-resource.pages.view-inventory-item` |
+| done | InventoryItemResource › ViewInventoryItem | Resource page | `filament.resources.inventory-item-resource.pages.view-inventory-item` |
 | todo | InventoryLocationResource › CreateInventoryLocation | Resource page | `(Filament default)` |
 | todo | InventoryLocationResource › EditInventoryLocation | Resource page | `(Filament default)` |
 | todo | InventoryLocationResource › ListInventoryLocations | Resource page | `(Filament default)` |

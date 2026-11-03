@@ -43,6 +43,20 @@ body:has(.vx-item-shell) .fi-header .fi-ac{display:none!important}
 .ivx-details dl>div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid #f1f5f9;font-size:.84rem}
 .dark .ivx-details dl>div{border-color:#1f2937}
 .ivx-details dt{color:#64748b}.ivx-details dd{font-weight:600;text-align:right;overflow-wrap:anywhere}
+/* Redesign: actions top-right, figures inside the hero, larger photo, pill tabs */
+.vx-item-shell{max-width:1200px}
+.ivx-hero-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px}
+.ivx-hero-head .ivx-hero-actions{margin-top:0;display:flex;flex-wrap:wrap;gap:8px}
+.ivx-hero-stats{margin-top:14px}
+.ivx-stat{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--vx-surface-2,#fafafd);border-color:var(--vx-border,#e7e7ef)}
+.ivx-stat b{font-size:1.15rem}
+.ivx-stat-ic{display:inline-grid;place-items:center;width:36px;height:36px;flex:none;border-radius:10px}
+.ivx-stat-ic.green{background:#dcfce7;color:#047857}.ivx-stat-ic.violet{background:#ede9fe;color:#6d28d9}.ivx-stat-ic.blue{background:#dbeafe;color:#1d4ed8}.ivx-stat-ic.amber{background:#fef3c7;color:#b45309}
+.dark .ivx-stat-ic.green{background:rgb(16 185 129/.18);color:#6ee7b7}.dark .ivx-stat-ic.violet{background:rgb(124 58 237/.22);color:#c4b5fd}.dark .ivx-stat-ic.blue{background:rgb(59 130 246/.2);color:#93c5fd}.dark .ivx-stat-ic.amber{background:rgb(245 158 11/.2);color:#fcd34d}
+@media(min-width:900px){.ivx-hero-photo{width:148px;height:148px}.ivx-hero-top{gap:20px}}
+.ivx-itabs{gap:6px;border-bottom:1px solid var(--vx-border,#e5e7eb);padding-bottom:6px}
+.ivx-itabs button{border-bottom:0;margin-bottom:0;border-radius:999px;padding:7px 14px}
+.ivx-itabs button.on{background:var(--vx-brand-soft,#f3eefe);color:var(--vx-primary-text,#5b21b6)}
 </style>
 <div class="vx-item-shell space-y-4" x-data="{photoOpen:false}">
  @php
@@ -51,34 +65,40 @@ body:has(.vx-item-shell) .fi-header .fi-ac{display:none!important}
   $canDelete = \App\Filament\Resources\InventoryItemResource::canDeleteAny();
   $locationsList = collect($this->stockByLocation)->where('qty', '>', 0)->pluck('location')->filter()->unique()->implode(', ');
  @endphp
- {{-- Hero: photo, name, SKU, status, and the two things you came to do. --}}
+ {{-- Hero (redesign): photo, name, SKU, status and actions; the four key figures
+      sit in the same card so they stay visible on every tab. --}}
  <div class="vx-card ivx-hero">
   <div class="ivx-hero-top">
    <img @click="photoOpen=true" src="{{$record->imageUrl()}}" alt="{{$record->name}}" class="vx-photo ivx-hero-photo">
    <div class="min-w-0 flex-1">
-    <h1 class="ivx-hero-name">{{$record->name}}</h1>
-    <div class="ivx-hero-sku">SKU: {{$record->sku?:'—'}}</div>
-    <div class="mt-2 flex flex-wrap gap-1.5">
-     <span class="ivx-hp {{ $stockState[1] }}">{{ $stockState[0] }}</span>
-     <span class="ivx-hp violet">{{ $record->is_container ? 'Case' : 'Item' }}</span>
-     @unless($record->is_active)<span class="ivx-hp gray">Inactive</span>@endunless
+    <div class="ivx-hero-head">
+     <div class="min-w-0">
+      <h1 class="ivx-hero-name">{{$record->name}}</h1>
+      <div class="ivx-hero-sku">SKU: {{$record->sku?:'—'}}</div>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+       <span class="ivx-hp {{ $stockState[1] }}">{{ $stockState[0] }}</span>
+       <span class="ivx-hp violet">{{ $record->is_container ? 'Case' : 'Item' }}</span>
+       @if($record->category)<span class="ivx-hp gray">{{ $record->category }}</span>@endif
+       @unless($record->is_active)<span class="ivx-hp gray">Inactive</span>@endunless
+      </div>
+     </div>
+     <div class="ivx-hero-actions">
+      @if($canEdit)<a href="{{\App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$record])}}" class="ivx-hbtn"><x-heroicon-o-pencil-square class="h-4 w-4"/> Edit</a>@endif
+      @if($canEdit)<button type="button" wire:click="mountAction('add_stock')" class="ivx-hbtn primary"><x-heroicon-o-plus-circle class="h-4 w-4"/> Add Stock</button>@endif
+      @if($canDelete)<button type="button" wire:click="mountAction('deleteItem')" class="ivx-hbtn icon" title="Delete item" aria-label="Delete item"><x-heroicon-o-trash class="h-4 w-4"/></button>@endif
+     </div>
+    </div>
+    <div class="ivx-stats ivx-hero-stats">
+     <div class="ivx-stat"><span class="ivx-stat-ic green" aria-hidden="true"><x-heroicon-o-cube class="h-5 w-5"/></span><div><b @class(['neg' => $totalQty <= 0])>{{number_format($totalQty)}}</b><span>In Stock</span></div></div>
+     <div class="ivx-stat"><span class="ivx-stat-ic violet" aria-hidden="true"><x-heroicon-o-banknotes class="h-5 w-5"/></span><div><b>${{number_format((float)$record->unit_cost,2)}}</b><span>Unit Cost</span></div></div>
+     <div class="ivx-stat"><span class="ivx-stat-ic blue" aria-hidden="true"><x-heroicon-o-tag class="h-5 w-5"/></span><div><b>{{$target?'$'.number_format($target,2):'—'}}</b><span>Sale Target</span></div></div>
+     <div class="ivx-stat"><span class="ivx-stat-ic amber" aria-hidden="true"><x-heroicon-o-chart-bar class="h-5 w-5"/></span><div><b>${{number_format(max(0,$totalQty)*$cost,2)}}</b><span>Inventory Value</span></div></div>
     </div>
    </div>
-  </div>
-  <div class="ivx-hero-actions">
-   @if($canEdit)<a href="{{\App\Filament\Resources\InventoryItemResource::getUrl('edit',['record'=>$record])}}" class="ivx-hbtn"><x-heroicon-o-pencil-square class="h-4 w-4"/> Edit</a>@endif
-   @if($canEdit)<button type="button" wire:click="mountAction('add_stock')" class="ivx-hbtn primary"><x-heroicon-o-plus-circle class="h-4 w-4"/> Add Stock</button>@endif
-   @if($canDelete)<button type="button" wire:click="mountAction('deleteItem')" class="ivx-hbtn icon" title="Delete item" aria-label="Delete item"><x-heroicon-o-trash class="h-4 w-4"/></button>@endif
   </div>
  </div>
  <nav class="ivx-itabs" aria-label="Item sections">@foreach($tabs as $key=>$label)<button type="button" wire:click="setTab('{{$key}}')" @class(['on' => $tab===$key])>{{$label}}</button>@endforeach</nav>
  @if($tab==='overview')
- <div class="ivx-stats">
-  <div class="ivx-stat"><b @class(['neg' => $totalQty <= 0])>{{number_format($totalQty)}}</b><span>In Stock</span></div>
-  <div class="ivx-stat"><b>${{number_format((float)$record->unit_cost,2)}}</b><span>Item Cost</span></div>
-  <div class="ivx-stat"><b>${{number_format(max(0,$totalQty)*$cost,2)}}</b><span>Total Value</span></div>
-  <div class="ivx-stat"><b>{{$target?'$'.number_format($target,2):'—'}}</b><span>Sale Target</span></div>
- </div>
  @if($target > 0)
   <div class="vx-card ivx-margin">
    @if($cost > 0)

@@ -27,6 +27,8 @@
     .vxsa-page .vxr-title { font-size: clamp(26px, 3vw, 34px); letter-spacing: -.02em; }
     .vxsa-pop { position: absolute; z-index: 40; right: 0; top: calc(100% + 6px); width: 300px; max-width: calc(100vw - 32px); background: var(--vxw-surface); border: 1px solid var(--vxw-border); border-radius: 12px; box-shadow: var(--vxw-shadow-pop); padding: 10px; display: grid; gap: 8px; }
     .vxsa-picker { position: relative; min-width: 0; }
+    .vxsa-picker:first-child .vxsa-pop { left: 0; right: auto; }
+    .vxsa-pop { box-sizing: border-box; max-height: min(520px, calc(100dvh - 96px)); overflow-y: auto; overscroll-behavior: contain; }
     .vxsa-picker-btn { width: 220px; max-width: 100%; justify-content: space-between; cursor: pointer; }
     .vxsa-picker-btn > span { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .vxsa-pop-list { max-height: 260px; overflow-y: auto; }

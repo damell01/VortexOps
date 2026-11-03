@@ -1117,3 +1117,30 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .fi-ta-table tbody td { vertical-align:middle; }
 .fi-ta-table-container { overflow-x:auto; }
 @media (min-width:1024px) { .fi-ta-table .fi-badge { min-width:max-content; } }
+
+/* Dev UI density pass: reduce above-the-fold chrome without changing fields or actions.
+   Scoped to Filament page primitives; bespoke vx-/vxr- layouts retain their own rules. */
+@media (min-width: 1024px) {
+  .fi-page-header { margin-bottom: 8px !important; }
+  .fi-page-header-main-ctn { gap: 4px !important; }
+  .fi-page-header .fi-header-subheading { max-width: 78ch; line-height: 1.35; }
+  .fi-page-content { gap: 14px !important; }
+  .fi-page-content > .fi-section,
+  .fi-page-content > .fi-ta { min-width: 0; }
+  .fi-section-header { padding-block: 12px !important; }
+  .fi-ta-header { padding-block: 12px !important; }
+  .fi-ta-empty-state { padding-block: 20px !important; }
+}
+@media (max-width: 767px) {
+  .fi-page-header-main-ctn { min-width: 0; }
+  .fi-header-subheading { overflow-wrap: anywhere; }
+  .fi-page-content { min-width: 0; gap: 12px !important; }
+  .fi-ta-empty-state { padding-block: 16px !important; }
+}
+/* Allow popover contents to scroll vertically instead of growing past the screen. */
+.fi-dropdown-panel, .fi-ta-filters-dropdown .fi-dropdown-panel {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

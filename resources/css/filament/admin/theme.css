@@ -1296,3 +1296,18 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
 
 /* App's own buttons follow the same shapes */
 .vxr-btn { min-height: 38px; border-radius: 10px; font-weight: 650; }
+
+/* Reports & workflow screens use --vxw-* tokens; point them at the design
+   system so every screen shares one palette in light and dark. */
+:root {
+  --vxw-page: var(--vx-page); --vxw-surface: var(--vx-surface); --vxw-border: var(--vx-border);
+  --vxw-text: var(--vx-text); --vxw-muted: var(--vx-muted);
+}
+
+/* KPI / stat tiles — mockup style: rounded-square tinted icon, compact */
+.vxr-stat { padding: 14px 16px; gap: 12px; }
+.vxr-stat-icon { width: 40px; height: 40px; border-radius: 12px; }
+.vxr-stat-value { font-size: 22px; }
+.vxr-stat--compact .vxr-stat-value { font-size: 19px; }
+.vxt-stats .vxr-stat { min-height: 0; }
+.vxt-stats .vxr-stat-icon { font-size: 20px; }

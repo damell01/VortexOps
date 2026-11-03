@@ -73,8 +73,10 @@ async function apiAction(id, action, button) {
       headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
       body:action==='credentials'?JSON.stringify({token:input.value}):'{}'
     });
-    const data=await response.json();
-    output.textContent=response.ok?(action==='credentials'?'Token saved. API sync remains disabled.':(data.ok?'Connected successfully.':data.message||'Connection test failed.')):'Request failed ('+response.status+').';
+    const data=await response.json().catch(()=>({}));
+    // Show the server's reason with the status: a 404 can mean an unknown
+    // channel or a route the server has not loaded yet (stale route cache).
+    output.textContent=response.ok?(action==='credentials'?'Token saved. API sync remains disabled.':(data.ok?'Connected successfully.':data.message||'Connection test failed.')):'Request failed ('+response.status+')'+(data.message?': '+data.message:'.');
     if(response.ok && action==='credentials')input.value='';
   } catch(e){output.textContent='Network error. Please retry.';}
   finally{button.disabled=false;}
@@ -98,8 +100,8 @@ async function toggleCapture(id, enabled, button) {
       headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content},
       body:JSON.stringify({enabled:!enabled,confirmation})
     });
-    const data=await response.json();
-    output.textContent=data.message||'Unable to change capture state.';
+    const data=await response.json().catch(()=>({}));
+    output.textContent=data.message||('Unable to change capture state (HTTP '+response.status+').');
     if(response.ok)window.location.reload();
   }catch(e){output.textContent='Network error. Please retry.';}
   finally{button.disabled=false;}

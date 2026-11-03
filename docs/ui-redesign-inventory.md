@@ -15,6 +15,7 @@ App-wide passes applied to every screen:
 6. Accessibility: icon-only buttons labelled; light-mode secondary text raised to AA contrast (361 elements); reduced motion respected.
 7. Buttons in the mockup style: gradient primary, tinted secondary colours, bordered gray; solid buttons kept in modal footers.
 8. Reports and workflow screens use the same palette tokens; stat tiles (report tiles and Filament stat widgets) with tinted icon chips.
+10. Module screens: gradient primary actions and purple selected chips on workflow/report screens; compact report tables.
 9. Top navigation: white bar in light mode with a purple pill for hover and the current section; logos on a navy chip; navy bar kept in dark mode.
 Total: 209
 
@@ -190,7 +191,7 @@ Total: 209
 | system | Businesses | Page | `filament.pages.businesses` |
 | system | PayRunBackfill | Page | `filament.pages.pay-run-backfill` |
 | system | PaymentStructures | Page | `filament.pages.payment-structures` |
-| system | PayrollOverview | Page | `filament.pages.payroll-overview` |
+| done | PayrollOverview | Page | `filament.pages.payroll-overview` |
 | system | PayrollSimulator | Page | `filament.pages.payroll-simulator` |
 | system | PayoutResource › ListPayouts | Resource page | `filament.resources.payout-resource.pages.list-payouts` |
 | system | PayoutResource › ViewPayout | Resource page | `filament.resources.payout-resource.pages.view-payout` |
@@ -239,7 +240,7 @@ Total: 209
 | system | ShowFormatComparison | Page | `filament.pages.show-format-comparison` |
 | system | ShowLeaderboard | Page | `filament.pages.show-leaderboard` |
 | system | ShowStatusBoard | Page | `filament.pages.show-status-board` |
-| system | Shows | Page | `filament.pages.shows` |
+| done | Shows | Page | `filament.pages.shows` |
 | system | StreamWorkflow | Page | `filament.pages.stream-workflow` |
 | system | StreamsOverview | Page | `filament.pages.streams-overview` |
 | system | ShowIngestionLogResource › ListShowIngestionLogs | Resource page | `filament.resources.show-ingestion-log-resource.pages.list-show-ingestion-logs` |
@@ -260,7 +261,7 @@ Total: 209
 | system | StreamerLeaderboard | Livewire | `livewire.streamer-leaderboard` |
 | system | StreamerLogItemsModal | Livewire | `livewire.streamer-log-items-modal` |
 | system | StreamerLogTabs | Livewire | `livewire.streamer-log-tabs` |
-| system | StreamerHub | Page | `filament.pages.streamer-hub` |
+| done | StreamerHub | Page | `filament.pages.streamer-hub` |
 | system | StreamerStatement | Page | `filament.pages.streamer-statement` |
 | system | ShowResource › ReviewShowStreamers | Resource page | `filament.resources.show-resource.pages.stream-review` |
 | system | StreamerLogResource › EditStreamerLogEntry | Resource page | `filament.resources.streamer-log-resource.pages.edit-streamer-log-entry` |

@@ -177,6 +177,7 @@ Route::middleware(['web', 'auth', 'throttle:12,1'])->prefix('admin/whatnot-api')
     Route::post('channels/{channel}/credentials', [\App\Http\Controllers\WhatnotApiHealthController::class, 'save'])->name('credentials');
     Route::post('channels/{channel}/test', [\App\Http\Controllers\WhatnotApiHealthController::class, 'test'])->name('test');
     Route::post('channels/{channel}/toggle', [\App\Http\Controllers\WhatnotApiHealthController::class, 'toggle'])->name('toggle');
+    Route::post('channels/{channel}/verify', [\App\Http\Controllers\WhatnotApiHealthController::class, 'verify'])->name('verify');
 });
 
 // Public signed REST v2 webhook intake. No session authentication; HMAC and seller allowlist are mandatory.

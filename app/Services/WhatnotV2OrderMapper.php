@@ -45,6 +45,12 @@ final class WhatnotV2OrderMapper
             'tax_usd' => $money('tax'),
             'total_usd' => $money('total'),
             'transaction_type' => $order['transaction_type'] ?? null,
+            'cancelled_at_source' => $order['cancelled_at'] ?? null,
+            // Dashboard link to the order (Order.url).
+            'url' => is_string($order['url'] ?? null) && str_starts_with($order['url'], 'https://') ? $order['url'] : null,
+            // UserSummary; null unless the token has read:customers.
+            'buyer_username' => is_array($order['buyer'] ?? null) && is_string($order['buyer']['username'] ?? null) ? $order['buyer']['username'] : null,
+            'buyer_display_name' => is_array($order['buyer'] ?? null) && is_string($order['buyer']['display_name'] ?? null) ? $order['buyer']['display_name'] : null,
         ];
     }
 }

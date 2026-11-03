@@ -26,6 +26,7 @@ class WhatnotApiHealthController extends Controller
                 'pagination_verified' => (bool) config('services.whatnot_seller.pagination_verified', false),
                 'scheduler_enabled' => (bool) config('services.whatnot_seller.sync_scheduler_enabled', false),
                 'apply_enabled' => (bool) config('services.whatnot_seller.apply_enabled', false),
+                'ledger_start' => (string) config('services.whatnot_seller.ledger_start', ''),
             ],
         ]);
     }
@@ -64,6 +65,23 @@ class WhatnotApiHealthController extends Controller
         }
         return response()->json($health->check($connection));
     }
+    /** Read-only comparison of the API with VortexOps (WhatnotApiVerifier). */
+    public function verify(Request $request, WhatnotChannel $channel, \App\Services\WhatnotApiVerifier $verifier): JsonResponse
+    {
+        $this->authorizeOwner($request);
+        $connection = WhatnotApiConnection::where('whatnot_channel_id', $channel->id)->first();
+        if (! $connection || blank($connection->access_token)) {
+            return $this->noTokenYet();
+        }
+        if (! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false)) {
+            return response()->json(['ok' => false, 'message' => 'Live API checks are disabled in this environment'], 422);
+        }
+        @set_time_limit(300);
+        $report = $verifier->verify($connection, 7);
+
+        return response()->json(['ok' => $report['problems'] === [], 'message' => $report['verdict'].($report['problems'] ? ' '.implode(' ', $report['problems']) : ''), 'report' => $report]);
+    }
+
     /** No token saved for this channel yet: say so, rather than a bare 404. */
     private function noTokenYet(): JsonResponse
     {

@@ -80,6 +80,50 @@ class WhatnotApiHealth
             ? 'stale' : 'recent';
     }
 
+    /**
+     * Who the token belongs to (GET /users/me), then one small read from each
+     * endpoint the sync uses. A missing permission comes back from Whatnot as
+     * 403 type missing-scope with required_scopes, and is named here.
+     *
+     * @return array{ok:bool, message:string, checks:array<string,string>}
+     */
+    public function probe(WhatnotApiConnection $connection): array
+    {
+        $client = app(WhatnotSellerApiClient::class);
+        $me = $client->call($connection, 'me');
+        if (! $me->successful()) {
+            return ['ok' => false, 'message' => 'Whatnot returned HTTP '.$me->status().($me->status() === 401 ? ' (token not accepted)' : ''), 'checks' => ['token' => 'HTTP '.$me->status()]];
+        }
+        $seller = $me->json('username') ?? $me->json('name') ?? 'unknown seller';
+        $checks = ['token' => 'ok ('.$seller.')'];
+        $missing = [];
+        foreach ([
+            'orders' => ['orders', ['limit' => 1], 'read:orders'],
+            'shows' => ['shows', ['limit' => 1, 'status' => 'ended'], 'read:shows'],
+            'reports' => ['reports', ['limit' => 1], 'read:reports'],
+        ] as $name => [$endpoint, $query, $scope]) {
+            $response = $client->call($connection, $endpoint, query: $query);
+            if ($response->successful()) {
+                $checks[$name] = 'ok';
+                if ($name === 'orders') {
+                    $first = $response->json('data.0');
+                    $checks['buyer_names'] = ! is_array($first) ? 'ok (no orders to check yet)'
+                        : (($first['buyer'] ?? null) === null ? 'hidden (add read:customers)' : 'ok');
+                }
+                continue;
+            }
+            $required = (array) ($response->json('required_scopes') ?? []);
+            $checks[$name] = $response->status() === 403 ? 'needs '.($required ? implode(', ', $required) : $scope) : 'HTTP '.$response->status();
+            if ($response->status() === 403) $missing = array_merge($missing, $required ?: [$scope]);
+        }
+        $failed = array_filter($checks, fn ($v) => $v !== 'ok' && ! str_starts_with($v, 'ok (') && ! str_starts_with($v, 'hidden'));
+        $message = $failed === []
+            ? 'Connected as '.$seller.'. Orders, shows and reports readable. The financial report also needs write:reports (checked on the first sync).'
+            : 'Connected as '.$seller.', but: '.implode('; ', array_map(fn ($k, $v) => "$k $v", array_keys($failed), $failed)).'.';
+
+        return ['ok' => $failed === [], 'message' => $message, 'checks' => $checks];
+    }
+
     public function check(WhatnotApiConnection $connection): array
     {
         if (! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false)) {
@@ -90,18 +134,16 @@ class WhatnotApiHealth
         }
 
         try {
-            $response = app(WhatnotSellerApiClient::class)->get($connection, 'shows');
-
-            $status = $response->successful() ? 'connected' : 'error';
-            $message = $response->successful() ? null : 'Whatnot returned HTTP '.$response->status();
+            $result = $this->probe($connection);
+            $status = $result['ok'] ? 'connected' : 'error';
             $connection->forceFill([
                 'status' => $status,
                 'last_checked_at' => now(),
-                'last_success_at' => $response->successful() ? now() : null,
-                'last_error' => $message,
+                'last_success_at' => $result['ok'] ? now() : null,
+                'last_error' => $result['ok'] ? null : $result['message'],
             ])->save();
 
-            return ['ok' => $response->successful(), 'status' => $status, 'message' => $message];
+            return ['ok' => $result['ok'], 'status' => $status, 'message' => $result['message'], 'checks' => $result['checks']];
         } catch (Throwable $e) {
             $connection->forceFill([
                 'status' => 'error',

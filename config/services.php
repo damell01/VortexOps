@@ -25,6 +25,11 @@ return [
         // Write captured API orders into whatnot_show_orders (App\Services\WhatnotApiOrderApplier).
         // Off until a dry run (php artisan whatnot:api-apply-orders) looks right.
         'apply_enabled' => env('WHATNOT_SELLER_APPLY_ENABLED', false),
+        // First day (Y-m-d, app timezone) the financial report creates ledger
+        // rows. Empty = the API never creates ledger rows (it only links).
+        'ledger_start' => env('WHATNOT_SELLER_LEDGER_START', ''),
+        // How far back each scheduled sync looks, in days.
+        'sync_days' => (int) env('WHATNOT_SELLER_SYNC_DAYS', 3),
         'webhooks_enabled' => env('WHATNOT_SELLER_WEBHOOKS_ENABLED', false),
         'webhook_processing_enabled' => env('WHATNOT_SELLER_WEBHOOK_PROCESSING_ENABLED', false),
         'webhook_secret' => env('WHATNOT_SELLER_WEBHOOK_SECRET', ''),

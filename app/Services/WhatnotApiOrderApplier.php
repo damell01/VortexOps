@@ -79,6 +79,7 @@ final class WhatnotApiOrderApplier
             'received' => count($items), 'created' => 0, 'updated' => 0, 'unchanged' => 0,
             'invalid' => 0, 'no_show_id' => 0, 'show_not_found' => 0, 'show_ambiguous' => 0,
             'other_show' => 0, 'not_a_sale' => 0, 'id_format_mismatch' => 0, 'duplicate_in_payload' => 0,
+            'needs_items' => [],
         ];
 
         // Map and group by show, failing closed on anything malformed.
@@ -139,13 +140,16 @@ final class WhatnotApiOrderApplier
             'received_count' => $counts['received'],
             'matched_count' => $counts['created'] + $counts['updated'] + $counts['unchanged'],
             'unmatched_count' => $counts['show_not_found'] + $counts['show_ambiguous'] + $counts['id_format_mismatch'],
-            'summary' => ['snapshot_id' => $snapshotId, 'counts' => $counts, 'skipped_shows' => $skippedShows],
+            'summary' => ['snapshot_id' => $snapshotId, 'counts' => array_diff_key($counts, ['needs_items' => true]), 'skipped_shows' => $skippedShows],
             'started_at' => now(),
             'finished_at' => now(),
         ]);
 
+        $needsItems = $counts['needs_items'];
+        unset($counts['needs_items']);
+
         return ['snapshot_id' => $snapshotId, 'channel_id' => $channelId, 'dry_run' => $dryRun,
-            'counts' => $counts, 'skipped_shows' => $skippedShows];
+            'counts' => $counts, 'skipped_shows' => $skippedShows, 'needs_items' => $needsItems];
     }
 
     /** @param array<string,mixed> $order */
@@ -165,21 +169,35 @@ final class WhatnotApiOrderApplier
             'tax_amount' => $order['tax_usd'],
         ], fn ($v) => $v !== null);
         $stamp = ['received_at' => now()->toIso8601String()] + $order;
+        // Filled only where empty: the scraper's or someone's own value wins.
+        $fillIfEmpty = array_filter([
+            'ordered_at_whatnot' => $order['created_at_source'],
+            'buyer_username' => $order['buyer_username'],
+            'buyer_display_name' => $order['buyer_display_name'],
+            'whatnot_order_detail_url' => $order['url'],
+        ], fn ($v) => $v !== null);
 
         if ($existing->isNotEmpty()) {
             $row = $existing->first();
             $changes = array_filter($fields, fn ($v, $k) => (string) $row->{$k} !== (string) $v, ARRAY_FILTER_USE_BOTH);
-            if ($row->ordered_at_whatnot === null && $order['created_at_source']) {
-                $changes['ordered_at_whatnot'] = $order['created_at_source'];
+            foreach ($fillIfEmpty as $field => $value) {
+                if (blank($row->{$field})) $changes[$field] = $value;
             }
-            if ($changes === []) {
+            $raw = $row->raw_data ?? [];
+            $needsEvidence = ($raw['livestream_id'] ?? null) !== $order['whatnot_show_id'];
+            if (blank($row->item_name)) {
+                $counts['needs_items'][] = $order['whatnot_order_id'];
+            }
+            if ($changes === [] && ! $needsEvidence) {
                 $counts['unchanged']++;
                 return;
             }
-            $counts['updated']++;
+            $counts[$changes === [] ? 'unchanged' : 'updated']++;
             if (! $dryRun) {
-                $raw = $row->raw_data ?? [];
                 $raw['_seller_api'] = $stamp;
+                // The API's own show for this order: evidence the ledger
+                // matcher (LedgerAttributionService) accepts for attribution.
+                $raw['livestream_id'] = $order['whatnot_show_id'];
                 $row->forceFill($changes + ['raw_data' => $raw])->save();
             }
             return;
@@ -191,21 +209,83 @@ final class WhatnotApiOrderApplier
         }
 
         $counts['created']++;
+        $counts['needs_items'][] = $order['whatnot_order_id'];
         if ($dryRun) {
             return;
         }
 
-        WhatnotShowOrder::create($fields + [
+        WhatnotShowOrder::create($fields + $fillIfEmpty + [
             'show_id' => $show->id,
             'whatnot_order_id' => $order['whatnot_order_id'],
             'whatnot_show_url' => $show->detail_url,
             'inventory_location_id' => $show->defaultInventoryLocation()?->id,
             'quantity' => 1,
             'unit_price' => $order['subtotal_usd'],
-            'ordered_at_whatnot' => $order['created_at_source'],
             'show_date' => $show->show_date,
-            'raw_data' => ['_source' => 'seller_api', '_seller_api' => $stamp],
+            'raw_data' => ['_source' => 'seller_api', 'livestream_id' => $order['whatnot_show_id'], '_seller_api' => $stamp],
         ]);
+    }
+
+    /**
+     * Fill an order's item details from GET /orders/{id}/items (OrderItem:
+     * purchased_item.title/description/sku, quantity, unit_price). Only blank
+     * names are filled; quantity and unit price only on rows the API created.
+     *
+     * @param list<array<string,mixed>> $items
+     * @return 'filled'|'unchanged'|'no_row'|'no_items'
+     */
+    public function applyItems(int $channelId, string $orderId, array $items, bool $dryRun = true): string
+    {
+        if (! $dryRun && ! self::writesAllowed()) {
+            throw new RuntimeException('Applying API orders is disabled.');
+        }
+        $row = WhatnotShowOrder::query()
+            ->where('whatnot_order_id', $orderId)
+            ->whereHas('show', fn ($q) => $q->where('whatnot_channel_id', $channelId))
+            ->first();
+        if (! $row) {
+            return 'no_row';
+        }
+
+        $titles = [];
+        $quantity = 0;
+        $unit = null;
+        $skus = [];
+        $description = null;
+        foreach ($items as $item) {
+            if (! is_array($item)) continue;
+            $purchased = is_array($item['purchased_item'] ?? null) ? $item['purchased_item'] : [];
+            if (is_string($purchased['title'] ?? null) && trim($purchased['title']) !== '') $titles[] = trim($purchased['title']);
+            if (is_string($purchased['sku'] ?? null) && $purchased['sku'] !== '') $skus[] = $purchased['sku'];
+            $quantity += max(0, (int) ($item['quantity'] ?? 0));
+            $money = $item['unit_price'] ?? null;
+            if ($unit === null && is_array($money) && ($money['currency'] ?? null) === 'USD' && is_string($money['amount'] ?? null)
+                && preg_match('/^-?\d{1,12}(?:\.\d{1,2})?$/', $money['amount'])) {
+                $unit = $money['amount'];
+            }
+            $description ??= is_string($purchased['description'] ?? null) ? $purchased['description'] : null;
+        }
+        if ($titles === []) {
+            return 'no_items';
+        }
+
+        $changes = [];
+        if (blank($row->item_name)) $changes['item_name'] = mb_substr(implode(' + ', array_unique($titles)), 0, 255);
+        if (blank($row->item_description) && $description) $changes['item_description'] = $description;
+        if ((($row->raw_data['_source'] ?? null) === 'seller_api')) {
+            if ($quantity > 0 && (int) $row->quantity !== $quantity) $changes['quantity'] = $quantity;
+            if ($unit !== null && (string) $row->unit_price !== (string) $unit) $changes['unit_price'] = $unit;
+        }
+        if ($changes === []) {
+            return 'unchanged';
+        }
+        if (! $dryRun) {
+            $raw = $row->raw_data ?? [];
+            $raw['_seller_api_items'] = ['titles' => $titles, 'skus' => $skus, 'quantity' => $quantity, 'received_at' => now()->toIso8601String()];
+            $row->forceFill($changes + ['raw_data' => $raw])->save();
+        }
+
+        return 'filled';
     }
 
     /**

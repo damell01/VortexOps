@@ -37,27 +37,41 @@ final class WhatnotApiReadOnlySync
         if (! is_array($payload)) {
             return ['ok' => false, 'http_status' => $response->status(), 'saved' => false];
         }
+        ['saved' => $saved, 'sha256' => $hash] = $this->store($connection->whatnot_channel_id, $resource, $payload);
+        return ['ok' => true, 'http_status' => $response->status(), 'saved' => $saved, 'payload_sha256' => $hash, 'next_cursor' => $cursorPath === null ? null : WhatnotApiPagination::nextCursor($payload, $cursorPath)];
+    }
+
+    /**
+     * Keep one fetched payload, encrypted and de-duplicated by hash, with an
+     * audit row. Returns the snapshot's id so it can be applied.
+     *
+     * @return array{id:int, saved:bool, sha256:string}
+     */
+    public function store(int $channelId, string $resource, array $payload): array
+    {
         $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
         $hash = hash('sha256', $encoded);
-        $secured = \Illuminate\Support\Facades\Crypt::encryptString($encoded);
         $inserted = DB::table('whatnot_api_snapshots')->insertOrIgnore([
-            'whatnot_channel_id' => $connection->whatnot_channel_id,
+            'whatnot_channel_id' => $channelId,
             'resource' => $resource,
             'payload_sha256' => $hash,
-            'payload' => $secured,
+            'payload' => Crypt::encryptString($encoded),
             'fetched_at' => now(),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
         WhatnotApiSyncAudit::create([
-            'whatnot_channel_id' => $connection->whatnot_channel_id,
+            'whatnot_channel_id' => $channelId,
             'resource' => $resource,
             'status' => 'captured',
             'summary' => ['payload_sha256' => $hash, 'top_level_keys' => array_slice(array_keys($payload), 0, 30)],
             'started_at' => now(),
             'finished_at' => now(),
         ]);
-        return ['ok' => true, 'http_status' => $response->status(), 'saved' => $inserted > 0, 'payload_sha256' => $hash, 'next_cursor' => $cursorPath === null ? null : WhatnotApiPagination::nextCursor($payload, $cursorPath)];
+        $id = (int) DB::table('whatnot_api_snapshots')->where('whatnot_channel_id', $channelId)
+            ->where('resource', $resource)->where('payload_sha256', $hash)->value('id');
+
+        return ['id' => $id, 'saved' => $inserted > 0, 'sha256' => $hash];
     }
     /**
      * Return schema metadata only, never customer data or decrypted payloads.

@@ -21,6 +21,8 @@
 <div class="meta">Live requests: {{ $apiFlags['live_requests'] ? 'Allowed' : 'Disabled' }} · Contract verified: {{ $apiFlags['contract_verified'] ? 'Yes' : 'No' }}</div>
 <div class="meta">Pagination verified: {{ $apiFlags['pagination_verified'] ? 'Yes' : 'No' }} · Scheduler allowed: {{ $apiFlags['scheduler_enabled'] ? 'Yes' : 'No' }}</div>
 <div class="meta">Activation requires all server flags, stored credentials, and a successful test within the last 24 hours.</div>
+<div class="meta">Token permissions to choose when generating it (whatnot.com/dashboard/developer → Personal access tokens): <code>read:orders</code>, <code>read:shows</code>, <code>read:reports</code>, <code>write:reports</code> (to generate the financial report for tips and the ledger), <code>read:customers</code> (buyer names). Nothing else is needed; this app never changes anything on Whatnot.</div>
+<div class="meta">Ledger from the API starts: <strong>{{ $apiFlags['ledger_start'] ?: 'not set — API ledger rows are not created (WHATNOT_SELLER_LEDGER_START)' }}</strong></div>
 <div class="meta">Apply orders to shows: <strong>{{ $apiFlags['apply_enabled'] ? 'On' : 'Off' }}</strong> — captured orders are written to show orders only when this is on (WHATNOT_SELLER_APPLY_ENABLED). Preview first: <code>php artisan whatnot:api-apply-orders --channel=ID</code></div>
 </section>
 <section class="card" style="margin-top:16px" aria-label="Ledger reconciliation">
@@ -54,6 +56,7 @@
 <div class="actions">
 <button type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'credentials', this)">Save token</button>
 <button class="secondary" type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'test', this)">Test connection</button>
+<button class="secondary" type="button" onclick="apiAction({{ $connection['channel_id'] }}, 'verify', this)">Verify against VortexOps</button>
 <button class="secondary" type="button" @disabled(! $connection['sync_enabled'] && (! $connection['live_requests_allowed'] || $connection['status'] !== 'connected' || ! $connection['last_success_at'] || ! $apiFlags['contract_verified'] || ! $apiFlags['pagination_verified'] || ! $apiFlags['scheduler_enabled'])) onclick="toggleCapture({{ $connection['channel_id'] }}, {{ $connection['sync_enabled'] ? 'true' : 'false' }}, this)">{{ $connection['sync_enabled'] ? 'Disable API capture' : 'Enable API capture' }}</button>
 </div>
 <output aria-live="polite"></output>
@@ -67,7 +70,8 @@ async function apiAction(id, action, button) {
   const output = card.querySelector('output');
   const input = card.querySelector('input');
   if(action === 'credentials' && !input.value.trim()){output.textContent='Enter a token first.';return;}
-  button.disabled=true; output.textContent='Processing…';
+  button.disabled=true;
+  output.textContent = action==='verify' ? 'Comparing the last 7 days with VortexOps… this can take a minute.' : 'Working…';
   try {
     const response=await fetch('/admin/whatnot-api/channels/'+id+'/'+action,{
       method:'POST',credentials:'same-origin',
@@ -77,8 +81,16 @@ async function apiAction(id, action, button) {
     const data=await response.json().catch(()=>({}));
     // Show the server's reason with the status: a 404 can mean an unknown
     // channel or a route the server has not loaded yet (stale route cache).
-    output.textContent=response.ok?(action==='credentials'?'Token saved. API sync remains disabled.':(data.ok?'Connected successfully.':data.message||'Connection test failed.')):'Request failed ('+response.status+')'+(data.message?': '+data.message:'.');
-    if(response.ok && action==='credentials')input.value='';
+    if(!response.ok && !(action==='verify' && data.report)){
+      output.textContent='Request failed ('+response.status+')'+(data.message?': '+data.message:'.');
+    } else if(action==='credentials'){
+      output.textContent='Token saved. API sync remains disabled.'; input.value='';
+    } else if(action==='verify'){
+      const rows=(data.report&&data.report.shows)||[];
+      output.textContent=(data.message||'')+(rows.length?' Shows checked: '+rows.map(r=>r.show+' — '+r.status+' (gross API '+(r.api_gross??'n/a')+' / here '+(r.vortex_gross??'n/a')+', order IDs matched '+r.matching_order_ids+'/'+r.api_orders+')').join('; '):'');
+    } else {
+      output.textContent=data.message||(data.ok?'Connected successfully.':'Connection test failed.');
+    }
   } catch(e){output.textContent='Network error. Please retry.';}
   finally{button.disabled=false;}
 }

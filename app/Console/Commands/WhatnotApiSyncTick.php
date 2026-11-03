@@ -4,24 +4,23 @@ namespace App\Console\Commands;
 
 use App\Models\WhatnotApiConnection;
 use App\Services\WhatnotApiOrderApplier;
-use App\Services\WhatnotApiReadOnlySync;
-use App\Services\WhatnotSellerApiClient;
+use App\Services\WhatnotApiSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
  * Dormant until explicitly activated on production. Does not use browser profiles.
- * Captures API snapshots. With WHATNOT_SELLER_APPLY_ENABLED as well, each
- * captured orders page is applied to show orders (WhatnotApiOrderApplier);
- * the ledger and payroll are never written here.
+ * Runs WhatnotApiSync for each enabled channel: orders, line items, show
+ * analytics and the financial report. It writes only when
+ * WHATNOT_SELLER_APPLY_ENABLED is on as well; otherwise it previews.
  */
 final class WhatnotApiSyncTick extends Command
 {
     protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID}';
     protected $description = 'Safely capture enabled Whatnot API resources when production API mode is active.';
 
-    public function handle(WhatnotApiReadOnlySync $sync, WhatnotSellerApiClient $client): int
+    public function handle(WhatnotApiSync $sync): int
     {
         if (! app()->environment('production')
             || ! config('services.whatnot_seller.live_requests_enabled', false)
@@ -30,39 +29,31 @@ final class WhatnotApiSyncTick extends Command
             $this->line('Whatnot API scheduled capture is disabled.');
             return self::SUCCESS;
         }
-
         $query = WhatnotApiConnection::query()->where('enabled', true)->where('sync_enabled', true);
         if ($this->option('channel') !== null) {
             $query->where('whatnot_channel_id', (int) $this->option('channel'));
         }
         $failures = 0;
         foreach ($query->get() as $connection) {
-            foreach (['shows', 'orders'] as $resource) {
-                $lock = Cache::lock('whatnot-api-capture:'.$connection->whatnot_channel_id.':'.$resource, 240);
-                if (! $lock->get()) {
-                    continue;
-                }
-                try {
-                    $result = $sync->capture($connection, $resource, $client);
-                    if ($result['ok'] && $resource === 'orders' && WhatnotApiOrderApplier::writesAllowed()) {
-                        $applier = app(WhatnotApiOrderApplier::class);
-                        $snapshotId = $applier->snapshotIdForHash($connection->whatnot_channel_id, $result['payload_sha256']);
-                        if ($snapshotId !== null) {
-                            $applied = $applier->apply($connection->whatnot_channel_id, $snapshotId, dryRun: false);
-                            $this->line('Applied orders for channel '.$connection->whatnot_channel_id.': '.json_encode($applied['counts']));
-                        }
-                    }
-                    if (! $result['ok']) {
-                        $failures++;
-                        $this->warn('Capture failed for channel '.$connection->whatnot_channel_id.' '.$resource.' (HTTP '.($result['http_status'] ?? 'unknown').')');
-                    }
-                } catch (Throwable $e) {
+            $lock = Cache::lock('whatnot-api-sync:'.$connection->whatnot_channel_id, 1800);
+            if (! $lock->get()) {
+                continue;
+            }
+            try {
+                // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
+                // otherwise this is a preview that still records what it saw.
+                $result = $sync->run($connection, (int) config('services.whatnot_seller.sync_days', 3),
+                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line));
+                if ($result['errors']) {
                     $failures++;
-                    report($e);
-                    $this->warn('Capture error for channel '.$connection->whatnot_channel_id.' '.$resource.' ('.get_class($e).')');
-                } finally {
-                    $lock->release();
+                    $this->warn('Channel '.$connection->whatnot_channel_id.': '.implode(' | ', $result['errors']));
                 }
+            } catch (Throwable $e) {
+                $failures++;
+                report($e);
+                $this->warn('Sync error for channel '.$connection->whatnot_channel_id.' ('.get_class($e).')');
+            } finally {
+                $lock->release();
             }
         }
         return $failures ? self::FAILURE : self::SUCCESS;

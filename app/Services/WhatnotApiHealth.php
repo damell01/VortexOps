@@ -27,7 +27,7 @@ class WhatnotApiHealth
                 ->groupBy('resource')->get()->keyBy('resource');
             $audits = DB::table('whatnot_api_sync_audits')
                 ->where('whatnot_channel_id', $channel->id)
-                ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at']);
+                ->orderByDesc('id')->limit(5)->get(['resource', 'status', 'finished_at', 'summary']);
             return [
                 'webhook_inbox' => [
                     'pending' => (int) ($webhookStats['pending'] ?? 0),
@@ -49,6 +49,13 @@ class WhatnotApiHealth
                 'recent_audits' => $audits->map(fn ($audit) => [
                     'resource' => $audit->resource, 'status' => $audit->status,
                     'finished_at' => $audit->finished_at,
+                    'detail' => $audit->resource === 'orders_apply'
+                        ? (function () use ($audit) {
+                            $c = (json_decode((string) $audit->summary, true)['counts'] ?? []);
+                            return ($c['created'] ?? 0).' new, '.($c['updated'] ?? 0).' updated, '
+                                .(($c['show_not_found'] ?? 0) + ($c['id_format_mismatch'] ?? 0) + ($c['other_show'] ?? 0)).' not applied';
+                        })()
+                        : null,
                 ])->all(),
                 'channel_id' => $channel->id,
                 'name' => $channel->name,

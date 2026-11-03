@@ -22,6 +22,9 @@ return [
         'live_requests_enabled' => env('WHATNOT_SELLER_LIVE_REQUESTS_ENABLED', false),
         'contract_verified' => env('WHATNOT_SELLER_CONTRACT_VERIFIED', false),
         'sync_scheduler_enabled' => env('WHATNOT_SELLER_SYNC_SCHEDULER_ENABLED', false),
+        // Write captured API orders into whatnot_show_orders (App\Services\WhatnotApiOrderApplier).
+        // Off until a dry run (php artisan whatnot:api-apply-orders) looks right.
+        'apply_enabled' => env('WHATNOT_SELLER_APPLY_ENABLED', false),
         'webhooks_enabled' => env('WHATNOT_SELLER_WEBHOOKS_ENABLED', false),
         'webhook_processing_enabled' => env('WHATNOT_SELLER_WEBHOOK_PROCESSING_ENABLED', false),
         'webhook_secret' => env('WHATNOT_SELLER_WEBHOOK_SECRET', ''),

@@ -21,6 +21,7 @@
 <div class="meta">Live requests: {{ $apiFlags['live_requests'] ? 'Allowed' : 'Disabled' }} · Contract verified: {{ $apiFlags['contract_verified'] ? 'Yes' : 'No' }}</div>
 <div class="meta">Pagination verified: {{ $apiFlags['pagination_verified'] ? 'Yes' : 'No' }} · Scheduler allowed: {{ $apiFlags['scheduler_enabled'] ? 'Yes' : 'No' }}</div>
 <div class="meta">Activation requires all server flags, stored credentials, and a successful test within the last 24 hours.</div>
+<div class="meta">Apply orders to shows: <strong>{{ $apiFlags['apply_enabled'] ? 'On' : 'Off' }}</strong> — captured orders are written to show orders only when this is on (WHATNOT_SELLER_APPLY_ENABLED). Preview first: <code>php artisan whatnot:api-apply-orders --channel=ID</code></div>
 </section>
 <section class="card" style="margin-top:16px" aria-label="Ledger reconciliation">
 <h2>Ledger reconciliation</h2>
@@ -42,7 +43,7 @@
 @if(count($connection['recent_audits']))
 <div class="meta"><strong>Recent capture activity</strong></div>
 @foreach($connection['recent_audits'] as $audit)
-<div class="meta">{{ $audit['resource'] }} — {{ $audit['status'] }} — {{ $audit['finished_at'] ?: 'Pending' }}</div>
+<div class="meta">{{ $audit['resource'] }} — {{ $audit['status'] }}@if($audit['detail'] ?? null) ({{ $audit['detail'] }})@endif — {{ $audit['finished_at'] ?: 'Pending' }}</div>
 @endforeach
 @endif
 <div class="meta">Last check: {{ $connection['last_checked_at'] ?: 'Never' }}</div>

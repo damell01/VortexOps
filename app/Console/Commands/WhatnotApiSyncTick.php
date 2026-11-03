@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\WhatnotApiConnection;
+use App\Services\WhatnotApiOrderApplier;
 use App\Services\WhatnotApiReadOnlySync;
 use App\Services\WhatnotSellerApiClient;
 use Illuminate\Console\Command;
@@ -11,7 +12,9 @@ use Throwable;
 
 /**
  * Dormant until explicitly activated on production. Does not use browser profiles.
- * Captures read-only API snapshots; never writes operational orders, ledger or payroll.
+ * Captures API snapshots. With WHATNOT_SELLER_APPLY_ENABLED as well, each
+ * captured orders page is applied to show orders (WhatnotApiOrderApplier);
+ * the ledger and payroll are never written here.
  */
 final class WhatnotApiSyncTick extends Command
 {
@@ -41,6 +44,14 @@ final class WhatnotApiSyncTick extends Command
                 }
                 try {
                     $result = $sync->capture($connection, $resource, $client);
+                    if ($result['ok'] && $resource === 'orders' && WhatnotApiOrderApplier::writesAllowed()) {
+                        $applier = app(WhatnotApiOrderApplier::class);
+                        $snapshotId = $applier->snapshotIdForHash($connection->whatnot_channel_id, $result['payload_sha256']);
+                        if ($snapshotId !== null) {
+                            $applied = $applier->apply($connection->whatnot_channel_id, $snapshotId, dryRun: false);
+                            $this->line('Applied orders for channel '.$connection->whatnot_channel_id.': '.json_encode($applied['counts']));
+                        }
+                    }
                     if (! $result['ok']) {
                         $failures++;
                         $this->warn('Capture failed for channel '.$connection->whatnot_channel_id.' '.$resource.' (HTTP '.($result['http_status'] ?? 'unknown').')');

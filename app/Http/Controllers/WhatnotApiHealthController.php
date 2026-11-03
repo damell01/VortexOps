@@ -25,6 +25,7 @@ class WhatnotApiHealthController extends Controller
                 'contract_verified' => (bool) config('services.whatnot_seller.contract_verified', false),
                 'pagination_verified' => (bool) config('services.whatnot_seller.pagination_verified', false),
                 'scheduler_enabled' => (bool) config('services.whatnot_seller.sync_scheduler_enabled', false),
+                'apply_enabled' => (bool) config('services.whatnot_seller.apply_enabled', false),
             ],
         ]);
     }

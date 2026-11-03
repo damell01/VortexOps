@@ -1,13 +1,13 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-4">
         <!-- Form Section -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Items & Options</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Select Items & Options</h2>
 
             <form wire:submit="generateLabels" class="space-y-4" novalidate>
                 {{ $this->form }}
 
-                <div class="flex gap-2 justify-end pt-4">
+                <div class="flex flex-wrap gap-2 justify-end pt-2">
                     <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition">
                         <x-heroicon-o-printer class="h-4 w-4" />
                         Generate Labels
@@ -18,8 +18,8 @@
 
         <!-- Preview Section -->
         @if($this->generateLabels())
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Label Preview</h2>
                 <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition">
                     <x-heroicon-o-arrow-down-tray class="h-4 w-4" />

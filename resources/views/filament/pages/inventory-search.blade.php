@@ -1,8 +1,8 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-3">
         <!-- Search & Filters Panel -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Search & Filter</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Search & Filter</h2>
 
             <div class="space-y-4">
                 <!-- Main search input -->
@@ -13,7 +13,7 @@
                 </div>
 
                 <!-- Filters Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <!-- Category Filter -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>

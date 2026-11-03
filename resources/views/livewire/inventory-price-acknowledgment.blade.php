@@ -42,9 +42,10 @@ $types = $slides->pluck('type')->all();
 </div>
 <div class="hidden min-h-0 flex-1 grid-cols-2 content-start gap-3 overflow-y-auto p-4 sm:grid lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6">
 @foreach($slides as $slide)
-<article x-show="tab==='all'||tab==='{{ $slide['type'] }}'" class="flex min-w-0 flex-col gap-2 rounded-xl border border-purple-800 bg-[#211631] p-3 shadow-lg">
-@if($slide['item']['image'] ?? null)<img src="{{ $slide['item']['image'] }}" alt="" loading="lazy" class="h-28 w-full rounded-lg bg-white/10 object-contain">@else<div class="grid h-28 w-full place-items-center rounded-lg bg-purple-950 text-xs text-purple-300">No image</div>@endif
-<div class="min-w-0 flex-1"><span class="mb-1 inline-block rounded bg-purple-800/60 px-2 py-0.5 text-xs uppercase text-purple-200">{{ $slide['type']==='price'?'Price changed':($slide['type']==='stock'?'Stock update':'Coming soon') }}</span><div class="font-semibold leading-snug">{{ $slide['item']['name'] }}</div>
+<article x-show="tab==='all'||tab==='{{ $slide['type'] }}'" class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-purple-800 bg-[#211631] shadow-lg">
+{{-- Full-width cover like the inventory cards: the photo fills the top of the card. --}}
+@if($slide['item']['image'] ?? null)<img src="{{ $slide['item']['image'] }}" alt="" loading="lazy" class="block aspect-[4/3] w-full bg-purple-950 object-cover">@else<div class="grid aspect-[4/3] w-full place-items-center bg-purple-950 text-xs text-purple-300">No image</div>@endif
+<div class="min-w-0 flex-1 p-3"><span class="mb-1 inline-block rounded bg-purple-800/60 px-2 py-0.5 text-xs uppercase text-purple-200">{{ $slide['type']==='price'?'Price changed':($slide['type']==='stock'?'Stock update':'Coming soon') }}</span><div class="font-semibold leading-snug">{{ $slide['item']['name'] }}</div>
 @if($slide['type']==='price')
 <div class="mt-2 flex flex-wrap items-center gap-2"><span class="text-sm text-gray-400 line-through">{{ $slide['item']['old_price']===null?'Not set':number_format((float)$slide['item']['old_price'],2) }}</span><span class="rounded-lg px-2 py-1 text-base font-extrabold {{ ($slide['item']['decreased']??false)?'bg-emerald-500/20 text-emerald-300':'bg-amber-400/20 text-amber-200' }}">{{ $slide['item']['new_price']===null?'Not set':number_format((float)$slide['item']['new_price'],2) }}</span></div>
 @elseif($slide['type']==='stock')

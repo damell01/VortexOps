@@ -1226,3 +1226,16 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Design system — density. The page area had 32px padding on every side on
+   top of the header spacing; report titles were 30px and empty states 36–60px
+   tall. Tighter values here so the main content starts higher on the screen. */
+.fi-page-content { padding: 20px 24px; gap: 16px; }
+@media (max-width: 639px) { .fi-page-content { padding: 12px; gap: 12px; } }
+.fi-page { gap: 16px; }
+.vxr-title { font-size: 24px; }
+@media (max-width: 639px) { .vxr-title { font-size: 21px; } }
+.vxsp-champ-value { font-size: 26px; }
+.vxr-empty, .vxw-empty, .vxc-empty { padding: 20px 16px; }
+.fi-ta-empty-state { padding: 20px 16px; }
+.fi-ta-empty-state .fi-ta-empty-state-icon-ctn { margin-bottom: 8px; }

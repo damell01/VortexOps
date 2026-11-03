@@ -143,6 +143,7 @@ class RolesScreenRoundTripTest extends TestCase
             \App\Filament\Pages\WhatnotSheetCheck::class,
             \App\Filament\Pages\WhatnotApiDashboard::class,
             \App\Filament\Pages\WhatnotApiChanges::class,
+            \App\Filament\Pages\OwnerTools::class,
             \App\Filament\Pages\WhatnotBackfill::class,
             \App\Filament\Pages\WhatnotScraperPage::class,
             \App\Filament\Pages\WhatnotSyncPage::class,

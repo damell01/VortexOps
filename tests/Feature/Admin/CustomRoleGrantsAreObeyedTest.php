@@ -108,7 +108,7 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
         sort($denied);
         $this->assertSame([
             'AppSettings', 'Businesses', 'Communications', 'ImportStatus', 'InventoryCount', 'InventoryImporter', 'InventoryPopupSettings',
-            'NavigationManager', 'NoShowCleanup', 'PayRunBackfill', 'PaymentStructures',
+            'NavigationManager', 'NoShowCleanup', 'OwnerTools', 'PayRunBackfill', 'PaymentStructures',
             'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
             'Timekeeping', 'WhatnotApiChanges', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
         ], $denied);

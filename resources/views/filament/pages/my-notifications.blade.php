@@ -7,7 +7,7 @@
 <style>
 .vx-mn{width:100%;--line:#e5e7eb;--muted:#64748b;--p:var(--primary-600,#7c3aed);max-width:860px;margin:0 auto;display:grid;gap:16px}
 .dark .vx-mn{--line:#253247;--muted:#94a3b8}
-.vx-mn .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.vx-mn .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
 .dark .vx-mn .card{background:#0f172a}
 .vx-mn .switch{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;cursor:pointer}
 .vx-mn .switch input{appearance:none;width:38px;height:22px;border-radius:999px;background:#cbd5e1;position:relative;transition:.15s;cursor:pointer;flex:none}
@@ -19,8 +19,8 @@
 .vx-mn .sub{font-size:.78rem;color:var(--muted)}
 .vx-mn .btn{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:9px;font-size:.72rem;font-weight:700}
 .vx-mn .save{position:sticky;bottom:12px;display:flex;justify-content:flex-end}
-.vx-mn .save button{min-height:42px;padding:0 18px;border-radius:12px;background:var(--p);color:#fff;font-weight:800;box-shadow:0 8px 20px rgba(15,23,42,.2)}
-@media(max-width:640px){.vx-mn .row{grid-template-columns:minmax(0,1fr) 64px 64px}}
+.vx-mn .save button{min-height:44px;padding:0 18px;border-radius:12px;background:var(--p);color:#fff;font-weight:800;box-shadow:0 8px 20px rgba(15,23,42,.2)}
+@media(max-width:640px){.vx-mn{gap:12px}.vx-mn .card{padding:12px}.vx-mn .row{grid-template-columns:minmax(0,1fr) 52px 52px;gap:8px;padding:10px 0}.vx-mn .sub{overflow-wrap:anywhere}.vx-mn .save{bottom:max(12px,env(safe-area-inset-bottom))}}
 .vx-mn .switch input{width:38px!important;height:22px!important;min-width:38px!important;min-height:22px!important;max-height:22px!important;padding:0!important;margin:0!important;border:0!important;border-radius:999px!important;-webkit-appearance:none!important;appearance:none!important;background-image:none!important}
 .vx-mn .switch input:before{width:18px!important;height:18px!important}
 /* Clear on/off: off is a grey track with an ✕ knob, on is filled with a ✓ knob. */

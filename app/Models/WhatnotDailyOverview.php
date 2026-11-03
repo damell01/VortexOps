@@ -10,8 +10,9 @@ class WhatnotDailyOverview extends Model
 {
     protected $guarded = ['id'];
 
-    // Saved as a plain Y-m-d day so the (channel, date) lookup matches on every database.
-    protected $casts = ['date' => 'date:Y-m-d'];
+    // No date cast: a cast saves '2026-11-02 00:00:00' on SQLite, and then the
+    // (channel, date) lookup in updateOrCreate misses. The day stays 'Y-m-d'.
+    protected $casts = [];
 
     public function channel(): BelongsTo
     {

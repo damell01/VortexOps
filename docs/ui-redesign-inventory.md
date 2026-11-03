@@ -17,6 +17,7 @@ App-wide passes applied to every screen:
 8. Reports and workflow screens use the same palette tokens; stat tiles (report tiles and Filament stat widgets) with tinted icon chips.
 9. Top navigation: white bar in light mode with a purple pill for hover and the current section; logos on a navy chip; navy bar kept in dark mode.
 10. Module screens: gradient primary actions and purple selected chips on workflow/report screens; compact report tables.
+11. Connected feel: the top-nav section you are in stays highlighted on every page under it (and the page itself inside its menu); hand-built cards share the design-system radius, border and shadow; quiet breadcrumbs; a gentle page entry (off with reduced motion).
 Total: 209
 
 

@@ -1478,3 +1478,25 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
 .vx-owner-card b{display:block;font-size:15px;font-weight:750}
 .vx-owner-card span>span{display:block;margin-top:3px;font-size:13px;color:var(--vx-muted);line-height:1.4}
 @media (prefers-reduced-motion:reduce){.vx-owner-card:hover{transform:none}}
+
+/* ── Connected feel: one card language, breadcrumbs, gentle page entry ── */
+/* The section you are in, and the page you are on inside its menu. */
+@media(min-width:1024px){
+  html:not(.dark) .fi-topbar .vx-mega-home.is-here{background:var(--vx-brand-soft);color:var(--vx-brand)}
+  .dark .fi-topbar .vx-mega-home.is-here{background:rgba(124,58,237,.24);color:#fff}
+  .vx-mega-menu a.is-current{background:var(--vx-brand-soft)!important;color:var(--vx-brand)!important;box-shadow:none!important;font-weight:700}
+  .dark .vx-mega-menu a.is-current{background:rgba(124,58,237,.2)!important;color:#ddd6fe!important}
+}
+/* Hand-built cards on older screens take the same corners, border and shadow. */
+.fi-page :is(.rounded-lg,.rounded-xl).border.bg-white:not(.fi-btn):not(button):not(a){border-radius:var(--vx-radius,14px);border-color:var(--vx-border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.dark .fi-page :is(.rounded-lg,.rounded-xl).border:is(.dark\:bg-gray-800,.dark\:bg-gray-900):not(.fi-btn):not(button):not(a){background:var(--vx-surface);border-color:var(--vx-border)}
+/* Breadcrumbs: small and quiet above the title. */
+.fi-breadcrumbs{font-size:12.5px}
+.fi-breadcrumbs .fi-breadcrumbs-item-label{color:var(--vx-muted)}
+.fi-breadcrumbs a:hover .fi-breadcrumbs-item-label{color:var(--vx-brand)}
+/* Each page settles in gently after navigating. */
+@keyframes vx-page-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fi-page{animation:vx-page-in .22s ease-out both}
+@media (prefers-reduced-motion:reduce){.fi-page{animation:none}}
+/* Links and focus feel the same everywhere. */
+.fi-page a:not([class*="fi-"]):focus-visible,.fi-page button:not([class*="fi-"]):focus-visible{outline:3px solid #a78bfa;outline-offset:2px;border-radius:8px}

@@ -1239,3 +1239,8 @@ body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); 
 .vxr-empty, .vxw-empty, .vxc-empty { padding: 20px 16px; }
 .fi-ta-empty-state { padding: 20px 16px; }
 .fi-ta-empty-state .fi-ta-empty-state-icon-ctn { margin-bottom: 8px; }
+
+/* Custom popovers never wider than the screen (the Filament ones are capped above). */
+.vx-mega-menu, .vx-more-menu, .vx-menu-panel, .vx-edit-panel, .vx-picker-menu {
+  max-width: calc(100vw - 24px);
+}

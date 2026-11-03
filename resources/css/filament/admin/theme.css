@@ -1500,3 +1500,32 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
 @media (prefers-reduced-motion:reduce){.fi-page{animation:none}}
 /* Links and focus feel the same everywhere. */
 .fi-page a:not([class*="fi-"]):focus-visible,.fi-page button:not([class*="fi-"]):focus-visible{outline:3px solid #a78bfa;outline-offset:2px;border-radius:8px}
+
+/* ── Forms, wizards, tables: the same language as the rest ───────────── */
+/* Wizard steps: current in purple, done with a green tick. */
+.fi-sc-wizard{border-radius:var(--vx-radius,14px)!important;border:1px solid var(--vx-border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.fi-sc-wizard-header{border-bottom:1px solid var(--vx-border)}
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-icon-ctn{background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand))!important;border-color:transparent!important;color:#fff!important;box-shadow:0 4px 10px -4px rgba(124,58,237,.6)}
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-number{color:#fff!important}
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-label{color:var(--vx-brand)!important}
+.dark .fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-label{color:#c4b5fd!important}
+.fi-sc-wizard-header-step.fi-completed .fi-sc-wizard-header-step-icon-ctn{background:#10b981!important;border-color:transparent!important;color:#fff!important}
+.fi-sc-wizard-header-step-description{color:var(--vx-muted)}
+/* Pagination: rounded, current page as a purple pill. */
+.fi-pagination-items{border-radius:10px!important;overflow:hidden}
+.fi-pagination-item.fi-active .fi-pagination-item-btn{background:var(--vx-brand-soft)!important;color:var(--vx-brand)!important;font-weight:700}
+.dark .fi-pagination-item.fi-active .fi-pagination-item-btn{background:rgba(124,58,237,.22)!important;color:#ddd6fe!important}
+.fi-pagination-overview{color:var(--vx-muted);font-size:12.5px}
+/* Table toolbar: rounded search, quiet header row. */
+.fi-ta-header-toolbar{padding-block:10px!important}
+.fi-ta-header-toolbar .fi-input-wrp{border-radius:10px!important}
+.fi-ta-header-heading{font-size:15px!important;font-weight:750!important}
+.fi-ta-header-description{color:var(--vx-muted)!important}
+/* Form sections: bold title, muted description, tight header. */
+.fi-section-header-heading{font-size:15px;font-weight:750}
+.fi-section-header-description{color:var(--vx-muted)}
+/* Inputs: one radius and a purple focus ring. */
+.fi-input-wrp{border-radius:10px!important}
+.fi-input-wrp:focus-within{--tw-ring-color:rgba(124,58,237,.55)!important}
+/* Notifications (toasts): rounded and lifted. */
+.fi-no-notification{border-radius:var(--vx-radius,14px)!important;box-shadow:0 18px 40px -16px rgba(15,23,42,.35)!important}

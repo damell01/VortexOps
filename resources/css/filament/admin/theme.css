@@ -1348,8 +1348,28 @@ a.fi-wi-stats-overview-stat:hover{border-color:#c4b5fd!important;box-shadow:0 6p
 .fi-wi-stats-overview-stat-label{font-size:12px!important;font-weight:650!important;color:var(--vx-muted)!important}
 .fi-wi-stats-overview-stat-value{margin-top:6px;font-size:clamp(1.25rem,1.5vw,1.6rem)!important;font-weight:750!important;color:var(--vx-text)}
 .fi-wi-stats-overview-stat-description{font-size:12px!important}
-/* Logos were made for the navy bar (white lettering): keep them on a navy chip in light mode. */
-@media(min-width:1024px){html:not(.dark) .fi-topbar .vx-mega-brand{background:var(--vx-navy);border-radius:12px;padding:3px;box-sizing:border-box}}
+/* Brand: the built-in wordmark at full width, dark lettering in light mode
+   (vb-logo-light.svg) and white lettering in dark mode. An uploaded logo was
+   made for the navy bar, so it sits on a navy chip in light mode. */
+.vx-mega-brand .vx-logo-on-dark{display:none!important}
+.dark .vx-mega-brand .vx-logo-on-dark{display:block!important}
+.dark .vx-mega-brand .vx-logo-on-light{display:none!important}
+@media(min-width:1024px){
+  .fi-topbar .vx-mega-brand.is-wordmark{width:156px!important;flex:0 0 156px!important;height:44px!important;margin-right:10px!important;justify-content:flex-start!important;background:none!important;padding:0!important;border-radius:0!important}
+  .fi-topbar .vx-mega-brand.is-wordmark img{width:156px!important;height:32px!important;object-fit:contain!important;object-position:left center!important}
+  html:not(.dark) .fi-topbar .vx-mega-brand.is-custom{width:auto!important;flex:0 0 auto!important;max-width:170px!important;height:44px!important;padding:5px 10px!important;background:var(--vx-navy)!important;border-radius:12px!important;box-sizing:border-box}
+  html:not(.dark) .fi-topbar .vx-mega-brand.is-custom img{width:auto!important;max-width:150px!important;height:34px!important}
+}
+@media(min-width:1024px) and (max-width:1250px){
+  .fi-topbar .vx-mega-brand.is-wordmark,.fi-topbar .vx-mega-brand.is-wordmark img{width:124px!important;flex-basis:124px!important}
+}
+/* Channel and business pickers on the white bar. */
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-btn{background:var(--vx-surface);border-color:var(--vx-border);color:var(--vx-text)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-btn:hover{background:var(--vx-brand-soft);border-color:#c4b5fd}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker[data-active] .vx-picker-btn{background:color-mix(in srgb,var(--vx-pick) 10%,#fff);border-color:color-mix(in srgb,var(--vx-pick) 55%,#fff)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-kicker{color:var(--vx-muted)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-chevron,html:not(.dark) .vx-desktop-mega-nav .vx-picker-icon{color:var(--vx-muted)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker[data-active] .vx-picker-icon{color:var(--vx-pick)}
 
 /* ── Design system: module screens (workflow, reports, shows) ─────────── */
 /* Primary actions share the gradient button. */
@@ -1382,3 +1402,9 @@ a.fi-wi-stats-overview-stat:hover{border-color:#c4b5fd!important;box-shadow:0 6p
 .vxr-tile b{font-size:14px}
 .vxr-tile p{font-size:12.5px;margin:2px 0 6px}
 @media (prefers-reduced-motion:reduce){.vxr-tile:hover{transform:none}}
+/* Install banner: a slim light strip in light mode, not a large purple block. */
+html:not(.dark) .vx-install-banner{background:var(--vx-surface);color:var(--vx-text);border:1px solid var(--vx-border);box-shadow:inset 3px 0 0 var(--vx-brand),0 1px 2px rgba(15,23,42,.04);padding:.45rem 2.75rem .45rem .75rem;font-size:.8125rem;margin-block:.5rem .25rem}
+html:not(.dark) .vx-install-banner__icon{width:1.75rem;height:1.75rem}
+html:not(.dark) .vx-install-banner__btn{min-height:2rem;background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand));color:#fff}
+html:not(.dark) .vx-install-banner__close{color:var(--vx-muted);top:.15rem}
+@media (min-width:1024px){.vx-install-banner{margin-inline:24px}}

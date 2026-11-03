@@ -25,23 +25,23 @@
         .vx-dashboard-reference .vx-middle .fi-wi-widget,.vx-dashboard-reference .vx-middle .fi-wi-widget>section{height:100%}
         @media(max-width:640px){.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:1.25rem}.vx-dashboard-reference .fi-wi-stats-overview-stat{padding:.8rem}.vx-dashboard-reference .vx-hero-art{display:none}}
     </style>
-    <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center;">
-        <div class="relative grid gap-5 lg:grid-cols-[1fr_260px]">
+    <section class="vx-dashboard-hero relative overflow-hidden rounded-2xl p-4 text-white shadow-lg sm:px-6 sm:py-5" style="background-image:linear-gradient(90deg,rgba(8,13,34,.88),rgba(12,12,36,.55) 55%,rgba(18,10,39,.75)),url('{{ asset('images/dashboard-banner.webp') }}');background-size:cover;background-position:center;">
+        <div class="relative grid gap-4 lg:grid-cols-[1fr_250px] lg:items-center">
             <div class="min-w-0">
                 <h1 class="text-2xl font-bold tracking-tight sm:text-2xl">{{ $overview['greeting'] }}, {{ $overview['name'] }} <span aria-hidden="true">👋</span></h1>
-                <p class="mt-2 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
-                <div class="mt-6 flex flex-wrap gap-2">
+                <p class="mt-1 text-sm text-indigo-100">Here's what's happening with Vortex Ops today.</p>
+                <div class="mt-4 flex flex-wrap gap-2">
                     @foreach($shortcuts->reject(fn ($link) => $link['label'] === 'Inventory guide') as $link)
-                    <a href="{{ $link['url'] }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-xs font-semibold transition {{ $loop->first ? 'border-violet-400 bg-violet-600 shadow-lg shadow-violet-900/40 hover:bg-violet-500' : 'border-white/20 bg-white/5 hover:bg-white/15' }}"><x-dynamic-component :component="$link['icon']" class="h-4 w-4" />{{ $link['label'] }}</a>
+                    <a href="{{ $link['url'] }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-xs font-semibold transition {{ $loop->first ? 'border-violet-400 bg-violet-600 shadow-lg shadow-violet-900/40 hover:bg-violet-500' : 'border-white/20 bg-white/5 hover:bg-white/15' }}"><x-dynamic-component :component="$link['icon']" class="h-4 w-4" />{{ $link['label'] }}</a>
                     @endforeach
                 </div>
-                @if($guide)<a href="{{ $guide['url'] }}" class="mt-3 inline-flex min-h-9 items-center gap-1.5 text-xs font-medium text-indigo-100 hover:text-white"><x-heroicon-o-book-open class="h-4 w-4" />Inventory guide →</a>@endif
+                @if($guide)<a href="{{ $guide['url'] }}" class="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-medium text-indigo-100 hover:text-white"><x-heroicon-o-book-open class="h-4 w-4" />Inventory guide →</a>@endif
             </div>
-            <aside class="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm" aria-label="Today at a glance">
+            <aside class="rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-sm" aria-label="Today at a glance">
                 <div class="flex items-center gap-3"><x-heroicon-o-calendar-days class="h-6 w-6 text-indigo-200" /><div><div class="text-xs font-medium text-indigo-100">Today at a glance</div><div class="mt-1 text-sm font-bold">{{ $overview['date'] }}</div></div></div>
-                <div class="mt-3 space-y-1">
+                <div class="mt-2 space-y-0.5">
                     @foreach($overview['today'] as $row)
-                    <a href="{{ $row['url'] }}" class="flex min-h-8 items-center gap-3 rounded-lg px-1 text-xs hover:bg-white/10"><strong class="w-7 text-right text-base tabular-nums">{{ number_format($row['count']) }}</strong><span class="flex-1 text-indigo-100">@if($row['live'] ?? false)<span class="vx-live-dot" aria-hidden="true"></span> @endif{{ $row['label'] }}</span><x-heroicon-o-chevron-right class="h-3 w-3" /></a>
+                    <a href="{{ $row['url'] }}" class="flex min-h-7 items-center gap-3 rounded-lg px-1 text-xs hover:bg-white/10"><strong class="w-7 text-right text-base tabular-nums">{{ number_format($row['count']) }}</strong><span class="flex-1 text-indigo-100">@if($row['live'] ?? false)<span class="vx-live-dot" aria-hidden="true"></span> @endif{{ $row['label'] }}</span><x-heroicon-o-chevron-right class="h-3 w-3" /></a>
                     @endforeach
                 </div>
             </aside>
@@ -51,7 +51,7 @@
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
 
     <div class="vx-middle grid gap-4 lg:grid-cols-3">
-        <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Inventory Health</h2><p class="mt-1 text-xs text-gray-500">Current stock status at a glance.</p></div>@if(\App\Filament\Resources\InventoryItemResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl() }}" class="text-xs font-semibold text-primary-600">View inventory →</a>@endif</div>
             <div class="mt-5 flex flex-wrap items-center justify-center gap-5">
                 <div class="vx-donut relative flex h-36 w-36 shrink-0 items-center justify-center rounded-full" style="--green:{{ $green }}%;--amber:{{ $green + $amber }}%" role="img" aria-label="{{ $healthy }} in stock above reorder level, {{ $low }} low stock, {{ $inventoryHealth['out'] ?? 0 }} out of stock">
@@ -65,7 +65,7 @@
             </div>
             @if(!$stockTotal)<p class="mt-4 text-xs text-gray-500">No active inventory items yet.</p>@endif
         </section>
-        <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Recent Inventory Activity</h2><p class="mt-1 text-xs text-gray-500">Latest stock changes.</p></div>@if(\App\Filament\Resources\InventoryMovementResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryMovementResource::getUrl() }}" class="shrink-0 text-xs font-semibold text-primary-600">View all →</a>@endif</div>
             <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse(($recentInventoryActivity ?? []) as $activity)

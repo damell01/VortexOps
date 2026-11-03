@@ -61,7 +61,7 @@
             </div>
         </section>
 
-        <p class="text-xs text-gray-400">
+        <p class="text-xs text-gray-500">
             The seeder only adds records that don't already exist, so pressing the button again is safe — it won't duplicate data.
         </p>
 

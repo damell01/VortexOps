@@ -75,7 +75,7 @@
                     <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">The show flow</h2>
                     <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">The same lifecycle from import through payout.</p>
                 </div>
-                <span class="text-[10px] font-medium text-gray-400 sm:text-xs">6 steps</span>
+                <span class="text-[10px] font-medium text-gray-500 sm:text-xs">6 steps</span>
             </div>
 
             <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">

@@ -35,7 +35,7 @@
             ['Analytics Complete',number_format($d['complete']),'verified core analytics'],
         ] as $card)
         <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $card[0] }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">{{ $card[0] }}</div>
             <div class="mt-2 text-xl font-bold text-gray-950 dark:text-white">{{ $card[1] }}</div>
             <div class="mt-1 text-[11px] text-gray-500">{{ $card[2] }}</div>
         </div>
@@ -50,7 +50,7 @@
             ['Not Checked',$d['statusCounts']['unclassified'],'Due for first classification','text-primary-600'],
         ] as $status)
         <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $status[0] }}</div>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">{{ $status[0] }}</div>
             <div class="mt-2 text-xl font-bold {{ $status[3] }}">{{ number_format($status[1]) }}</div>
             <div class="mt-1 text-[11px] text-gray-500">{{ $status[2] }}</div>
         </div>
@@ -81,7 +81,7 @@
     <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-                <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Settlement Coverage</div>
+                <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Settlement Coverage</div>
                 <div class="mt-1 text-lg font-bold text-gray-950 dark:text-white">Completed Earnings</div>
                 <p class="mt-1 text-xs text-gray-500">Final settled earnings are tracked separately and do not determine analytics completeness.</p>
             </div>
@@ -105,7 +105,7 @@
                 ['Unresolved', $d['unresolvedPopulation'], 'Needs classification before counting as hosted'],
             ] as $population)
                 <div class="bg-white p-4 dark:bg-gray-900">
-                    <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $population[0] }}</div>
+                    <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">{{ $population[0] }}</div>
                     <div class="mt-2 text-2xl font-bold text-gray-950 dark:text-white">{{ number_format($population[1]) }}</div>
                     <div class="mt-1 text-[11px] text-gray-500">{{ $population[2] }}</div>
                 </div>

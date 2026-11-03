@@ -31,7 +31,7 @@
                     · {{ $record->vendor->name }}
                 @endif
             </h2>
-            <div class="mt-1 flex flex-wrap gap-4 text-xs text-gray-400">
+            <div class="mt-1 flex flex-wrap gap-4 text-xs text-gray-500">
                 @if($record->invoice_number)<span>Invoice: {{ $record->invoice_number }}</span>@endif
                 @if($record->purchase_order)<span>PO: {{ $record->purchase_order }}</span>@endif
                 <span>Started: {{ $record->created_at->diffForHumans() }}</span>
@@ -56,7 +56,7 @@
     <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div class="rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-3 text-center">
             <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $total }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">Total Lines</p>
+            <p class="text-xs text-gray-500 mt-0.5">Total Lines</p>
         </div>
         <div class="rounded-lg bg-green-50 dark:bg-green-950 px-4 py-3 text-center">
             <p class="text-2xl font-bold text-green-700 dark:text-green-300">{{ $auto }}</p>
@@ -83,7 +83,7 @@
             <div class="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                 <div class="h-full rounded-full bg-green-500 transition-all duration-500" style="width: {{ $pct }}%"></div>
             </div>
-            <p class="text-xs text-gray-400 mt-1 text-right">{{ $pct }}% auto-matched</p>
+            <p class="text-xs text-gray-500 mt-1 text-right">{{ $pct }}% auto-matched</p>
         </div>
     @endif
 </div>
@@ -157,14 +157,14 @@
         {{-- Upload a manifest document (CSV) --}}
         <div class="space-y-2">
             <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Upload a manifest</p>
-            <p class="text-xs text-gray-400">
+            <p class="text-xs text-gray-500">
                 A CSV with columns <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">Description, Qty, Unit Cost, UPC</code>.
                 Each row runs through the matching pipeline — auto-matched, needs-review, or new product. Use the
                 <span class="font-medium">Sample manifest</span> button above to grab one to try.
             </p>
             <input type="file" wire:model="csvFile" accept=".csv,text/csv"
                 class="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-50 dark:file:bg-violet-500/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-violet-700 dark:file:text-violet-300 hover:file:bg-violet-100" />
-            <div wire:loading wire:target="csvFile" class="text-xs text-gray-400">Uploading…</div>
+            <div wire:loading wire:target="csvFile" class="text-xs text-gray-500">Uploading…</div>
             @error('csvFile') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
             <button wire:click="importCsvFile" wire:loading.attr="disabled" type="button"
                 @disabled(! $csvFile)
@@ -175,13 +175,13 @@
 
         <div class="flex items-center gap-3">
             <div class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
-            <span class="text-xs uppercase tracking-wide text-gray-400">or paste lines</span>
+            <span class="text-xs uppercase tracking-wide text-gray-500">or paste lines</span>
             <div class="h-px flex-1 bg-gray-200 dark:bg-gray-700"></div>
         </div>
 
         {{-- Paste lines manually --}}
         <div class="space-y-2">
-            <p class="text-xs text-gray-400">One line per row: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">Description | Qty | Unit Cost | UPC (optional)</code></p>
+            <p class="text-xs text-gray-500">One line per row: <code class="bg-gray-100 dark:bg-gray-800 px-1 rounded">Description | Qty | Unit Cost | UPC (optional)</code></p>
             <textarea wire:model="manualLines" rows="5" placeholder="2025 Topps Chrome Hobby | 12 | 95.00
 2025 Bowman Jumbo Hobby | 6 | 130.00"
                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500">
@@ -227,18 +227,18 @@
             @php $card = $this->productCards[$line['matched_id']] ?? null; @endphp
             <div class="px-5 py-3 space-y-2">
                 <div class="flex items-center gap-4 text-sm">
-                    <span class="text-gray-400 w-8 text-right flex-shrink-0">#{{ $line['line_number'] }}</span>
+                    <span class="text-gray-500 w-8 text-right flex-shrink-0">#{{ $line['line_number'] }}</span>
                     <div class="flex-1 min-w-0">
                         <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ $line['matched_name'] }}</p>
                         @if($line['vendor_desc'] && $line['vendor_desc'] !== $line['matched_name'])
-                            <p class="text-xs text-gray-400 truncate">Vendor: "{{ $line['vendor_desc'] }}"</p>
+                            <p class="text-xs text-gray-500 truncate">Vendor: "{{ $line['vendor_desc'] }}"</p>
                         @endif
                     </div>
                     <span class="flex-shrink-0 inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">
                         {{ $line['confidence_pct'] }}%
                     </span>
-                    <span class="flex-shrink-0 text-xs text-gray-400">{{ $line['case_count'] }} cases</span>
-                    <span class="flex-shrink-0 text-xs text-gray-400">${{ $line['unit_cost'] }}/ea</span>
+                    <span class="flex-shrink-0 text-xs text-gray-500">{{ $line['case_count'] }} cases</span>
+                    <span class="flex-shrink-0 text-xs text-gray-500">${{ $line['unit_cost'] }}/ea</span>
                 </div>
                 {{-- Reasons --}}
                 @if(! empty($line['reasons']))
@@ -252,7 +252,7 @@
                 @endif
                 {{-- Compact stock --}}
                 @if($card && $card['total_stock'] > 0)
-                <div class="ml-12 text-xs text-gray-400">
+                <div class="ml-12 text-xs text-gray-500">
                     Stock: {{ $card['total_stock'] }} units · Avg cost ${{ $card['avg_cost'] }} · Last received {{ $card['last_received'] }}
                 </div>
                 @endif
@@ -273,7 +273,7 @@
         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Needs Review ({{ count($grouped['review']) }})
         </h3>
-        <span class="text-xs text-gray-400">80–94% confidence — confirm or change</span>
+        <span class="text-xs text-gray-500">80–94% confidence — confirm or change</span>
     </div>
 
     @foreach($grouped['review'] as $line)
@@ -290,14 +290,14 @@
                 {{-- Line header --}}
                 <div class="flex items-start justify-between gap-3 flex-wrap">
                     <div>
-                        <p class="text-xs text-gray-400 mb-0.5">Line #{{ $line['line_number'] }} · Vendor description</p>
+                        <p class="text-xs text-gray-500 mb-0.5">Line #{{ $line['line_number'] }} · Vendor description</p>
                         <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">"{{ $line['vendor_desc'] }}"</p>
                     </div>
                     <div class="flex-shrink-0 text-right">
                         <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900 px-2.5 py-1 text-sm font-bold text-amber-700 dark:text-amber-300">
                             {{ $line['confidence_pct'] }}%
                         </span>
-                        <p class="text-xs text-gray-400 mt-0.5">{{ ucfirst($line['stage'] ?? 'fuzzy') }}</p>
+                        <p class="text-xs text-gray-500 mt-0.5">{{ ucfirst($line['stage'] ?? 'fuzzy') }}</p>
                     </div>
                 </div>
 
@@ -327,7 +327,7 @@
                     @if($card)
                     <div class="border-t border-amber-100 dark:border-amber-900 px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                         <div>
-                            <p class="text-gray-400 font-medium mb-1">Current Stock</p>
+                            <p class="text-gray-500 font-medium mb-1">Current Stock</p>
                             @if(empty($card['stock']))
                                 <p class="text-gray-500">None in stock</p>
                             @else
@@ -344,16 +344,16 @@
                             @endif
                         </div>
                         <div>
-                            <p class="text-gray-400 font-medium mb-1">Cost</p>
+                            <p class="text-gray-500 font-medium mb-1">Cost</p>
                             <p class="font-medium text-gray-900 dark:text-gray-100">${{ $card['avg_cost'] }}</p>
-                            <p class="text-gray-400">avg cost</p>
+                            <p class="text-gray-500">avg cost</p>
                         </div>
                         <div>
-                            <p class="text-gray-400 font-medium mb-1">Last Received</p>
+                            <p class="text-gray-500 font-medium mb-1">Last Received</p>
                             <p class="text-gray-700 dark:text-gray-300">{{ $card['last_received'] }}</p>
                         </div>
                         <div>
-                            <p class="text-gray-400 font-medium mb-1">Aliases</p>
+                            <p class="text-gray-500 font-medium mb-1">Aliases</p>
                             @if(empty($card['aliases']))
                                 <p class="text-gray-500">None</p>
                             @else
@@ -472,7 +472,7 @@
         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
             New Products ({{ count($grouped['new']) }})
         </h3>
-        <span class="text-xs text-gray-400">No match found — choose an existing product or create new</span>
+        <span class="text-xs text-gray-500">No match found — choose an existing product or create new</span>
     </div>
 
     @foreach($grouped['new'] as $line)
@@ -482,9 +482,9 @@
             <div class="flex items-start gap-3">
                 <x-heroicon-o-question-mark-circle class="h-5 w-5 text-violet-400 flex-shrink-0 mt-0.5" />
                 <div>
-                    <p class="text-xs text-gray-400 mb-0.5">Line #{{ $line['line_number'] }} · No match found</p>
+                    <p class="text-xs text-gray-500 mb-0.5">Line #{{ $line['line_number'] }} · No match found</p>
                     <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">"{{ $line['vendor_desc'] }}"</p>
-                    <p class="text-xs text-gray-400 mt-1">{{ $line['case_count'] }} cases · ${{ $line['unit_cost'] }}/ea</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ $line['case_count'] }} cases · ${{ $line['unit_cost'] }}/ea</p>
                 </div>
             </div>
 
@@ -576,14 +576,14 @@
 <div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-5 py-14 text-center space-y-2">
     <x-heroicon-o-inbox-arrow-down class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No lines yet</p>
-    <p class="text-xs text-gray-400 dark:text-gray-500">Use the manual import above or attach a pallet to this session</p>
+    <p class="text-xs text-gray-500 dark:text-gray-500">Use the manual import above or attach a pallet to this session</p>
 </div>
 @endif
 
 {{-- ── Complete Session ─────────────────────────────────────────────────────── --}}
 @if($record->status !== 'completed' && $total > 0)
 <div class="flex items-center justify-between pt-2">
-    <p class="text-xs text-gray-400">
+    <p class="text-xs text-gray-500">
         @php $pending = count($grouped['review']) + count($grouped['new']); @endphp
         @if($pending > 0)
             {{ $pending }} line(s) still need attention before completing.

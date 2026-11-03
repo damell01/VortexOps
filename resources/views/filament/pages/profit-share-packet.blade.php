@@ -63,7 +63,7 @@
             </div>
 
             @if(empty($rows))
-                <div class="px-6 py-6 text-center text-sm text-gray-400">No profit share streamers with shows in this month.</div>
+                <div class="px-6 py-6 text-center text-sm text-gray-500">No profit share streamers with shows in this month.</div>
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">

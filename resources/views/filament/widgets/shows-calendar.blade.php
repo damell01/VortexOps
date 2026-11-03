@@ -24,14 +24,14 @@
             <div class="flex items-center gap-2">
                 <button aria-label="Previous month"
                     wire:click="previousMonth"
-                    class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
+                    class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
                 >
                     <x-heroicon-o-chevron-left class="h-4 w-4" />
                 </button>
                 <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 w-36 text-center">{{ $monthLabel }}</span>
                 <button aria-label="Next month"
                     wire:click="nextMonth"
-                    class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
+                    class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
                     @if ($isFuture) disabled @endif
                 >
                     <x-heroicon-o-chevron-right class="h-4 w-4 {{ $isFuture ? 'opacity-30' : '' }}" />
@@ -43,7 +43,7 @@
     {{-- Day-of-week header --}}
     <div class="grid grid-cols-7 mb-1">
         @foreach (['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $dow)
-            <div class="py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            <div class="py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
                 {{ $dow }}
             </div>
         @endforeach
@@ -65,7 +65,7 @@
                             {{ $day }}
                         </span>
                         @if ($dayShows->count() > 2)
-                            <span class="text-xs text-gray-400">+{{ $dayShows->count() - 2 }} more</span>
+                            <span class="text-xs text-gray-500">+{{ $dayShows->count() - 2 }} more</span>
                         @endif
                     </div>
 

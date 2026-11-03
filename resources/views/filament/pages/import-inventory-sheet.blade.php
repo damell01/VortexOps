@@ -32,7 +32,7 @@
                             <select wire:model.live="sheet" class="min-h-10 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                                 @foreach ($sheets as $name)<option value="{{ $name }}">{{ $name }}</option>@endforeach
                             </select>
-                            <p class="mt-1.5 text-[11px] text-gray-400">{{ $fileName }}</p>
+                            <p class="mt-1.5 text-[11px] text-gray-500">{{ $fileName }}</p>
                         </div>
                     @endif
                 </div>
@@ -45,7 +45,7 @@
                         </label>
                         <button type="button" wire:click="startOver" class="vx-plain text-sm font-medium text-gray-500 hover:underline dark:text-gray-400">Start over</button>
                     </div>
-                    <p class="mt-1.5 text-[11px] leading-5 text-gray-400">Off by default. Re-imports fill blanks without overwriting warehouse-corrected values unless you turn this on.</p>
+                    <p class="mt-1.5 text-[11px] leading-5 text-gray-500">Off by default. Re-imports fill blanks without overwriting warehouse-corrected values unless you turn this on.</p>
                 @endif
             </div>
         </div>
@@ -110,10 +110,10 @@
                         @foreach ($this->visibleRows as $row)
                             @php [$label, $classes] = $badge[$row['action']]; @endphp
                             <tr wire:key="import-row-{{ $row['line'] }}-{{ $row['action'] }}-{{ $row['decision'] }}" class="{{ $row['action'] === 'skip' ? 'opacity-60' : '' }} {{ $row['warnings'] ? 'bg-red-50/50 dark:bg-red-500/5' : ($row['duplicate'] ? 'bg-violet-50/50 dark:bg-violet-500/5' : '') }}">
-                                <td class="px-4 py-3 align-top text-xs text-gray-400">{{ $row['line'] }}</td>
+                                <td class="px-4 py-3 align-top text-xs text-gray-500">{{ $row['line'] }}</td>
                                 <td class="px-4 py-3 align-top">
                                     <div class="font-medium text-gray-900 dark:text-white">{{ $row['name'] }}@if($row['edited'])<span class="ml-1.5 rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">edited</span>@endif</div>
-                                    @if ($row['sku'])<div class="text-xs text-gray-400">{{ $row['sku'] }}</div>@endif
+                                    @if ($row['sku'])<div class="text-xs text-gray-500">{{ $row['sku'] }}</div>@endif
                                     @foreach ($row['warnings'] as $warning)<div class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $warning }}</div>@endforeach
                                     @foreach ($row['similar'] as $similar)<div class="mt-1 text-xs text-violet-700 dark:text-violet-300">Looks like existing: <b>{{ $similar['name'] }}</b>@if($similar['sku']) ({{ $similar['sku'] }})@endif</div>@endforeach
                                     <div class="mt-1.5 flex gap-3">
@@ -123,9 +123,9 @@
                                 </td>
                                 <td class="px-4 py-3 align-top font-semibold">{{ $row['sheet_cost'] !== null ? '$'.number_format($row['sheet_cost'],2) : '—' }}</td>
                                 <td class="px-4 py-3 align-top font-semibold">{{ $row['sheet_target'] !== null ? '$'.number_format($row['sheet_target'],2) : '—' }}</td>
-                                <td class="px-4 py-3 align-top">@if($row['sheet_margin'] !== null)<div class="font-semibold {{ $row['sheet_margin'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">${{ number_format($row['sheet_margin'],2) }}</div><div class="text-[10px] text-gray-400">{{ $row['sheet_margin_pct'] !== null ? number_format($row['sheet_margin_pct'],1).'%' : '' }}</div>@else — @endif</td>
+                                <td class="px-4 py-3 align-top">@if($row['sheet_margin'] !== null)<div class="font-semibold {{ $row['sheet_margin'] < 0 ? 'text-red-600' : 'text-emerald-600' }}">${{ number_format($row['sheet_margin'],2) }}</div><div class="text-[10px] text-gray-500">{{ $row['sheet_margin_pct'] !== null ? number_format($row['sheet_margin_pct'],1).'%' : '' }}</div>@else — @endif</td>
                                 <td class="px-4 py-3 align-top"><span class="inline-flex rounded-md px-2 py-0.5 text-xs font-semibold {{ $classes }}">{{ $label }}</span>@if ($row['match'] && $row['action'] !== 'skip')<div class="mt-1 text-xs text-gray-500 dark:text-gray-400">matched on {{ $row['matched_by'] }} → {{ $row['match']['name'] }}</div>@endif</td>
-                                <td class="px-4 py-3 align-top">@if ($row['changes'] === [] || $row['action'] === 'skip')<span class="text-xs text-gray-400">—</span>@else<ul class="space-y-0.5">@foreach ($row['changes'] as $change)<li class="text-xs text-gray-600 dark:text-gray-300"><span class="font-medium">{{ $change['field'] }}</span> @if ($change['from'] !== null)<span class="text-gray-400">{{ $change['from'] }} →</span>@endif {{ $change['to'] }}</li>@endforeach</ul>@endif</td>
+                                <td class="px-4 py-3 align-top">@if ($row['changes'] === [] || $row['action'] === 'skip')<span class="text-xs text-gray-500">—</span>@else<ul class="space-y-0.5">@foreach ($row['changes'] as $change)<li class="text-xs text-gray-600 dark:text-gray-300"><span class="font-medium">{{ $change['field'] }}</span> @if ($change['from'] !== null)<span class="text-gray-500">{{ $change['from'] }} →</span>@endif {{ $change['to'] }}</li>@endforeach</ul>@endif</td>
                                 <td class="px-4 py-3 align-top">
                                     <select aria-label="Import row {{ $row['line'] }}?" wire:change="decide({{ $row['line'] }}, $event.target.value)" class="vxw-select" style="min-width:12rem;font-size:12.5px">
                                         <option value="import" @selected($row['decision'] === 'import')>{{ $row['similar'] !== [] ? 'Import as a new item' : 'Import' }}</option>
@@ -150,7 +150,7 @@
                                             <div class="flex flex-wrap items-center gap-2" style="grid-column:1/-1">
                                                 <button type="submit" class="vxw-btn vxw-btn--primary vxw-btn--sm">Save row</button>
                                                 <button type="button" wire:click="cancelEdit" class="vxw-btn vxw-btn--ghost vxw-btn--sm">Cancel</button>
-                                                <span class="text-xs text-gray-400">Changes apply to this import only — the spreadsheet itself is not changed.</span>
+                                                <span class="text-xs text-gray-500">Changes apply to this import only — the spreadsheet itself is not changed.</span>
                                             </div>
                                         </form>
                                         <datalist id="import-types"><option value="box"><option value="pack"><option value="single"><option value="case"></datalist>
@@ -158,12 +158,12 @@
                                 </tr>
                             @endif
                         @endforeach
-                        @if ($this->visibleRows === [])<tr><td colspan="8" class="px-4 py-5 text-center text-sm text-gray-400">Nothing in this group.</td></tr>@endif
+                        @if ($this->visibleRows === [])<tr><td colspan="8" class="px-4 py-5 text-center text-sm text-gray-500">Nothing in this group.</td></tr>@endif
                     </tbody>
                 </table>
             </div>
 
-            @if ($this->hiddenRowCount > 0)<div class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-400 dark:border-gray-700">… and {{ $this->hiddenRowCount }} more rows not shown. They are included in the import as they stand — filter to find them.</div>@endif
+            @if ($this->hiddenRowCount > 0)<div class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-700">… and {{ $this->hiddenRowCount }} more rows not shown. They are included in the import as they stand — filter to find them.</div>@endif
         </section>
 
         <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">

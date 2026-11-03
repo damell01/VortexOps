@@ -76,7 +76,7 @@
                                     </div>
                                     <div class="shrink-0 text-right">
                                         <div class="text-sm font-semibold text-gray-950 dark:text-white">{{ $line['received_cases'] }} / {{ $line['total_cases'] }}</div>
-                                        <div class="text-[10px] uppercase tracking-wide text-gray-400">cases</div>
+                                        <div class="text-[10px] uppercase tracking-wide text-gray-500">cases</div>
                                     </div>
                                 </div>
 
@@ -493,9 +493,9 @@
                         <span class="rounded-full px-2 py-1 text-[10px] font-semibold sm:text-xs {{ $result['is_low'] ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-200' : 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' }}">{{ $result['is_low'] ? 'Low stock' : 'In stock' }}</span>
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">On hand</div><div class="mt-0.5 text-xl font-semibold">{{ number_format((float)$result['total_qty']) }}</div></div>
-                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Item Cost</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">${{ number_format((float)$result['item_cost'], 2) }}</div></div>
-                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Sale price</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">{{ $result['sale_price'] > 0 ? '$' . number_format((float)$result['sale_price'], 2) : '—' }}</div></div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">On hand</div><div class="mt-0.5 text-xl font-semibold">{{ number_format((float)$result['total_qty']) }}</div></div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">Item Cost</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">${{ number_format((float)$result['item_cost'], 2) }}</div></div>
+                        <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">Sale price</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">{{ $result['sale_price'] > 0 ? '$' . number_format((float)$result['sale_price'], 2) : '—' }}</div></div>
                         
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-2">

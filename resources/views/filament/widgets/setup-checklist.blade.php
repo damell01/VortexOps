@@ -32,10 +32,10 @@
                         <x-heroicon-o-arrow-right-circle class="h-6 w-6 shrink-0 text-gray-300 dark:text-gray-600" />
                     @endif
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium {{ $step['done'] ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-gray-100' }}">
+                        <p class="text-sm font-medium {{ $step['done'] ? 'text-gray-500 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-gray-100' }}">
                             {{ $step['label'] }}
                         </p>
-                        <p class="text-xs text-gray-400 dark:text-gray-500">{{ $step['hint'] }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-500">{{ $step['hint'] }}</p>
                     </div>
                     @unless ($step['done'])
                         <a href="{{ $step['url'] }}" wire:navigate

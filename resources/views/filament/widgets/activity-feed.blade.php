@@ -2,11 +2,11 @@
     <x-filament::section>
         <x-slot name="heading">Recent Activity</x-slot>
         <x-slot name="afterHeader">
-            <span class="text-xs text-gray-400 dark:text-gray-500">Last 20 events</span>
+            <span class="text-xs text-gray-500 dark:text-gray-500">Last 20 events</span>
         </x-slot>
 
         @if ($activities->isEmpty())
-            <div class="py-5 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div class="py-5 text-center text-sm text-gray-500 dark:text-gray-500">
                 No activity recorded yet.
             </div>
         @else
@@ -54,7 +54,7 @@
                                 <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {{ ucfirst($desc) }}
                                     @if ($subject)
-                                        <span class="text-gray-400 dark:text-gray-500 font-normal">on {{ $subject }}</span>
+                                        <span class="text-gray-500 dark:text-gray-500 font-normal">on {{ $subject }}</span>
                                     @endif
                                 </span>
                                 @if ($log)
@@ -70,7 +70,7 @@
                                         <span class="text-xs text-gray-500 dark:text-gray-400">
                                             <span class="font-medium text-gray-700 dark:text-gray-300">{{ str_replace('_', ' ', $field) }}:</span>
                                             @if (isset($old[$field]))
-                                                <span class="line-through text-gray-400 dark:text-gray-500">{{ Str::limit((string) $old[$field], 30) }}</span>
+                                                <span class="line-through text-gray-500 dark:text-gray-500">{{ Str::limit((string) $old[$field], 30) }}</span>
                                                 →
                                             @endif
                                             {{ Str::limit((string) $newVal, 30) }}
@@ -79,7 +79,7 @@
                                 </div>
                             @endif
 
-                            <div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                            <div class="mt-1 text-xs text-gray-500 dark:text-gray-500">
                                 {{ $causer }}
                                 &middot;
                                 {{ $activity->created_at->diffForHumans() }}

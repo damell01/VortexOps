@@ -34,7 +34,7 @@
                         ['Unassigned', $unassignedShows ?? 0],
                     ] as [$label, $value])
                         <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
-                            <div class="truncate text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
+                            <div class="truncate text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
                             <div class="mt-0.5 text-xl font-semibold leading-none text-gray-950 dark:text-white sm:mt-1 sm:text-2xl">{{ number_format((float)$value) }}</div>
                         </div>
                     @endforeach
@@ -79,10 +79,10 @@
                     <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse(($recentInventoryActivity ?? []) as $activity)
                             <div class="flex items-center gap-3 py-2.5">
-                                <span class="w-14 shrink-0 text-[11px] text-gray-400">{{ $activity['time'] }}</span>
+                                <span class="w-14 shrink-0 text-[11px] text-gray-500">{{ $activity['time'] }}</span>
                                 <span class="min-w-0 flex-1 truncate text-xs font-medium text-gray-800 dark:text-gray-100">{{ $activity['name'] }}</span>
                                 @php $moved = $activity['transfer'] ?? false; $q = (float) $activity['qty']; @endphp<span class="text-xs font-semibold {{ $moved || $q == 0 ? 'text-gray-500' : ($q > 0 ? 'text-emerald-600' : 'text-rose-600') }}">{{ $moved ? 'Moved ' : ($q > 0 ? '+' : ($q < 0 ? '−' : '')) }}{{ rtrim(rtrim(number_format(abs($q), 2), '0'), '.') }}</span>
-                                <span class="hidden text-[11px] text-gray-400 sm:block">{{ $activity['type'] }}</span>
+                                <span class="hidden text-[11px] text-gray-500 sm:block">{{ $activity['type'] }}</span>
                             </div>
                         @empty
                             <div class="py-5 text-center text-xs text-gray-500">No recent inventory activity.</div>

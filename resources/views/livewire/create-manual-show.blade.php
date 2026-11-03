@@ -16,7 +16,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Add a new show to your account</p>
                 </div>
                 <button aria-label="Close" wire:click="closeModal" type="button"
-                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+                    class="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition">
                     <x-heroicon-o-x-mark class="h-5 w-5" />
                 </button>
             </div>
@@ -63,7 +63,7 @@
                     {{-- Channel --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Channel <span class="text-gray-400 text-xs font-normal">(Optional)</span>
+                            Channel <span class="text-gray-500 text-xs font-normal">(Optional)</span>
                         </label>
                         <select wire:model="whatnotChannelId"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-sm text-gray-900 dark:text-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-none transition">
@@ -102,7 +102,7 @@
                     <div class="grid grid-cols-3 gap-3">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Start Time <span class="text-gray-400 text-xs font-normal">(Opt.)</span>
+                                Start Time <span class="text-gray-500 text-xs font-normal">(Opt.)</span>
                             </label>
                             <input type="time" wire:model.live="startTime"
                                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-none transition"
@@ -114,7 +114,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                End Time <span class="text-gray-400 text-xs font-normal">(Opt.)</span>
+                                End Time <span class="text-gray-500 text-xs font-normal">(Opt.)</span>
                             </label>
                             <input type="time" wire:model.live="endTime"
                                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-none transition"
@@ -126,7 +126,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Duration (min) <span class="text-gray-400 text-xs font-normal">(Auto)</span>
+                                Duration (min) <span class="text-gray-500 text-xs font-normal">(Auto)</span>
                             </label>
                             <div class="relative">
                                 <input type="number" wire:model="showDuration" placeholder="—" readonly
@@ -153,10 +153,10 @@
                     {{-- Gross Revenue --}}
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Gross Revenue <span class="text-gray-400 text-xs font-normal">(Optional)</span>
+                            Gross Revenue <span class="text-gray-500 text-xs font-normal">(Optional)</span>
                         </label>
                         <div class="relative">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">$</span>
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
                             <input type="number" step="0.01" wire:model="grossRevenue" placeholder="0.00"
                                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 pl-7 pr-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-none transition"
                             />

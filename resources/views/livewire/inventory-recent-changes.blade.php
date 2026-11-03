@@ -31,7 +31,7 @@
                             <article wire:key="recent-price-{{ $event->id }}" class="flex items-center gap-3 rounded-xl border border-purple-700/50 bg-[#191426] p-3">
                                 @if($event->image_path)<img alt="" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($event->image_path) }}" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain dark:bg-gray-900">@endif
                                 <div class="min-w-0 flex-1"><div class="font-bold">{{ $event->name }}</div><div class="text-xs text-purple-300">PRICE CHANGE · {{ \Illuminate\Support\Carbon::parse($event->created_at)->format('M j, g:i A') }}</div></div>
-                                <div class="shrink-0 text-right text-sm"><span class="text-gray-400 line-through">{{ $event->old_price === null ? 'Unset' : '$'.number_format((float)$event->old_price,2) }}</span><span class="mx-2">→</span><span class="font-bold text-green-300">{{ $event->new_price === null ? 'Unset' : '$'.number_format((float)$event->new_price,2) }}</span></div>
+                                <div class="shrink-0 text-right text-sm"><span class="text-gray-500 line-through">{{ $event->old_price === null ? 'Unset' : '$'.number_format((float)$event->old_price,2) }}</span><span class="mx-2">→</span><span class="font-bold text-green-300">{{ $event->new_price === null ? 'Unset' : '$'.number_format((float)$event->new_price,2) }}</span></div>
                             </article>
                         @endforeach
                     @endif
@@ -40,12 +40,12 @@
                             <article wire:key="recent-stock-{{ $event->id }}" class="flex items-center gap-3 rounded-xl border border-sky-700/50 bg-[#191426] p-3">
                                 @if($event->image_path)<img alt="" src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($event->image_path) }}" class="h-14 w-14 shrink-0 rounded-lg bg-white object-contain dark:bg-gray-900">@endif
                                 <div class="min-w-0 flex-1"><div class="font-bold">{{ $event->name }}</div><div class="text-xs text-sky-300">{{ ucwords(str_replace('_',' ',$event->kind)) }} · {{ \Illuminate\Support\Carbon::parse($event->created_at)->format('M j, g:i A') }}</div></div>
-                                <div class="shrink-0 text-right text-sm"><span class="text-gray-400 line-through">{{ number_format((float)$event->quantity_before) }}</span><span class="mx-2">→</span><span class="font-bold {{ $event->kind === 'sold_out' ? 'text-red-300' : 'text-green-300' }}">{{ number_format((float)$event->quantity_after) }} units</span></div>
+                                <div class="shrink-0 text-right text-sm"><span class="text-gray-500 line-through">{{ number_format((float)$event->quantity_before) }}</span><span class="mx-2">→</span><span class="font-bold {{ $event->kind === 'sold_out' ? 'text-red-300' : 'text-green-300' }}">{{ number_format((float)$event->quantity_after) }} units</span></div>
                             </article>
                         @endforeach
                     @endif
                     @if(($tab === 'price' && $prices->isEmpty()) || (in_array($tab, ['stock','restocked','sold_out'], true) && $stock->filter(fn ($event) => ! in_array($tab, ['restocked','sold_out'], true) || $event->kind === $tab)->isEmpty()) || ($tab === 'all' && $prices->isEmpty() && $stock->isEmpty()))
-                        <p class="rounded-xl border border-gray-700 p-5 text-center text-gray-400">No matching inventory changes recorded for this period.</p>
+                        <p class="rounded-xl border border-gray-700 p-5 text-center text-gray-500">No matching inventory changes recorded for this period.</p>
                     @endif
                 </div>
                 <footer class="shrink-0 border-t border-purple-900 bg-[#100d23] p-4 text-right"><button type="button" wire:click="close" class="rounded-xl bg-gradient-to-r from-yellow-300 to-amber-400 px-5 py-3 font-extrabold text-gray-950 dark:text-white">Done</button></footer>

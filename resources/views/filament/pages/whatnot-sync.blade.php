@@ -33,7 +33,7 @@
                     @endforeach
                 </div>
                 @if(!empty($job['started_at']))
-                    <p class="text-xs text-gray-400">Started {{ \Carbon\Carbon::parse($job['started_at'])->diffForHumans() }}</p>
+                    <p class="text-xs text-gray-500">Started {{ \Carbon\Carbon::parse($job['started_at'])->diffForHumans() }}</p>
                 @endif
                 @if(!empty($job['error']))
                     <div class="rounded-lg bg-red-50 dark:bg-red-950 p-3 text-xs text-red-700 dark:text-red-300">{{ $job['error'] }}</div>
@@ -68,8 +68,8 @@
                                 @php($proc = $locks[$key.'_process'] ?? null)
                                 <p class="mt-1 text-[11px] text-gray-500">PID {{ $holder['pid'] }} · {{ $holder['host'] }} @if(!empty($holder['label']))· {{ $holder['label'] }}@endif</p>
                                 @if($proc)
-                                    <p class="mt-1 text-[10px] text-gray-400">PPID {{ $proc['ppid'] ?? '—' }} @if(isset($proc['runtime_seconds']))· running {{ \Carbon\CarbonInterval::seconds($proc['runtime_seconds'])->cascade()->forHumans(['short'=>true,'parts'=>2]) }}@endif</p>
-                                    <p class="mt-1 truncate text-[10px] font-mono text-gray-400" title="{{ $proc['command'] }}">{{ $proc['command'] }}</p>
+                                    <p class="mt-1 text-[10px] text-gray-500">PPID {{ $proc['ppid'] ?? '—' }} @if(isset($proc['runtime_seconds']))· running {{ \Carbon\CarbonInterval::seconds($proc['runtime_seconds'])->cascade()->forHumans(['short'=>true,'parts'=>2]) }}@endif</p>
+                                    <p class="mt-1 truncate text-[10px] font-mono text-gray-500" title="{{ $proc['command'] }}">{{ $proc['command'] }}</p>
                                 @endif
                             @endif
                         </div>
@@ -213,8 +213,8 @@
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                                     <span class="text-xs font-bold text-gray-900 dark:text-gray-100">{{ $activity->sourceLabel() }}</span>
-                                    <span class="text-[11px] text-gray-400">{{ $activity->channel?->name ?? 'All channels' }}</span>
-                                    <span class="text-[11px] text-gray-400">· {{ $activity->created_at?->diffForHumans() }}</span>
+                                    <span class="text-[11px] text-gray-500">{{ $activity->channel?->name ?? 'All channels' }}</span>
+                                    <span class="text-[11px] text-gray-500">· {{ $activity->created_at?->diffForHumans() }}</span>
                                 </div>
                                 <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{{ $activity->summary() }}</p>
                                 @if($activity->show)<p class="mt-1 truncate text-[11px] text-violet-600">{{ $activity->show->title }} · Show #{{ $activity->show_id }}</p>@endif
@@ -223,7 +223,7 @@
                                     <div class="mt-2 flex flex-wrap gap-1.5">@foreach(array_slice($captured,0,4,true) as $label => $value)<span class="rounded-md bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px]"><strong>{{ $label }}:</strong> {{ $value }}</span>@endforeach</div>
                                 @endif
                             </div>
-                            <span class="text-xs text-gray-400">View →</span>
+                            <span class="text-xs text-gray-500">View →</span>
                         </div>
                     </a>
                 @empty
@@ -239,7 +239,7 @@
                 @if ($this->lastSync)
                     <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 mt-1">
                         {{ $this->lastSync->started_at?->diffForHumans() }}
-                        <span class="text-xs font-normal text-gray-400">
+                        <span class="text-xs font-normal text-gray-500">
                             ({{ $this->lastSync->channel?->name ?? 'All Channels' }})
                         </span>
                     </p>
@@ -247,7 +247,7 @@
                         +{{ $this->lastSync->shows_created }} shows, +{{ $this->lastSync->orders_created }} orders, +{{ $this->lastSync->buyers_created }} buyers
                     </p>
                 @else
-                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">No completed sync yet</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">No completed sync yet</p>
                 @endif
             </div>
 
@@ -266,7 +266,7 @@
                                 @endif
                             </p>
                         @else
-                            <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">No shipment refresh yet</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">No shipment refresh yet</p>
                         @endif
                     </div>
                     <button wire:click="syncShipments()" wire:loading.attr="disabled"
@@ -320,12 +320,12 @@
                             ])>
                                 {{ ucfirst($channel->latestSync->status) }}
                             </span>
-                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            <p class="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                                 {{ $channel->latestSync->started_at?->diffForHumans() }}
                             </p>
                         </div>
                     @else
-                        <span class="text-xs text-gray-400 dark:text-gray-500">Never synced</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-500">Never synced</span>
                     @endif
 
                     <div class="flex items-center gap-1.5 shrink-0">
@@ -346,7 +346,7 @@
             @empty
                 <div class="px-6 py-5 text-center">
                     <p class="text-sm text-gray-500 dark:text-gray-400">No active channels configured for sync.</p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
                         Enable channels in <a href="{{ route('filament.admin.resources.whatnot-channels.index') }}" class="text-blue-600 hover:underline">Whatnot Channels</a>.
                     </p>
                 </div>
@@ -399,24 +399,24 @@
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
                                     <span class="text-green-600 dark:text-green-400">+{{ $sync->shows_created }}</span>
-                                    <span class="text-gray-400 mx-0.5">/</span>
+                                    <span class="text-gray-500 mx-0.5">/</span>
                                     <span class="text-blue-600 dark:text-blue-400">~{{ $sync->shows_updated }}</span>
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
                                     <span class="text-green-600 dark:text-green-400">+{{ $sync->orders_created }}</span>
-                                    <span class="text-gray-400 mx-0.5">/</span>
+                                    <span class="text-gray-500 mx-0.5">/</span>
                                     <span class="text-blue-600 dark:text-blue-400">~{{ $sync->orders_updated }}</span>
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
                                     <span class="text-green-600 dark:text-green-400">+{{ $sync->buyers_created }}</span>
-                                    <span class="text-gray-400 mx-0.5">/</span>
+                                    <span class="text-gray-500 mx-0.5">/</span>
                                     <span class="text-blue-600 dark:text-blue-400">~{{ $sync->buyers_updated }}</span>
                                 </td>
                                 <td class="px-4 py-2.5 text-right">
                                     @if ($sync->error_count > 0)
                                         <span class="text-red-600 dark:text-red-400 font-medium">{{ $sync->error_count }}</span>
                                     @else
-                                        <span class="text-gray-400">—</span>
+                                        <span class="text-gray-500">—</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">

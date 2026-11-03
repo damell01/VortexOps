@@ -74,7 +74,7 @@
                             @foreach($results as $row)
                                 <tr>
                                     <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{{ $row['week_start'] }} – {{ $row['week_end'] }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $row['batch_status'] ?? 'Missing' }} @if($row['read_only']) <span class="ml-1 text-xs text-gray-400">(read-only)</span> @endif</td>
+                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $row['batch_status'] ?? 'Missing' }} @if($row['read_only']) <span class="ml-1 text-xs text-gray-500">(read-only)</span> @endif</td>
                                     <td class="px-4 py-3 text-right">{{ $row['shows_found'] }}</td>
                                     <td class="px-4 py-3 text-right">${{ number_format($row['existing_amount'], 2) }}</td>
                                     <td class="px-4 py-3 text-right">${{ number_format($row['calculated_amount'], 2) }}</td>

@@ -46,7 +46,7 @@
                             @if ($logo_path && file_exists(storage_path('app/public/' . $logo_path)))
                                 <img src="{{ asset('storage/' . $logo_path) }}" alt="Logo" class="max-h-10 max-w-full object-contain" />
                             @else
-                                <span class="text-xs font-bold text-gray-400">{{ $brand_name }}</span>
+                                <span class="text-xs font-bold text-gray-500">{{ $brand_name }}</span>
                             @endif
                         </div>
                         <div class="flex-1 space-y-2">
@@ -56,7 +56,7 @@
                                 accept="image/png,image/jpeg,image/svg+xml,image/webp"
                                 class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-[10px] file:border-0 file:text-xs file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-700 dark:file:text-gray-300"
                             />
-                            <p class="text-xs text-gray-400">PNG, JPG, SVG or WebP. Max 2 MB. Recommended: 160×40 px.</p>
+                            <p class="text-xs text-gray-500">PNG, JPG, SVG or WebP. Max 2 MB. Recommended: 160×40 px.</p>
                             @if ($logo_path)
                                 <button wire:click="removeLogo" type="button" class="text-xs text-red-500 hover:text-red-600">Remove logo</button>
                             @endif
@@ -75,7 +75,7 @@
                         placeholder="VortexOps"
                         class="w-full max-w-sm rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                     />
-                    <p class="mt-1 text-xs text-gray-400">Shown in the sidebar header when no logo is set.</p>
+                    <p class="mt-1 text-xs text-gray-500">Shown in the sidebar header when no logo is set.</p>
                 </div>
 
                 {{-- Primary color --}}
@@ -110,7 +110,7 @@
                                 class="w-24 rounded-[10px] border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-2.5 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none" />
                         </div>
                     </div>
-                    <p class="mt-2 text-xs text-gray-400">Applies to buttons, badges, active nav items, and accent elements. Reload after saving to see the change.</p>
+                    <p class="mt-2 text-xs text-gray-500">Applies to buttons, badges, active nav items, and accent elements. Reload after saving to see the change.</p>
                 </div>
 
             </div>
@@ -157,7 +157,7 @@
                         Demo mode is ACTIVE — non-admin users see the showcase landing page.
                     </div>
                 @else
-                    <p class="text-xs text-gray-400">Demo mode is off — all users see real data.</p>
+                    <p class="text-xs text-gray-500">Demo mode is off — all users see real data.</p>
                 @endif
             </div>
         </div>
@@ -180,7 +180,7 @@
             <div x-show="open" class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 space-y-3">
                 @if (auth()->user()?->isOwner())
                     <div class="flex flex-wrap items-center gap-2 pb-1">
-                        <span class="text-xs font-medium text-gray-400 mr-1">Quick select:</span>
+                        <span class="text-xs font-medium text-gray-500 mr-1">Quick select:</span>
                         @foreach ($this->modulePresets as $key => $preset)
                             <button
                                 type="button"
@@ -191,7 +191,7 @@
                                 {{ $preset['label'] }}
                             </button>
                         @endforeach
-                        <span class="text-xs text-gray-400">— still requires Save Changes below.</span>
+                        <span class="text-xs text-gray-500">— still requires Save Changes below.</span>
                     </div>
                 @endif
                 @foreach ($this->availableModules as $slug => $module)
@@ -211,7 +211,7 @@
                                     <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $module['label'] }}</span>
                                     <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ $module['group'] }}</span>
                                     @if (! $moduleEnabled)
-                                        <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">hidden</span>
+                                        <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-500">hidden</span>
                                     @endif
                                 </div>
                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $module['description'] }}</p>
@@ -219,7 +219,7 @@
                         </label>
                     </div>
                 @endforeach
-                <p class="text-xs text-gray-400 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <a href="{{ \App\Filament\Resources\RoleResource::getUrl('index') }}" class="font-semibold text-primary-600 underline">Roles &amp; Permissions</a>. Changes apply on the next page load after saving.</p>
+                <p class="text-xs text-gray-500 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <a href="{{ \App\Filament\Resources\RoleResource::getUrl('index') }}" class="font-semibold text-primary-600 underline">Roles &amp; Permissions</a>. Changes apply on the next page load after saving.</p>
             </div>
         </div>
         @endif
@@ -248,7 +248,7 @@
                         <option value="manual">Manual Entry</option>
                         <option value="auto_whatnot">Auto (Whatnot Scraper)</option>
                     </select>
-                    <p class="mt-1 text-xs text-gray-400">Manual: staff enter shows by hand. Auto: scraper ingests shows automatically.</p>
+                    <p class="mt-1 text-xs text-gray-500">Manual: staff enter shows by hand. Auto: scraper ingests shows automatically.</p>
                 </div>
             </div>
         </div>
@@ -300,7 +300,7 @@
                                 Use <strong>Test Connection</strong> to verify login works, then <strong>Run Import</strong> to pull shows.
                             </p>
                             @if ($whatnotLastImport)
-                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                <p class="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                                     Last import: {{ \Illuminate\Support\Carbon::parse($whatnotLastImport)->diffForHumans() }}
                                 </p>
                             @endif
@@ -539,7 +539,7 @@
                 {{-- Last command output --}}
                 @if ($lastCommandOutput)
                     <div class="px-6 py-4 bg-gray-950">
-                        <p class="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5">
+                        <p class="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
                             <x-heroicon-o-command-line class="h-3.5 w-3.5" /> Last command output
                         </p>
                         <pre class="text-xs text-emerald-400 font-mono whitespace-pre-wrap leading-relaxed">{{ $lastCommandOutput }}</pre>
@@ -574,7 +574,7 @@
                         <option value="ollama">Ollama (local / self-hosted)</option>
                         <option value="openai">OpenAI-compatible (OpenAI, DeepSeek, Qwen, …)</option>
                     </select>
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">
                         Which backend the AI gateway uses. The model names below apply to whichever provider is active.
                         @if ($ai_provider === 'openai')
                             <span class="block mt-1">Set <code class="font-mono">OPENAI_BASE_URL</code> and <code class="font-mono">OPENAI_API_KEY</code> in your environment (keys are not stored in the database).</span>
@@ -590,7 +590,7 @@
                         type="url"
                         placeholder="http://localhost:11434"
                         class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
                 </div>
 
                 {{-- Model selectors — one model per AI task, resolved by the ModelRouter --}}
@@ -599,37 +599,37 @@
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chat Model</label>
                         <input wire:model.blur="ollama_chat_model" type="text" placeholder="llama3.2:3b"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Conversational assistant + mapping LLM stage (e.g. qwen3:4b)</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Conversational assistant + mapping LLM stage (e.g. qwen3:4b)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fast Model</label>
                         <input wire:model.blur="ollama_fast_model" type="text" placeholder="llama3.2:1b"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Quick, low-stakes calls — classification, short rewrites</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Quick, low-stakes calls — classification, short rewrites</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Reasoning Model</label>
                         <input wire:model.blur="ollama_reasoning_model" type="text" placeholder="llama3.2:3b"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Multi-step analysis where quality beats speed</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Multi-step analysis where quality beats speed</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vision Model</label>
                         <input wire:model.blur="ollama_vision_model" type="text" placeholder="moondream"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Packing-slip / screenshot parsing (e.g. qwen2.5-vl, moondream)</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Packing-slip / screenshot parsing (e.g. qwen2.5-vl, moondream)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Embedding Model</label>
                         <input wire:model.blur="ollama_embedding_model" type="text" placeholder="nomic-embed-text"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Inventory similarity search (e.g. nomic-embed-text)</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Inventory similarity search (e.g. nomic-embed-text)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">JSON Model</label>
                         <input wire:model.blur="ollama_json_model" type="text" placeholder="llama3.2:3b"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Structured extraction — must return valid JSON</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Structured extraction — must return valid JSON</p>
                     </div>
                 </div>
 
@@ -639,13 +639,13 @@
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
                         <input wire:model.blur="ai_temperature" type="number" step="0.1" min="0" max="2" placeholder="0.7"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">0 = deterministic, 2 = most creative</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">0 = deterministic, 2 = most creative</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Max Tokens</label>
                         <input wire:model.blur="ai_max_tokens" type="number" step="1" min="1" placeholder="1024"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Cap on response length per call</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Cap on response length per call</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streaming</label>
@@ -747,7 +747,7 @@
                             <option value="{{ $vxLocId }}">{{ $vxLocName }}</option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">
                         A pallet is unloaded into one place and sorted afterwards, so scanning fills this in
                         rather than asking per item. Name the location whatever it actually is — Staging,
                         Receiving, Back Room — under Inventory → Locations.
@@ -782,13 +782,13 @@
                     @endforeach
                 </div>
 
-                <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                <p class="mt-3 text-xs text-gray-500 dark:text-gray-500">
                     A streamer cannot ask for a case they cannot see exists, so this is what makes the main
                     store readable to them — and what keeps another streamer's shelf, the damaged bin and the
                     returns pile out of their list. They can pull stock from anything ticked here straight
                     into their own inventory, which is recorded as a transfer either way.
                 </p>
-                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">
                     Their own location is always visible whether or not it is ticked — it is theirs, and
                     hiding it would leave them unable to see what they were sent. Tick nothing and that is
                     all they see.
@@ -904,13 +904,13 @@
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rate per Package ($)</label>
                     <input wire:model.blur="shipping_surcharge_rate" type="number" step="0.01" min="0" placeholder="4.00"
                         class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Charge per package over the threshold (default $4.00)</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Charge per package over the threshold (default $4.00)</p>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Threshold Amount ($)</label>
                     <input wire:model.blur="shipping_surcharge_threshold" type="number" step="0.01" min="0" placeholder="500.00"
                         class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Package value threshold that triggers the surcharge (default $500.00)</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Package value threshold that triggers the surcharge (default $500.00)</p>
                 </div>
             </div>
         </div>
@@ -975,17 +975,17 @@
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Burden per Shipment ($)</label>
                         <input wire:model.blur="payroll_burden_per_shipment" type="number" step="0.01" min="0" placeholder="2.10"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Deducted per shipment on the show. Leave empty to charge nothing per shipment. The calculations sheet uses $2.10.</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Deducted per shipment on the show. Leave empty to charge nothing per shipment. The calculations sheet uses $2.10.</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Burden per Hour ($)</label>
                         <input wire:model.blur="payroll_burden_per_hour" type="number" step="0.01" min="0" placeholder="80.00"
                             class="w-full rounded-[10px] border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Deducted per hour worked on the show. Leave empty to charge nothing per hour. The calculations sheet uses $80.00.</p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">Deducted per hour worked on the show. Leave empty to charge nothing per hour. The calculations sheet uses $80.00.</p>
                     </div>
                 </div>
 
-                <p class="text-xs text-gray-400 dark:text-gray-500">
+                <p class="text-xs text-gray-500 dark:text-gray-500">
                     Changing these affects future calculations only. Shows already included in a finalised pay run
                     keep the rates they were worked out with.
                 </p>

@@ -4,27 +4,27 @@
         {{-- ── Show Header ──────────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex flex-wrap gap-6 items-start">
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Show</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Show</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->title ?? 'Show #' . $this->record->id }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Date</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Date</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->show_date?->format('M j, Y') ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Channel</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Channel</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->channel?->name ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Streamers</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Streamers</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->streamers->pluck('name')->join(', ') ?: '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Units Sold</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Units Sold</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ number_format($this->record->units_sold ?? 0) }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Revenue</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Revenue</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">${{ number_format((float) $this->record->gross_revenue, 2) }}</p>
             </div>
         </div>
@@ -34,7 +34,7 @@
             <div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 px-5 py-8 text-center">
                 <x-heroicon-o-clipboard-document-list class="mx-auto h-10 w-10 text-gray-400 mb-3" />
                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">No inventory lines yet</p>
-                <p class="text-xs text-gray-400 mt-1">Use "Map Items Manually" on the show to generate inventory deduction lines.</p>
+                <p class="text-xs text-gray-500 mt-1">Use "Map Items Manually" on the show to generate inventory deduction lines.</p>
             </div>
         @else
             {{-- ── Summary Stats ────────────────────────────────────────────── --}}
@@ -109,7 +109,7 @@
                                 <div class="flex-1 min-w-0">
                                     @if ($row['item_name'])
                                         <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{{ $row['item_name'] }}</p>
-                                        <p class="text-xs text-gray-400">{{ $row['raw_description'] }}</p>
+                                        <p class="text-xs text-gray-500">{{ $row['raw_description'] }}</p>
                                     @else
                                         <p class="text-sm text-amber-700 dark:text-amber-400 italic">{{ $row['raw_description'] }}</p>
                                         <p class="text-xs text-amber-500">Unmatched — not in inventory catalogue</p>
@@ -118,27 +118,27 @@
                             </div>
                             <div class="grid grid-cols-3 gap-2 text-xs">
                                 <div>
-                                    <p class="text-gray-400">Approved</p>
+                                    <p class="text-gray-500">Approved</p>
                                     <p class="font-medium text-gray-800 dark:text-gray-200">{{ $row['qty_approved'] }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-gray-400">In Stock</p>
-                                    <p class="font-medium {{ $row['current_stock'] !== null ? ($row['current_stock'] < $row['qty_approved'] ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-200') : 'text-gray-400' }}">
+                                    <p class="text-gray-500">In Stock</p>
+                                    <p class="font-medium {{ $row['current_stock'] !== null ? ($row['current_stock'] < $row['qty_approved'] ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-200') : 'text-gray-500' }}">
                                         {{ $row['current_stock'] !== null ? number_format($row['current_stock']) : '—' }}
                                     </p>
                                 </div>
                                 <div>
-                                    <p class="text-gray-400">Deducted</p>
+                                    <p class="text-gray-500">Deducted</p>
                                     <p class="font-medium {{ $row['qty_pending'] > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-700 dark:text-green-400' }}">
                                         {{ number_format($row['qty_deducted']) }}
                                         @if ($row['qty_pending'] > 0)
-                                            <span class="text-gray-400">({{ number_format($row['qty_pending']) }} pending)</span>
+                                            <span class="text-gray-500">({{ number_format($row['qty_pending']) }} pending)</span>
                                         @endif
                                     </p>
                                 </div>
                             </div>
                             <div class="flex items-center justify-between text-xs">
-                                <span class="text-gray-400">{{ $row['location'] }}</span>
+                                <span class="text-gray-500">{{ $row['location'] }}</span>
                                 <span class="font-medium text-gray-700 dark:text-gray-300">${{ number_format($row['line_total'], 2) }}</span>
                             </div>
                         </div>
@@ -169,7 +169,7 @@
                                         @if ($row['item_name'])
                                             <p class="font-medium text-gray-900 dark:text-gray-100 truncate" title="{{ $row['item_name'] }}">{{ $row['item_name'] }}</p>
                                             @if ($row['item_sku'])
-                                                <p class="text-xs text-gray-400 font-mono">{{ $row['item_sku'] }}</p>
+                                                <p class="text-xs text-gray-500 font-mono">{{ $row['item_sku'] }}</p>
                                             @endif
                                         @else
                                             <span class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 italic">
@@ -187,7 +187,7 @@
                                                 {{ number_format($row['current_stock']) }}
                                             </span>
                                         @else
-                                            <span class="text-gray-400">—</span>
+                                            <span class="text-gray-500">—</span>
                                         @endif
                                     </td>
                                     <td class="px-3 py-3 text-right font-mono text-sm text-gray-700 dark:text-gray-300">

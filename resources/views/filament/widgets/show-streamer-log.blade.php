@@ -68,7 +68,7 @@
                         ['Unmatched', $unmatched],
                     ] as [$label, $value])
                         <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
+                            <div class="text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
                             <div class="mt-0.5 text-lg font-semibold leading-none text-gray-950 dark:text-white sm:mt-1 sm:text-xl">{{ number_format($value) }}</div>
                         </div>
                     @endforeach
@@ -124,7 +124,7 @@
                                 </div>
                                 <div class="shrink-0 text-right">
                                     <div class="text-sm font-semibold text-gray-950 dark:text-white">${{ number_format($line->total_cost, 2) }}</div>
-                                    <div class="mt-0.5 text-[10px] text-gray-400">line cost</div>
+                                    <div class="mt-0.5 text-[10px] text-gray-500">line cost</div>
                                 </div>
                             </div>
 

@@ -89,7 +89,7 @@
                 <span wire:loading wire:target="runImport">Importing (this takes 30–90s)…</span>
             </button>
 
-            <p class="text-xs text-gray-400">
+            <p class="text-xs text-gray-500">
                 Or run via CLI: <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">php artisan whatnot:import</code>
             </p>
         </div>
@@ -148,7 +148,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $channel->name }}</p>
-                    <p class="text-xs text-gray-400">{{ '@' . $channel->whatnot_username }}</p>
+                    <p class="text-xs text-gray-500">{{ '@' . $channel->whatnot_username }}</p>
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     @if ($channel->include_in_import)
@@ -160,7 +160,7 @@
                 </div>
             </div>
         @empty
-            <div class="px-5 py-5 text-center text-sm text-gray-400">
+            <div class="px-5 py-5 text-center text-sm text-gray-500">
                 No channels configured.
                 <a href="{{ \App\Filament\Resources\WhatnotChannelResource::getUrl('create') }}" class="text-violet-600 dark:text-violet-400 hover:underline ml-1">Add a channel →</a>
             </div>
@@ -174,18 +174,18 @@
         </div>
 
         @if (count($this->recentShows) === 0)
-            <div class="px-5 py-5 text-center text-sm text-gray-400">No shows imported yet.</div>
+            <div class="px-5 py-5 text-center text-sm text-gray-500">No shows imported yet.</div>
         @else
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Date</th>
-                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Title</th>
-                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Channel</th>
-                            <th class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400">Gross</th>
-                            <th class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400">Units</th>
-                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Status</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">Date</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">Title</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">Channel</th>
+                            <th class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">Gross</th>
+                            <th class="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500">Units</th>
+                            <th class="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-50 dark:divide-gray-800">

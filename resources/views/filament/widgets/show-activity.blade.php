@@ -24,15 +24,15 @@
                                 <div class="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-300">{{ $event['field'] ?? $event['title'] }}</div>
                                 <div class="mt-1 text-xs font-semibold text-gray-950 dark:text-white">Changed {{ $event['at']?->diffForHumans() }}</div>
                             </div>
-                            <div class="shrink-0 text-[10px] text-gray-400">{{ $event['at']?->format('M j, g:i A') }}</div>
+                            <div class="shrink-0 text-[10px] text-gray-500">{{ $event['at']?->format('M j, g:i A') }}</div>
                         </div>
 
                         <div class="mt-3 grid grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)] items-stretch gap-2">
                             <div class="min-w-0 rounded-lg border border-gray-200 bg-white p-2.5 dark:border-gray-700 dark:bg-gray-900">
-                                <div class="text-[9px] font-bold uppercase tracking-wide text-gray-400">Previous</div>
+                                <div class="text-[9px] font-bold uppercase tracking-wide text-gray-500">Previous</div>
                                 <div class="mt-1 break-words text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $event['old'] ?? '—' }}</div>
                             </div>
-                            <div class="flex items-center justify-center text-gray-400">→</div>
+                            <div class="flex items-center justify-center text-gray-500">→</div>
                             <div class="min-w-0 rounded-lg border border-blue-200 bg-white p-2.5 dark:border-blue-800 dark:bg-gray-900">
                                 <div class="text-[9px] font-bold uppercase tracking-wide text-blue-500">Current</div>
                                 <div class="mt-1 break-words text-xs font-bold text-gray-950 dark:text-white">{{ $event['new'] ?? '—' }}</div>
@@ -40,7 +40,7 @@
                         </div>
 
                         @if($event['meta'])
-                            <div class="mt-2 break-words text-[10px] text-gray-400">{{ $event['meta'] }}</div>
+                            <div class="mt-2 break-words text-[10px] text-gray-500">{{ $event['meta'] }}</div>
                         @endif
                     </article>
                 @endforeach
@@ -77,13 +77,13 @@
                             <div class="min-w-0">
                                 <div class="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                                     <div class="min-w-0 break-words text-xs font-semibold text-gray-950 dark:text-white">{{ $event['title'] }}</div>
-                                    <div class="shrink-0 text-[10px] text-gray-400">{{ $event['at']?->format('M j, g:i A') }}</div>
+                                    <div class="shrink-0 text-[10px] text-gray-500">{{ $event['at']?->format('M j, g:i A') }}</div>
                                 </div>
                                 @if($event['detail'])
                                     <div class="mt-1 break-words text-xs leading-5 text-gray-600 dark:text-gray-300">{{ $event['detail'] }}</div>
                                 @endif
                                 @if($event['meta'])
-                                    <div class="mt-1 break-words text-[10px] text-gray-400">{{ $event['meta'] }}</div>
+                                    <div class="mt-1 break-words text-[10px] text-gray-500">{{ $event['meta'] }}</div>
                                 @endif
                             </div>
                         </div>

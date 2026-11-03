@@ -171,7 +171,7 @@
                             {{ $add['quantity'] }} units → {{ $add['location'] }}
                         </p>
                     </div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ $add['timestamp'] }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-500">{{ $add['timestamp'] }}</span>
                 </li>
                 @endforeach
             </ul>

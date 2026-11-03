@@ -24,12 +24,12 @@
             @foreach($lines as $line)
                 @php($units = (float) $line->case_count * ($line->is_container ? (float) $line->quantity_per_case : 1))
                 <div class="flex items-start gap-3 px-3 py-2.5">
-                    <span class="mt-0.5 flex-shrink-0 text-xs font-mono text-gray-400 tabular-nums">{{ $line->line_number }}</span>
+                    <span class="mt-0.5 flex-shrink-0 text-xs font-mono text-gray-500 tabular-nums">{{ $line->line_number }}</span>
                     <div class="min-w-0 flex-1">
                         <p class="text-sm text-gray-900 dark:text-gray-100">
                             {{ $line->description }}
                             @if($line->is_container)
-                                <span class="text-xs text-gray-400">
+                                <span class="text-xs text-gray-500">
                                     {{ rtrim(rtrim(number_format($line->case_count, 2), '0'), '.') }} ×
                                     {{ rtrim(rtrim(number_format($line->quantity_per_case, 2), '0'), '.') }}
                                 </span>

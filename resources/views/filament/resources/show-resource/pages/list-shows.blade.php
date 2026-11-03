@@ -244,7 +244,7 @@
                         <div class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">All Shows / Advanced View</div>
                         <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Filters, bulk actions, export, historical data, and detailed table columns.</div>
                     </div>
-                    <span class="shrink-0 text-gray-400 transition" x-bind:class="open ? 'rotate-180' : ''">
+                    <span class="shrink-0 text-gray-500 transition" x-bind:class="open ? 'rotate-180' : ''">
                         <x-heroicon-m-chevron-down class="h-5 w-5" />
                     </span>
                 </div>

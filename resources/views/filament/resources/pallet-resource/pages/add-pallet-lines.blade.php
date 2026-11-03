@@ -54,7 +54,7 @@
 
                 <div wire:key="line-{{ $i }}" class="p-4 sm:p-5">
                     <div class="flex items-start gap-3">
-                        <span class="mt-2.5 flex-shrink-0 text-xs font-mono text-gray-400 tabular-nums">{{ $i + 1 }}</span>
+                        <span class="mt-2.5 flex-shrink-0 text-xs font-mono text-gray-500 tabular-nums">{{ $i + 1 }}</span>
 
                         <div class="min-w-0 flex-1 space-y-4">
                             {{-- Item name --}}
@@ -132,7 +132,7 @@
                                                             placeholder="Search name, SKU, UPC or barcode…"
                                                             class="min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-gray-900 focus:outline-none focus:ring-0 dark:text-gray-100" />
                                                         <svg x-show="loading" class="h-5 w-5 flex-shrink-0 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                                                        <button type="button" @click="open = false" title="Close" class="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                                        <button type="button" @click="open = false" title="Close" class="flex-shrink-0 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">
                                                             <x-heroicon-o-x-mark class="h-5 w-5" />
                                                         </button>
                                                     </div>
@@ -156,7 +156,7 @@
                                                         </template>
                                                     </div>
 
-                                                    <div class="border-t border-gray-100 p-2.5 text-center text-xs text-gray-400 dark:border-gray-800">
+                                                    <div class="border-t border-gray-100 p-2.5 text-center text-xs text-gray-500 dark:border-gray-800">
                                                         Showing up to 50 — keep typing to narrow it down.
                                                     </div>
                                                 </div>
@@ -205,7 +205,7 @@
 
                         <div class="flex flex-shrink-0 items-start gap-3 pl-1">
                             <span class="mt-2.5 text-sm font-medium tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $lineTotal > 0 ? '$' . number_format($lineTotal, 2) : '—' }}</span>
-                            <button type="button" wire:click="removeRow({{ $i }})" title="Remove line" class="rounded-lg p-2 text-gray-400 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-950">
+                            <button type="button" wire:click="removeRow({{ $i }})" title="Remove line" class="rounded-lg p-2 text-gray-500 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-950">
                                 <x-heroicon-o-trash class="h-4 w-4" />
                             </button>
                         </div>

@@ -122,7 +122,7 @@
                 @endforeach
             </div>
 
-            <p class="text-center text-xs text-gray-400 dark:text-gray-600 mt-5">
+            <p class="text-center text-xs text-gray-500 dark:text-gray-600 mt-5">
                 Contact us to get full access to your VortexOps workspace.
             </p>
         </div>

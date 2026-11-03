@@ -36,7 +36,7 @@
                      the rows either side, which are the thing you are
                      checking this one against. --}}
                 <div wire:key="edit-{{ $row['line_id'] }}" class="bg-violet-50/60 p-4 dark:bg-violet-950/30">
-                    <div class="mb-2 text-xs font-mono text-gray-400 tabular-nums">#{{ $row['line_number'] }}</div>
+                    <div class="mb-2 text-xs font-mono text-gray-500 tabular-nums">#{{ $row['line_number'] }}</div>
 
                     <div class="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
                         <label class="block">
@@ -94,11 +94,11 @@
                 </div>
             @else
                 <div wire:key="row-{{ $row['line_id'] }}" class="flex items-start gap-3 p-4">
-                    <span class="mt-0.5 flex-shrink-0 text-xs font-mono text-gray-400 tabular-nums">{{ $row['line_number'] }}</span>
+                    <span class="mt-0.5 flex-shrink-0 text-xs font-mono text-gray-500 tabular-nums">{{ $row['line_number'] }}</span>
 
                     <div class="min-w-0 flex-1">
                         <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ $row['name'] }}</p>
-                        <p class="text-xs text-gray-400 truncate">
+                        <p class="text-xs text-gray-500 truncate">
                             {{ $row['sku'] ?: 'No SKU' }}
                             @if ($row['barcode']) · {{ $row['barcode'] }} @endif
                             @if ($row['staged_as'] !== $row['name'])
@@ -108,13 +108,13 @@
 
                         <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
                             <div>
-                                <span class="text-gray-400">Received </span>
+                                <span class="text-gray-500">Received </span>
                                 <span class="tabular-nums {{ $row['complete'] ? 'text-gray-700 dark:text-gray-300' : 'text-amber-600 dark:text-amber-400 font-medium' }}">{{ $row['received_cases'] }}</span>
-                                <span class="text-gray-400">/ {{ $row['expected_cases'] }}</span>
+                                <span class="text-gray-500">/ {{ $row['expected_cases'] }}</span>
                             </div>
-                            <div><span class="text-gray-400">In stock </span><span class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['in_stock']) }}</span></div>
-                            <div><span class="text-gray-400">Unit cost </span><span class="tabular-nums text-gray-700 dark:text-gray-300">${{ number_format($row['unit_cost'], 2) }}</span></div>
-                            <div><span class="text-gray-400">Location </span><span class="text-gray-700 dark:text-gray-300">{{ $row['location'] ?? '—' }}</span></div>
+                            <div><span class="text-gray-500">In stock </span><span class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['in_stock']) }}</span></div>
+                            <div><span class="text-gray-500">Unit cost </span><span class="tabular-nums text-gray-700 dark:text-gray-300">${{ number_format($row['unit_cost'], 2) }}</span></div>
+                            <div><span class="text-gray-500">Location </span><span class="text-gray-700 dark:text-gray-300">{{ $row['location'] ?? '—' }}</span></div>
                         </div>
                     </div>
 
@@ -128,7 +128,7 @@
                                 Fix
                             </button>
                         @else
-                            <span class="text-xs text-gray-400 text-right" title="Scan it in on the pallet first">Not in inventory</span>
+                            <span class="text-xs text-gray-500 text-right" title="Scan it in on the pallet first">Not in inventory</span>
                         @endif
                     </div>
                 </div>
@@ -136,7 +136,7 @@
         @empty
             <div class="px-3 py-6 text-center">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Nothing has been received from this pallet yet.</p>
-                <p class="mt-1 text-xs text-gray-400">Items appear here as they are scanned in.</p>
+                <p class="mt-1 text-xs text-gray-500">Items appear here as they are scanned in.</p>
             </div>
         @endforelse
     </div>

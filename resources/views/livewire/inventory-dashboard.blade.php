@@ -107,7 +107,7 @@
                                         {{ $item->category }}
                                     </span>
                                 @else
-                                    <span class="text-gray-400">—</span>
+                                    <span class="text-gray-500">—</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-sm text-right font-semibold text-gray-900 dark:text-white">

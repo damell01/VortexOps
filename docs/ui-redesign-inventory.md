@@ -137,7 +137,7 @@ Total: 209
 | system | HelpCenter | Page | `filament.pages.help-center` |
 | system | HowItWorks | Page | `filament.pages.how-it-works` |
 | system | LogViewer | Page | `filament.pages.log-viewer` |
-| system | ManagerHub | Page | `filament.pages.manager-hub` |
+| done | ManagerHub | Page | `filament.pages.manager-hub` |
 | system | MyPay | Page | `filament.pages.my-pay` |
 | system | MyPokedex | Page | `filament.pages.my-pokedex` |
 | system | QuickAddContainerScan | Page | `filament.pages.quick-add-container-scan` |

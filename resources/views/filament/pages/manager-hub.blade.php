@@ -12,29 +12,13 @@
 
         <!-- Quick Stats -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
-            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 md:p-6">
-                <p class="text-xs md:text-sm text-amber-600 dark:text-amber-400 uppercase font-semibold">Pending Review</p>
-                <p class="text-2xl md:text-2xl font-bold text-amber-900 dark:text-amber-100 mt-2">{{ $stats['pending_review'] }}</p>
-                <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">Awaiting action</p>
-            </div>
+            <div class="vxr-stat vxr-tone-warn vxr-stat--compact"><span class="vxr-stat-icon"><x-filament::icon icon="heroicon-o-clock" /></span><span style="min-width:0"><span class="vxr-stat-label">Pending Review</span><span class="vxr-stat-value" style="display:block">{{ $stats['pending_review'] }}</span><span class="vxr-stat-note" style="display:block">Awaiting action</span></span></div>
 
-            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 md:p-6">
-                <p class="text-xs md:text-sm text-green-600 dark:text-green-400 uppercase font-semibold">Approved</p>
-                <p class="text-2xl md:text-2xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $stats['approved'] }}</p>
-                <p class="text-xs text-green-600 dark:text-green-400 mt-1">This month</p>
-            </div>
+            <div class="vxr-stat vxr-tone-ok vxr-stat--compact"><span class="vxr-stat-icon"><x-filament::icon icon="heroicon-o-check-circle" /></span><span style="min-width:0"><span class="vxr-stat-label">Approved</span><span class="vxr-stat-value" style="display:block">{{ $stats['approved'] }}</span><span class="vxr-stat-note" style="display:block">This month</span></span></div>
 
-            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4 md:p-6">
-                <p class="text-xs md:text-sm text-red-600 dark:text-red-400 uppercase font-semibold">Rejected</p>
-                <p class="text-2xl md:text-2xl font-bold text-red-900 dark:text-red-100 mt-2">{{ $stats['rejected'] }}</p>
-                <p class="text-xs text-red-600 dark:text-red-400 mt-1">Sent back</p>
-            </div>
+            <div class="vxr-stat vxr-tone-bad vxr-stat--compact"><span class="vxr-stat-icon"><x-filament::icon icon="heroicon-o-x-circle" /></span><span style="min-width:0"><span class="vxr-stat-label">Rejected</span><span class="vxr-stat-value" style="display:block">{{ $stats['rejected'] }}</span><span class="vxr-stat-note" style="display:block">Sent back</span></span></div>
 
-            <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-4 md:p-6">
-                <p class="text-xs md:text-sm text-purple-600 dark:text-purple-400 uppercase font-semibold">Streamers</p>
-                <p class="text-2xl md:text-2xl font-bold text-purple-900 dark:text-purple-100 mt-2">{{ $stats['managed_streamers'] }}</p>
-                <p class="text-xs text-purple-600 dark:text-purple-400 mt-1">Assigned</p>
-            </div>
+            <div class="vxr-stat vxr-tone-accent vxr-stat--compact"><span class="vxr-stat-icon"><x-filament::icon icon="heroicon-o-users" /></span><span style="min-width:0"><span class="vxr-stat-label">Streamers</span><span class="vxr-stat-value" style="display:block">{{ $stats['managed_streamers'] }}</span><span class="vxr-stat-note" style="display:block">Assigned</span></span></div>
         </div>
 
         <!-- Main Actions Grid -->

@@ -257,7 +257,7 @@ Total: 209
 | Status | Screen | Kind | View |
 |---|---|---|---|
 | system | ShowStreamerLogPanel | Livewire | `livewire.show-streamer-log-panel` |
-| system | StreamerHome | Livewire | `livewire.streamer-home` |
+| done | StreamerHome | Livewire | `livewire.streamer-home` |
 | system | StreamerLeaderboard | Livewire | `livewire.streamer-leaderboard` |
 | system | StreamerLogItemsModal | Livewire | `livewire.streamer-log-items-modal` |
 | system | StreamerLogTabs | Livewire | `livewire.streamer-log-tabs` |

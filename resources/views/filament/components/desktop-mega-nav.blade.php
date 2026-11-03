@@ -81,6 +81,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
  ['Roles & Permissions',\App\Filament\Resources\RoleResource::getUrl('index')],
  ...($user?->isOwner() ? [
+   ['Owner Tools',\App\Filament\Pages\OwnerTools::getUrl(panel:'admin')],
    ['Messages & Announcements',\App\Filament\Pages\Communications::getUrl(panel:'admin')],
    ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],

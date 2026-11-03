@@ -157,6 +157,8 @@ Total: 209
 
 ## Owner tools
 
+New: `OwnerTools` page (`filament.pages.owner-tools`) — the mockup's card grid of owner tools, linked first under Admin. Status: done.
+
 | Status | Screen | Kind | View |
 |---|---|---|---|
 | system | AppSettings | Page | `filament.pages.app-settings` |

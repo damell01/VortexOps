@@ -77,6 +77,7 @@ class EveryGrantedPageOpensTest extends TestCase
         \App\Filament\Pages\WhatnotSheetCheck::class => 'owner only',
         \App\Filament\Pages\WhatnotApiDashboard::class => 'owner only',
         \App\Filament\Pages\WhatnotApiChanges::class => 'owner only',
+        \App\Filament\Pages\OwnerTools::class => 'owner only',
 
         \App\Filament\Pages\DemoData::class            => 'owner or super_admin only',
         \App\Filament\Pages\WhatnotBackfill::class     => 'owner only',

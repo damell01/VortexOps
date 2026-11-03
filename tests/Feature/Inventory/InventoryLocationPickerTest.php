@@ -75,6 +75,28 @@ class InventoryLocationPickerTest extends TestCase
         $this->assertSame('1', $page->instance()->getStats()[3]['value']);
     }
 
+    public function test_each_stock_filter_counts_only_the_selected_location(): void
+    {
+        // shared: 3 here (reorder level 4 → low), 90 elsewhere; elsewhere: only on the shelf.
+        $empty = InventoryItem::create(['name' => 'Sold out here', 'sku' => 'PICK-ZERO', 'is_active' => true]);
+        InventoryStock::create(['inventory_item_id' => $empty->id, 'inventory_location_id' => $this->main->id, 'quantity' => 0]);
+        $plenty = InventoryItem::create(['name' => 'Plenty here', 'sku' => 'PICK-PLENTY', 'is_active' => true, 'reorder_level' => 2]);
+        InventoryStock::create(['inventory_item_id' => $plenty->id, 'inventory_location_id' => $this->main->id, 'quantity' => 20]);
+
+        $page = Livewire::test(ListInventoryItems::class)->set('inventoryLocation', (string) $this->main->id);
+        $keys = function (string $status) use ($page) {
+            $page->call('filterStock', $status);
+            $ids = $page->instance()->catalogItems->modelKeys();
+            $page->call('filterStock', $status); // toggle back off
+            sort($ids);
+            return $ids;
+        };
+
+        $this->assertSame([$this->shared->id], $keys('low'));
+        $this->assertSame([$empty->id], $keys('out'));
+        $this->assertSame([$plenty->id], $keys('in'));
+    }
+
     public function test_picker_cannot_expand_streamer_visibility_or_accept_an_unknown_location(): void
     {
         $user = User::factory()->create();

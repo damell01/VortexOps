@@ -117,13 +117,25 @@ class ListInventoryItems extends ListRecords
         if ($query) $query = $this->filterInventoryItemsByLocation($query);
         if (! $query || ! $this->stockHealth) return $query;
 
-        // HAVING on the stock-total alias needs a grouped query on SQLite.
-        $query->groupBy('products.id');
+        // Each product's stock total at the shown location(s), worked out once
+        // in one grouped pass over inventory_stock and joined in. Filtering on
+        // the per-product sum with GROUP BY products.id + HAVING made the
+        // database total and sort every product row first (~4s per click).
+        // Same totals as the stock_sum_quantity the cards show.
+        $location = $this->inventoryPageLocationId();
+        $allowed = $location === null ? \App\Support\InventoryVisibility::locationIdsFor(auth()->user()) : null;
+        $totals = \Illuminate\Support\Facades\DB::table('inventory_stock')
+            ->selectRaw('inventory_item_id, SUM(quantity) as qty')
+            ->when($location !== null, fn ($q) => $q->where('inventory_location_id', $location))
+            ->when($location === null && $allowed !== null, fn ($q) => $q->whereIn('inventory_location_id', $allowed ?: [0]))
+            ->groupBy('inventory_item_id');
+        $query->leftJoinSub($totals, 'vx_stock_totals', 'vx_stock_totals.inventory_item_id', '=', 'products.id');
+        $qty = 'COALESCE(vx_stock_totals.qty, 0)';
 
         return match ($this->stockHealth) {
-            'out' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0'),
-            'low' => $query->whereNotNull('reorder_level')->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level'),
-            'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND (products.reorder_level IS NULL OR stock_sum_quantity > products.reorder_level)'),
+            'out' => $query->whereRaw("{$qty} <= 0"),
+            'low' => $query->whereNotNull('products.reorder_level')->whereRaw("{$qty} > 0 AND {$qty} <= products.reorder_level"),
+            'in' => $query->whereRaw("{$qty} > 0 AND (products.reorder_level IS NULL OR {$qty} > products.reorder_level)"),
             default => $query,
         };
     }

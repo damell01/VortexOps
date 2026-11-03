@@ -57,9 +57,18 @@ class WhatnotApiHealthController extends Controller
     public function test(Request $request, WhatnotChannel $channel, WhatnotApiHealth $health): JsonResponse
     {
         $this->authorizeOwner($request);
-        $connection = WhatnotApiConnection::where('whatnot_channel_id', $channel->id)->firstOrFail();
+        $connection = WhatnotApiConnection::where('whatnot_channel_id', $channel->id)->first();
+        if (! $connection || blank($connection->access_token)) {
+            return $this->noTokenYet();
+        }
         return response()->json($health->check($connection));
     }
+    /** No token saved for this channel yet: say so, rather than a bare 404. */
+    private function noTokenYet(): JsonResponse
+    {
+        return response()->json(['ok' => false, 'enabled' => false, 'message' => 'No API token is saved for this channel yet. Paste one and press Save token first.'], 422);
+    }
+
     public function toggle(Request $request, WhatnotChannel $channel): JsonResponse
     {
         $this->authorizeOwner($request);
@@ -67,7 +76,10 @@ class WhatnotApiHealthController extends Controller
             'enabled' => ['required', 'boolean'],
             'confirmation' => ['nullable', 'string'],
         ]);
-        $connection = WhatnotApiConnection::where('whatnot_channel_id', $channel->id)->firstOrFail();
+        $connection = WhatnotApiConnection::where('whatnot_channel_id', $channel->id)->first();
+        if (! $connection) {
+            return $this->noTokenYet();
+        }
         if ($data['enabled']) {
             if (! app()->environment('production')
                 || ! config('services.whatnot_seller.live_requests_enabled', false)

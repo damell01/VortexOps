@@ -130,8 +130,8 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @endphp
 
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
-@php $builtInLogo = $navLogo === asset('images/vb-logo-sidebar.svg') && file_exists(public_path('images/vb-logo-light.svg')); @endphp
-@if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vb-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ $navLogo }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
+@php $builtInLogo = $navLogo === asset('images/vb-logo-sidebar.svg') && file_exists(public_path('images/vx-nav-logo-light.svg')); @endphp
+@if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vx-nav-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ asset('images/vx-nav-logo-dark.svg') }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
 <a class="vx-mega-home" href="{{ $homeUrl }}" wire:navigate><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 @if(in_array($label, $directGroups ?? [], true) && count($links) === 1)

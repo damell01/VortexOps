@@ -36,6 +36,8 @@ class WhatnotSellerApiClient
         'orders'         => ['GET', '/orders'],
         'order'          => ['GET', '/orders/{id}'],
         'order_items'    => ['GET', '/orders/{id}/items'],
+        'shipments'      => ['GET', '/shipments'],
+        'shipment_items' => ['GET', '/shipments/{id}/items'],
         'reports'        => ['GET', '/reports'],
         'report'         => ['GET', '/reports/{id}'],
         'generate_report' => ['POST', '/reports'],

@@ -37,7 +37,7 @@ final class WhatnotApiLedgerImporter
     /**
      * @return array{counts:array<string,int>, dry_run:bool}
      */
-    public function import(int $channelId, string $csv, bool $dryRun = true): array
+    public function import(int $channelId, string $csv, bool $dryRun = true, ?Carbon $backfillFrom = null): array
     {
         if (! $dryRun && ! WhatnotApiOrderApplier::writesAllowed()) {
             throw new RuntimeException('Applying API data is disabled.');
@@ -45,9 +45,10 @@ final class WhatnotApiLedgerImporter
         $rows = $this->parse($csv);
         $start = $this->ledgerStart();
         $counts = ['received' => count($rows), 'created' => 0, 'linked' => 0, 'unchanged' => 0,
-            'ambiguous' => 0, 'before_start' => 0, 'invalid' => 0, 'tips' => 0];
+            'ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0];
+        $coveredDays = [];
 
-        $run = function () use ($rows, $channelId, $dryRun, $start, &$counts) {
+        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, &$counts, &$coveredDays) {
             foreach ($rows as $row) {
                 $entry = $this->toEntry($channelId, $row);
                 if ($entry === null) {
@@ -81,7 +82,21 @@ final class WhatnotApiLedgerImporter
                     continue;
                 }
 
-                if ($start === null || Carbon::parse($entry['completed_date'])->lt($start)) {
+                $completed = Carbon::parse($entry['completed_date']);
+                if ($backfillFrom !== null && $completed->gte($backfillFrom) && ($start === null || $completed->lt($start))) {
+                    // Backfill: a day the scraper has no ledger rows for is
+                    // filled in; on a day it covered, an unmatched API row
+                    // may be a near-duplicate, so it is left for review.
+                    $day = $completed->toDateString();
+                    $coveredDays[$day] ??= WhatnotLedgerEntry::query()->where('whatnot_channel_id', $channelId)
+                        ->where(fn ($q) => $q->whereNull('dedup_key')->orWhere('dedup_key', 'not like', 'wn_api:%'))
+                        ->where(fn ($q) => $q->whereDate('completed_date', $day)->orWhere(fn ($q) => $q->whereNull('completed_date')->whereDate('created_date', $day)))
+                        ->exists();
+                    if ($coveredDays[$day]) {
+                        $counts['covered_day_unmatched']++;
+                        continue;
+                    }
+                } elseif ($start === null || $completed->lt($start)) {
                     $counts['before_start']++;
                     continue;
                 }
@@ -112,36 +127,11 @@ final class WhatnotApiLedgerImporter
     /** @return list<array<string,string|null>> */
     public function parse(string $csv): array
     {
-        $handle = fopen('php://temp', 'r+');
-        fwrite($handle, preg_replace('/^\xEF\xBB\xBF/', '', $csv));
-        rewind($handle);
-        // The column row may follow a title line naming the report type.
-        $header = null;
-        for ($i = 0; $i < 3 && ($line = fgetcsv($handle, escape: '\\')) !== false; $i++) {
-            $candidate = array_map(fn ($h) => strtolower(trim((string) $h)), (array) $line);
-            if (array_diff(self::REQUIRED_COLUMNS, $candidate) === []) {
-                $header = $candidate;
-                break;
-            }
-            $header ??= $candidate;
+        try {
+            return WhatnotApiCsv::rows($csv, self::REQUIRED_COLUMNS);
+        } catch (RuntimeException $e) {
+            throw new RuntimeException('Unexpected financial report format: '.$e->getMessage());
         }
-        if ($header === null) {
-            fclose($handle);
-            return [];
-        }
-        if (array_diff(self::REQUIRED_COLUMNS, $header) !== []) {
-            fclose($handle);
-            throw new RuntimeException('Unexpected financial report format: missing '.implode(', ', array_diff(self::REQUIRED_COLUMNS, $header)).'.');
-        }
-        $rows = [];
-        while (($line = fgetcsv($handle, escape: '\\')) !== false) {
-            if ($line === [null] || $line === []) continue;
-            $line = array_pad($line, count($header), null);
-            $rows[] = array_map(fn ($v) => $v === '' ? null : $v, array_combine($header, array_slice($line, 0, count($header))));
-        }
-        fclose($handle);
-
-        return $rows;
     }
 
     /** @param array<string,string|null> $row */

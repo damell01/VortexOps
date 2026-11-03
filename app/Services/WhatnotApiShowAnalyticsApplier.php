@@ -115,7 +115,7 @@ final class WhatnotApiShowAnalyticsApplier
         }
 
         if (! $dryRun) {
-            if ($changes !== []) $show->trackChanges($changes, 'whatnot_api');
+            if ($changes !== []) WhatnotApiShowImporter::logChanges($show, array_diff_key($changes, ['revision_notes' => true]), 'Seller API show analytics');
             $show->forceFill($changes + $stamp)->save();
         }
 

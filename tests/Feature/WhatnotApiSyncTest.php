@@ -30,6 +30,8 @@ class WhatnotApiSyncTest extends TestCase
     private const BASE = 'https://api.whatnot.com/seller-api/rest/v2';
     private const SHOW_UUID = '086df56b-c77d-436d-bff5-5ac154016aac';
     private const REPORT_URL = 'https://reports.example-presigned.test/financial.csv';
+    private const OVERVIEW_URL = 'https://reports.example-presigned.test/overview.csv';
+    private const OVERVIEW_CSV = "date,currency,estimated_sales,estimated_earnings,orders_count,follows_count,stream_minutes,viewers_per_hour,average_watch_time_seconds\n2026-11-02,USD,1250.00,1010.40,40,12,185,96,214\n";
 
     private WhatnotChannel $channel;
     private Show $show;
@@ -104,6 +106,17 @@ class WhatnotApiSyncTest extends TestCase
             $path = str_replace(self::BASE, '', strtok($request->url(), '?'));
             return match (true) {
                 $request->url() === self::REPORT_URL => Http::response($csv, 200),
+                $request->url() === self::OVERVIEW_URL => Http::response(self::OVERVIEW_CSV, 200),
+                $path === '/shipments' => Http::response(['data' => [[
+                    'id' => 'sh-1', 'url' => 'https://www.whatnot.com/dashboard/shipments/sh-1', 'status' => 'in_transit', 'fulfillment_method' => 'shipping',
+                    'recipient' => ['id' => '9', 'username' => 'cardfan', 'display_name' => null], 'weight' => ['value' => 0.5, 'unit' => 'pound'],
+                    'dimensions' => ['length' => 6, 'width' => 4, 'height' => 2, 'unit' => 'inch'], 'signature_required' => false, 'hazardous_material' => null,
+                    'tracking' => ['carrier' => 'USPS', 'service' => 'Ground Advantage', 'tracking_code' => '9400111899223344556677', 'last_mile_tracking_code' => null],
+                    'documents' => null, 'insurance' => null, 'seller_paid_shipping_cost' => $this->money('0'), 'required_actions' => [], 'dropoff_due' => null,
+                    'replacement_shipment_id' => null, 'created_at' => now()->subHours(18)->toIso8601ZuluString(), 'updated_at' => now()->toIso8601ZuluString(),
+                ]], 'next_cursor' => null], 200),
+                $path === '/shipments/sh-1/items' => Http::response(['data' => [['id' => 'si-1', 'shipment_id' => 'sh-1', 'order_id' => '1485136575', 'order_item_id' => 'it-1',
+                    'dimension_profile' => null, 'hazardous_material' => null, 'country_of_origin' => null, 'created_at' => null, 'updated_at' => null]], 'next_cursor' => null], 200),
                 $path === '/users/me' => Http::response(['id' => '1', 'username' => 'vortexbreaks', 'display_name' => null], 200),
                 $path === '/orders' => Http::response(['data' => $orders, 'next_cursor' => null], 200),
                 str_starts_with($path, '/orders/') => Http::response(['data' => [[
@@ -117,6 +130,8 @@ class WhatnotApiSyncTest extends TestCase
                     'ended_at' => now()->subHours(20)->toIso8601ZuluString(), 'thumbnail' => null, 'created_at' => now()->subDays(3)->toIso8601ZuluString(), 'updated_at' => now()->toIso8601ZuluString(),
                 ]], 'next_cursor' => null], 200),
                 str_starts_with($path, '/analytics/shows/') => Http::response($this->analytics($analyticsStatus), 200),
+                $path === '/reports' && $request->method() === 'POST' && ($request->data()['report_parameters']['report_type'] ?? null) === 'analytics_overview_report'
+                    => Http::response(['id' => 'rep-2', 'report_type' => 'analytics_overview_report', 'status' => 'completed', 'report_parameters' => null, 'report_url' => self::OVERVIEW_URL, 'created_at' => now()->toIso8601ZuluString(), 'updated_at' => now()->toIso8601ZuluString()], 201),
                 $path === '/reports' && $request->method() === 'POST' => Http::response(['id' => 'rep-1', 'report_type' => 'seller_financial_report', 'status' => 'pending', 'report_parameters' => null, 'report_url' => null, 'created_at' => now()->toIso8601ZuluString(), 'updated_at' => now()->toIso8601ZuluString()], 201),
                 $path === '/reports' => Http::response(['data' => [], 'next_cursor' => null], 200),
                 $path === '/reports/rep-1' => Http::response(['id' => 'rep-1', 'report_type' => 'seller_financial_report', 'status' => 'completed', 'report_parameters' => null, 'report_url' => self::REPORT_URL, 'created_at' => now()->toIso8601ZuluString(), 'updated_at' => now()->toIso8601ZuluString()], 200),
@@ -168,6 +183,12 @@ class WhatnotApiSyncTest extends TestCase
         $this->assertSame('Tip', $tip->transaction_type);
         $this->assertSame(self::SHOW_UUID, $tip->raw_data['livestream_id']);
         $this->assertArrayNotHasKey('buyer_state', WhatnotLedgerEntry::where('dedup_key', 'wn_api:L-2')->sole()->raw_data);
+
+        $this->assertSame('9400111899223344556677', $order->fresh()->tracking_number);
+        $this->assertSame('shipped', $order->fresh()->shipping_status);
+        $this->assertEquals(8.0, (float) $order->fresh()->shipment_weight_oz);
+        $this->assertDatabaseHas('whatnot_daily_overviews', ['whatnot_channel_id' => $this->channel->id, 'date' => '2026-11-02', 'follows_count' => 12, 'viewers_per_hour' => 96]);
+        $this->assertDatabaseHas('show_change_logs', ['show_id' => $this->show->id, 'field_name' => 'gross_revenue', 'source' => 'whatnot_api']);
 
         // Running again adds nothing.
         app(WhatnotApiSync::class)->run($this->connection, days: 3, dryRun: false);
@@ -261,5 +282,66 @@ class WhatnotApiSyncTest extends TestCase
         $this->assertSame(1, $report['shows'][0]['matching_order_ids']);
         $this->assertSame('ok', $report['shows'][0]['status']);
         $this->assertStringContainsString('Safe to turn on', $report['verdict']);
+    }
+
+    public function test_an_existing_show_without_an_id_is_linked_by_title_and_date_and_logged(): void
+    {
+        $old = Show::create(['whatnot_channel_id' => $this->channel->id, 'title' => 'Sunday Rips', 'show_date' => '2026-03-01', 'import_source' => 'auto_whatnot', 'created_by' => $this->show->created_by]);
+        $api = ['id' => '1b4e28ba-2fa1-11d2-883f-0016d3cca427', 'title' => 'Sunday Rips', 'url' => 'https://www.whatnot.com/dashboard/lives/edit/1b4e28ba-2fa1-11d2-883f-0016d3cca427',
+            'status' => 'ended', 'scheduled_start_at' => '2026-03-01T20:00:00.000Z', 'ended_at' => '2026-03-01T23:00:00.000Z'];
+
+        $result = app(\App\Services\WhatnotApiShowImporter::class)->import($this->channel->id, $api, dryRun: false);
+
+        $this->assertSame('linked', $result['outcome']);
+        $this->assertSame($old->id, $result['show_id']);
+        $this->assertSame('1b4e28ba-2fa1-11d2-883f-0016d3cca427', $old->fresh()->whatnot_show_id);
+        $this->assertDatabaseHas('show_change_logs', ['show_id' => $old->id, 'field_name' => 'whatnot_show_id', 'source' => 'whatnot_api']);
+    }
+
+    public function test_a_scheduled_show_is_created_ahead_and_a_reschedule_and_rename_are_logged(): void
+    {
+        $importer = app(\App\Services\WhatnotApiShowImporter::class);
+        $id = '2c4e28ba-2fa1-11d2-883f-0016d3cca427';
+        $created = $importer->import($this->channel->id, ['id' => $id, 'title' => 'Friday Night Breaks', 'status' => 'scheduled', 'scheduled_start_at' => '2026-12-04T01:00:00.000Z'], dryRun: false);
+        $this->assertSame('created', $created['outcome']);
+        $show = Show::findOrFail($created['show_id']);
+        $this->assertSame('draft', $show->status);
+        $this->assertSame('2026-12-03', $show->show_date->toDateString()); // 7pm Central on the 3rd
+
+        $importer->import($this->channel->id, ['id' => $id, 'title' => 'Friday Night Mega Breaks', 'status' => 'scheduled', 'scheduled_start_at' => '2026-12-05T01:00:00.000Z'], dryRun: false);
+        $show->refresh();
+        $this->assertSame('Friday Night Mega Breaks', $show->title);
+        $this->assertSame('2026-12-04', $show->show_date->toDateString());
+        $this->assertDatabaseHas('show_change_logs', ['show_id' => $show->id, 'field_name' => 'title', 'old_value' => 'Friday Night Breaks', 'source' => 'whatnot_api']);
+        $this->assertDatabaseHas('show_change_logs', ['show_id' => $show->id, 'field_name' => 'show_date', 'source' => 'whatnot_api']);
+    }
+
+    public function test_the_backfill_fills_history_and_only_adds_ledger_rows_on_days_the_scraper_missed(): void
+    {
+        $covered = now()->subHours(20);
+        // A scraper sale at the same moment (same local day), a different transaction.
+        WhatnotLedgerEntry::create(['whatnot_channel_id' => $this->channel->id, 'completed_date' => $covered->copy()->setTimezone(config('app.timezone'))->toDateTimeString(), 'amount' => 50, 'transaction_type' => 'Sales', 'dedup_key' => md5('scraped-sale'), 'raw_data' => []]);
+        $this->fakeWhatnot([$this->order('1485136575')], $this->financialCsv([
+            $this->tipRow('L-1', '5.00', $covered->copy()->utc()->format('Y-m-d H:i:s')),            // scraper covered that day, no exact match
+            $this->tipRow('L-2', '7.00', now()->subDays(5)->utc()->format('Y-m-d H:i:s')),           // a day the scraper has nothing for
+        ]));
+
+        $result = app(\App\Services\WhatnotApiBackfill::class)->run($this->connection, now()->subDays(10)->startOfDay(), dryRun: false);
+
+        $this->assertSame([], $result['errors']);
+        $this->assertSame(1, WhatnotShowOrder::count());
+        $this->assertTrue(WhatnotLedgerEntry::where('dedup_key', 'wn_api:L-2')->exists());
+        $this->assertFalse(WhatnotLedgerEntry::where('dedup_key', 'wn_api:L-1')->exists());
+        $this->assertSame(1, $result['steps']['ledger']['covered_day_unmatched']);
+        $this->assertEquals(1250.00, (float) $this->show->fresh()->gross_revenue);
+    }
+
+    public function test_the_review_page_lists_api_changes(): void
+    {
+        $this->actingAs(User::factory()->create(['email' => config('app.owner_email')]));
+        \App\Models\ShowChangeLog::create(['show_id' => $this->show->id, 'field_name' => 'gross_revenue', 'old_value' => '1200', 'new_value' => '1250', 'changed_by' => 'system', 'source' => 'whatnot_api']);
+
+        \Livewire\Livewire::test(\App\Filament\Pages\WhatnotApiChanges::class)
+            ->assertSee('Friday Breaks')->assertSee('1250');
     }
 }

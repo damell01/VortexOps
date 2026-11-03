@@ -110,7 +110,7 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
             'AppSettings', 'Businesses', 'Communications', 'ImportStatus', 'InventoryCount', 'InventoryImporter', 'InventoryPopupSettings',
             'NavigationManager', 'NoShowCleanup', 'PayRunBackfill', 'PaymentStructures',
             'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
-            'Timekeeping', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
+            'Timekeeping', 'WhatnotApiChanges', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
         ], $denied);
     }
 

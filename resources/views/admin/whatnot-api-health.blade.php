@@ -10,7 +10,7 @@
 </head>
 <body>
 <main>
-<a href="/admin">← Back to VortexOps</a>
+<a href="/admin">← Back to VortexOps</a> · <a href="{{ \App\Filament\Pages\WhatnotApiChanges::getUrl(panel: 'admin') }}">Review API changes</a>
 <div class="eyebrow">Owner tools / Integrations</div>
 <h1>Whatnot Seller API Health</h1>
 <p>Configure and test each seller channel independently. Inspect captured data freshness and errors before activation. The existing scraper remains active.</p>

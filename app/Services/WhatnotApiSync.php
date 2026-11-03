@@ -22,8 +22,6 @@ final class WhatnotApiSync
 {
     public const MAX_ITEM_LOOKUPS = 150;
     public const MAX_ANALYTICS_LOOKUPS = 60;
-    private const REPORT_POLLS = 12;
-    private const REPORT_POLL_SECONDS = 5;
 
     public function __construct(
         private readonly WhatnotSellerApiClient $client,
@@ -31,6 +29,10 @@ final class WhatnotApiSync
         private readonly WhatnotApiOrderApplier $orders,
         private readonly WhatnotApiShowAnalyticsApplier $analytics,
         private readonly WhatnotApiLedgerImporter $ledger,
+        private readonly WhatnotApiShowImporter $shows,
+        private readonly WhatnotApiShipmentImporter $shipments,
+        private readonly WhatnotApiOverviewImporter $overview,
+        private readonly WhatnotApiReports $reports,
     ) {}
 
     /**
@@ -43,6 +45,26 @@ final class WhatnotApiSync
         $channelId = (int) $connection->whatnot_channel_id;
         $since = now()->subDays(max(1, $days));
         $summary = ['channel_id' => $channelId, 'days' => $days, 'dry_run' => $dryRun, 'errors' => []];
+
+        // 0. Shows: every scheduled show (created ahead of time; reschedules
+        // and title changes logged), and shows that ended in the window.
+        $showCounts = [];
+        try {
+            foreach (['scheduled' => false, 'ended' => true] as $status => $windowed) {
+                $this->client->eachPage($connection, 'shows', function (array $page) use ($channelId, $dryRun, $since, $windowed, &$showCounts) {
+                    foreach ($page['data'] as $show) {
+                        if (! is_array($show)) continue;
+                        $outcome = $this->shows->import($channelId, $show, $dryRun)['outcome'];
+                        $showCounts[$outcome] = ($showCounts[$outcome] ?? 0) + 1;
+                    }
+                    return ! $windowed || ! $this->pageIsOlderThan($page['data'], 'scheduled_start_at', $since);
+                }, ['status' => $status], maxPages: 20);
+            }
+            $summary['shows'] = $showCounts;
+            $log('Shows: '.json_encode($showCounts));
+        } catch (\Throwable $e) {
+            $summary['errors'][] = 'shows: '.$e->getMessage();
+        }
 
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
@@ -76,6 +98,26 @@ final class WhatnotApiSync
         }
         $summary['order_items'] = $items + ['waiting' => max(0, count(array_unique($needsItems)) - self::MAX_ITEM_LOOKUPS)];
         $log('Order items: '.json_encode($summary['order_items']));
+
+        // 2b. Shipments created in the window → tracking/status on orders.
+        $shipCounts = [];
+        try {
+            $this->client->eachPage($connection, 'shipments', function (array $page) use ($connection, $channelId, $dryRun, $since, &$shipCounts) {
+                foreach ($page['data'] as $shipment) {
+                    if (! is_array($shipment) || ! is_string($shipment['id'] ?? null)) continue;
+                    $items = $this->client->call($connection, 'shipment_items', $shipment['id'], ['limit' => WhatnotSellerApiClient::MAX_PAGE_SIZE]);
+                    $outcome = $items->successful()
+                        ? $this->shipments->import($channelId, $shipment, (array) ($items->json('data') ?? []), $dryRun)['outcome']
+                        : 'http_'.$items->status();
+                    $shipCounts[$outcome] = ($shipCounts[$outcome] ?? 0) + 1;
+                }
+                return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
+            }, maxPages: 40);
+            $summary['shipments'] = $shipCounts;
+            $log('Shipments: '.json_encode($shipCounts));
+        } catch (\Throwable $e) {
+            $summary['errors'][] = 'shipments: '.$e->getMessage();
+        }
 
         // 3. Ended shows in the window that exist here → their analytics.
         $analyticsCounts = [];
@@ -116,6 +158,16 @@ final class WhatnotApiSync
             $summary['errors'][] = 'ledger: '.$e->getMessage();
         }
 
+        // 5. Daily business overview for the window.
+        try {
+            $report = $this->reports->fetch($connection, WhatnotApiReports::overview($since->copy()->startOfDay(), now()->startOfHour()));
+            $summary['overview'] = $report['status'] === 'completed'
+                ? $this->overview->import($channelId, $report['csv'], $dryRun)
+                : ['status' => $report['status']];
+        } catch (\Throwable $e) {
+            $summary['errors'][] = 'overview: '.$e->getMessage();
+        }
+
         WhatnotApiSyncAudit::create([
             'whatnot_channel_id' => $channelId,
             'resource' => 'sync',
@@ -131,34 +183,14 @@ final class WhatnotApiSync
     /** @return array<string,mixed> */
     private function ledgerStep(WhatnotApiConnection $connection, Carbon $since, bool $dryRun): array
     {
-        $end = now()->utc()->startOfHour();
-        $start = $since->copy()->utc();
-        $response = $this->client->call($connection, 'generate_report', body: ['report_parameters' => [
-            'report_type' => 'seller_financial_report',
-            'start_date' => $start->format('Y-m-d\TH:i:s.v\Z'),
-            'end_date' => $end->format('Y-m-d\TH:i:s.v\Z'),
-        ]]);
-        if (! $response->successful()) {
-            return ['status' => 'request_failed', 'http_status' => $response->status()];
+        $report = $this->reports->fetch($connection, WhatnotApiReports::financial($since, now()->startOfHour()));
+        if ($report['status'] !== 'completed') {
+            // Whatnot returns the same run for an identical request, so the next sync picks it up.
+            return array_diff_key($report, ['csv' => true]);
         }
-        $report = (array) $response->json();
-        for ($i = 0; ($report['status'] ?? null) !== 'completed' && $i < self::REPORT_POLLS; $i++) {
-            if (in_array($report['status'] ?? null, ['failed', 'cancelled'], true)) {
-                return ['status' => 'report_'.$report['status']];
-            }
-            $this->client->pause(self::REPORT_POLL_SECONDS);
-            $poll = $this->client->call($connection, 'report', (string) ($report['id'] ?? ''));
-            if (! $poll->successful()) return ['status' => 'poll_failed', 'http_status' => $poll->status()];
-            $report = (array) $poll->json();
-        }
-        if (($report['status'] ?? null) !== 'completed' || ! is_string($report['report_url'] ?? null)) {
-            // Whatnot returns this same run for an identical request, so the next sync picks it up.
-            return ['status' => 'still_generating', 'report_id' => $report['id'] ?? null];
-        }
+        $import = $this->ledger->import((int) $connection->whatnot_channel_id, $report['csv'], $dryRun);
 
-        $import = $this->ledger->import((int) $connection->whatnot_channel_id, $this->client->downloadReport($report['report_url']), $dryRun);
-
-        return ['status' => 'imported', 'report_id' => $report['id'] ?? null] + $import['counts'];
+        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null] + $import['counts'];
     }
 
     /** True when the page reaches back past $since (pages are newest first), so no further page is needed. */

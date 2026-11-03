@@ -156,8 +156,9 @@
                     @if(($data['summary']['uncategorized'] ?? 0) > 0 || $reportCategory === 'Uncategorized')<option value="Uncategorized">Uncategorized</option>@endif
                 </select>
             </label>
-            <button type="button" wire:click="toggleReportFilters" class="vxr-btn">
-                <x-filament::icon icon="heroicon-o-adjustments-horizontal" /> {{ $showReportFilters ? 'Hide filters' : 'More filters' }}
+            {{-- Opens in the browser: no server round trip (and full report rebuild) just to show the panel. --}}
+            <button type="button" x-on:click="$wire.showReportFilters = ! $wire.showReportFilters" class="vxr-btn">
+                <x-filament::icon icon="heroicon-o-adjustments-horizontal" /> <span x-text="$wire.showReportFilters ? 'Hide filters' : 'More filters'">{{ $showReportFilters ? 'Hide filters' : 'More filters' }}</span>
             </button>
             <span class="vxr-foot-note"><x-filament::icon icon="heroicon-o-information-circle" /> Stock values reflect current inventory; activity uses selected period.</span>
 
@@ -170,7 +171,7 @@
                 </div>
             @endif
 
-            @if($showReportFilters)
+            <div x-show="$wire.showReportFilters" @unless($showReportFilters) x-cloak @endunless>
                 <div class="invr-more">
                     <label>Average cost per unit
                         <span class="invr-range">
@@ -191,7 +192,7 @@
                         <button type="button" wire:click="resetReportFilters" class="vxr-btn">Reset all filters</button>
                     </div>
                 </div>
-            @endif
+            </div>
         </div>
     </div>
 

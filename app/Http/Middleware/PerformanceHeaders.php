@@ -58,7 +58,7 @@ class PerformanceHeaders
                     $response->headers->set('Cache-Control', 'private, no-store');
                 }
             }
-            if ($elapsed >= 1500 || $metrics->databaseMs >= 500 || $metrics->queries >= 100 || ! $response || $response->getStatusCode() >= 500 || ($request->is('livewire*') && $response->getStatusCode() === 403)) {
+            if ($elapsed >= 1000 || $metrics->databaseMs >= 500 || $metrics->queries >= 100 || ! $response || $response->getStatusCode() >= 500 || ($request->is('livewire*') && $response->getStatusCode() === 403)) {
                 Log::warning('Slow or failed web request', [
                     'route' => $request->route()?->getName(),
                     'method' => $request->method(),

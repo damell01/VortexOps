@@ -120,6 +120,15 @@ class AppServiceProvider extends ServiceProvider
                 $metrics->queries++;
                 $metrics->databaseMs += $query->time;
             }
+            // One slow statement, with its SQL (values left out) and the page it
+            // came from, so slow screens can be fixed at the query, not guessed at.
+            if ($query->time >= 300) {
+                \Illuminate\Support\Facades\Log::warning('Slow database query', [
+                    'ms' => round($query->time, 1),
+                    'sql' => mb_substr(preg_replace('/\s+/', ' ', $query->sql), 0, 3000),
+                    'page' => app()->runningInConsole() ? 'console' : (parse_url((string) request()->headers->get('referer'), PHP_URL_PATH) ?: request()->path()),
+                ]);
+            }
         });
         // Keep generated resource tables short on phones; desktop preferences stay unchanged.
         \Filament\Tables\Table::configureUsing(function (\Filament\Tables\Table $table): void {

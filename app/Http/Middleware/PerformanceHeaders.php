@@ -31,8 +31,9 @@ class PerformanceHeaders
         }
 
         return [
-            'page' => parse_url((string) $request->headers->get('referer'), PHP_URL_PATH),
-            'calls' => implode(' | ', array_slice($calls, 0, 5)),
+            'page' => parse_url((string) $request->headers->get('referer'), PHP_URL_PATH) ?: '(no referer)',
+            // Property-only updates and polls have no method; name the components anyway.
+            'calls' => $calls ? implode(' | ', array_slice($calls, 0, 5)) : '(no components in request)',
         ];
     }
 

@@ -54,7 +54,7 @@ class ShippingDesk extends Page
             Notification::make()->title('Shipment refresh unavailable')
                 ->body(collect($exception->errors())->flatten()->first() ?: 'Check API connection and permissions.')
                 ->warning()->send();
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             report($exception);
             Notification::make()->title('Shipment refresh failed')
                 ->body('Review the Whatnot API connection and application logs.')

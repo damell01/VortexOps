@@ -64,7 +64,7 @@
                 </div>
                 <form class="vx-global-chat-compose" wire:submit="send">
                     <label class="sr-only" for="quick-message-body">Message</label>
-                    <textarea id="quick-message-body" wire:model="body" maxlength="5000" rows="2" placeholder="Write a message…" required></textarea>
+                    <textarea id="quick-message-body" wire:model="body" maxlength="5000" rows="2" placeholder="Write a message…"></textarea>
                     @error('body')<p role="alert">{{ $message }}</p>@enderror
                     <label class="vx-global-chat-attach" title="Attach files"><x-filament::icon icon="heroicon-o-paper-clip" /><input type="file" wire:model="attachments" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.csv" aria-label="Attach files"></label>
                     <button type="submit" wire:loading.attr="disabled" wire:target="send" aria-label="Send message"><x-filament::icon icon="heroicon-o-paper-airplane" /></button>

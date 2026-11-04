@@ -73,8 +73,9 @@ class StationBoard extends Page
         abort_unless(FulfillmentResource::canView($show), 403);
         $this->record = (int) $show->id;
         $this->runId = DB::table('fulfillment_runs')
-            ->where('show_id', $show->id)->where('status', 'packing')
-            ->value('id');
+            ->where('show_id', $show->id)->whereIn('status', ['packing', 'completed'])
+            ->orderByRaw("CASE WHEN status = 'packing' THEN 0 ELSE 1 END")
+            ->latest('id')->value('id');
     }
 
     public function getTitle(): string
@@ -142,7 +143,6 @@ class StationBoard extends Page
     {
         $this->authorizeActiveRun();
         app(FulfillmentRunService::class)->finish($this->runId, auth()->user());
-        $this->runId = null;
         Notification::make()->title('Show packing complete')->success()->send();
     }
 
@@ -167,7 +167,7 @@ class StationBoard extends Page
         abort_unless(FulfillmentResource::canView($show), 403);
         $run = $this->runId ? DB::table('fulfillment_runs')
             ->join('fulfillment_stations', 'fulfillment_stations.id', '=', 'fulfillment_runs.station_id')
-            ->where('fulfillment_runs.id', $this->runId)->where('fulfillment_runs.show_id', $show->id)->where('fulfillment_runs.status', 'packing')
+            ->where('fulfillment_runs.id', $this->runId)->where('fulfillment_runs.show_id', $show->id)->whereIn('fulfillment_runs.status', ['packing', 'completed'])
             ->select('fulfillment_runs.*', 'fulfillment_stations.name as station_name')->first() : null;
         $buyers = $run ? DB::table('fulfillment_run_buyers')->where('run_id', $run->id)->orderBy('id')->get() : collect();
         $packers = $run ? DB::table('fulfillment_run_packers')

@@ -26,7 +26,7 @@ class UserTeamProfileService
 
         // Every login has a payroll identity, even without an operational role.
         // Do not overwrite existing pay settings when roles change.
-        $memberType ??= $user->streamer?->member_type ?: 'other';
+        $memberType ??= 'other';
 
         $profile = $user->streamer()->firstOrNew();
         $profile->fill([

@@ -1,7 +1,8 @@
 <x-filament-panels::page>
-<div class="vxc vxc-redesign" data-vx-page="communications">
+<div class="vxc vxc-redesign vxc-2026" data-vx-page="communications">
     <div class="vxc-preview"><span><x-filament::icon icon="heroicon-o-lock-closed" /><strong>Owner preview</strong></span><p>Only you can see this workspace. Recipient notifications, email and push are paused.</p></div>
     <div class="vxc-workspace">
+    <div class="vxc-hero"><div class="vxc-hero-icon"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></div><div><h1>Team Communications</h1><p>Messages, announcements, and team updates — all in one place.</p></div><button type="button" class="vxc-hero-action" x-on:click="$dispatch('open-modal', {id: 'communication-new-chat'})"><x-filament::icon icon="heroicon-o-plus" /> New conversation</button></div>
     <div class="vxc-tabs" role="group" aria-label="Communication workspace">
         <button type="button" wire:click="changeTab('messages')" aria-pressed="{{ $tab === 'messages' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" />Messages @if ($unreadTotal)<span class="vxc-unread">{{ $unreadTotal }}</span>@endif</button>
         <button type="button" wire:click="changeTab('announcements')" aria-pressed="{{ $tab === 'announcements' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-megaphone" />Announcements</button>

@@ -15,6 +15,17 @@ return new class extends Migration {
             $table->timestamps();
         });
 
+        // Initial station labels are configurable later; seed the four in the approved workflow.
+        foreach (range(1, 4) as $number) {
+            \Illuminate\Support\Facades\DB::table('fulfillment_stations')->insert([
+                'name' => 'Station ' . $number,
+                'active' => true,
+                'sort' => $number,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
         Schema::create('fulfillment_runs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('show_id')->constrained('shows');

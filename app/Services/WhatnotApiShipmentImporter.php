@@ -109,6 +109,12 @@ final class WhatnotApiShipmentImporter
                     $existing = Shipment::query()->where('show_id', $showId)
                         ->where('tracking_number', $tracking['tracking_code'])->first();
                 }
+                // Ignore stale non-terminal status snapshots for delivered or returned packages.
+                $incomingStatus = (string) ($shipment['status'] ?? '');
+                $currentStatus = (string) ($existing?->status ?? '');
+                $terminal = in_array($currentStatus, ['delivered', 'returned'], true);
+                $incomingTerminal = in_array($incomingStatus, ['delivered', 'returned'], true);
+                $resolvedStatus = $terminal && ! $incomingTerminal ? $currentStatus : $incomingStatus;
                 ($existing ?? new Shipment(['show_id' => $showId]))->fill(
                     array_filter([
                         // A link to the local order row (whatnot_show_orders.id), despite the name.
@@ -119,7 +125,7 @@ final class WhatnotApiShipmentImporter
                         'shipping_cost' => is_array($money) && ($money['currency'] ?? null) === 'USD' && is_numeric($money['amount'] ?? null) ? (float) $money['amount'] : null,
                         'weight_oz' => $weightOz,
                         'dimensions_json' => $dims ?: null,
-                        'status' => $shipment['status'] ?? null,
+                        'status' => $resolvedStatus !== '' ? $resolvedStatus : null,
                         'carrier' => $tracking['carrier'] ?? null,
                         'insurance_added' => $insurance !== null,
                         'signature_required' => (bool) ($shipment['signature_required'] ?? false),

@@ -111,7 +111,7 @@ final class WhatnotApiShipmentImporter
                         'insurance_added' => $insurance !== null,
                         'signature_required' => (bool) ($shipment['signature_required'] ?? false),
                         'raw_payload' => ['_source' => 'seller_api', 'shipment_id' => $shipmentId, 'status' => $shipment['status'] ?? null,
-                            'required_actions' => $shipment['required_actions'] ?? [], 'dropoff_due' => $shipment['dropoff_due'] ?? null,
+                            'required_actions' => $shipment['required_actions'] ?? [], 'documents' => is_array($shipment['documents'] ?? null) ? $shipment['documents'] : [], 'shipment_url' => $shipment['url'] ?? null, 'dropoff_due' => $shipment['dropoff_due'] ?? null,
                             'replacement_shipment_id' => $shipment['replacement_shipment_id'] ?? null],
                     ], fn ($v) => $v !== null),
                 );

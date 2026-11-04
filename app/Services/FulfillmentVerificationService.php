@@ -17,9 +17,8 @@ final class FulfillmentVerificationService {
     throw ValidationException::withMessages(['barcode'=>'Buyer is on hold. Resolve issues first.']);
    $ids=json_decode($buyer->order_ids ?: '[]',true);
    if (!is_array($ids)||!$ids) throw ValidationException::withMessages(['barcode'=>'Buyer has no verified order IDs.']);
-   $matches=DB::table('whatnot_show_orders')->where('show_id',$run->show_id)->whereIn('whatnot_order_id',array_map('strval',$ids))
+   $matches=\App\Models\WhatnotShowOrder::query()->where('show_id',$run->show_id)->whereIn('whatnot_order_id',array_map('strval',$ids))
     ->where(function($q)use($barcode){$q->whereHas('inventoryItem',fn($i)=>$i->where('barcode',$barcode));})->exists();
-   // The order-to-inventory barcode relationship must be checked against the actual schema.
    $result=$matches?'matched':'unmatched';
    return DB::table('fulfillment_verifications')->insertGetId([
     'run_id'=>$runId,'buyer_id'=>$buyerId,'verified_by'=>$actor->id,'barcode'=>$barcode,

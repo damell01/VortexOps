@@ -30,7 +30,7 @@ class FulfillmentRunService
             if (! $station || ! $station->active) {
                 throw ValidationException::withMessages(['station' => 'Station is unavailable.']);
             }
-            if (DB::table('fulfillment_runs')->where('station_occupied_id', $stationId)->exists()) {
+            if (DB::table('fulfillment_runs')->where('station_occupied_id', $stationId)->where('status', 'packing')->exists()) {
                 throw ValidationException::withMessages(['station' => 'Station is already packing another show.']);
             }
             if (DB::table('fulfillment_runs')->where('show_id', $show->id)->where('status', 'packing')->exists()) {

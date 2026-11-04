@@ -69,6 +69,12 @@ class ViewFulfillmentShow extends ViewRecord
             : $show->primaryStreamer()?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
 
         return [
+            Action::make('fulfillment_schedule')
+                ->label('Team Schedule')
+                ->icon('heroicon-o-calendar-days')
+                ->color('gray')
+                ->url(fn () => \App\Filament\Pages\FulfillmentSchedule::getUrl())
+                ->visible(fn () => \App\Filament\Pages\FulfillmentSchedule::canAccess()),
             Action::make('station_board')
                 ->label('Open Station Board')
                 ->icon('heroicon-o-computer-desktop')

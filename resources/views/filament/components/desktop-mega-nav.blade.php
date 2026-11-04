@@ -98,7 +98,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
 
 // Dedicated fulfillment navigation for fulfillment-only roles.
 // The route registry below still enforces canAccess and NavVisibility.
-$fulfillmentOnly=(bool) (!$assistantOnly && !$streamerOnly && !$user?->isOwner() && !$user?->isAdmin()
+$fulfillmentOnly=(bool) (!$assistantOnly && !$streamerOnly && !$user?->isOwner() && !$user?->hasAnyRole(['admin', 'super_admin'])
     && ($user?->isFulfillment() || $user?->isFulfillmentAdmin()));
 if ($fulfillmentOnly) {
     $homeLabel = $user?->isFulfillmentAdmin() ? 'Command Center' : 'My Workspace';

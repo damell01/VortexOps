@@ -140,3 +140,25 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .dark .vx-global-chat-thread:hover{background:#302046}
 .dark .vx-global-chat-avatar{background:#40205e;color:#d6b5ff}
 @media(max-width:767px){.vx-global-chat{top:75px;right:12px;bottom:auto}.vx-global-chat-toggle{padding:9px 11px;border-radius:24px}.vx-global-chat-toggle>span{display:none}.vx-global-chat-panel{top:calc(100% + 10px);bottom:auto}}
+
+
+/* Conversation info and announcement builder refinements */
+.vxc-2026 .vxc-info-toggle{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid var(--vxc-line);border-radius:9px;color:var(--vxc-accent);font-size:12px;font-weight:700}
+.vxc-2026 .vxc-info-toggle svg,.vxc-2026 .vxc-info-heading svg{width:17px;height:17px}
+.vxc-2026 .vxc-conversation-info{padding:16px;border-bottom:1px solid var(--vxc-line);background:var(--vxc-surface);max-height:270px;overflow-y:auto}
+.vxc-2026 .vxc-info-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.vxc-2026 .vxc-info-heading strong{font-size:14px}
+.vxc-2026 .vxc-conversation-info>p{font-size:12px;color:var(--vxc-muted);margin:8px 0}
+.vxc-2026 .vxc-conversation-info h3{font-size:12px;font-weight:750;margin:12px 0 6px}
+.vxc-2026 .vxc-conversation-info ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.vxc-2026 .vxc-conversation-info li{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--vxc-line);border-radius:10px;font-size:12px}
+.vxc-2026 .vxc-conversation-info li .vxc-avatar{width:28px;height:28px;border-radius:50%}
+.vxc-2026 .vxc-conversation-info li small{margin-left:auto;color:var(--vxc-muted)}
+.vxc-2026 .vxc-editor-intro{display:flex;align-items:center;gap:11px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--vxc-line)}
+.vxc-2026 .vxc-editor-intro>svg{width:22px;height:22px;flex:none;color:var(--vxc-accent)}
+.vxc-2026 .vxc-editor-intro h3{font-size:15px;font-weight:800}
+.vxc-2026 .vxc-editor-intro p{font-size:12px;color:var(--vxc-muted);margin-top:2px}
+.vxc-2026 .vxc-announcement-editor{gap:16px}
+.vxc-2026 .vxc-editor-main,.vxc-2026 .vxc-editor-preview{min-width:0}
+.vxc-2026 .vxc-editor-main label,.vxc-2026 .vxc-editor-main legend{font-size:12px;font-weight:700}
+@media(max-width:767px){.vxc-2026 .vxc-info-toggle{padding:7px}.vxc-2026 .vxc-conversation-info ul{grid-template-columns:1fr}}

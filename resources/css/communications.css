@@ -185,3 +185,28 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .dark .vx-global-chat-bubble small{color:#d1c1e0}
 .dark .vx-global-chat-compose{border-color:#393049}
 .dark .vx-global-chat-compose textarea{background:#252037;border-color:#534064;color:#fff}
+
+
+/* High-contrast channel selector in the persistent top menu. */
+.fi-topbar .vx-mega-channel:not(.vx-mega-business) .vx-picker-btn,
+.vx-desktop-mega-nav .vx-mega-channel:not(.vx-mega-business) .vx-picker-btn{
+ background:#ede2ff!important;color:#54219d!important;border:1px solid #b48be9!important;
+ box-shadow:0 1px 5px rgba(95,39,162,.14)!important;
+}
+.fi-topbar .vx-mega-channel:not(.vx-mega-business) .vx-picker-btn :is(.vx-picker-icon,.vx-picker-chevron,.vx-picker-kicker,.vx-picker-value),
+.vx-desktop-mega-nav .vx-mega-channel:not(.vx-mega-business) .vx-picker-btn :is(.vx-picker-icon,.vx-picker-chevron,.vx-picker-kicker,.vx-picker-value){color:#54219d!important;opacity:1!important}
+.dark .fi-topbar .vx-mega-channel:not(.vx-mega-business) .vx-picker-btn{background:#40215f!important;color:#f5eaff!important;border-color:#9863d5!important}
+.dark .fi-topbar .vx-mega-channel:not(.vx-mega-business) .vx-picker-btn :is(.vx-picker-icon,.vx-picker-chevron,.vx-picker-kicker,.vx-picker-value){color:#f5eaff!important}
+.vx-global-chat-create{padding:12px;display:grid;gap:11px;max-height:52dvh;overflow-y:auto}
+.vx-global-chat-create>label{display:grid;gap:4px;font-size:12px;font-weight:700}
+.vx-global-chat-create input:not([type=checkbox]),.vx-global-chat-create select{width:100%;border:1px solid #d6c9e8;border-radius:9px;padding:9px;background:#fff;color:#261b33}
+.vx-global-chat-create fieldset{display:grid;gap:6px;max-height:170px;overflow:auto}
+.vx-global-chat-create legend{font-size:12px;font-weight:700}
+.vx-global-chat-person{display:flex;align-items:center;gap:9px;font-size:12px;padding:6px}
+.vx-global-chat-create-actions{display:flex;justify-content:flex-end;gap:9px}
+.vx-global-chat-create-actions button{padding:9px 12px;border-radius:9px;border:1px solid #c9b8df;font-size:12px}
+.vx-global-chat-create-actions button[type=submit]{background:#7229ce;color:#fff}
+.vx-global-chat-attach{position:relative;display:grid;place-items:center;cursor:pointer}
+.vx-global-chat-attach svg{width:20px;height:20px}
+.vx-global-chat-attach input{position:absolute;width:1px;height:1px;opacity:0}
+.dark .vx-global-chat-create input:not([type=checkbox]),.dark .vx-global-chat-create select{background:#272038;color:#fff;border-color:#5e4975}

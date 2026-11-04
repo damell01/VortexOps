@@ -5,6 +5,9 @@
             <p class="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">Fulfillment Center · Shipping workspace</p>
             <h2 class="mt-1 text-xl font-bold text-gray-950 dark:text-white">{{ $show->title }}</h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review buyers, order lines, shipments, tracking and available Whatnot labels. Label creation is not enabled in this workspace yet.</p>
+            @if($this->isManager())
+                <button type="button" wire:click="refreshShipments" wire:loading.attr="disabled" wire:target="refreshShipments" class="mt-4 min-h-11 rounded-xl bg-violet-600 px-4 font-semibold text-white hover:bg-violet-700 disabled:opacity-50">Refresh shipments from Whatnot</button>
+            @endif
             <div class="mt-4 grid gap-3 sm:grid-cols-[1fr_220px]">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-200">Search buyers, order IDs or tracking
                     <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search shipping records…" class="mt-1 min-h-11 w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />

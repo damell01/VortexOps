@@ -73,8 +73,8 @@ class FulfillmentReports extends Page
             ->whereNotNull('clocked_out_at')
             ->where('status', '!=', 'rejected')
             ->when(! $manager, fn ($query) => $query->where('user_id', $actorId))
-            ->when($manager, fn ($query) => $query->whereHas('user', fn ($users) =>
-                $users->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['fulfillment', 'fulfillment_admin']))))
+            ->when($manager, fn ($query) => $query->whereIn('user_id',
+                \App\Models\User::role(['fulfillment', 'fulfillment_admin'])->select('id')))
             ->get(['user_id', 'clocked_in_at', 'clocked_out_at', 'status', 'approved_minutes']);
         $clockedMinutes = (int) $clockEntries->sum(fn ($entry) =>
             $entry->status === 'approved' && $entry->approved_minutes !== null

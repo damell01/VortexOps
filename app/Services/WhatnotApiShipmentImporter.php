@@ -24,7 +24,7 @@ final class WhatnotApiShipmentImporter
         'created' => 'pending',
         'label_generated' => 'label_created',
         'dropped_off' => 'shipped',
-        'in_transit' => 'shipped',
+        'in_transit' => 'in_transit',
         'delivered' => 'delivered',
         'failed' => 'failed',
         'cancelled' => 'cancelled',
@@ -79,7 +79,7 @@ final class WhatnotApiShipmentImporter
             'box_height_in' => $dims['height_in'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
 
-        $rank = array_flip(array_keys(WhatnotShowOrder::shippingStatusLabels()));
+        $rank = ['pending' => 0, 'label_created' => 1, 'packed' => 2, 'shipped' => 3, 'in_transit' => 4, 'delivered' => 5, 'returned' => 6];
         $changed = 0;
         foreach ($orders as $order) {
             $update = array_filter($fields, fn ($v, $k) => (string) $order->{$k} !== (string) $v, ARRAY_FILTER_USE_BOTH);
@@ -98,16 +98,22 @@ final class WhatnotApiShipmentImporter
         }
 
         // One Shipment row per show and tracking number, as the scraper keeps them.
-        if (! $dryRun && filled($tracking['tracking_code'] ?? null)) {
+        if (! $dryRun) {
             foreach ($orders->groupBy('show_id') as $showId => $showOrders) {
                 $money = $shipment['seller_paid_shipping_cost'] ?? null;
                 $recipient = is_array($shipment['recipient'] ?? null) ? $shipment['recipient'] : [];
                 $insurance = is_array($shipment['insurance'] ?? null) ? $shipment['insurance'] : null;
-                Shipment::updateOrCreate(
-                    ['show_id' => $showId, 'tracking_number' => $tracking['tracking_code']],
+                $existing = Shipment::query()->where('show_id', $showId)
+                    ->where('raw_payload->shipment_id', $shipmentId)->first();
+                if (! $existing && filled($tracking['tracking_code'] ?? null)) {
+                    $existing = Shipment::query()->where('show_id', $showId)
+                        ->where('tracking_number', $tracking['tracking_code'])->first();
+                }
+                ($existing ?? new Shipment(['show_id' => $showId]))->fill(
                     array_filter([
                         // A link to the local order row (whatnot_show_orders.id), despite the name.
                         'whatnot_order_id' => $showOrders->first()->id,
+                        'tracking_number' => $tracking['tracking_code'] ?? null,
                         'buyer_username' => $recipient['username'] ?? null,
                         'item_count' => count($items),
                         'shipping_cost' => is_array($money) && ($money['currency'] ?? null) === 'USD' && is_numeric($money['amount'] ?? null) ? (float) $money['amount'] : null,
@@ -121,7 +127,7 @@ final class WhatnotApiShipmentImporter
                             'required_actions' => $shipment['required_actions'] ?? [], 'documents' => is_array($shipment['documents'] ?? null) ? $shipment['documents'] : [], 'shipment_url' => $shipment['url'] ?? null, 'dropoff_due' => $shipment['dropoff_due'] ?? null,
                             'replacement_shipment_id' => $shipment['replacement_shipment_id'] ?? null],
                     ], fn ($v) => $v !== null),
-                );
+                )->save();
             }
         }
 

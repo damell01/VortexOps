@@ -81,7 +81,7 @@ class FulfillmentReports extends Page
                 ? (int) $entry->approved_minutes
                 : (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at));
         $approvedMinutes = (int) $clockEntries->where('status', 'approved')
-            ->sum(fn ($entry) => (int) ($entry->approved_minutes ?? $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at)));
+            ->sum(fn ($entry) => $entry->payableMinutes());
         $hoursWorked = round($clockedMinutes / 60, 2);
         $approvedHours = round($approvedMinutes / 60, 2);
 

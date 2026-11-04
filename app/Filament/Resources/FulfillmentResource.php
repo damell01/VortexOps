@@ -181,6 +181,7 @@ class FulfillmentResource extends Resource
     {
         return [
             'index' => Pages\ListFulfillmentShows::route('/'),
+            'station' => Pages\StationBoard::route('/station/{record}'),
             'view' => Pages\ViewFulfillmentShow::route('/{record}'),
         ];
     }

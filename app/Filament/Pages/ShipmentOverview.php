@@ -27,6 +27,16 @@ class ShipmentOverview extends Page
         return 'filament.pages.shipment-overview';
     }
 
+    public function shipmentHistory(int $shipmentId): \Illuminate\Support\Collection
+    {
+        abort_unless(static::canAccess(), 403);
+        $shipment = Shipment::query()->findOrFail($shipmentId);
+        // A timeline is read-only and scoped to an existing shipment.
+        return DB::table('fulfillment_shipment_events')
+            ->where('shipment_id', $shipment->id)
+            ->orderByDesc('observed_at')->limit(50)->get();
+    }
+
     public function dashboardData(): array
     {
         abort_unless(static::canAccess(), 403);

@@ -1529,3 +1529,91 @@ html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--v
 .fi-input-wrp:focus-within{--tw-ring-color:rgba(124,58,237,.55)!important}
 /* Notifications (toasts): rounded and lifted. */
 .fi-no-notification{border-radius:var(--vx-radius,14px)!important;box-shadow:0 18px 40px -16px rgba(15,23,42,.35)!important}
+
+
+/* Vortex Ops UI refinement — shared visual tokens and non-destructive components.
+   Preserve existing top navigation, modal positioning, workflow styles and Filament behaviors. */
+:root {
+  --vx-radius-card: 14px;
+  --vx-radius-control: 10px;
+  --vx-focus-ring: rgba(124,58,237,.25);
+  --vx-shadow-card: 0 2px 8px rgba(25,20,55,.035);
+}
+.fi-page-content {
+  width: 100%;
+  min-width: 0;
+}
+.fi-section, .fi-ta, .fi-wi {
+  box-shadow: var(--vx-shadow-card);
+}
+.fi-section-header, .fi-ta-header {
+  min-width: 0;
+}
+.fi-header-heading {
+  text-wrap: balance;
+}
+.fi-btn, .fi-input-wrp, .fi-section, .fi-ta, .fi-wi {
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.fi-btn:focus-visible,
+.fi-icon-btn:focus-visible,
+.fi-tabs-item:focus-visible,
+.fi-ta-row a:focus-visible,
+.fi-input:focus-visible {
+  outline: 3px solid var(--vx-focus-ring);
+  outline-offset: 2px;
+}
+.fi-input-wrp:focus-within {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px var(--vx-focus-ring);
+}
+.fi-ta-content {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.fi-ta-table {
+  width: 100%;
+}
+.fi-ta-header-cell-label {
+  white-space: nowrap;
+}
+.fi-ta-cell {
+  vertical-align: middle;
+}
+.fi-badge {
+  letter-spacing: .005em;
+}
+.fi-section-content, .fi-ta-content, .fi-wi {
+  min-width: 0;
+}
+.fi-modal-window {
+  max-height: min(90dvh, 900px);
+}
+.fi-modal-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.dark {
+  --vx-focus-ring: rgba(167,139,250,.35);
+  --vx-shadow-card: 0 2px 8px rgba(0,0,0,.12);
+}
+@media (min-width: 1024px) {
+  .fi-page-content { padding: 20px 24px; gap: 18px; }
+  .fi-page { gap: 18px; }
+  .fi-ta-row { height: 48px; }
+  .fi-ta-header-cell { height: 38px; }
+  .fi-header-heading { font-size: clamp(21px, 2vw, 26px); }
+}
+@media (max-width: 1023px) {
+  .fi-page-content { padding: 14px 14px calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .fi-section, .fi-ta, .fi-wi { border-radius: 12px; }
+  .fi-header-heading { overflow-wrap: anywhere; }
+  .fi-btn, .fi-icon-btn, .fi-input-wrp { min-height: 44px; }
+  .fi-ta-content { overflow-x: visible; }
+  .fi-modal-window { max-height: 92dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fi-btn, .fi-input-wrp, .fi-section, .fi-ta, .fi-wi { transition: none; }
+}

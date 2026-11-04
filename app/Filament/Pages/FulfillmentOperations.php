@@ -68,6 +68,9 @@ class FulfillmentOperations extends Page
         $hoursPendingReview = \App\Models\TimeEntry::query()
             ->whereIn('user_id', \App\Models\User::role(['fulfillment', 'fulfillment_admin'])->select('id'))
             ->where('status', 'flagged')->count();
-        return compact('runs', 'packers', 'waiting', 'open', 'flags', 'stations', 'productivity', 'clockedIn', 'hoursPendingReview');
+        $missingPayRates = \App\Models\Streamer::query()->where('member_type', 'fulfillment')
+            ->where('status', 'active')->get()
+            ->filter(fn ($member) => $member->paidHourlyRate() === null)->count();
+        return compact('runs', 'packers', 'waiting', 'open', 'flags', 'stations', 'productivity', 'clockedIn', 'hoursPendingReview', 'missingPayRates');
     }
 }

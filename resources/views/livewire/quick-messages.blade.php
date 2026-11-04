@@ -13,16 +13,42 @@
             </header>
             <p class="vx-global-chat-note">Owner preview only · Employee delivery is off.</p>
             @if($creating && !$selected)
-                <form class="vx-global-chat-create" wire:submit="createConversation">
-                    <label>Conversation type<select wire:model.live="kind"><option value="direct">Direct message</option><option value="group">Group chat</option></select></label>
-                    @if($kind === 'group')<label>Group name<input wire:model="groupTitle" maxlength="120" required placeholder="Group name"></label>@endif
-                    <label>Find people<input wire:model.live.debounce.300ms="peopleSearch" placeholder="Search team members"></label>
-                    <fieldset><legend>{{ $kind === 'direct' ? 'Choose one person' : 'Choose group members' }}</legend>
-                        @foreach($people as $person)<label class="vx-global-chat-person"><input type="checkbox" wire:model="members" value="{{ $person->id }}">{{ $person->name }}</label>@endforeach
-                    </fieldset>
-                    @error('members')<p role="alert">{{ $message }}</p>@enderror
-                    @error('groupTitle')<p role="alert">{{ $message }}</p>@enderror
-                    <div class="vx-global-chat-create-actions"><button type="button" wire:click="$set('creating', false)">Cancel</button><button type="submit">Create conversation</button></div>
+                <form class="vx-global-chat-create vx-chat-imessage" wire:submit="createConversation">
+                    <div class="vx-chat-to"><span>To:</span><input wire:model.live.debounce.250ms="peopleSearch" placeholder="Name or search team members…" aria-label="Find recipients" autocomplete="off"></div>
+                    @if($selectedPeople->isNotEmpty())
+                        <div class="vx-chat-chips" aria-label="Selected recipients">
+                            @foreach($selectedPeople as $person)
+                                <button type="button" class="vx-chat-chip" wire:key="recipient-{{ $person->id }}" wire:click="$set('members', {{ json_encode(array_values(array_diff(array_map('intval', $members), [$person->id]))) }})">{{ $person->name }} <span aria-hidden="true">×</span></button>
+                            @endforeach
+                        </div>
+                    @endif
+                    <div class="vx-chat-recipient-list">
+                        @forelse($people as $person)
+                            <label class="vx-chat-recipient" wire:key="candidate-{{ $person->id }}">
+                                <span class="vx-chat-person-avatar">{{ mb_strtoupper(mb_substr($person->name, 0, 1)) }}</span>
+                                <span>{{ $person->name }}</span>
+                                <input type="checkbox" wire:model.live="members" value="{{ $person->id }}" aria-label="Add {{ $person->name }}">
+                            </label>
+                        @empty
+                            <p class="vx-global-chat-note">No matching team members.</p>
+                        @endforelse
+                    </div>
+                    <div class="vx-chat-role-select">
+                        <label for="vx-quick-role">Add everyone in a role</label>
+                        <select id="vx-quick-role" wire:model.live="selectedRoles" multiple size="3" aria-label="Add all users in selected roles">
+                            @foreach($roles as $role)
+                                <option value="{{ $role->name }}">{{ str($role->name)->replace('_', ' ')->title() }}</option>
+                            @endforeach
+                        </select>
+                        <small>Choose a role to add its members. You can remove individual people above.</small>
+                    </div>
+                    @if(count($members) > 1)
+                        <label class="vx-chat-group-name">Group name <span>(optional)</span><input wire:model="groupTitle" maxlength="120" placeholder="e.g. Show Operations"></label>
+                    @endif
+                    <p class="vx-chat-type-hint">{{ count($members) === 1 ? 'Direct message · 1 recipient' : (count($members) > 1 ? 'Group conversation · '.count($members).' recipients' : 'Select someone to start a message') }}</p>
+                    @error('members')<p class="vx-chat-error" role="alert">{{ $message }}</p>@enderror
+                    @error('groupTitle')<p class="vx-chat-error" role="alert">{{ $message }}</p>@enderror
+                    <div class="vx-global-chat-create-actions"><button type="button" wire:click="$set('creating', false)">Cancel</button><button type="submit" @disabled(count($members) === 0)>Start chat <x-filament::icon icon="heroicon-o-arrow-right" /></button></div>
                 </form>
             @elseif($selected)
                 <div class="vx-global-chat-history" wire:poll.visible.15s>

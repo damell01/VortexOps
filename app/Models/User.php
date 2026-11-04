@@ -21,7 +21,6 @@ class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, LogsActivity, TwoFactorAuthenticatable;
-    use \Chatify\Traits\InteractsWithChatify;
     use HasRoles {
         hasPermissionTo as private spatieHasPermissionTo;
         assignRole as private spatieAssignRole;

@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         SyncWhatnotReporting::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(\App\Http\Middleware\GuardChatifyPreview::class);
         $middleware->web(prepend: [\App\Http\Middleware\PerformanceHeaders::class], append: [\App\Http\Middleware\RequirePasswordChange::class]);
         $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
         $middleware->alias([

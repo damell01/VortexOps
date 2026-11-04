@@ -18,7 +18,7 @@
                     @if($kind === 'group')<label>Group name<input wire:model="groupTitle" maxlength="120" required placeholder="Group name"></label>@endif
                     <label>Find people<input wire:model.live.debounce.300ms="peopleSearch" placeholder="Search team members"></label>
                     <fieldset><legend>{{ $kind === 'direct' ? 'Choose one person' : 'Choose group members' }}</legend>
-                        @foreach($people as $person)<label class="vx-global-chat-person"><input type="{{ $kind === 'direct' ? 'radio' : 'checkbox' }}" wire:model="members" value="{{ $person->id }}">{{ $person->name }}</label>@endforeach
+                        @foreach($people as $person)<label class="vx-global-chat-person"><input type="checkbox" wire:model="members" value="{{ $person->id }}">{{ $person->name }}</label>@endforeach
                     </fieldset>
                     @error('members')<p role="alert">{{ $message }}</p>@enderror
                     @error('groupTitle')<p role="alert">{{ $message }}</p>@enderror

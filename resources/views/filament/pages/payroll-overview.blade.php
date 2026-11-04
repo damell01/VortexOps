@@ -73,6 +73,182 @@
         <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
     </div>
 
+    @php
+        $fulfillmentMembers = \App\Models\Streamer::query()->inBusinessContext()
+            ->where('member_type', 'fulfillment')->with('user')->orderBy('name')->get();
+    @endphp
+    <section class="vxw-card" style="margin-bottom:18px" aria-label="Fulfillment members">
+        <div class="vxw-card-head">
+            <div><h3 class="vxw-h2">Fulfillment members</h3><p class="vxw-meta">Team profiles, hourly compensation and existing timekeeping payroll.</p></div>
+            <a class="vxw-link" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}">Manage rates &amp; members</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead><tr class="border-b border-gray-200 dark:border-gray-700"><th class="p-3">Employee</th><th class="p-3">Role</th><th class="p-3">Hourly rate</th><th class="p-3">Status</th></tr></thead>
+                <tbody>
+                @forelse($fulfillmentMembers as $member)
+                    <tr class="border-b border-gray-100 dark:border-gray-800">
+                        <td class="p-3 font-semibold">{{ $member->name }}</td>
+                        <td class="p-3">Fulfillment</td>
+                        <td class="p-3">{{ $member->paidHourlyRate() === null ? 'Not configured' : '
+        {{-- Work queue --}}
+        <section class="vxw-card" aria-labelledby="vxw-queue-heading">
+            <nav class="vxw-pipeline" aria-label="Filter shows by payroll stage">
+                @foreach($stages as $key => [$label, $count, $attention])
+                    <button type="button" wire:click="setWorkflow('{{ $key }}')" wire:loading.attr="disabled" wire:target="setWorkflow"
+                        @class(['vxw-tab', 'vxw-tab--attn' => $attention && $count > 0])
+                        aria-current="{{ $activeWorkflow === $key ? 'true' : 'false' }}">
+                        <span class="vxw-tab-label">{{ $label }}</span>
+                        <span class="vxw-tab-count">{{ $count }}</span>
+                    </button>
+                @endforeach
+            </nav>
+
+            <div class="vxw-card-head" style="border-top:1px solid var(--vxw-border)">
+                <div>
+                    <h3 id="vxw-queue-heading" class="vxw-h2">{{ $stages[$activeWorkflow][0] ?? 'Shows' }}</h3>
+                    <p class="vxw-sub">Shows that need you are listed first. Upcoming shows stay in the period and join the queue after they air.</p>
+                </div>
+                @if($activeWorkflow !== 'all')
+                    <button type="button" class="vxw-btn vxw-btn--ghost vxw-btn--sm" wire:click="setWorkflow('all')" wire:loading.attr="disabled" wire:target="setWorkflow">Clear filter</button>
+                @endif
+            </div>
+
+            <div class="vx-payroll-search"><input type="search" wire:model.live.debounce.300ms="queue_search" placeholder="Search shows or streamers…" aria-label="Search payroll shows"><span class="vxw-meta">{{ $totalFilteredShows }} matching shows</span></div>
+            <div class="vxw-rows vx-payroll-show-cards" wire:loading.class="opacity-60" wire:target="setWorkflow,goToQueuePage" style="transition:opacity 150ms">
+                @forelse($shows as $show)
+                    @php
+                        $state = $show->getAttribute('workflow_state');
+                        $pnl = $show->getAttribute('pnl_summary');
+                        $probs = $show->getAttribute('payrun_problems') ?? [];
+                        $resolution = $this->showResolution($show);
+                        $key = $state['key'] ?? '';
+                        $due = ! $show->show_date || ! $show->show_date->isFuture();
+                        if ($show->show_date?->isToday() && $show->start_time?->isFuture()) $due = false;
+                        $blockers = array_values(array_unique(array_merge($probs, $state['blockers'] ?? [])));
+                        $tone = ! $due ? '' : ($blockers !== [] ? 'warn' : (in_array($key, ['paid', 'payroll_ready'], true) ? 'ok' : ($key === 'payroll' ? 'info' : '')));
+                        $nextText = ! $due
+                            ? 'Upcoming — needs a streamer report after it airs.'
+                            : ($blockers[0] ?? ($state['description'] ?? 'Ready for payroll review.'));
+                        $margin = (float) ($pnl['margin'] ?? 0);
+                        $needsPaySetup = str_contains(strtolower($nextText), 'payment structure') || str_contains(strtolower($nextText), 'compensation') || str_contains(strtolower($nextText), 'pay rate');
+                    @endphp
+                    <article wire:key="payroll-show-{{ $show->id }}" @class(['vxw-row', 'vxw-row--attn' => $due && $blockers !== [], 'vxw-row--muted' => ! $due])>
+                        <div class="vxw-row-main">
+                            <div class="vxw-row-line">
+                                <span class="vxw-pill vxw-pill--dot {{ $tone ? 'vxw-pill--' . $tone : '' }}">{{ $due ? ($state['label'] ?? ucfirst(str_replace('_', ' ', $key))) : 'Upcoming' }}</span>
+                                <span>{{ $show->show_date?->format('D, M j') }}</span>
+                                <span>{{ $show->channel?->name ?? 'No channel' }}</span>
+                            </div>
+                            <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}" class="vxw-row-title" title="{{ $show->title }}">{{ $show->title ?: 'Show #' . $show->id }}</a>
+                            <div class="vxw-row-line">
+                                <span class="inline-flex items-center gap-1.5"><x-filament::icon icon="heroicon-m-user" class="h-3.5 w-3.5" />{{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer assigned' }}</span>
+                            </div>
+                            <div class="vxw-next">
+                                @if($due && $blockers !== [])<strong class="vxw-tone-warn">Next:</strong>@else<strong>Next:</strong>@endif
+                                {{ $nextText }}
+                                @if($due && count($blockers) > 1)
+                                    <details class="vxw-disclose mt-1">
+                                        <summary class="vxw-link inline-flex items-center gap-1 text-[12px]">{{ count($blockers) - 1 }} more {{ \Illuminate\Support\Str::plural('issue', count($blockers) - 1) }} <x-filament::icon icon="heroicon-m-chevron-down" class="vxw-chevron h-4 w-4" /></summary>
+                                        <ul class="vxw-issues mt-2">@foreach(array_slice($blockers, 1) as $blocker)<li>{{ $blocker }}</li>@endforeach</ul>
+                                    </details>
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="vxw-row-side">
+                            <div class="vxw-figs">
+                                <div class="vxw-fig"><div class="vxw-fig-label">Sales</div><div class="vxw-fig-value">{{ $money($pnl['gross'] ?? 0, 0) }}</div></div>
+                                <div class="vxw-fig"><div class="vxw-fig-label">Payroll</div><div class="vxw-fig-value">{{ $money($pnl['payouts'] ?? 0, 0) }}</div></div>
+                                <div class="vxw-fig"><div class="vxw-fig-label">Net</div><div class="vxw-fig-value {{ $margin < 0 ? 'vxw-tone-bad' : '' }}">{{ $money($margin, 0) }}</div></div>
+                            </div>
+                            <div class="w-full sm:w-auto">
+                                @if($show->streamers->isEmpty())
+                                    <select class="vxw-select" style="min-width:180px" aria-label="Assign a streamer to {{ $show->title }}"
+                                        wire:change="assignStreamerToShow({{ $show->id }}, $event.target.value)">
+                                        <option value="">Assign streamer…</option>
+                                        @foreach($this->streamerOptions() as $streamerId => $streamerName)<option value="{{ $streamerId }}">{{ $streamerName }}</option>@endforeach
+                                    </select>
+                                @elseif($show->streamerLogEntry?->isSubmitted() && $show->streamerLogEntry?->approval_status !== 'approved')
+                                    <div class="flex gap-2">
+                                        <a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerLogResource::getUrl('edit', ['record' => $show->streamerLogEntry]) }}">Open</a>
+                                        <button type="button" class="vxw-btn vxw-btn--success vxw-btn--sm"
+                                            wire:click="approveReportInline({{ $show->id }})" wire:confirm="Approve this streamer report?"
+                                            wire:loading.attr="disabled" wire:target="approveReportInline({{ $show->id }})">
+                                            <span wire:loading wire:target="approveReportInline({{ $show->id }})" class="vxw-spin" aria-hidden="true"></span>
+                                            Approve
+                                        </button>
+                                    </div>
+                                @elseif($needsPaySetup)
+                                    <a class="vxw-btn vxw-btn--sm" href="{{ \App\Filament\Resources\StreamerResource::getUrl('edit', ['record' => $show->streamers->first()]) }}">Fix pay setup</a>
+                                @else
+                                    <a class="vxw-btn vxw-btn--sm {{ in_array($resolution['tone'], ['primary', 'success'], true) ? 'vxw-btn--primary' : '' }}" href="{{ $resolution['url'] }}">{{ $resolution['label'] }}</a>
+                                @endif
+                            </div>
+                        </div>
+                    </article>
+                @empty
+                    <div class="vxw-empty">
+                        <x-filament::icon icon="heroicon-o-check-circle" />
+                        <div class="vxw-empty-title">{{ $activeWorkflow === 'all' ? 'No shows in this pay period' : 'Nothing here' }}</div>
+                        <div class="vxw-empty-text">{{ $activeWorkflow === 'all' ? 'Shows dated inside this pay period appear here as they are scheduled or imported.' : 'No show in this period is at this stage right now.' }}</div>
+                    </div>
+                @endforelse
+            </div>
+
+            @if($totalFilteredShows > 0)
+                <div class="vxw-card-foot">
+                    <span class="vxw-meta">{{ (($page - 1) * $perPage) + 1 }}–{{ min($page * $perPage, $totalFilteredShows) }} of {{ $totalFilteredShows }}</span>
+                    @if($lastPage > 1)
+                        <nav class="vxw-pager" aria-label="Show pages">
+                            <button type="button" class="vxw-page" wire:click="goToQueuePage({{ $page - 1 }})" wire:loading.attr="disabled" wire:target="goToQueuePage" @disabled($page <= 1) aria-label="Previous page">‹</button>
+                            @for($p = max(1, $page - 1); $p <= min($lastPage, $page + 1); $p++)
+                                <button type="button" @class(['vxw-page', 'is-active' => $p === $page]) wire:click="goToQueuePage({{ $p }})" @if($p === $page) aria-current="page" @endif>{{ $p }}</button>
+                            @endfor
+                            <button type="button" class="vxw-page" wire:click="goToQueuePage({{ $page + 1 }})" wire:loading.attr="disabled" wire:target="goToQueuePage" @disabled($page >= $lastPage) aria-label="Next page">›</button>
+                        </nav>
+                    @endif
+                </div>
+            @endif
+        </section>
+
+        <aside class="vxw-aside">
+            <section class="vxw-card">
+                <div class="vxw-card-head">
+                    <h3 class="vxw-h2">Recent pay runs</h3>
+                    <a class="vxw-link text-[13px]" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}">All</a>
+                </div>
+                <div class="vxw-rows">
+                    @forelse($recent as $run)
+                        <a href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('view', ['record' => $run]) }}" class="vxw-row" style="grid-template-columns:minmax(0,1fr) auto;text-decoration:none;padding:12px 18px">
+                            <div class="vxw-row-main">
+                                <span class="text-[13.5px] font-semibold text-[var(--vxw-text)]">{{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}</span>
+                                <span class="vxw-meta">{{ $run->payouts_count }} {{ \Illuminate\Support\Str::plural('line', $run->payouts_count) }}@unless(\App\Support\BusinessContext::isScoped()) · {{ $run->businessLabel() }}@endunless</span>
+                            </div>
+                            <div class="grid justify-items-end gap-1">
+                                <span class="vxw-num text-[13.5px] font-semibold text-[var(--vxw-text)]">{{ $money($run->total_payout) }}</span>
+                                <span class="vxw-pill vxw-pill--{{ $runTone($run->status) }}" style="height:20px;font-size:11px">{{ $statusLabels[$run->status] ?? ucfirst($run->status) }}</span>
+                            </div>
+                        </a>
+                    @empty
+                        <div class="vxw-empty" style="padding:24px 18px"><div class="vxw-empty-text">No pay runs yet.</div></div>
+                    @endforelse
+                </div>
+            </section>
+        </aside>
+    </div>
+</div>
+</x-filament-panels::page>
+.number_format($member->paidHourlyRate(), 2) }}</td>
+                        <td class="p-3">{{ ucfirst($member->status ?? 'active') }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="p-5 text-center opacity-70">No fulfillment payroll profiles yet. Add employees through the existing team profiles.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
     <div class="vxw-split">
         {{-- Work queue --}}
         <section class="vxw-card" aria-labelledby="vxw-queue-heading">

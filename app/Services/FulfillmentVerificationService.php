@@ -54,7 +54,14 @@ final class FulfillmentVerificationService {
     ->whereIn('whatnot_order_id',array_map('strval',$ids))
     ->where('inventory_item_id',$product->id)->exists();
    $result=$matches?'matched':'unmatched';
-   if (!$matches) throw ValidationException::withMessages(['barcode'=>'This product is not linked to an order for this buyer. No verification was recorded.']);
+   if (!$matches) {
+    DB::table('fulfillment_verifications')->insert([
+     'run_id'=>$runId,'buyer_id'=>$buyerId,'product_id'=>$product?->id,
+     'verified_by'=>$actor->id,'barcode'=>$barcode,'result'=>'unmatched',
+     'quantity'=>0,'created_at'=>now(),'updated_at'=>now(),
+    ]);
+    throw ValidationException::withMessages(['barcode'=>'Wrong item for this buyer. Scan rejected and recorded for review.']);
+   }
    if ($matches) {
     $expected=(int) \App\Models\WhatnotShowOrder::query()->where('show_id',$run->show_id)
      ->whereIn('whatnot_order_id',array_map('strval',$ids))->where('inventory_item_id',$product->id)->sum('quantity');

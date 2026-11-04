@@ -38,7 +38,7 @@ final class FulfillmentVerificationService {
  public function verify(int $runId,int $buyerId,string $barcode,User $actor): int {
   $barcode=trim($barcode);
   if ($barcode==='' || mb_strlen($barcode)>128) throw ValidationException::withMessages(['barcode'=>'Scan a valid barcode.']);
-  return DB::transaction(function()use($runId,$buyerId,$barcode,$actor) {
+  $verificationId = DB::transaction(function()use($runId,$buyerId,$barcode,$actor) {
    $run=DB::table('fulfillment_runs')->where('id',$runId)->lockForUpdate()->first();
    $buyer=DB::table('fulfillment_run_buyers')->where('id',$buyerId)->where('run_id',$runId)->first();
    abort_unless($run && $run->status==='packing' && $buyer,404);
@@ -60,7 +60,7 @@ final class FulfillmentVerificationService {
      'verified_by'=>$actor->id,'barcode'=>$barcode,'result'=>'unmatched',
      'quantity'=>0,'created_at'=>now(),'updated_at'=>now(),
     ]);
-    throw ValidationException::withMessages(['barcode'=>'Wrong item for this buyer. Scan rejected and recorded for review.']);
+    return 0;
    }
    if ($matches) {
     $expected=(int) \App\Models\WhatnotShowOrder::query()->where('show_id',$run->show_id)
@@ -74,5 +74,7 @@ final class FulfillmentVerificationService {
     'result'=>$result,'quantity'=>1,'created_at'=>now(),'updated_at'=>now()
    ]);
   });
+  if ($verificationId === 0) throw ValidationException::withMessages(['barcode'=>'Wrong item for this buyer. Scan rejected and recorded for review.']);
+  return $verificationId;
  }
 }

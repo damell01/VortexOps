@@ -236,7 +236,9 @@ class DashboardImproved extends Dashboard
             ];
         } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $data['roleMode'] = 'fulfillment';
-            $showsQuery = Show::query()->inChannelContext()->whereNotIn('status', ['closed', 'cancelled']);
+            // Match the fulfillment resource's approved-report visibility gate.
+            $showsQuery = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()
+                ->whereNotIn('shows.status', ['closed', 'cancelled']);
             if (! $user?->isFulfillmentAdmin()) {
                 $showsQuery->whereHas('fulfillmentUsers', fn ($q) => $q->where('users.id', $user->id));
             }

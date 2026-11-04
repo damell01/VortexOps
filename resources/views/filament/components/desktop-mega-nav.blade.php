@@ -96,6 +96,27 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
 
+// Dedicated fulfillment navigation for fulfillment-only roles.
+// The route registry below still enforces canAccess and NavVisibility.
+$fulfillmentOnly=(bool) (!$assistantOnly && !$streamerOnly && !$user?->isOwner() && !$user?->isAdmin()
+    && ($user?->isFulfillment() || $user?->isFulfillmentAdmin()));
+if ($fulfillmentOnly) {
+    $homeLabel = $user?->isFulfillmentAdmin() ? 'Command Center' : 'My Workspace';
+    $groups = [];
+    if (\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) {
+        $groups['Fulfillment'] = [
+            ['Packing Queue', \App\Filament\Resources\FulfillmentResource::getUrl('index'), 'Daily work', 'heroicon-o-archive-box'],
+            ...(\App\Filament\Pages\FulfillmentSchedule::canAccess() ? [['Team Schedule', \App\Filament\Pages\FulfillmentSchedule::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-calendar-days']] : []),
+            ...(\App\Filament\Pages\FulfillmentOperations::canAccess() ? [['Live Operations', \App\Filament\Pages\FulfillmentOperations::getUrl(panel:'admin'), 'Management', 'heroicon-o-chart-bar-square']] : []),
+            ...(\App\Filament\Pages\ShipmentOverview::canAccess() ? [['Shipment Tracking', \App\Filament\Pages\ShipmentOverview::getUrl(panel:'admin'), 'Management', 'heroicon-o-truck']] : []),
+        ];
+    }
+    if (\App\Filament\Pages\Timekeeping::canAccess()) {
+        $groups['Timekeeping'] = [['My Timekeeping', \App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]];
+    }
+    $directGroups = ['Timekeeping'];
+}
+
 // The route registry is the source of truth for each link's access.
 foreach ($groups as $label => $links) {
     $groups[$label] = array_values(array_filter($links, function ($link) use ($user) {

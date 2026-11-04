@@ -19,9 +19,10 @@ class UserTeamProfileService
         // eager-loaded and lazy loading is off outside production.
         $user->loadMissing(['roles', 'streamer']);
 
-        $memberType = $user->hasRole('streamer')
-            ? 'streamer'
-            : ($user->hasRole('streamer_assistant') ? 'assistant' : ($user->hasRole('fulfillment') ? 'fulfillment' : null));
+        $memberType = $user->hasAnyRole(['fulfillment', 'fulfillment_admin'])
+            ? 'fulfillment'
+            : ($user->hasRole('streamer_assistant') ? 'assistant'
+                : ($user->hasRole('streamer') ? 'streamer' : null));
 
         // Every login has a payroll identity, even without an operational role.
         // Do not overwrite existing pay settings when roles change.

@@ -30,6 +30,7 @@
                         <div class="vx-global-chat-bubble {{ $message->sender_id === auth()->id() ? 'is-own' : '' }}" wire:key="quick-message-{{ $message->id }}">
                             <small>{{ $message->sender?->name ?? 'Former member' }} · {{ $message->created_at->format('g:i A') }}</small>
                             <p>{{ $message->body }}</p>
+                            @foreach($message->attachments as $file)<a class="vx-global-chat-file" href="{{ route('communications.attachment', $file->id) }}"><x-filament::icon icon="heroicon-o-document-arrow-down" /> {{ $file->name }}</a>@endforeach
                         </div>
                     @empty
                         <p class="vx-global-chat-note">No messages yet. Start the conversation below.</p>

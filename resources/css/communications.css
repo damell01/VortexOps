@@ -162,3 +162,26 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vxc-2026 .vxc-editor-main,.vxc-2026 .vxc-editor-preview{min-width:0}
 .vxc-2026 .vxc-editor-main label,.vxc-2026 .vxc-editor-main legend{font-size:12px;font-weight:700}
 @media(max-width:767px){.vxc-2026 .vxc-info-toggle{padding:7px}.vxc-2026 .vxc-conversation-info ul{grid-template-columns:1fr}}
+
+
+/* Inline quick-message composer and conversation history. */
+.vx-global-chat-panel header{gap:10px}
+.vx-global-chat-panel header strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vx-global-chat-panel header button{flex:none}
+.vx-global-chat-list{max-height:340px;overflow-y:auto}
+.vx-global-chat-thread{width:100%;text-align:left}
+.vx-global-chat-history{display:flex;flex-direction:column;gap:9px;padding:13px;max-height:min(42dvh,360px);min-height:160px;overflow-y:auto;overscroll-behavior:contain}
+.vx-global-chat-bubble{align-self:flex-start;max-width:90%;border:1px solid #e7e0ef;border-radius:13px;padding:9px 11px;background:#f4f1f9;overflow-wrap:anywhere}
+.vx-global-chat-bubble.is-own{align-self:flex-end;background:#ede0ff;border-color:#d8baff}
+.vx-global-chat-bubble small{display:block;font-size:10px;color:#70657e;margin-bottom:3px}
+.vx-global-chat-bubble p{font-size:12px;line-height:1.5;white-space:pre-wrap}
+.vx-global-chat-compose{display:flex;gap:8px;align-items:end;padding:12px;border-top:1px solid #e9e4f0}
+.vx-global-chat-compose textarea{flex:1;min-width:0;resize:vertical;max-height:120px;border:1px solid #ddd4e9;border-radius:10px;padding:9px 11px;background:#fff;color:#20172c;font-size:12px}
+.vx-global-chat-compose button{display:grid;place-items:center;flex:none;width:39px;height:39px;border-radius:11px;background:#7427d4;color:white}
+.vx-global-chat-compose button svg{width:19px;height:19px}
+.vx-global-chat-compose [role=alert]{font-size:11px;color:#dc2626}
+.dark .vx-global-chat-bubble{background:#272039;border-color:#443355;color:#fff}
+.dark .vx-global-chat-bubble.is-own{background:#5d2a9d;border-color:#864ac8}
+.dark .vx-global-chat-bubble small{color:#d1c1e0}
+.dark .vx-global-chat-compose{border-color:#393049}
+.dark .vx-global-chat-compose textarea{background:#252037;border-color:#534064;color:#fff}

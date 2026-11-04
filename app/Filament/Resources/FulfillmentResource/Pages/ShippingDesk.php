@@ -6,6 +6,9 @@ use App\Filament\Resources\FulfillmentResource;
 use App\Models\Shipment;
 use App\Models\Show;
 use App\Models\WhatnotShowOrder;
+use App\Services\FulfillmentShipmentRefreshService;
+use Filament\Notifications\Notification;
+use Illuminate\Validation\ValidationException;
 use Filament\Resources\Pages\Page;
 
 class ShippingDesk extends Page
@@ -28,6 +31,29 @@ class ShippingDesk extends Page
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($record);
         abort_unless(FulfillmentResource::canView($show), 403);
         $this->record = (int) $show->id;
+    }
+
+    public function refreshShipments(): void
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+        $actor = auth()->user();
+        abort_unless($actor && ($actor->isOwner() || $actor->isAdmin() || $actor->isFulfillmentAdmin()), 403);
+        try {
+            $result = app(FulfillmentShipmentRefreshService::class)->refresh($show);
+            Notification::make()->title('Shipment refresh complete')
+                ->body($result['matched'].' matching shipments checked; '.$result['updated'].' updated.')
+                ->success()->send();
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Shipment refresh unavailable')
+                ->body(collect($exception->errors())->flatten()->first() ?: 'Check API connection and permissions.')
+                ->warning()->send();
+        } catch (\\Throwable $exception) {
+            report($exception);
+            Notification::make()->title('Shipment refresh failed')
+                ->body('Review the Whatnot API connection and application logs.')
+                ->danger()->send();
+        }
     }
 
     public function getTitle(): string

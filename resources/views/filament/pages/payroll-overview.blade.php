@@ -7,6 +7,7 @@
     $workflow = $this->workflowBreakdown();
     $progress = $this->periodProgress();
     $tips = $this->periodTips();
+    $fulfillmentHandoffs = \Illuminate\Support\Facades\DB::table('fulfillment_runs')->whereNotNull('payroll_handoff_at')->orderByDesc('payroll_handoff_at')->limit(30)->get();
 
     $filteredShows = $this->currentWeekShows();
     $perPage = 12;

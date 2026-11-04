@@ -36,6 +36,27 @@
                 </div>
             @endforeach
         </div>
+        <section class="rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/30">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 class="font-bold text-violet-950 dark:text-violet-100">Bulk label preparation</h3>
+                    <p class="text-sm text-violet-800 dark:text-violet-200">Select shipments below, then prepare a print batch. Only existing Whatnot label documents are used.</p>
+                </div>
+                <button type="button" wire:click="preparePrintBatch" wire:loading.attr="disabled" wire:target="preparePrintBatch" class="min-h-11 rounded-xl bg-violet-700 px-4 font-semibold text-white hover:bg-violet-800">Prepare selected labels ({{ count($selectedShipmentIds) }})</button>
+            </div>
+            @error('selectedShipmentIds') <p class="mt-2 text-sm text-red-700 dark:text-red-300">{{ $message }}</p> @enderror
+            @if(count($printDocuments))
+                <div class="mt-4 rounded-xl border border-violet-200 bg-white p-3 dark:border-violet-800 dark:bg-gray-900">
+                    <p class="mb-2 text-sm font-semibold">Prepared documents — open and print each label</p>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($printDocuments as $document)
+                            <a href="{{ $document['url'] }}" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-10 items-center rounded-lg border border-violet-300 px-3 text-sm font-semibold text-violet-800 dark:text-violet-200">{{ $loop->iteration }}. {{ $document['buyer'] }}</a>
+                        @endforeach
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500">Browser printing is manual. Preparing a batch does not mark labels as printed.</p>
+                </div>
+            @endif
+        </section>
         <p class="text-xs text-gray-500">Last shipment sync: {{ $lastSynced ? \Illuminate\Support\Carbon::parse($lastSynced)->diffForHumans() : 'Unknown' }} · Screen refreshes every 30 seconds; actual updates depend on Whatnot synchronization.</p>
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ $buyers->count() }} matching buyers · data from existing synced orders and shipments</p>
         @forelse($buyers as $buyer)
@@ -48,6 +69,12 @@
                     <div>
                         <h4 class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Order items</h4>
                         @forelse($buyer['orders'] as $order)
+                            @if($label)
+                                <label class="mb-2 flex cursor-pointer items-center gap-3 rounded-lg bg-violet-50 p-2 text-sm font-medium text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+                                    <input type="checkbox" wire:model.live="selectedShipmentIds" value="{{ $shipment->id }}" class="rounded border-violet-300 text-violet-700" />
+                                    Include this shipment in label batch
+                                </label>
+                            @endif
                             <div class="mb-2 rounded-xl border border-gray-200 p-3 text-sm dark:border-gray-700">
                                 <p class="font-semibold text-gray-950 dark:text-white">{{ $order->item_name ?: 'Order item' }} <span class="font-normal text-gray-500">× {{ $order->quantity ?: 1 }}</span></p>
                                 <p class="mt-1 break-all text-xs text-gray-500">Order {{ $order->whatnot_order_id ?: 'ID unavailable' }}</p>

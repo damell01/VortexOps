@@ -6,7 +6,14 @@
         <button type="button" wire:click="changeTab('messages')" aria-pressed="{{ $tab === 'messages' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" />Messages @if ($unreadTotal)<span class="vxc-unread">{{ $unreadTotal }}</span>@endif</button>
         <button type="button" wire:click="changeTab('announcements')" aria-pressed="{{ $tab === 'announcements' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-megaphone" />Announcements</button>
     </div>
-    @if ($tab === 'messages')
+    @if ($tab === 'messages' && config('chatify-preview.enabled', false))
+        <section class="vxc-chatify-entry" aria-label="Team messages">
+            <span class="vxc-chatify-icon"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span>
+            <h2>Team messages</h2>
+            <p>Open the full messenger for direct messages, group chats, attachments and conversation search.</p>
+            <a class="vxc-chatify-open" href="{{ url('/chatify') }}">Open messenger <x-filament::icon icon="heroicon-o-arrow-up-right" /></a>
+        </section>
+    @elseif ($tab === 'messages')
         <div class="vxc-inbox" wire:poll.visible.15s>
             <section class="vxc-threads" aria-label="Conversations">
                 <div class="vxc-section-head"><h2>Inbox @if ($unreadTotal)<span class="vxc-unread">{{ $unreadTotal }}</span>@endif</h2><x-filament::button size="sm" icon="heroicon-o-pencil-square" x-on:click="$dispatch('open-modal', {id: 'communication-new-chat'})" aria-label="New conversation">New chat</x-filament::button></div>

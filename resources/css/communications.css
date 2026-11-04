@@ -106,3 +106,37 @@
 .vxc-2026 .vxc-quick-all{margin:12px;width:calc(100% - 24px)}
 @media(max-width:767px){.vxc-2026 .vxc-hero{padding:15px;flex-wrap:wrap}.vxc-2026 .vxc-hero-icon{width:42px;height:42px}.vxc-2026 .vxc-hero-action{margin-left:0;width:100%}.vxc-2026 .vxc-quick-launch{top:72px;right:14px;bottom:auto}.vxc-2026 .vxc-quick-button{padding:9px 12px;min-height:40px}.vxc-2026 .vxc-quick-button span:not(.vxc-quick-count){display:none}.vxc-2026 .vxc-quick-panel{top:calc(100% + 10px);bottom:auto}.vxc-2026 .vxc-inbox{grid-template-columns:1fr}.vxc-2026 .vxc-threads{border-right:0}.vxc-2026 .vxc-history{max-height:50dvh}}
 @media(prefers-reduced-motion:reduce){.vxc-2026 .vxc-quick-panel{transition:none!important}}
+
+
+/* Respect Filament theme selection: light stays light, dark stays dark. */
+html:not(.dark) .vxc-2026{--vxc-accent:#6d28d9;--vxc-soft:#f2ebff;--vxc-line:#e4dff0;--vxc-surface:#fff;--vxc-text:#1f1930;--vxc-muted:#655f76}
+html:not(.dark) .vxc-2026 .vxc-preview{background:#f7f2ff;border-color:#e5d7fb}
+html:not(.dark) .vxc-2026 .vxc-preview p{color:#655f76}
+html:not(.dark) .vxc-2026 .vxc-tabs{border-color:#e4dff0}
+html:not(.dark) .vxc-2026 .vxc-inbox,html:not(.dark) .vxc-2026 .vxc-announcements{background:#fff;border-color:#e4dff0;box-shadow:0 4px 20px rgba(43,27,72,.07)}
+html:not(.dark) .vxc-2026 .vxc-thread.is-selected,html:not(.dark) .vxc-2026 .vxc-thread:hover{background:#f5efff}
+html:not(.dark) .vxc-2026 .vxc-composer{background:#faf9fd}
+html:not(.dark) .vxc-2026 input:not([type=checkbox]):not([type=radio]),html:not(.dark) .vxc-2026 textarea{background:#fff;border-color:#ddd6ed;color:#1f1930}
+html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
+.vx-global-chat{position:fixed;right:22px;bottom:22px;z-index:45;font-family:inherit}
+.vx-global-chat-toggle{display:flex;align-items:center;gap:9px;padding:12px 16px;border:1px solid #8e40e8;border-radius:28px;background:linear-gradient(120deg,#6225c2,#9825e7);color:#fff;font-size:13px;font-weight:750;box-shadow:0 8px 28px rgba(84,28,161,.3)}
+.vx-global-chat-toggle svg{width:20px;height:20px}
+.vx-global-chat-toggle b,.vx-global-chat-thread>b{border-radius:20px;background:#ed3171;color:#fff;padding:2px 7px;font-size:11px}
+.vx-global-chat-panel{position:absolute;right:0;bottom:calc(100% + 12px);width:min(360px,calc(100vw - 28px));max-height:min(72dvh,520px);overflow-y:auto;background:#fff;color:#211831;border:1px solid #ddd2ef;border-radius:17px;box-shadow:0 18px 55px rgba(29,18,53,.24)}
+.vx-global-chat-panel header{display:flex;justify-content:space-between;align-items:center;padding:15px;border-bottom:1px solid #e9e4f0}
+.vx-global-chat-panel header svg{width:18px;height:18px}
+.vx-global-chat-note{font-size:11px;color:#6b6377;padding:10px 15px}
+.vx-global-chat-thread{display:flex;gap:10px;align-items:center;padding:11px 15px;border-top:1px solid #f0ecf4}
+.vx-global-chat-thread:hover{background:#f7f0ff}
+.vx-global-chat-avatar{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:12px;background:#eee3ff;color:#7026b5}
+.vx-global-chat-avatar svg{width:18px;height:18px}
+.vx-global-chat-thread>span:nth-child(2){flex:1;min-width:0}
+.vx-global-chat-thread strong,.vx-global-chat-thread small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-global-chat-thread strong{font-size:12px}.vx-global-chat-thread small{font-size:11px;color:#766e82}
+.vx-global-chat-all{display:block;text-align:center;margin:12px;padding:11px;border-radius:10px;background:#7229ce;color:#fff;font-size:12px;font-weight:750}
+.dark .vx-global-chat-panel{background:#171426;color:#f7f3ff;border-color:#5c417d}
+.dark .vx-global-chat-panel header,.dark .vx-global-chat-thread{border-color:#393049}
+.dark .vx-global-chat-note,.dark .vx-global-chat-thread small{color:#bcb0ca}
+.dark .vx-global-chat-thread:hover{background:#302046}
+.dark .vx-global-chat-avatar{background:#40205e;color:#d6b5ff}
+@media(max-width:767px){.vx-global-chat{top:75px;right:12px;bottom:auto}.vx-global-chat-toggle{padding:9px 11px;border-radius:24px}.vx-global-chat-toggle>span{display:none}.vx-global-chat-panel{top:calc(100% + 10px);bottom:auto}}

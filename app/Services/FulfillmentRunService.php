@@ -125,6 +125,9 @@ class FulfillmentRunService
             if (DB::table('fulfillment_flags')->where('run_id', $runId)->where('status', 'open')->exists()) {
                 throw ValidationException::withMessages(['issues' => 'Resolve open issues before finishing the station run.']);
             }
+            if (! DB::table('fulfillment_run_buyers')->where('run_id', $runId)->exists()) {
+                throw ValidationException::withMessages(['buyers' => 'A run cannot finish without any buyers.']);
+            }
             if (DB::table('fulfillment_run_buyers')->where('run_id', $runId)->where('status', '!=', 'packed')->exists()) {
                 throw ValidationException::withMessages(['buyers' => 'Pack or resolve every buyer before finishing.']);
             }

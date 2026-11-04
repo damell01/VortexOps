@@ -10,7 +10,73 @@
     <div
         class="space-y-3 sm:space-y-5"
         @if($pageMode === 'streamer') data-vx-page="streamer-dashboard"
-        @elseif($pageMode === 'fulfillment') data-vx-page="fulfillment-dashboard"
+        @elseif($pageMode === 'fulfillment')
+            <div data-vx-workspace="fulfillment" class="space-y-4">
+                <section class="overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm dark:border-violet-900 dark:bg-gray-900">
+                    <div class="flex flex-wrap items-start justify-between gap-4 bg-gradient-to-r from-violet-50 to-white p-5 dark:from-violet-950/40 dark:to-gray-900 sm:p-6">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold uppercase tracking-widest text-violet-700 dark:text-violet-300">Vortex Ops / Fulfillment Center</p>
+                            <h1 class="mt-2 text-2xl font-bold tracking-tight text-gray-950 dark:text-white sm:text-3xl">{{ $fulfillmentIsManager ?? false ? 'Fulfillment Command Center' : 'My Packing Workspace' }}</h1>
+                            <p class="mt-2 max-w-2xl text-sm text-gray-600 dark:text-gray-300">{{ $fulfillmentIsManager ?? false ? 'Manage stations, packers, exceptions and shipments across your operation.' : 'Your assigned shows, packing stations and shipment tasks in one place.' }}</p>
+                        </div>
+                        <span class="rounded-full border border-violet-200 bg-white px-3 py-1.5 text-xs font-bold text-violet-800 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200">{{ $fulfillmentIsManager ?? false ? 'Fulfillment admin' : 'Fulfillment team' }}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 border-t border-gray-100 p-4 dark:border-gray-800 sm:grid-cols-3 xl:grid-cols-6">
+                        @foreach([
+                            ['Shows to work', $showsToFulfill ?? 0],
+                            ['Active stations', $fulfillmentActiveStations ?? 0],
+                            ['Buyers waiting', $fulfillmentPendingBuyers ?? 0],
+                            ['Open shipments', $openShipments ?? 0],
+                            ['Open issues', $fulfillmentOpenIssues ?? 0],
+                            ['Delivered today', $deliveredToday ?? 0],
+                        ] as [$label, $value])
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                                <p class="text-xs font-medium text-gray-600 dark:text-gray-300">{{ $label }}</p>
+                                <p class="mt-1 text-2xl font-bold tabular-nums text-gray-950 dark:text-white">{{ number_format((int) $value) }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+
+                <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('index') }}" class="group rounded-2xl border border-violet-200 bg-violet-600 p-5 text-white shadow-sm transition hover:bg-violet-700 focus-visible:outline focus-visible:outline-4 focus-visible:outline-violet-300">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-violet-100">Primary workspace</p>
+                        <h2 class="mt-2 text-lg font-bold">Open my fulfillment queue</h2>
+                        <p class="mt-1 text-sm text-violet-100">Select a show, open its station board and verify packing.</p>
+                        <span class="mt-4 inline-block text-sm font-semibold">View assigned shows →</span>
+                    </a>
+                    @if($fulfillmentIsManager ?? false)
+                        <a href="{{ \App\Filament\Pages\FulfillmentOperations::getUrl() }}" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-violet-300 dark:border-gray-700 dark:bg-gray-900">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-300">Manager tools</p>
+                            <h2 class="mt-2 text-lg font-bold text-gray-950 dark:text-white">Live operations board</h2>
+                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Station occupancy, staff activity and issue resolution.</p>
+                            <span class="mt-4 inline-block text-sm font-semibold text-violet-700 dark:text-violet-300">Open manager board →</span>
+                        </a>
+                    @endif
+                    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Packing workflow</p>
+                        <h2 class="mt-2 text-lg font-bold text-gray-950 dark:text-white">Verify before shipping</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">1. Select a show · 2. Scan buyer items · 3. Resolve holds · 4. Confirm packing</p>
+                    </div>
+                </section>
+
+                <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+                    <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-base font-bold text-gray-950 dark:text-white">Packing in progress</h2>
+                        <span class="text-xs text-gray-500">Shows visible to your role</span>
+                    </div>
+                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse(($fulfillmentRecentRuns ?? []) as $run)
+                            <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $run->show_id]) }}" class="flex min-h-14 items-center justify-between gap-3 rounded-lg px-2 py-3 hover:bg-violet-50 dark:hover:bg-gray-800">
+                                <div class="min-w-0"><p class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $run->title }}</p><p class="text-xs text-gray-500">{{ $run->station_name }} · Started {{ \Illuminate\Support\Carbon::parse($run->started_at)->diffForHumans() }}</p></div>
+                                <span class="shrink-0 text-sm font-semibold text-violet-700 dark:text-violet-300">Open →</span>
+                            </a>
+                        @empty
+                            <p class="py-6 text-sm text-gray-500">No packing stations are currently active in your queue.</p>
+                        @endforelse
+                    </div>
+                </section>
+            </div>
         @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
         @endif
     >

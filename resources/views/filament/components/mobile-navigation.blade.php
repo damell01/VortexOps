@@ -15,7 +15,7 @@
             if ($links) $groups[$group->getLabel() ?: 'Navigation'] = $links;
         }
     }
-    if (\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess()
+    if (! ($fulfillmentOnly ?? false) && \App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess()
         && ! collect($groups['Shows'] ?? [])->contains(fn ($link) => $link[0] === 'Stream Review')) {
         $groups['Shows'][] = ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review')];
     }

@@ -244,3 +244,17 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .dark .vx-chat-chip{background:#442463;color:#e4c9ff}
 .dark .vx-chat-to>span,.dark .vx-chat-type-hint,.dark .vx-chat-role-select small{color:#c5b6d5}
 @media(max-width:767px){.vx-global-chat-panel{width:min(410px,calc(100vw - 24px));max-height:calc(100dvh - 145px)}.vx-chat-imessage{max-height:calc(100dvh - 240px)}}
+
+/* Chatify native messenger entry points: Vortex purple, light by default. */
+.vx-chatify-launch{position:fixed;right:22px;bottom:22px;z-index:70;display:inline-flex;align-items:center;gap:9px;padding:13px 17px;border-radius:999px;background:#6d28d9;color:#fff!important;box-shadow:0 12px 32px rgba(76,29,149,.27);font-size:13px;font-weight:700;text-decoration:none;transition:transform .15s,background .15s}
+.vx-chatify-launch:hover{background:#5b21b6;transform:translateY(-2px)}
+.vx-chatify-launch svg{width:20px;height:20px}
+.vxc-chatify-entry{min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:36px 22px;border:1px solid var(--vxc-line);border-radius:20px;background:var(--vxc-surface)}
+.vxc-chatify-icon{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:var(--vxc-soft);color:var(--vxc-accent)}
+.vxc-chatify-icon svg{width:32px;height:32px}
+.vxc-chatify-entry h2{font-size:21px;font-weight:800;color:var(--vxc-text)}
+.vxc-chatify-entry p{font-size:14px;line-height:1.6;color:var(--vxc-muted);max-width:440px}
+.vxc-chatify-open{display:inline-flex;align-items:center;gap:9px;padding:12px 20px;border-radius:12px;background:#6d28d9;color:#fff!important;font-weight:700;text-decoration:none}
+.vxc-chatify-open:hover{background:#5b21b6}
+.vxc-chatify-open svg{width:17px;height:17px}
+@media(max-width:640px){.vx-chatify-launch{right:14px;bottom:16px;padding:12px 15px}.vxc-chatify-entry{min-height:300px}}

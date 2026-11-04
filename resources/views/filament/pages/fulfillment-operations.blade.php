@@ -2,7 +2,7 @@
     @php($data = $this->metrics())
     <div wire:poll.30s class="space-y-6">
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            @foreach (['Active stations' => $data['runs'], 'Packers working' => $data['packers'], 'Buyers waiting' => $data['waiting'], 'Open issues' => $data['open'], 'Employees clocked in' => $data['clockedIn'], 'Hours needing approval' => $data['hoursPendingReview']] as $label => $value)
+            @foreach (['Active stations' => $data['runs'], 'Packers working' => $data['packers'], 'Buyers waiting' => $data['waiting'], 'Open issues' => $data['open'], 'Employees clocked in' => $data['clockedIn'], 'Hours needing approval' => $data['hoursPendingReview'], 'Missing pay rates' => $data['missingPayRates']] as $label => $value)
                 <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-800">
                     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $label }}</p>
                     <p class="mt-2 text-3xl font-bold text-violet-700 dark:text-violet-300">{{ $value }}</p>

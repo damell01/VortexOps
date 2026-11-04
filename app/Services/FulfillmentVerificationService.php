@@ -27,8 +27,12 @@ final class FulfillmentVerificationService {
    $left=max(0,$quantity-(int)($scans[$productId]??0));
    if($left>0) $missing[(int)$productId]=$left;
   }
+  $verified = 0;
+  foreach ($expected as $productId => $quantity) {
+   $verified += min((int) $quantity, (int) ($scans[$productId] ?? 0));
+  }
   return ['complete'=>!$missing,'supported'=>true,'expected'=>(int)$expected->sum(),
-   'scanned'=>(int)$scans->sum(),'missing'=>$missing];
+   'scanned'=>$verified,'missing'=>$missing];
  }
 
  public function verify(int $runId,int $buyerId,string $barcode,User $actor): int {

@@ -20,6 +20,8 @@ class ShippingDesk extends Page
     public string $search = '';
     public string $statusFilter = 'all';
     public string $viewMode = 'buyers';
+    public array $selectedShipmentIds = [];
+    public array $printDocuments = [];
 
     public function getView(): string
     {
@@ -60,6 +62,36 @@ class ShippingDesk extends Page
                 ->body('Review the Whatnot API connection and application logs.')
                 ->danger()->send();
         }
+    }
+
+    public function preparePrintBatch(): void
+    {
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+        $ids = collect($this->selectedShipmentIds)->filter(fn ($id) => ctype_digit((string) $id))
+            ->map(fn ($id) => (int) $id)->unique()->values()->all();
+        if (! $ids || count($ids) > 100) {
+            throw ValidationException::withMessages(['selectedShipmentIds' => 'Select between 1 and 100 shipments.']);
+        }
+        $shipments = Shipment::query()->where('show_id', $show->id)->whereIn('id', $ids)
+            ->orderBy('buyer_username')->orderBy('id')->get();
+        if ($shipments->count() !== count($ids)) abort(403);
+        $documents = $shipments->map(function (Shipment $shipment) {
+            $raw = is_array($shipment->raw_payload) ? $shipment->raw_payload : [];
+            $docs = is_array($raw['documents'] ?? null) ? $raw['documents'] : [];
+            $url = self::safeDocumentUrl($docs['label_url'] ?? null);
+            return $url ? ['buyer' => $shipment->buyer_username ?: 'Unknown buyer', 'url' => $url] : null;
+        })->filter()->values()->all();
+        if (count($documents) !== count($ids)) {
+            throw ValidationException::withMessages(['selectedShipmentIds' => 'Every selected shipment must have a synced, printable label URL.']);
+        }
+        \Illuminate\Support\Facades\DB::table('fulfillment_print_jobs')->insert([
+            'show_id' => $show->id, 'created_by' => auth()->id(),
+            'shipment_ids' => json_encode($ids), 'document_count' => count($documents),
+            'status' => 'prepared', 'prepared_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->printDocuments = $documents;
+        Notification::make()->title('Label batch prepared')->body(count($documents).' labels ready to open individually. Printing is not yet confirmed.')->success()->send();
     }
 
     public function getTitle(): string

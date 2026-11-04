@@ -94,8 +94,16 @@ class FulfillmentSchedule extends Page
             ->orderBy('starts_at');
         if (! $this->isManager()) $query->where('user_id', auth()->id());
         $shifts = $query->get();
+        $nextShift = ! $this->isManager()
+            ? DB::table('fulfillment_shifts as shifts')
+                ->leftJoin('fulfillment_stations as stations', 'stations.id', '=', 'shifts.station_id')
+                ->where('shifts.user_id', auth()->id())
+                ->where('shifts.ends_at', '>=', now()->toDateTimeString())
+                ->select('shifts.starts_at', 'shifts.ends_at', 'stations.name as station_name')
+                ->orderBy('shifts.starts_at')->first()
+            : null;
         $employees = $this->isManager() ? User::role(['fulfillment', 'fulfillment_admin'])->orderBy('name')->get(['id', 'name']) : collect();
         $stations = $this->isManager() ? DB::table('fulfillment_stations')->where('active', true)->orderBy('sort')->get() : collect();
-        return compact('start', 'shifts', 'employees', 'stations');
+        return compact('start', 'shifts', 'employees', 'stations', 'nextShift');
     }
 }

@@ -7,7 +7,7 @@
     $workflow = $this->workflowBreakdown();
     $progress = $this->periodProgress();
     $tips = $this->periodTips();
-    $fulfillmentHandoffs = \Illuminate\Support\Facades\DB::table('fulfillment_runs')->whereNotNull('payroll_handoff_at')->orderByDesc('payroll_handoff_at')->limit(30)->get();
+    $fulfillmentHandoffs = \Illuminate\Support\Facades\DB::table('fulfillment_runs as fr')->join('shows as fs', 'fs.id', '=', 'fr.show_id')->whereNotNull('fr.payroll_handoff_at')->whereBetween('fs.show_date', [$this->periodBounds()[0]->toDateString(), $this->periodBounds()[1]->toDateString()])->select('fr.*', 'fs.title as show_title')->orderByDesc('fr.payroll_handoff_at')->limit(30)->get();
 
     $filteredShows = $this->currentWeekShows();
     $perPage = 12;

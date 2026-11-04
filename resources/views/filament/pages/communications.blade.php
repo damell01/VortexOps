@@ -65,6 +65,23 @@
         </section>
     @endif
     </div>
+    <div class="vxc-quick-launch" x-data="{ open: false }" x-on:keydown.escape.window="open = false">
+        <button type="button" class="vxc-quick-button" x-on:click="open = !open" :aria-expanded="open.toString()" aria-controls="vxc-quick-panel"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /><span>Messages</span>@if($unreadTotal)<span class="vxc-quick-count">{{ $unreadTotal }}</span>@endif</button>
+        <div id="vxc-quick-panel" class="vxc-quick-panel" x-show="open" x-cloak x-transition.opacity>
+            <div class="vxc-quick-head"><strong>Quick messages</strong><button type="button" x-on:click="open = false" aria-label="Close quick messages"><x-filament::icon icon="heroicon-o-x-mark" /></button></div>
+            <p class="vxc-quick-help">Owner preview · Employee delivery is disabled.</p>
+            @forelse($threads->take(5) as $thread)
+                <button type="button" class="vxc-quick-thread" wire:click="selectConversation({{ $thread->id }})" x-on:click="open = false">
+                    <span class="vxc-avatar">{{ mb_strtoupper(mb_substr($thread->labelFor(auth()->user()), 0, 1)) }}</span>
+                    <span><strong>{{ $thread->labelFor(auth()->user()) }}</strong><small>{{ \Illuminate\Support\Str::limit($thread->latestMessage?->body ?: 'Start a conversation', 44) }}</small></span>
+                    @if($thread->unread_count)<b class="vxc-unread">{{ $thread->unread_count }}</b>@endif
+                </button>
+            @empty
+                <p class="vxc-quick-help">No conversations yet.</p>
+            @endforelse
+            <button type="button" class="vxc-quick-all" x-on:click="open = false; $dispatch('open-modal', {id: 'communication-new-chat'})">New conversation</button>
+        </div>
+    </div>
     <x-filament::modal id="communication-new-chat" width="sm">
         <x-slot name="heading">New conversation</x-slot><x-slot name="description">Private owner preview. Selected people will not be notified.</x-slot>
         <form wire:submit="startChat" class="vxc vxc-form vxc-picker">

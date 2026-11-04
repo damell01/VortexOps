@@ -33,6 +33,12 @@ class ShippingDesk extends Page
         $this->record = (int) $show->id;
     }
 
+    public function isManager(): bool
+    {
+        $user = auth()->user();
+        return (bool) ($user && ($user->isOwner() || $user->isAdmin() || $user->isFulfillmentAdmin()));
+    }
+
     public function refreshShipments(): void
     {
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);

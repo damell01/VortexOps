@@ -26,6 +26,11 @@ final class WhatnotApiShipmentImporter
         'dropped_off' => 'shipped',
         'in_transit' => 'shipped',
         'delivered' => 'delivered',
+        'failed' => 'failed',
+        'cancelled' => 'cancelled',
+        'cancelled_not_shipped' => 'cancelled',
+        'cancelled_not_shipped_with_dropoff' => 'cancelled',
+        'cancelled_tracking_stuck' => 'failed',
     ];
 
     /**
@@ -78,7 +83,9 @@ final class WhatnotApiShipmentImporter
         $changed = 0;
         foreach ($orders as $order) {
             $update = array_filter($fields, fn ($v, $k) => (string) $order->{$k} !== (string) $v, ARRAY_FILTER_USE_BOTH);
-            if ($status !== null && ($order->shipping_status === null || ($rank[$status] ?? 0) > ($rank[$order->shipping_status] ?? -1))) {
+            if ($status !== null && (in_array($status, ['failed', 'cancelled'], true)
+                || $order->shipping_status === null
+                || ($rank[$status] ?? 0) > ($rank[$order->shipping_status] ?? -1))) {
                 $update['shipping_status'] = $status;
             }
             if ($update === []) continue;

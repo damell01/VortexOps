@@ -23,7 +23,46 @@
                 @endif
             </div>
         </div>
-        @if(!$run)
+        @if($run && $run->status === 'completed')
+            <section class="rounded-2xl border border-violet-400/40 bg-[#121833] p-5" aria-label="Completed packing worksheet">
+                <h3 class="text-xl font-bold">Packing worksheet and payroll handoff</h3>
+                <p class="mt-2 text-sm text-slate-300">Completed {{ $run->finished_at }}. Packing records remain available for review. Payroll stays in the existing Vortex Ops system.</p>
+                <p class="mt-3 text-sm text-slate-300">Assigned packers: {{ implode(', ', $packers) }}</p>
+                @if($this->canManageHandoff())
+                    @if(!$run->verified_at)
+                        <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                            <label class="text-sm font-semibold">Total shipments
+                                <input type="number" min="0" wire:model="reportedShipments" class="mt-2 w-full rounded-lg border-slate-600 bg-[#0b1020] text-white" />
+                                @error('reportedShipments') <span class="text-amber-300">{{ $message }}</span> @enderror
+                            </label>
+                            <label class="text-sm font-semibold">Total PWEs
+                                <input type="number" min="0" wire:model="reportedPwes" class="mt-2 w-full rounded-lg border-slate-600 bg-[#0b1020] text-white" />
+                                @error('reportedPwes') <span class="text-amber-300">{{ $message }}</span> @enderror
+                            </label>
+                        </div>
+                        <label class="mt-4 flex items-center gap-3 text-sm"><input type="checkbox" wire:model="hardCopyVerified" class="rounded border-slate-600" /> Hard-copy worksheet checked</label>
+                        <button type="button" wire:click="verifyWorksheet" wire:loading.attr="disabled" class="mt-4 min-h-12 rounded-lg bg-violet-600 px-5 font-semibold">Verify worksheet</button>
+                    @else
+                        <p class="mt-4 text-sm text-emerald-300">Verified {{ $run->verified_at }} · {{ $run->reported_shipments }} shipments · {{ $run->reported_pwes }} PWEs</p>
+                        @if(!$run->payroll_handoff_at)
+                            <label class="mt-4 block text-sm font-semibold">Packer pay allocation
+                                <select wire:model="splitMethod" class="mt-2 w-full rounded-lg border-slate-600 bg-[#0b1020] text-white">
+                                    <option value="single">Single packer</option><option value="even">Even split</option><option value="custom">Custom split</option>
+                                </select>
+                            </label>
+                            <label class="mt-3 block text-sm font-semibold">Split notes for Micha
+                                <textarea wire:model="splitNotes" rows="3" class="mt-2 w-full rounded-lg border-slate-600 bg-[#0b1020] text-white" placeholder="Document agreed custom allocation when applicable"></textarea>
+                            </label>
+                            <button type="button" wire:click="handoffToPayroll" wire:loading.attr="disabled" class="mt-4 min-h-12 rounded-lg bg-emerald-600 px-5 font-semibold">Mark ready for payroll review</button>
+                        @else
+                            <p class="mt-4 font-semibold text-emerald-300">Ready for Micha · Handoff {{ $run->payroll_handoff_at }}</p>
+                        @endif
+                    @endif
+                @else
+                    <p class="mt-4 text-sm text-slate-300">A fulfillment manager will verify the worksheet and prepare the payroll handoff.</p>
+                @endif
+            </section>
+        @elseif(!$run)
             <div class="mx-auto max-w-xl rounded-2xl border border-white/10 bg-[#121833] p-6">
                 <h3 class="text-lg font-bold">Choose a packing station</h3>
                 <p class="mt-2 text-sm text-slate-300">A station can pack only one show at a time.</p>

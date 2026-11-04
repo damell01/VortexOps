@@ -48,7 +48,7 @@ class DashboardImproved extends Dashboard
     {
         $user = auth()->user();
         if ($user?->isStreamerAssistant()) return 'Clock in, clock out, and view your paid pay runs';
-        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) return $user->isFulfillmentAdmin() ? 'Stations, shipments, and team issues' : 'Assigned packing work and shifts';
+        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) return $user->isFulfillmentAdmin() ? 'Stations, shipments, and team issues' : 'Assigned packing work and shifts';
         if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
@@ -90,7 +90,7 @@ class DashboardImproved extends Dashboard
             ];
         }
 
-        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) {
             return [
                 // Dedicated fulfillment dashboard cards render in the page view.
             ];
@@ -195,7 +195,7 @@ class DashboardImproved extends Dashboard
             $data['dashboardOverview'] = $this->dashboardOverview();
         }
 
-        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        if ($user?->isStreamer() && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) {
             $data['roleMode'] = 'streamer';
             $streamerId = $user->streamer?->id ?? 0;
             $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();
@@ -234,7 +234,7 @@ class DashboardImproved extends Dashboard
                     ->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->where('created_at', '>=', now()->subDays(30)))
                     ->sum('quantity'),
             ];
-        } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) {
             $data['roleMode'] = 'fulfillment';
             // Match the fulfillment resource's approved-report visibility gate.
             $showsQuery = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()

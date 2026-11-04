@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\FulfillmentPackage;
 use App\Models\Show;
+use App\Models\Shipment;
 use App\Models\WhatnotShowOrder;
 use Illuminate\Support\Collection;
 
@@ -40,7 +41,7 @@ final class FulfillmentBuyerSource
                 ]);
         }
 
-        $shipments = $show->shipments()->whereNotNull('buyer_username')
+        $shipments = Shipment::query()->where('show_id', $show->id)->whereNotNull('buyer_username')
             ->where('buyer_username', '!=', '')->orderBy('id')
             ->get(['id', 'buyer_username', 'item_count']);
         if ($shipments->isNotEmpty()) {

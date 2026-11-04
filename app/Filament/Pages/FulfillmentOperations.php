@@ -61,6 +61,13 @@ class FulfillmentOperations extends Page
             ->where('buyers.packed_at', '>=', now()->subDays(7))
             ->select('users.name', DB::raw('COUNT(*) as buyers_packed'), DB::raw('SUM(buyers.item_count) as items_packed'))
             ->groupBy('users.id', 'users.name')->orderByDesc('buyers_packed')->limit(20)->get();
-        return compact('runs', 'packers', 'waiting', 'open', 'flags', 'stations', 'productivity');
+        $fulfillmentUserIds = \App\Models\User::role(['fulfillment', 'fulfillment_admin'])->select('id');
+        $clockedIn = \App\Models\TimeEntry::query()
+            ->whereIn('user_id', $fulfillmentUserIds)
+            ->whereNull('clocked_out_at')->count();
+        $hoursPendingReview = \App\Models\TimeEntry::query()
+            ->whereIn('user_id', \App\Models\User::role(['fulfillment', 'fulfillment_admin'])->select('id'))
+            ->where('status', 'flagged')->count();
+        return compact('runs', 'packers', 'waiting', 'open', 'flags', 'stations', 'productivity', 'clockedIn', 'hoursPendingReview');
     }
 }

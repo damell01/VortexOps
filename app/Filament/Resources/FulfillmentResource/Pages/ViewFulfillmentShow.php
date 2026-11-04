@@ -75,6 +75,12 @@ class ViewFulfillmentShow extends ViewRecord
                 ->color('gray')
                 ->url(fn () => \App\Filament\Pages\FulfillmentSchedule::getUrl())
                 ->visible(fn () => \App\Filament\Pages\FulfillmentSchedule::canAccess()),
+            Action::make('shipping_desk')
+                ->label('Shipping & Labels')
+                ->icon('heroicon-o-printer')
+                ->color('primary')
+                ->url(fn () => FulfillmentResource::getUrl('shipping', ['record' => $show]))
+                ->visible(fn () => FulfillmentResource::canView($show)),
             Action::make('station_board')
                 ->label('Open Station Board')
                 ->icon('heroicon-o-computer-desktop')

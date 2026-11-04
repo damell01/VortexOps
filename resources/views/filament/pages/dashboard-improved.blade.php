@@ -53,6 +53,12 @@
                             <span class="mt-4 inline-block text-sm font-semibold text-violet-700 dark:text-violet-300">Open manager board →</span>
                         </a>
                     @endif
+                    <a href="{{ \App\Filament\Pages\FulfillmentReports::getUrl(panel:'admin') }}" class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-violet-300 dark:border-gray-700 dark:bg-gray-900">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-300">Performance reports</p>
+                        <h2 class="mt-2 text-lg font-bold text-gray-950 dark:text-white">{{ $fulfillmentIsManager ?? false ? 'Team reports' : 'My reports' }}</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Packing activity, verified scans, reported issues and recent history.</p>
+                        <span class="mt-4 inline-block text-sm font-semibold text-violet-700 dark:text-violet-300">View reports →</span>
+                    </a>
                     <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                         <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Packing workflow</p>
                         <h2 class="mt-2 text-lg font-bold text-gray-950 dark:text-white">Verify before shipping</h2>

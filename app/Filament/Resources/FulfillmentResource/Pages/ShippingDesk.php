@@ -91,6 +91,7 @@ class ShippingDesk extends Page
             'status' => 'prepared', 'prepared_at' => now(), 'created_at' => now(), 'updated_at' => now(),
         ]);
         $this->printDocuments = $documents;
+        $this->selectedShipmentIds = [];
         Notification::make()->title('Label batch prepared')->body(count($documents).' labels ready to open individually. Printing is not yet confirmed.')->success()->send();
     }
 

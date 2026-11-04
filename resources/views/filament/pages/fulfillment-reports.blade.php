@@ -23,10 +23,12 @@
                 ['Verified scan units', $data['scans']->matched_units ?? 0],
                 ['Rejected scans', $data['scans']->rejected_scans ?? 0],
                 ['Issues reported', $data['issues']],
+                ['Clocked hours', number_format((float) $data['hoursWorked'], 2)],
+                ['Approved hours', number_format((float) $data['approvedHours'], 2)],
             ] as [$label, $value])
                 <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $label }}</p>
-                    <p class="mt-2 text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">{{ number_format((int) $value) }}</p>
+                    <p class="mt-2 text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">{{ is_numeric($value) ? (str_contains((string) $value, '.') ? $value : number_format((int) $value)) : $value }}</p>
                 </div>
             @endforeach
         </div>

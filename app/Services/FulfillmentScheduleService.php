@@ -49,8 +49,9 @@ final class FulfillmentScheduleService
             ->where('starts_at', '>=', $source->toDateTimeString())
             ->where('starts_at', '<', $source->addWeek()->toDateTimeString())->get();
         $count = 0;
+        $weeks = (int) round($source->startOfDay()->diffInDays($target->startOfDay(), false) / 7);
         foreach ($rows as $shift) {
-            $start = CarbonImmutable::parse($shift->starts_at)->addWeeks((int) ($source->diffInWeeks($target, false)));
+            $start = CarbonImmutable::parse($shift->starts_at)->addWeeks($weeks);
             $end = CarbonImmutable::parse($shift->ends_at)->addWeeks((int) ($source->diffInWeeks($target, false)));
             try {
                 $this->create($actor, $shift->user_id, $start->toDateTimeString(), $end->toDateTimeString(), $shift->station_id, $shift->notes);

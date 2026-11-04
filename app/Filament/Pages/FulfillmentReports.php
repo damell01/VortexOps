@@ -77,9 +77,7 @@ class FulfillmentReports extends Page
                 \App\Models\User::role(['fulfillment', 'fulfillment_admin'])->select('id')))
             ->get(['user_id', 'clocked_in_at', 'clocked_out_at', 'status', 'approved_minutes']);
         $clockedMinutes = (int) $clockEntries->sum(fn ($entry) =>
-            $entry->status === 'approved' && $entry->approved_minutes !== null
-                ? (int) $entry->approved_minutes
-                : (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at));
+            (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at));
         $approvedMinutes = (int) $clockEntries->where('status', 'approved')
             ->sum(fn ($entry) => $entry->payableMinutes());
         $hoursWorked = round($clockedMinutes / 60, 2);

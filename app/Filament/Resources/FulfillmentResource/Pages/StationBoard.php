@@ -18,6 +18,10 @@ class StationBoard extends Page
     public int $record;
     public ?int $stationId = null;
     public ?int $runId = null;
+    public ?int $selectedBuyerId = null;
+    public string $scanCode = '';
+    public string $flagType = 'missing_item';
+    public string $flagDetails = '';
 
     public function getView(): string
     {
@@ -56,6 +60,36 @@ class StationBoard extends Page
     {
         $this->authorizeActiveRun();
         app(FulfillmentRunService::class)->markPacked($this->runId, $buyerId, auth()->user());
+    }
+
+    public function scanBuyerItem(int $buyerId): void
+    {
+        $this->authorizeActiveRun();
+        $this->validate(['scanCode' => ['required', 'string', 'max:128']]);
+        try {
+            $id = app(\App\Services\FulfillmentVerificationService::class)
+                ->verify($this->runId, $buyerId, $this->scanCode, auth()->user());
+            $matched = DB::table('fulfillment_verifications')->where('id', $id)->value('result') === 'matched';
+            Notification::make()->title($matched ? 'Barcode matched buyer order' : 'Barcode does not match buyer order')
+                ->color($matched ? 'success' : 'danger')->send();
+            $this->scanCode = '';
+        } catch (ValidationException $exception) {
+            $this->addError('scanCode', collect($exception->errors())->flatten()->first() ?: 'Scan failed.');
+        }
+    }
+
+    public function reportIssue(int $buyerId): void
+    {
+        $this->authorizeActiveRun();
+        $this->validate([
+            'flagType' => ['required', 'in:missing_item,damaged,wrong_item,wrong_count,cancelled,other'],
+            'flagDetails' => ['required', 'string', 'min:3', 'max:2000'],
+        ]);
+        app(\App\Services\FulfillmentFlagService::class)->report(
+            auth()->user(), $this->record, $this->flagType, $this->flagDetails, $this->runId, $buyerId,
+        );
+        $this->reset('flagDetails', 'selectedBuyerId');
+        Notification::make()->title('Issue reported — buyer placed on hold')->warning()->send();
     }
 
     public function finishPacking(): void

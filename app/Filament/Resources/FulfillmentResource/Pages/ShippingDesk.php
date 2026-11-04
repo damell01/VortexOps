@@ -16,6 +16,7 @@ class ShippingDesk extends Page
     public int $record;
     public string $search = '';
     public string $statusFilter = 'all';
+    public string $viewMode = 'buyers';
 
     public function getView(): string
     {
@@ -75,7 +76,17 @@ class ShippingDesk extends Page
                 || $buyer['shipments']->contains(fn ($shipment) => str_contains(mb_strtolower((string) $shipment->tracking_number), mb_strtolower(trim($this->search))));
             return $matchesSearch && ($this->statusFilter === 'all' || $buyer['status'] === $this->statusFilter);
         })->values();
-        return compact('show', 'buyers');
+        $allShipments = $shipments;
+        $statusCounts = [
+            'total' => $allShipments->count(),
+            'pending' => $allShipments->filter(fn ($shipment) => in_array($shipment->status, ['created', 'pending', 'ready_to_ship', null], true))->count(),
+            'labels' => $allShipments->filter(fn ($shipment) => in_array($shipment->status, ['label_generated', 'label_created'], true))->count(),
+            'shipped' => $allShipments->filter(fn ($shipment) => in_array($shipment->status, ['dropped_off', 'in_transit', 'shipped'], true))->count(),
+            'delivered' => $allShipments->where('status', 'delivered')->count(),
+            'exceptions' => $allShipments->filter(fn ($shipment) => in_array($shipment->status, ['failed', 'returned', 'cancelled', 'cancelled_not_shipped', 'cancelled_not_shipped_with_dropoff', 'cancelled_tracking_stuck'], true))->count(),
+        ];
+        $lastSynced = $orders->pluck('shipment_synced_at')->filter()->max();
+        return compact('show', 'buyers', 'statusCounts', 'lastSynced');
     }
 
     public static function safeDocumentUrl(mixed $url): ?string

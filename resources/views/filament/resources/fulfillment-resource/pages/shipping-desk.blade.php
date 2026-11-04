@@ -1,6 +1,6 @@
 <x-filament-panels::page>
-    @php ['show' => $show, 'buyers' => $buyers] = $this->shippingData(); @endphp
-    <div class="space-y-5">
+    @php ['show' => $show, 'buyers' => $buyers, 'statusCounts' => $statusCounts, 'lastSynced' => $lastSynced] = $this->shippingData(); @endphp
+    <div class="space-y-5" wire:poll.30s>
         <header class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <p class="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">Fulfillment Center · Shipping workspace</p>
             <h2 class="mt-1 text-xl font-bold text-gray-950 dark:text-white">{{ $show->title }}</h2>
@@ -14,12 +14,26 @@
                         <option value="all">All statuses</option>
                         <option value="pending">Pending</option>
                         <option value="label_created">Label created</option>
+                        <option value="label_generated">Label generated</option>
+                        <option value="in_transit">In transit</option>
+                        <option value="dropped_off">Dropped off</option>
+                        <option value="failed">Failed</option>
+                        <option value="cancelled">Cancelled</option>
                         <option value="shipped">Shipped</option>
                         <option value="delivered">Delivered</option>
                     </select>
                 </label>
             </div>
         </header>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+            @foreach(['total' => 'Packages', 'pending' => 'Pending', 'labels' => 'Labels ready', 'shipped' => 'In transit', 'delivered' => 'Delivered', 'exceptions' => 'Exceptions'] as $key => $label)
+                <div class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $label }}</p>
+                    <p class="mt-2 text-3xl font-bold tabular-nums text-gray-950 dark:text-white">{{ $statusCounts[$key] }}</p>
+                </div>
+            @endforeach
+        </div>
+        <p class="text-xs text-gray-500">Last shipment sync: {{ $lastSynced ? \Illuminate\Support\Carbon::parse($lastSynced)->diffForHumans() : 'Unknown' }} · Screen refreshes every 30 seconds; actual updates depend on Whatnot synchronization.</p>
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ $buyers->count() }} matching buyers · data from existing synced orders and shipments</p>
         @forelse($buyers as $buyer)
             <section wire:key="shipping-buyer-{{ $loop->index }}" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">

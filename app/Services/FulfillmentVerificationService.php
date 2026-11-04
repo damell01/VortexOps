@@ -15,8 +15,9 @@ final class FulfillmentVerificationService {
   $ids=json_decode($buyer->order_ids ?: '[]',true);
   if (!is_array($ids) || !$ids) return ['complete'=>false,'supported'=>false,'expected'=>0,'scanned'=>0,'missing'=>[]];
   $orders=\App\Models\WhatnotShowOrder::query()->where('show_id',$run->show_id)
-   ->whereIn('whatnot_order_id',array_map('strval',$ids))->get(['inventory_item_id','quantity']);
-  if ($orders->isEmpty() || $orders->contains(fn($order)=>!$order->inventory_item_id || (int)$order->quantity<1))
+   ->whereIn('whatnot_order_id',array_map('strval',$ids))->get(['whatnot_order_id','inventory_item_id','quantity']);
+  if ($orders->isEmpty() || count(array_diff(array_map('strval',$ids), $orders->pluck('whatnot_order_id')->map(fn ($id) => (string) $id)->all())) > 0
+   || $orders->contains(fn($order)=>!$order->inventory_item_id || (int)$order->quantity<1))
    return ['complete'=>false,'supported'=>false,'expected'=>0,'scanned'=>0,'missing'=>[]];
   $expected=$orders->groupBy('inventory_item_id')->map(fn($group)=>(int)$group->sum('quantity'));
   $scans=DB::table('fulfillment_verifications')->where('run_id',$runId)->where('buyer_id',$buyerId)

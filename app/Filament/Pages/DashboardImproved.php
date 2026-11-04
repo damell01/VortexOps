@@ -244,6 +244,21 @@ class DashboardImproved extends Dashboard
             $showIds = (clone $showsQuery)->pluck('shows.id');
             $shipmentQuery = Shipment::whereIn('show_id', $showIds);
 
+            $activeRuns = \Illuminate\Support\Facades\DB::table('fulfillment_runs')
+                ->whereIn('show_id', $showIds)->where('status', 'packing');
+            $activeRunIds = (clone $activeRuns)->pluck('id');
+            $data['fulfillmentIsManager'] = (bool) $user?->isFulfillmentAdmin();
+            $data['fulfillmentActiveStations'] = (clone $activeRuns)->count();
+            $data['fulfillmentPendingBuyers'] = \Illuminate\Support\Facades\DB::table('fulfillment_run_buyers')
+                ->whereIn('run_id', $activeRunIds)->where('status', 'waiting')->count();
+            $data['fulfillmentOpenIssues'] = \Illuminate\Support\Facades\DB::table('fulfillment_flags')
+                ->whereIn('show_id', $showIds)->where('status', 'open')->count();
+            $data['fulfillmentRecentRuns'] = \Illuminate\Support\Facades\DB::table('fulfillment_runs as runs')
+                ->join('shows', 'shows.id', '=', 'runs.show_id')
+                ->join('fulfillment_stations as stations', 'stations.id', '=', 'runs.station_id')
+                ->whereIn('runs.show_id', $showIds)->where('runs.status', 'packing')
+                ->select('runs.show_id', 'runs.started_at', 'shows.title', 'stations.name as station_name')
+                ->orderByDesc('runs.started_at')->limit(8)->get();
             $data += [
                 'roleMode' => 'fulfillment',
                 'showsToFulfill' => (clone $showsQuery)->where(function ($q) {

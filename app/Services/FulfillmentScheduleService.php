@@ -17,7 +17,7 @@ final class FulfillmentScheduleService
         if ($ends->lessThanOrEqualTo($starts)) {
             throw ValidationException::withMessages(['ends_at' => 'Shift end must be after start.']);
         }
-        if (! User::query()->whereKey($userId)->exists()) {
+        if (! User::role(['fulfillment', 'fulfillment_admin'])->whereKey($userId)->exists()) {
             throw ValidationException::withMessages(['user_id' => 'Unknown employee.']);
         }
         if ($stationId !== null && ! DB::table('fulfillment_stations')->where('id', $stationId)->where('active', true)->exists()) {

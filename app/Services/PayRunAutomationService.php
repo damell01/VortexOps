@@ -288,6 +288,10 @@ class PayRunAutomationService
             ->get();
 
         foreach ($members as $member) {
+            // Archived team members must not generate new hourly payroll lines.
+            if ($member->status === 'inactive') {
+                continue;
+            }
             $rate = $member->user?->isStreamerAssistant()
                 ? ((float) $member->compensationValue('hourly_rate') > 0 ? (float) $member->compensationValue('hourly_rate') : null)
                 : $member->paidHourlyRate();

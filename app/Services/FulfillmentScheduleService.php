@@ -50,7 +50,7 @@ final class FulfillmentScheduleService
             ->where('starts_at', '<', $source->addWeek()->toDateTimeString())->get();
         $count = 0;
         foreach ($rows as $shift) {
-            $offset = $source->diffInDays($target, false);
+            $offset = (int) round(($target->getTimestamp() - $source->getTimestamp()) / 86400);
             $start = CarbonImmutable::parse($shift->starts_at)->addDays($offset);
             $end = CarbonImmutable::parse($shift->ends_at)->addDays($offset);
             try {

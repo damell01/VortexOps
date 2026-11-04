@@ -48,6 +48,7 @@ class DashboardImproved extends Dashboard
     {
         $user = auth()->user();
         if ($user?->isStreamerAssistant()) return 'Clock in, clock out, and view your paid pay runs';
+        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) return $user->isFulfillmentAdmin() ? 'Stations, shipments, and team issues' : 'Assigned packing work and shifts';
         if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
@@ -91,8 +92,7 @@ class DashboardImproved extends Dashboard
 
         if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
             return [
-                FulfillmentInventoryWidget::class,
-                RecentShowsWidget::class,
+                // Dedicated fulfillment dashboard cards render in the page view.
             ];
         }
 

@@ -4,6 +4,33 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 final class FulfillmentVerificationService {
+ /**
+  * Returns whether a buyer's order can be certified from item-level scan records.
+  * Unmapped orders are not treated as verified.
+  */
+ public function coverage(int $runId, int $buyerId): array {
+  $run=DB::table('fulfillment_runs')->where('id',$runId)->first();
+  $buyer=DB::table('fulfillment_run_buyers')->where('id',$buyerId)->where('run_id',$runId)->first();
+  abort_unless($run && $buyer,404);
+  $ids=json_decode($buyer->order_ids ?: '[]',true);
+  if (!is_array($ids) || !$ids) return ['complete'=>false,'supported'=>false,'expected'=>0,'scanned'=>0,'missing'=>[]];
+  $orders=\App\Models\WhatnotShowOrder::query()->where('show_id',$run->show_id)
+   ->whereIn('whatnot_order_id',array_map('strval',$ids))->get(['inventory_item_id','quantity']);
+  if ($orders->isEmpty() || $orders->contains(fn($order)=>!$order->inventory_item_id || (int)$order->quantity<1))
+   return ['complete'=>false,'supported'=>false,'expected'=>0,'scanned'=>0,'missing'=>[]];
+  $expected=$orders->groupBy('inventory_item_id')->map(fn($group)=>(int)$group->sum('quantity'));
+  $scans=DB::table('fulfillment_verifications')->where('run_id',$runId)->where('buyer_id',$buyerId)
+   ->where('result','matched')->whereNotNull('product_id')->select('product_id')
+   ->selectRaw('SUM(quantity) as total')->groupBy('product_id')->pluck('total','product_id');
+  $missing=[];
+  foreach($expected as $productId=>$quantity) {
+   $left=max(0,$quantity-(int)($scans[$productId]??0));
+   if($left>0) $missing[(int)$productId]=$left;
+  }
+  return ['complete'=>!$missing,'supported'=>true,'expected'=>(int)$expected->sum(),
+   'scanned'=>(int)$scans->sum(),'missing'=>$missing];
+ }
+
  public function verify(int $runId,int $buyerId,string $barcode,User $actor): int {
   $barcode=trim($barcode);
   if ($barcode==='' || mb_strlen($barcode)>128) throw ValidationException::withMessages(['barcode'=>'Scan a valid barcode.']);

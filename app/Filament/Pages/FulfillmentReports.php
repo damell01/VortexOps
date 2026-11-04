@@ -68,6 +68,23 @@ class FulfillmentReports extends Page
             ->when(! $manager, fn ($q) => $q->where('reported_by', $actorId))
             ->count();
 
+        $clockEntries = \App\Models\TimeEntry::query()
+            ->where('clocked_in_at', '>=', $since)
+            ->whereNotNull('clocked_out_at')
+            ->where('status', '!=', 'rejected')
+            ->when(! $manager, fn ($query) => $query->where('user_id', $actorId))
+            ->when($manager, fn ($query) => $query->whereHas('user', fn ($users) =>
+                $users->whereHas('roles', fn ($roles) => $roles->whereIn('name', ['fulfillment', 'fulfillment_admin']))))
+            ->get(['user_id', 'clocked_in_at', 'clocked_out_at', 'status', 'approved_minutes']);
+        $clockedMinutes = (int) $clockEntries->sum(fn ($entry) =>
+            $entry->status === 'approved' && $entry->approved_minutes !== null
+                ? (int) $entry->approved_minutes
+                : (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at));
+        $approvedMinutes = (int) $clockEntries->where('status', 'approved')
+            ->sum(fn ($entry) => (int) ($entry->approved_minutes ?? $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at)));
+        $hoursWorked = round($clockedMinutes / 60, 2);
+        $approvedHours = round($approvedMinutes / 60, 2);
+
         $leaderboard = collect();
         if ($manager) {
             $leaderboard = (clone $packed)->join('users', 'users.id', '=', 'buyers.packed_by')
@@ -76,6 +93,6 @@ class FulfillmentReports extends Page
                 ->groupBy('users.id', 'users.name')->orderByDesc('buyers_packed')->limit(30)->get();
         }
 
-        return compact('totals', 'daily', 'recent', 'scans', 'issues', 'leaderboard', 'manager');
+        return compact('totals', 'daily', 'recent', 'scans', 'issues', 'leaderboard', 'manager', 'hoursWorked', 'approvedHours');
     }
 }

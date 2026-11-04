@@ -1,8 +1,19 @@
 <x-filament-panels::page>
     @php
-        ['start' => $start, 'shifts' => $shifts, 'employees' => $employees, 'stations' => $stations] = $this->scheduleData();
+        ['start' => $start, 'shifts' => $shifts, 'employees' => $employees, 'stations' => $stations, 'nextShift' => $nextShift] = $this->scheduleData();
     @endphp
     <div class="space-y-5">
+        @if(! $this->isManager())
+            <section class="rounded-2xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-950/30" aria-label="Next assigned shift">
+                <p class="text-xs font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">Your next shift</p>
+                @if($nextShift)
+                    <p class="mt-2 text-lg font-semibold">{{ \Carbon\Carbon::parse($nextShift->starts_at)->format('D, M j · g:i A') }} – {{ \Carbon\Carbon::parse($nextShift->ends_at)->format('g:i A') }}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Station: {{ $nextShift->station_name ?? 'To be assigned' }}</p>
+                @else
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">No upcoming shift assigned yet.</p>
+                @endif
+            </section>
+        @endif
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">Fulfillment · Team schedule</p>

@@ -69,6 +69,12 @@ class ViewFulfillmentShow extends ViewRecord
             : $show->primaryStreamer()?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
 
         return [
+            Action::make('station_board')
+                ->label('Open Station Board')
+                ->icon('heroicon-o-computer-desktop')
+                ->color('primary')
+                ->url(fn () => FulfillmentResource::getUrl('station', ['record' => $show]))
+                ->visible(fn () => FulfillmentResource::canView($show)),
             Action::make('assign_fulfillment')
                 ->label($show->fulfillmentUsers->isEmpty() ? 'Assign Fulfillment' : 'Change Assignment')
                 ->icon('heroicon-o-user-group')

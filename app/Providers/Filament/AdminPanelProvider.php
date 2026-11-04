@@ -228,6 +228,10 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.global-communications-widget'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
                 fn () => auth()->check() && \App\Support\InventoryPopupPolicy::enabledFor(auth()->user())
                     ? Blade::render("@livewire('inventory-price-acknowledgment')")
                     : '',

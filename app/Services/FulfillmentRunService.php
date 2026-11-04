@@ -102,6 +102,9 @@ class FulfillmentRunService
             if (! $allowed) abort(403);
             $buyer = DB::table('fulfillment_run_buyers')->where('run_id', $runId)->where('id', $buyerId)->lockForUpdate()->first();
             if (! $buyer || $buyer->status === 'held') abort(409);
+            if (DB::table('fulfillment_flags')->where('buyer_id', $buyerId)->where('status', 'open')->exists()) {
+                throw ValidationException::withMessages(['buyer' => 'Resolve the open buyer issue before confirming packing.']);
+            }
             if ($buyer->status === 'packed') return;
             DB::table('fulfillment_run_buyers')->where('id', $buyerId)->update([
                 'status' => 'packed', 'packed_by' => $actor->id,
@@ -119,6 +122,9 @@ class FulfillmentRunService
             $allowed = $actor->isOwner() || $actor->isAdmin() || $actor->isFulfillmentAdmin()
                 || DB::table('fulfillment_run_packers')->where('run_id', $runId)->where('user_id', $actor->id)->exists();
             if (! $allowed) abort(403);
+            if (DB::table('fulfillment_flags')->where('run_id', $runId)->where('status', 'open')->exists()) {
+                throw ValidationException::withMessages(['issues' => 'Resolve open issues before finishing the station run.']);
+            }
             if (DB::table('fulfillment_run_buyers')->where('run_id', $runId)->where('status', '!=', 'packed')->exists()) {
                 throw ValidationException::withMessages(['buyers' => 'Pack or resolve every buyer before finishing.']);
             }

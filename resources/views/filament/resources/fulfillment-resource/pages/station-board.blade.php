@@ -64,6 +64,21 @@
                             <span class="flex h-36 min-w-36 items-center justify-center rounded-2xl border border-violet-400/50 bg-violet-700 px-4 font-mono text-7xl font-black tracking-tight shadow-lg shadow-violet-950/40 sm:h-48 sm:min-w-48 sm:text-8xl" aria-label="Camera reference letter {{ $current->letter }}">{{ $current->letter }}</span>
                             <div class="min-w-0"><p class="text-xs font-semibold uppercase tracking-wider text-violet-300">Current buyer · {{ $current->letter }}</p><h3 class="mt-2 break-all text-2xl font-bold sm:text-4xl">{{ $current->buyer_username }}</h3><p class="mt-2 text-slate-300">{{ $current->item_count }} items · {{ ucfirst($current->status) }}</p><p class="mt-2 text-xs text-slate-400">Camera reference: show + station + letter + packing time</p></div>
                         </div>
+                        @php($coverage = $this->buyerCoverage($current->id))
+                        <div class="mt-5 rounded-xl border border-white/15 bg-white/5 p-4" aria-live="polite">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <p class="font-semibold text-white">Item verification</p>
+                                <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $coverage['complete'] ? 'bg-emerald-900 text-emerald-200' : 'bg-slate-700 text-slate-200' }}">
+                                    {{ $coverage['complete'] ? 'All items verified' : ($coverage['supported'] ? 'Scanning in progress' : 'Manual verification required') }}
+                                </span>
+                            </div>
+                            @if($coverage['supported'])
+                                <p class="mt-2 text-sm text-slate-300">{{ $coverage['scanned'] }} of {{ $coverage['expected'] }} expected units scanned</p>
+                                <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-700"><div class="h-full bg-emerald-500" style="width: {{ $coverage['expected'] ? min(100, round($coverage['scanned'] / $coverage['expected'] * 100)) : 0 }}%"></div></div>
+                            @else
+                                <p class="mt-2 text-sm text-amber-200">This buyer's order lacks complete inventory product mappings. Scanning cannot certify the order; use the existing manual review process.</p>
+                            @endif
+                        </div>
                         <div class="mt-6 space-y-4 rounded-xl border border-violet-400/30 bg-[#0b1020] p-4">
                             <h4 class="font-semibold text-violet-200">Scan an item for this buyer</h4>
                             <form wire:submit.prevent="scanBuyerItem({{ $current->id }})" class="flex flex-col gap-2 sm:flex-row">

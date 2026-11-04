@@ -294,7 +294,9 @@ class PayRunAutomationService
             if ($rate === null) {
                 continue;
             }
-            $entries = TimeEntry::where('user_id', $member->user_id)->whereNull('show_id')->whereNotNull('clocked_out_at')
+            $entries = TimeEntry::where('user_id', $member->user_id)
+                ->when(! $member->isFulfillment(), fn ($query) => $query->whereNull('show_id'))
+                ->whereNotNull('clocked_out_at')
                 ->whereBetween('clocked_in_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
                 ->get()->filter(fn (TimeEntry $e) => $e->payableMinutes() > 0);
             $minutes = (int) $entries->sum(fn (TimeEntry $e) => $e->payableMinutes());
@@ -325,7 +327,7 @@ class PayRunAutomationService
                 'owner_fee_deducted' => 0,
                 'tips_included' => 0,
                 'calculated_payout' => round($rate * $minutes / 60, 2),
-                'calculation_notes' => "Time not on a show: \${$rate}/hr × {$hours}hrs ({$breakdown})",
+                'calculation_notes' => "Approved clocked time: \${$rate}/hr × {$hours}hrs ({$breakdown})",
                 'status' => 'draft',
             ])->save();
             $keep[] = $payout->id;

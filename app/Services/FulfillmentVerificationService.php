@@ -40,6 +40,7 @@ final class FulfillmentVerificationService {
    abort_unless($run && $run->status==='packing' && $buyer,404);
    $manager=$actor->isOwner()||$actor->isAdmin()||$actor->isFulfillmentAdmin();
    abort_unless($manager || DB::table('fulfillment_run_packers')->where('run_id',$runId)->where('user_id',$actor->id)->exists(),403);
+   if ($buyer->status==='packed') throw ValidationException::withMessages(['barcode'=>'This buyer is already marked packed. Reopen the buyer before scanning more items.']);
    if ($buyer->status==='held' || DB::table('fulfillment_flags')->where('buyer_id',$buyerId)->where('status','open')->exists())
     throw ValidationException::withMessages(['barcode'=>'Buyer is on hold. Resolve issues first.']);
    $ids=json_decode($buyer->order_ids ?: '[]',true);

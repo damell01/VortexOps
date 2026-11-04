@@ -64,6 +64,27 @@
                             <span class="flex h-36 min-w-36 items-center justify-center rounded-2xl border border-violet-400/50 bg-violet-700 px-4 font-mono text-7xl font-black tracking-tight shadow-lg shadow-violet-950/40 sm:h-48 sm:min-w-48 sm:text-8xl" aria-label="Camera reference letter {{ $current->letter }}">{{ $current->letter }}</span>
                             <div class="min-w-0"><p class="text-xs font-semibold uppercase tracking-wider text-violet-300">Current buyer · {{ $current->letter }}</p><h3 class="mt-2 break-all text-2xl font-bold sm:text-4xl">{{ $current->buyer_username }}</h3><p class="mt-2 text-slate-300">{{ $current->item_count }} items · {{ ucfirst($current->status) }}</p><p class="mt-2 text-xs text-slate-400">Camera reference: show + station + letter + packing time</p></div>
                         </div>
+                        <div class="mt-6 space-y-4 rounded-xl border border-violet-400/30 bg-[#0b1020] p-4">
+                            <h4 class="font-semibold text-violet-200">Scan an item for this buyer</h4>
+                            <form wire:submit.prevent="scanBuyerItem({{ $current->id }})" class="flex flex-col gap-2 sm:flex-row">
+                                <label for="fulfillment-barcode" class="sr-only">Barcode or SKU</label>
+                                <input id="fulfillment-barcode" wire:model="scanCode" autocomplete="off" placeholder="Scan barcode or enter SKU" class="min-h-12 flex-1 rounded-lg border border-slate-600 bg-[#121833] px-3 text-white" />
+                                <button type="submit" class="min-h-12 rounded-lg bg-violet-600 px-5 font-semibold text-white">Verify scan</button>
+                            </form>
+                            @error('scanCode') <p class="text-sm text-amber-300">{{ $message }}</p> @enderror
+                            <p class="text-xs text-slate-400">Scans are recorded with the employee and buyer. A match does not yet certify all expected quantities.</p>
+                            <button type="button" wire:click="$set('selectedBuyerId', {{ $current->id }})" class="rounded-lg border border-amber-500/60 px-4 py-2 text-sm font-semibold text-amber-200">Report missing, damaged or wrong item</button>
+                            @if($selectedBuyerId === (int) $current->id)
+                                <div class="space-y-2">
+                                    <label for="fulfillment-flag-type" class="block text-sm">Issue type</label>
+                                    <select id="fulfillment-flag-type" wire:model="flagType" class="w-full rounded-lg bg-[#121833] text-white"><option value="missing_item">Missing item</option><option value="damaged">Damaged</option><option value="wrong_item">Wrong item</option><option value="wrong_count">Wrong count</option><option value="cancelled">Cancelled</option><option value="other">Other</option></select>
+                                    <label for="fulfillment-flag-details" class="block text-sm">What happened?</label>
+                                    <textarea id="fulfillment-flag-details" wire:model="flagDetails" rows="3" class="w-full rounded-lg bg-[#121833] text-white"></textarea>
+                                    @error('flagDetails') <p class="text-sm text-amber-300">{{ $message }}</p> @enderror
+                                    <button type="button" wire:click="reportIssue({{ $current->id }})" class="min-h-12 rounded-lg bg-amber-600 px-4 font-semibold text-white">Submit issue and hold buyer</button>
+                                </div>
+                            @endif
+                        </div>
                         <div role="status" class="mt-6 flex gap-3 rounded-xl border border-amber-600/50 bg-amber-950/80 p-4 text-sm text-amber-100"><span aria-hidden="true">⚠</span><p><strong>Manual packing confirmation</strong><span class="mt-1 block text-amber-200">Barcode verification and item-level pick lists are not enabled yet. Check the existing fulfillment show details before marking a buyer packed. This action does not certify scanned items.</span></p></div>
                         <button wire:click="packBuyer({{ $current->id }})" wire:confirm="Confirm you manually checked this buyer against the existing fulfillment show details? Scanning is not enabled." class="mt-6 min-h-16 w-full rounded-xl bg-violet-600 px-5 text-lg font-bold transition hover:bg-violet-500 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:opacity-50" wire:loading.attr="disabled" wire:target="packBuyer">Confirm manually packed · next buyer</button>
                     @else

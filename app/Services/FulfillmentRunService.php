@@ -58,23 +58,23 @@ class FulfillmentRunService
                 DB::table('fulfillment_run_packers')->insert(['run_id' => $runId, 'user_id' => $packerId]);
             }
 
-            // Package data is the existing buyer source. A future API adapter can
-            // replace this query without changing the station board schema.
-            $buyers = FulfillmentPackage::query()->where('show_id', $show->id)
-                ->whereNotNull('buyer_username')->where('buyer_username', '!=', '')
-                ->select('id', 'buyer_username')->orderBy('id')->get()
-                ->groupBy(fn ($package) => mb_strtolower(trim($package->buyer_username)))
-                ->sortKeys();
-
-            $index = 0;
-            foreach ($buyers as $group) {
-                $letter = self::letter($index++);
+            // Freeze alphabetical buyer assignments for the camera audit trail.
+            // A later sync may enrich orders, but must never silently relabel
+            // buyers after the packing run has started.
+            $buyers = app(FulfillmentBuyerSource::class)->forShow($show);
+            if ($buyers->isEmpty()) {
+                throw ValidationException::withMessages(['show' => 'No buyer data is available. Sync orders or shipments before starting.']);
+            }
+            foreach ($buyers as $index => $buyer) {
                 DB::table('fulfillment_run_buyers')->insert([
-                    'run_id' => $runId, 'buyer_username' => $group->first()->buyer_username,
-                    'letter' => $letter, 'order_ids' => json_encode($group->pluck('id')->all()),
-                    'item_count' => (int) DB::table('fulfillment_package_items')
-                        ->whereIn('fulfillment_package_id', $group->pluck('id'))->sum('quantity'),
-                    'status' => 'waiting', 'created_at' => $now, 'updated_at' => $now,
+                    'run_id' => $runId,
+                    'buyer_username' => $buyer['username'],
+                    'letter' => self::letter($index),
+                    'order_ids' => json_encode($buyer['order_ids']),
+                    'item_count' => $buyer['item_count'],
+                    'status' => 'waiting',
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ]);
             }
             return $runId;

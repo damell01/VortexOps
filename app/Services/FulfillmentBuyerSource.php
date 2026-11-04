@@ -11,8 +11,8 @@ use Illuminate\Support\Collection;
 /**
  * One normalized buyer queue, regardless of the upstream provider.
  *
- * API-imported orders take priority when present; existing shipment and
- * package records are fallback sources. Never merge the sources, as that
+ * Imported Whatnot order rows take priority when present; existing shipment and
+ * package records are fallback sources. Order rows may originate from API or scraper. Never merge the sources, as that
  * would double-count buyers and packages during a partial sync.
  *
  * This reads local verified records; the Whatnot API sync job owns network
@@ -23,15 +23,15 @@ final class FulfillmentBuyerSource
     /** @return Collection<int,array{username:string,order_ids:array,item_count:int,source:string}> */
     public function forShow(Show $show): Collection
     {
-        $apiOrders = WhatnotShowOrder::query()
+        $orderRows = WhatnotShowOrder::query()
             ->where('show_id', $show->id)
             ->whereNotNull('buyer_username')
             ->where('buyer_username', '!=', '')
             ->orderBy('id')
             ->get(['id', 'buyer_username', 'whatnot_order_id', 'quantity']);
 
-        if ($apiOrders->isNotEmpty()) {
-            return $apiOrders->groupBy(fn ($order) => mb_strtolower(trim($order->buyer_username)))
+        if ($orderRows->isNotEmpty()) {
+            return $orderRows->groupBy(fn ($order) => mb_strtolower(trim($order->buyer_username)))
                 ->sortKeys()->values()
                 ->map(fn ($group) => [
                     'username' => trim($group->first()->buyer_username),

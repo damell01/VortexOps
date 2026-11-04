@@ -26,11 +26,11 @@ final class FulfillmentVerificationService {
     $expected=(int) \App\Models\WhatnotShowOrder::query()->where('show_id',$run->show_id)
      ->whereIn('whatnot_order_id',array_map('strval',$ids))->where('inventory_item_id',$product->id)->sum('quantity');
     $scanned=DB::table('fulfillment_verifications')->where('run_id',$runId)->where('buyer_id',$buyerId)
-     ->where('result','matched')->where('barcode',$barcode)->count();
+     ->where('result','matched')->where('product_id',$product->id)->sum('quantity');
     if ($scanned >= $expected) throw ValidationException::withMessages(['barcode'=>'Expected quantity already scanned for this barcode.']);
    }
    return DB::table('fulfillment_verifications')->insertGetId([
-    'run_id'=>$runId,'buyer_id'=>$buyerId,'verified_by'=>$actor->id,'barcode'=>$barcode,
+    'run_id'=>$runId,'buyer_id'=>$buyerId,'product_id'=>$product?->id,'verified_by'=>$actor->id,'barcode'=>$barcode,
     'result'=>$result,'quantity'=>1,'created_at'=>now(),'updated_at'=>now()
    ]);
   });

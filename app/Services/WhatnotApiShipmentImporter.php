@@ -115,7 +115,9 @@ final class WhatnotApiShipmentImporter
                 $terminal = in_array($currentStatus, ['delivered', 'returned'], true);
                 $incomingTerminal = in_array($incomingStatus, ['delivered', 'returned'], true);
                 $resolvedStatus = $terminal && ! $incomingTerminal ? $currentStatus : $incomingStatus;
-                ($existing ?? new Shipment(['show_id' => $showId]))->fill(
+                $previousStatus = $existing?->status;
+                $record = $existing ?? new Shipment(['show_id' => $showId]);
+                $record->fill(
                     array_filter([
                         // A link to the local order row (whatnot_show_orders.id), despite the name.
                         'whatnot_order_id' => $showOrders->first()->id,
@@ -134,6 +136,16 @@ final class WhatnotApiShipmentImporter
                             'replacement_shipment_id' => $shipment['replacement_shipment_id'] ?? null],
                     ], fn ($v) => $v !== null),
                 )->save();
+                // Only append a history event on a real status transition.
+                // Repeated API snapshots must not create duplicate history.
+                if ($record->status && $previousStatus !== $record->status) {
+                    \Illuminate\Support\Facades\DB::table('fulfillment_shipment_events')->insert([
+                        'shipment_id' => $record->id, 'source' => 'seller_api',
+                        'previous_status' => $previousStatus, 'status' => $record->status,
+                        'tracking_number' => $record->tracking_number, 'observed_at' => now(),
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
             }
         }
 

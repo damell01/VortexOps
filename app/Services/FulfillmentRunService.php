@@ -105,6 +105,20 @@ class FulfillmentRunService
             if (DB::table('fulfillment_flags')->where('buyer_id', $buyerId)->where('status', 'open')->exists()) {
                 throw ValidationException::withMessages(['buyer' => 'Resolve the open buyer issue before confirming packing.']);
             }
+            // Once item scanning starts, manual confirmation cannot bypass missing scans.
+            // Legacy buyers with no scan history continue using the existing manual process.
+            $hasScans = DB::table('fulfillment_verifications')->where('run_id', $runId)
+                ->where('buyer_id', $buyerId)->exists();
+            if ($hasScans) {
+                $coverage = app(FulfillmentVerificationService::class)->coverage($runId, $buyerId);
+                if (! $coverage['complete']) {
+                    throw ValidationException::withMessages([
+                        'buyer' => $coverage['supported']
+                            ? 'Scan all expected items before confirming this buyer packed.'
+                            : 'This buyer has unmapped order items. A manager must review the order mapping before completing scan verification.',
+                    ]);
+                }
+            }
             if ($buyer->status === 'packed') return;
             DB::table('fulfillment_run_buyers')->where('id', $buyerId)->update([
                 'status' => 'packed', 'packed_by' => $actor->id,

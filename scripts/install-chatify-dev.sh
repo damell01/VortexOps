@@ -31,5 +31,13 @@ php artisan chatify:install --with-ui
 echo "Review newly published files and routes before enabling Chatify."
 echo "Add Chatify\\Traits\\InteractsWithChatify to App\\Models\\User after package installation."
 echo "Commit composer.lock and published assets on Dev."
-echo "Then test migrations against an isolated copy of the Dev database."
+if [[ "${VORTEX_CHATIFY_RUN_MIGRATIONS:-}" == "YES" ]]; then
+  if [[ "${APP_ENV:-}" != "staging" && "${APP_ENV:-}" != "development" && "${APP_ENV:-}" != "local" ]]; then
+    echo "Refusing migration: APP_ENV must be staging, development or local." >&2
+    exit 1
+  fi
+  php artisan migrate --force
+else
+  echo "Migrations skipped; set VORTEX_CHATIFY_RUN_MIGRATIONS=YES after confirming isolated Dev DB and backup."
+fi
 echo "Leave VORTEX_CHATIFY_PREVIEW_ENABLED=false until authorization and uploads pass."

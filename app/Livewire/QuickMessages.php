@@ -14,7 +14,7 @@ class QuickMessages extends Component
     use WithFileUploads;
 
     public bool $creating = false;
-    public string $kind = 'direct';
+    public array $selectedRoles = [];
     public string $groupTitle = '';
     public array $members = [];
     public array $attachments = [];
@@ -57,16 +57,38 @@ class QuickMessages extends Component
         $this->body = '';
     }
 
+    public function updatedSelectedRoles(): void
+    {
+        $this->authorizeOwner();
+        $this->selectedRoles = array_values(array_unique(array_filter(array_map('strval', $this->selectedRoles))));
+        $roleIds = \Spatie\Permission\Models\Role::query()->where('guard_name', 'web')->whereIn('name', $this->selectedRoles)->pluck('id');
+        $ids = User::query()->whereKeyNot(auth()->id())->whereHas('roles', fn ($query) => $query->whereIn('roles.id', $roleIds))->pluck('id')->all();
+        $this->members = array_values(array_unique(array_merge(array_map('intval', $this->members), $ids)));
+    }
+
+    public function updatedMembers(): void
+    {
+        $this->authorizeOwner();
+        $this->members = array_values(array_unique(array_map('intval', $this->members)));
+    }
+
     public function createConversation(): void
     {
         $actor = $this->authorizeOwner();
+        $ids = array_values(array_unique(array_filter(array_map('intval', $this->members), fn ($id) => $id !== $actor->id)));
+        $this->validate(['members' => 'required|array|min:1|max:50', 'members.*' => 'integer|distinct|exists:users,id']);
+        $kind = count($ids) === 1 ? 'direct' : 'group';
+        $title = trim($this->groupTitle);
+        if ($kind === 'group' && $title === '') {
+            $title = 'Group · '.now()->format('M j');
+        }
         $thread = app(TeamCommunications::class)->start($actor, [
-            'kind' => $this->kind,
-            'title' => trim($this->groupTitle),
-            'members' => $this->members,
+            'kind' => $kind,
+            'title' => $title,
+            'members' => $ids,
         ]);
         $this->creating = false;
-        $this->reset('members', 'groupTitle', 'peopleSearch');
+        $this->reset('members', 'groupTitle', 'peopleSearch', 'selectedRoles');
         $this->openConversation($thread->id);
     }
 
@@ -99,6 +121,8 @@ class QuickMessages extends Component
         $messages = $selected?->messages()->with(['sender:id,name', 'attachments'])->latest('id')->limit(40)->get()->reverse();
 
         $people = $this->creating ? User::query()->whereKeyNot($actor->id)->when(trim($this->peopleSearch) !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes(mb_substr(trim($this->peopleSearch), 0, 100), '%_\\\\').'%'))->orderBy('name')->limit(40)->get(['id', 'name']) : collect();
-        return view('livewire.quick-messages', compact('threads', 'selected', 'messages', 'people'));
+        $roles = $this->creating ? \Spatie\Permission\Models\Role::query()->where('guard_name', 'web')->orderBy('name')->get(['id', 'name']) : collect();
+        $selectedPeople = $this->creating && count($this->members) ? User::query()->whereIn('id', $this->members)->get(['id', 'name']) : collect();
+        return view('livewire.quick-messages', compact('threads', 'selected', 'messages', 'people', 'roles', 'selectedPeople'));
     }
 }

@@ -7,7 +7,6 @@
     $workflow = $this->workflowBreakdown();
     $progress = $this->periodProgress();
     $tips = $this->periodTips();
-    $fulfillmentHandoffs = \Illuminate\Support\Facades\DB::table('fulfillment_runs as fr')->join('shows as fs', 'fs.id', '=', 'fr.show_id')->whereNotNull('fr.payroll_handoff_at')->whereBetween('fs.show_date', [$this->periodBounds()[0]->toDateString(), $this->periodBounds()[1]->toDateString()])->select('fr.*', 'fs.title as show_title')->orderByDesc('fr.payroll_handoff_at')->limit(30)->get();
 
     $filteredShows = $this->currentWeekShows();
     $perPage = 12;
@@ -74,32 +73,6 @@
         <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
     </div>
 
-    <section class="vxw-card" aria-label="Fulfillment payroll handoffs" style="margin-bottom:18px">
-        <div class="vxw-card-head">
-            <div><h3 class="vxw-h2">Fulfillment handoffs</h3><p class="vxw-meta">Manager-verified packing records for this pay period. Review with Micha before adjusting any pay.</p></div>
-            <span class="vxw-pill">{{ $fulfillmentHandoffs->count() }} ready</span>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead><tr class="border-b border-gray-200 dark:border-gray-700">
-                    <th class="p-3">Show</th><th class="p-3">Shipments</th><th class="p-3">PWEs</th><th class="p-3">Packer split</th><th class="p-3">Handoff</th>
-                </tr></thead>
-                <tbody>
-                @forelse($fulfillmentHandoffs as $handoff)
-                    <tr class="border-b border-gray-100 dark:border-gray-800">
-                        <td class="p-3 font-semibold">{{ $handoff->show_title }}</td>
-                        <td class="p-3">{{ $handoff->reported_shipments ?? '—' }}</td>
-                        <td class="p-3">{{ $handoff->reported_pwes ?? '—' }}</td>
-                        <td class="p-3">{{ ucfirst($handoff->payroll_split_method ?? 'Unspecified') }}@if($handoff->payroll_split_notes)<p class="text-xs opacity-70">{{ $handoff->payroll_split_notes }}</p>@endif</td>
-                        <td class="p-3">{{ $handoff->payroll_handoff_at }}</td>
-                    </tr>
-                @empty
-                    <tr><td colspan="5" class="p-5 text-center text-sm opacity-70">No verified fulfillment handoffs for this pay period.</td></tr>
-                @endforelse
-                </tbody>
-            </table>
-        </div>
-    </section>
     <div class="vxw-split">
         {{-- Work queue --}}
         <section class="vxw-card" aria-labelledby="vxw-queue-heading">

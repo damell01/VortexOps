@@ -59,7 +59,14 @@ class StationBoard extends Page
     public function packBuyer(int $buyerId): void
     {
         $this->authorizeActiveRun();
-        app(FulfillmentRunService::class)->markPacked($this->runId, $buyerId, auth()->user());
+        try {
+            app(FulfillmentRunService::class)->markPacked($this->runId, $buyerId, auth()->user());
+            Notification::make()->title('Buyer packed')->success()->send();
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Packing confirmation blocked')
+                ->body(collect($exception->errors())->flatten()->first() ?: 'Verify the buyer order before packing.')
+                ->warning()->send();
+        }
     }
 
     public function scanBuyerItem(int $buyerId): void
@@ -107,6 +114,12 @@ class StationBoard extends Page
         abort_unless(FulfillmentResource::canView($show), 403);
         abort_unless(DB::table('fulfillment_runs')->where('id', $this->runId)
             ->where('show_id', $show->id)->where('status', 'packing')->exists(), 403);
+    }
+
+    public function buyerCoverage(int $buyerId): array
+    {
+        $this->authorizeActiveRun();
+        return app(\App\Services\FulfillmentVerificationService::class)->coverage($this->runId, $buyerId);
     }
 
     public function boardData(): array

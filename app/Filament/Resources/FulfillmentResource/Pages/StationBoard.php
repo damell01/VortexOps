@@ -54,24 +54,34 @@ class StationBoard extends Page
 
     public function packBuyer(int $buyerId): void
     {
-        abort_unless($this->runId, 404);
+        $this->authorizeActiveRun();
         app(FulfillmentRunService::class)->markPacked($this->runId, $buyerId, auth()->user());
     }
 
     public function finishPacking(): void
     {
-        abort_unless($this->runId, 404);
+        $this->authorizeActiveRun();
         app(FulfillmentRunService::class)->finish($this->runId, auth()->user());
         $this->runId = null;
         Notification::make()->title('Show packing complete')->success()->send();
     }
 
+    private function authorizeActiveRun(): void
+    {
+        abort_unless($this->runId, 404);
+        $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
+        abort_unless(DB::table('fulfillment_runs')->where('id', $this->runId)
+            ->where('show_id', $show->id)->where('status', 'packing')->exists(), 403);
+    }
+
     public function boardData(): array
     {
         $show = FulfillmentResource::getEloquentQuery()->findOrFail($this->record);
+        abort_unless(FulfillmentResource::canView($show), 403);
         $run = $this->runId ? DB::table('fulfillment_runs')
             ->join('fulfillment_stations', 'fulfillment_stations.id', '=', 'fulfillment_runs.station_id')
-            ->where('fulfillment_runs.id', $this->runId)
+            ->where('fulfillment_runs.id', $this->runId)->where('fulfillment_runs.show_id', $show->id)->where('fulfillment_runs.status', 'packing')
             ->select('fulfillment_runs.*', 'fulfillment_stations.name as station_name')->first() : null;
         $buyers = $run ? DB::table('fulfillment_run_buyers')->where('run_id', $run->id)->orderBy('id')->get() : collect();
         $packers = $run ? DB::table('fulfillment_run_packers')

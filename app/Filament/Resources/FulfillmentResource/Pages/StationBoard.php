@@ -22,6 +22,45 @@ class StationBoard extends Page
     public string $scanCode = '';
     public string $flagType = 'missing_item';
     public string $flagDetails = '';
+    public int $reportedShipments = 0;
+    public int $reportedPwes = 0;
+    public bool $hardCopyVerified = false;
+    public string $splitMethod = 'single';
+    public string $splitNotes = '';
+
+    public function canManageHandoff(): bool
+    {
+        $user = auth()->user();
+        return (bool) ($user && ($user->isAdmin() || $user->isFulfillmentAdmin()));
+    }
+
+    public function verifyWorksheet(): void
+    {
+        abort_unless($this->canManageHandoff(), 403);
+        $this->validate([
+            'reportedShipments' => ['required', 'integer', 'min:0'],
+            'reportedPwes' => ['required', 'integer', 'min:0'],
+        ]);
+        app(\App\Services\FulfillmentPayrollHandoffService::class)->verify(
+            auth()->user(), (int) $this->runId, $this->reportedShipments,
+            $this->reportedPwes, $this->hardCopyVerified
+        );
+        Notification::make()->title('Packing worksheet verified')->success()->send();
+    }
+
+    public function handoffToPayroll(): void
+    {
+        abort_unless($this->canManageHandoff(), 403);
+        $this->validate([
+            'splitMethod' => ['required', 'in:single,even,custom'],
+            'splitNotes' => ['nullable', 'string', 'max:2000'],
+        ]);
+        app(\App\Services\FulfillmentPayrollHandoffService::class)->handoff(
+            auth()->user(), (int) $this->runId, $this->splitMethod, $this->splitNotes
+        );
+        Notification::make()->title('Ready for Micha to review in payroll')->success()->send();
+    }
+
 
     public function getView(): string
     {

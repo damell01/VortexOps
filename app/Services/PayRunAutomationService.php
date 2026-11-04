@@ -298,7 +298,16 @@ class PayRunAutomationService
                 ->when(! $member->isFulfillment(), fn ($query) => $query->whereNull('show_id'))
                 ->whereNotNull('clocked_out_at')
                 ->whereBetween('clocked_in_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-                ->get()->filter(fn (TimeEntry $e) => $e->payableMinutes() > 0);
+                ->get()->filter(function (TimeEntry $entry) use ($member, $batch): bool {
+                    if ($entry->payableMinutes() <= 0) return false;
+                    // A show-linked entry must never create a second hourly payout
+                    // if this member already has a show payout in the same run.
+                    return ! ($entry->show_id && Payout::query()
+                        ->where('weekly_payout_batch_id', $batch->id)
+                        ->where('streamer_id', $member->id)
+                        ->where('show_id', $entry->show_id)
+                        ->where('payout_type', '!=', 'clocked_time')->exists());
+                });
             $minutes = (int) $entries->sum(fn (TimeEntry $e) => $e->payableMinutes());
             if ($minutes <= 0) {
                 continue;

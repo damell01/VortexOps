@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Show;
 use App\Models\WhatnotApiConnection;
+use App\Models\WhatnotShowOrder;
 use App\Services\FulfillmentShipmentRefreshService;
 use App\Services\WhatnotApiOrderApplier;
 use Illuminate\Console\Command;
@@ -33,7 +34,7 @@ final class FulfillmentRefreshShipments extends Command
 
         $shows = Show::query()->whereIn('whatnot_channel_id', $channels)
             ->where('show_date', '>=', now()->subDays($days)->toDateString())
-            ->whereHas('whatnotShowOrders')
+            ->whereIn('id', WhatnotShowOrder::query()->select('show_id')->whereNotNull('whatnot_order_id'))
             ->orderByDesc('show_date')->limit($limit)->get();
 
         $errors = 0;

@@ -96,7 +96,7 @@ class QuickMessages extends Component
         $service = app(TeamCommunications::class);
         $threads = $service->inbox($actor)->orderByDesc('last_message_at')->limit(8)->get();
         $selected = $this->conversationId ? $service->conversation($actor, $this->conversationId) : null;
-        $messages = $selected?->messages()->with('sender:id,name')->latest('id')->limit(40)->get()->reverse();
+        $messages = $selected?->messages()->with(['sender:id,name', 'attachments'])->latest('id')->limit(40)->get()->reverse();
 
         $people = $this->creating ? User::query()->whereKeyNot($actor->id)->when(trim($this->peopleSearch) !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes(mb_substr(trim($this->peopleSearch), 0, 100), '%_\\\\').'%'))->orderBy('name')->limit(40)->get(['id', 'name']) : collect();
         return view('livewire.quick-messages', compact('threads', 'selected', 'messages', 'people'));

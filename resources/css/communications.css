@@ -397,3 +397,8 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-load-older:hover{background:#f0e6ff}
 .vx-chatify-load-older:disabled{opacity:.6;cursor:wait}
 .dark .vx-chatify-load-older{background:#382749;color:#e5d5ff;border-color:#604a78}
+
+
+.vx-chatify-edit-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-top:1px solid #e5d7f5;background:#f3eaff;color:#5b21b6;font-size:12px}
+.vx-chatify-edit-banner button{border:1px solid #c4b5fd;border-radius:8px;padding:5px 9px;font-weight:700;font-size:11px}
+.dark .vx-chatify-edit-banner{background:#38264a;color:#e9d5ff;border-color:#624879}

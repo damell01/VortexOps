@@ -260,7 +260,7 @@
                         },
                         async openGroupMembers() {
                             if(!this.selected)return;
-                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';
+                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';await this.loadUsers();
                             await this.refreshGroupMembers();
                         },
                         async refreshGroupMembers() {
@@ -301,7 +301,7 @@
                             if(!this.selected || !window.confirm('Leave this group conversation?'))return;
                             try {
                                 await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/leave',{method:'POST'});
-                                this.selected=null;this.messages=[];await this.load();
+                                this.selected=null;this.showMembers=false;this.messages=[];await this.load();
                             }catch(e){this.error=e.message;}
                         },
                         async copyConversationLink() {

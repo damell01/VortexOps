@@ -169,7 +169,7 @@
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
                                 this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);
-                                this.hasOlder=this.olderPage>1 || this.pageInfo(data,list.length,1);
+                                this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
                                 this.$nextTick(()=>{
                                     if(this.$refs.messagePane && (firstLoad || nearBottom))this.$refs.messagePane.scrollTop=this.$refs.messagePane.scrollHeight;
                                     this.lastMessageId=this.messages.at(-1)?.id;

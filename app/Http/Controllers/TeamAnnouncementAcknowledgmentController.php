@@ -19,12 +19,12 @@ class TeamAnnouncementAcknowledgmentController
         abort_unless(!$announcement->ends_at || $announcement->ends_at->gt(now()), 404);
 
         $user = $request->user();
-        $targets = array_map('intval', (array) ($announcement->user_ids ?? []));
-        $roles = array_map('intval', (array) ($announcement->role_ids ?? []));
-        if ($targets || $roles) {
-            $matched = in_array((int) $user->id, $targets, true)
-                || ($roles && $user->roles()->whereIn('roles.id', $roles)->exists());
-            abort_unless($matched, 403);
+        if ($announcement->audience === 'users') {
+            abort_unless(in_array((int) $user->id, array_map('intval', (array) $announcement->user_ids), true), 403);
+        } elseif ($announcement->audience === 'roles') {
+            abort_unless($user->roles()->whereIn('roles.id', (array) $announcement->role_ids)->exists(), 403);
+        } elseif ($announcement->audience !== 'all') {
+            abort(403);
         }
 
         DB::table('team_announcement_acknowledgments')->insertOrIgnore([

@@ -58,7 +58,7 @@ for (const width of [390, 1280, 1920]) {
     expect(overlap).toBe(false);
    }
   }
-  const show=page.locator('.vx-chip:visible, .vx-ev:visible, .vx-acard:visible, .vx-arow:visible').first();
+  const show=page.getByRole('button').filter({hasText:'Claims w/ Brandon'}).first();
   await show.click();
   const modal=page.locator('.vx-drawer');
   await expect(modal).toBeVisible();

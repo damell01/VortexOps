@@ -415,3 +415,11 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-user-list[role="listbox"] button:hover,.vx-chatify-user-list[role="listbox"] button:focus-visible{background:#f4efff;outline:2px solid #a78bfa}
 .dark .vx-chatify-user-list[role="listbox"]{background:#291e35;border-color:#604a78}
 @media(max-width:640px){.vx-chatify-native .vx-chatify-conversation-head{gap:4px;flex-wrap:wrap}.vx-chatify-native .vx-chatify-conversation-head button{min-height:36px;min-width:36px}.vx-chatify-message-actions{flex-wrap:wrap;gap:4px}.vx-chatify-message-actions button{min-height:28px;min-width:28px}.vx-chatify-native .vx-chatify-composer textarea{font-size:16px}}
+
+/* Compact interactive reaction summaries. */
+.vx-chatify-message-reactions{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+.vx-chatify-message-reactions button{display:inline-flex;align-items:center;gap:4px;min-height:28px;border:1px solid #e9d9f5;border-radius:999px;padding:3px 9px;background:#f8f4fd;color:#5b327e;font-size:12px;cursor:pointer}
+.vx-chatify-message-reactions button.is-mine{background:#eee5ff;border-color:#8b5cf6;color:#5b21b6;font-weight:700}
+.vx-chatify-message-reactions button:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+.dark .vx-chatify-message-reactions button{background:#362848;color:#eee3ff;border-color:#62477f}
+.dark .vx-chatify-message-reactions button.is-mine{background:#50366e;border-color:#b794f4}

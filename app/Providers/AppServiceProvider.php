@@ -142,6 +142,7 @@ class AppServiceProvider extends ServiceProvider
         // batches so strict lazy-loading protection stays enabled for Vortex Ops.
         // Only register while the owner-only Chatify preview is enabled.
         if (config('chatify-preview.enabled', false) && class_exists(\Chatify\Models\Message::class)) {
+            \Chatify\Models\Message::observe(\App\Observers\ChatifyMessageObserver::class);
             \Chatify\Models\Message::addGlobalScope('vortex_chatify_conversation',
                 fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('conversation')
             );

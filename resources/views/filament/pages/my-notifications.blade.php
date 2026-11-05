@@ -59,6 +59,19 @@
             @error('messageQuietStart') <p class="sub" role="alert">{{ $message }}</p> @enderror
             @error('messageQuietEnd') <p class="sub" role="alert">{{ $message }}</p> @enderror
         </div>
+        @if(config("chatify-preview.team_enabled", false))
+            <div class="mt-4 border-t pt-3" style="border-color:var(--line)">
+                <div class="head mb-2">Mute individual conversations</div>
+                <p class="sub mb-3">Muted chats stay in your inbox but do not send push or email alerts.</p>
+                <div class="grid gap-2" style="max-height:220px;overflow:auto">
+                    @forelse($this->chatConversations() as $chat)
+                        <label class="switch" wire:key="mute-{{ $chat['id'] }}"><input type="checkbox" wire:model="mutedConversationIds" value="{{ $chat['id'] }}"> Mute {{ $chat['name'] }}</label>
+                    @empty
+                        <p class="sub">No conversations available yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        @endif
         <p class="sub mt-3">Quiet hours use your profile timezone, or the application timezone when no profile timezone is set. Messages still appear in your inbox while alerts are silenced.</p>
         <p class="sub mt-3">Email delivery will use a cooldown to avoid repeated alerts during active conversations. Save your preferences below.</p>
     </section>

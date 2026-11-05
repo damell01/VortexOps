@@ -46,12 +46,12 @@
                                         </template>
                                     </div>
                                 </template>
-                                <div class="vx-chatify-message-actions">
+                                <div class="vx-chatify-message-actions"><template x-for="emoji in ['👍','❤️','😂','🎉','👀']" :key="emoji"><button type="button" x-on:click="toggleReaction(message,emoji)" :title="'React '+emoji" x-text="emoji"></button></template>
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
                                 </div>
-                                <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
+                                <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="(reaction,index) in reactions[message.id] || []" :key="index"><span x-text="reaction.emoji"></span></template></div><small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>
                         </template>
                     </div>
@@ -117,7 +117,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], searchRequestId:0, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, searchRequestId:0, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -334,6 +334,20 @@
                             const link=new URL(window.location.href);link.searchParams.set('chat',String(this.selected.id));
                             try {await navigator.clipboard.writeText(link.toString());this.copiedConversation=true;}
                             catch(e){this.error='Could not copy conversation link.';}
+                        },
+                        async toggleReaction(message,emoji) {
+                            try {
+                                const url=@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(message.id);
+                                const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content || ''},body:JSON.stringify({emoji})});
+                                if(!response.ok)throw new Error('Could not update reaction');
+                                await this.loadReactions(message.id);
+                            }catch(e){this.error=e.message;}
+                        },
+                        async loadReactions(id) {
+                            try {
+                                const response=await fetch(@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(id),{credentials:'same-origin',headers:{Accept:'application/json'}});
+                                if(response.ok){const data=await response.json();this.reactions[id]=data.reactions || [];}
+                            }catch(e){}
                         },
                         async deleteMessage(message) {
                             if(!this.selected || !this.isMine(message) || this.sending)return;

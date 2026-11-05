@@ -180,6 +180,7 @@ class Communications extends Page
             ->when($this->announcementFilter === 'scheduled', fn ($q) => $q->where('status', 'published')->where('starts_at', '>', now())->where('ends_at', '>', now()))
             ->when($this->announcementFilter === 'active', fn ($q) => $q->where('status', 'published')->where('starts_at', '<=', now())->where('ends_at', '>', now()))
             ->latest('id')->paginate(10, ['*'], 'announcementPage', max(1, $this->announcementPage));
+        $announcements->getCollection()->loadCount('acknowledgments');
         $audienceCounts = $announcements->getCollection()->mapWithKeys(fn ($a) => [$a->id => $service->recipientCount($actor, $a)]);
         $search = mb_substr($this->peopleSearch, 0, 100);
         $people = User::select('id', 'name')->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))->orderBy('name')->limit(60)->get();

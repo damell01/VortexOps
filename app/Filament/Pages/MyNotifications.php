@@ -24,6 +24,7 @@ class MyNotifications extends Page
     public bool $messagePush = false;
     public bool $messageEmail = false;
     public bool $messagePreview = true;
+    public bool $messageGroupMentionsOnly = false;
     public bool $messageQuietHours = false;
     public string $messageQuietStart = '22:00';
     public string $messageQuietEnd = '07:00';
@@ -48,6 +49,7 @@ class MyNotifications extends Page
         $this->messagePush = (bool) (($user->notification_preferences['team_message']['push'] ?? false));
         $this->messageEmail = (bool) (($user->notification_preferences['team_message']['email'] ?? false));
         $this->messagePreview = (bool) (($user->notification_preferences['team_message']['preview'] ?? true));
+        $this->messageGroupMentionsOnly = (bool) ($user->notification_preferences['team_message']['group_mentions_only'] ?? false);
         $this->messageQuietHours = (bool) ($user->notification_preferences['team_message']['quiet_enabled'] ?? false);
         $this->messageQuietStart = (string) ($user->notification_preferences['team_message']['quiet_start'] ?? '22:00');
         $this->messageQuietEnd = (string) ($user->notification_preferences['team_message']['quiet_end'] ?? '07:00');
@@ -104,7 +106,7 @@ class MyNotifications extends Page
 
         $this->validate(['messageQuietStart' => ['required', 'date_format:H:i'], 'messageQuietEnd' => ['required', 'date_format:H:i']]);
         $clean['team_message'] = ['push' => (bool) $this->messagePush, 'email' => (bool) $this->messageEmail, 'preview' => (bool) $this->messagePreview,
-            'quiet_enabled' => (bool) $this->messageQuietHours, 'quiet_start' => $this->messageQuietStart, 'quiet_end' => $this->messageQuietEnd];
+            'group_mentions_only' => (bool) $this->messageGroupMentionsOnly, 'quiet_enabled' => (bool) $this->messageQuietHours, 'quiet_start' => $this->messageQuietStart, 'quiet_end' => $this->messageQuietEnd];
         auth()->user()->update([
             'notifications_enabled' => $this->enabled,
             'notification_in_app_enabled' => $this->inApp,

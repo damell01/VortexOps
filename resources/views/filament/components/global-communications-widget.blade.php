@@ -90,7 +90,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, olderPage:1, hasOlder:false, olderLoading:false,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, olderPage:1, hasOlder:false, olderLoading:false, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -143,32 +143,57 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messages=[];this.olderPage=1;this.hasOlder=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        pageInfo(data, count, page) {
+                            const meta=data?.meta || data?.data?.meta || {};
+                            const links=data?.links || data?.data?.links || {};
+                            if(meta.last_page != null) return page<Number(meta.last_page);
+                            if(links.next !== undefined) return Boolean(links.next);
+                            return count===50;
+                        },
+                        mergeMessages(...batches) {
+                            return [...new Map(batches.flat().map(m=>[String(m.id),m])).values()]
+                                .sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));
+                        },
                         async loadMessages() {
                             if(!this.selected || this.messagesLoading) return;
-                            const id=this.selected.id;
+                            const id=String(this.selected.id),requestId=++this.messageRequestId;
+                            const pane=this.$refs.messagePane;
+                            const nearBottom=!pane || pane.scrollHeight-pane.scrollTop-pane.clientHeight<140;
+                            const firstLoad=this.messages.length===0;
                             this.messagesLoading=true;
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
-                                if(this.selected?.id!==id) return;
-                                const list=this.items(data);const previous=this.olderPage>1?this.messages:[];this.messages=[...new Map([...previous,...list].map(m=>[String(m.id),m])).values()].sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));this.hasOlder=Boolean(data?.links?.next || data?.meta?.current_page<data?.meta?.last_page || (this.olderPage===1 && list.length===50));
-                                this.$nextTick(()=>{const pane=this.$refs.messagePane;if(pane && (!this.lastMessageId || pane.scrollHeight-pane.scrollTop-pane.clientHeight<130)) pane.scrollTop=pane.scrollHeight;this.lastMessageId=this.messages.at(-1)?.id;});
+                                if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
+                                const list=this.items(data);
+                                this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);
+                                this.hasOlder=this.olderPage>1 || this.pageInfo(data,list.length,1);
+                                this.$nextTick(()=>{
+                                    if(this.$refs.messagePane && (firstLoad || nearBottom))this.$refs.messagePane.scrollTop=this.$refs.messagePane.scrollHeight;
+                                    this.lastMessageId=this.messages.at(-1)?.id;
+                                });
                                 this.error='';
-                            } catch(e) {this.error=e.message;} finally {this.messagesLoading=false;}
+                            } catch(e) {
+                                if(requestId===this.messageRequestId)this.error=e.message;
+                            } finally {
+                                if(requestId===this.messageRequestId)this.messagesLoading=false;
+                            }
                         },
                         async loadOlder() {
                             if(!this.selected || !this.hasOlder || this.olderLoading)return;
-                            const id=this.selected.id,page=this.olderPage+1,pane=this.$refs.messagePane,oldHeight=pane?.scrollHeight || 0,oldTop=pane?.scrollTop || 0;
+                            const id=String(this.selected.id),requestId=this.messageRequestId,page=this.olderPage+1;
+                            const pane=this.$refs.messagePane,oldHeight=pane?.scrollHeight || 0,oldTop=pane?.scrollTop || 0;
                             this.olderLoading=true;
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page='+page);
-                                if(this.selected?.id!==id)return;
+                                if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
-                                this.messages=[...new Map([...this.messages,...list].map(m=>[String(m.id),m])).values()].sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));
+                                this.messages=this.mergeMessages(this.messages,list);
                                 this.olderPage=page;
-                                this.hasOlder=Boolean(data?.links?.next || data?.meta?.current_page<data?.meta?.last_page || list.length===50);
-                                this.$nextTick(()=>{if(pane)pane.scrollTop=oldTop+pane.scrollHeight-oldHeight;});
-                            }catch(e){this.error=e.message;}finally{this.olderLoading=false;}
+                                this.hasOlder=this.pageInfo(data,list.length,page);
+                                this.$nextTick(()=>{if(this.$refs.messagePane===pane)pane.scrollTop=oldTop+pane.scrollHeight-oldHeight;});
+                            }catch(e){if(requestId===this.messageRequestId)this.error=e.message;}
+                            finally{this.olderLoading=false;}
                         },
                         replyToMessage(message) {
                             this.replyTo=message;

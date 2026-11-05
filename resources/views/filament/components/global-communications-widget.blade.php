@@ -71,7 +71,7 @@
                 </div>
                 <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
                 <footer class="vx-chatify-native-footer" x-show="!selected">
-                    <button type="button" x-on:click="showNew=!showNew; if(showNew){loadUsers();loadGroupRoles()}">New message <span aria-hidden="true">＋</span></button>
+                    <button type="button" x-on:click="showNew=!showNew; if(showNew){loadUsers();loadGroupRoles()}">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
                 <div class="vx-chatify-new-overlay" x-show="showMembers && selected" x-cloak>
                     <div class="vx-chatify-conversation-head"><strong>Group members</strong><button type="button" x-on:click="showMembers=false" aria-label="Close group members">✕</button></div>
@@ -385,7 +385,6 @@
                         async createConversation() {
                             if(!this.recipients.length || this.creating) return;
                             if(this.recipients.length>49){this.error='Select no more than 49 teammates for a group.';return;}
-                            if(this.recipients.length>1 && !this.canCreateGroups){this.error='Only admins can create group chats.';return;}
                             this.creating=true;this.error='';
                             try {
                                 const group=this.recipients.length>1;

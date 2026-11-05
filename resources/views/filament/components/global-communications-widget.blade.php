@@ -29,7 +29,7 @@
                 <div class="vx-chatify-conversation" x-show="selected" x-cloak>
                     <div class="vx-chatify-conversation-head">
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
-                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-show="selected?.attributes?.conversation_type==='group'" x-on:click="openGroupMembers()" title="Group members">Members</button><button type="button" x-show="selected?.attributes?.conversation_type==='group'" x-on:click="renameGroup()" title="Rename group">Rename</button><button type="button" x-show="selected?.attributes?.conversation_type==='group'" x-on:click="leaveGroup()" title="Leave group">Leave</button><button type="button" x-on:click="copyConversationLink()" :title="copiedConversation ? 'Link copied' : 'Copy conversation link'" aria-label="Copy conversation link">🔗</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
+                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-show="selected?.attributes?.conversation_type==='group'" x-on:click="openGroupMembers()" title="Group members">Members</button><button type="button" x-show="selected?.attributes?.conversation_type==='group' && canManageGroup('edit_info')" x-on:click="renameGroup()" title="Rename group">Rename</button><button type="button" x-show="selected?.attributes?.conversation_type==='group'" x-on:click="leaveGroup()" title="Leave group">Leave</button><button type="button" x-on:click="copyConversationLink()" :title="copiedConversation ? 'Link copied' : 'Copy conversation link'" aria-label="Copy conversation link">🔗</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
                     <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" x-on:input.debounce.500ms="searchServer()" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><span x-show="historySearching">Searching history…</span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch.length>=2 && !historySearching && !filteredMessages().length">No matching messages found in the conversation.</p>
@@ -80,11 +80,11 @@
                         <template x-for="member in groupMembers" :key="member.id">
                             <div class="vx-chatify-native-thread">
                                 <span class="vx-chatify-native-thread-copy"><strong x-text="member.relationships?.user?.attributes?.name || 'Member'"></strong><small x-text="member.attributes?.role || 'member'"></small></span>
-                                <button type="button" x-show="selected?.attributes?.is_owner && !member.attributes?.is_you && member.attributes?.role!=='owner'" x-on:click="removeGroupMember(member)">Remove</button>
+                                <button type="button" x-show="canManageGroup('remove_members') && !member.attributes?.is_you && member.attributes?.role!=='owner'" x-on:click="removeGroupMember(member)">Remove</button>
                             </div>
                         </template>
                     </div>
-                    <div x-show="selected?.attributes?.is_owner">
+                    <div x-show="canManageGroup('add_members')">
                         <input type="search" x-model="memberSearch" x-on:focus="loadUsers()" placeholder="Find teammates to add…" aria-label="Search teammates to add">
                         <div class="vx-chatify-user-list">
                             <template x-for="user in users.filter(u=>userName(u).toLowerCase().includes(memberSearch.toLowerCase()) && !groupMembers.some(m=>String(m.id)===String(user.id))).slice(0,30)" :key="user.id">
@@ -262,6 +262,13 @@
                             this.replyTo=message;
                             this.$nextTick(()=>this.$refs.composerInput?.focus());
                         },
+                        canManageGroup(permission) {
+                            const membership=this.selected?.attributes?.my_membership;
+                            if(!membership)return false;
+                            if(membership.role==='owner' || membership.is_full_admin)return true;
+                            if(membership.role==='moderator')return ['add_members','remove_members'].includes(permission);
+                            return membership.role==='admin' && membership.permissions?.[permission]===true;
+                        },
                         async openGroupMembers() {
                             if(!this.selected)return;
                             this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';await this.loadUsers();
@@ -273,14 +280,14 @@
                             catch(e){this.error=e.message;}
                         },
                         async removeGroupMember(member) {
-                            if(!this.selected || !this.selected.attributes?.is_owner || !window.confirm('Remove this teammate from the group?'))return;
+                            if(!this.selected || !this.canManageGroup('remove_members') || !window.confirm('Remove this teammate from the group?'))return;
                             try {
                                 await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants/'+encodeURIComponent(member.id),{method:'DELETE'});
                                 await this.refreshGroupMembers();await this.load();
                             }catch(e){this.error=e.message;}
                         },
                         async addGroupMembers() {
-                            if(!this.selected || !this.selected.attributes?.is_owner)return;
+                            if(!this.selected || !this.canManageGroup('add_members'))return;
                             const ids=[...new Set(this.membersToAdd.map(Number))];
                             if(!ids.length || ids.length>49){this.error='Select 1–49 teammates.';return;}
                             try {

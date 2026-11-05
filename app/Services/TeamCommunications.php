@@ -167,11 +167,16 @@ class TeamCommunications
             ->where(function ($q) use ($user) {
                 $q->where('audience', 'all')
                     ->orWhere(fn ($target) => $target->where('audience', 'users')->whereJsonContains('user_ids', $user->id))
-                    ->orWhere(fn ($target) => $target->where('audience', 'roles')->where(function ($roles) use ($user) {
-                        foreach ($user->roles()->pluck('roles.id') as $roleId) {
-                            $roles->orWhereJsonContains('role_ids', (int) $roleId);
-                        }
-                    }));
+                    ->when($user->roles()->exists(), function ($audience) use ($user) {
+                        $roleIds = $user->roles()->pluck('roles.id');
+                        $audience->orWhere(function ($target) use ($roleIds) {
+                            $target->where('audience', 'roles')->where(function ($roles) use ($roleIds) {
+                                foreach ($roleIds as $roleId) {
+                                    $roles->orWhereJsonContains('role_ids', (int) $roleId);
+                                }
+                            });
+                        });
+                    });
             })
             ->latest('published_at')->limit(3)->get();
     }

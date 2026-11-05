@@ -42,6 +42,10 @@ class MyNotifications extends Page
         $this->enabled = $user->notifications_enabled !== false;
         $this->inApp = $user->notification_in_app_enabled !== false;
         $this->email = $user->notification_email_enabled !== false;
+        $messagePrefs = $user->notificationPreference('team_message');
+        $this->messagePush = (bool) (($user->notification_preferences['team_message']['push'] ?? false));
+        $this->messageEmail = (bool) (($user->notification_preferences['team_message']['email'] ?? false));
+        $this->messagePreview = (bool) (($user->notification_preferences['team_message']['preview'] ?? true));
         foreach (array_keys($this->events()) as $key) $this->prefs[$key] = $user->notificationPreference($key);
     }
 
@@ -93,6 +97,7 @@ class MyNotifications extends Page
             $clean[$key] = ['in_app' => (bool) ($p['in_app'] ?? true), 'email' => (bool) ($p['email'] ?? true)];
         }
 
+        $clean['team_message'] = ['push' => $this->messagePush, 'email' => $this->messageEmail, 'preview' => $this->messagePreview];
         auth()->user()->update([
             'notifications_enabled' => $this->enabled,
             'notification_in_app_enabled' => $this->inApp,

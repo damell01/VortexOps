@@ -21,6 +21,9 @@ class MyNotifications extends Page
     public bool $enabled = true;
     public bool $inApp = true;
     public bool $email = true;
+    public bool $messagePush = false;
+    public bool $messageEmail = false;
+    public bool $messagePreview = true;
 
     /** @var array<string, array{in_app: bool, email: bool}> */
     public array $prefs = [];

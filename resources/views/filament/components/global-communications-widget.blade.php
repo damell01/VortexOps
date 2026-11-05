@@ -104,7 +104,7 @@
                     </div>
                     <div x-show="canCreateGroups" class="vx-chatify-inbox-toolbar">
                         <label>Group by role <select x-model="selectedRole"><option value="">Choose role…</option><template x-for="role in groupRoles" :key="role.id"><option :value="String(role.id)" x-text="role.name"></option></template></select></label>
-                        <button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Select role members</button>
+                        <button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Select role members</button><span x-show="selectedRole" x-text="roleUsers.filter(u=>(u.role_ids || []).map(Number).includes(Number(selectedRole))).length + ' teammates in role'"></span>
                     </div>
                     <p class="vx-chatify-native-hint" x-text="recipients.length + ' teammate(s) selected · maximum 49'"></p><input type="text" x-show="creatingGroup || recipients.length > 1" x-model="groupName" maxlength="120" placeholder="Group name" aria-label="Group name">
                     <p class="vx-chatify-native-error" x-show="error" x-text="error"></p>
@@ -382,7 +382,7 @@
                             const role=Number(this.selectedRole);
                             if(!role)return;
                             const matches=this.roleUsers.filter(u=>(u.role_ids || []).map(Number).includes(role)).map(u=>String(u.id));
-                            this.recipients=[...new Set([...this.recipients,...matches])].slice(0,49);this.creatingGroup=true;
+                            const selected=[...new Set([...this.recipients,...matches])];if(selected.length>49){this.error='This role includes too many teammates for one group (maximum 49). Choose fewer people.';return;}this.recipients=selected;this.creatingGroup=true;this.error='';
                             if(this.recipients.length>1 && !this.groupName.trim())this.groupName=this.groupRoles.find(r=>Number(r.id)===role)?.name || 'Team group';
                         },
                         async loadUsers() {

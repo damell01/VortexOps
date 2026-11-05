@@ -27,8 +27,6 @@ class SendChatMessageAlerts implements ShouldQueue
     public function __construct(
         public int $recipientId,
         public int $senderId,
-        public string $senderName,
-        public string $messagePreview,
         public string $conversationId,
         public string $messageId,
     ) {}

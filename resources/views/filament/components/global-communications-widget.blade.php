@@ -70,7 +70,7 @@
                     </div>
                     <form class="vx-chatify-composer" x-on:submit.prevent="send()" x-on:dragover.prevent="dragging=true" x-on:dragleave.prevent="dragging=false" x-on:drop.prevent="dragging=false;addFiles($event.dataTransfer.files)" :class="dragging ? 'is-dragging' : ''">
                         <label class="vx-chatify-attach-button" title="Attach photos or files" aria-label="Attach photos or files">＋<input type="file" multiple x-ref="fileInput" x-on:change="addFiles($event.target.files);$event.target.value=''" accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.csv,.zip"></label>
-                        <textarea x-ref="composerInput" rows="1" x-model="draft" x-on:input="updateMentionQuery()" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(mentionQuery!==null && mentionCandidates().length){$event.preventDefault();insertMention(mentionCandidates()[0])}else if(!$event.shiftKey){$event.preventDefault();send()}" x-on:keydown.escape="mentionQuery=null"></textarea>
+                        <textarea x-ref="composerInput" rows="1" x-model="draft" x-on:input="updateMentionQuery()" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey && !$event.isComposing){$event.preventDefault();mentionQuery=null;send()}" x-on:keydown.escape="mentionQuery=null"></textarea>
                         <button type="submit" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))" x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></button>
                     </form>
                 </div>

@@ -63,7 +63,7 @@
             <div class="vxc-notice-tools"><div class="vxc-filter-pills" role="group" aria-label="Announcement filter">@foreach (['all' => 'All', 'draft' => 'Drafts', 'scheduled' => 'Scheduled', 'active' => 'Active'] as $key => $label)<button type="button" wire:click="$set('announcementFilter', '{{ $key }}')" aria-pressed="{{ $announcementFilter === $key ? 'true' : 'false' }}">{{ $label }}</button>@endforeach</div><label class="vxc-search"><x-filament::icon icon="heroicon-o-magnifying-glass" /><input type="search" wire:model.live.debounce.300ms="announcementSearch" placeholder="Search announcements…" aria-label="Search announcements"></label></div>
             <div class="vxc-notice-columns"><span>Announcement</span><span>Audience & schedule</span><span>Status</span><span>Actions</span></div>
             @forelse ($announcements as $item)
-                <article class="vxc-announcement" wire:key="announcement-{{ $item->id }}"><div class="vxc-notice-title"><span class="vxc-avatar"><x-filament::icon icon="heroicon-o-megaphone" /></span><div><h3>{{ $item->title }}</h3><p>{{ \Illuminate\Support\Str::limit($item->body, 110) }}</p></div></div><div class="vxc-announcement-meta"><span>{{ $item->audience === 'all' ? 'Everyone' : ($item->audience === 'roles' ? 'Selected roles' : 'Selected people') }} · {{ $audienceCounts[$item->id] }} intended recipients</span><span>{{ $item->acknowledgments_count }} acknowledged · {{ $audienceCounts[$item->id] > 0 ? round(100 * $item->acknowledgments_count / $audienceCounts[$item->id]) : 0 }}% of intended recipients (preview)</span><span>{{ \App\Support\BusinessTime::local($item->starts_at)->format('M j, g:i a') }} → {{ \App\Support\BusinessTime::local($item->ends_at)->format('M j, g:i a T') }}</span></div><span class="vxc-badge vxc-status-{{ $item->status }}">{{ $item->phase() }}</span><div class="vxc-actions"><button type="button" wire:click="editAnnouncement({{ $item->id }})" class="vxc-text-button">Edit</button>@if ($item->status !== 'published')<button type="button" wire:click="publishPreview({{ $item->id }})" wire:loading.attr="disabled" class="vxc-text-button">Preview</button>@else<button type="button" wire:click="archiveAnnouncement({{ $item->id }})" wire:loading.attr="disabled" class="vxc-text-button">Stop</button>@endif</div></article>
+                <article class="vxc-announcement" wire:key="announcement-{{ $item->id }}"><div class="vxc-notice-title"><span class="vxc-avatar"><x-filament::icon icon="heroicon-o-megaphone" /></span><div><h3>{{ $item->title }}</h3><p>{{ \Illuminate\Support\Str::limit($item->body, 110) }}</p></div></div><div class="vxc-announcement-meta"><span>{{ $item->audience === 'all' ? 'Everyone' : ($item->audience === 'roles' ? 'Selected roles' : 'Selected people') }} · {{ $audienceCounts[$item->id] }} intended recipients</span><span>{{ $item->acknowledgments_count }} acknowledged · {{ $audienceCounts[$item->id] > 0 ? round(100 * $item->acknowledgments_count / $audienceCounts[$item->id]) : 0 }}% of intended recipients (preview)</span><span>{{ \App\Support\BusinessTime::local($item->starts_at)->format('M j, g:i a') }} → {{ \App\Support\BusinessTime::local($item->ends_at)->format('M j, g:i a T') }}</span></div><span class="vxc-badge vxc-status-{{ $item->status }}">{{ $item->phase() }}</span><div class="vxc-actions"><button type="button" wire:click="viewAcknowledgments({{ $item->id }})" class="vxc-text-button">Acknowledgments</button><button type="button" wire:click="editAnnouncement({{ $item->id }})" class="vxc-text-button">Edit</button>@if ($item->status !== 'published')<button type="button" wire:click="publishPreview({{ $item->id }})" wire:loading.attr="disabled" class="vxc-text-button">Preview</button>@else<button type="button" wire:click="archiveAnnouncement({{ $item->id }})" wire:loading.attr="disabled" class="vxc-text-button">Stop</button>@endif</div></article>
             @empty
                 <div class="vxc-empty"><x-filament::icon icon="heroicon-o-megaphone" /><h3>No matching announcements</h3><p>Create a draft, choose who it is for, and preview it on screen.</p></div>
             @endforelse
@@ -109,6 +109,23 @@
             </aside>
             <div class="vxc-editor-footer"><small><x-filament::icon icon="heroicon-o-lock-closed" />Saved as an owner-only draft</small><div class="vxc-actions"><x-filament::button type="submit" color="gray" wire:loading.attr="disabled" wire:target="saveAnnouncement">Save draft</x-filament::button><x-filament::button type="button" wire:click="saveAnnouncement(true)" wire:loading.attr="disabled" wire:target="saveAnnouncement">Preview announcement</x-filament::button></div></div>
         </form>
+    </x-filament::modal>
+    <x-filament::modal id="communication-acknowledgments" width="lg">
+        <x-slot name="heading">Announcement acknowledgments</x-slot>
+        @if($acknowledgmentReport)
+            <h3>{{ $acknowledgmentReport->title }}</h3>
+            <p>{{ $acknowledgmentReport->acknowledgments->count() }} employees acknowledged this preview.</p>
+            <div style="max-height:360px;overflow:auto">
+                @forelse($acknowledgmentReport->acknowledgments->sortBy('acknowledged_at') as $ack)
+                    <div style="display:flex;justify-content:space-between;gap:12px;padding:9px 2px;border-bottom:1px solid var(--gray-200,#e5e7eb)">
+                        <strong>{{ $ack->user?->name ?? 'Former employee' }}</strong>
+                        <time datetime="{{ $ack->acknowledged_at?->toIso8601String() }}">{{ $ack->acknowledged_at?->timezone(\App\Support\BusinessTime::zone())->format('M j, Y g:i a') }}</time>
+                    </div>
+                @empty
+                    <p>No acknowledgments recorded yet.</p>
+                @endforelse
+            </div>
+        @endif
     </x-filament::modal>
 </div>
 </x-filament-panels::page>

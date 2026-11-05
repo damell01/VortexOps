@@ -11,6 +11,14 @@ class AnnouncementPreview extends Component
     public function mount(): void { abort_unless(TeamCommunications::canAccess(auth()->user()), 403); }
     #[On('announcement-preview-changed')]
     public function refreshPreview(): void { abort_unless(TeamCommunications::canAccess(auth()->user()), 403); }
+    public function acknowledge(int $id): void
+    {
+        abort_unless(TeamCommunications::canAccess(auth()->user()), 403);
+        $banner = app(TeamCommunications::class)->banners(auth()->user())->firstWhere('id', $id);
+        abort_unless($banner, 403);
+        app(\App\Http\Controllers\TeamAnnouncementAcknowledgmentController::class)(request(), $banner);
+    }
+
     public function dismiss(int $id): void
     {
         abort_unless(TeamCommunications::canAccess(auth()->user()), 403);
@@ -21,6 +29,6 @@ class AnnouncementPreview extends Component
     public function render()
     {
         abort_unless(TeamCommunications::canAccess(auth()->user()), 403);
-        return view('livewire.announcement-preview', ['banners' => app(TeamCommunications::class)->banners(auth()->user())->reject(fn ($b) => session('communications.dismissed.'.$b->id) === $b->updated_at->timestamp)]);
+        return view('livewire.announcement-preview', ['banners' => app(TeamCommunications::class)->banners(auth()->user())->reject(fn ($b) => session('communications.dismissed.'.$b->id) === $b->updated_at->timestamp)->loadCount('acknowledgments')->load(['acknowledgments' => fn ($q) => $q->where('user_id', auth()->id())])]);
     }
 }

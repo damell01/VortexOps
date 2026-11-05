@@ -1,30 +1,7 @@
 @if(\App\Services\TeamCommunications::canAccess(auth()->user()))
     @if(config('chatify-preview.enabled', false))
-        {{-- Native shell opens instantly. Chatify remains available in a full tab while API payloads are verified. --}}
-        <div class="vx-chatify-shell" x-data="{
-            open:false, loaded:false, loading:false, error:'', threads:[], search:'',
-            async load() {
-                if (this.loading) return;
-                this.loading=true; this.error='';
-                try {
-                    const response=await fetch('{{ url('/api/chatify/v1/conversations') }}', {
-                        credentials:'same-origin', headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}
-                    });
-                    if (!response.ok) throw new Error('Messenger returned HTTP '+response.status);
-                    const payload=await response.json();
-                    const candidates=[payload?.data?.data,payload?.data?.conversations,payload?.conversations,payload?.data,payload?.results,payload];
-                    const list=candidates.find(Array.isArray);
-                    if (!list) throw new Error('Conversation response format needs mapping');
-                    this.threads=list; this.loaded=true;
-                } catch(e) { this.error=e.message || 'Could not load conversations'; }
-                finally { this.loading=false; }
-            },
-            toggle() { this.open=!this.open; if(this.open && !this.loaded) this.load(); },
-            label(t) { return t?.name || t?.title || t?.display_name || t?.other_user?.name || t?.user?.name || 'Conversation'; },
-            snippet(t) { return t?.last_message?.body || t?.last_message?.message || t?.latest_message?.body || 'Open conversation'; },
-            identifier(t) { return t?.uuid || t?.id || t?.conversation_id || ''; }
-        }" x-on:keydown.escape.window="open = false">
-            <button type="button" class="vx-chatify-launch" x-on:click="toggle()" x-bind:aria-expanded="open.toString()" aria-controls="vx-chatify-drawer" aria-label="Open messages">
+        <div class="vx-chatify-shell" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="close()">
+            <button type="button" class="vx-chatify-launch" x-on:click="toggle()" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.38 8.38 0 0 1 3.8-.9L13 3a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
                 <span>Messages</span>
             </button>
@@ -32,30 +9,139 @@
                 <header class="vx-chatify-drawer-head">
                     <div><strong>Messages</strong><small>Vortex Ops team chat</small></div>
                     <div class="vx-chatify-drawer-actions">
-                        <button type="button" x-on:click="load()" title="Refresh conversations" aria-label="Refresh conversations"><x-filament::icon icon="heroicon-o-arrow-path" /></button>
-                        <a href="{{ url('/chatify') }}" target="_blank" rel="noopener" title="Open full messenger" aria-label="Open full messenger"><x-filament::icon icon="heroicon-o-arrows-pointing-out" /></a>
-                        <button type="button" x-on:click="open = false" title="Close messages" aria-label="Close messages"><x-filament::icon icon="heroicon-o-x-mark" /></button>
+                        <button type="button" x-on:click="selected ? loadMessages() : load()" title="Refresh" aria-label="Refresh messages"><x-filament::icon icon="heroicon-o-arrow-path" /></button>
+                        <button type="button" x-on:click="close()" title="Close messages" aria-label="Close messages"><x-filament::icon icon="heroicon-o-x-mark" /></button>
                     </div>
                 </header>
-                <div class="vx-chatify-native-body">
+                <div class="vx-chatify-native-body" x-show="!selected">
                     <div class="vx-chatify-native-search"><input type="search" x-model="search" placeholder="Search conversations…" aria-label="Search conversations"></div>
                     <p class="vx-chatify-native-hint" x-show="loading">Loading conversations…</p>
-                    <div class="vx-chatify-native-error" x-show="error">
-                        <p x-text="error"></p>
-                        <a href="{{ url('/chatify') }}" target="_blank" rel="noopener">Continue in Chatify</a>
-                    </div>
-                    <template x-if="loaded && !loading && !threads.length"><p class="vx-chatify-native-hint">No conversations yet. Start one in the full messenger.</p></template>
-                    <template x-for="(thread,index) in threads.filter(t => label(t).toLowerCase().includes(search.toLowerCase()))" :key="identifier(thread) || index">
-                        <a class="vx-chatify-native-thread" :href="'{{ url('/chatify') }}/'+encodeURIComponent(identifier(thread))" target="_blank" rel="noopener">
+                    <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
+                    <p class="vx-chatify-native-hint" x-show="loaded && !loading && !threads.length">No conversations yet.</p>
+                    <template x-for="thread in threads.filter(t => label(t).toLowerCase().includes(search.toLowerCase()))" :key="thread.id">
+                        <button type="button" class="vx-chatify-native-thread" x-on:click="openThread(thread)">
                             <span class="vx-chatify-native-avatar" x-text="label(thread).charAt(0).toUpperCase()"></span>
                             <span class="vx-chatify-native-thread-copy"><strong x-text="label(thread)"></strong><small x-text="snippet(thread)"></small></span>
                             <x-filament::icon icon="heroicon-m-chevron-right" />
-                        </a>
+                        </button>
                     </template>
                 </div>
-                <footer class="vx-chatify-native-footer"><a href="{{ url('/chatify') }}" target="_blank" rel="noopener">New message or group chat <span aria-hidden="true">＋</span></a></footer>
+                <div class="vx-chatify-conversation" x-show="selected" x-cloak>
+                    <div class="vx-chatify-conversation-head">
+                        <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
+                        <strong x-text="selected ? label(selected) : ''"></strong>
+                    </div>
+                    <div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite">
+                        <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
+                        <template x-for="message in messages" :key="message.id">
+                            <div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
+                                <span x-text="message.attributes?.body || (message.attributes?.attachment ? 'Attachment' : '')"></span>
+                                <template x-if="message.attributes?.attachment?.url">
+                                    <a :href="message.attributes.attachment.url" target="_blank" rel="noopener noreferrer">View attachment</a>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                    <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
+                    <form class="vx-chatify-composer" x-on:submit.prevent="send()">
+                        <input type="text" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000">
+                        <button type="submit" :disabled="sending || !draft.trim()" x-text="sending ? 'Sending…' : 'Send'"></button>
+                    </form>
+                </div>
+                <footer class="vx-chatify-native-footer" x-show="!selected">
+                    <button type="button" x-on:click="showNew=!showNew; if(showNew) loadUsers()">New message or group chat <span aria-hidden="true">＋</span></button>
+                </footer>
+                <div class="vx-chatify-new-overlay" x-show="showNew && !selected" x-cloak>
+                    <div class="vx-chatify-conversation-head"><strong>New conversation</strong><button type="button" x-on:click="showNew=false" aria-label="Cancel">✕</button></div>
+                    <input type="search" x-model="userSearch" placeholder="Find a teammate…" aria-label="Find a teammate">
+                    <div class="vx-chatify-user-list">
+                        <template x-for="user in users.filter(u => userName(u).toLowerCase().includes(userSearch.toLowerCase()))" :key="user.id">
+                            <label><input type="checkbox" :value="String(user.id)" x-model="recipients"><span x-text="userName(user)"></span></label>
+                        </template>
+                    </div>
+                    <input type="text" x-show="recipients.length > 1" x-model="groupName" placeholder="Group name" aria-label="Group name">
+                    <p class="vx-chatify-native-error" x-show="error" x-text="error"></p>
+                    <button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating" x-text="creating ? 'Creating…' : 'Start conversation'"></button>
+                </div>
             </section>
         </div>
+        @once
+            <script>
+                function vortexChatifyWidget() {
+                    return {
+                        open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false,
+                        base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
+                        async api(path, options={}) {
+                            const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
+                            if(options.method && options.method !== 'GET') headers['X-CSRF-TOKEN']=document.querySelector('meta[name="csrf-token"]')?.content || '';
+                            const response=await fetch(this.base+path,{credentials:'same-origin',...options,headers});
+                            const data=await response.json().catch(()=>({}));
+                            if(!response.ok) throw new Error(data.message || 'Messaging error HTTP '+response.status);
+                            return data;
+                        },
+                        items(data) {return Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.data) ? data.data : Array.isArray(data?.results) ? data.results : [];},
+                        label(t) {return t?.attributes?.name || t?.relationships?.other_user?.attributes?.name || t?.relationships?.other_user?.name || t?.name || 'Conversation';},
+                        snippet(t) {return t?.relationships?.last_message?.attributes?.body || 'Open conversation';},
+                        userName(u) {return u?.attributes?.name || u?.name || 'Teammate';},
+                        isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
+                        async load() {
+                            if(this.loading) return;
+                            this.loading=true;this.error='';
+                            try {this.threads=this.items(await this.api('/conversations?per_page=50'));this.loaded=true;}
+                            catch(e) {this.error=e.message;} finally {this.loading=false;}
+                        },
+                        async openThread(t) {this.selected=t;this.messages=[];this.error='';this.showNew=false;await this.loadMessages();},
+                        async loadMessages() {
+                            if(!this.selected || this.messagesLoading) return;
+                            const id=this.selected.id;
+                            this.messagesLoading=true;
+                            try {
+                                const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50');
+                                if(this.selected?.id!==id) return;
+                                this.messages=this.items(data).slice().reverse();
+                                this.$nextTick(()=>{if(this.$refs.messagePane)this.$refs.messagePane.scrollTop=this.$refs.messagePane.scrollHeight;});
+                                this.error='';
+                            } catch(e) {this.error=e.message;} finally {this.messagesLoading=false;}
+                        },
+                        async send() {
+                            if(!this.selected || !this.draft.trim() || this.sending) return;
+                            this.sending=true;this.error='';
+                            try {
+                                await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/messages',{
+                                    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:this.draft.trim()})
+                                });
+                                this.draft='';await this.loadMessages();this.load();
+                            } catch(e) {this.error=e.message;} finally {this.sending=false;}
+                        },
+                        async loadUsers() {
+                            try {this.users=this.items(await this.api('/users?per_page=100')).filter(u=>String(u.id)!==String(this.myId));}
+                            catch(e) {this.error=e.message;}
+                        },
+                        async createConversation() {
+                            if(!this.recipients.length || this.creating) return;
+                            this.creating=true;this.error='';
+                            try {
+                                const group=this.recipients.length>1;
+                                const path=group?'/conversations/group':'/conversations/direct';
+                                const body=group?{name:this.groupName.trim() || 'Group chat',user_ids:this.recipients.map(Number)}:{user_id:Number(this.recipients[0])};
+                                const data=await this.api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+                                this.showNew=false;this.recipients=[];this.groupName='';
+                                await this.load();
+                                const t=data?.data;
+                                if(t?.id) await this.openThread(t);
+                            } catch(e) {this.error=e.message;} finally {this.creating=false;}
+                        },
+                        toggle() {
+                            if(this.open) {this.close();return;}
+                            this.open=true;if(!this.loaded)this.load();
+                            this.timer=setInterval(()=>{if(this.open){if(this.selected)this.loadMessages();else this.load();}},15000);
+                        },
+                        close() {this.open=false;if(this.timer){clearInterval(this.timer);this.timer=null;}}
+                    };
+                }
+            </script>
+        @endonce
     @else
         <livewire:quick-messages />
     @endif

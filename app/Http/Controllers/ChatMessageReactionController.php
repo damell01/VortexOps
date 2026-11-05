@@ -36,7 +36,7 @@ class ChatMessageReactionController
             $query->delete();
             $active = false;
         } else {
-            DB::table('chat_message_reactions')->insert([
+            DB::table('chat_message_reactions')->insertOrIgnore([
                 'message_id' => $chat->id, 'user_id' => $request->user()->id,
                 'emoji' => $data['emoji'], 'created_at' => now(), 'updated_at' => now(),
             ]);

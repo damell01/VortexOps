@@ -35,10 +35,18 @@
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
                         <template x-for="message in messages" :key="message.id">
                             <div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
-                                <span x-text="message.attributes?.body || (message.attributes?.attachment ? 'Attachment' : '')"></span>
-                                <template x-if="message.attributes?.attachment?.url">
-                                    <a :href="message.attributes.attachment.url" target="_blank" rel="noopener noreferrer">View attachment</a>
+                                <span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
+                                <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
+                                    <div class="vx-chatify-message-attachment">
+                                        <template x-if="isImage(attachment)">
+                                            <button type="button" class="vx-chatify-image-button" x-on:click="preview=attachment.url" aria-label="Enlarge image"><img :src="attachment.url" :alt="attachment.original_name || 'Shared image'" loading="lazy"></button>
+                                        </template>
+                                        <template x-if="!isImage(attachment)">
+                                            <a :href="attachment.url" :download="attachment.original_name || null" x-text="attachment.original_name || 'Download attachment'"></a>
+                                        </template>
+                                    </div>
                                 </template>
+                                <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div>
                         </template>
                     </div>
@@ -48,6 +56,7 @@
                         <button type="submit" :disabled="sending || !draft.trim()" x-text="sending ? 'Sending…' : 'Send'"></button>
                     </form>
                 </div>
+                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
                 <footer class="vx-chatify-native-footer" x-show="!selected">
                     <button type="button" x-on:click="showNew=!showNew; if(showNew) loadUsers()">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>
@@ -70,7 +79,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -85,6 +94,9 @@
                         snippet(t) {return t?.relationships?.last_message?.attributes?.body || 'Open conversation';},
                         userName(u) {return u?.attributes?.name || u?.name || 'Teammate';},
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
+                        messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
+                        isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
+                        formatTime(v) { if(!v) return ''; const d=new Date(v); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d); },
                         async load() {
                             if(this.loading) return;
                             this.loading=true;this.error='';
@@ -137,7 +149,7 @@
                             this.open=true;if(!this.loaded)this.load();
                             this.timer=setInterval(()=>{if(this.open){if(this.selected)this.loadMessages();else this.load();}},15000);
                         },
-                        close() {this.open=false;if(this.timer){clearInterval(this.timer);this.timer=null;}}
+                        close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}}
                     };
                 }
             </script>

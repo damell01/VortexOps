@@ -166,6 +166,8 @@ Route::middleware(['web', 'auth', 'throttle:30,1'])->prefix('admin/push')->name(
 
 Route::middleware(['web', 'auth', 'throttle:30,1'])->get('/admin/communications/group-roles', \App\Http\Controllers\ChatGroupRolesController::class)->name('communications.group-roles');
 
+Route::middleware(['web', 'auth', 'throttle:60,1'])->match(['GET', 'POST'], '/admin/communications/reactions/{message}', \App\Http\Controllers\ChatMessageReactionController::class)->name('communications.reactions');
+
 // Communications files have no public storage URL; every download rechecks preview access and membership.
 Route::middleware(['web', 'auth', 'throttle:60,1'])->get('/admin/communications/attachments/{attachment}', \App\Http\Controllers\TeamMessageAttachmentController::class)->whereNumber('attachment')->name('communications.attachment');
 

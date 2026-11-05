@@ -21,7 +21,7 @@
                     <template x-for="thread in threads.filter(t => label(t).toLowerCase().includes(search.toLowerCase()))" :key="thread.id">
                         <button type="button" class="vx-chatify-native-thread" x-on:click="openThread(thread)">
                             <span class="vx-chatify-native-avatar" x-text="label(thread).charAt(0).toUpperCase()"></span>
-                            <span class="vx-chatify-native-thread-copy"><strong x-text="label(thread)"></strong><small x-text="snippet(thread)"></small></span>
+                            <span class="vx-chatify-native-thread-copy"><strong x-text="label(thread)"></strong><small x-text="snippet(thread)"></small></span><span class="vx-chatify-unread-count" x-show="unread(thread)>0" x-text="unread(thread)" aria-label="Unread messages"></span>
                             <x-filament::icon icon="heroicon-m-chevron-right" />
                         </button>
                     </template>
@@ -29,12 +29,12 @@
                 <div class="vx-chatify-conversation" x-show="selected" x-cloak>
                     <div class="vx-chatify-conversation-head">
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
-                        <strong x-text="selected ? label(selected) : ''"></strong>
+                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
                     <div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite">
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
-                        <template x-for="message in messages" :key="message.id">
-                            <div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
+                        <template x-for="(message,index) in messages" :key="message.id">
+                            <div class="vx-chatify-message-group" :class="isMine(message) ? 'is-mine' : ''"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
                                 <span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
                                     <div class="vx-chatify-message-attachment">
@@ -47,7 +47,7 @@
                                     </div>
                                 </template>
                                 <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
-                            </div>
+                            </div></div>
                         </template>
                     </div>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
@@ -85,7 +85,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -102,6 +102,9 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
+                        unread(t) {return Number(t?.attributes?.unread_count || 0);},
+                        formatDate(v) {if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(d);},
+                        showDate(m,index) {return index===0 || this.formatDate(this.messages[index-1]?.attributes?.created_at)!==this.formatDate(m?.attributes?.created_at);},
                         formatTime(v) { if(!v) return ''; const d=new Date(v); return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d); },
                         async load() {
                             if(this.loading) return;
@@ -109,7 +112,7 @@
                             try {this.threads=this.items(await this.api('/conversations?per_page=50'));this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messages=[];this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.messages=[];this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         async loadMessages() {
                             if(!this.selected || this.messagesLoading) return;
                             const id=this.selected.id;
@@ -117,8 +120,8 @@
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50');
                                 if(this.selected?.id!==id) return;
-                                this.messages=this.items(data).slice().reverse();
-                                this.$nextTick(()=>{if(this.$refs.messagePane)this.$refs.messagePane.scrollTop=this.$refs.messagePane.scrollHeight;});
+                                const list=this.items(data); this.messages=list.slice().sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));
+                                this.$nextTick(()=>{const pane=this.$refs.messagePane;if(pane && (!this.lastMessageId || pane.scrollHeight-pane.scrollTop-pane.clientHeight<130)) pane.scrollTop=pane.scrollHeight;this.lastMessageId=this.messages.at(-1)?.id;});
                                 this.error='';
                             } catch(e) {this.error=e.message;} finally {this.messagesLoading=false;}
                         },

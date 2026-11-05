@@ -127,7 +127,8 @@ class StreamerAnalytics extends Page
             return null;
         }
 
-        $own = auth()->user()?->streamer?->id;
+        $user = auth()->user();
+        $own = $user?->isStreamer() ? $user->streamer?->id : null;
 
         return $own ? [$own] : [];
     }

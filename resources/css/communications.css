@@ -423,3 +423,10 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-message-reactions button:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
 .dark .vx-chatify-message-reactions button{background:#362848;color:#eee3ff;border-color:#62477f}
 .dark .vx-chatify-message-reactions button.is-mine{background:#50366e;border-color:#b794f4}
+
+/* Reactions are hidden until requested to keep message rows compact. */
+.vx-chatify-reaction-picker{display:inline-flex;align-items:center;flex-wrap:wrap;gap:3px;padding:2px 5px;border:1px solid #e6d9f3;border-radius:99px;background:#fff}
+.vx-chatify-message-actions .vx-chatify-reaction-picker button{font-size:16px;opacity:1;min-width:30px;min-height:30px;padding:2px;border-radius:99px}
+.vx-chatify-message-actions .vx-chatify-reaction-picker button:hover{background:#f0e6ff}
+.dark .vx-chatify-reaction-picker{background:#30233e;border-color:#604a78}
+@media(max-width:640px){.vx-chatify-message-actions .vx-chatify-reaction-picker button{min-width:34px;min-height:34px}}

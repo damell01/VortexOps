@@ -29,7 +29,7 @@
                 <div class="vx-chatify-conversation" x-show="selected" x-cloak>
                     <div class="vx-chatify-conversation-head">
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
-                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
+                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="copyConversationLink()" :title="copiedConversation ? 'Link copied' : 'Copy conversation link'" aria-label="Copy conversation link">🔗</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
                     <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch && messages.length && !filteredMessages().length">No messages match your search in the loaded history.</p>
@@ -92,7 +92,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -145,7 +145,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -206,6 +206,12 @@
                         replyToMessage(message) {
                             this.replyTo=message;
                             this.$nextTick(()=>this.$refs.composerInput?.focus());
+                        },
+                        async copyConversationLink() {
+                            if(!this.selected)return;
+                            const link=new URL(window.location.href);link.searchParams.set('chat',String(this.selected.id));
+                            try {await navigator.clipboard.writeText(link.toString());this.copiedConversation=true;}
+                            catch(e){this.error='Could not copy conversation link.';}
                         },
                         async copyMessage(message) {
                             const body=message?.attributes?.body;

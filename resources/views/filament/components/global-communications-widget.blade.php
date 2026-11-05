@@ -81,7 +81,7 @@
                             <label><input type="checkbox" :value="String(user.id)" x-model="recipients"><span x-text="userName(user)"></span></label>
                         </template>
                     </div>
-                    <input type="text" x-show="recipients.length > 1" x-model="groupName" placeholder="Group name" aria-label="Group name">
+                    <p class="vx-chatify-native-hint" x-text="recipients.length + ' teammate(s) selected · maximum 49'"></p><input type="text" x-show="recipients.length > 1" x-model="groupName" maxlength="120" placeholder="Group name" aria-label="Group name">
                     <p class="vx-chatify-native-error" x-show="error" x-text="error"></p>
                     <button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating" x-text="creating ? 'Creating…' : 'Start conversation'"></button>
                 </div>
@@ -273,6 +273,7 @@
                         },
                         async createConversation() {
                             if(!this.recipients.length || this.creating) return;
+                            if(this.recipients.length>49){this.error='Select no more than 49 teammates for a group.';return;}
                             this.creating=true;this.error='';
                             try {
                                 const group=this.recipients.length>1;

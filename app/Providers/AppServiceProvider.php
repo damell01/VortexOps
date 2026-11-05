@@ -44,6 +44,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->scoped(\App\Support\RequestMetrics::class);
+        // Chatify resolves this FormRequest through the container. Enforce the
+        // group-creation restriction even for direct API requests.
+        $this->app->bind(\Chatify\Http\Requests\CreateGroupConversationRequest::class, \App\Http\Requests\AdminChatGroupRequest::class);
         // laravel-debugbar is a real (non-dev) dependency, so a misconfigured
         // APP_DEBUG or DEBUGBAR_ENABLED on the live server silently turns it
         // on there too — it then profiles every query with a full backtrace

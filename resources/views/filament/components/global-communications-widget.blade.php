@@ -51,9 +51,15 @@
                         </template>
                     </div>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
-                    <form class="vx-chatify-composer" x-on:submit.prevent="send()">
-                        <input type="text" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000">
-                        <button type="submit" :disabled="sending || !draft.trim()" x-text="sending ? 'Sending…' : 'Send'"></button>
+                    <div class="vx-chatify-attachments-selected" x-show="files.length" x-cloak>
+                        <template x-for="(file,index) in files" :key="index">
+                            <span><span x-text="file.name"></span><button type="button" x-on:click="removeFile(index)" aria-label="Remove attachment">×</button></span>
+                        </template>
+                    </div>
+                    <form class="vx-chatify-composer" x-on:submit.prevent="send()" x-on:dragover.prevent="dragging=true" x-on:dragleave.prevent="dragging=false" x-on:drop.prevent="dragging=false;addFiles($event.dataTransfer.files)" :class="dragging ? 'is-dragging' : ''">
+                        <label class="vx-chatify-attach-button" title="Attach photos or files" aria-label="Attach photos or files">＋<input type="file" multiple x-ref="fileInput" x-on:change="addFiles($event.target.files);$event.target.value=''" accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.csv,.zip"></label>
+                        <textarea rows="1" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey){$event.preventDefault();send()}"></textarea>
+                        <button type="submit" :disabled="sending || (!draft.trim() && !files.length)" x-text="sending ? 'Sending…' : 'Send'"></button>
                     </form>
                 </div>
                 <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
@@ -79,7 +85,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -103,7 +109,7 @@
                             try {this.threads=this.items(await this.api('/conversations?per_page=50'));this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messages=[];this.error='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.messages=[];this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         async loadMessages() {
                             if(!this.selected || this.messagesLoading) return;
                             const id=this.selected.id;
@@ -116,14 +122,27 @@
                                 this.error='';
                             } catch(e) {this.error=e.message;} finally {this.messagesLoading=false;}
                         },
+                        addFiles(incoming) {
+                            const chosen=Array.from(incoming || []);
+                            for(const file of chosen) {
+                                if(file.size>20*1024*1024) {this.error='Each attachment must be 20 MB or smaller.';continue;}
+                                if(this.files.length>=5) {this.error='Attach up to five files per message.';break;}
+                                this.files.push(file);
+                            }
+                        },
+                        removeFile(index) {this.files.splice(index,1);},
                         async send() {
-                            if(!this.selected || !this.draft.trim() || this.sending) return;
+                            if(!this.selected || (!this.draft.trim() && !this.files.length) || this.sending) return;
                             this.sending=true;this.error='';
+                            const conversationId=this.selected.id;
                             try {
-                                await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/messages',{
-                                    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:this.draft.trim()})
-                                });
-                                this.draft='';await this.loadMessages();this.load();
+                                const body=new FormData();
+                                if(this.draft.trim()) body.append('body',this.draft.trim());
+                                this.files.forEach(file=>body.append('attachments[]',file,file.name));
+                                await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});
+                                this.draft='';this.files=[];
+                                await this.loadMessages();
+                                this.load();
                             } catch(e) {this.error=e.message;} finally {this.sending=false;}
                         },
                         async loadUsers() {

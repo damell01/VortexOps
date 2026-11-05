@@ -45,6 +45,18 @@
         </p>
     </section>
 
+
+    <section class="card">
+        <div class="text-sm font-bold mb-2">Team message notifications</div>
+        <p class="sub mb-3">Choose how to be alerted when someone sends you a message. Your existing device subscription is used for push notifications. These options apply when messaging is enabled for your account.</p>
+        <div class="grid gap-3">
+            <label class="switch"><input type="checkbox" wire:model="messagePush"> Push notifications for new messages</label>
+            <label class="switch"><input type="checkbox" wire:model="messageEmail"> Email me about unread messages</label>
+            <label class="switch"><input type="checkbox" wire:model="messagePreview"> Include sender and message preview in alerts</label>
+        </div>
+        <p class="sub mt-3">Email delivery will use a cooldown to avoid repeated alerts during active conversations. Save your preferences below.</p>
+    </section>
+
     @forelse($grouped as $group => $items)
         <section class="card">
             <div class="row" style="border-top:0;padding-top:0">

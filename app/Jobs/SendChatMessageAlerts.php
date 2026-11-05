@@ -53,24 +53,12 @@ class SendChatMessageAlerts implements ShouldQueue
         // A muted conversation remains readable but never sends external alerts.
         if (in_array($this->conversationId, (array) ($prefs['muted_conversations'] ?? []), true)) return;
         // Quiet hours silence both push and email; alerts are not queued for later.
-        if (($prefs['quiet_enabled'] ?? false) === true) {
-            $start = (string) ($prefs['quiet_start'] ?? '22:00');
-            $end = (string) ($prefs['quiet_end'] ?? '07:00');
-            if (preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $start)
-                && preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $end)
-                && $start !== $end) {
-                $timezone = (string) ($user->timezone ?: config('app.timezone', 'UTC'));
-                try {
-                    $clock = now()->setTimezone(new \DateTimeZone($timezone))->format('H:i');
-                    $quiet = $start < $end
-                        ? ($clock >= $start && $clock < $end)
-                        : ($clock >= $start || $clock < $end);
-                    if ($quiet) return;
-                } catch (\Throwable) {
-                    // Invalid profile timezone: do not prevent regular alerts.
-                }
-            }
-        }
+        if (\App\Support\ChatQuietHours::isQuiet(
+            (bool) ($prefs['quiet_enabled'] ?? false),
+            (string) ($prefs['quiet_start'] ?? '22:00'),
+            (string) ($prefs['quiet_end'] ?? '07:00'),
+            (string) ($user->timezone ?: config('app.timezone', 'UTC'))
+        )) return;
         $mentioned = $conversation->type === 'group' && trim((string) $user->name) !== '' && preg_match('/(?<![\\p{L}\\p{N}_])@'.preg_quote(trim((string) $user->name), '/').'(?=$|[\\s.,!?;:])/iu', (string) $message->body) === 1;
         if ($conversation->type === 'group' && ($prefs['group_mentions_only'] ?? false) && ! $mentioned) return;
         $previewAllowed = (bool) ($prefs['preview'] ?? true);

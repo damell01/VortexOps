@@ -71,7 +71,7 @@ class SendChatMessageAlerts implements ShouldQueue
                 }
             }
         }
-        $mentioned = $conversation->type === 'group' && trim((string) $user->name) !== '' && str_contains(mb_strtolower((string) $message->body), '@'.mb_strtolower(trim((string) $user->name)));
+        $mentioned = $conversation->type === 'group' && trim((string) $user->name) !== '' && preg_match('/@'.preg_quote(trim((string) $user->name), '/').'(?=$|[[:space:][:punct:]])/iu', (string) $message->body) === 1;
         $previewAllowed = (bool) ($prefs['preview'] ?? true);
         $actualSender = User::find($this->senderId);
         if (! $actualSender) return;

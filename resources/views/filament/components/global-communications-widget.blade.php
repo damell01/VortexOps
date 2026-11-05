@@ -49,7 +49,7 @@
                                 <div class="vx-chatify-message-actions">
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
-                                <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button>
+                                <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
                                 </div>
                                 <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>
@@ -231,6 +231,17 @@
                             try {await navigator.clipboard.writeText(link.toString());this.copiedConversation=true;}
                             catch(e){this.error='Could not copy conversation link.';}
                         },
+                        async deleteMessage(message) {
+                            if(!this.selected || !this.isMine(message) || this.sending)return;
+                            if(!window.confirm('Delete this message for everyone?'))return;
+                            this.sending=true;this.error='';
+                            try {
+                                await this.api('/messages/'+encodeURIComponent(message.id)+'?scope=all',{method:'DELETE'});
+                                this.messages=this.messages.filter(m=>String(m.id)!==String(message.id));
+                                await this.loadMessages();this.load();
+                            }catch(e){this.error=e.message;}
+                            finally{this.sending=false;}
+                        },
                         async copyMessage(message) {
                             const body=message?.attributes?.body;
                             if(!body) return;
@@ -254,7 +265,7 @@
                             try {
                                 if(this.editingMessage) {
                                     if(!this.draft.trim())throw new Error('Edited message cannot be empty.');
-                                    await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages/'+encodeURIComponent(this.editingMessage.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:this.draft.trim()})});
+                                    await this.api('/messages/'+encodeURIComponent(this.editingMessage.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:this.draft.trim()})});
                                     this.editingMessage=null;this.draft='';
                                     await this.loadMessages();this.load();return;
                                 }

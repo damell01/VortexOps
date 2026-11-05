@@ -405,3 +405,13 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 
 .vx-chatify-notification-settings{font-size:11px;font-weight:700;color:#7c3aed;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
 .dark .vx-chatify-notification-settings{color:#c4b5fd}
+
+/* Team messenger: compact reactions, keyboard-accessible mentions and phone composer. */
+.vx-chatify-message-reactions{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;font-size:13px}
+.vx-chatify-message-reactions span{border-radius:99px;padding:2px 5px;background:rgba(124,58,237,.09)}
+.vx-chatify-composer textarea{min-width:0;max-height:180px;resize:vertical}
+.vx-chatify-user-list[role="listbox"]{border-top:1px solid #e9e0f2;background:#fff;box-shadow:0 -4px 12px rgba(40,25,70,.08);padding:5px;z-index:2}
+.vx-chatify-user-list[role="listbox"] button{display:block;width:100%;padding:9px 12px;text-align:left;border-radius:7px;font-size:12px}
+.vx-chatify-user-list[role="listbox"] button:hover,.vx-chatify-user-list[role="listbox"] button:focus-visible{background:#f4efff;outline:2px solid #a78bfa}
+.dark .vx-chatify-user-list[role="listbox"]{background:#291e35;border-color:#604a78}
+@media(max-width:640px){.vx-chatify-native .vx-chatify-conversation-head{gap:4px;flex-wrap:wrap}.vx-chatify-native .vx-chatify-conversation-head button{min-height:36px;min-width:36px}.vx-chatify-message-actions{flex-wrap:wrap;gap:4px}.vx-chatify-message-actions button{min-height:28px;min-width:28px}.vx-chatify-native .vx-chatify-composer textarea{font-size:16px}}

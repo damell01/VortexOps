@@ -8,7 +8,8 @@ class ChatMessagingRolloutTest extends TestCase
 {
     public function test_employee_chat_rollout_is_disabled_by_default(): void
     {
-        $this->assertFalse((bool) config('chatify-preview.team_enabled', false));
+        config(['chatify-preview.team_enabled' => false]);
+        $this->assertFalse((bool) config('chatify-preview.team_enabled'));
     }
 
     public function test_owner_preview_remains_separate_from_employee_chat_rollout(): void

@@ -29,7 +29,7 @@
                 <div class="vx-chatify-conversation" x-show="selected" x-cloak>
                     <div class="vx-chatify-conversation-head">
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
-                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="copyConversationLink()" :title="copiedConversation ? 'Link copied' : 'Copy conversation link'" aria-label="Copy conversation link">🔗</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
+                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-show="selected?.attributes?.type==='group'" x-on:click="renameGroup()" title="Rename group">Rename</button><button type="button" x-show="selected?.attributes?.type==='group'" x-on:click="leaveGroup()" title="Leave group">Leave</button><button type="button" x-on:click="copyConversationLink()" :title="copiedConversation ? 'Link copied' : 'Copy conversation link'" aria-label="Copy conversation link">🔗</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
                     <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" x-on:input.debounce.500ms="searchServer()" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><span x-show="historySearching">Searching history…</span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch.length>=2 && !historySearching && !filteredMessages().length">No matching messages found in the conversation.</p>
@@ -236,6 +236,26 @@
                         replyToMessage(message) {
                             this.replyTo=message;
                             this.$nextTick(()=>this.$refs.composerInput?.focus());
+                        },
+                        async renameGroup() {
+                            if(!this.selected)return;
+                            const current=this.label(this.selected);
+                            const name=window.prompt('Group name',current);
+                            if(name===null)return;
+                            const clean=name.trim();
+                            if(!clean || clean.length>120){this.error='Enter a group name of 1–120 characters.';return;}
+                            try {
+                                const data=await this.api('/conversations/'+encodeURIComponent(this.selected.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:clean})});
+                                if(data?.data)this.selected=data.data;
+                                await this.load();
+                            }catch(e){this.error=e.message;}
+                        },
+                        async leaveGroup() {
+                            if(!this.selected || !window.confirm('Leave this group conversation?'))return;
+                            try {
+                                await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/leave',{method:'POST'});
+                                this.selected=null;this.messages=[];await this.load();
+                            }catch(e){this.error=e.message;}
                         },
                         async copyConversationLink() {
                             if(!this.selected)return;

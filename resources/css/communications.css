@@ -374,3 +374,19 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 
 .vx-chatify-launch-unread{display:grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:white;color:#6d28d9;font-size:10px;font-weight:800}
 @media(max-width:640px){.vx-chatify-native{inset:8px 8px 78px!important;width:auto!important;height:auto!important;max-height:none!important}.vx-chatify-message-pane{padding:12px}.vx-chatify-composer{gap:6px;padding:9px}.vx-chatify-composer textarea{min-height:42px}}
+
+
+/* Native message actions and threaded reply previews */
+.vx-chatify-message-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.vx-chatify-message-actions button{border:0;background:transparent;color:inherit;opacity:.72;font-size:10px;font-weight:700;cursor:pointer;padding:2px 3px}
+.vx-chatify-message-actions button:hover,.vx-chatify-message-actions button:focus-visible{opacity:1;text-decoration:underline}
+.vx-chatify-quoted-message{display:flex;flex-direction:column;gap:3px;border-left:3px solid #a78bfa;background:rgba(124,58,237,.08);padding:7px 9px;margin-bottom:8px;border-radius:5px;font-size:11px;max-width:100%}
+.vx-chatify-quoted-message small{font-weight:800;font-size:10px}
+.vx-chatify-quoted-message span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.vx-chatify-message.is-mine .vx-chatify-quoted-message{background:rgba(255,255,255,.14);border-color:#ddd6fe}
+.vx-chatify-reply-banner{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 12px;background:#f6f0ff;border-top:1px solid #e8ddf5;color:#4b2678}
+.vx-chatify-reply-banner>div{display:flex;flex-direction:column;min-width:0;gap:2px}
+.vx-chatify-reply-banner strong{font-size:11px}
+.vx-chatify-reply-banner small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vx-chatify-reply-banner button{padding:5px 9px;border-radius:8px;color:#6d28d9;font-weight:800}
+.dark .vx-chatify-reply-banner{background:#39244f;color:#f2e9ff;border-color:#5a4274}

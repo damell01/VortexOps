@@ -193,7 +193,7 @@
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
-                                this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);
+                                this.messages=this.mergeMessages(this.olderPage>1?this.messages:[],list);this.loadReactionBatch(list);
                                 this.hasOlder=this.olderPage>1 ? this.hasOlder : this.pageInfo(data,list.length,1);
                                 this.$nextTick(()=>{
                                     if(this.$refs.messagePane && (firstLoad || nearBottom))this.$refs.messagePane.scrollTop=this.$refs.messagePane.scrollHeight;
@@ -216,7 +216,7 @@
                                 const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page='+page);
                                 if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
                                 const list=this.items(data);
-                                this.messages=this.mergeMessages(this.messages,list);
+                                this.messages=this.mergeMessages(this.messages,list);this.loadReactionBatch(list);
                                 this.olderPage=page;
                                 this.hasOlder=this.pageInfo(data,list.length,page);
                                 this.$nextTick(()=>{if(this.$refs.messagePane===pane)pane.scrollTop=oldTop+pane.scrollHeight-oldHeight;});
@@ -342,6 +342,18 @@
                                 if(!response.ok)throw new Error('Could not update reaction');
                                 await this.loadReactions(message.id);
                             }catch(e){this.error=e.message;}
+                        },
+                        async loadReactionBatch(messages) {
+                            const ids=messages.slice(0,50).map(m=>m.id).filter(Boolean);
+                            if(!ids.length)return;
+                            try {
+                                const params=new URLSearchParams();
+                                ids.forEach(id=>params.append('ids[]',id));
+                                const response=await fetch(@json(url('/admin/communications/reactions/batch'))+'?'+params,{credentials:'same-origin',headers:{Accept:'application/json'}});
+                                if(!response.ok)return;
+                                const data=await response.json();
+                                for(const id of ids)this.reactions[id]=data.reactions?.[id] || [];
+                            }catch(e){}
                         },
                         async loadReactions(id) {
                             try {

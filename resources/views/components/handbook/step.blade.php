@@ -87,7 +87,7 @@
                     <img src="{{ $imageBase }}/{{ $shot }}" alt="{{ $step['title'] }}" loading="lazy"
                          @if ($sizes[$shot][0]) width="{{ $sizes[$shot][0] }}" height="{{ $sizes[$shot][1] }}" @endif
                          class="h-auto w-full rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700">
-                    <span class="mt-2 flex items-center gap-1 text-[11px] font-medium text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400">
+                    <span class="mt-2 flex items-center gap-1 text-[11px] font-medium text-gray-500 group-hover:text-primary-600 dark:group-hover:text-primary-400">
                         <x-heroicon-m-arrows-pointing-out class="h-3 w-3" />
                         @if (count($shots) > 1)
                             Part {{ $i + 1 }} of {{ count($shots) }} — click to open full size

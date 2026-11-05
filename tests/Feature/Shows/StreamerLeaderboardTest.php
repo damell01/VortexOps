@@ -36,7 +36,7 @@ class StreamerLeaderboardTest extends TestCase
         $other = Business::create(['name' => 'Other Business', 'status' => 'active']);
         $this->viewer = User::factory()->create(['buddy' => 'pikachu']);
         $this->viewer->assignRole(Role::findOrCreate('streamer', 'web'));
-        $this->mine = Streamer::create(['name' => 'Alex', 'user_id' => $this->viewer->id, 'business_id' => $business->id, 'status' => 'active']);
+        $this->mine = Streamer::updateOrCreate(['user_id' => $this->viewer->id], ['name' => 'Alex', 'user_id' => $this->viewer->id, 'business_id' => $business->id, 'status' => 'active']);
         $this->rival = Streamer::create(['name' => 'Jordan', 'business_id' => $business->id, 'status' => 'active']);
         $this->outside = Streamer::create(['name' => 'Outside Team', 'business_id' => $other->id, 'status' => 'active']);
         $this->channel = WhatnotChannel::create(['name' => 'Vortex Breaks', 'status' => 'active']);
@@ -135,6 +135,8 @@ class StreamerLeaderboardTest extends TestCase
     {
         $orphan = User::factory()->create();
         $orphan->assignRole('streamer');
+        $orphan->streamer()->delete();
+        $orphan->unsetRelation('streamer');
         $this->actingAs($orphan);
         $this->assertFalse(StreamerLeaderboard::canView());
         $this->assertCount(0, $this->rows());

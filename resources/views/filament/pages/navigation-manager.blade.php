@@ -62,7 +62,7 @@
                                     <span class="vx-grip" title="Drag module">⋮⋮</span>
                                     <input class="vx-mini-input" value="{{ $group['label'] }}"
                                            x-on:change="$wire.renameGroup('{{ $group['id'] }}',$event.target.value)" />
-                                    <span class="text-[11px] font-semibold text-gray-400">{{ $groupItems->count() }} items</span>
+                                    <span class="text-[11px] font-semibold text-gray-500">{{ $groupItems->count() }} items</span>
                                     @if(count($layoutGroups) > 1)
                                         <button type="button" wire:click.stop="deleteGroup('{{ $group['id'] }}')" wire:confirm="Remove this group? Its links will move to another group." class="text-[10px] font-bold text-rose-500">Remove</button>
                                     @endif
@@ -79,7 +79,7 @@
                                             <div class="min-w-0">
                                                 <input class="vx-mini-input" value="{{ $item['label'] ?: $catalog[$class]['label'] }}"
                                                        x-on:change="$wire.renameItem('{{ addslashes($class) }}',$event.target.value)" />
-                                                <div class="truncate px-2 text-[10px] text-gray-400">{{ class_basename($class) }}</div>
+                                                <div class="truncate px-2 text-[10px] text-gray-500">{{ class_basename($class) }}</div>
                                             </div>
                                             <span class="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-500 dark:bg-gray-800">{{ $roleStates[$class] ?? 'manage' }}</span>
                                         </div>
@@ -119,7 +119,7 @@
                                             <span class="grid h-7 w-7 place-items-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/40">•</span>
                                             <div class="min-w-0">
                                                 <div class="truncate text-sm font-semibold">{{ $item['label'] ?: $catalog[$class]['label'] }}</div>
-                                                <div class="truncate text-[10px] text-gray-400">{{ class_basename($class) }}</div>
+                                                <div class="truncate text-[10px] text-gray-500">{{ class_basename($class) }}</div>
                                             </div>
                                             <div class="vx-access">
                                                 <button type="button" wire:click="setAccess(@js($class),'manage')" class="vx-state manage {{ $state === 'manage' ? 'active' : '' }}">Manage</button>
@@ -139,7 +139,7 @@
         <aside class="vx-preview">
             <div class="vx-panel p-3">
                 <div class="mb-3 flex items-center justify-between px-1">
-                    <div><div class="text-xs font-bold">Live sidebar preview</div><div class="text-[10px] text-gray-400">{{ str($selectedRole)->headline() }}</div></div>
+                    <div><div class="text-xs font-bold">Live sidebar preview</div><div class="text-[10px] text-gray-500">{{ str($selectedRole)->headline() }}</div></div>
                     <span class="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">Preview only</span>
                 </div>
                 <div class="vx-preview-shell">
@@ -154,7 +154,7 @@
                             </div>
                         @endif
                     @empty
-                        <div class="py-12 text-center text-xs text-slate-500">No visible navigation for this role.</div>
+                        <div class="py-8 text-center text-xs text-slate-500">No visible navigation for this role.</div>
                     @endforelse
                 </div>
             </div>

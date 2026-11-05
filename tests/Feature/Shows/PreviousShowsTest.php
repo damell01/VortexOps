@@ -36,7 +36,7 @@ class PreviousShowsTest extends TestCase
 
         $this->user = User::factory()->create();
         $this->user->assignRole('streamer');
-        $streamer = Streamer::create(['name' => 'History Streamer', 'status' => 'active', 'user_id' => $this->user->id]);
+        $streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], ['name' => 'History Streamer', 'status' => 'active', 'user_id' => $this->user->id]);
 
         Setting::set('show_reports_required_from', now()->subDays(5)->toDateString());
         $this->old = Show::create(['title' => 'Old Way Show', 'show_date' => now()->subDays(20)->toDateString(), 'status' => 'reconciled']);

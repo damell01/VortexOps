@@ -28,7 +28,7 @@
         },
      }"
      {{ $attributes }}>
-    <div class="px-2 pb-1 text-[11px] font-bold uppercase tracking-[.12em] text-gray-400">In this section</div>
+    <div class="px-2 pb-1 text-[11px] font-bold uppercase tracking-[.12em] text-gray-500">In this section</div>
 
     @foreach ($steps as $n => $step)
         {{-- Scrolled rather than jumped: it is smooth, it honours the step's

@@ -78,7 +78,7 @@
                 <x-dynamic-component :component="$module['icon']" class="h-4 w-4" />
                 {{ $module['label'] }}
                 @unless ($module['ready'])
-                    <span class="rounded bg-gray-100 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:bg-gray-800">Soon</span>
+                    <span class="rounded bg-gray-100 px-1 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-800">Soon</span>
                 @endunless
             </button>
         @endforeach
@@ -107,7 +107,7 @@
                  screen, and a sticky column that overflows simply hides its
                  bottom half. It scrolls on its own instead. --}}
             <div class="space-y-1 lg:sticky lg:top-4 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1">
-                <div class="px-2 pb-1 text-[11px] font-bold uppercase tracking-[.12em] text-gray-400">Contents</div>
+                <div class="px-2 pb-1 text-[11px] font-bold uppercase tracking-[.12em] text-gray-500">Contents</div>
 
                 @foreach ($sections as $i => $section)
                     @php
@@ -116,7 +116,7 @@
                     <button type="button" wire:click="openSection({{ $i }})"
                             class="vx-plain flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($active) }}">
                         <x-dynamic-component :component="$section['icon'] ?? 'heroicon-o-book-open'"
-                                             class="h-4 w-4 shrink-0 {{ $active ? 'text-white' : 'text-gray-400' }}" />
+                                             class="h-4 w-4 shrink-0 {{ $active ? 'text-white' : 'text-gray-500' }}" />
                         <span class="min-w-0 flex-1 truncate">{{ $section['title'] }}</span>
                         <span class="shrink-0 rounded px-1.5 text-[11px] {{ $active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
                             {{ count($section['steps']) }}

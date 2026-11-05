@@ -9,7 +9,7 @@
 
 <div class="group overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 cursor-pointer transform">
     {{-- Gradient Header --}}
-    <div class="bg-gradient-to-r {{ $gradient }} px-6 py-8 text-white relative overflow-hidden">
+    <div class="bg-gradient-to-r {{ $gradient }} px-6 py-5 text-white relative overflow-hidden">
         {{-- Animated background element --}}
         <div class="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-300"
              style="background: radial-gradient(circle at top right, rgba(255,255,255,0.3), transparent)"></div>
@@ -18,7 +18,7 @@
         <div class="relative">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold">{{ $title }}</h3>
-                <span class="text-4xl transform group-hover:scale-110 transition-transform duration-300">{{ $icon }}</span>
+                <span class="text-3xl transform group-hover:scale-110 transition-transform duration-300">{{ $icon }}</span>
             </div>
             <p class="text-sm opacity-90">{{ $description }}</p>
         </div>
@@ -27,7 +27,7 @@
     {{-- Content Area --}}
     <div class="p-6">
         <div class="flex items-center justify-between mb-4">
-            <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ $value }}</span>
+            <span class="text-2xl font-bold text-gray-900 dark:text-white">{{ $value }}</span>
             <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300"
                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>

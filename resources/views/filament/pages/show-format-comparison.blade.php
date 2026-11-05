@@ -48,7 +48,7 @@
         </section>
 
         @if (empty($rows))
-            <section class="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="rounded-xl border border-gray-200 bg-white p-5 text-center dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <x-heroicon-o-scale class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
                 <h2 class="mt-3 text-base font-semibold text-gray-950 dark:text-white">No shows in this period</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Widen the period, or pick a different channel.</p>
@@ -89,13 +89,13 @@
 
                             <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg / show</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-500">Avg / show</div>
                                     <div class="font-semibold tabular-nums text-gray-950 dark:text-white">${{ number_format($row['avg_net'], 2) }}</div>
                                 </div>
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">vs average</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-500">vs average</div>
                                     @if ($row['net_vs_overall_pct'] === null)
-                                        <div class="tabular-nums text-gray-400">—</div>
+                                        <div class="tabular-nums text-gray-500">—</div>
                                     @else
                                         <div class="font-semibold tabular-nums {{ $row['net_vs_overall_pct'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
                                             {{ $row['net_vs_overall_pct'] >= 0 ? '+' : '' }}{{ number_format($row['net_vs_overall_pct'], 1) }}%
@@ -103,19 +103,19 @@
                                     @endif
                                 </div>
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg units</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-500">Avg units</div>
                                     <div class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_units'], 1) }}</div>
                                 </div>
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg giveaways</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-500">Avg giveaways</div>
                                     <div class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_giveaways'], 1) }}</div>
                                 </div>
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg buyers</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-500">Avg buyers</div>
                                     <div class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_buyers'], 1) }}</div>
                                 </div>
                                 <div>
-                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Total</div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-500">Total</div>
                                     <div class="tabular-nums text-gray-700 dark:text-gray-300">${{ number_format($row['total_net'], 2) }}</div>
                                 </div>
                             </div>

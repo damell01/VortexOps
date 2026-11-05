@@ -41,6 +41,18 @@
             <x-vxr.stat label="Pending Financials" :value="$t['incomplete'].' '.\Illuminate\Support\Str::plural('show', $t['incomplete'])" icon="heroicon-o-clock" tone="warn" note="Awaiting costs or pay runs" :href="$links['pending']" />
         </div>
 
+        <section style="display:grid;gap:12px">
+            <h2 class="vxr-card-title" style="font-size:16px"><x-filament::icon icon="heroicon-o-squares-2x2" /> Report Library</h2>
+            <div class="vxr-tiles">
+                @foreach ($this->library() as $tile)
+                    <a class="vxr-tile" href="{{ $tile['url'] }}">
+                        <span class="vxr-stat-icon vxr-tone-{{ $tile['tone'] }}"><x-filament::icon :icon="$tile['icon']" /></span>
+                        <span><b>{{ $tile['title'] }}</b><p>{{ $tile['text'] }}</p><span class="vxr-link">Open Report <x-filament::icon icon="heroicon-m-arrow-right" /></span></span>
+                    </a>
+                @endforeach
+            </div>
+        </section>
+
         <div class="vxr-grid vxr-grid--wide">
             <section class="vxr-card">
                 <div class="vxr-card-head">
@@ -59,18 +71,6 @@
                 </div>
             </section>
         </div>
-
-        <section style="display:grid;gap:12px">
-            <h2 class="vxr-card-title" style="font-size:19px"><x-filament::icon icon="heroicon-o-squares-2x2" /> Report Library</h2>
-            <div class="vxr-tiles">
-                @foreach ($this->library() as $tile)
-                    <a class="vxr-tile" href="{{ $tile['url'] }}">
-                        <span class="vxr-stat-icon vxr-tone-{{ $tile['tone'] }}"><x-filament::icon :icon="$tile['icon']" /></span>
-                        <span><b>{{ $tile['title'] }}</b><p>{{ $tile['text'] }}</p><span class="vxr-link">Open Report <x-filament::icon icon="heroicon-m-arrow-right" /></span></span>
-                    </a>
-                @endforeach
-            </div>
-        </section>
 
         <p class="vxr-foot-note"><x-filament::icon icon="heroicon-o-information-circle" /> Business profit includes finalized shows only — earnings, approved COGS and final pay all in. Pending shows are excluded.</p>
     </div>

@@ -13,7 +13,7 @@
         $total = (int) $items->sum('quantity');
     @endphp
 
-    <main class="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
+    <main class="mx-auto max-w-3xl p-4 sm:p-6 lg:p-5">
         <div class="mb-4 flex items-center justify-between gap-3">
             <a href="{{ url('/admin/fulfillment-center/'.$show->id) }}" class="text-sm font-semibold text-primary-600">← Back to show</a>
             <span class="rounded-full px-3 py-1 text-xs font-bold {{ $package->isSealed() ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700' }}">{{ $package->isSealed() ? 'Sealed' : 'Building' }}</span>

@@ -24,8 +24,13 @@ final class WhatnotApiShipmentImporter
         'created' => 'pending',
         'label_generated' => 'label_created',
         'dropped_off' => 'shipped',
-        'in_transit' => 'shipped',
+        'in_transit' => 'in_transit',
         'delivered' => 'delivered',
+        'failed' => 'failed',
+        'cancelled' => 'cancelled',
+        'cancelled_not_shipped' => 'cancelled',
+        'cancelled_not_shipped_with_dropoff' => 'cancelled',
+        'cancelled_tracking_stuck' => 'failed',
     ];
 
     /**
@@ -74,11 +79,13 @@ final class WhatnotApiShipmentImporter
             'box_height_in' => $dims['height_in'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
 
-        $rank = array_flip(array_keys(WhatnotShowOrder::shippingStatusLabels()));
+        $rank = ['pending' => 0, 'label_created' => 1, 'packed' => 2, 'shipped' => 3, 'in_transit' => 4, 'delivered' => 5, 'returned' => 6];
         $changed = 0;
         foreach ($orders as $order) {
             $update = array_filter($fields, fn ($v, $k) => (string) $order->{$k} !== (string) $v, ARRAY_FILTER_USE_BOTH);
-            if ($status !== null && ($order->shipping_status === null || ($rank[$status] ?? 0) > ($rank[$order->shipping_status] ?? -1))) {
+            if ($status !== null && (in_array($status, ['failed', 'cancelled'], true)
+                || $order->shipping_status === null
+                || ($rank[$status] ?? 0) > ($rank[$order->shipping_status] ?? -1))) {
                 $update['shipping_status'] = $status;
             }
             if ($update === []) continue;
@@ -91,30 +98,54 @@ final class WhatnotApiShipmentImporter
         }
 
         // One Shipment row per show and tracking number, as the scraper keeps them.
-        if (! $dryRun && filled($tracking['tracking_code'] ?? null)) {
+        if (! $dryRun) {
             foreach ($orders->groupBy('show_id') as $showId => $showOrders) {
                 $money = $shipment['seller_paid_shipping_cost'] ?? null;
                 $recipient = is_array($shipment['recipient'] ?? null) ? $shipment['recipient'] : [];
                 $insurance = is_array($shipment['insurance'] ?? null) ? $shipment['insurance'] : null;
-                Shipment::updateOrCreate(
-                    ['show_id' => $showId, 'tracking_number' => $tracking['tracking_code']],
+                $existing = Shipment::query()->where('show_id', $showId)
+                    ->where('raw_payload->shipment_id', $shipmentId)->first();
+                if (! $existing && filled($tracking['tracking_code'] ?? null)) {
+                    $existing = Shipment::query()->where('show_id', $showId)
+                        ->where('tracking_number', $tracking['tracking_code'])->first();
+                }
+                // Ignore stale non-terminal status snapshots for delivered or returned packages.
+                $incomingStatus = (string) ($shipment['status'] ?? '');
+                $currentStatus = (string) ($existing?->status ?? '');
+                $terminal = in_array($currentStatus, ['delivered', 'returned'], true);
+                $incomingTerminal = in_array($incomingStatus, ['delivered', 'returned'], true);
+                $resolvedStatus = $terminal && ! $incomingTerminal ? $currentStatus : $incomingStatus;
+                $previousStatus = $existing?->status;
+                $record = $existing ?? new Shipment(['show_id' => $showId]);
+                $record->fill(
                     array_filter([
                         // A link to the local order row (whatnot_show_orders.id), despite the name.
                         'whatnot_order_id' => $showOrders->first()->id,
+                        'tracking_number' => $tracking['tracking_code'] ?? null,
                         'buyer_username' => $recipient['username'] ?? null,
                         'item_count' => count($items),
                         'shipping_cost' => is_array($money) && ($money['currency'] ?? null) === 'USD' && is_numeric($money['amount'] ?? null) ? (float) $money['amount'] : null,
                         'weight_oz' => $weightOz,
                         'dimensions_json' => $dims ?: null,
-                        'status' => $shipment['status'] ?? null,
+                        'status' => $resolvedStatus !== '' ? $resolvedStatus : null,
                         'carrier' => $tracking['carrier'] ?? null,
                         'insurance_added' => $insurance !== null,
                         'signature_required' => (bool) ($shipment['signature_required'] ?? false),
                         'raw_payload' => ['_source' => 'seller_api', 'shipment_id' => $shipmentId, 'status' => $shipment['status'] ?? null,
-                            'required_actions' => $shipment['required_actions'] ?? [], 'dropoff_due' => $shipment['dropoff_due'] ?? null,
+                            'required_actions' => $shipment['required_actions'] ?? [], 'documents' => is_array($shipment['documents'] ?? null) ? $shipment['documents'] : [], 'shipment_url' => $shipment['url'] ?? null, 'dropoff_due' => $shipment['dropoff_due'] ?? null,
                             'replacement_shipment_id' => $shipment['replacement_shipment_id'] ?? null],
                     ], fn ($v) => $v !== null),
-                );
+                )->save();
+                // Only append a history event on a real status transition.
+                // Repeated API snapshots must not create duplicate history.
+                if ($record->status && $previousStatus !== $record->status) {
+                    \Illuminate\Support\Facades\DB::table('fulfillment_shipment_events')->insert([
+                        'shipment_id' => $record->id, 'source' => 'seller_api',
+                        'previous_status' => $previousStatus, 'status' => $record->status,
+                        'tracking_number' => $record->tracking_number, 'observed_at' => now(),
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                }
             }
         }
 

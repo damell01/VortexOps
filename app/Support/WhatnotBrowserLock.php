@@ -274,6 +274,9 @@ class WhatnotBrowserLock
      */
     public static function pidIsAlive(int $pid): bool
     {
+        // Our current process is alive even when procfs is hidden in a PID namespace.
+        if ($pid === getmypid()) return true;
+
         if ($pid <= 0 || ! is_dir("/proc/{$pid}")) {
             return false;
         }

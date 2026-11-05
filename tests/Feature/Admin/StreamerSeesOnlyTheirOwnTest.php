@@ -60,13 +60,13 @@ class StreamerSeesOnlyTheirOwnTest extends TestCase
         $this->streamerUser->assignRole('streamer');
         $this->streamerUser = $this->streamerUser->fresh();
 
-        $this->streamer = Streamer::create([
+        $this->streamer = Streamer::updateOrCreate(['user_id' => $this->streamerUser->id], [
             'user_id' => $this->streamerUser->id, 'name' => 'Own',
             'email' => 'streamer@example.com', 'status' => 'active', 'payout_type' => 'profit_share',
         ]);
 
         $other = User::factory()->create(['email' => 'other@example.com', 'name' => 'Other']);
-        $this->otherStreamer = Streamer::create([
+        $this->otherStreamer = Streamer::updateOrCreate(['user_id' => $other->id], [
             'user_id' => $other->id, 'name' => 'Other',
             'email' => 'other@example.com', 'status' => 'active', 'payout_type' => 'profit_share',
         ]);

@@ -26,7 +26,7 @@ class StreamerHomeTest extends TestCase
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
         $user = User::factory()->create(['name' => 'Trey Card', 'timezone' => 'UTC']);
         $user->assignRole('streamer');
-        $this->streamer = Streamer::create(['name' => 'Trey Card', 'status' => 'active', 'user_id' => $user->id]);
+        $this->streamer = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Trey Card', 'status' => 'active', 'user_id' => $user->id]);
         $this->actingAs($user->fresh());
     }
 

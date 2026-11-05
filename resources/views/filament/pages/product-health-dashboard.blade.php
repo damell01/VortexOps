@@ -5,27 +5,27 @@
 {{-- ── Top KPIs ──────────────────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($m['total_products']) }}</p>
-        <p class="text-xs text-gray-400 mt-1">Total Products</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($m['total_products']) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Total Products</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $m['active_products'] }} active</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($m['total_aliases']) }}</p>
-        <p class="text-xs text-gray-400 mt-1">Total Aliases</p>
+        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($m['total_aliases']) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Total Aliases</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $m['with_aliases'] }} products covered</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold {{ $m['avg_confidence'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['avg_confidence'] >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+        <p class="text-2xl font-bold {{ $m['avg_confidence'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['avg_confidence'] >= 75 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
             {{ $m['avg_confidence'] > 0 ? $m['avg_confidence'] . '%' : '—' }}
         </p>
-        <p class="text-xs text-gray-400 mt-1">Avg Match Confidence</p>
+        <p class="text-xs text-gray-500 mt-1">Avg Match Confidence</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $m['sessions_done'] }} sessions complete</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold {{ $m['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+        <p class="text-2xl font-bold {{ $m['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ($m['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
             {{ $m['auto_match_rate'] > 0 ? $m['auto_match_rate'] . '%' : '—' }}
         </p>
-        <p class="text-xs text-gray-400 mt-1">Auto-Match Rate</p>
+        <p class="text-xs text-gray-500 mt-1">Auto-Match Rate</p>
         <p class="text-xs text-gray-500 mt-0.5">across all sessions</p>
     </div>
 </div>
@@ -49,7 +49,7 @@
             <div class="px-5 py-2 flex items-center justify-between text-xs">
                 <div>
                     <p class="text-gray-900 dark:text-gray-100 truncate max-w-[160px]">{{ $p['name'] }}</p>
-                    <p class="text-gray-400">{{ $p['label'] }}</p>
+                    <p class="text-gray-500">{{ $p['label'] }}</p>
                 </div>
                 <a href="/admin/inventory-items/{{ $p['id'] }}/edit"
                     class="text-blue-500 hover:underline">Edit</a>
@@ -67,7 +67,7 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Never Received</h3>
             <span class="text-xl font-bold text-gray-500">{{ $m['never_received'] }}</span>
         </div>
-        <p class="px-5 py-3 text-xs text-gray-400">Products in catalog that have no receiving history. May be legacy items or added manually.</p>
+        <p class="px-5 py-3 text-xs text-gray-500">Products in catalog that have no receiving history. May be legacy items or added manually.</p>
     </div>
 
     {{-- UPC coverage bar --}}
@@ -76,7 +76,7 @@
         <div class="h-4 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
             <div class="h-full rounded-full bg-blue-500 transition-all duration-500" style="width: {{ $m['with_upc_pct'] }}%"></div>
         </div>
-        <p class="text-xs text-gray-400 mt-1 text-right">{{ $m['with_upc_pct'] }}% of products have a UPC</p>
+        <p class="text-xs text-gray-500 mt-1 text-right">{{ $m['with_upc_pct'] }}% of products have a UPC</p>
         <p class="mt-3 text-xs text-gray-500">UPC enables instant alias lookup (Stage 1) — every missing UPC means the AI has to work harder during receiving.</p>
     </div>
 </div>
@@ -89,14 +89,14 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Most Aliases (best matched)</h3>
         </div>
         @if(count($this->mostAliased) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No aliases yet — they build during receiving.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-500">No aliases yet — they build during receiving.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->mostAliased as $row)
             <div class="flex items-center justify-between px-5 py-2.5 text-sm">
                 <p class="text-gray-900 dark:text-gray-100 truncate">{{ $row['product'] }}</p>
                 <div class="flex items-center gap-4 flex-shrink-0 ml-3">
-                    <span class="text-xs text-gray-400">{{ $row['alias_count'] }} aliases</span>
+                    <span class="text-xs text-gray-500">{{ $row['alias_count'] }} aliases</span>
                     <span class="text-xs font-medium text-purple-600 dark:text-purple-400">{{ $row['total_confirms'] }} confirms</span>
                 </div>
             </div>
@@ -110,7 +110,7 @@
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Most Received</h3>
         </div>
         @if(count($this->mostReceived) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No receiving history yet.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-500">No receiving history yet.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->mostReceived as $row)
@@ -118,7 +118,7 @@
                 <p class="text-gray-900 dark:text-gray-100 truncate">{{ $row['name'] }}</p>
                 <div class="flex items-center gap-4 flex-shrink-0 ml-3">
                     <span class="text-xs font-bold text-gray-900 dark:text-gray-100">{{ $row['received'] }}</span>
-                    <span class="text-xs text-gray-400">${{ $row['avg_cost'] }}</span>
+                    <span class="text-xs text-gray-500">${{ $row['avg_cost'] }}</span>
                 </div>
             </div>
             @endforeach
@@ -142,7 +142,7 @@
                 <span class="inline-flex items-center rounded-full bg-red-100 dark:bg-red-900 px-2 py-0.5 text-xs font-medium text-red-700 dark:text-red-300">
                     {{ $row['confidence'] }}%
                 </span>
-                <span class="text-xs text-gray-400">{{ $row['aliases'] }} aliases</span>
+                <span class="text-xs text-gray-500">{{ $row['aliases'] }} aliases</span>
             </div>
         </div>
         @endforeach

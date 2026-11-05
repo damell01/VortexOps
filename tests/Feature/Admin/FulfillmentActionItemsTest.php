@@ -153,9 +153,8 @@ class FulfillmentActionItemsTest extends TestCase
     public function test_next_step_action_hidden_for_non_admin(): void
     {
         $show = $this->show(['status' => 'pending_review']);
-        $streamerModel = Streamer::create(['name' => 'S', 'status' => 'active']);
         $user = $this->streamerUser();
-        $streamerModel->update(['user_id' => $user->id]);
+        $streamerModel = $user->streamer()->firstOrFail();
         $show->streamers()->attach($streamerModel->id, ['is_primary' => true]);
 
         $this->actingAs($user);

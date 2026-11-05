@@ -11,7 +11,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-blue-600 dark:text-blue-400">Total Inventory Value</p>
-                        <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">${{ number_format($this->getTotalInventoryValueProperty(), 2) }}</p>
+                        <p class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">${{ number_format($this->getTotalInventoryValueProperty(), 2) }}</p>
                     </div>
                     <x-heroicon-o-banknotes class="h-10 w-10 text-blue-200 dark:text-blue-800 opacity-50" />
                 </div>
@@ -22,7 +22,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-green-600 dark:text-green-400">Total SKUs</p>
-                        <p class="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $this->getInventoryHealthProperty()['total_items'] }}</p>
+                        <p class="text-2xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $this->getInventoryHealthProperty()['total_items'] }}</p>
                         <p class="text-xs text-green-700 dark:text-green-300 mt-1">{{ number_format($this->getInventoryHealthProperty()['total_units'], 0) }} units</p>
                     </div>
                     <x-heroicon-o-squares-2x2 class="h-10 w-10 text-green-200 dark:text-green-800 opacity-50" />
@@ -34,7 +34,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-orange-600 dark:text-orange-400">Low Stock</p>
-                        <p class="text-3xl font-bold text-orange-900 dark:text-orange-100 mt-2">{{ $this->getInventoryHealthProperty()['low_stock_count'] }}</p>
+                        <p class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-2">{{ $this->getInventoryHealthProperty()['low_stock_count'] }}</p>
                         <p class="text-xs text-orange-700 dark:text-orange-300 mt-1">Items below reorder</p>
                     </div>
                     <x-heroicon-o-exclamation-circle class="h-10 w-10 text-orange-200 dark:text-orange-800 opacity-50" />
@@ -46,7 +46,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-sm font-medium text-red-600 dark:text-red-400">Issues</p>
-                        <p class="text-3xl font-bold text-red-900 dark:text-red-100 mt-2">{{ $this->getInventoryHealthProperty()['no_cost_count'] + $this->getInventoryHealthProperty()['high_variance_count'] }}</p>
+                        <p class="text-2xl font-bold text-red-900 dark:text-red-100 mt-2">{{ $this->getInventoryHealthProperty()['no_cost_count'] + $this->getInventoryHealthProperty()['high_variance_count'] }}</p>
                         <p class="text-xs text-red-700 dark:text-red-300 mt-1">No cost or high variance</p>
                     </div>
                     <x-heroicon-o-exclamation-triangle class="h-10 w-10 text-red-200 dark:text-red-800 opacity-50" />

@@ -33,6 +33,7 @@ class CommunicationsPreviewTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['chatify-preview.available' => true]);
         $this->withoutVite();
         $this->enableAdminModules();
         config(['app.owner_email' => 'owner@example.test', 'app.display_timezone' => 'America/Chicago']);

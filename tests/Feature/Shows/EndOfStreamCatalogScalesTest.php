@@ -43,7 +43,7 @@ class EndOfStreamCatalogScalesTest extends TestCase
         $this->user = User::factory()->create(['email' => 'streamer@example.com']);
         $this->user->assignRole('streamer');
 
-        $streamer = Streamer::create([
+        $streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], [
             'user_id' => $this->user->id, 'name' => 'Tyler',
             'email' => 'streamer@example.com', 'status' => 'active', 'payout_type' => 'profit_share',
         ]);

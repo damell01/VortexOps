@@ -71,7 +71,7 @@
                 </div>
 
                 @if(empty($data['shows']))
-                    <div class="px-6 py-10 text-center text-sm text-gray-400">No shows found for this period.</div>
+                    <div class="px-6 py-10 text-center text-sm text-gray-500">No shows found for this period.</div>
                 @else
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
@@ -96,7 +96,7 @@
                                         <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">${{ number_format($row['gross'], 2) }}</td>
                                         <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400 text-xs">{{ $row['payout_type'] }}</td>
                                         <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">${{ number_format($row['calculated'], 2) }}</td>
-                                        <td class="px-4 py-3 text-right {{ $row['surcharge'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400' }}">{{ $row['surcharge'] > 0 ? '-$' . number_format($row['surcharge'], 2) : '—' }}</td>
+                                        <td class="px-4 py-3 text-right {{ $row['surcharge'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500' }}">{{ $row['surcharge'] > 0 ? '-$' . number_format($row['surcharge'], 2) : '—' }}</td>
                                         <td class="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100">${{ number_format($row['net_payout'], 2) }}</td>
                                         <td class="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">${{ number_format($row['paid'], 2) }}</td>
                                         <td class="px-4 py-3"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium {{ $row['status'] === 'paid' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' : ($row['status'] === 'approved' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300') }}">{{ ucfirst($row['status']) }}</span></td>
@@ -124,7 +124,7 @@
                 @endif
             </div>
         @else
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-10 text-center text-sm text-gray-400">Select a streamer above to generate a statement.</div>
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-10 text-center text-sm text-gray-500">Select a streamer above to generate a statement.</div>
         @endif
     </div>
 </x-filament-panels::page>

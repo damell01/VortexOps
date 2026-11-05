@@ -48,7 +48,7 @@
     @else
         <!-- Camera Closed State -->
         <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 text-center border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <div class="text-4xl mb-3">📷</div>
+            <div class="text-3xl mb-3">📷</div>
             <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Camera Scanner</p>
             <button
                 wire:click="toggleCamera"

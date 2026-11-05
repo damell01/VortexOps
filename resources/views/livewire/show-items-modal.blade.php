@@ -16,7 +16,7 @@
                     <h2 class="text-2xl font-bold">Add Inventory Items</h2>
                     <p class="text-sm text-emerald-100 mt-1">Select location and items to add to this show</p>
                 </div>
-                <button wire:click="close()" class="rounded-lg bg-white/20 p-2 hover:bg-white/30 transition">
+                <button aria-label="Close" wire:click="close()" class="rounded-lg bg-white/20 p-2 hover:bg-white/30 transition">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -27,7 +27,7 @@
             <div class="mt-4">
                 <label class="block text-sm font-medium text-emerald-50 mb-2">Inventory Location</label>
                 <select wire:model.live="selectedLocationId"
-                    class="w-full rounded-lg bg-white/90 text-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50">
+                    class="w-full rounded-lg bg-white/90 text-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50 dark:text-white">
                     <option value="">Choose a location...</option>
                     @foreach($locations as $id => $name)
                         <option value="{{ $id }}">{{ $name }}</option>
@@ -47,7 +47,7 @@
                         type="text"
                         wire:model.live.debounce-300ms="search"
                         placeholder="Search items by name or SKU..."
-                        class="w-full rounded-lg bg-white/90 py-2 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        class="w-full rounded-lg bg-white/90 py-2 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50 dark:text-white"
                     >
                 </div>
             @endif
@@ -56,7 +56,7 @@
         <!-- Content Area -->
         <div class="flex-grow overflow-y-auto p-6">
             @if(!$selectedLocationId)
-                <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="flex flex-col items-center justify-center py-8 text-center">
                     <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                     </svg>
@@ -64,7 +64,7 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Choose an inventory location to see available items</p>
                 </div>
             @elseif(count($items) === 0)
-                <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="flex flex-col items-center justify-center py-8 text-center">
                     <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -74,7 +74,7 @@
             @else
                 <!-- Selected Items Section -->
                 @if(!empty($selectedItems))
-                    <div class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
+                    <div class="mb-5 pb-6 border-b border-gray-200 dark:border-gray-700">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Selected Items ({{ count($selectedItems) }})</h3>
                         <div class="space-y-3">
                             @foreach($selectedItems as $itemId => $item)

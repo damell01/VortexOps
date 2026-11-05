@@ -73,6 +73,33 @@
         <section class="vxw-card"><div class="vxw-card-body"><h3 class="vxw-h2">Quick actions</h3><a class="vx-payroll-quick primary" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('create') }}"><span>Create a pay run<small>Choose a saved type or a custom run</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Resources\WeeklyPayoutBatchResource::getUrl('index') }}"><span>View history<small>Review past pay runs and details</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}"><span>Rates & Adjustments<small>Manage rates and reusable run types</small></span><span>›</span></a><a class="vx-payroll-quick" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}#rates-people"><span>Individual overrides<small>Adjust a person’s compensation</small></span><span>›</span></a></div></section>
     </div>
 
+    @php
+        $fulfillmentMembers = \App\Models\Streamer::query()->inBusinessContext()
+            ->where('member_type', 'fulfillment')->with('user')->orderBy('name')->get();
+    @endphp
+    <section class="vxw-card" style="margin-bottom:18px" aria-label="Fulfillment members">
+        <div class="vxw-card-head">
+            <div><h3 class="vxw-h2">Fulfillment members</h3><p class="vxw-meta">Team profiles, hourly compensation and existing timekeeping payroll.</p></div>
+            <a class="vxw-link" href="{{ \App\Filament\Pages\PaymentStructures::getUrl() }}">Manage rates &amp; members</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead><tr class="border-b border-gray-200 dark:border-gray-700"><th class="p-3">Employee</th><th class="p-3">Role</th><th class="p-3">Hourly rate</th><th class="p-3">Status</th></tr></thead>
+                <tbody>
+                @forelse($fulfillmentMembers as $member)
+                    <tr class="border-b border-gray-100 dark:border-gray-800">
+                        <td class="p-3 font-semibold">{{ $member->name }}</td>
+                        <td class="p-3">Fulfillment</td>
+                        <td class="p-3">{{ $member->paidHourlyRate() === null ? 'Not configured' : '$'.number_format($member->paidHourlyRate(), 2) }}</td>
+                        <td class="p-3">{{ ucfirst($member->status ?? 'active') }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="p-5 text-center opacity-70">No fulfillment payroll profiles yet. Add employees through the existing team profiles.</td></tr>
+                @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
     <div class="vxw-split">
         {{-- Work queue --}}
         <section class="vxw-card" aria-labelledby="vxw-queue-heading">

@@ -26,7 +26,7 @@ class ShowReportShipmentSplitTest extends TestCase
         Role::findOrCreate('streamer', 'web');
         $user = User::factory()->create(['email' => "{$payoutType}@example.com"]);
         $user->assignRole('streamer');
-        $streamer = Streamer::create(['user_id' => $user->id, 'name' => 'Jay', 'email' => $user->email, 'status' => 'active', 'payout_type' => $payoutType]);
+        $streamer = Streamer::updateOrCreate(['user_id' => $user->id], ['user_id' => $user->id, 'name' => 'Jay', 'email' => $user->email, 'status' => 'active', 'payout_type' => $payoutType]);
         $show = Show::create([
             'whatnot_channel_id' => WhatnotChannel::create(['name' => 'Estill', 'status' => 'active'])->id,
             'title' => 'Estill Night', 'show_date' => now()->subDay()->toDateString(), 'status' => 'mapping',

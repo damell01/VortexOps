@@ -5,18 +5,18 @@
     $isAdmin = $user?->isAdmin();
 @endphp
 
-<div class="mt-8 space-y-6 animate-fade-in-up">
+<div class="mt-5 space-y-6 animate-fade-in-up">
     @if($isStreamer)
         <!-- Streamer Workflow Guide -->
         <div class="overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-lg">
-            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-8 text-white">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5 text-white">
                 <h2 class="text-2xl font-bold">📚 Streamer Workflow Guide</h2>
                 <p class="mt-2 text-blue-100">Follow these steps after your show is imported</p>
             </div>
 
             <div class="p-6">
                 <!-- Step 1: Review Show -->
-                <div class="mb-8 flex gap-6">
+                <div class="mb-5 flex gap-6">
                     <div class="flex-shrink-0">
                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                             <span class="text-lg font-bold text-blue-600 dark:text-blue-300">1</span>
@@ -39,7 +39,7 @@
                 <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                 <!-- Step 2: Map Items -->
-                <div class="mb-8 flex gap-6">
+                <div class="mb-5 flex gap-6">
                     <div class="flex-shrink-0">
                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
                             <span class="text-lg font-bold text-green-600 dark:text-green-300">2</span>
@@ -66,7 +66,7 @@
                 <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                 <!-- Step 3: Enter Costs -->
-                <div class="mb-8 flex gap-6">
+                <div class="mb-5 flex gap-6">
                     <div class="flex-shrink-0">
                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
                             <span class="text-lg font-bold text-purple-600 dark:text-purple-300">3</span>
@@ -108,14 +108,14 @@
     @elseif($isFulfillment)
         <!-- Fulfillment Workflow Guide -->
         <div class="overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-lg">
-            <div class="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-8 text-white">
+            <div class="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-5 text-white">
                 <h2 class="text-2xl font-bold">📦 Fulfillment Workflow Guide</h2>
                 <p class="mt-2 text-orange-100">Your step-by-step packing and shipping process</p>
             </div>
 
             <div class="p-6">
                 <!-- Step 1: View Shows -->
-                <div class="mb-8 flex gap-6">
+                <div class="mb-5 flex gap-6">
                     <div class="flex-shrink-0">
                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900">
                             <span class="text-lg font-bold text-orange-600 dark:text-orange-300">1</span>
@@ -133,7 +133,7 @@
                 <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                 <!-- Step 2: Update Status -->
-                <div class="mb-8 flex gap-6">
+                <div class="mb-5 flex gap-6">
                     <div class="flex-shrink-0">
                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
                             <span class="text-lg font-bold text-red-600 dark:text-red-300">2</span>
@@ -153,7 +153,7 @@
                 <hr class="my-6 border-gray-200 dark:border-gray-700">
 
                 <!-- Step 3: Add Tracking -->
-                <div class="mb-8 flex gap-6">
+                <div class="mb-5 flex gap-6">
                     <div class="flex-shrink-0">
                         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                             <span class="text-lg font-bold text-blue-600 dark:text-blue-300">3</span>
@@ -193,12 +193,12 @@
     @elseif($isAdmin)
         <!-- Admin Workflow Guide -->
         <div class="overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-lg">
-            <div class="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-8 text-white">
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-5 text-white">
                 <h2 class="text-2xl font-bold">⚙️ Admin Management Guide</h2>
                 <p class="mt-2 text-purple-100">Key workflows to keep the platform running smoothly</p>
             </div>
 
-            <div class="p-6 space-y-8">
+            <div class="p-6 space-y-5">
                 <!-- Section 1: Streams -->
                 <div>
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">

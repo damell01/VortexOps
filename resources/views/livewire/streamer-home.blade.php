@@ -73,6 +73,8 @@
         @endif
     </header>
 
+    <div class="flex flex-wrap items-center gap-3 py-2"><livewire:inventory-recent-changes wire:key="streamer-dashboard-inventory-changes" /></div>
+
     <section class="vsh-performance" aria-labelledby="vsh-performance-title">
         <div class="vsh-performance-head">
             <div><h2 id="vsh-performance-title">Your performance</h2><p>{{ $n['dates'] }} · {{ \App\Support\BusinessTime::zone() }}</p></div>

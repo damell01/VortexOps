@@ -28,7 +28,7 @@
                         type="text"
                         wire:model.live.debounce-300ms="search"
                         placeholder="Search by item name, SKU, or barcode..."
-                        class="w-full rounded-lg bg-white/90 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
+                        class="w-full rounded-lg bg-white/90 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50 dark:text-white"
                         autofocus
                         @onfocus="document.dispatchEvent(new CustomEvent('showRecentSearches'))"
                     >
@@ -55,7 +55,7 @@
                     </div>
 
                     @if(true)
-                        <div class="flex flex-col items-center justify-center py-12 text-center">
+                        <div class="flex flex-col items-center justify-center py-8 text-center">
                             <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                             </svg>
@@ -78,7 +78,7 @@
                     </div>
 
                 @elseif(count($searchResults) === 0)
-                    <div class="flex flex-col items-center justify-center py-12 text-center">
+                    <div class="flex flex-col items-center justify-center py-8 text-center">
                         <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>

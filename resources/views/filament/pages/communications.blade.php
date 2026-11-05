@@ -1,12 +1,19 @@
 <x-filament-panels::page>
-<div class="vxc vxc-redesign" data-vx-page="communications">
+<div class="vxc vxc-redesign vxc-2026" data-vx-page="communications">
     <div class="vxc-preview"><span><x-filament::icon icon="heroicon-o-lock-closed" /><strong>Owner preview</strong></span><p>Only you can see this workspace. Recipient notifications, email and push are paused.</p></div>
     <div class="vxc-workspace">
     <div class="vxc-tabs" role="group" aria-label="Communication workspace">
         <button type="button" wire:click="changeTab('messages')" aria-pressed="{{ $tab === 'messages' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" />Messages @if ($unreadTotal)<span class="vxc-unread">{{ $unreadTotal }}</span>@endif</button>
         <button type="button" wire:click="changeTab('announcements')" aria-pressed="{{ $tab === 'announcements' ? 'true' : 'false' }}"><x-filament::icon icon="heroicon-o-megaphone" />Announcements</button>
     </div>
-    @if ($tab === 'messages')
+    @if ($tab === 'messages' && config('chatify-preview.enabled', false))
+        <section class="vxc-chatify-entry" aria-label="Team messages">
+            <span class="vxc-chatify-icon"><x-filament::icon icon="heroicon-o-chat-bubble-left-right" /></span>
+            <h2>Team messages</h2>
+            <p>Open the full messenger for direct messages, group chats, attachments and conversation search.</p>
+            <a class="vxc-chatify-open" href="{{ url('/chatify') }}">Open messenger <x-filament::icon icon="heroicon-o-arrow-up-right" /></a>
+        </section>
+    @elseif ($tab === 'messages')
         <div class="vxc-inbox" wire:poll.visible.15s>
             <section class="vxc-threads" aria-label="Conversations">
                 <div class="vxc-section-head"><h2>Inbox @if ($unreadTotal)<span class="vxc-unread">{{ $unreadTotal }}</span>@endif</h2><x-filament::button size="sm" icon="heroicon-o-pencil-square" x-on:click="$dispatch('open-modal', {id: 'communication-new-chat'})" aria-label="New conversation">New chat</x-filament::button></div>
@@ -20,9 +27,10 @@
                 @endforelse
                 @if ($threads->hasPages())<div class="vxc-pages"><button type="button" wire:click="paginateSection('threadPage', {{ max(1, $threadPage - 1) }})" @disabled($threads->onFirstPage())>Previous</button><span>{{ $threads->currentPage() }} / {{ $threads->lastPage() }}</span><button type="button" wire:click="paginateSection('threadPage', {{ $threadPage + 1 }})" @disabled(! $threads->hasMorePages())>Next</button></div>@endif
             </section>
-            <section class="vxc-conversation" aria-label="Message thread">
+            <section class="vxc-conversation" aria-label="Message thread" x-data="{ infoOpen: false }">
                 @if ($selected)
-                    <div class="vxc-section-head vxc-chat-head"><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($selected->labelFor(auth()->user()), 0, 2)) }}</span><div><h2>{{ $selected->labelFor(auth()->user()) }}</h2><p>{{ $selected->kind === 'group' ? $selected->members->count().' members · '.$selected->members->pluck('name')->implode(', ') : 'Direct message' }}</p></div><span class="vxc-badge">Owner preview</span></div>
+                    <div class="vxc-section-head vxc-chat-head"><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($selected->labelFor(auth()->user()), 0, 2)) }}</span><div><h2>{{ $selected->labelFor(auth()->user()) }}</h2><p>{{ $selected->kind === 'group' ? $selected->members->count().' members · '.$selected->members->pluck('name')->implode(', ') : 'Direct message' }}</p></div><button type="button" class="vxc-info-toggle" x-on:click="infoOpen = !infoOpen" :aria-expanded="infoOpen.toString()" aria-controls="vxc-conversation-info"><x-filament::icon icon="heroicon-o-information-circle" /> Info</button><span class="vxc-badge">Owner preview</span></div>
+                    <aside id="vxc-conversation-info" class="vxc-conversation-info" x-show="infoOpen" x-cloak><div class="vxc-info-heading"><strong>Conversation information</strong><button type="button" x-on:click="infoOpen = false" aria-label="Close conversation information"><x-filament::icon icon="heroicon-o-x-mark" /></button></div><p>{{ $selected->kind === "group" ? "Group conversation" : "Direct conversation" }} · {{ $selected->members->count() }} members</p><h3>Members</h3><ul>@foreach($selected->members as $member)<li><span class="vxc-avatar">{{ mb_strtoupper(mb_substr($member->name, 0, 1)) }}</span><span>{{ $member->name }}</span>@if($member->id === auth()->id())<small>You</small>@endif</li>@endforeach</ul><p class="vxc-info-footnote">This conversation is a private owner preview. No employee notifications are sent.</p></aside>
                     <label class="vxc-search vxc-thread-search"><x-filament::icon icon="heroicon-o-magnifying-glass" /><input type="search" wire:model.live.debounce.300ms="messageSearch" placeholder="Search this conversation…" aria-label="Search this conversation"></label>
                     <div class="vxc-history" aria-label="Messages" wire:key="history-{{ $conversationId }}-{{ $messagePage }}" x-data x-init="$nextTick(() => $el.scrollTop = $el.scrollHeight)" x-on:communication-message-saved.window="$nextTick(() => $el.scrollTop = $el.scrollHeight)">
                         @if ($messages->hasPages())<div class="vxc-pages"><button type="button" wire:click="paginateSection('messagePage', {{ $messagePage + 1 }})" @disabled(! $messages->hasMorePages())>Older messages</button><span>{{ $messages->total() }} total</span><button type="button" wire:click="paginateSection('messagePage', {{ max(1, $messagePage - 1) }})" @disabled($messages->onFirstPage())>Newer</button></div>@endif
@@ -79,7 +87,7 @@
     <x-filament::modal id="communication-announcement" width="6xl" sticky-header sticky-footer>
         <x-slot name="heading">{{ $announcementId ? 'Edit announcement' : 'Create announcement' }}</x-slot><x-slot name="description">Choose who sees it and when.</x-slot>
         <form wire:submit="saveAnnouncement" class="vxc vxc-form vxc-announcement-editor" x-data="{ draft: $wire.entangle('announcement') }">
-            <div class="vxc-editor-main">
+            <div class="vxc-editor-main"><div class="vxc-editor-intro"><x-filament::icon icon="heroicon-o-megaphone" /><div><h3>Announcement details</h3><p>Write an update, choose recipients, and preview before publishing.</p></div></div>
                 <label>Title<input x-model="draft.title" maxlength="160" required placeholder="Announcement title"></label>
                 <label>Message<textarea x-model="draft.body" rows="5" maxlength="10000" required placeholder="What should your team know?"></textarea></label>
                 <fieldset><legend>Audience</legend><div class="vxc-segments">@foreach (['all' => 'Everyone', 'roles' => 'Roles', 'users' => 'Specific people'] as $key => $label)<button type="button" wire:click="$set('announcement.audience', '{{ $key }}')" :aria-pressed="draft.audience === '{{ $key }}'">{{ $label }}</button>@endforeach</div></fieldset>
@@ -89,7 +97,7 @@
                 <fieldset><legend>Schedule</legend><div class="vxc-form-grid"><label>Starts ({{ \App\Support\BusinessTime::zone() }})<input type="datetime-local" x-model="draft.starts_at" required></label><label>Ends ({{ \App\Support\BusinessTime::zone() }})<input type="datetime-local" x-model="draft.ends_at" required></label></div></fieldset>
                 @if ($errors->any())<div class="vxc-error" role="alert">{{ $errors->first() }}</div>@endif
             </div>
-            <aside class="vxc-editor-preview">
+            <aside class="vxc-editor-preview"><div class="vxc-editor-intro"><x-filament::icon icon="heroicon-o-eye" /><div><h3>Live preview</h3><p>Preview only — nothing is sent to employees.</p></div></div>
                 <span class="vxc-preview-lock"><x-filament::icon icon="heroicon-o-eye" />Only you can see this preview.</span>
                 <div class="vxc-live-preview"><h3>Banner preview</h3><div class="vxc-preview-nav"><img src="/img/pokeball.svg" alt="" width="24" height="24"><b>Vortex Ops</b><span>Dashboard &nbsp; Shows &nbsp; Inventory</span></div><div class="vxc-banner" :class="'vxc-tone-'+draft.tone"><x-filament::icon icon="heroicon-o-megaphone" /><div><strong x-text="draft.title || 'Your announcement title'"></strong><p x-text="draft.body || 'Your message will appear here as you type.'"></p></div><x-filament::icon x-show="draft.dismissible" icon="heroicon-o-x-mark" /></div><small x-show="!draft.show_banner">Banner placement is off. This is a design preview.</small></div>
                 <fieldset class="vxc-delivery"><legend>Placement & delivery</legend>

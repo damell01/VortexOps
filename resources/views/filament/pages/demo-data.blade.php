@@ -18,7 +18,7 @@
         ];
     @endphp
 
-    <div class="space-y-8">
+    <div class="space-y-5">
         {{-- What gets loaded --}}
         <section>
             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">What gets loaded</h2>
@@ -61,7 +61,7 @@
             </div>
         </section>
 
-        <p class="text-xs text-gray-400">
+        <p class="text-xs text-gray-500">
             The seeder only adds records that don't already exist, so pressing the button again is safe — it won't duplicate data.
         </p>
 

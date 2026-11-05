@@ -1,8 +1,8 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-3">
         <!-- Search & Filters Panel -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Search & Filter</h2>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Search & Filter</h2>
 
             <div class="space-y-4">
                 <!-- Main search input -->
@@ -13,7 +13,7 @@
                 </div>
 
                 <!-- Filters Grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <!-- Category Filter -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
@@ -132,7 +132,7 @@
                     <button wire:click="loadFilter('{{ $filter }}')" class="hover:underline font-medium">
                         {{ $filter }}
                     </button>
-                    <button wire:click="deleteFilter('{{ $filter }}')" class="hover:text-primary-600 dark:hover:text-primary-200">
+                    <button aria-label="Remove filter" wire:click="deleteFilter('{{ $filter }}')" class="hover:text-primary-600 dark:hover:text-primary-200">
                         <x-heroicon-o-x-mark class="h-4 w-4" />
                     </button>
                 </div>
@@ -150,7 +150,7 @@
             </div>
 
             @if(count($this->results) === 0)
-            <div class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+            <div class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                 <x-heroicon-o-magnifying-glass class="h-12 w-12 mx-auto mb-3 opacity-50" />
                 <p>No inventory items found matching your search criteria.</p>
             </div>

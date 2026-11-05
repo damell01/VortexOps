@@ -5,11 +5,11 @@
   @foreach([
    ['Open',$s['open'],'Active work'],['Ready / Packed',$s['ready'],'Ready for carrier'],['In Transit',$s['inTransit'],'Shipped orders'],['Delivered',$s['delivered'],'Completed'],['Exceptions',$s['exceptions'],'Needs review'],['Open Units',$s['unitsOpen'],'Units still moving']
   ] as [$label,$value,$sub])
-   <div class="vx-card p-3 sm:p-4"><div class="text-xs font-medium text-gray-500">{{$label}}</div><div class="mt-1 text-xl font-bold tabular-nums">{{number_format($value)}}</div><div class="mt-1 text-xs text-gray-400">{{$sub}}</div></div>
+   <div class="vx-card p-3 sm:p-4"><div class="text-xs font-medium text-gray-500">{{$label}}</div><div class="mt-1 text-xl font-bold tabular-nums">{{number_format($value)}}</div><div class="mt-1 text-xs text-gray-500">{{$sub}}</div></div>
   @endforeach
  </div>
 
- <section class="vx-card p-4">
+ <section class="vx-card p-3 sm:p-4">
   <div class="flex flex-wrap items-center gap-3">
    <div class="flex gap-5 overflow-x-auto border-b border-[var(--vx-border)]">
     <button type="button" wire:click="setTab('queue')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='queue'?'active':''}}">Queue</button>
@@ -17,7 +17,7 @@
     <button type="button" wire:click="setTab('history')" wire:loading.attr="disabled" wire:target="setTab" class="min-h-10 border-b-2 border-transparent px-1 text-sm font-semibold text-[var(--vx-muted)] {{$tab==='history'?'active':''}}">History</button>
    </div>
    <div class="ml-auto flex min-w-0 flex-1 flex-wrap justify-end gap-2">
-    <input type="search" wire:model.live.debounce.400ms="searchQuery" aria-label="Search shipments" placeholder="Buyer, show, order or tracking…" class="min-w-[220px] flex-1 rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
+    <input type="search" wire:model.live.debounce.400ms="searchQuery" aria-label="Search shipments" placeholder="Buyer, show, order or tracking…" class="w-full min-w-0 flex-1 basis-full sm:basis-[220px] rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
     <select wire:model.live="statusFilter" aria-label="Filter shipment status" class="rounded-lg border-gray-300 bg-white text-sm dark:border-gray-600 dark:bg-gray-800">
      <option value="all">All statuses</option><option value="ready_to_ship">Ready to ship</option><option value="packed">Packed</option><option value="shipped">Shipped</option><option value="in_transit">In transit</option><option value="delivered">Delivered</option><option value="returned">Returned</option>
     </select>
@@ -32,8 +32,8 @@
    @php $show=$shipment->show; $status=strtolower((string)$shipment->status); @endphp
    <div class="grid gap-3 border-t border-[var(--vx-divider)] p-3 sm:p-4 lg:grid-cols-[minmax(220px,1.5fr)_minmax(150px,.8fr)_90px_120px_140px_minmax(180px,.9fr)] lg:items-center">
     <div class="min-w-0"><div class="truncate text-sm font-bold">{{$show?->title ?? 'Unknown Show'}}</div><div class="mt-1 truncate text-xs text-gray-500">{{$shipment->buyer_username ?: 'Buyer missing'}}@if($show?->show_date) · {{$show->show_date->format('M j')}}@endif</div></div>
-    <div class="min-w-0"><div class="truncate text-xs font-mono">{{$shipment->whatnot_order_id ?: '—'}}</div><div class="mt-1 text-xs text-gray-400">{{$shipment->carrier ?: 'Carrier TBD'}}</div></div>
-    <div class="vx-f-mobile-grid"><div><span class="text-xs text-gray-400 md:hidden">Items</span><div class="font-bold">{{number_format((int)$shipment->item_count)}}</div></div></div>
+    <div class="min-w-0"><div class="truncate text-xs font-mono">{{$shipment->whatnot_order_id ?: '—'}}</div><div class="mt-1 text-xs text-gray-500">{{$shipment->carrier ?: 'Carrier TBD'}}</div></div>
+    <div class="vx-f-mobile-grid"><div><span class="text-xs text-gray-500 md:hidden">Items</span><div class="font-bold">{{number_format((int)$shipment->item_count)}}</div></div></div>
     <div><span class="vx-status vx-status--draft">{{ucwords(str_replace('_',' ',$status ?: 'unknown'))}}</span></div>
     <div class="vx-hide-tablet min-w-0"><div class="truncate text-xs">{{$shipment->tracking_number ?: 'No tracking yet'}}</div></div>
     <div class="flex flex-wrap gap-2 lg:justify-end">
@@ -45,7 +45,7 @@
     </div>
    </div>
   @empty
-   <div class="p-12 text-center"><div class="text-sm font-semibold">No shipments in this view.</div><div class="mt-1 text-xs text-gray-500">Try another tab, status, or search.</div></div>
+   <div class="p-8 text-center"><div class="text-sm font-semibold">No shipments in this view.</div><div class="mt-1 text-xs text-gray-500">Try another tab, status, or search.</div></div>
   @endforelse
  </section>
 </div>

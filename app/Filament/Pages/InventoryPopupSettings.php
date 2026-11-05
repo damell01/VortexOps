@@ -27,7 +27,7 @@ class InventoryPopupSettings extends Page
 
     public function getStreamersProperty(): array
     {
-        return User::query()->orderBy('name')->get(['id', 'name', 'email'])
+        return User::query()->with('streamer')->orderBy('name')->get(['id', 'name', 'email'])
             ->filter(fn (User $user) => InventoryVisibility::isReadOnlyStreamer($user))
             ->filter(fn (User $user) => $this->streamerSearch === '' || str_contains(mb_strtolower($user->name.' '.$user->email), mb_strtolower(trim($this->streamerSearch))))
             ->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])
@@ -58,7 +58,7 @@ class InventoryPopupSettings extends Page
         $validRoles = ['streamer'];
         $this->roles = array_values(array_intersect($validRoles, $this->roles));
         $ids = array_values(array_unique(array_map('intval', $this->selectedStreamers)));
-        $validIds = User::query()->whereIn('id', $ids)->get()->filter(fn (User $user) => InventoryVisibility::isReadOnlyStreamer($user))->pluck('id')->all();
+        $validIds = User::query()->with('streamer')->whereIn('id', $ids)->get()->filter(fn (User $user) => InventoryVisibility::isReadOnlyStreamer($user))->pluck('id')->all();
         if (count($validIds) !== count($ids)) {
             $this->addError('selectedStreamers', 'Choose valid streamer accounts only.');
             return;

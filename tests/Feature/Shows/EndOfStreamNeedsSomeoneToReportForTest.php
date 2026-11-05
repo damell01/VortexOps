@@ -94,7 +94,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
         $user = User::factory()->create(['email' => 'linked@example.com']);
         $user->assignRole('streamer');
 
-        $streamer = Streamer::create([
+        $streamer = Streamer::updateOrCreate(['user_id' => $user->id], [
             'user_id' => $user->id, 'name' => 'Tyler', 'email' => 'linked@example.com',
             'status' => 'active', 'payout_type' => 'profit_share',
         ]);
@@ -118,7 +118,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
         // An admin filing on someone else's behalf: they have no profile, the
         // show does, and that is enough.
         $other = User::factory()->create(['email' => 'other@example.com']);
-        $streamer = Streamer::create([
+        $streamer = Streamer::updateOrCreate(['user_id' => $other->id], [
             'user_id' => $other->id, 'name' => 'Jordan', 'email' => 'other@example.com',
             'status' => 'active', 'payout_type' => 'profit_share',
         ]);
@@ -137,7 +137,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
     {
         $user = User::factory()->create();
         $user->assignRole('streamer');
-        $streamer = Streamer::create(['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
+        $streamer = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
         $own = $this->show('Own');
         $own->streamers()->attach($streamer->id);
         $other = $this->show('Other');
@@ -150,7 +150,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
     {
         $user = User::factory()->create();
         $user->assignRole('streamer');
-        $streamer = Streamer::create(['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
+        $streamer = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
         $show = $this->show();
         $show->streamers()->attach($streamer->id);
         $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id,
@@ -174,7 +174,7 @@ class EndOfStreamNeedsSomeoneToReportForTest extends TestCase
     {
         $user = User::factory()->create();
         $user->assignRole('streamer');
-        $streamer = Streamer::create(['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
+        $streamer = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Reporter', 'user_id' => $user->id, 'status' => 'active']);
         $show = $this->show();
         $show->streamers()->attach($streamer->id);
         $location = \App\Models\InventoryLocation::create(['name' => 'Own shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $streamer->id]);

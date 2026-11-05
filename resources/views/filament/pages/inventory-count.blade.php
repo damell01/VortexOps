@@ -146,7 +146,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-12 text-center text-gray-500">No inventory items match these filters.</td>
+                                <td colspan="6" class="px-4 py-8 text-center text-gray-500">No inventory items match these filters.</td>
                             </tr>
                         @endforelse
                     </tbody>

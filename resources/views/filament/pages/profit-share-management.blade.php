@@ -1,7 +1,7 @@
 <x-filament-panels::page>
-    <div class="space-y-8">
+    <div class="space-y-5">
         {{-- Profit Share Distribution Form --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Split Profit Share</h2>
 
             <form wire:submit="submitDistribution" class="space-y-6" novalidate>
@@ -135,7 +135,7 @@
         </div>
 
         {{-- Pending Distributions --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Pending Distributions</h2>
 
             <div class="space-y-3">
@@ -168,7 +168,7 @@
                         </div>
                     </div>
                 @empty
-                    <div class="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400">
                         <x-heroicon-o-inbox class="h-12 w-12 mx-auto mb-3 opacity-50" />
                         <p>No pending distributions</p>
                     </div>

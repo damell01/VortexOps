@@ -69,6 +69,36 @@ class ViewFulfillmentShow extends ViewRecord
             : $show->primaryStreamer()?->payout_type, \App\Models\Streamer::SHIPMENT_SPLIT_TYPES, true);
 
         return [
+            Action::make('fulfillment_operations')
+                ->label('Operations Dashboard')
+                ->icon('heroicon-o-chart-bar-square')
+                ->color('gray')
+                ->url(fn () => \App\Filament\Pages\FulfillmentOperations::getUrl())
+                ->visible(fn () => \App\Filament\Pages\FulfillmentOperations::canAccess()),
+            Action::make('fulfillment_schedule')
+                ->label('Team Schedule')
+                ->icon('heroicon-o-calendar-days')
+                ->color('gray')
+                ->url(fn () => \App\Filament\Pages\FulfillmentSchedule::getUrl())
+                ->visible(fn () => \App\Filament\Pages\FulfillmentSchedule::canAccess()),
+            Action::make('shipment_overview')
+                ->label('All Shipment Tracking')
+                ->icon('heroicon-o-truck')
+                ->color('gray')
+                ->url(fn () => \App\Filament\Pages\ShipmentOverview::getUrl())
+                ->visible(fn () => \App\Filament\Pages\ShipmentOverview::canAccess()),
+            Action::make('shipping_desk')
+                ->label('Shipping & Labels')
+                ->icon('heroicon-o-printer')
+                ->color('primary')
+                ->url(fn () => FulfillmentResource::getUrl('shipping', ['record' => $show]))
+                ->visible(fn () => FulfillmentResource::canView($show)),
+            Action::make('station_board')
+                ->label('Open Station Board')
+                ->icon('heroicon-o-computer-desktop')
+                ->color('primary')
+                ->url(fn () => FulfillmentResource::getUrl('station', ['record' => $show]))
+                ->visible(fn () => FulfillmentResource::canView($show)),
             Action::make('assign_fulfillment')
                 ->label($show->fulfillmentUsers->isEmpty() ? 'Assign Fulfillment' : 'Change Assignment')
                 ->icon('heroicon-o-user-group')

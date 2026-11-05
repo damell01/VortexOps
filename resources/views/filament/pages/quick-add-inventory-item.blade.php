@@ -29,7 +29,7 @@
                 </label>
 
                 <div class="sm:col-span-2 space-y-2">
-                    <label for="quick-add-photo" class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Product photo <span class="font-normal text-gray-400">optional · up to 5MB</span></label>
+                    <label for="quick-add-photo" class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Product photo <span class="font-normal text-gray-500">optional · up to 5MB</span></label>
                     <input id="quick-add-photo" type="file" wire:model="photo" accept="image/jpeg,image/png,image/webp,image/gif" class="block w-full rounded-lg border border-gray-300 p-2 text-sm dark:border-gray-600 dark:text-gray-200" />
                     <div wire:loading wire:target="photo" class="text-xs text-primary-600">Uploading photo…</div>
                     @if ($photo)
@@ -39,7 +39,7 @@
                 </div>
 
                 <label class="sm:col-span-2">
-                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode / UPC <span class="font-normal text-gray-400">optional</span></span>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode / UPC <span class="font-normal text-gray-500">optional</span></span>
                     <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
                         <input wire:model="data.barcode" type="text" inputmode="numeric" autocomplete="off" placeholder="Scan or type barcode" class="min-h-11 min-w-0 rounded-lg border-gray-300 font-mono text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
                         <button id="quickadd-scan-btn" type="button" @click="openScanner()" class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan</button>
@@ -48,13 +48,13 @@
                 </label>
 
                 <label>
-                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">SKU <span class="font-normal text-gray-400">optional</span></span>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">SKU <span class="font-normal text-gray-500">optional</span></span>
                     <input wire:model="data.sku" type="text" autocomplete="off" placeholder="Internal SKU" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
                     @error('data.sku')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                 </label>
 
                 <label>
-                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Category <span class="font-normal text-gray-400">optional</span></span>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Category <span class="font-normal text-gray-500">optional</span></span>
                     <input wire:model="data.category" type="text" placeholder="e.g. Pokémon Sealed" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" list="inventory-category-list" />
                     <datalist id="inventory-category-list">@foreach(\App\Models\InventoryItem::whereNotNull('category')->distinct()->orderBy('category')->pluck('category') as $category)<option value="{{ $category }}"></option>@endforeach</datalist>
                 </label>
@@ -76,11 +76,11 @@
                     <input wire:model="data.quantity" type="number" step="0.01" min="0" inputmode="decimal" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
                 </label>
                 <label>
-                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Unit cost <span class="font-normal text-gray-400">optional</span></span>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Unit cost <span class="font-normal text-gray-500">optional</span></span>
                     <input wire:model="data.unit_cost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
                 </label>
                 <label>
-                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Vendor <span class="font-normal text-gray-400">optional</span></span>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Vendor <span class="font-normal text-gray-500">optional</span></span>
                     <select wire:model="data.preferred_vendor_id" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm"><option value="">No preferred vendor</option>@foreach(\App\Models\Vendor::activeOptions() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
                 </label>
             </div>

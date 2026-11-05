@@ -5,7 +5,7 @@
         <div class="flex items-baseline justify-between gap-3">
             <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Waiting on someone</h2>
             <a href="{{ \App\Filament\Pages\AppSettings::getUrl() }}"
-               class="shrink-0 text-[11px] font-medium text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
+               class="shrink-0 text-[11px] font-medium text-gray-500 hover:text-primary-600 dark:hover:text-primary-400">
                 Workflow settings
             </a>
         </div>
@@ -33,7 +33,7 @@
         </div>
 
         @if (collect($counts)->every(fn ($n) => $n === 0))
-            <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+            <p class="mt-3 text-xs text-gray-500 dark:text-gray-500">
                 Nothing queued — every report is reviewed and every shipment is assigned.
             </p>
         @endif

@@ -48,8 +48,8 @@ class AutomaticShowAssignment
             for ($suffix = 2; User::where('email', $email)->exists(); $suffix++) $email = $base.$suffix.'@vortexops.tech';
             $user = User::create(['name' => $profile->name, 'email' => $email, 'password' => 'password123!']);
             $user->forceFill(['must_change_password' => true])->save();
-            $user->assignRole(Role::findOrCreate('streamer', 'web'));
             $profile->update(['user_id' => $user->id, 'email' => $email]);
+            $user->assignRole(Role::findOrCreate('streamer', 'web'));
             return true;
         });
     }

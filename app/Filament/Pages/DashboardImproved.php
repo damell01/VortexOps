@@ -48,6 +48,7 @@ class DashboardImproved extends Dashboard
     {
         $user = auth()->user();
         if ($user?->isStreamerAssistant()) return 'Clock in, clock out, and view your paid pay runs';
+        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) return $user->isFulfillmentAdmin() ? 'Stations, shipments, and team issues' : 'Assigned packing work and shifts';
         if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) return null;
         $channel = ChannelContext::current();
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
@@ -89,10 +90,9 @@ class DashboardImproved extends Dashboard
             ];
         }
 
-        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) {
             return [
-                FulfillmentInventoryWidget::class,
-                RecentShowsWidget::class,
+                // Dedicated fulfillment dashboard cards render in the page view.
             ];
         }
 
@@ -195,7 +195,7 @@ class DashboardImproved extends Dashboard
             $data['dashboardOverview'] = $this->dashboardOverview();
         }
 
-        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        if ($user?->isStreamer() && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) {
             $data['roleMode'] = 'streamer';
             $streamerId = $user->streamer?->id ?? 0;
             $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();
@@ -234,9 +234,11 @@ class DashboardImproved extends Dashboard
                     ->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->where('created_at', '>=', now()->subDays(30)))
                     ->sum('quantity'),
             ];
-        } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+        } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->hasAnyRole(['admin', 'super_admin']) && ! $user?->isOwner()) {
             $data['roleMode'] = 'fulfillment';
-            $showsQuery = Show::query()->inChannelContext()->whereNotIn('status', ['closed', 'cancelled']);
+            // Match the fulfillment resource's approved-report visibility gate.
+            $showsQuery = \App\Filament\Resources\FulfillmentResource::getEloquentQuery()
+                ->whereNotIn('shows.status', ['closed', 'cancelled']);
             if (! $user?->isFulfillmentAdmin()) {
                 $showsQuery->whereHas('fulfillmentUsers', fn ($q) => $q->where('users.id', $user->id));
             }
@@ -244,6 +246,21 @@ class DashboardImproved extends Dashboard
             $showIds = (clone $showsQuery)->pluck('shows.id');
             $shipmentQuery = Shipment::whereIn('show_id', $showIds);
 
+            $activeRuns = \Illuminate\Support\Facades\DB::table('fulfillment_runs')
+                ->whereIn('show_id', $showIds)->where('status', 'packing');
+            $activeRunIds = (clone $activeRuns)->pluck('id');
+            $data['fulfillmentIsManager'] = (bool) $user?->isFulfillmentAdmin();
+            $data['fulfillmentActiveStations'] = (clone $activeRuns)->count();
+            $data['fulfillmentPendingBuyers'] = \Illuminate\Support\Facades\DB::table('fulfillment_run_buyers')
+                ->whereIn('run_id', $activeRunIds)->where('status', 'waiting')->count();
+            $data['fulfillmentOpenIssues'] = \Illuminate\Support\Facades\DB::table('fulfillment_flags')
+                ->whereIn('show_id', $showIds)->where('status', 'open')->count();
+            $data['fulfillmentRecentRuns'] = \Illuminate\Support\Facades\DB::table('fulfillment_runs as runs')
+                ->join('shows', 'shows.id', '=', 'runs.show_id')
+                ->join('fulfillment_stations as stations', 'stations.id', '=', 'runs.station_id')
+                ->whereIn('runs.show_id', $showIds)->where('runs.status', 'packing')
+                ->select('runs.show_id', 'runs.started_at', 'shows.title', 'stations.name as station_name')
+                ->orderByDesc('runs.started_at')->limit(8)->get();
             $data += [
                 'roleMode' => 'fulfillment',
                 'showsToFulfill' => (clone $showsQuery)->where(function ($q) {

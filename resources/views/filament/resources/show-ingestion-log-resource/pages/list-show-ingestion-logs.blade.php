@@ -116,7 +116,7 @@
                     @else
                         <span class="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-400">No stored session</span>
                     @endif
-                    <span class="text-gray-400 dark:text-gray-500">{{ $session['path'] }}</span>
+                    <span class="text-gray-500 dark:text-gray-500">{{ $session['path'] }}</span>
                 </div>
             </div>
         </section>

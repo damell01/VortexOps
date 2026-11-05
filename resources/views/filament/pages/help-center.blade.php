@@ -75,7 +75,7 @@
                 </div>
             </div>
             <template x-if="view === 'pdf'">
-                <iframe src="{{ route('admin.guides.show',$selectedGuide) }}" title="{{ $selectedDocument['title'] }} PDF" class="min-h-0 w-full flex-1 border-0 bg-white"></iframe>
+                <iframe src="{{ route('admin.guides.show',$selectedGuide) }}" title="{{ $selectedDocument['title'] }} PDF" class="min-h-0 w-full flex-1 border-0 bg-white dark:bg-gray-900"></iframe>
             </template>
         </div>
         @endif

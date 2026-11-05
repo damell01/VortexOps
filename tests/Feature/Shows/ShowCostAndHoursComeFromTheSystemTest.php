@@ -49,7 +49,7 @@ class ShowCostAndHoursComeFromTheSystemTest extends TestCase
 
         $channel = WhatnotChannel::create(['name' => 'Test Channel', 'status' => 'active']);
 
-        $this->streamer = Streamer::create([
+        $this->streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], [
             'user_id'           => $this->user->id,
             'name'              => 'Test Streamer',
             'email'             => 'cost-source@example.test',

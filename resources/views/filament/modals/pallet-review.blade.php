@@ -27,34 +27,34 @@
     {{-- The headline question: does what turned up match what was expected. --}}
     <div class="grid grid-cols-3 gap-3">
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
-            <p class="text-xs text-gray-400 uppercase tracking-wide">Expected</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide">Expected</p>
             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {{ number_format($totals['expected_units']) }}
             </p>
-            <p class="text-xs text-gray-400">units</p>
+            <p class="text-xs text-gray-500">units</p>
         </div>
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
-            <p class="text-xs text-gray-400 uppercase tracking-wide">{{ $staging ? 'Lines' : 'Confirmed' }}</p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide">{{ $staging ? 'Lines' : 'Confirmed' }}</p>
             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {{ $staging ? count($review['lines']) : number_format($totals['confirmed_units']) }}
             </p>
-            <p class="text-xs text-gray-400">{{ $staging ? 'items staged' : 'units scanned in' }}</p>
+            <p class="text-xs text-gray-500">{{ $staging ? 'items staged' : 'units scanned in' }}</p>
         </div>
         @if ($staging)
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Landed cost</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Landed cost</p>
                 <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     ${{ number_format($totals['landed'], 2) }}
                 </p>
-                <p class="text-xs text-gray-400">goods, shipping and fees</p>
+                <p class="text-xs text-gray-500">goods, shipping and fees</p>
             </div>
         @else
             <div class="rounded-lg border {{ $short ? 'border-amber-300 dark:border-amber-700' : 'border-gray-200 dark:border-gray-700' }} px-3 py-2">
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Short</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Short</p>
                 <p class="text-lg font-semibold {{ $short ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100' }}">
                     {{ number_format($totals['short_units']) }}
                 </p>
-                <p class="text-xs text-gray-400">not accounted for</p>
+                <p class="text-xs text-gray-500">not accounted for</p>
             </div>
         @endif
     </div>
@@ -65,7 +65,7 @@
     <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
         <table class="w-full text-sm">
             <thead>
-                <tr class="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                <tr class="text-left text-xs uppercase tracking-wide text-gray-500 border-b border-gray-100 dark:border-gray-800">
                     <th class="px-3 py-2 font-medium">Item</th>
                     <th class="px-3 py-2 font-medium text-right">{{ $staging ? 'Expected' : 'Cases' }}</th>
                     <th class="px-3 py-2 font-medium text-right">Landed / unit</th>
@@ -79,17 +79,17 @@
                     <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
                         <td class="px-3 py-2">
                             <p class="font-medium text-gray-900 dark:text-gray-100">{{ $line['name'] }}</p>
-                            <p class="text-xs text-gray-400">
+                            <p class="text-xs text-gray-500">
                                 {{ $line['sku'] ?: 'No SKU' }} · {{ $line['location'] ?? 'No location' }}
                             </p>
                         </td>
                         <td class="px-3 py-2 text-right whitespace-nowrap">
                             @if ($staging)
                                 <span class="font-medium text-gray-900 dark:text-gray-100">{{ $line['expected_cases'] }}</span>
-                                <span class="text-gray-400">cases</span>
+                                <span class="text-gray-500">cases</span>
                             @else
                             <span class="font-medium text-gray-900 dark:text-gray-100">{{ $line['confirmed_cases'] }}</span>
-                            <span class="text-gray-400">/ {{ $line['expected_cases'] }}</span>
+                            <span class="text-gray-500">/ {{ $line['expected_cases'] }}</span>
                             @if ($line['variance_cases'] < 0)
                                 <span class="block text-xs text-amber-600 dark:text-amber-400">
                                     {{ abs($line['variance_cases']) }} short
@@ -104,7 +104,7 @@
                         <td class="px-3 py-2 text-right whitespace-nowrap text-gray-900 dark:text-gray-100">
                             ${{ number_format($line['landed_unit_cost'], 2) }}
                             @if ($line['landed_unit_cost'] > $line['unit_cost'])
-                                <span class="block text-xs text-gray-400">
+                                <span class="block text-xs text-gray-500">
                                     was ${{ number_format($line['unit_cost'], 2) }}
                                 </span>
                             @endif
@@ -116,7 +116,7 @@
                                     ${{ number_format($line['projected_average_cost'], 2) }}
                                 </span>
                             @else
-                                <span class="text-gray-400">—</span>
+                                <span class="text-gray-500">—</span>
                             @endif
                         </td>
                         @endunless

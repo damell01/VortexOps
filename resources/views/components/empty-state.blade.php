@@ -1,7 +1,7 @@
 {{-- Empty state with guidance and action suggestions --}}
 @props(['icon', 'title', 'description', 'actions' => []])
 
-<div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-8 py-12 text-center space-y-6">
+<div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 px-5 py-8 text-center space-y-6">
     {{-- Icon --}}
     @if($icon)
         <div class="flex justify-center">

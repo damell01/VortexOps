@@ -4,15 +4,15 @@
         {{-- ── Show Header ──────────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex flex-wrap gap-6 items-start">
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Show</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Show</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->title ?? 'Show #' . $this->record->id }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Date</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Date</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->show_date?->format('M j, Y') ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Streamers</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide">Streamers</p>
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->streamers->pluck('name')->join(', ') ?: '—' }}</p>
             </div>
         </div>
@@ -58,11 +58,11 @@
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Items added ({{ $this->lines->count() }})</p>
-                <p class="text-xs text-gray-400 mt-0.5">Cost isn't needed here — ops fills that in during review.</p>
+                <p class="text-xs text-gray-500 mt-0.5">Cost isn't needed here — ops fills that in during review.</p>
             </div>
 
             @if ($this->lines->isEmpty())
-                <div class="px-6 py-10 text-center">
+                <div class="px-6 py-6 text-center">
                     <x-heroicon-o-archive-box class="mx-auto h-8 w-8 text-gray-400 mb-2" />
                     <p class="text-sm text-gray-500">No items added yet — use the form above.</p>
                 </div>
@@ -74,7 +74,7 @@
                                 <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {{ $line->inventoryItem?->name ?? ($line->raw_description ?? 'Unknown item') }}
                                 </p>
-                                <p class="text-xs text-gray-400">Qty {{ (int) $line->quantity_approved }}</p>
+                                <p class="text-xs text-gray-500">Qty {{ (int) $line->quantity_approved }}</p>
                             </div>
                             <button
                                 type="button"

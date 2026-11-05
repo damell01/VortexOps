@@ -7,7 +7,7 @@
 <style>
 .vx-mn{width:100%;--line:#e5e7eb;--muted:#64748b;--p:var(--primary-600,#7c3aed);max-width:860px;margin:0 auto;display:grid;gap:16px}
 .dark .vx-mn{--line:#253247;--muted:#94a3b8}
-.vx-mn .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
+.vx-mn .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}
 .dark .vx-mn .card{background:#0f172a}
 .vx-mn .switch{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;cursor:pointer}
 .vx-mn .switch input{appearance:none;width:38px;height:22px;border-radius:999px;background:#cbd5e1;position:relative;transition:.15s;cursor:pointer;flex:none}
@@ -19,8 +19,8 @@
 .vx-mn .sub{font-size:.78rem;color:var(--muted)}
 .vx-mn .btn{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:9px;font-size:.72rem;font-weight:700}
 .vx-mn .save{position:sticky;bottom:12px;display:flex;justify-content:flex-end}
-.vx-mn .save button{min-height:42px;padding:0 18px;border-radius:12px;background:var(--p);color:#fff;font-weight:800;box-shadow:0 8px 20px rgba(15,23,42,.2)}
-@media(max-width:640px){.vx-mn .row{grid-template-columns:minmax(0,1fr) 64px 64px}}
+.vx-mn .save button{min-height:44px;padding:0 18px;border-radius:12px;background:var(--p);color:#fff;font-weight:800;box-shadow:0 8px 20px rgba(15,23,42,.2)}
+@media(max-width:640px){.vx-mn{gap:12px}.vx-mn .card{padding:12px}.vx-mn .row{grid-template-columns:minmax(0,1fr) 52px 52px;gap:8px;padding:10px 0}.vx-mn .sub{overflow-wrap:anywhere}.vx-mn .save{bottom:max(12px,env(safe-area-inset-bottom))}}
 .vx-mn .switch input{width:38px!important;height:22px!important;min-width:38px!important;min-height:22px!important;max-height:22px!important;padding:0!important;margin:0!important;border:0!important;border-radius:999px!important;-webkit-appearance:none!important;appearance:none!important;background-image:none!important}
 .vx-mn .switch input:before{width:18px!important;height:18px!important}
 /* Clear on/off: off is a grey track with an ✕ knob, on is filled with a ✓ knob. */
@@ -43,6 +43,37 @@
             Turning notifications off pauses everything except items marked <b>Required</b> — work only you can do, like a report you've been asked to file.
             @unless($emailOn) Email is currently switched off for the whole app, so nothing will be emailed right now. @endunless
         </p>
+    </section>
+
+
+    <section class="card">
+        <div class="text-sm font-bold mb-2">Team message notifications</div>
+        <p class="sub mb-3">Choose how to be alerted when someone sends you a message. Your existing device subscription is used for push notifications. These options apply when messaging is enabled for your account.</p>
+        <div class="grid gap-3">
+            <label class="switch"><input type="checkbox" wire:model="messagePush" @disabled(! $enabled || ! $inApp)> Push notifications for new messages</label>
+            <label class="switch"><input type="checkbox" wire:model="messageEmail" @disabled(! $enabled || ! $email || ! $emailOn)> Email me about unread messages</label>
+            <label class="switch"><input type="checkbox" wire:model="messagePreview" @disabled(! $enabled)> Include sender and message preview in alerts</label>
+            <label class="switch"><input type="checkbox" wire:model="messageGroupMentionsOnly" @disabled(! $enabled)> In group chats, alert me only when someone mentions me</label>
+            <label class="switch"><input type="checkbox" wire:model="messageQuietHours" @disabled(! $enabled)> Silence message alerts during quiet hours</label>
+            <div class="flex flex-wrap gap-3 items-center"><label class="sub">From <input type="time" wire:model="messageQuietStart" @disabled(! $messageQuietHours || ! $enabled) class="rounded-lg border px-2 py-1 dark:bg-gray-800"></label><label class="sub">Until <input type="time" wire:model="messageQuietEnd" @disabled(! $messageQuietHours || ! $enabled) class="rounded-lg border px-2 py-1 dark:bg-gray-800"></label></div>
+            @error('messageQuietStart') <p class="sub" role="alert">{{ $message }}</p> @enderror
+            @error('messageQuietEnd') <p class="sub" role="alert">{{ $message }}</p> @enderror
+        </div>
+        @if(config("chatify-preview.available", false) && config("chatify-preview.team_enabled", false))
+            <div class="mt-4 border-t pt-3" style="border-color:var(--line)">
+                <div class="head mb-2">Mute individual conversations</div>
+                <p class="sub mb-3">Muted chats stay in your inbox but do not send push or email alerts.</p>
+                <div class="grid gap-2" style="max-height:220px;overflow:auto">
+                    @forelse($this->chatConversations() as $chat)
+                        <label class="switch" wire:key="mute-{{ $chat['id'] }}"><input type="checkbox" wire:model="mutedConversationIds" value="{{ $chat['id'] }}"> Mute {{ $chat['name'] }}</label>
+                    @empty
+                        <p class="sub">No conversations available yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        @endif
+        <p class="sub mt-3">Quiet hours use your profile timezone, or the application timezone when no profile timezone is set. Messages still appear in your inbox while alerts are silenced.</p>
+        <p class="sub mt-3">Email delivery will use a cooldown to avoid repeated alerts during active conversations. Save your preferences below.</p>
     </section>
 
     @forelse($grouped as $group => $items)

@@ -37,8 +37,8 @@ class StreamerLogEditingTest extends TestCase
     private function streamerUser(Streamer $s, string $email): User
     {
         $u = User::factory()->create(['email' => $email]);
-        $u->assignRole('streamer');
         $s->update(['user_id' => $u->id]);
+        $u->assignRole('streamer');
         return $u;
     }
 

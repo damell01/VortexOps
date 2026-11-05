@@ -354,6 +354,7 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->contentGrid(['md' => 2, 'xl' => 3])
             ->emptyStateHeading('No team members yet')
             ->emptyStateDescription('Add a user and assign the role that matches their job.')
             ->emptyStateIcon('heroicon-o-users')

@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 /** Owner-only development sandbox. Preview records never notify or reach other accounts. */
 class TeamCommunications
 {
-    public static function canAccess(?User $user): bool { return $user?->isOwner() ?? false; }
+    public static function canAccess(?User $user): bool { return config('chatify-preview.available', false) && ($user?->isOwner() ?? false); }
     public function authorize(User $user): void { abort_unless(self::canAccess($user), 403); }
 
     public function conversations(User $user): Builder
@@ -128,7 +128,12 @@ class TeamCommunications
         foreach (['starts_at', 'ends_at'] as $field) $data[$field] = Carbon::createFromFormat('!Y-m-d\TH:i', $data[$field], BusinessTime::zone())->utc();
         $record = $id ? TeamAnnouncement::where('is_preview', true)->findOrFail($id) : new TeamAnnouncement(['created_by' => $user->id, 'is_preview' => true]);
         // Editing an active preview makes it a draft again, requiring an explicit preview action.
-        $record->fill($data + ['status' => 'draft', 'published_at' => null])->save();
+        DB::transaction(function () use ($record, $data) {
+            $record->fill($data + ['status' => 'draft', 'published_at' => null])->save();
+            // A materially edited announcement needs fresh acknowledgments.
+            // Old confirmations must not count toward a new version.
+            $record->acknowledgments()->delete();
+        });
         return $record;
     }
 
@@ -158,6 +163,21 @@ class TeamCommunications
     {
         $this->authorize($user);
         return TeamAnnouncement::where('is_preview', true)->where('status', 'published')->where('show_banner', true)
-            ->where('starts_at', '<=', now())->where('ends_at', '>', now())->latest('published_at')->limit(3)->get();
+            ->where('starts_at', '<=', now())->where('ends_at', '>', now())
+            ->where(function ($q) use ($user) {
+                $q->where('audience', 'all')
+                    ->orWhere(fn ($target) => $target->where('audience', 'users')->whereJsonContains('user_ids', $user->id))
+                    ->when($user->roles()->exists(), function ($audience) use ($user) {
+                        $roleIds = $user->roles()->pluck('roles.id');
+                        $audience->orWhere(function ($target) use ($roleIds) {
+                            $target->where('audience', 'roles')->where(function ($roles) use ($roleIds) {
+                                foreach ($roleIds as $roleId) {
+                                    $roles->orWhereJsonContains('role_ids', (int) $roleId);
+                                }
+                            });
+                        });
+                    });
+            })
+            ->latest('published_at')->limit(3)->get();
     }
 }

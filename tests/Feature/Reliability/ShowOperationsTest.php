@@ -74,7 +74,7 @@ class ShowOperationsTest extends TestCase
         $profile->aliases()->create(['alias' => 'Niko', 'source' => 'manual']);
         $show = $this->show(['title' => 'Boxes w/Niko']);
         Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'aliases' => 'Niko', 'show_ids' => [$show->id]])->assertHasErrors(['name']);
-        $this->assertSame(1, Streamer::count());
+        $this->assertSame(1, Streamer::streamers()->count());
         $this->assertSame(0, $show->streamers()->count());
         Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'streamer_id' => $profile->id, 'aliases' => 'Niko', 'show_ids' => [$show->id]])->assertHasNoErrors();
         $this->assertSame([$profile->id], $show->streamers()->pluck('streamers.id')->all());
@@ -109,7 +109,7 @@ class ShowOperationsTest extends TestCase
         $profile->aliases()->create(['alias' => 'Niko', 'source' => 'manual']);
         $show = $this->show(['title' => 'Boxes w/Niko']);
         Livewire::test(Shows::class)->call('saveDetectedHost', 'niko', ['name' => 'Niko', 'streamer_id' => $profile->id, 'aliases' => 'Niko', 'show_ids' => [$show->id], 'create_account' => true, 'account_email' => 'nicholas@example.com'])->assertHasNoErrors();
-        $this->assertSame(1, Streamer::count());
+        $this->assertSame(1, Streamer::streamers()->count());
         $this->assertNotNull($profile->fresh()->user_id);
         $this->assertSame(1, $profile->aliases()->count());
     }

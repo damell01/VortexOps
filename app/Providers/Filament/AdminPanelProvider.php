@@ -82,10 +82,16 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn (): string => \App\Filament\Pages\MyPokedex::getUrl(panel: 'admin')),
             ])
             ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
-            ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
+            // The built-in mark has white lettering (made for the old navy bar):
+            // on the light bar use the dark-lettered wordmark, white in dark mode.
+            ->brandLogo(fn (): ?string => static::themedBuiltInLogo(static::resolveBrandLogo(ChannelContext::current(), $logoPath), 'light'))
+            ->darkModeBrandLogo(fn (): ?string => static::themedBuiltInLogo(static::resolveBrandLogo(ChannelContext::current(), $logoPath), 'dark'))
             ->brandLogoHeight('2.75rem')
             ->font('Geist', provider: GoogleFontProvider::class)
             ->viteTheme('resources/css/filament/admin/theme.css')
+            // Light for everyone who hasn't picked a theme; a saved choice (the
+            // theme switcher stores it in localStorage) is still respected.
+            ->defaultThemeMode(\Filament\Enums\ThemeMode::Light)
             // Desktop uses the custom top navigation. Keep Filament's native
             // sidebar behavior for mobile only; do not render a desktop toggle.
             // Mobile-optimized: 6xl on desktop, full width on mobile
@@ -219,6 +225,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.mobile-tabbar'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! config('chatify-preview.available', false) || ! $isAuthenticatedAdminView() ? '' : view('filament.components.global-communications-widget'),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
@@ -487,6 +497,17 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return $brandName;
+    }
+
+    /** The built-in logo swapped for its light- or dark-bar wordmark; any uploaded logo unchanged. */
+    public static function themedBuiltInLogo(?string $logo, string $mode): ?string
+    {
+        $file = 'images/vx-nav-logo-'.($mode === 'dark' ? 'dark' : 'light').'.svg';
+        if ($logo !== null && str_ends_with($logo, 'images/vb-logo-sidebar.svg') && file_exists(public_path($file))) {
+            return asset($file);
+        }
+
+        return $logo;
     }
 
     /** Precedence: the active channel's own logo, else the global logo, else the built-in SVG. */

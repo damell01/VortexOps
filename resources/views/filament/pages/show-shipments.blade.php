@@ -34,7 +34,7 @@
                                 <a href="{{ $this->shipmentsUrl($show->id) }}" class="block truncate text-sm font-semibold text-gray-950 hover:text-primary-600 dark:text-white sm:text-base">
                                     {{ $show->title }}
                                 </a>
-                                <div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-gray-400 sm:text-xs">
+                                <div class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[10px] text-gray-500 sm:text-xs">
                                     <span>{{ $show->show_date?->format('M j, Y') }}</span>
                                     @if($show->start_time)<span>· {{ $show->start_time->format('g:i A') }}</span>@endif
                                     @if($show->channel)<span class="hidden sm:inline">· {{ $show->channel->name }}</span>@endif
@@ -58,15 +58,15 @@
 
                         <div class="mt-3 grid grid-cols-3 divide-x divide-gray-100 rounded-lg bg-gray-50 dark:divide-gray-800 dark:bg-gray-800/50">
                             <div class="px-2 py-2 text-center sm:py-2.5">
-                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-[10px]">Shipments</div>
+                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-500 sm:text-[10px]">Shipments</div>
                                 <div class="mt-0.5 text-base font-semibold leading-none text-gray-950 dark:text-white sm:text-lg">{{ $show->shipments_count }}</div>
                             </div>
                             <div class="px-2 py-2 text-center sm:py-2.5">
-                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-[10px]">Items</div>
+                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-500 sm:text-[10px]">Items</div>
                                 <div class="mt-0.5 text-base font-semibold leading-none text-gray-950 dark:text-white sm:text-lg">{{ (int)($show->shipments_sum_item_count ?? 0) }}</div>
                             </div>
                             <div class="px-2 py-2 text-center sm:py-2.5">
-                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-[10px]">Delivered</div>
+                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-500 sm:text-[10px]">Delivered</div>
                                 <div class="mt-0.5 text-base font-semibold leading-none text-green-600 sm:text-lg">{{ $show->delivered_shipments_count }}</div>
                             </div>
                         </div>
@@ -83,7 +83,7 @@
                     </div>
                 </article>
             @empty
-                <div class="col-span-full rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center dark:border-gray-700">
+                <div class="col-span-full rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center dark:border-gray-700">
                     <x-heroicon-o-truck class="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600" />
                     <div class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-200">No shipment shows found</div>
                     <p class="mt-1 text-xs text-gray-500">Try changing the filters or search.</p>

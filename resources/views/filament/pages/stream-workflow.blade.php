@@ -1,8 +1,8 @@
 <x-filament-panels::page>
-    <div class="space-y-8">
+    <div class="space-y-5">
         {{-- Workflow Pipeline --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-8">
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-8">Stream to Payout Pipeline</h2>
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-5">Stream to Payout Pipeline</h2>
 
             <div class="relative">
                 {{-- Timeline Line --}}
@@ -88,7 +88,7 @@
             </div>
 
             {{-- Mobile View Info --}}
-            <div class="lg:hidden mt-8 space-y-4 border-t border-gray-200 dark:border-gray-700 pt-8">
+            <div class="lg:hidden mt-5 space-y-4 border-t border-gray-200 dark:border-gray-700 pt-8">
                 <div class="text-sm text-gray-600 dark:text-gray-400">
                     <strong>Pipeline Flow:</strong>
                     <ol class="list-decimal list-inside space-y-2 mt-2">
@@ -107,7 +107,7 @@
                 <div class="text-sm font-semibold text-blue-900 dark:text-blue-100 uppercase tracking-wide">
                     Need End of Stream
                 </div>
-                <div class="mt-2 text-3xl font-bold text-blue-600 dark:text-blue-400">
+                <div class="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {{ $this->workflowStats['pending_end_of_stream'] }}
                 </div>
                 <p class="text-xs text-blue-700 dark:text-blue-300 mt-2">
@@ -119,7 +119,7 @@
                 <div class="text-sm font-semibold text-purple-900 dark:text-purple-100 uppercase tracking-wide">
                     Pending Admin Review
                 </div>
-                <div class="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">
+                <div class="mt-2 text-2xl font-bold text-purple-600 dark:text-purple-400">
                     {{ $this->workflowStats['pending_admin_review'] }}
                 </div>
                 <p class="text-xs text-purple-700 dark:text-purple-300 mt-2">
@@ -131,7 +131,7 @@
                 <div class="text-sm font-semibold text-indigo-900 dark:text-indigo-100 uppercase tracking-wide">
                     Awaiting Streamer
                 </div>
-                <div class="mt-2 text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                <div class="mt-2 text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                     {{ $this->workflowStats['awaiting_streamer'] }}
                 </div>
                 <p class="text-xs text-indigo-700 dark:text-indigo-300 mt-2">
@@ -143,7 +143,7 @@
                 <div class="text-sm font-semibold text-green-900 dark:text-green-100 uppercase tracking-wide">
                     Approved
                 </div>
-                <div class="mt-2 text-3xl font-bold text-green-600 dark:text-green-400">
+                <div class="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
                     {{ $this->workflowStats['approved'] }}
                 </div>
                 <p class="text-xs text-green-700 dark:text-green-300 mt-2">

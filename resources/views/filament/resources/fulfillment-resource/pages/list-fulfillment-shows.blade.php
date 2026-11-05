@@ -99,7 +99,7 @@
                     </div>
                 </article>
             @empty
-                <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900" data-vx-empty>
+                <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900" data-vx-empty>
                     <x-heroicon-o-check-circle class="mx-auto h-9 w-9 text-green-500"/>
                     <div class="mt-2 text-sm font-semibold text-gray-700 dark:text-gray-200">No active fulfillment work</div>
                     <div class="mt-1 text-xs text-gray-500">A show appears after its streamer report is approved and contains logged items.</div>

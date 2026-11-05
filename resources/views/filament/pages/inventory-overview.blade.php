@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <div class="flex flex-wrap items-center gap-3"><livewire:inventory-recent-changes wire:key="inventory-overview-recent-changes" /></div>
 @include('filament.pages.partials.ivx-styles')
 @php
     $s = $this->inventorySnapshot;

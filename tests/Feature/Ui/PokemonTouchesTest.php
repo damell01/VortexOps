@@ -63,7 +63,7 @@ class PokemonTouchesTest extends TestCase
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
         $user = User::factory()->create(['timezone' => 'UTC']);
         $user->assignRole('streamer');
-        $streamer = \App\Models\Streamer::create(['name' => 'Tyler', 'status' => 'active', 'user_id' => $user->id]);
+        $streamer = \App\Models\Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Tyler', 'status' => 'active', 'user_id' => $user->id]);
         $show = \App\Models\Show::create(['title' => 'Friday Break', 'show_date' => '2026-10-14', 'start_time' => '2026-10-14 15:15:00', 'status' => 'pending_review', 'created_by' => $user->id]);
         $show->streamers()->attach($streamer->id, ['is_primary' => true]);
 

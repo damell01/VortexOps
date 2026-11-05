@@ -31,7 +31,7 @@ class StreamerPerformanceKpisTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-10-20 12:00', 'America/Chicago'));
         $user = User::factory()->create(['timezone' => 'America/Chicago', 'buddy' => 'eevee']);
         $user->assignRole(Role::findOrCreate('streamer', 'web'));
-        $this->mine = Streamer::create(['name' => 'Mine', 'user_id' => $user->id, 'status' => 'active']);
+        $this->mine = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Mine', 'user_id' => $user->id, 'status' => 'active']);
         $this->other = Streamer::create(['name' => 'Other', 'status' => 'active']);
         $this->channel = WhatnotChannel::create(['name' => 'Breaks', 'status' => 'active']);
         $this->actingAs($user);

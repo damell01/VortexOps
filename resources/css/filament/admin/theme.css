@@ -1117,3 +1117,503 @@ body:not(:has(.vx-login-showcase)) .fi-simple-layout{
 .fi-ta-table tbody td { vertical-align:middle; }
 .fi-ta-table-container { overflow-x:auto; }
 @media (min-width:1024px) { .fi-ta-table .fi-badge { min-width:max-content; } }
+
+/* Dev UI density pass: reduce above-the-fold chrome without changing fields or actions.
+   Scoped to Filament page primitives; bespoke vx-/vxr- layouts retain their own rules. */
+@media (min-width: 1024px) {
+  .fi-page-header { margin-bottom: 8px !important; }
+  .fi-page-header-main-ctn { gap: 4px !important; }
+  .fi-page-header .fi-header-subheading { max-width: 78ch; line-height: 1.35; }
+  .fi-page-content { gap: 14px !important; }
+  .fi-page-content > .fi-section,
+  .fi-page-content > .fi-ta { min-width: 0; }
+  .fi-section-header { padding-block: 12px !important; }
+  .fi-ta-header { padding-block: 12px !important; }
+  .fi-ta-empty-state { padding-block: 20px !important; }
+}
+@media (max-width: 767px) {
+  .fi-page-header-main-ctn { min-width: 0; }
+  .fi-header-subheading { overflow-wrap: anywhere; }
+  .fi-page-content { min-width: 0; gap: 12px !important; }
+  .fi-ta-empty-state { padding-block: 16px !important; }
+}
+/* Allow popover contents to scroll vertically instead of growing past the screen. */
+.fi-dropdown-panel, .fi-ta-filters-dropdown .fi-dropdown-panel {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+
+/* ==========================================================================
+   VortexOps design system — 2026-11 redesign (light default, dark supported)
+   One layer over the earlier passes: brand tokens for both themes, and shared
+   Filament primitives (page header, cards, tables, tabs, badges, buttons,
+   inputs, modals, empty states). Layout and behaviour are unchanged.
+   ========================================================================== */
+:root {
+  /* Brand palette */
+  --vx-brand: #7c3aed;          /* primary */
+  --vx-brand-2: #a855f7;        /* accent */
+  --vx-brand-soft: #f3eefe;     /* tinted surfaces, active pills */
+  --vx-navy: #0f172a;           /* headings */
+  --vx-success: #10b981; --vx-warning: #f59e0b; --vx-danger: #ef4444; --vx-info: #3b82f6;
+  /* Surfaces & text (light) — AA contrast on white and on the page */
+  --vx-page: #f7f7fb; --vx-surface: #ffffff; --vx-surface-2: #fafafd;
+  --vx-border: #e7e7ef; --vx-divider: #f0f0f5;
+  --vx-text: #0f172a; --vx-muted: #556070; --vx-faint: #7d8796;
+  --vx-soft-primary: #f3eefe; --vx-primary-text: #5b21b6;
+  --vx-radius: 14px; --vx-radius-sm: 10px;
+  --vx-shadow: 0 1px 2px rgb(15 23 42 / .04), 0 4px 14px rgb(15 23 42 / .04);
+  --vx-shadow-pop: 0 10px 30px rgb(15 23 42 / .12);
+}
+.dark {
+  --vx-brand-soft: rgb(124 58 237 / .18);
+  --vx-page: #0b0d1a; --vx-surface: #131629; --vx-surface-2: #181b31;
+  --vx-border: #262a42; --vx-divider: #1f2338;
+  --vx-text: #f1f3f9; --vx-muted: #a7aec4; --vx-faint: #7f87a3;
+  --vx-soft-primary: rgb(124 58 237 / .18); --vx-primary-text: #c4b5fd;
+  --vx-shadow: 0 1px 2px rgb(0 0 0 / .3);
+  --vx-shadow-pop: 0 12px 32px rgb(0 0 0 / .45);
+}
+
+body, .fi-layout, .fi-main { background: var(--vx-page); color: var(--vx-text); }
+
+/* Page header: one compact row — title, subtitle, actions */
+.fi-header-heading { font-size: 24px; line-height: 1.2; font-weight: 750; letter-spacing: -.02em; color: var(--vx-text); }
+.fi-header-subheading { font-size: 13.5px; color: var(--vx-muted); }
+@media (max-width: 639px) { .fi-header-heading { font-size: 21px; } }
+
+/* Cards: sections, tables, widgets, modals */
+.fi-section, .fi-ta, .fi-wi, .vx-card, .vxr-card {
+  background: var(--vx-surface); border: 1px solid var(--vx-border);
+  border-radius: var(--vx-radius); box-shadow: var(--vx-shadow);
+}
+.fi-modal-window { border-radius: var(--vx-radius); box-shadow: var(--vx-shadow-pop); background: var(--vx-surface); }
+.fi-section-header-heading, .fi-ta-header-heading { font-size: 15px; font-weight: 700; color: var(--vx-text); }
+.fi-section-header-description, .fi-ta-header-description { font-size: 13px; color: var(--vx-muted); }
+
+/* Tables: quiet header, compact rows, clear hover */
+.fi-ta-header-cell { background: var(--vx-surface-2); border-bottom: 1px solid var(--vx-border); height: 38px; }
+.fi-ta-header-cell-label { font-size: 11.5px; font-weight: 650; letter-spacing: .03em; text-transform: uppercase; color: var(--vx-muted); }
+.fi-ta-row { height: 52px; }
+.fi-ta-row:hover > .fi-ta-cell { background: var(--vx-surface-2); }
+.fi-ta-cell { border-bottom: 1px solid var(--vx-divider); }
+
+/* Tabs: active tab as a soft purple pill (mockup) */
+.fi-tabs { gap: 6px; border-bottom: 1px solid var(--vx-border); padding-bottom: 6px; }
+.fi-tabs-item { border-radius: 999px; border-bottom: 0; padding: 7px 14px; color: var(--vx-muted); font-weight: 600; }
+.fi-tabs-item:hover { background: var(--vx-surface-2); color: var(--vx-text); }
+.fi-tabs-item.fi-active { background: var(--vx-brand-soft); color: var(--vx-primary-text); border-bottom: 0; }
+
+/* Buttons & inputs: consistent height and radius */
+.fi-btn { border-radius: var(--vx-radius-sm); font-weight: 650; }
+.fi-input-wrp, .fi-select-input { border-radius: var(--vx-radius-sm); }
+.fi-input-wrp { background: var(--vx-surface); }
+
+/* Status badges: soft fills */
+.fi-badge { border-radius: 999px; font-weight: 650; }
+
+/* Empty states: one compact line, not a tall box */
+.fi-ta-empty-state-heading { font-size: 15px; }
+.fi-ta-empty-state-description { font-size: 13px; color: var(--vx-muted); }
+
+/* Dropdowns & popovers: on-brand surface, kept inside the viewport */
+.fi-dropdown-panel { border-radius: var(--vx-radius-sm); border: 1px solid var(--vx-border); box-shadow: var(--vx-shadow-pop); background: var(--vx-surface); }
+
+/* Respect reduced motion everywhere */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Design system — density. The page area had 32px padding on every side on
+   top of the header spacing; report titles were 30px and empty states 36–60px
+   tall. Tighter values here so the main content starts higher on the screen. */
+.fi-page-content { padding: 20px 24px; gap: 16px; }
+@media (max-width: 639px) { .fi-page-content { padding: 12px; gap: 12px; } }
+.fi-page { gap: 16px; }
+.vxr-title { font-size: 24px; }
+@media (max-width: 639px) { .vxr-title { font-size: 21px; } }
+.vxsp-champ-value { font-size: 26px; }
+.vxr-empty, .vxw-empty, .vxc-empty { padding: 20px 16px; }
+.fi-ta-empty-state { padding: 20px 16px; }
+.fi-ta-empty-state .fi-ta-empty-state-icon-ctn { margin-bottom: 8px; }
+
+/* Custom popovers never wider than the screen (the Filament ones are capped above). */
+.vx-mega-menu, .vx-more-menu, .vx-menu-panel, .vx-edit-panel, .vx-picker-menu {
+  max-width: calc(100vw - 24px);
+}
+
+/* ==========================================================================
+   Buttons — mockup style
+   Primary: solid purple. Other colours: soft tint (light fill, coloured text,
+   faint ring), e.g. "Quick Scan", "Receive". Gray: white with a thin border
+   ("Import"). Compact and rounded. Confirm buttons inside modals stay solid so
+   destructive actions remain unmistakable.
+   ========================================================================== */
+.fi-btn { min-height: 38px; padding-inline: 14px; gap: 6px; border-radius: 10px; font-size: 13.5px; letter-spacing: -.005em; }
+.fi-btn.fi-size-sm, .fi-btn.fi-size-xs { min-height: 32px; padding-inline: 10px; font-size: 12.5px; }
+
+/* Primary: solid brand purple with a soft lift */
+.fi-btn.fi-color-primary:not(.fi-outlined) {
+  background: linear-gradient(180deg, var(--primary-500), var(--primary-600));
+  color: #fff; box-shadow: 0 1px 2px rgb(91 33 182 / .25), 0 4px 12px rgb(124 58 237 / .18);
+}
+.fi-btn.fi-color-primary:not(.fi-outlined):not([disabled]):hover { background: var(--primary-600); color: #fff; }
+.fi-btn.fi-color-primary:not(.fi-outlined) > .fi-icon { color: #fff; }
+
+/* Success / warning / info / danger / custom colours: soft tint */
+.fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) {
+  background: var(--color-50); color: var(--color-700);
+  box-shadow: inset 0 0 0 1px var(--color-200);
+}
+.fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label):not([disabled]):hover {
+  background: var(--color-100); color: var(--color-800);
+}
+.fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) > .fi-icon { color: var(--color-600); }
+.dark .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) {
+  background: color-mix(in srgb, var(--color-500) 16%, transparent); color: var(--color-300);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-500) 32%, transparent);
+}
+.dark .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label):not([disabled]):hover {
+  background: color-mix(in srgb, var(--color-500) 24%, transparent); color: var(--color-200);
+}
+.dark .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-primary):not(.fi-color-gray):not(label) > .fi-icon { color: var(--color-400); }
+
+/* Gray: white, thin border ("Import") */
+.fi-btn.fi-color-gray:not(.fi-outlined), .fi-btn:not(.fi-color):not(label) {
+  background: var(--vx-surface); color: var(--vx-text); box-shadow: inset 0 0 0 1px var(--vx-border);
+}
+.fi-btn.fi-color-gray:not(.fi-outlined):not([disabled]):hover, .fi-btn:not(.fi-color):not(label):not([disabled]):hover { background: var(--vx-surface-2); }
+
+/* Modal confirm buttons stay solid (Delete, Approve…) */
+.fi-modal-footer .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-gray):not(label) {
+  background: var(--color-600); color: #fff; box-shadow: 0 1px 2px rgb(15 23 42 / .15);
+}
+.fi-modal-footer .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-gray):not(label):not([disabled]):hover { background: var(--color-700); color: #fff; }
+.fi-modal-footer .fi-btn.fi-color:not(.fi-outlined):not(.fi-color-gray):not(label) > .fi-icon { color: #fff; }
+
+/* App's own buttons follow the same shapes */
+.vxr-btn { min-height: 38px; border-radius: 10px; font-weight: 650; }
+
+/* Reports & workflow screens use --vxw-* tokens; point them at the design
+   system so every screen shares one palette in light and dark. */
+:root {
+  --vxw-page: var(--vx-page); --vxw-surface: var(--vx-surface); --vxw-border: var(--vx-border);
+  --vxw-text: var(--vx-text); --vxw-muted: var(--vx-muted);
+}
+
+/* KPI / stat tiles — mockup style: rounded-square tinted icon, compact */
+.vxr-stat { padding: 14px 16px; gap: 12px; }
+.vxr-stat-icon { width: 40px; height: 40px; border-radius: 12px; }
+.vxr-stat-value { font-size: 22px; }
+.vxr-stat--compact .vxr-stat-value { font-size: 19px; }
+.vxt-stats .vxr-stat { min-height: 0; }
+.vxt-stats .vxr-stat-icon { font-size: 20px; }
+
+/* ── Design system: top navigation (mockup) ─────────────────────────────
+   Light: white bar, dark labels, soft purple pill for hover and the section
+   you are in. Dark keeps the navy bar. */
+@media(min-width:1024px){
+  html:not(.dark) .fi-topbar{background:var(--vx-surface)!important;border-bottom:1px solid var(--vx-border)!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger){color:var(--vx-text)}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger) svg{color:var(--vx-muted)}
+  .fi-topbar :is(.vx-mega-home,.vx-mega-trigger){transition:background-color .15s,color .15s}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger):hover,
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger)[aria-expanded="true"]{background:var(--vx-brand-soft);color:var(--vx-brand)}
+  html:not(.dark) .fi-topbar :is(.vx-mega-trigger.is-here,[aria-current="page"]){background:var(--vx-brand-soft);color:var(--vx-brand);box-shadow:inset 0 0 0 1px rgba(124,58,237,.18)}
+  html:not(.dark) .fi-topbar :is(.vx-mega-home,.vx-mega-trigger):hover svg,
+  html:not(.dark) .fi-topbar .vx-mega-trigger.is-here svg{color:var(--vx-brand)}
+  .dark .fi-topbar .vx-mega-trigger.is-here{background:rgba(124,58,237,.24);color:#fff}
+  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select-wrp{border-color:var(--vx-border);background:var(--vx-surface-2)}
+  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel .vx-channel-switcher-select{color:var(--vx-text)}
+  html:not(.dark) .vx-desktop-mega-nav .vx-mega-channel :is(.vx-channel-switcher-icon,.vx-channel-switcher-chevron){color:var(--vx-muted)}
+  html:not(.dark) .fi-topbar .fi-global-search :is(.fi-input-wrp,.fi-global-search-field){background:var(--vx-surface-2);border-color:var(--vx-border)}
+  html:not(.dark) .fi-topbar .fi-topbar-end .fi-icon-btn{color:var(--vx-muted)}
+  html:not(.dark) .fi-topbar .fi-topbar-end .fi-icon-btn:hover{background:var(--vx-brand-soft);color:var(--vx-brand)}
+  .dark .vx-mega-menu{background:var(--vx-surface);border-color:var(--vx-border)}
+  .dark .vx-mega-menu a{color:var(--vx-text)}
+  .dark .vx-mega-menu a:hover{background:rgba(124,58,237,.18);color:#fff}
+  .dark .vx-mega-section{border-top-color:var(--vx-border)}
+}
+
+/* ── Design system: Filament stat widgets as mockup tiles ─────────────── */
+.fi-wi-stats-overview-stats-ctn{gap:12px!important}
+.fi-wi-stats-overview-stat{padding:14px 16px!important;border-radius:var(--vx-radius,14px)!important;background:var(--vx-surface)!important;border:1px solid var(--vx-border)!important;box-shadow:0 1px 2px rgba(15,23,42,.04)!important;--tw-ring-shadow:0 0 #0000!important}
+a.fi-wi-stats-overview-stat:hover{border-color:#c4b5fd!important;box-shadow:0 6px 18px -8px rgba(124,58,237,.35)!important}
+.fi-wi-stats-overview-stat-label-ctn{gap:10px!important;align-items:center}
+.fi-wi-stats-overview-stat-label-ctn>.fi-icon{box-sizing:content-box;width:18px!important;height:18px!important;padding:8px;border-radius:10px;background:var(--vx-brand-soft);color:var(--vx-brand)}
+.dark .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:rgba(124,58,237,.2);color:#c4b5fd}
+.fi-wi-stats-overview-stat-label{font-size:12px!important;font-weight:650!important;color:var(--vx-muted)!important}
+.fi-wi-stats-overview-stat-value{margin-top:6px;font-size:clamp(1.25rem,1.5vw,1.6rem)!important;font-weight:750!important;color:var(--vx-text)}
+.fi-wi-stats-overview-stat-description{font-size:12px!important}
+/* Brand: the built-in wordmark at full width, dark lettering in light mode
+   (vb-logo-light.svg) and white lettering in dark mode. An uploaded logo was
+   made for the navy bar, so it sits on a navy chip in light mode. */
+.vx-logo-on-dark{display:none!important}
+.dark .vx-logo-on-dark{display:block!important}
+.dark .vx-logo-on-light{display:none!important}
+@media(min-width:1024px){
+  .fi-topbar .vx-mega-brand.is-wordmark{width:128px!important;flex:0 0 128px!important;height:44px!important;margin-right:10px!important;justify-content:flex-start!important;background:none!important;padding:0!important;border-radius:0!important}
+  .fi-topbar .vx-mega-brand.is-wordmark img{width:128px!important;height:36px!important;object-fit:contain!important;object-position:left center!important}
+  html:not(.dark) .fi-topbar .vx-mega-brand.is-custom{width:auto!important;flex:0 0 auto!important;max-width:170px!important;height:44px!important;padding:5px 10px!important;background:var(--vx-navy)!important;border-radius:12px!important;box-sizing:border-box}
+  html:not(.dark) .fi-topbar .vx-mega-brand.is-custom img{width:auto!important;max-width:150px!important;height:34px!important}
+}
+@media(min-width:1024px) and (max-width:1250px){
+  .fi-topbar .vx-mega-brand.is-wordmark,.fi-topbar .vx-mega-brand.is-wordmark img{width:112px!important;flex-basis:112px!important}
+}
+/* Channel and business pickers on the white bar. */
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-btn{background:var(--vx-surface);border-color:var(--vx-border);color:var(--vx-text)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-btn:hover{background:var(--vx-brand-soft);border-color:#c4b5fd}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker[data-active] .vx-picker-btn{background:color-mix(in srgb,var(--vx-pick) 10%,#fff);border-color:color-mix(in srgb,var(--vx-pick) 55%,#fff)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-kicker{color:var(--vx-muted)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker-chevron,html:not(.dark) .vx-desktop-mega-nav .vx-picker-icon{color:var(--vx-muted)}
+html:not(.dark) .vx-desktop-mega-nav .vx-picker[data-active] .vx-picker-icon{color:var(--vx-pick)}
+
+/* ── Design system: module screens (workflow, reports, shows) ─────────── */
+/* Primary actions share the gradient button. */
+.vxw-btn--primary,.vxr-btn--primary{background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand))!important;border-color:transparent!important;color:#fff!important;box-shadow:0 4px 12px -4px rgba(124,58,237,.45)}
+.vxw-btn--primary:hover,.vxr-btn--primary:hover{filter:brightness(1.06)}
+.vxw-btn,.vxr-btn{border-radius:10px}
+/* Filter chips: purple when selected, as in the mockups. */
+.vxw-chip.is-active{background:var(--vx-brand-soft)!important;border-color:rgba(124,58,237,.35)!important;color:var(--vx-brand)!important}
+.dark .vxw-chip.is-active{background:rgba(124,58,237,.22)!important;color:#ddd6fe!important}
+/* Compact report tables. */
+.vxr-table th{padding:10px 14px;font-size:12px;letter-spacing:.01em}
+.vxr-table td{padding:10px 14px}
+.vxr-card{border-radius:var(--vx-radius,14px)}
+/* Shows: pill switcher and tile-style KPIs. */
+.vx-cal .vx-seg{padding:3px;gap:2px;border-radius:12px;background:var(--vx-surface);border:1px solid var(--vx-border)}
+.vx-cal .vx-seg button{min-height:32px;border:0!important;border-radius:9px;padding:0 14px}
+.vx-cal .vx-seg button.on{background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand));color:#fff;box-shadow:0 2px 8px -2px rgba(124,58,237,.5)}
+.fi-page .vx-kstrip{gap:12px;background:transparent;border:0;box-shadow:none}
+.fi-page .vx-kstrip .vx-kcell{background:var(--vx-surface);border:1px solid var(--vx-border);border-radius:var(--vx-radius,14px);box-shadow:0 1px 2px rgba(15,23,42,.04);padding:12px 16px}
+.fi-page .vx-kstrip .vx-kcell .v{color:var(--vx-text)}
+/* Payroll: tighter KPI tiles; pastel icon chips toned down in dark mode. */
+[data-vx-page=payroll] .vx-payroll-kpi{padding:14px 16px;border-radius:var(--vx-radius,14px)}
+.dark [data-vx-page=payroll] .vx-payroll-kpi .vx-payroll-icon{background:color-mix(in srgb,currentColor 18%,transparent)!important;filter:brightness(1.35)}
+/* Report library: compact cards, about four to a row (mockup). */
+.vxr-tiles{gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.vxr-tile{padding:14px 16px;gap:12px;border-radius:var(--vx-radius,14px);transition:border-color .15s,box-shadow .15s,transform .15s}
+.vxr-tile:hover{border-color:#c4b5fd;box-shadow:0 8px 20px -10px rgba(124,58,237,.4);transform:translateY(-1px)}
+.vxr-tile .vxr-stat-icon{width:40px;height:40px;border-radius:12px}
+.vxr-tile .vxr-stat-icon svg{width:20px;height:20px}
+.vxr-tile b{font-size:14px}
+.vxr-tile p{font-size:12.5px;margin:2px 0 6px}
+@media (prefers-reduced-motion:reduce){.vxr-tile:hover{transform:none}}
+/* Install banner: a slim light strip in light mode, not a large purple block. */
+html:not(.dark) .vx-install-banner{background:var(--vx-surface);color:var(--vx-text);border:1px solid var(--vx-border);box-shadow:inset 3px 0 0 var(--vx-brand),0 1px 2px rgba(15,23,42,.04);padding:.45rem 2.75rem .45rem .75rem;font-size:.8125rem;margin-block:.5rem .25rem}
+html:not(.dark) .vx-install-banner__icon{width:1.75rem;height:1.75rem}
+html:not(.dark) .vx-install-banner__btn{min-height:2rem;background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand));color:#fff}
+html:not(.dark) .vx-install-banner__close{color:var(--vx-muted);top:.15rem}
+@media (min-width:1024px){.vx-install-banner{margin-inline:24px}}
+
+/* ── Dashboard (mockup): KPI tiles with a coloured bar, quiet notes ───── */
+.vx-dashboard-reference .fi-wi-stats-overview-stats-ctn{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important;gap:12px!important}
+.vx-dashboard-reference .fi-wi-stats-overview-stat{position:relative;padding:14px 16px 22px!important}
+.vx-dashboard-reference .fi-wi-stats-overview-stat-chart{display:none!important}
+.vx-dashboard-reference .fi-wi-stats-overview-stat-label-ctn>.fi-icon{padding:6px;width:16px!important;height:16px!important;border-radius:8px}
+.vx-dashboard-reference .fi-wi-stats-overview-stat-label{font-size:12px!important}
+.vx-dashboard-reference .fi-wi-stats-overview-stat-value{font-size:clamp(1.15rem,1.45vw,1.45rem)!important;font-weight:800!important;margin-top:8px}
+.vx-dashboard-reference .fi-wi-stats-overview-stat-description{color:var(--vx-muted)!important;font-size:11.5px!important;margin-top:2px}
+.vx-dashboard-reference .fi-wi-stats-overview-stat-description .fi-icon{display:none}
+.vx-dashboard-reference .fi-wi-stats-overview-stat::after{content:"";position:absolute;left:16px;right:16px;bottom:10px;height:4px;border-radius:999px;background:var(--vx-bar,#7c3aed);opacity:.85}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+1){--vx-bar:#7c3aed}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+2){--vx-bar:#3b82f6}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+3){--vx-bar:#10b981}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+4){--vx-bar:#f59e0b}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+5){--vx-bar:#059669}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+6){--vx-bar:#a855f7}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+2) .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:#eff6ff;color:#2563eb}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+3) .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:#ecfdf5;color:#059669}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+4) .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:#fffbeb;color:#d97706}
+.vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(6n+5) .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:#ecfdf5;color:#047857}
+.dark .vx-dashboard-reference .fi-wi-stats-overview-stat:nth-child(n) .fi-wi-stats-overview-stat-label-ctn>.fi-icon{background:color-mix(in srgb,var(--vx-bar) 20%,transparent);color:color-mix(in srgb,var(--vx-bar) 60%,#fff)}
+/* Hero: the mockup's violet banner; the page header above it stays small. */
+.vx-dashboard-reference .vx-dashboard-hero h1{font-size:clamp(1.4rem,2.1vw,1.75rem);font-weight:800}
+@media(min-width:1024px){.dark .fi-topbar :is(.vx-mega-home,.vx-mega-trigger)[aria-current="page"]{background:rgba(124,58,237,.24);color:#fff}}
+
+/* ── Shows month view (mockup): date, count and channel bar per day ───── */
+@media(min-width:768px){
+  .fi-page .vx-month .vx-cell{height:auto!important;min-height:96px!important;padding:10px 10px 12px!important;gap:4px!important}
+  .fi-page .vx-month .vx-cell-list{display:none!important}
+  .fi-page .vx-month .vx-cell-h{justify-content:flex-start;gap:6px}
+  .fi-page .vx-month .vx-num{font-size:.9rem;font-weight:800;padding:2px 4px}
+  .fi-page .vx-month .vx-cell-count{display:block;padding-left:4px;font-size:.75rem;font-weight:600;color:var(--vx-muted)}
+  .fi-page .vx-month .vx-mix{height:5px;margin:auto 4px 0;max-width:70%}
+  .fi-page .vx-month .vx-cell.today{border-radius:12px;background:var(--vx-brand-soft);box-shadow:inset 0 0 0 2px rgba(124,58,237,.45)}
+  .dark .fi-page .vx-month .vx-cell.today{background:rgba(124,58,237,.16)}
+  .fi-page .vx-month .vx-cell.today .vx-num{color:var(--vx-brand)}
+}
+
+/* ── Inventory list (mockup): tinted shortcut buttons ─────────────────── */
+.fi-page .vx-inv-shortcuts>a{min-height:40px;border-width:1px;box-shadow:none!important;font-weight:650!important;transition:filter .15s,box-shadow .15s}
+.fi-page .vx-inv-shortcuts>a:hover{box-shadow:0 4px 12px -6px rgba(15,23,42,.25)!important}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-600{background:#eef2ff;border-color:#c7d2fe;color:#4338ca}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-blue-600{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-emerald-600{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-violet-600{background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand));border-color:transparent;color:#fff}
+html:not(.dark) .fi-page .vx-inv-shortcuts>a.text-primary-700{background:var(--vx-surface);border-color:var(--vx-border);color:var(--vx-text)}
+.dark .fi-page .vx-inv-shortcuts>a.text-blue-600{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.35)}
+.dark .fi-page .vx-inv-shortcuts>a.text-emerald-600{background:rgba(16,185,129,.14);border-color:rgba(16,185,129,.35)}
+.dark .fi-page .vx-inv-shortcuts>a.text-primary-600{background:rgba(99,102,241,.14);border-color:rgba(99,102,241,.35)}
+/* KPI tiles: number first, bold; label beneath (mockup). */
+.fi-page .vx-health strong{font-size:1.5rem;font-weight:800;color:var(--vx-text)}
+
+/* ── Streamer dashboard (mockup): bright violet welcome banner ───────── */
+.fi-page .vsh-hero{background:radial-gradient(90% 140% at 90% 0%,rgba(192,132,252,.55) 0%,transparent 60%),linear-gradient(110deg,#4c1d95 0%,#6d28d9 45%,#8b5cf6 100%)!important;box-shadow:0 14px 32px -18px rgba(109,40,217,.7)!important}
+
+/* ── Owner Tools (mockup): a grid of tool cards ──────────────────────── */
+[data-vx-page=owner-tools]{display:grid;gap:20px}
+.vx-owner-section{display:grid;gap:10px}
+.vx-owner-heading{font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--vx-muted)}
+.vx-owner-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.vx-owner-card{display:flex;flex-direction:column;gap:12px;padding:18px;border:1px solid var(--vx-border);border-radius:var(--vx-radius,14px);background:var(--vx-surface);box-shadow:0 1px 2px rgba(15,23,42,.04);color:var(--vx-text);text-decoration:none;transition:border-color .15s,box-shadow .15s,transform .15s}
+.vx-owner-card:hover{border-color:#c4b5fd;box-shadow:0 10px 24px -12px rgba(124,58,237,.45);transform:translateY(-1px)}
+.vx-owner-card:focus-visible{outline:3px solid #a78bfa;outline-offset:2px}
+.vx-owner-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--vx-brand-soft);color:var(--vx-brand)}
+.dark .vx-owner-icon{background:rgba(124,58,237,.2);color:#c4b5fd}
+.vx-owner-icon svg{width:22px;height:22px}
+.vx-owner-card b{display:block;font-size:15px;font-weight:750}
+.vx-owner-card span>span{display:block;margin-top:3px;font-size:13px;color:var(--vx-muted);line-height:1.4}
+@media (prefers-reduced-motion:reduce){.vx-owner-card:hover{transform:none}}
+
+/* ── Connected feel: one card language, breadcrumbs, gentle page entry ── */
+/* The section you are in, and the page you are on inside its menu. */
+@media(min-width:1024px){
+  html:not(.dark) .fi-topbar .vx-mega-home.is-here{background:var(--vx-brand-soft);color:var(--vx-brand)}
+  .dark .fi-topbar .vx-mega-home.is-here{background:rgba(124,58,237,.24);color:#fff}
+  .vx-mega-menu a.is-current{background:var(--vx-brand-soft)!important;color:var(--vx-brand)!important;box-shadow:none!important;font-weight:700}
+  .dark .vx-mega-menu a.is-current{background:rgba(124,58,237,.2)!important;color:#ddd6fe!important}
+}
+/* Hand-built cards on older screens take the same corners, border and shadow. */
+.fi-page :is(.rounded-lg,.rounded-xl).border.bg-white:not(.fi-btn):not(button):not(a){border-radius:var(--vx-radius,14px);border-color:var(--vx-border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.dark .fi-page :is(.rounded-lg,.rounded-xl).border:is(.dark\:bg-gray-800,.dark\:bg-gray-900):not(.fi-btn):not(button):not(a){background:var(--vx-surface);border-color:var(--vx-border)}
+/* Breadcrumbs: small and quiet above the title. */
+.fi-breadcrumbs{font-size:12.5px}
+.fi-breadcrumbs .fi-breadcrumbs-item-label{color:var(--vx-muted)}
+.fi-breadcrumbs a:hover .fi-breadcrumbs-item-label{color:var(--vx-brand)}
+/* Each page settles in gently after navigating. */
+@keyframes vx-page-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fi-page{animation:vx-page-in .22s ease-out both}
+@media (prefers-reduced-motion:reduce){.fi-page{animation:none}}
+/* Links and focus feel the same everywhere. */
+.fi-page a:not([class*="fi-"]):focus-visible,.fi-page button:not([class*="fi-"]):focus-visible{outline:3px solid #a78bfa;outline-offset:2px;border-radius:8px}
+
+/* ── Forms, wizards, tables: the same language as the rest ───────────── */
+/* Wizard steps: current in purple, done with a green tick. */
+.fi-sc-wizard{border-radius:var(--vx-radius,14px)!important;border:1px solid var(--vx-border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.fi-sc-wizard-header{border-bottom:1px solid var(--vx-border)}
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-icon-ctn{background:linear-gradient(180deg,var(--vx-brand-2),var(--vx-brand))!important;border-color:transparent!important;color:#fff!important;box-shadow:0 4px 10px -4px rgba(124,58,237,.6)}
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-number{color:#fff!important}
+.fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-label{color:var(--vx-brand)!important}
+.dark .fi-sc-wizard-header-step.fi-active .fi-sc-wizard-header-step-label{color:#c4b5fd!important}
+.fi-sc-wizard-header-step.fi-completed .fi-sc-wizard-header-step-icon-ctn{background:#10b981!important;border-color:transparent!important;color:#fff!important}
+.fi-sc-wizard-header-step-description{color:var(--vx-muted)}
+/* Pagination: rounded, current page as a purple pill. */
+.fi-pagination-items{border-radius:10px!important;overflow:hidden}
+.fi-pagination-item.fi-active .fi-pagination-item-btn{background:var(--vx-brand-soft)!important;color:var(--vx-brand)!important;font-weight:700}
+.dark .fi-pagination-item.fi-active .fi-pagination-item-btn{background:rgba(124,58,237,.22)!important;color:#ddd6fe!important}
+.fi-pagination-overview{color:var(--vx-muted);font-size:12.5px}
+/* Table toolbar: rounded search, quiet header row. */
+.fi-ta-header-toolbar{padding-block:10px!important}
+.fi-ta-header-toolbar .fi-input-wrp{border-radius:10px!important}
+.fi-ta-header-heading{font-size:15px!important;font-weight:750!important}
+.fi-ta-header-description{color:var(--vx-muted)!important}
+/* Form sections: bold title, muted description, tight header. */
+.fi-section-header-heading{font-size:15px;font-weight:750}
+.fi-section-header-description{color:var(--vx-muted)}
+/* Inputs: one radius and a purple focus ring. */
+.fi-input-wrp{border-radius:10px!important}
+.fi-input-wrp:focus-within{--tw-ring-color:rgba(124,58,237,.55)!important}
+/* Notifications (toasts): rounded and lifted. */
+.fi-no-notification{border-radius:var(--vx-radius,14px)!important;box-shadow:0 18px 40px -16px rgba(15,23,42,.35)!important}
+
+
+/* Vortex Ops UI refinement — shared visual tokens and non-destructive components.
+   Preserve existing top navigation, modal positioning, workflow styles and Filament behaviors. */
+:root {
+  --vx-radius-card: 14px;
+  --vx-radius-control: 10px;
+  --vx-focus-ring: rgba(124,58,237,.25);
+  --vx-shadow-card: 0 2px 8px rgba(25,20,55,.035);
+}
+.fi-page-content {
+  width: 100%;
+  min-width: 0;
+}
+.fi-section, .fi-ta, .fi-wi {
+  box-shadow: var(--vx-shadow-card);
+}
+.fi-section-header, .fi-ta-header {
+  min-width: 0;
+}
+.fi-header-heading {
+  text-wrap: balance;
+}
+.fi-btn, .fi-input-wrp, .fi-section, .fi-ta, .fi-wi {
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.fi-btn:focus-visible,
+.fi-icon-btn:focus-visible,
+.fi-tabs-item:focus-visible,
+.fi-ta-row a:focus-visible,
+.fi-input:focus-visible {
+  outline: 3px solid var(--vx-focus-ring);
+  outline-offset: 2px;
+}
+.fi-input-wrp:focus-within {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px var(--vx-focus-ring);
+}
+.fi-ta-content {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.fi-ta-table {
+  width: 100%;
+}
+.fi-ta-header-cell-label {
+  white-space: nowrap;
+}
+.fi-ta-cell {
+  vertical-align: middle;
+}
+.fi-badge {
+  letter-spacing: .005em;
+}
+.fi-section-content, .fi-ta-content, .fi-wi {
+  min-width: 0;
+}
+.fi-modal-window {
+  max-height: min(90dvh, 900px);
+}
+.fi-modal-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.dark {
+  --vx-focus-ring: rgba(167,139,250,.35);
+  --vx-shadow-card: 0 2px 8px rgba(0,0,0,.12);
+}
+@media (min-width: 1024px) {
+  .fi-page-content { padding: 20px 24px; gap: 18px; }
+  .fi-page { gap: 18px; }
+  .fi-ta-row { height: 48px; }
+  .fi-ta-header-cell { height: 38px; }
+  .fi-header-heading { font-size: clamp(21px, 2vw, 26px); }
+}
+@media (max-width: 1023px) {
+  .fi-page-content { padding: 14px 14px calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .fi-section, .fi-ta, .fi-wi { border-radius: 12px; }
+  .fi-header-heading { overflow-wrap: anywhere; }
+  .fi-btn, .fi-icon-btn, .fi-input-wrp { min-height: 44px; }
+  .fi-ta-content { overflow-x: visible; }
+  .fi-modal-window { max-height: 92dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fi-btn, .fi-input-wrp, .fi-section, .fi-ta, .fi-wi { transition: none; }
+}

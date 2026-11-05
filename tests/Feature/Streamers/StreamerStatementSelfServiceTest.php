@@ -36,7 +36,7 @@ class StreamerStatementSelfServiceTest extends TestCase
 
         $me = User::factory()->create();
         $me->assignRole('streamer');
-        $myStreamer = Streamer::create(['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
+        $myStreamer = Streamer::updateOrCreate(['user_id' => $me->id], ['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
 
         $otherStreamer = Streamer::create(['name' => 'Other', 'status' => 'active', 'include_tips' => false]);
 

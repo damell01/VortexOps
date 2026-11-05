@@ -22,7 +22,7 @@
     <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Duplicate Product Detector</h2>
-            <p class="text-sm text-gray-400 mt-1">
+            <p class="text-sm text-gray-500 mt-1">
                 Compares all active products using name similarity, brand, year, set, configuration, UPC, and sport.
                 Products scoring ≥ 80% similar are shown as candidates for review.
             </p>
@@ -38,12 +38,12 @@
 
 {{-- ── Results ───────────────────────────────────────────────────────────────── --}}
 @if($scanning)
-<div class="text-center py-12 text-gray-400 text-sm">Scanning products…</div>
+<div class="text-center py-8 text-gray-500 text-sm">Scanning products…</div>
 @elseif(count($pairs) === 0 && ! $scanning)
-<div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-8 py-14 text-center space-y-2">
+<div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-5 py-14 text-center space-y-2">
     <x-heroicon-o-document-duplicate class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
     <p class="text-sm font-medium text-gray-500 dark:text-gray-400">No duplicate candidates found</p>
-    <p class="text-xs text-gray-400 dark:text-gray-500">Click "Scan for Duplicates" to analyze your product catalog</p>
+    <p class="text-xs text-gray-500 dark:text-gray-500">Click "Scan for Duplicates" to analyze your product catalog</p>
 </div>
 @endif
 
@@ -61,7 +61,7 @@
             <span class="text-xs text-orange-600 dark:text-orange-400">Possible duplicate</span>
         </div>
         <button wire:click="ignore('{{ $pair['key'] }}')" type="button"
-            class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+            class="text-xs text-gray-500 hover:text-gray-600 dark:hover:text-gray-200">
             Mark as Different
         </button>
     </div>
@@ -74,7 +74,7 @@
             <div class="flex items-start justify-between gap-2">
                 <div>
                     <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $prod['name'] }}</p>
-                    <p class="text-xs text-gray-400">
+                    <p class="text-xs text-gray-500">
                         {{ implode(' · ', array_filter([$prod['brand'], $prod['year'] ? (string)$prod['year'] : null, $prod['type']])) }}
                     </p>
                 </div>
@@ -99,7 +99,7 @@
 
     {{-- Merge actions --}}
     <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-800 flex flex-wrap gap-2">
-        <p class="text-xs text-gray-400 self-center mr-2">Merge into:</p>
+        <p class="text-xs text-gray-500 self-center mr-2">Merge into:</p>
         <button wire:click="merge({{ $pair['product_a']['id'] }}, {{ $pair['product_b']['id'] }})"
             wire:confirm="Keep '{{ addslashes($pair['product_a']['name']) }}' and delete '{{ addslashes($pair['product_b']['name']) }}'? This cannot be undone."
             type="button"
@@ -117,7 +117,7 @@
 @endforeach
 
 @if(count($pairs) > 0)
-<p class="text-center text-xs text-gray-400">
+<p class="text-center text-xs text-gray-500">
     {{ count($pairs) }} candidate pair(s) found · {{ count($ignored) }} ignored
 </p>
 @endif

@@ -40,7 +40,7 @@ class StreamerHomeTabsTest extends TestCase
         AdminModules::flushMemo();
 
         $this->channel  = WhatnotChannel::create(['name' => 'Chan', 'status' => 'active']);
-        $this->streamer = Streamer::create([
+        $this->streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], [
             'name'     => 'Jordan',
             'user_id'  => $this->user->id,
             'pay_type' => 'profit_share',

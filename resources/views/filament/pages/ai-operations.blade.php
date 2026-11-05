@@ -91,7 +91,7 @@
                         </div>
                     </div>
                 @empty
-                    <div class="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center dark:border-gray-700 dark:bg-gray-900">
+                    <div class="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
                         <div class="text-sm font-semibold text-gray-800 dark:text-gray-200">No open insights in this category</div>
                         <p class="mt-1 text-sm text-gray-500">Run a background scan above or wait for the scheduled jobs.</p>
                     </div>

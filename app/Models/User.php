@@ -23,6 +23,45 @@ class User extends Authenticatable implements FilamentUser
     use HasFactory, Notifiable, LogsActivity, TwoFactorAuthenticatable;
     use HasRoles {
         hasPermissionTo as private spatieHasPermissionTo;
+        assignRole as private spatieAssignRole;
+        syncRoles as private spatieSyncRoles;
+        removeRole as private spatieRemoveRole;
+    }
+
+    /**
+     * Keep the existing payroll identity aligned even when roles are changed
+     * outside the Filament Users create/edit pages.
+     */
+    public function assignRole(...$roles)
+    {
+        $result = $this->spatieAssignRole(...$roles);
+        $this->syncPayrollIdentityAfterRoleChange();
+        return $result;
+    }
+
+    public function syncRoles(...$roles)
+    {
+        $result = $this->spatieSyncRoles(...$roles);
+        $this->syncPayrollIdentityAfterRoleChange();
+        return $result;
+    }
+
+    public function removeRole($role)
+    {
+        $result = $this->spatieRemoveRole($role);
+        $this->syncPayrollIdentityAfterRoleChange();
+        return $result;
+    }
+
+    private function syncPayrollIdentityAfterRoleChange(): void
+    {
+        if (! $this->exists) {
+            return;
+        }
+
+        $this->unsetRelation('roles');
+        $this->unsetRelation('streamer');
+        app(\App\Services\UserTeamProfileService::class)->sync($this);
     }
 
     /** @var array<string, bool> permission answers already worked out this request */

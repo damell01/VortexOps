@@ -55,7 +55,7 @@
                     @php $stepNumber = $index + 1; $done = $currentStep > $stepNumber; $active = $currentStep === $stepNumber; @endphp
                     <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
                         <div class="flex items-center gap-2">
-                            <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold {{ $done ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' : ($active ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-400 dark:bg-gray-800') }}">{{ $done ? '✓' : $stepNumber }}</div>
+                            <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold {{ $done ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' : ($active ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800') }}">{{ $done ? '✓' : $stepNumber }}</div>
                             <div class="truncate text-[10px] font-semibold {{ $active ? 'text-primary-700 dark:text-primary-300' : 'text-gray-600 dark:text-gray-300' }} sm:text-xs">{{ $step['label'] }}</div>
                         </div>
                     </div>

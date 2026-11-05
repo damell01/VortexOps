@@ -51,12 +51,12 @@
                                 <x-heroicon-o-trash class="h-3.5 w-3.5" /> Delete
                             </button>
                         @else
-                            <span class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-400 dark:border-gray-700">Has related data</span>
+                            <span class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 dark:border-gray-700">Has related data</span>
                         @endif
                     </div>
                 </div>
             @empty
-                <div class="p-10 text-center text-sm text-gray-500">No confirmed no-shows found. Any that come up during a future analytics sync will land here.</div>
+                <div class="p-6 text-center text-sm text-gray-500">No confirmed no-shows found. Any that come up during a future analytics sync will land here.</div>
             @endforelse
         </div>
     </section>
@@ -120,12 +120,12 @@
                                 <x-heroicon-o-trash class="h-3.5 w-3.5" /> Confirm & Delete
                             </button>
                         @else
-                            <span class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-400 dark:border-gray-700">Has related data</span>
+                            <span class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 dark:border-gray-700">Has related data</span>
                         @endif
                     </div>
                 </div>
             @empty
-                <div class="p-10 text-center text-sm text-gray-500">Nothing flagged right now.</div>
+                <div class="p-6 text-center text-sm text-gray-500">Nothing flagged right now.</div>
             @endforelse
         </div>
     </section>

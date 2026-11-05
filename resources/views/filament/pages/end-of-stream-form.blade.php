@@ -2,7 +2,7 @@
     <div class="space-y-4 sm:space-y-5" data-vx-workflow="show-report">
         {{-- Step 1: Show Selection --}}
         @if (!$this->show)
-            <div class="rounded-xl border-2 border-dashed border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 p-8">
+            <div class="rounded-xl border-2 border-dashed border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 p-5">
                 <div class="text-center space-y-4">
                     <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-800">
                         <x-heroicon-o-tv class="h-8 w-8 text-primary-600 dark:text-primary-400" />
@@ -29,7 +29,7 @@
                                 </div>
                             </button>
                         @empty
-                            <div class="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400">
+                            <div class="col-span-2 text-center py-5 text-gray-500 dark:text-gray-400">
                                 <p class="text-sm">No recent shows found. Your upcoming shows will appear here.</p>
                             </div>
                         @endforelse
@@ -139,7 +139,7 @@
                         </button>
                     </div>
                 @else
-                    <div class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-8 text-center">
+                    <div class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-5 text-center">
                         <x-heroicon-o-inbox class="h-10 w-10 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">No items selected yet</p>
                         <button type="button"
@@ -161,7 +161,7 @@
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Add Items to Show</h3>
                             <button type="button"
                                     wire:click="$set('showInventoryPicker', false)"
-                                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                                    class="text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                                 <x-heroicon-o-x-mark class="h-6 w-6" />
                             </button>
                         </div>
@@ -223,7 +223,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            <td colspan="4" class="px-4 py-5 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 No items found
                                             </td>
                                         </tr>

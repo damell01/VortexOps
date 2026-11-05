@@ -28,7 +28,7 @@
     </div>
 
     @if ($contents->isEmpty())
-        <div class="rounded-xl border border-dashed border-gray-300 px-5 py-8 text-center dark:border-gray-700">
+        <div class="rounded-xl border border-dashed border-gray-300 px-5 py-5 text-center dark:border-gray-700">
             <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800">
                 <x-heroicon-o-archive-box class="h-5 w-5" />
             </div>

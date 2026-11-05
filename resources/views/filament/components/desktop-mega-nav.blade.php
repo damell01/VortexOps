@@ -81,6 +81,7 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Users',\App\Filament\Resources\UserResource::getUrl('index')],
  ['Roles & Permissions',\App\Filament\Resources\RoleResource::getUrl('index')],
  ...($user?->isOwner() ? [
+   ['Owner Tools',\App\Filament\Pages\OwnerTools::getUrl(panel:'admin')],
    ['Messages & Announcements',\App\Filament\Pages\Communications::getUrl(panel:'admin')],
    ['Import Status',\App\Filament\Pages\ImportStatus::getUrl(panel:'admin')],
    ['Show Data Audit',\App\Filament\Pages\ShowDataAudit::getUrl(panel:'admin')],
@@ -94,6 +95,29 @@ if($user?->isAdmin() || $user?->isOwner()) $groups['Admin']=[
  ['Email Log',\App\Filament\Pages\EmailLog::getUrl(panel:'admin')],
  ['Settings',\App\Filament\Pages\AppSettings::getUrl(panel:'admin')],
 ];
+
+// Dedicated fulfillment navigation for fulfillment-only roles.
+// The route registry below still enforces canAccess and NavVisibility.
+$fulfillmentOnly=(bool) (!$assistantOnly && !$streamerOnly && !$user?->isOwner() && !$user?->hasAnyRole(['admin', 'super_admin'])
+    && ($user?->isFulfillment() || $user?->isFulfillmentAdmin()));
+if ($fulfillmentOnly) {
+    $homeLabel = $user?->isFulfillmentAdmin() ? 'Command Center' : 'My Workspace';
+    $groups = isset($groups['Inventory']) ? ['Inventory' => $groups['Inventory']] : [];
+    if (\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) {
+        $groups['Fulfillment'] = [
+            ...(\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? [['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review'), 'Management', 'heroicon-o-user-group']] : []),
+            ['Packing Queue', \App\Filament\Resources\FulfillmentResource::getUrl('index'), 'Daily work', 'heroicon-o-archive-box'],
+            ...(\App\Filament\Pages\FulfillmentReports::canAccess() ? [['My Reports', \App\Filament\Pages\FulfillmentReports::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-chart-bar']] : []),
+            ...(\App\Filament\Pages\FulfillmentSchedule::canAccess() ? [['Team Schedule', \App\Filament\Pages\FulfillmentSchedule::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-calendar-days']] : []),
+            ...(\App\Filament\Pages\FulfillmentOperations::canAccess() ? [['Live Operations', \App\Filament\Pages\FulfillmentOperations::getUrl(panel:'admin'), 'Management', 'heroicon-o-chart-bar-square']] : []),
+            ...(\App\Filament\Pages\ShipmentOverview::canAccess() ? [['Shipment Tracking', \App\Filament\Pages\ShipmentOverview::getUrl(panel:'admin'), 'Management', 'heroicon-o-truck']] : []),
+        ];
+    }
+    if (\App\Filament\Pages\Timekeeping::canAccess()) {
+        $groups['Timekeeping'] = [['My Timekeeping', \App\Filament\Pages\Timekeeping::getUrl(panel:'admin')]];
+    }
+    $directGroups = ['Timekeeping'];
+}
 
 // The route registry is the source of truth for each link's access.
 foreach ($groups as $label => $links) {
@@ -130,8 +154,10 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @endphp
 
 <nav class="vx-desktop-mega-nav" aria-label="Primary navigation">
-@if($navLogo)<a class="vx-mega-brand" href="{{ $homeUrl }}" wire:navigate aria-label="Vortex Ops dashboard"><img src="{{ $navLogo }}" alt="Vortex Ops"></a>@endif
-<a class="vx-mega-home" href="{{ $homeUrl }}" wire:navigate><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
+@php $builtInLogo = $navLogo === asset('images/vb-logo-sidebar.svg') && file_exists(public_path('images/vx-nav-logo-light.svg')); @endphp
+@if($navLogo)<a @class(['vx-mega-brand', 'is-wordmark' => $builtInLogo, 'is-custom' => ! $builtInLogo]) href="{{ $homeUrl }}" wire:navigate aria-label="Vortex Ops dashboard">@if($builtInLogo)<img class="vx-logo-on-light" src="{{ asset('images/vx-nav-logo-light.svg') }}" alt="Vortex Ops"><img class="vx-logo-on-dark" src="{{ asset('images/vx-nav-logo-dark.svg') }}" alt="" aria-hidden="true">@else<img src="{{ $navLogo }}" alt="Vortex Ops">@endif</a>@endif
+@php $onHome = '/'.trim(request()->path(), '/') === '/'.trim((string) parse_url((string) $homeUrl, PHP_URL_PATH), '/'); @endphp
+<a @class(['vx-mega-home', 'is-here' => $onHome]) href="{{ $homeUrl }}" wire:navigate @if($onHome) aria-current="page" @endif><x-filament::icon icon="heroicon-o-home"/><span>{{ $homeLabel }}</span></a>
 @foreach($groups as $label=>$links)
 @if(in_array($label, $directGroups ?? [], true) && count($links) === 1)
 @php $here = request()->routeIs('filament.admin.pages.timekeeping', 'filament.admin.pages.time-attendance'); @endphp
@@ -139,14 +165,21 @@ if (isset($groups['Admin'])) $groups['Admin'] = array_values(array_filter($group
 @continue
 @endif
 <div class="vx-mega-group" x-data="{open:false}" @mouseenter="open=true" @mouseleave="open=false" @focusin="open=true" @focusout="if (!$el.contains($event.relatedTarget)) open=false" @click.outside="open=false" @keydown.escape.window="open=false">
-<button type="button" class="vx-mega-trigger" :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
+@php
+    // The section you are in stays highlighted: any page at or under one of its links.
+    $currentPath = '/'.trim(request()->path(), '/');
+    $linkPath = fn ($url) => '/'.trim((string) parse_url((string) $url, PHP_URL_PATH), '/');
+    $isCurrent = fn ($url) => ($p = $linkPath($url)) !== '/admin' && $p !== '/' && ($currentPath === $p || str_starts_with($currentPath, $p.'/'));
+    $groupHere = collect($links)->contains(fn ($l) => $l[1] !== '#' && $isCurrent($l[1]));
+@endphp
+<button type="button" @class(['vx-mega-trigger', 'is-here' => $groupHere]) :aria-expanded="open" @click="open=!open"><span>{{ $label }}</span><x-filament::icon icon="heroicon-m-chevron-down"/></button>
 <div class="vx-mega-menu" x-cloak x-show="open" x-transition>
 @php $sectioned = collect($links)->contains(fn ($l) => isset($l[2])); $lastSection = null; @endphp
 @unless($sectioned)<div class="vx-mega-menu-title">{{ $label }}</div>@endunless
 @foreach($links as $link)
 @php [$text,$url] = $link; $section = $link[2] ?? null; $icon = \App\Support\NavIcons::for($link); @endphp
 @if($sectioned && $section !== $lastSection)<div @class(['vx-mega-menu-title', 'vx-mega-section' => $lastSection !== null])>{{ $section }}</div>@php $lastSection = $section; @endphp@endif
-<a href="{{ $url }}" wire:navigate @click="open=false" @class(['has-icon' => $icon])>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
+<a href="{{ $url }}" wire:navigate @click="open=false" @class(['has-icon' => $icon, 'is-current' => $url !== '#' && $isCurrent($url)]) @if($url !== '#' && $isCurrent($url)) aria-current="page" @endif>@if($icon)<x-filament::icon :icon="$icon" class="vx-mega-link-icon"/>@endif<span>{{ $text }}</span>@unless($icon)<x-filament::icon icon="heroicon-m-chevron-right"/>@endunless</a>
 @endforeach
 @if($label==='Admin' && $ownerLinks)
 <details class="vx-owner-tools"><summary>Owner tools <span aria-hidden="true">⌄</span></summary><div>@foreach($ownerLinks as $link)<a href="{{ $link[1] }}" wire:navigate @click="open=false" class="has-icon">@if($ownerIcon = \App\Support\NavIcons::for($link))<x-filament::icon :icon="$ownerIcon" class="vx-mega-link-icon"/>@endif<span>{{ $link[0] }}</span></a>@endforeach</div></details>

@@ -98,7 +98,7 @@
 
                 <div class="grid grid-cols-3 gap-2 lg:w-[390px]">
                     <div class="rounded-xl bg-gray-50 px-3 py-2.5 text-center dark:bg-gray-800">
-                        <div class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Expected</div>
+                        <div class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Expected</div>
                         <div class="mt-0.5 text-xl font-bold text-gray-950 dark:text-white">{{ number_format($summaryExpected) }}</div>
                     </div>
                     <div class="rounded-xl bg-green-50 px-3 py-2.5 text-center dark:bg-green-950/30">
@@ -251,7 +251,7 @@
                             <x-heroicon-o-camera class="h-4 w-4" /> Add photo
                         </button>
                     </div>
-                    <label class="mt-3 block text-[10px] font-bold uppercase tracking-wide text-gray-400">Received by</label>
+                    <label class="mt-3 block text-[10px] font-bold uppercase tracking-wide text-gray-500">Received by</label>
                     <input wire:model.live.debounce.500ms="receivedByName" type="text" placeholder="Receiver name" class="mt-1 min-h-10 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                 </section>
             </aside>
@@ -297,7 +297,7 @@
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-start justify-between gap-3">
                                             <div class="min-w-0">
-                                                <div class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Line {{ $line['line_number'] }}</div>
+                                                <div class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Line {{ $line['line_number'] }}</div>
                                                 <h3 class="mt-0.5 text-sm font-bold leading-snug text-gray-950 dark:text-white sm:text-base">{{ $line['description'] }}</h3>
                                                 <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                                                     @if($line['item_name'])
@@ -310,7 +310,7 @@
                                             </div>
                                             <div class="shrink-0 text-right">
                                                 <div class="text-lg font-bold text-gray-950 dark:text-white">{{ $line['received'] }} / {{ $line['case_count'] }}</div>
-                                                <div class="text-[10px] font-medium text-gray-400">{{ $remaining }} remaining</div>
+                                                <div class="text-[10px] font-medium text-gray-500">{{ $remaining }} remaining</div>
                                             </div>
                                         </div>
 
@@ -348,7 +348,7 @@
                                 </div>
                             </article>
                         @empty
-                            <div class="px-5 py-12 text-center">
+                            <div class="px-5 py-8 text-center">
                                 <x-heroicon-o-inbox class="mx-auto h-9 w-9 text-gray-300" />
                                 <div class="mt-2 text-sm font-semibold text-gray-700 dark:text-gray-200">No manifest items yet</div>
                                 <p class="mt-1 text-xs text-gray-500">Add the expected items before receiving.</p>

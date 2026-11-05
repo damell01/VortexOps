@@ -1,10 +1,10 @@
 <x-filament-panels::page>
-    <div class="space-y-6" data-vx-touch-page>
+    <div class="space-y-4" data-vx-touch-page>
         <!-- Location Selection -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <!-- From Location -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">From Location</h3>
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">From Location</h3>
                 <select wire:model.live="fromLocationId"
                     class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
                     <option value="">Select source location...</option>
@@ -21,8 +21,8 @@
             </div>
 
             <!-- To Location -->
-            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">To Location</h3>
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">To Location</h3>
                 <select wire:model.live="toLocationId"
                     class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4">
                     <option value="">Select destination location...</option>
@@ -44,7 +44,7 @@
         @if($errors->any())<div role="alert" class="rounded-lg bg-red-50 p-3 text-red-700">{{ $errors->first() }}</div>@endif
 
         <!-- Transfer Reason -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Transfer Reason (Optional)</label>
             <textarea wire:model="transferReason" placeholder="e.g., Seasonal reorganization, Floor move, Quality check..."
                 class="w-full min-h-11 text-base px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -53,8 +53,8 @@
 
         <!-- Source Stock Selection -->
         @if($fromLocationId)
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Select Items</h3>
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Select Items</h3>
 
             <!-- Search -->
             <input wire:model.live.debounce.300ms="searchQuery" type="text" placeholder="Search items by name, SKU, or barcode..."
@@ -62,7 +62,7 @@
 
             <!-- Items List -->
             @if(count($this->sourceStock) === 0)
-            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div class="text-center py-5 text-gray-500 dark:text-gray-400">
                 <x-heroicon-o-inbox class="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p>No items available at this location.</p>
             </div>
@@ -147,7 +147,7 @@
         </div>
         @endif
         @else
-        <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
             <x-heroicon-o-arrow-path class="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p class="text-gray-600 dark:text-gray-400">Select a source location to begin stock transfer</p>
         </div>

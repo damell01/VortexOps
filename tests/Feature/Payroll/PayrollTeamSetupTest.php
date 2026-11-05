@@ -57,10 +57,13 @@ class PayrollTeamSetupTest extends TestCase
 
     private function streamer(array $attributes = []): Streamer
     {
-        return Streamer::create(array_merge([
+        $values = array_merge([
             'name' => 'Jordan', 'status' => 'active', 'member_type' => 'streamer', 'streamer_type' => 'in_house',
             'payout_type' => 'profit_share', 'payout_percentage' => 10, 'include_tips' => false,
-        ], $attributes));
+        ], $attributes);
+        return isset($values['user_id'])
+            ? Streamer::updateOrCreate(['user_id' => $values['user_id']], $values)
+            : Streamer::create($values);
     }
 
     public function test_in_house_streamers_get_hourly_on_top_of_their_share_and_remote_do_not(): void

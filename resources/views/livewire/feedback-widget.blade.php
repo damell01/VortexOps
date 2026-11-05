@@ -45,7 +45,7 @@
                     </svg>
                     <h2 class="text-base font-semibold text-gray-900 dark:text-white">Leave Feedback</h2>
                 </div>
-                <button @click="open = false" class="rounded-lg p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <button aria-label="Close" @click="open = false" class="rounded-lg p-1 text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -54,7 +54,7 @@
 
             @if ($submitted)
                 {{-- Success state --}}
-                <div class="flex flex-col items-center justify-center py-16 px-6 text-center">
+                <div class="flex flex-col items-center justify-center py-10 px-6 text-center">
                     <div class="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -92,7 +92,7 @@
                         {{-- Description --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                More details <span class="text-gray-400 font-normal">(optional)</span>
+                                More details <span class="text-gray-500 font-normal">(optional)</span>
                             </label>
                             <textarea
                                 wire:model.blur="description"
@@ -119,13 +119,13 @@
                         {{-- Screenshot upload --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                                Screenshot <span class="text-gray-400 font-normal">(optional)</span>
+                                Screenshot <span class="text-gray-500 font-normal">(optional)</span>
                             </label>
                             <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-xs text-gray-500 dark:text-gray-400 mb-2 space-y-1">
                                 <p class="font-medium text-gray-600 dark:text-gray-300">How to take a screenshot:</p>
                                 <p><span class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">Win + Shift + S</span> — Windows (Snipping Tool, saves to clipboard)</p>
                                 <p><span class="font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded">Cmd + Shift + 4</span> — Mac (saves to Desktop)</p>
-                                <p class="text-gray-400 dark:text-gray-500">Then upload the file below.</p>
+                                <p class="text-gray-500 dark:text-gray-500">Then upload the file below.</p>
                             </div>
                             <input
                                 wire:model="screenshot"

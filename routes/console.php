@@ -180,3 +180,15 @@ Schedule::command('whatnot:api-sync-tick')
         || ! config('services.whatnot_seller.live_requests_enabled', false)
         || ! config('services.whatnot_seller.contract_verified', false)
         || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+// Shipment refresh is read-only to Whatnot, but updates local shipment records.
+// Inert until the existing verified Seller API production gates are enabled.
+Schedule::command('fulfillment:refresh-shipments --days=14 --limit=8')
+    ->everyFifteenMinutes()
+    ->name('fulfillment-shipment-refresh')
+    ->withoutOverlapping(20)
+    ->skip(fn () => ! app()->environment('production')
+        || ! config('services.whatnot_seller.live_requests_enabled', false)
+        || ! config('services.whatnot_seller.contract_verified', false)
+        || ! config('services.whatnot_seller.sync_scheduler_enabled', false)
+        || ! \App\Services\WhatnotApiOrderApplier::writesAllowed());

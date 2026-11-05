@@ -116,14 +116,14 @@
                                             {{ $drStatus === 'pending' ? 'text-amber-600 dark:text-amber-400' : '' }}
                                             {{ $drStatus === 'processed' ? 'text-emerald-600 dark:text-emerald-400' : '' }}
                                             {{ $drStatus === 'rejected' ? 'text-red-500' : '' }}
-                                            {{ in_array($drStatus, ['draft']) ? 'text-gray-400' : '' }}">
+                                            {{ in_array($drStatus, ['draft']) ? 'text-gray-500' : '' }}">
                                             {{ \App\Models\DeductionRequest::statusLabels()[$drStatus] ?? $drStatus }}
                                         </span>
                                     @endif
                                 </div>
                             </div>
                         @empty
-                            <div class="flex items-center justify-center h-16 text-xs text-gray-400 dark:text-gray-600">
+                            <div class="flex items-center justify-center h-16 text-xs text-gray-500 dark:text-gray-600">
                                 No shows here
                             </div>
                         @endforelse

@@ -47,7 +47,7 @@
             @else
                 @foreach ($groups as $groupName => $metrics)
                     <div class="px-4 py-4 sm:px-5 sm:py-5 @if(! $loop->first) border-t border-gray-100 dark:border-gray-800 @endif">
-                        <h3 class="text-[10px] font-bold uppercase tracking-[.12em] text-gray-400 sm:text-xs">{{ $groupName }}</h3>
+                        <h3 class="text-[10px] font-bold uppercase tracking-[.12em] text-gray-500 sm:text-xs">{{ $groupName }}</h3>
 
                         <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3 lg:grid-cols-4">
                             @foreach ($metrics as $metric)
@@ -69,7 +69,7 @@
                                     </dd>
 
                                     @if ($metric['hint'])
-                                        <p class="mt-0.5 text-[10px] leading-4 text-gray-400 dark:text-gray-500">{{ $metric['hint'] }}</p>
+                                        <p class="mt-0.5 text-[10px] leading-4 text-gray-500 dark:text-gray-500">{{ $metric['hint'] }}</p>
                                     @endif
                                 </div>
                             @endforeach
@@ -77,7 +77,7 @@
                     </div>
                 @endforeach
 
-                <p class="border-t border-gray-100 px-4 py-3 text-[10px] leading-4 text-gray-400 dark:border-gray-800 dark:text-gray-500 sm:px-5">
+                <p class="border-t border-gray-100 px-4 py-3 text-[10px] leading-4 text-gray-500 dark:border-gray-800 dark:text-gray-500 sm:px-5">
                     A dash means Whatnot reported no figure, which is not the same as a figure of zero.
                 </p>
             @endif

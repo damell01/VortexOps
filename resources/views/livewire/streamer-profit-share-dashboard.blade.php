@@ -3,7 +3,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <div class="flex items-start justify-between mb-4">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Profit Share Packets</h1>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Profit Share Packets</h1>
                 <p class="text-gray-600 dark:text-gray-400">{{ $streamer->name }}'s monthly profit share review</p>
             </div>
             <button wire:click="$set('showHistory', !$showHistory)"

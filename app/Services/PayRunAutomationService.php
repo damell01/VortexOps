@@ -288,15 +288,30 @@ class PayRunAutomationService
             ->get();
 
         foreach ($members as $member) {
+            // Archived team members must not generate new hourly payroll lines.
+            if ($member->status === 'inactive') {
+                continue;
+            }
             $rate = $member->user?->isStreamerAssistant()
                 ? ((float) $member->compensationValue('hourly_rate') > 0 ? (float) $member->compensationValue('hourly_rate') : null)
                 : $member->paidHourlyRate();
             if ($rate === null) {
                 continue;
             }
-            $entries = TimeEntry::where('user_id', $member->user_id)->whereNull('show_id')->whereNotNull('clocked_out_at')
+            $entries = TimeEntry::where('user_id', $member->user_id)
+                ->when(! $member->isFulfillment(), fn ($query) => $query->whereNull('show_id'))
+                ->whereNotNull('clocked_out_at')
                 ->whereBetween('clocked_in_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-                ->get()->filter(fn (TimeEntry $e) => $e->payableMinutes() > 0);
+                ->get()->filter(function (TimeEntry $entry) use ($member, $batch): bool {
+                    if ($entry->payableMinutes() <= 0) return false;
+                    // A show-linked entry must never create a second hourly payout
+                    // if this member already has a show payout in the same run.
+                    return ! ($entry->show_id && Payout::query()
+                        ->where('weekly_payout_batch_id', $batch->id)
+                        ->where('streamer_id', $member->id)
+                        ->where('show_id', $entry->show_id)
+                        ->where('payout_type', '!=', 'clocked_time')->exists());
+                });
             $minutes = (int) $entries->sum(fn (TimeEntry $e) => $e->payableMinutes());
             if ($minutes <= 0) {
                 continue;
@@ -325,7 +340,7 @@ class PayRunAutomationService
                 'owner_fee_deducted' => 0,
                 'tips_included' => 0,
                 'calculated_payout' => round($rate * $minutes / 60, 2),
-                'calculation_notes' => "Time not on a show: \${$rate}/hr × {$hours}hrs ({$breakdown})",
+                'calculation_notes' => "Approved clocked time: \${$rate}/hr × {$hours}hrs ({$breakdown})",
                 'status' => 'draft',
             ])->save();
             $keep[] = $payout->id;

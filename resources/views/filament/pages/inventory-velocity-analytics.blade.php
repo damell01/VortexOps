@@ -11,23 +11,23 @@
         <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 p-6">
                 <p class="text-sm font-medium text-blue-600 dark:text-blue-400">Total Items</p>
-                <p class="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $summary['total_items'] }}</p>
+                <p class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-2">{{ $summary['total_items'] }}</p>
             </div>
 
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 p-6">
                 <p class="text-sm font-medium text-green-600 dark:text-green-400">Fast Movers</p>
-                <p class="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $summary['fast_movers'] }}</p>
+                <p class="text-2xl font-bold text-green-900 dark:text-green-100 mt-2">{{ $summary['fast_movers'] }}</p>
                 <p class="text-xs text-green-700 dark:text-green-300 mt-1">${{ number_format($summary['fast_movers_value'], 0) }}</p>
             </div>
 
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 p-6">
                 <p class="text-sm font-medium text-yellow-600 dark:text-yellow-400">Slow Movers</p>
-                <p class="text-3xl font-bold text-yellow-900 dark:text-yellow-100 mt-2">{{ $summary['slow_movers'] }}</p>
+                <p class="text-2xl font-bold text-yellow-900 dark:text-yellow-100 mt-2">{{ $summary['slow_movers'] }}</p>
             </div>
 
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900 p-6">
                 <p class="text-sm font-medium text-orange-600 dark:text-orange-400">Dead Stock</p>
-                <p class="text-3xl font-bold text-orange-900 dark:text-orange-100 mt-2">{{ $summary['dead_stock'] }}</p>
+                <p class="text-2xl font-bold text-orange-900 dark:text-orange-100 mt-2">{{ $summary['dead_stock'] }}</p>
                 <p class="text-xs text-orange-700 dark:text-orange-300 mt-1">${{ number_format($summary['dead_stock_value'], 0) }} ({{ $summary['dead_stock_pct'] }}%)</p>
             </div>
 

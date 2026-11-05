@@ -137,7 +137,7 @@
                 @endif
             </button>
         @empty
-            <div class="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+            <div class="col-span-full text-center py-5 text-gray-500 dark:text-gray-400">
                 <p>No items found</p>
                 @if ($search)
                     <p class="text-xs">Try a different search term</p>

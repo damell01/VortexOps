@@ -5,27 +5,27 @@
 {{-- ── Summary KPIs ──────────────────────────────────────────────────────────── --}}
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $s['sessions'] }}</p>
-        <p class="text-xs text-gray-400 mt-1">Sessions Completed</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $s['sessions'] }}</p>
+        <p class="text-xs text-gray-500 mt-1">Sessions Completed</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ $s['total_lines'] }}</p>
-        <p class="text-xs text-gray-400 mt-1">Lines Processed</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $s['total_lines'] }}</p>
+        <p class="text-xs text-gray-500 mt-1">Lines Processed</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold {{ (float)$s['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ((float)$s['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+        <p class="text-2xl font-bold {{ (float)$s['auto_match_rate'] >= 90 ? 'text-green-600 dark:text-green-400' : ((float)$s['auto_match_rate'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
             {{ $s['auto_match_rate'] > 0 ? $s['auto_match_rate'] . '%' : '—' }}
         </p>
-        <p class="text-xs text-gray-400 mt-1">Auto-Match Rate</p>
+        <p class="text-xs text-gray-500 mt-1">Auto-Match Rate</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center">
-        <p class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($s['total_aliases']) }}</p>
-        <p class="text-xs text-gray-400 mt-1">Aliases Learned</p>
+        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($s['total_aliases']) }}</p>
+        <p class="text-xs text-gray-500 mt-1">Aliases Learned</p>
         <p class="text-xs text-gray-500 mt-0.5">{{ $s['confirmed'] }} confirmed</p>
     </div>
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 text-center col-span-2 sm:col-span-2">
-        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">${{ $s['receiving_cost'] }}</p>
-        <p class="text-xs text-gray-400 mt-1">Total Receiving Cost</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ $s['receiving_cost'] }}</p>
+        <p class="text-xs text-gray-500 mt-1">Total Receiving Cost</p>
         <p class="text-xs text-gray-500 mt-0.5">all received lots</p>
     </div>
 </div>
@@ -40,11 +40,11 @@
     <table class="w-full text-sm">
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr>
-                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Month</th>
-                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Sessions</th>
-                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Lines</th>
-                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Auto-Match %</th>
-                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Quality</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Month</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Sessions</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Lines</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Auto-Match %</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Quality</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -76,14 +76,14 @@
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Match Stage Breakdown</h3>
-            <p class="text-xs text-gray-400 mt-0.5">How lines are being matched</p>
+            <p class="text-xs text-gray-500 mt-0.5">How lines are being matched</p>
         </div>
         @php
             $stages = $this->matchStageBreakdown;
             $totalMatched = array_sum(array_column($stages, 'count'));
         @endphp
         @if(count($stages) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No match data yet.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-500">No match data yet.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($stages as $stage)
@@ -104,7 +104,7 @@
             </div>
             @endforeach
         </div>
-        <div class="px-5 py-3 bg-gray-50 dark:bg-gray-800 text-xs text-gray-400 space-y-0.5">
+        <div class="px-5 py-3 bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 space-y-0.5">
             <p>🟢 Alias = instant match (0ms)</p>
             <p>🟡 Fuzzy = token scoring</p>
             <p>🔵 Embedding = Ollama AI</p>
@@ -118,7 +118,7 @@
         <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
             <div>
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Top Vendors</h3>
-                <p class="text-xs text-gray-400 mt-0.5">By number of receiving sessions</p>
+                <p class="text-xs text-gray-500 mt-0.5">By number of receiving sessions</p>
             </div>
             <a
                 wire:click.prevent="exportCsv"
@@ -130,14 +130,14 @@
             </a>
         </div>
         @if(count($this->topVendors) === 0)
-            <p class="px-5 py-8 text-center text-xs text-gray-400">No vendor data yet.</p>
+            <p class="px-5 py-5 text-center text-xs text-gray-500">No vendor data yet.</p>
         @else
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->topVendors as $v)
             <div class="flex items-center justify-between px-5 py-2.5 text-sm">
                 <div>
                     <p class="font-medium text-gray-900 dark:text-gray-100">{{ $v['vendor'] }}</p>
-                    <p class="text-xs text-gray-400">{{ $v['sessions'] }} sessions · {{ number_format($v['lines']) }} lines</p>
+                    <p class="text-xs text-gray-500">{{ $v['sessions'] }} sessions · {{ number_format($v['lines']) }} lines</p>
                 </div>
                 <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ml-3
                     {{ $v['auto_pct'] >= 90 ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
@@ -157,15 +157,15 @@
 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
     <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Aliases Learned by Month</h3>
-        <p class="text-xs text-gray-400 mt-0.5">Growing knowledge base — more aliases = faster matching</p>
+        <p class="text-xs text-gray-500 mt-0.5">Growing knowledge base — more aliases = faster matching</p>
     </div>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr>
-                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Month</th>
-                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Aliases Added</th>
-                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Growth</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Month</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Aliases Added</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">Growth</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">

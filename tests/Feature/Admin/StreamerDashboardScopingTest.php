@@ -37,8 +37,8 @@ class StreamerDashboardScopingTest extends TestCase
         $theirs = Streamer::create(['name' => 'Theirs', 'status' => 'active']);
 
         $user = User::factory()->create(['email' => 'streamer@test.com']);
-        $user->assignRole('streamer');
         $mine->update(['user_id' => $user->id]); // link via streamers.user_id (hasOne)
+        $user->assignRole('streamer');
 
         $showMine   = Show::create(['title' => 'Mine Show', 'show_date' => '2026-06-01', 'status' => 'draft', 'created_by' => $user->id]);
         $showTheirs = Show::create(['title' => 'Theirs Show', 'show_date' => '2026-06-02', 'status' => 'draft', 'created_by' => $user->id]);

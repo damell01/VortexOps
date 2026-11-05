@@ -68,7 +68,7 @@
                         ['Unmatched', $unmatched],
                     ] as [$label, $value])
                         <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
-                            <div class="text-[10px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
+                            <div class="text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
                             <div class="mt-0.5 text-lg font-semibold leading-none text-gray-950 dark:text-white sm:mt-1 sm:text-xl">{{ number_format($value) }}</div>
                         </div>
                     @endforeach
@@ -124,7 +124,7 @@
                                 </div>
                                 <div class="shrink-0 text-right">
                                     <div class="text-sm font-semibold text-gray-950 dark:text-white">${{ number_format($line->total_cost, 2) }}</div>
-                                    <div class="mt-0.5 text-[10px] text-gray-400">line cost</div>
+                                    <div class="mt-0.5 text-[10px] text-gray-500">line cost</div>
                                 </div>
                             </div>
 
@@ -137,7 +137,7 @@
                             @livewire('admin-match-show-item', ['line' => $line], key('admin-match-show-item-'.$line->id))
                         </article>
                     @empty
-                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center dark:border-gray-700">
+                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-5 text-center dark:border-gray-700">
                             <div class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $items->isEmpty() ? 'No inventory lines yet' : 'Every line is matched to inventory' }}</div>
                             <p class="mt-1 text-xs text-gray-500">The streamer has not added items to this report.</p>
                         </div>

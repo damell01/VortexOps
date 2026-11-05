@@ -82,9 +82,9 @@
                         {{ $ollama['ok'] ? (count($ollama['models']) . ' model(s) loaded') : $ollama['label'] }}
                     </p>
                     @if ($ollama['ok'] && count($ollama['models']) > 0)
-                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ implode(', ', $ollama['models']) }}</p>
+                        <p class="text-xs text-gray-500 truncate mt-0.5">{{ implode(', ', $ollama['models']) }}</p>
                     @elseif (! $ollama['ok'])
-                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ $ollama['url'] }}</p>
+                        <p class="text-xs text-gray-500 truncate mt-0.5">{{ $ollama['url'] }}</p>
                     @endif
                 </div>
                 <div class="ml-auto flex-shrink-0">
@@ -111,7 +111,7 @@
                     <p class="text-sm font-semibold {{ $schedulerOk ? 'text-green-900 dark:text-green-100' : ($schedulerUnknown ? 'text-gray-700 dark:text-gray-300' : 'text-amber-900 dark:text-amber-100') }}">Scheduler</p>
                     <p class="text-xs {{ $schedulerOk ? 'text-green-600 dark:text-green-400' : ($schedulerUnknown ? 'text-gray-500' : 'text-amber-600 dark:text-amber-400') }}">{{ $scheduler['label'] }}</p>
                     @if ($schedulerUnknown)
-                        <p class="text-xs text-gray-400 mt-0.5">Run: <code class="font-mono">php artisan schedule:run</code></p>
+                        <p class="text-xs text-gray-500 mt-0.5">Run: <code class="font-mono">php artisan schedule:run</code></p>
                     @endif
                 </div>
             </div>
@@ -129,9 +129,9 @@
                     <p class="text-xs {{ $queueOk ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400' }}">
                         {{ $queue['default_pending'] }} pending · {{ $queue['active'] }} active
                     </p>
-                    <p class="text-xs {{ $worker['ok'] === false ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-400' }} mt-0.5">{{ $worker['label'] }}</p>
+                    <p class="text-xs {{ $worker['ok'] === false ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-500' }} mt-0.5">{{ $worker['label'] }}</p>
                     @if ($worker['ok'] === false)
-                        <p class="text-xs text-gray-400 mt-0.5">Start: <code class="font-mono">php artisan queue:work</code></p>
+                        <p class="text-xs text-gray-500 mt-0.5">Start: <code class="font-mono">php artisan queue:work</code></p>
                     @endif
                     @if ($queue['failed'] > 0)
                         <p class="text-xs text-red-500 font-semibold mt-0.5">{{ $queue['failed'] }} failed job(s)</p>
@@ -170,7 +170,7 @@
                             style="width: {{ min(100, $storage['pct']) }}%"
                         ></div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-0.5">{{ $storage['pct'] }}% used · {{ $storage['free'] }} free</p>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ $storage['pct'] }}% used · {{ $storage['free'] }} free</p>
                 </div>
             </div>
         </div>
@@ -270,7 +270,7 @@
                         <div class="flex items-center gap-2 text-sm">
                             <span class="font-medium text-gray-900 dark:text-gray-100">{{ $job['job'] }}</span>
                             <span class="rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-xs text-gray-500">{{ $job['queue'] }}</span>
-                            <span class="ml-auto text-xs text-gray-400">{{ \Carbon\Carbon::parse($job['failed_at'])->diffForHumans() }}</span>
+                            <span class="ml-auto text-xs text-gray-500">{{ \Carbon\Carbon::parse($job['failed_at'])->diffForHumans() }}</span>
                         </div>
                         <p class="text-xs text-red-500 font-mono truncate">{{ $job['exception'] }}</p>
                     </div>
@@ -288,23 +288,23 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-center">
             <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $queue['default_pending'] }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">Default Queue</p>
+            <p class="text-xs text-gray-500 mt-0.5">Default Queue</p>
         </div>
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-center">
             <p class="text-2xl font-bold text-violet-600 dark:text-violet-400">{{ $queue['ai_pending'] }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">AI Queue</p>
+            <p class="text-xs text-gray-500 mt-0.5">AI Queue</p>
         </div>
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-center">
             <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $queue['active'] }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">Active (last 10 min)</p>
+            <p class="text-xs text-gray-500 mt-0.5">Active (last 10 min)</p>
         </div>
         <div class="rounded-xl border {{ $queue['failed'] > 0 ? 'border-red-200 dark:border-red-800' : 'border-gray-200 dark:border-gray-700' }} bg-white dark:bg-gray-900 px-4 py-3 text-center">
             <p class="text-2xl font-bold {{ $queue['failed'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100' }}">{{ $queue['failed'] }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">Failed Jobs</p>
+            <p class="text-xs text-gray-500 mt-0.5">Failed Jobs</p>
         </div>
     </div>
 
-    <p class="text-xs text-gray-400 text-right">Auto-refreshes every 60 s</p>
+    <p class="text-xs text-gray-500 text-right">Auto-refreshes every 60 s</p>
 
     {{-- ── Danger Zone — Clear Demo Data ──────────────────────────────────── --}}
     @if (auth()->user()?->isAdmin() || auth()->user()?->isOwner())

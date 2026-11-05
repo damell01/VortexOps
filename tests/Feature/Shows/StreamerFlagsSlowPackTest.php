@@ -36,7 +36,7 @@ class StreamerFlagsSlowPackTest extends TestCase
 
         $channel = WhatnotChannel::create(['name' => 'Test Channel', 'status' => 'active']);
 
-        $streamer = Streamer::create([
+        $streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], [
             'user_id'      => $this->user->id,
             'name'         => 'Test Streamer',
             'email'        => 'slow-pack@example.test',

@@ -136,7 +136,7 @@
                             <td class="px-4 py-2.5">{{ ['ok' => 'OK', 'flagged' => 'Needs review', 'approved' => 'Approved', 'rejected' => 'Not paid'][$e->status] ?? $e->status }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">No entries.</td></tr>
+                        <tr><td colspan="6" class="px-4 py-5 text-center text-gray-500">No entries.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -227,7 +227,7 @@
                             @foreach (['clocked_in_at' => 'In', 'clocked_out_at' => 'Out', 'minutes' => 'Time', 'approved_minutes' => 'Approved', 'hours_worked' => 'Hours worked'] as $k => $lab)
                                 @if (array_key_exists($k, $h->new_values) && ($h->old_values[$k] ?? null) !== $h->new_values[$k])
                                     @php $show = fn ($v) => $v === null ? '—' : (in_array($k, ['minutes', 'approved_minutes']) ? $fmt($v) : (in_array($k, ['clocked_in_at', 'clocked_out_at']) ? \Illuminate\Support\Carbon::parse($v)->setTimezone($tz)->format('M j g:i A') : $v)); @endphp
-                                    <div>{{ $lab }}: <span class="text-gray-400">{{ $show($h->old_values[$k] ?? null) }}</span> → {{ $show($h->new_values[$k]) }}</div>
+                                    <div>{{ $lab }}: <span class="text-gray-500">{{ $show($h->old_values[$k] ?? null) }}</span> → {{ $show($h->new_values[$k]) }}</div>
                                 @endif
                             @endforeach
                         @endif

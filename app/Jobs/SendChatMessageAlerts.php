@@ -39,8 +39,8 @@ class SendChatMessageAlerts implements ShouldQueue
         if ($this->recipientId === $this->senderId) return;
         // Re-check membership when the queued job runs, not just when it was created.
         // A removed participant must never receive message content.
-        if (! class_exists(\Chatify\\Models\\Conversation::class)) return;
-        $conversation = \Chatify\\Models\\Conversation::find($this->conversationId);
+        if (! class_exists(\Chatify\Models\Conversation::class)) return;
+        $conversation = \Chatify\Models\Conversation::find($this->conversationId);
         if (! $conversation || ! method_exists($conversation, 'participants')) return;
         $participantRecord = $conversation->participants()->get()->first(function ($participant) {
             $id = $participant instanceof User ? $participant->getKey() : ($participant->user_id ?? null);
@@ -48,7 +48,7 @@ class SendChatMessageAlerts implements ShouldQueue
         });
         if (! $participantRecord) return;
         // Do not email or push a message the recipient has already read.
-        $message = \Chatify\\Models\\Message::find($this->messageId);
+        $message = \Chatify\Models\Message::find($this->messageId);
         if (! $message || (string) $message->conversation_id !== $this->conversationId) return;
         if (method_exists($message, 'isReadByParticipant') && $message->isReadByParticipant($participantRecord)) return;
         $user = User::find($this->recipientId);

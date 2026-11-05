@@ -158,6 +158,16 @@ class TeamCommunications
     {
         $this->authorize($user);
         return TeamAnnouncement::where('is_preview', true)->where('status', 'published')->where('show_banner', true)
-            ->where('starts_at', '<=', now())->where('ends_at', '>', now())->latest('published_at')->limit(3)->get();
+            ->where('starts_at', '<=', now())->where('ends_at', '>', now())
+            ->where(function ($q) use ($user) {
+                $q->where('audience', 'all')
+                    ->orWhere(fn ($target) => $target->where('audience', 'users')->whereJsonContains('user_ids', $user->id))
+                    ->orWhere(fn ($target) => $target->where('audience', 'roles')->where(function ($roles) use ($user) {
+                        foreach ($user->roles()->pluck('roles.id') as $roleId) {
+                            $roles->orWhereJsonContains('role_ids', (int) $roleId);
+                        }
+                    }));
+            })
+            ->latest('published_at')->limit(3)->get();
     }
 }

@@ -21,7 +21,9 @@ class ChatifyMessageObserver
         try {
             $participants = $conversation->participants()->get();
             foreach ($participants as $participant) {
-                $recipientId = (int) ($participant->user_id ?? $participant->getKey());
+                $recipientId = $participant instanceof User
+                    ? (int) $participant->getKey()
+                    : (int) ($participant->user_id ?? 0);
                 if ($recipientId <= 0 || $recipientId === $senderId) continue;
                 SendChatMessageAlerts::dispatch(
                     $recipientId,

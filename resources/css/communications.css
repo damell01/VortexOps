@@ -370,3 +370,7 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-message-search span{font-size:11px;color:#766585;white-space:nowrap}
 .dark .vx-chatify-inbox-toolbar,.dark .vx-chatify-message-search{border-color:#403052}
 .dark .vx-chatify-message-search input{background:#30233e;color:#fff;border-color:#5a4274}
+
+
+.vx-chatify-launch-unread{display:grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:white;color:#6d28d9;font-size:10px;font-weight:800}
+@media(max-width:640px){.vx-chatify-native{inset:8px 8px 78px!important;width:auto!important;height:auto!important;max-height:none!important}.vx-chatify-message-pane{padding:12px}.vx-chatify-composer{gap:6px;padding:9px}.vx-chatify-composer textarea{min-height:42px}}

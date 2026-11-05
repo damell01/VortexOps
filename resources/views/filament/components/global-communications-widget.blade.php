@@ -84,7 +84,15 @@
                             </div>
                         </template>
                     </div>
-                    <button type="button" x-show="selected?.attributes?.is_owner" x-on:click="addGroupMembers()">Add teammates</button>
+                    <div x-show="selected?.attributes?.is_owner">
+                        <input type="search" x-model="memberSearch" x-on:focus="loadUsers()" placeholder="Find teammates to add…" aria-label="Search teammates to add">
+                        <div class="vx-chatify-user-list">
+                            <template x-for="user in users.filter(u=>userName(u).toLowerCase().includes(memberSearch.toLowerCase()) && !groupMembers.some(m=>String(m.id)===String(user.id))).slice(0,30)" :key="user.id">
+                                <label><input type="checkbox" :value="String(user.id)" x-model="membersToAdd"><span x-text="userName(user)"></span></label>
+                            </template>
+                        </div>
+                        <button type="button" x-on:click="addGroupMembers()" :disabled="!membersToAdd.length">Add selected teammates</button>
+                    </div>
                 </div>
                 <div class="vx-chatify-new-overlay" x-show="showNew && !selected" x-cloak>
                     <div class="vx-chatify-conversation-head"><strong>New conversation</strong><button type="button" x-on:click="showNew=false" aria-label="Cancel">✕</button></div>
@@ -105,7 +113,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, showMembers:false, groupMembers:[], users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], searchRequestId:0, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], searchRequestId:0, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -252,7 +260,7 @@
                         },
                         async openGroupMembers() {
                             if(!this.selected)return;
-                            this.showMembers=true;this.groupMembers=[];
+                            this.showMembers=true;this.groupMembers=[];this.membersToAdd=[];this.memberSearch='';
                             await this.refreshGroupMembers();
                         },
                         async refreshGroupMembers() {
@@ -269,13 +277,11 @@
                         },
                         async addGroupMembers() {
                             if(!this.selected || !this.selected.attributes?.is_owner)return;
-                            const value=window.prompt('Enter teammate user IDs separated by commas');
-                            if(value===null)return;
-                            const ids=[...new Set(value.split(',').map(v=>v.trim()).filter(v=>/^[0-9]+$/.test(v)).map(Number))];
-                            if(!ids.length || ids.length>49){this.error='Enter 1–49 valid teammate IDs.';return;}
+                            const ids=[...new Set(this.membersToAdd.map(Number))];
+                            if(!ids.length || ids.length>49){this.error='Select 1–49 teammates.';return;}
                             try {
                                 await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_ids:ids})});
-                                await this.refreshGroupMembers();await this.load();
+                                this.membersToAdd=[];await this.refreshGroupMembers();await this.load();
                             }catch(e){this.error=e.message;}
                         },
                         async renameGroup() {

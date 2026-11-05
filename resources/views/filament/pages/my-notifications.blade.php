@@ -53,6 +53,10 @@
             <label class="switch"><input type="checkbox" wire:model="messagePush"> Push notifications for new messages</label>
             <label class="switch"><input type="checkbox" wire:model="messageEmail"> Email me about unread messages</label>
             <label class="switch"><input type="checkbox" wire:model="messagePreview"> Include sender and message preview in alerts</label>
+            <label class="switch"><input type="checkbox" wire:model="messageQuietHours"> Silence message alerts during quiet hours</label>
+            <div class="flex flex-wrap gap-3 items-center"><label class="sub">From <input type="time" wire:model="messageQuietStart" class="rounded-lg border px-2 py-1 dark:bg-gray-800"></label><label class="sub">Until <input type="time" wire:model="messageQuietEnd" class="rounded-lg border px-2 py-1 dark:bg-gray-800"></label></div>
+            @error('messageQuietStart') <p class="sub" role="alert">{{ $message }}</p> @enderror
+            @error('messageQuietEnd') <p class="sub" role="alert">{{ $message }}</p> @enderror
         </div>
         <p class="sub mt-3">Email delivery will use a cooldown to avoid repeated alerts during active conversations. Save your preferences below.</p>
     </section>

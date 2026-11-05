@@ -348,3 +348,14 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-attachments-selected>span>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
 .vx-chatify-attachments-selected button{font-size:17px}
 .dark .vx-chatify-composer textarea{background:#30233e;color:white;border-color:#5a4274}
+
+
+/* Inbox badges and chronological conversation history */
+.vx-chatify-unread-count{flex:none;min-width:21px;height:21px;border-radius:999px;background:#6d28d9;color:#fff;display:grid;place-items:center;padding:0 6px;font-size:11px;font-weight:800}
+.vx-chatify-message-group{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%}
+.vx-chatify-message-group.is-mine{align-items:flex-end}
+.vx-chatify-message-group .vx-chatify-message{max-width:83%}
+.vx-chatify-date-separator{align-self:center;width:max-content;max-width:100%;margin:12px auto 8px;padding:5px 11px;border-radius:99px;background:#f1eafa;color:#756388;font-size:11px;font-weight:700}
+.vx-chatify-date-separator[style*="display: none"]{display:none!important}
+.dark .vx-chatify-date-separator{background:#352644;color:#d2c3e2}
+@media(min-width:1024px){.vx-chatify-native{width:min(530px,calc(100vw - 40px));height:min(700px,calc(100dvh - 105px))}}

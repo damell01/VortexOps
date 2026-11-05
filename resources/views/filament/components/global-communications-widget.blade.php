@@ -3,7 +3,7 @@
         <div class="vx-chatify-shell" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="close()">
             <button type="button" class="vx-chatify-launch" x-on:click="toggle()" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8A8.5 8.5 0 0 1 8.7 3.9a8.38 8.38 0 0 1 3.8-.9L13 3a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-                <span>Messages</span>
+                <span>Messages</span><span class="vx-chatify-launch-unread" x-show="totalUnread()>0" x-text="totalUnread()" aria-label="Unread messages"></span>
             </button>
             <section id="vx-chatify-drawer" class="vx-chatify-drawer vx-chatify-native" x-show="open" x-cloak role="dialog" aria-modal="false" aria-label="Team messages">
                 <header class="vx-chatify-drawer-head">
@@ -175,7 +175,7 @@
                         toggle() {
                             if(this.open) {this.close();return;}
                             this.open=true;if(!this.loaded)this.load();
-                            this.timer=setInterval(()=>{if(this.open){if(this.selected)this.loadMessages();else this.load();}},15000);
+                            this.timer=setInterval(()=>{if(this.open){if(this.selected)this.loadMessages();this.load();}},15000);
                         },
                         close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}}
                     };

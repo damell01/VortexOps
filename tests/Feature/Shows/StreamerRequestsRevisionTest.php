@@ -38,7 +38,7 @@ class StreamerRequestsRevisionTest extends TestCase
         $this->user = User::factory()->create(['email' => 'revision@example.test']);
         $this->user->assignRole('streamer');
 
-        $this->streamer = Streamer::create([
+        $this->streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], [
             'user_id'     => $this->user->id,
             'name'        => 'Tyler',
             'email'       => 'revision@example.test',

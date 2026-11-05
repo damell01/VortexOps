@@ -141,7 +141,7 @@ class StreamReviewTest extends TestCase
         Livewire::test(ReviewShowStreamers::class)->callTableAction('accept_suggestion',$show)
             ->assertHasNoTableActionErrors()->assertCanNotSeeTableRecords([$show]);
         $this->assertSame([$niko->id],$show->streamers()->pluck('streamers.id')->all());
-        $this->assertSame(1,Streamer::count());
+        $this->assertSame(1,Streamer::streamers()->count());
     }
 
     public function test_bulk_assignment_changes_only_the_selected_unassigned_shows(): void

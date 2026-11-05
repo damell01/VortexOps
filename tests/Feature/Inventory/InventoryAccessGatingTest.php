@@ -92,7 +92,7 @@ class InventoryAccessGatingTest extends TestCase
     public function test_staff_admin_with_an_owned_location_sees_it_alongside_what_is_not_hidden(): void
     {
         $user = $this->admin();
-        $profile = Streamer::create(['name' => 'Admin Staff', 'member_type' => 'fulfillment', 'user_id' => $user->id, 'status' => 'active']);
+        $profile = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Admin Staff', 'member_type' => 'fulfillment', 'user_id' => $user->id, 'status' => 'active']);
         $mine = InventoryLocation::create(['name' => 'My Assigned Shelf', 'type' => 'other', 'streamer_id' => $profile->id, 'status' => 'active']);
         $user = $user->fresh();$this->actingAs($user);
         $ids = InventoryVisibility::locationIdsFor($user);sort($ids);
@@ -117,7 +117,7 @@ class InventoryAccessGatingTest extends TestCase
     public function test_streamer_with_a_shelf_is_read_only_and_has_no_card_action_buttons(): void
     {
         $user = User::factory()->create();$user->assignRole('streamer');
-        $profile = Streamer::create(['name' => 'Read Only Streamer', 'user_id' => $user->id, 'status' => 'active']);
+        $profile = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Read Only Streamer', 'user_id' => $user->id, 'status' => 'active']);
         $mine = InventoryLocation::create(['name' => 'My Streamer Shelf', 'type' => 'streamer_inventory', 'streamer_id' => $profile->id, 'status' => 'active']);
         // On their shelf, so it is on their screens: a streamer with a shelf sees only it.
         InventoryStock::create(['inventory_item_id' => $this->item->id, 'inventory_location_id' => $mine->id, 'quantity' => 2]);
@@ -166,7 +166,7 @@ class InventoryAccessGatingTest extends TestCase
         \Illuminate\Support\Facades\DB::flushQueryLog();
         $this->assertSame([$this->main->id], InventoryVisibility::locationIdsFor($user));
         $this->assertCount(0, \Illuminate\Support\Facades\DB::getQueryLog());
-        $profile = Streamer::create(['name' => 'Assigned Staff', 'member_type' => 'fulfillment', 'user_id' => $user->id, 'status' => 'active']);
+        $profile = Streamer::updateOrCreate(['user_id' => $user->id], ['name' => 'Assigned Staff', 'member_type' => 'fulfillment', 'user_id' => $user->id, 'status' => 'active']);
         $mine = InventoryLocation::create(['name' => 'New assignment', 'streamer_id' => $profile->id, 'status' => 'active']);
         $this->assertContains($mine->id, InventoryVisibility::locationIdsFor($user->fresh()));
         \Illuminate\Support\Facades\DB::disableQueryLog();

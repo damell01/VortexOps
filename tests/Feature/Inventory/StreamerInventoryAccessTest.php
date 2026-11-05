@@ -50,7 +50,7 @@ class StreamerInventoryAccessTest extends TestCase
         $this->streamerUser = User::factory()->create();
         $this->streamerUser->assignRole('streamer');
 
-        $mineStreamer = Streamer::create(['name' => 'Me', 'user_id' => $this->streamerUser->id, 'status' => 'active']);
+        $mineStreamer = Streamer::updateOrCreate(['user_id' => $this->streamerUser->id], ['name' => 'Me', 'user_id' => $this->streamerUser->id, 'status' => 'active']);
         $them         = Streamer::create(['name' => 'Them', 'status' => 'active']);
 
         $this->mine   = InventoryLocation::create(['name' => 'My Shelf', 'type' => 'streamer_inventory', 'status' => 'active', 'streamer_id' => $mineStreamer->id]);
@@ -169,7 +169,7 @@ class StreamerInventoryAccessTest extends TestCase
         $this->stocked('Warehouse Case', $this->main);
         $newcomer = User::factory()->create();
         $newcomer->assignRole('streamer');
-        Streamer::create(['name' => 'New', 'user_id' => $newcomer->id, 'status' => 'active']);
+        Streamer::updateOrCreate(['user_id' => $newcomer->id], ['name' => 'New', 'user_id' => $newcomer->id, 'status' => 'active']);
 
         $this->actingAs($newcomer->fresh());
 

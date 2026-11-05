@@ -37,8 +37,8 @@ class StreamerExperienceTest extends TestCase
     {
         $streamer = Streamer::create(['name' => 'S1', 'status' => 'active']);
         $user = User::factory()->create(['email' => 'streamer@test.com']);
-        $user->assignRole('streamer');
         $streamer->update(['user_id' => $user->id]);
+        $user->assignRole('streamer');
         return [$user, $streamer];
     }
 

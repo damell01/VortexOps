@@ -38,7 +38,7 @@ class StreamerNumbersTest extends TestCase
         Setting::set('show_reports_required_from', '2026-10-01');
         AdminModules::flushMemo();
         $this->channel = WhatnotChannel::create(['name' => 'Vortex Cards', 'status' => 'active']);
-        $this->streamer = Streamer::create(['name' => 'Jordan', 'user_id' => $this->user->id, 'status' => 'active']);
+        $this->streamer = Streamer::updateOrCreate(['user_id' => $this->user->id], ['name' => 'Jordan', 'user_id' => $this->user->id, 'status' => 'active']);
         $this->actingAs($this->user);
     }
 

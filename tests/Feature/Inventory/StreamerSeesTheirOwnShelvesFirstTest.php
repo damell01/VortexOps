@@ -43,7 +43,7 @@ class StreamerSeesTheirOwnShelvesFirstTest extends TestCase
         $this->streamerUser = User::factory()->create(['email' => 'streamer@example.com']);
         $this->streamerUser->assignRole('streamer');
 
-        $streamer = Streamer::create([
+        $streamer = Streamer::updateOrCreate(['user_id' => $this->streamerUser->id], [
             'user_id' => $this->streamerUser->id, 'name' => 'Tyler',
             'email' => 'streamer@example.com', 'status' => 'active', 'payout_type' => 'profit_share',
         ]);
@@ -113,7 +113,7 @@ class StreamerSeesTheirOwnShelvesFirstTest extends TestCase
         $orphan = User::factory()->create(['email' => 'orphan@example.com']);
         $orphan->assignRole('streamer');
 
-        Streamer::create([
+        Streamer::updateOrCreate(['user_id' => $orphan->id], [
             'user_id' => $orphan->id, 'name' => 'Orphan',
             'email' => 'orphan@example.com', 'status' => 'active', 'payout_type' => 'profit_share',
         ]);

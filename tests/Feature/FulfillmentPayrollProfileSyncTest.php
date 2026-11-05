@@ -17,6 +17,10 @@ class FulfillmentPayrollProfileSyncTest extends TestCase
         $user = User::factory()->create();
         $user->assignRole('fulfillment');
 
+        $this->assertNotNull($user->streamer);
+        $this->assertSame('fulfillment', $user->streamer->member_type);
+        $this->assertSame($user->streamer()->value('id'), $user->streamer->id);
+
         $this->assertDatabaseHas('streamers', [
             'user_id' => $user->id,
             'member_type' => 'fulfillment',

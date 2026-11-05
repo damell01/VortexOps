@@ -41,7 +41,7 @@ class StreamerRowScopingTest extends TestCase
         $me = User::factory()->create();
         $me->assignRole('streamer');
 
-        $myStreamer    = Streamer::create(['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
+        $myStreamer    = Streamer::updateOrCreate(['user_id' => $me->id], ['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
         $otherStreamer = Streamer::create(['name' => 'Other', 'status' => 'active', 'include_tips' => false]);
 
         $myShow = Show::create([
@@ -106,7 +106,7 @@ class StreamerRowScopingTest extends TestCase
 
         $me = User::factory()->create();
         $me->assignRole('streamer');
-        $myStreamer    = Streamer::create(['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
+        $myStreamer    = Streamer::updateOrCreate(['user_id' => $me->id], ['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
         $otherStreamer = Streamer::create(['name' => 'Other', 'status' => 'active', 'include_tips' => false]);
 
         DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $myStreamer->id, 'status' => 'draft']);
@@ -123,7 +123,7 @@ class StreamerRowScopingTest extends TestCase
     {
         $me = User::factory()->create();
         $me->assignRole('streamer');
-        $myStreamer    = Streamer::create(['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
+        $myStreamer    = Streamer::updateOrCreate(['user_id' => $me->id], ['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
         $otherStreamer = Streamer::create(['name' => 'Other', 'status' => 'active', 'include_tips' => false]);
 
         $myLocation     = InventoryLocation::create(['name' => 'My Bin', 'streamer_id' => $myStreamer->id]);

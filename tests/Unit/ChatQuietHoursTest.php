@@ -28,7 +28,7 @@ class ChatQuietHoursTest extends TestCase
 
     public function test_user_timezone_is_applied(): void
     {
-        $at = new \DateTimeImmutable('2026-11-05T04:30:00+00:00');
+        $at = new \DateTimeImmutable('2026-11-05T07:30:00+00:00');
         $this->assertTrue(ChatQuietHours::isQuiet(true, '22:00', '07:00', 'America/Chicago', $at));
         $this->assertFalse(ChatQuietHours::isQuiet(true, '22:00', '07:00', 'UTC', $at));
     }

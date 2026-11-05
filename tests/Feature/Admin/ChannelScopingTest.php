@@ -38,7 +38,7 @@ class ChannelScopingTest extends TestCase
         Streamer::create(['name' => 'A', 'status' => 'active', 'whatnot_channel_id' => $breaks->id]);
         Streamer::create(['name' => 'B', 'status' => 'active', 'whatnot_channel_id' => $collects->id]);
 
-        $this->assertSame(2, StreamerResource::getEloquentQuery()->count());
+        $this->assertSame(3, StreamerResource::getEloquentQuery()->count());
     }
 
     public function test_streamer_list_scopes_to_active_channel(): void

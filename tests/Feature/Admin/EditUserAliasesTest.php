@@ -24,7 +24,7 @@ class EditUserAliasesTest extends TestCase
         $streamerRole = Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
         $target = User::factory()->create(['name' => 'Micha', 'email' => 'micha@test.com']);
         $target->assignRole('streamer');
-        $profile = $target->streamer()->create(['name' => 'Micha', 'status' => 'active', 'member_type' => 'streamer', 'payout_type' => 'profit_share']);
+        $profile = $target->streamer()->updateOrCreate([], ['name' => 'Micha', 'status' => 'active', 'member_type' => 'streamer', 'payout_type' => 'profit_share']);
         $profile->aliases()->create(['alias' => 'Micha B', 'source' => 'show_title']);
         $profile->aliases()->create(['alias' => 'Old Name', 'source' => 'manual']);
 

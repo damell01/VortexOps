@@ -107,9 +107,9 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
         // fulfillment and timekeeping pages also stay closed.
         sort($denied);
         $this->assertSame([
-            'AppSettings', 'Businesses', 'Communications', 'ImportStatus', 'InventoryCount', 'InventoryImporter', 'InventoryPopupSettings',
+            'AppSettings', 'Businesses', 'Communications', 'FulfillmentOperations', 'FulfillmentReports', 'FulfillmentSchedule', 'ImportStatus', 'InventoryCount', 'InventoryImporter', 'InventoryPopupSettings',
             'NavigationManager', 'NoShowCleanup', 'OwnerTools', 'PayRunBackfill', 'PaymentStructures',
-            'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
+            'PayrollOverview', 'PayrollSimulator', 'RoleResource', 'ShipmentOverview', 'ShowDataAudit', 'StreamerLoanResource', 'TimeAttendance',
             'Timekeeping', 'WhatnotApiChanges', 'WhatnotApiDashboard', 'WhatnotScraperPage', 'WhatnotSheetCheck', 'WhatnotSyncPage',
         ], $denied);
     }

@@ -5,6 +5,13 @@ use Tests\TestCase;
 
 class ChatReactionsAccessTest extends TestCase
 {
+    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['chatify-preview.available' => true]);
+    }
+
     public function test_employee_cannot_access_reactions_before_team_rollout(): void
     {
         config([

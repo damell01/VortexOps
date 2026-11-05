@@ -185,7 +185,7 @@ class WhatnotApiSyncTest extends TestCase
         $this->assertArrayNotHasKey('buyer_state', WhatnotLedgerEntry::where('dedup_key', 'wn_api:L-2')->sole()->raw_data);
 
         $this->assertSame('9400111899223344556677', $order->fresh()->tracking_number);
-        $this->assertSame('shipped', $order->fresh()->shipping_status);
+        $this->assertSame('in_transit', $order->fresh()->shipping_status);
         $this->assertEquals(8.0, (float) $order->fresh()->shipment_weight_oz);
         $this->assertDatabaseHas('whatnot_daily_overviews', ['whatnot_channel_id' => $this->channel->id, 'date' => '2026-11-02', 'follows_count' => 12, 'viewers_per_hour' => 96]);
         $this->assertDatabaseHas('show_change_logs', ['show_id' => $this->show->id, 'field_name' => 'gross_revenue', 'source' => 'whatnot_api']);

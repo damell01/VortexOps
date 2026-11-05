@@ -71,12 +71,13 @@ class SendChatMessageAlerts implements ShouldQueue
                 }
             }
         }
+        $mentioned = $conversation->type === 'group' && trim((string) $user->name) !== '' && str_contains(mb_strtolower((string) $message->body), '@'.mb_strtolower(trim((string) $user->name)));
         $previewAllowed = (bool) ($prefs['preview'] ?? true);
         $actualSender = User::find($this->senderId);
         if (! $actualSender) return;
         $sender = Str::limit(trim(preg_replace('/[\\x00-\\x1F\\x7F]+/', ' ', strip_tags($actualSender->name))), 65);
         $preview = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags((string) $message->body))), 180);
-        $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
+        $title = $previewAllowed ? ($mentioned ? $sender.' mentioned you' : 'New message from '.$sender) : 'New team message';
         $body = $previewAllowed ? ($preview !== '' ? $preview : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
         $url = '/admin?chat='.rawurlencode($this->conversationId);
         if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false) {

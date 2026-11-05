@@ -50,6 +50,8 @@ class SendChatMessageAlerts implements ShouldQueue
         $user = User::find($this->recipientId);
         if (! $user || $user->notifications_enabled === false) return;
         $prefs = (array) (($user->notification_preferences ?? [])['team_message'] ?? []);
+        // A muted conversation remains readable but never sends external alerts.
+        if (in_array($this->conversationId, (array) ($prefs['muted_conversations'] ?? []), true)) return;
         // Quiet hours silence both push and email; alerts are not queued for later.
         if (($prefs['quiet_enabled'] ?? false) === true) {
             $start = (string) ($prefs['quiet_start'] ?? '22:00');

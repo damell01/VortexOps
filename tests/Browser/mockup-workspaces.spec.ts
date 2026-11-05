@@ -32,19 +32,16 @@ for (const width of [390, 1280, 1920]) {
   await page.setViewportSize({width,height:1000});
   await login(page,'mockup-assistant@example.test');
   await expect(page.locator('[data-vx-page=assistant-dashboard]')).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Upcoming shows',exact:true})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Recent shows',exact:true})).toBeVisible();
-  await expect(page.getByText('Top Net Shows',{exact:false}).first()).toBeVisible();
+  await expect(page.getByRole('button',{name:'Clock in',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Paid pay runs',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Upcoming shows',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'Recent shows',exact:true})).toHaveCount(0);
+  await expect(page.getByText('Top Net Shows',{exact:false})).toHaveCount(0);
   await expect(page.getByText('$125.25',{exact:false}).first()).toBeVisible();
   await expect(page.getByText('$9,999.22',{exact:false})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+2)).toBe(true);
   await page.screenshot({path:`tests/Browser/output/assistant-dashboard-${width}.png`,fullPage:true});
-  await page.getByRole('link',{name:'Payment history',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'My Pay',exact:true})).toBeVisible();
-  await expect(page.getByText('$125.25',{exact:true}).first()).toBeVisible();
-  await expect(page.getByText('$9,999.22',{exact:false})).toHaveCount(0);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+2)).toBe(true);
-  await page.screenshot({path:`tests/Browser/output/assistant-pay-${width}.png`,fullPage:true});
+
  });
  test(`header and centered show modal at ${width}`, async ({page}) => {
   await page.setViewportSize({width,height:1000});
@@ -61,7 +58,7 @@ for (const width of [390, 1280, 1920]) {
     expect(overlap).toBe(false);
    }
   }
-  const show=page.locator('.vx-chip:visible, .vx-acard:visible, .vx-arow:visible').first();
+  const show=page.locator('.vx-chip:visible, .vx-ev:visible, .vx-acard:visible, .vx-arow:visible').first();
   await show.click();
   const modal=page.locator('.vx-drawer');
   await expect(modal).toBeVisible();

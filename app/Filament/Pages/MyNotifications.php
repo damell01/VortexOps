@@ -24,6 +24,9 @@ class MyNotifications extends Page
     public bool $messagePush = false;
     public bool $messageEmail = false;
     public bool $messagePreview = true;
+    public bool $messageQuietHours = false;
+    public string $messageQuietStart = '22:00';
+    public string $messageQuietEnd = '07:00';
 
     /** @var array<string, array{in_app: bool, email: bool}> */
     public array $prefs = [];
@@ -45,6 +48,9 @@ class MyNotifications extends Page
         $this->messagePush = (bool) (($user->notification_preferences['team_message']['push'] ?? false));
         $this->messageEmail = (bool) (($user->notification_preferences['team_message']['email'] ?? false));
         $this->messagePreview = (bool) (($user->notification_preferences['team_message']['preview'] ?? true));
+        $this->messageQuietHours = (bool) ($user->notification_preferences['team_message']['quiet_enabled'] ?? false);
+        $this->messageQuietStart = (string) ($user->notification_preferences['team_message']['quiet_start'] ?? '22:00');
+        $this->messageQuietEnd = (string) ($user->notification_preferences['team_message']['quiet_end'] ?? '07:00');
         foreach (array_keys($this->events()) as $key) $this->prefs[$key] = $user->notificationPreference($key);
     }
 
@@ -96,7 +102,9 @@ class MyNotifications extends Page
             $clean[$key] = ['in_app' => (bool) ($p['in_app'] ?? true), 'email' => (bool) ($p['email'] ?? true)];
         }
 
-        $clean['team_message'] = ['push' => (bool) $this->messagePush, 'email' => (bool) $this->messageEmail, 'preview' => (bool) $this->messagePreview];
+        $this->validate(['messageQuietStart' => ['required', 'date_format:H:i'], 'messageQuietEnd' => ['required', 'date_format:H:i']]);
+        $clean['team_message'] = ['push' => (bool) $this->messagePush, 'email' => (bool) $this->messageEmail, 'preview' => (bool) $this->messagePreview,
+            'quiet_enabled' => (bool) $this->messageQuietHours, 'quiet_start' => $this->messageQuietStart, 'quiet_end' => $this->messageQuietEnd];
         auth()->user()->update([
             'notifications_enabled' => $this->enabled,
             'notification_in_app_enabled' => $this->inApp,

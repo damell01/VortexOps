@@ -52,6 +52,25 @@ class SendChatMessageAlerts implements ShouldQueue
         $user = User::find($this->recipientId);
         if (! $user || $user->notifications_enabled === false) return;
         $prefs = (array) (($user->notification_preferences ?? [])['team_message'] ?? []);
+        // Quiet hours silence both push and email; alerts are not queued for later.
+        if (($prefs['quiet_enabled'] ?? false) === true) {
+            $start = (string) ($prefs['quiet_start'] ?? '22:00');
+            $end = (string) ($prefs['quiet_end'] ?? '07:00');
+            if (preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $start)
+                && preg_match('/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $end)
+                && $start !== $end) {
+                $timezone = (string) ($user->timezone ?: config('app.timezone', 'UTC'));
+                try {
+                    $clock = now()->setTimezone(new \\DateTimeZone($timezone))->format('H:i');
+                    $quiet = $start < $end
+                        ? ($clock >= $start && $clock < $end)
+                        : ($clock >= $start || $clock < $end);
+                    if ($quiet) return;
+                } catch (\\Throwable) {
+                    // Invalid profile timezone: do not prevent regular alerts.
+                }
+            }
+        }
         $previewAllowed = (bool) ($prefs['preview'] ?? true);
         $actualSender = User::find($this->senderId);
         if (! $actualSender) return;

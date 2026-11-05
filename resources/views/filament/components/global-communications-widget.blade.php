@@ -51,7 +51,7 @@
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button><button type="button" x-show="isMine(message)" x-on:click="deleteMessage(message)" title="Delete your message">Delete</button>
                                 </div>
-                                <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="(reaction,index) in reactions[message.id] || []" :key="index"><span x-text="reaction.emoji"></span></template></div><small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
+                                <div class="vx-chatify-message-reactions" x-show="reactions[message.id]?.length"><template x-for="reaction in reactionSummary(message.id)" :key="reaction.emoji"><button type="button" x-on:click="toggleReaction(message,reaction.emoji)" :aria-label="reaction.count+' reactions: '+reaction.emoji" :aria-pressed="reaction.mine" :class="reaction.mine ? 'is-mine' : ''"><span x-text="reaction.emoji"></span> <span x-text="reaction.count"></span></button></template></div><small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>
                         </template>
                     </div>
@@ -339,6 +339,18 @@
                             const link=new URL(window.location.href);link.searchParams.set('chat',String(this.selected.id));
                             try {await navigator.clipboard.writeText(link.toString());this.copiedConversation=true;}
                             catch(e){this.error='Could not copy conversation link.';}
+                        },
+                        reactionSummary(messageId) {
+                            const grouped=new Map();
+                            for(const reaction of this.reactions[messageId] || []) {
+                                const emoji=reaction.emoji;
+                                if(!emoji)continue;
+                                if(!grouped.has(emoji))grouped.set(emoji,{emoji,count:0,mine:false});
+                                const group=grouped.get(emoji);
+                                group.count++;
+                                if(Number(reaction.user_id)===Number(this.myId))group.mine=true;
+                            }
+                            return [...grouped.values()];
                         },
                         async toggleReaction(message,emoji) {
                             try {

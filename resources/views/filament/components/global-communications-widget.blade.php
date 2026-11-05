@@ -49,6 +49,7 @@
                                 <div class="vx-chatify-message-actions">
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
+                                <button type="button" x-show="isMine(message) && message.attributes?.body && !message.attributes?.edited_at" x-on:click="beginEdit(message)" title="Edit your message">Edit</button>
                                 </div>
                                 <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>
@@ -56,6 +57,7 @@
                     </div>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
                     <div class="vx-chatify-reply-banner" x-show="replyTo" x-cloak><div><strong>Replying to message</strong><small x-text="replyTo?.attributes?.body || 'Attachment'"></small></div><button type="button" x-on:click="replyTo=null" aria-label="Cancel reply">✕</button></div>
+                    <div class="vx-chatify-edit-banner" x-show="editingMessage" x-cloak><strong>Editing message</strong><button type="button" x-on:click="cancelEdit()">Cancel</button></div>
                     <div class="vx-chatify-attachments-selected" x-show="files.length" x-cloak>
                         <template x-for="(file,index) in files" :key="index">
                             <span><span x-text="file.name"></span><button type="button" x-on:click="removeFile(index)" aria-label="Remove attachment">×</button></span>
@@ -90,7 +92,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, olderPage:1, hasOlder:false, olderLoading:false, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -195,6 +197,12 @@
                             }catch(e){if(requestId===this.messageRequestId)this.error=e.message;}
                             finally{this.olderLoading=false;}
                         },
+                        beginEdit(message) {
+                            if(!this.isMine(message) || !message?.attributes?.body)return;
+                            this.editingMessage=message;this.replyTo=null;this.files=[];this.draft=message.attributes.body;
+                            this.$nextTick(()=>this.$refs.composerInput?.focus());
+                        },
+                        cancelEdit() {this.editingMessage=null;this.draft='';},
                         replyToMessage(message) {
                             this.replyTo=message;
                             this.$nextTick(()=>this.$refs.composerInput?.focus());
@@ -219,6 +227,12 @@
                             this.sending=true;this.error='';
                             const conversationId=this.selected.id;
                             try {
+                                if(this.editingMessage) {
+                                    if(!this.draft.trim())throw new Error('Edited message cannot be empty.');
+                                    await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages/'+encodeURIComponent(this.editingMessage.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:this.draft.trim()})});
+                                    this.editingMessage=null;this.draft='';
+                                    await this.loadMessages();this.load();return;
+                                }
                                 const body=new FormData();
                                 if(this.draft.trim()) body.append('body',this.draft.trim());
                                 if(this.replyTo?.id) body.append('reply_to_message_id',String(this.replyTo.id));

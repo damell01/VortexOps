@@ -122,8 +122,18 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, chatChannel:null, onChatSignal:null, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, reactionPickerId:null, searchRequestId:0, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
+                        signalChatUpdate(conversationId) {
+                            if(!conversationId)return;
+                            try {this.chatChannel?.postMessage({conversationId:String(conversationId),senderId:this.myId});}catch(e){}
+                        },
+                        receiveChatUpdate(event) {
+                            const id=String(event?.data?.conversationId || '');
+                            if(!id || !this.open || !navigator.onLine)return;
+                            if(String(this.selected?.id)===id)this.loadMessages();
+                            this.load();
+                        },
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
                             if(options.method && options.method !== 'GET') headers['X-CSRF-TOKEN']=document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -139,7 +149,7 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
-                        init() {this.connected=navigator.onLine;window.addEventListener('online',()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}});window.addEventListener('offline',()=>{this.connected=false;});try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && this.open && navigator.onLine){this.load();if(this.selected)this.loadMessages();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});this.startPolling();}},
+                        init() {this.connected=navigator.onLine;if('BroadcastChannel' in window){this.chatChannel=new BroadcastChannel('vortex-chat-'+this.myId);this.onChatSignal=(event)=>this.receiveChatUpdate(event);this.chatChannel.addEventListener('message',this.onChatSignal);}window.addEventListener('online',()=>{this.connected=true;if(this.open){this.load();if(this.selected)this.loadMessages();}});window.addEventListener('offline',()=>{this.connected=false;});try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');this.onVisibilityChange=()=>{if(!document.hidden && this.open && navigator.onLine){this.load();if(this.selected)this.loadMessages();}};document.addEventListener('visibilitychange',this.onVisibilityChange);const chatId=new URLSearchParams(window.location.search).get('chat');if(chatId && /^[a-zA-Z0-9_-]{1,100}$/.test(chatId)){this.open=true;this.load().then(()=>{const thread=this.threads.find(t=>String(t.id)===chatId);if(thread)this.openThread(thread);else this.error='Conversation unavailable or access denied.';});this.startPolling();}},
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && this.label(t).toLowerCase().includes(this.search.toLowerCase())).sort((a,b)=>Number(this.isPinned(b))-Number(this.isPinned(a)));},
@@ -450,7 +460,7 @@
                                 if(this.draft.trim()) body.append('body',this.draft.trim());
                                 if(this.replyTo?.id) body.append('reply_to_message_id',String(this.replyTo.id));
                                 this.files.forEach(file=>body.append('attachments[]',file,file.name));
-                                await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});
+                                await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});this.signalChatUpdate(conversationId);
                                 this.draft='';this.files=[];this.replyTo=null;
                                 await this.loadMessages();
                                 this.load();
@@ -498,7 +508,7 @@
                             this.startPolling();
                         },
                         close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}},
-                        destroy() {if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);}
+                        destroy() {if(this.chatChannel){this.chatChannel.close();this.chatChannel=null;}if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.onVisibilityChange)document.removeEventListener('visibilitychange',this.onVisibilityChange);}
                     };
                 }
             </script>

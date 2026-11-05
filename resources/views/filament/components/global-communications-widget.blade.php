@@ -175,7 +175,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.mentionQuery=null;this.groupMembers=[];if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.showMembers=false;this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.mentionQuery=null;this.groupMembers=[];this.showMembers=false;this.selected=t;if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -395,7 +395,7 @@
                         removeFile(index) {this.files.splice(index,1);},
                         async loadMentionMembers(conversationId) {
                             try {
-                                const data=await this.api('/conversations/'+encodeURIComponent(conversationId)+'/participants');
+                                const data=await this.api('/conversations/'+encodeURIComponent(conversationId)+'/participants?per_page=100');
                                 if(String(this.selected?.id)===String(conversationId))this.groupMembers=this.items(data);
                             }catch(e){this.groupMembers=[];}
                         },

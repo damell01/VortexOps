@@ -51,7 +51,7 @@ class SendChatMessageAlerts implements ShouldQueue
         if (! $user || $user->notifications_enabled === false) return;
         $prefs = (array) (($user->notification_preferences ?? [])['team_message'] ?? []);
         $previewAllowed = (bool) ($prefs['preview'] ?? true);
-        $sender = Str::limit(trim(strip_tags($this->senderName)), 65);
+        $sender = Str::limit(trim(preg_replace('/[\\x00-\\x1F\\x7F]+/', ' ', strip_tags($this->senderName))), 65);
         $message = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags($this->messagePreview))), 180);
         $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
         $body = $previewAllowed ? ($message !== '' ? $message : 'Sent an attachment') : 'Open Vortex Ops to read your message.';

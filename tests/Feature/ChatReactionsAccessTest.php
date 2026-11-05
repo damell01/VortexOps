@@ -29,7 +29,7 @@ class ChatReactionsAccessTest extends TestCase
 
     public function test_disabled_preview_rejects_reaction_mutations(): void
     {
-        config(['chatify-preview.enabled' => false]);
+        config(['chatify-preview.enabled' => false, 'chatify-preview.team_enabled' => false]);
         $this->actingAs(User::factory()->create())
             ->postJson('/admin/communications/reactions/example', ['emoji' => '👍'])
             ->assertNotFound();

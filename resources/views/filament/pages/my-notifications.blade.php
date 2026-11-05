@@ -59,7 +59,7 @@
             @error('messageQuietStart') <p class="sub" role="alert">{{ $message }}</p> @enderror
             @error('messageQuietEnd') <p class="sub" role="alert">{{ $message }}</p> @enderror
         </div>
-        @if(config("chatify-preview.team_enabled", false))
+        @if(config("chatify-preview.available", false) && config("chatify-preview.team_enabled", false))
             <div class="mt-4 border-t pt-3" style="border-color:var(--line)">
                 <div class="head mb-2">Mute individual conversations</div>
                 <p class="sub mb-3">Muted chats stay in your inbox but do not send push or email alerts.</p>

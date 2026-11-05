@@ -228,7 +228,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn () => ! $isAuthenticatedAdminView() ? '' : view('filament.components.global-communications-widget'),
+                fn () => ! config('chatify-preview.available', false) || ! $isAuthenticatedAdminView() ? '' : view('filament.components.global-communications-widget'),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

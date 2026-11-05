@@ -102,9 +102,10 @@ $fulfillmentOnly=(bool) (!$assistantOnly && !$streamerOnly && !$user?->isOwner()
     && ($user?->isFulfillment() || $user?->isFulfillmentAdmin()));
 if ($fulfillmentOnly) {
     $homeLabel = $user?->isFulfillmentAdmin() ? 'Command Center' : 'My Workspace';
-    $groups = [];
+    $groups = isset($groups['Inventory']) ? ['Inventory' => $groups['Inventory']] : [];
     if (\App\Support\AdminModules::isEnabled('fulfillment') && \App\Filament\Resources\FulfillmentResource::canAccess()) {
         $groups['Fulfillment'] = [
+            ...(\App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? [['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review'), 'Management', 'heroicon-o-user-group']] : []),
             ['Packing Queue', \App\Filament\Resources\FulfillmentResource::getUrl('index'), 'Daily work', 'heroicon-o-archive-box'],
             ...(\App\Filament\Pages\FulfillmentReports::canAccess() ? [['My Reports', \App\Filament\Pages\FulfillmentReports::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-chart-bar']] : []),
             ...(\App\Filament\Pages\FulfillmentSchedule::canAccess() ? [['Team Schedule', \App\Filament\Pages\FulfillmentSchedule::getUrl(panel:'admin'), 'Daily work', 'heroicon-o-calendar-days']] : []),

@@ -1,10 +1,12 @@
 <?php
 
+$available = (bool) env('VORTEX_COMMUNICATIONS_ENABLED', false);
+
 return [
+    // Master switch: messages, announcements, previews, endpoints and alerts.
+    'available' => $available,
     // Never enable until Chatify's auth, uploads, broadcasting and routes pass QA.
-    // Explicit, separate rollout switch for employees; owner preview remains isolated.
-    'team_enabled' => env('VORTEX_CHATIFY_TEAM_ENABLED', false),
-    'enabled' => env('VORTEX_CHATIFY_PREVIEW_ENABLED', false),
-    // Separate opt-in: disabled until recipient membership and delivery QA pass.
-    'message_notifications_enabled' => env('VORTEX_CHATIFY_MESSAGE_NOTIFICATIONS_ENABLED', false),
+    'team_enabled' => $available && env('VORTEX_CHATIFY_TEAM_ENABLED', false),
+    'enabled' => $available && env('VORTEX_CHATIFY_PREVIEW_ENABLED', false),
+    'message_notifications_enabled' => $available && env('VORTEX_CHATIFY_MESSAGE_NOTIFICATIONS_ENABLED', false),
 ];

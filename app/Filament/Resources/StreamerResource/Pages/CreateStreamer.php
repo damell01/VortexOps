@@ -52,9 +52,8 @@ class CreateStreamer extends CreateRecord
         ]);
 
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
-        $user->assignRole('streamer');
-
         $this->record->update(['user_id' => $user->id]);
+        $user->assignRole('streamer');
 
         Notification::make()
             ->title("Login created — {$this->loginData['email']} can now sign in as {$this->record->name}.")

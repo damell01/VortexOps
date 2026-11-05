@@ -103,7 +103,7 @@
                             <span class="flex h-36 min-w-36 items-center justify-center rounded-2xl border border-violet-400/50 bg-violet-700 px-4 font-mono text-7xl font-black tracking-tight shadow-lg shadow-violet-950/40 sm:h-48 sm:min-w-48 sm:text-8xl" aria-label="Camera reference letter {{ $current->letter }}">{{ $current->letter }}</span>
                             <div class="min-w-0"><p class="text-xs font-semibold uppercase tracking-wider text-violet-300">Current buyer · {{ $current->letter }}</p><h3 class="mt-2 break-all text-2xl font-bold sm:text-4xl">{{ $current->buyer_username }}</h3><p class="mt-2 text-slate-300">{{ $current->item_count }} items · {{ ucfirst($current->status) }}</p><p class="mt-2 text-xs text-slate-400">Camera reference: show + station + letter + packing time</p></div>
                         </div>
-                        @php($coverage = $this->buyerCoverage($current->id))
+                        @php $coverage = $this->buyerCoverage($current->id); @endphp
                         <div class="mt-5 rounded-xl border border-white/15 bg-white/5 p-4" aria-live="polite">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <p class="font-semibold text-white">Item verification</p>

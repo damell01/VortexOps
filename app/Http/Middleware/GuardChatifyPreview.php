@@ -14,6 +14,10 @@ class GuardChatifyPreview
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if ($request->is('admin/communications', 'admin/communications/*', 'chatify', 'chatify/*', 'api/chatify', 'api/chatify/*')) {
+            abort_unless(config('chatify-preview.available', false), 404);
+        }
+
         if ($request->is('chatify', 'chatify/*', 'api/chatify', 'api/chatify/*')) {
             abort_unless(
                 config('chatify-preview.enabled', false) === true

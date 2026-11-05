@@ -1,3 +1,4 @@
+@if(config('chatify-preview.available', false))
 @if(\App\Services\TeamCommunications::canAccess(auth()->user()) || (config('chatify-preview.team_enabled', false) && auth()->check()))
     @if((config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false)) && (\App\Services\TeamCommunications::canAccess(auth()->user()) || config('chatify-preview.team_enabled', false)))
         <div class="vx-chatify-shell" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="close()">
@@ -516,4 +517,6 @@
     @else
         <livewire:quick-messages />
     @endif
+@endif
+
 @endif

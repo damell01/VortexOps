@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\DB;
 
 class ChatMessageReactionController
 {
-    public function __invoke(Request $request, string $message): JsonResponse
+    public function __invoke(Request $request, string $messageId): JsonResponse
     {
+        $message = $messageId;
         abort_unless(config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false), 404);
         abort_unless(\App\Services\TeamCommunications::canAccess($request->user()) || config('chatify-preview.team_enabled', false), 403);
         if ($message === 'batch') {

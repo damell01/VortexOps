@@ -718,8 +718,8 @@ class Shows extends Page
                 }
                 $user = \App\Models\User::create(['name' => $streamer->name, 'email' => $email, 'password' => 'password123!']);
                 $user->forceFill(['must_change_password' => true])->save();
-                $user->assignRole(\Spatie\Permission\Models\Role::findOrCreate('streamer', 'web'));
                 $streamer->update(['user_id' => $user->id, 'email' => $user->email]);
+                $user->assignRole(\Spatie\Permission\Models\Role::findOrCreate('streamer', 'web'));
             }
             foreach ($aliases as $alias) $streamer->aliases()->firstOrCreate(['normalized_alias' => \App\Models\StreamerAlias::normalize($alias)], ['alias' => $alias, 'source' => 'manual']);
             foreach ($shows as $show) $show->streamers()->sync([$streamer->id => ['is_primary' => true]]);

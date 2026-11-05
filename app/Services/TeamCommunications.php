@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 /** Owner-only development sandbox. Preview records never notify or reach other accounts. */
 class TeamCommunications
 {
-    public static function canAccess(?User $user): bool { return $user?->isOwner() ?? false; }
+    public static function canAccess(?User $user): bool { return config('chatify-preview.available', false) && ($user?->isOwner() ?? false); }
     public function authorize(User $user): void { abort_unless(self::canAccess($user), 403); }
 
     public function conversations(User $user): Builder

@@ -61,6 +61,9 @@ class UserTeamProfileService
             }
         }
 
+        // Role assignment may have loaded a missing relation before creating it.
+        $user->setRelation('streamer', $profile);
+
         return $profile;
     }
 }

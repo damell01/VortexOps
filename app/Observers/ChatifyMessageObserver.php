@@ -9,6 +9,15 @@ use Illuminate\Support\Facades\Log;
 /** Chatify integration; only runs after explicit staging feature enablement. */
 class ChatifyMessageObserver
 {
+    public function deleted($message): void
+    {
+        // Chatify soft-deletes messages. Remove reactions so deleted content
+        // cannot retain stale interaction data indefinitely.
+        \Illuminate\Support\Facades\DB::table('chat_message_reactions')
+            ->where('message_id', (string) $message->getKey())
+            ->delete();
+    }
+
     public function created($message): void
     {
         if (! config('chatify-preview.message_notifications_enabled', false)) return;

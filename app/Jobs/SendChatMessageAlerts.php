@@ -60,14 +60,17 @@ class SendChatMessageAlerts implements ShouldQueue
         $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
         $body = $previewAllowed ? ($preview !== '' ? $preview : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
         $url = '/admin';
-        if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false && Cache::add('chat-push:'.$user->id.':'.$this->messageId, true, now()->addDay())) {
+        if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false) {
             foreach (WebPushSubscription::where('user_id', $user->id)->limit(8)->get() as $device) {
+                $deliveryKey = 'chat-push:'.$user->id.':'.$device->id.':'.$this->messageId;
+                if (Cache::has($deliveryKey)) continue;
                 try {
-                    $push->send($device, [
+                    $delivered = $push->send($device, [
                         'title' => $title, 'body' => $body,
                         'tag' => 'chat-'.$this->conversationId,
                         'url' => $url,
                     ]);
+                    if ($delivered) Cache::put($deliveryKey, true, now()->addDay());
                 } catch (\Throwable $e) {
                     Log::warning('Chat message push delivery failed', ['user_id' => $user->id, 'device_id' => $device->id, 'error' => $e->getMessage()]);
                 }

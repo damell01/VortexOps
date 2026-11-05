@@ -35,7 +35,7 @@
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
                             <div class="vx-chatify-message-group" :class="isMine(message) ? 'is-mine' : ''"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
-                                <span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
+                                <div class="vx-chatify-quoted-message" x-show="message.attributes?.reply_to" x-cloak><small>Reply to <span x-text="message.attributes?.reply_to?.sender_name || 'message'"></span></small><span x-text="message.attributes?.reply_to?.body || 'Attachment'"></span></div><span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
                                     <div class="vx-chatify-message-attachment">
                                         <template x-if="isImage(attachment)">
@@ -48,7 +48,7 @@
                                 </template>
                                 <div class="vx-chatify-message-actions">
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
-                                    <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" title="Copy message text">Copy</button>
+                                    <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
                                 </div>
                                 <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>

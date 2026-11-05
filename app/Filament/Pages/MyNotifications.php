@@ -25,6 +25,7 @@ class MyNotifications extends Page
     public bool $messageEmail = false;
     public bool $messagePreview = true;
     public bool $messageGroupMentionsOnly = false;
+    public array $mutedConversationIds = [];
     public bool $messageQuietHours = false;
     public string $messageQuietStart = '22:00';
     public string $messageQuietEnd = '07:00';
@@ -49,6 +50,7 @@ class MyNotifications extends Page
         $this->messagePush = (bool) (($user->notification_preferences['team_message']['push'] ?? false));
         $this->messageEmail = (bool) (($user->notification_preferences['team_message']['email'] ?? false));
         $this->messagePreview = (bool) (($user->notification_preferences['team_message']['preview'] ?? true));
+        $this->mutedConversationIds = array_values(array_filter((array) ($user->notification_preferences['team_message']['muted_conversations'] ?? []), 'is_string'));
         $this->messageGroupMentionsOnly = (bool) ($user->notification_preferences['team_message']['group_mentions_only'] ?? false);
         $this->messageQuietHours = (bool) ($user->notification_preferences['team_message']['quiet_enabled'] ?? false);
         $this->messageQuietStart = (string) ($user->notification_preferences['team_message']['quiet_start'] ?? '22:00');
@@ -96,6 +98,15 @@ class MyNotifications extends Page
         foreach (array_keys($this->prefs) as $key) $this->prefs[$key][$channel] = $on;
     }
 
+    public function chatConversations(): array
+    {
+        if (! config('chatify-preview.team_enabled', false) || ! class_exists(\\Chatify\\Models\\Conversation::class)) return [];
+        return \\Chatify\\Models\\Conversation::query()
+            ->whereHas('participants', fn ($q) => $q->where('user_id', auth()->id()))
+            ->orderByDesc('updated_at')->limit(100)->get(['id', 'name', 'type'])
+            ->map(fn ($c) => ['id' => (string) $c->id, 'name' => $c->name ?: ($c->type === 'direct' ? 'Direct conversation' : 'Group conversation')])->all();
+    }
+
     public function save(): void
     {
         $clean = (array) (auth()->user()->notification_preferences ?? []);
@@ -105,8 +116,10 @@ class MyNotifications extends Page
         }
 
         $this->validate(['messageQuietStart' => ['required', 'date_format:H:i'], 'messageQuietEnd' => ['required', 'date_format:H:i']]);
+        $allowedIds = array_column($this->chatConversations(), 'id');
+        $muted = array_values(array_intersect(array_filter($this->mutedConversationIds, 'is_string'), $allowedIds));
         $clean['team_message'] = ['push' => (bool) $this->messagePush, 'email' => (bool) $this->messageEmail, 'preview' => (bool) $this->messagePreview,
-            'group_mentions_only' => (bool) $this->messageGroupMentionsOnly, 'quiet_enabled' => (bool) $this->messageQuietHours, 'quiet_start' => $this->messageQuietStart, 'quiet_end' => $this->messageQuietEnd];
+            'group_mentions_only' => (bool) $this->messageGroupMentionsOnly, 'muted_conversations' => $muted, 'quiet_enabled' => (bool) $this->messageQuietHours, 'quiet_start' => $this->messageQuietStart, 'quiet_end' => $this->messageQuietEnd];
         auth()->user()->update([
             'notifications_enabled' => $this->enabled,
             'notification_in_app_enabled' => $this->inApp,

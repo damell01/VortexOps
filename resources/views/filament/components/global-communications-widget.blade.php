@@ -273,7 +273,8 @@
                             this.open=true;if(!this.loaded)this.load();
                             this.startPolling();
                         },
-                        close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}}
+                        close() {this.open=false;this.preview=null;if(this.timer){clearInterval(this.timer);this.timer=null;}},
+                        destroy() {if(this.timer){clearInterval(this.timer);this.timer=null;}}
                     };
                 }
             </script>

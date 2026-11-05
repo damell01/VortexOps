@@ -7,7 +7,7 @@ Do not enable the employee rollout or notification delivery on production until 
 - Run `php artisan migrate --force` on staging and confirm `chat_message_reactions` and `team_announcement_acknowledgments` exist.
 - Run `php artisan test --filter=Chat` and `php artisan test --filter=Announcement`; inspect failures rather than assuming success.
 - Confirm Chatify package migrations, routes, authorization policies, queue worker, mail and web-push credentials.
-- Set `VORTEX_CHATIFY_PREVIEW_ENABLED=true` on staging only; keep `VORTEX_CHATIFY_TEAM_ENABLED=false` and `VORTEX_CHATIFY_MESSAGE_NOTIFICATIONS_ENABLED=false` initially. Clear cached configuration after changes.
+- Set `VORTEX_CHATIFY_PREVIEW_ENABLED=true` on staging only for owner QA; keep `VORTEX_CHATIFY_TEAM_ENABLED=false` and `VORTEX_CHATIFY_MESSAGE_NOTIFICATIONS_ENABLED=false` initially. Employee rollout can later be enabled independently. Clear cached configuration after changes.
 
 ## Messaging access
 - Owner, admin, streamer, and assistant accounts: verify access to only conversations they belong to.
@@ -19,8 +19,8 @@ Do not enable the employee rollout or notification delivery on production until 
 ## Messages
 - Two browsers and two mobile devices: send, reply, edit, delete, paginate, search, mark read, and attach files.
 - Reactions: toggle all allowed emoji, reload, and verify counts, membership checks and concurrent toggles.
-- Mentions: type @ and choose teammate; Enter should select the suggestion, Escape should close it, Shift+Enter should insert a newline. Verify notifications only for the intended member.
-- Confirm live updates and fallback polling; don't claim real-time delivery until broadcasting is configured and tested.
+- Mentions: type @ and choose teammate; clicking a suggestion should insert the name, Enter should send, Escape should close it, Shift+Enter should insert a newline. Verify notifications only for the intended member.
+- Verify same-browser cross-tab updates via BroadcastChannel, then test separate devices via fallback polling; don't claim server-driven real-time delivery until broadcasting is configured and tested.
 - Check mobile scrolling, keyboard focus, modals, dark mode, and default light mode.
 
 ## Announcements
@@ -28,7 +28,7 @@ Do not enable the employee rollout or notification delivery on production until 
 - Verify a targeted banner never appears to a user outside the intended audience.
 - Acknowledge once, reload, confirm timestamp and count; cannot dismiss until acknowledged.
 - Edit and re-publish: acknowledgments should reset and require new confirmation.
-- Check the owner report for correct names, times and totals.
+- Do not add an acknowledgment report; verify only the banner acknowledgment state and dismissal behavior.
 - Owner preview is not an employee-facing announcement rollout. Do not confuse the two.
 
 ## Notification delivery

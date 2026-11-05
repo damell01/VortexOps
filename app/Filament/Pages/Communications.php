@@ -31,7 +31,6 @@ class Communications extends Page
     public string $inboxFilter = 'all';
     public string $messageSearch = '';
     public string $announcementSearch = '';
-    public ?int $acknowledgmentReportId = null;
     public string $announcementFilter = 'all';
     public string $kind = 'direct';
     public string $groupTitle = '';
@@ -132,14 +131,6 @@ class Communications extends Page
         Notification::make()->title('Owner preview activated')->body('The banner follows its schedule and stays visible only to you.')->success()->send();
         $this->dispatch('announcement-preview-changed');
     }
-    public function viewAcknowledgments(int $id): void
-    {
-        $this->actor();
-        TeamAnnouncement::where('is_preview', true)->findOrFail($id);
-        $this->acknowledgmentReportId = $id;
-        $this->dispatch('open-modal', id: 'communication-acknowledgments');
-    }
-
     public function archiveAnnouncement(int $id): void
     {
         app(TeamCommunications::class)->archive($this->actor(), $id);
@@ -189,15 +180,11 @@ class Communications extends Page
             ->when($this->announcementFilter === 'scheduled', fn ($q) => $q->where('status', 'published')->where('starts_at', '>', now())->where('ends_at', '>', now()))
             ->when($this->announcementFilter === 'active', fn ($q) => $q->where('status', 'published')->where('starts_at', '<=', now())->where('ends_at', '>', now()))
             ->latest('id')->paginate(10, ['*'], 'announcementPage', max(1, $this->announcementPage));
-        $announcements->getCollection()->loadCount('acknowledgments');
-        $acknowledgmentReport = $this->acknowledgmentReportId
-            ? TeamAnnouncement::where('is_preview', true)->with(['acknowledgments.user:id,name'])->findOrFail($this->acknowledgmentReportId)
-            : null;
         $audienceCounts = $announcements->getCollection()->mapWithKeys(fn ($a) => [$a->id => $service->recipientCount($actor, $a)]);
         $search = mb_substr($this->peopleSearch, 0, 100);
         $people = User::select('id', 'name')->when($search !== '', fn ($q) => $q->where('name', 'like', '%'.addcslashes($search, '%_\\').'%'))->orderBy('name')->limit(60)->get();
         $chosenPeople = User::select('id', 'name')->whereIn('id', array_slice(array_unique(array_merge($this->members, [$this->directMember], $this->announcement['user_ids'] ?? [])), 0, 500))->get();
         $people = $people->merge($chosenPeople)->unique('id')->sortBy('name');
-        return compact('threads', 'selected', 'messages', 'announcements', 'audienceCounts', 'people', 'unreadTotal', 'acknowledgmentReport') + ['roles' => Role::where('guard_name', 'web')->orderBy('name')->get(['id', 'name'])];
+        return compact('threads', 'selected', 'messages', 'announcements', 'audienceCounts', 'people', 'unreadTotal') + ['roles' => Role::where('guard_name', 'web')->orderBy('name')->get(['id', 'name'])];
     }
 }

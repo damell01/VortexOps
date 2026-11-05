@@ -12,6 +12,7 @@ class ChatMessageReactionController
     public function __invoke(Request $request, string $message): JsonResponse
     {
         abort_unless(config('chatify-preview.enabled', false), 404);
+        abort_unless(\App\Services\TeamCommunications::canAccess($request->user()) || config('chatify-preview.team_enabled', false), 403);
         if ($message === 'batch') {
             abort_unless($request->isMethod('get'), 405);
             $ids = $request->validate(['ids' => ['required', 'array', 'max:50'], 'ids.*' => ['required', 'string', 'max:36']])['ids'];
@@ -27,7 +28,7 @@ class ChatMessageReactionController
                 ->where('message_id', $chat->id)->get(['user_id', 'emoji'])]);
         }
 
-        $data = $request->validate(['emoji' => ['required', 'in:👍,❤️,😂,🎉,👀']]);
+        $data = $request->validate(['emoji' => ['required', \Illuminate\Validation\Rule::in(['👍', '❤️', '😂', '🎉', '👀'])]]);
         $query = DB::table('chat_message_reactions')->where('message_id', $chat->id)
             ->where('user_id', $request->user()->id)->where('emoji', $data['emoji']);
 

@@ -45,6 +45,7 @@ class SendChatMessageAlerts implements ShouldQueue
         // Do not email or push a message the recipient has already read.
         $message = \Chatify\Models\Message::find($this->messageId);
         if (! $message || (string) $message->conversation_id !== $this->conversationId || (int) $message->user_id !== $this->senderId) return;
+        if ($message->deleted_at !== null) return;
         if (method_exists($message, 'isReadByParticipant') && $message->isReadByParticipant($participantRecord)) return;
         $user = User::find($this->recipientId);
         if (! $user || $user->notifications_enabled === false) return;

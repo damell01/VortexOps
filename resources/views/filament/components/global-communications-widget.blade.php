@@ -7,7 +7,7 @@
             </button>
             <section id="vx-chatify-drawer" class="vx-chatify-drawer vx-chatify-native" x-show="open" x-cloak role="dialog" aria-modal="false" aria-label="Team messages">
                 <header class="vx-chatify-drawer-head">
-                    <div><strong>Messages</strong><small>Vortex Ops team chat · <span x-text="connected ? 'Connected' : 'Offline'" x-bind:aria-label="connected ? 'Messaging connected' : 'Messaging offline'"></span></small></div>
+                    <div><strong>Messages</strong><small>Vortex Ops team chat · <span x-text="connected ? 'Online · auto-refresh' : 'Offline'" x-bind:aria-label="connected ? 'Network online; messages refresh automatically' : 'Messaging offline'"></span></small></div>
                     <div class="vx-chatify-drawer-actions">
                         <button type="button" x-on:click="selected ? loadMessages() : load()" title="Refresh" aria-label="Refresh messages"><x-filament::icon icon="heroicon-o-arrow-path" /></button>
                         <button type="button" x-on:click="close()" title="Close messages" aria-label="Close messages"><x-filament::icon icon="heroicon-o-x-mark" /></button>

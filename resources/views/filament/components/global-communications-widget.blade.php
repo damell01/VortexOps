@@ -49,9 +49,9 @@
                                 <div class="vx-chatify-message-actions">
                                     <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
                                     <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" :title="copiedId===message.id ? 'Copied' : 'Copy message text'" x-text="copiedId===message.id ? 'Copied' : 'Copy'"></button>
-                                <button type="button" x-show="isMine(message) && message.attributes?.body && !message.attributes?.edited_at" x-on:click="beginEdit(message)" title="Edit your message">Edit</button>
+                                <button type="button" x-show="isMine(message) && message.attributes?.body" x-on:click="beginEdit(message)" title="Edit your message">Edit</button>
                                 </div>
-                                <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
+                                <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="message.attributes?.edited_at"> · Edited</span><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>
                         </template>
                     </div>
@@ -66,7 +66,7 @@
                     <form class="vx-chatify-composer" x-on:submit.prevent="send()" x-on:dragover.prevent="dragging=true" x-on:dragleave.prevent="dragging=false" x-on:drop.prevent="dragging=false;addFiles($event.dataTransfer.files)" :class="dragging ? 'is-dragging' : ''">
                         <label class="vx-chatify-attach-button" title="Attach photos or files" aria-label="Attach photos or files">＋<input type="file" multiple x-ref="fileInput" x-on:change="addFiles($event.target.files);$event.target.value=''" accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.csv,.zip"></label>
                         <textarea x-ref="composerInput" rows="1" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey){$event.preventDefault();send()}"></textarea>
-                        <button type="submit" :disabled="sending || (!draft.trim() && !files.length)" x-text="sending ? 'Sending…' : 'Send'"></button>
+                        <button type="submit" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))" x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></button>
                     </form>
                 </div>
                 <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
@@ -223,7 +223,7 @@
                         },
                         removeFile(index) {this.files.splice(index,1);},
                         async send() {
-                            if(!this.selected || (!this.draft.trim() && !this.files.length) || this.sending) return;
+                            if(!this.selected || (this.editingMessage ? !this.draft.trim() : (!this.draft.trim() && !this.files.length)) || this.sending) return;
                             this.sending=true;this.error='';
                             const conversationId=this.selected.id;
                             try {

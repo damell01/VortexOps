@@ -42,19 +42,23 @@ class SendChatMessageAlerts implements ShouldQueue
         if (! class_exists(\Chatify\\Models\\Conversation::class)) return;
         $conversation = \Chatify\\Models\\Conversation::find($this->conversationId);
         if (! $conversation || ! method_exists($conversation, 'participants')) return;
-        $isMember = $conversation->participants()->get()->contains(function ($participant) {
+        $participantRecord = $conversation->participants()->get()->first(function ($participant) {
             $id = $participant instanceof User ? $participant->getKey() : ($participant->user_id ?? null);
             return (int) $id === $this->recipientId;
         });
-        if (! $isMember) return;
+        if (! $participantRecord) return;
+        // Do not email or push a message the recipient has already read.
+        $message = \Chatify\\Models\\Message::find($this->messageId);
+        if (! $message || (string) $message->conversation_id !== $this->conversationId) return;
+        if (method_exists($message, 'isReadByParticipant') && $message->isReadByParticipant($participantRecord)) return;
         $user = User::find($this->recipientId);
         if (! $user || $user->notifications_enabled === false) return;
         $prefs = (array) (($user->notification_preferences ?? [])['team_message'] ?? []);
         $previewAllowed = (bool) ($prefs['preview'] ?? true);
         $sender = Str::limit(trim(preg_replace('/[\\x00-\\x1F\\x7F]+/', ' ', strip_tags($this->senderName))), 65);
-        $message = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags($this->messagePreview))), 180);
+        $preview = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags($this->messagePreview))), 180);
         $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
-        $body = $previewAllowed ? ($message !== '' ? $message : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
+        $body = $previewAllowed ? ($preview !== '' ? $preview : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
         $url = '/admin';
         if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false && Cache::add('chat-push:'.$user->id.':'.$this->messageId, true, now()->addDay())) {
             foreach (WebPushSubscription::where('user_id', $user->id)->limit(8)->get() as $device) {

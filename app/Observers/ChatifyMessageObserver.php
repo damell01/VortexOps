@@ -21,7 +21,7 @@ class ChatifyMessageObserver
 
     public function created($message): void
     {
-        if (! config('chatify-preview.message_notifications_enabled', false)) return;
+        if (! config('chatify-preview.message_notifications_enabled', false) || ! (config('chatify-preview.team_enabled', false) || config('chatify-preview.enabled', false))) return;
         $senderId = (int) ($message->user_id ?? 0);
         $sender = User::find($senderId);
         if (! $sender) return;

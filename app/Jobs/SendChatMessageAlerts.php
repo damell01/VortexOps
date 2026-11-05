@@ -79,7 +79,7 @@ class SendChatMessageAlerts implements ShouldQueue
         $title = $previewAllowed ? ($mentioned ? $sender.' mentioned you' : 'New message from '.$sender) : 'New team message';
         $body = $previewAllowed ? ($preview !== '' ? $preview : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
         $url = '/admin?chat='.rawurlencode($this->conversationId);
-        if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false) {
+        if (($prefs['push'] ?? false) && $user->wantsNotificationChannel('database')) {
             foreach (WebPushSubscription::where('user_id', $user->id)->limit(8)->get() as $device) {
                 $deliveryKey = 'chat-push:'.$user->id.':'.$device->id.':'.$this->messageId;
                 if (Cache::has($deliveryKey)) continue;
@@ -95,7 +95,7 @@ class SendChatMessageAlerts implements ShouldQueue
                 }
             }
         }
-        if (($prefs['email'] ?? false) && $user->notification_email_enabled !== false && NotificationRouter::emailIsEnabled()) {
+        if (($prefs['email'] ?? false) && $user->wantsNotificationChannel('mail') && NotificationRouter::emailIsEnabled()) {
             // One email per conversation per recipient in a 15-minute window.
             $key = 'chat-mail:'.$user->id.':'.hash('sha256', $this->conversationId);
             if (Cache::add($key, true, now()->addMinutes(15))) {

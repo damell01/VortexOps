@@ -46,11 +46,16 @@
                                         </template>
                                     </div>
                                 </template>
+                                <div class="vx-chatify-message-actions">
+                                    <button type="button" x-on:click="replyToMessage(message)" title="Reply to this message">Reply</button>
+                                    <button type="button" x-show="message.attributes?.body" x-on:click="copyMessage(message)" title="Copy message text">Copy</button>
+                                </div>
                                 <small class="vx-chatify-message-meta"><time :datetime="message.attributes?.created_at" x-text="formatTime(message.attributes?.created_at)"></time><span x-show="isMine(message)"> · Sent</span><span x-show="!isMine(message) && message.attributes?.read === true"> · Read by you</span></small>
                             </div></div>
                         </template>
                     </div>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
+                    <div class="vx-chatify-reply-banner" x-show="replyTo" x-cloak><div><strong>Replying to message</strong><small x-text="replyTo?.attributes?.body || 'Attachment'"></small></div><button type="button" x-on:click="replyTo=null" aria-label="Cancel reply">✕</button></div>
                     <div class="vx-chatify-attachments-selected" x-show="files.length" x-cloak>
                         <template x-for="(file,index) in files" :key="index">
                             <span><span x-text="file.name"></span><button type="button" x-on:click="removeFile(index)" aria-label="Remove attachment">×</button></span>
@@ -58,7 +63,7 @@
                     </div>
                     <form class="vx-chatify-composer" x-on:submit.prevent="send()" x-on:dragover.prevent="dragging=true" x-on:dragleave.prevent="dragging=false" x-on:drop.prevent="dragging=false;addFiles($event.dataTransfer.files)" :class="dragging ? 'is-dragging' : ''">
                         <label class="vx-chatify-attach-button" title="Attach photos or files" aria-label="Attach photos or files">＋<input type="file" multiple x-ref="fileInput" x-on:change="addFiles($event.target.files);$event.target.value=''" accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.csv,.zip"></label>
-                        <textarea rows="1" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey){$event.preventDefault();send()}"></textarea>
+                        <textarea x-ref="composerInput" rows="1" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey){$event.preventDefault();send()}"></textarea>
                         <button type="submit" :disabled="sending || (!draft.trim() && !files.length)" x-text="sending ? 'Sending…' : 'Send'"></button>
                     </form>
                 </div>
@@ -85,7 +90,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -138,7 +143,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messages=[];this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.messages=[];this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         async loadMessages() {
                             if(!this.selected || this.messagesLoading) return;
                             const id=this.selected.id;
@@ -150,6 +155,16 @@
                                 this.$nextTick(()=>{const pane=this.$refs.messagePane;if(pane && (!this.lastMessageId || pane.scrollHeight-pane.scrollTop-pane.clientHeight<130)) pane.scrollTop=pane.scrollHeight;this.lastMessageId=this.messages.at(-1)?.id;});
                                 this.error='';
                             } catch(e) {this.error=e.message;} finally {this.messagesLoading=false;}
+                        },
+                        replyToMessage(message) {
+                            this.replyTo=message;
+                            this.$nextTick(()=>this.$refs.composerInput?.focus());
+                        },
+                        async copyMessage(message) {
+                            const body=message?.attributes?.body;
+                            if(!body) return;
+                            try {await navigator.clipboard.writeText(body);this.copiedId=message.id;}
+                            catch(e) {this.error='Could not copy the message.';}
                         },
                         addFiles(incoming) {
                             const chosen=Array.from(incoming || []);
@@ -167,9 +182,10 @@
                             try {
                                 const body=new FormData();
                                 if(this.draft.trim()) body.append('body',this.draft.trim());
+                                if(this.replyTo?.id) body.append('reply_to_message_id',String(this.replyTo.id));
                                 this.files.forEach(file=>body.append('attachments[]',file,file.name));
                                 await this.api('/conversations/'+encodeURIComponent(conversationId)+'/messages',{method:'POST',body});
-                                this.draft='';this.files=[];
+                                this.draft='';this.files=[];this.replyTo=null;
                                 await this.loadMessages();
                                 this.load();
                             } catch(e) {this.error=e.message;} finally {this.sending=false;}

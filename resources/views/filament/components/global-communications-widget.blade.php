@@ -32,7 +32,7 @@
                         <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
                     <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
-                        <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
+                        <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch && messages.length && !filteredMessages().length">No messages match your search in the loaded history.</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
                             <div class="vx-chatify-message-group" :class="isMine(message) ? 'is-mine' : ''"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
                                 <div class="vx-chatify-quoted-message" x-show="message.attributes?.reply_to" x-cloak><small>Reply to <span x-text="message.attributes?.reply_to?.sender_name || 'message'"></span></small><span x-text="message.attributes?.reply_to?.body || 'Attachment'"></span></div><span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
@@ -69,7 +69,7 @@
                         <button type="submit" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))" x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></button>
                     </form>
                 </div>
-                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
+                <div class="vx-chatify-preview" x-show="preview" x-cloak x-on:click.self="preview=null" role="dialog" aria-modal="true" aria-label="Image preview"><button type="button" x-on:click="preview=null" aria-label="Close image preview">✕</button><img :src="preview || ''" alt="Expanded chat image"></div>
                 <footer class="vx-chatify-native-footer" x-show="!selected">
                     <button type="button" x-on:click="showNew=!showNew; if(showNew) loadUsers()">New message or group chat <span aria-hidden="true">＋</span></button>
                 </footer>

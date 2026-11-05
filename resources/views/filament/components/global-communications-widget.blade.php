@@ -14,11 +14,11 @@
                     </div>
                 </header>
                 <div class="vx-chatify-native-body" x-show="!selected">
-                    <div class="vx-chatify-native-search"><input type="search" x-model="search" placeholder="Search conversations…" aria-label="Search conversations"></div>
+                    <div class="vx-chatify-native-search"><input type="search" x-model="search" placeholder="Search conversations…" aria-label="Search conversations"></div><div class="vx-chatify-inbox-toolbar"><button type="button" x-on:click="unreadOnly=!unreadOnly" :aria-pressed="String(unreadOnly)" :class="unreadOnly ? 'is-active' : ''">Unread only</button><span x-text="totalUnread() ? totalUnread()+' unread' : 'All caught up'"></span></div>
                     <p class="vx-chatify-native-hint" x-show="loading">Loading conversations…</p>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
                     <p class="vx-chatify-native-hint" x-show="loaded && !loading && !threads.length">No conversations yet.</p>
-                    <template x-for="thread in threads.filter(t => label(t).toLowerCase().includes(search.toLowerCase()))" :key="thread.id">
+                    <template x-for="thread in visibleThreads()" :key="thread.id">
                         <button type="button" class="vx-chatify-native-thread" x-on:click="openThread(thread)">
                             <span class="vx-chatify-native-avatar" x-text="label(thread).charAt(0).toUpperCase()"></span>
                             <span class="vx-chatify-native-thread-copy"><strong x-text="label(thread)"></strong><small x-text="snippet(thread)"></small></span><span class="vx-chatify-unread-count" x-show="unread(thread)>0" x-text="unread(thread)" aria-label="Unread messages"></span>
@@ -29,11 +29,11 @@
                 <div class="vx-chatify-conversation" x-show="selected" x-cloak>
                     <div class="vx-chatify-conversation-head">
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
-                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
+                        <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
-                    <div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite">
+                    <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite">
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
-                        <template x-for="(message,index) in messages" :key="message.id">
+                        <template x-for="(message,index) in filteredMessages()" :key="message.id">
                             <div class="vx-chatify-message-group" :class="isMine(message) ? 'is-mine' : ''"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
                                 <span x-show="message.attributes?.body" x-text="message.attributes?.body"></span>
                                 <template x-for="(attachment,index) in messageAttachments(message)" :key="index">
@@ -85,7 +85,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[],
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -102,6 +102,12 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
+                        init() {try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];}},
+                        isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
+                        togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
+                        visibleThreads() {return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && this.label(t).toLowerCase().includes(this.search.toLowerCase())).sort((a,b)=>Number(this.isPinned(b))-Number(this.isPinned(a)));},
+                        filteredMessages() {const q=this.messageSearch.trim().toLowerCase();return q ? this.messages.filter(m=>String(m?.attributes?.body || '').toLowerCase().includes(q)) : this.messages;},
+                        totalUnread() {return this.threads.reduce((sum,t)=>sum+this.unread(t),0);},
                         unread(t) {return Number(t?.attributes?.unread_count || 0);},
                         formatDate(v) {if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(d);},
                         showDate(m,index) {return index===0 || this.formatDate(this.messages[index-1]?.attributes?.created_at)!==this.formatDate(m?.attributes?.created_at);},
@@ -112,7 +118,7 @@
                             try {this.threads=this.items(await this.api('/conversations?per_page=50'));this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messages=[];this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.messages=[];this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         async loadMessages() {
                             if(!this.selected || this.messagesLoading) return;
                             const id=this.selected.id;

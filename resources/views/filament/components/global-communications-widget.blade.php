@@ -402,7 +402,7 @@
                         updateMentionQuery() {
                             if(this.selected?.attributes?.conversation_type!=='group'){this.mentionQuery=null;return;}
                             const before=this.draft.slice(0,this.$refs.composerInput?.selectionStart ?? this.draft.length);
-                            const match=before.match(/(?:^|\\s)@([\\p{L}\\p{N} .'-]{0,32})$/u);
+                            const match=before.match(/(?:^|\s)@([\p{L}\p{N} .'-]{0,32})$/u);
                             this.mentionQuery=match ? match[1].toLowerCase() : null;
                         },
                         mentionCandidates() {
@@ -415,7 +415,7 @@
                             const input=this.$refs.composerInput;
                             const pos=input?.selectionStart ?? this.draft.length;
                             const before=this.draft.slice(0,pos);
-                            const match=before.match(/(?:^|\\s)@([\\p{L}\\p{N} .'-]{0,32})$/u);
+                            const match=before.match(/(?:^|\s)@([\p{L}\p{N} .'-]{0,32})$/u);
                             if(!match)return;
                             const start=pos-match[0].length;
                             const prefix=match[0].startsWith(' ') ? ' ' : '';

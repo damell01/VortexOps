@@ -63,9 +63,14 @@
                             <span><span x-text="file.name"></span><button type="button" x-on:click="removeFile(index)" aria-label="Remove attachment">×</button></span>
                         </template>
                     </div>
+                    <div class="vx-chatify-user-list" x-show="mentionQuery !== null && mentionCandidates().length" x-cloak role="listbox" aria-label="Mention a teammate" style="max-height:160px;overflow:auto">
+                        <template x-for="member in mentionCandidates()" :key="member.id">
+                            <button type="button" role="option" x-on:click="insertMention(member)" x-text="'@'+(member.relationships?.user?.attributes?.name || 'Teammate')"></button>
+                        </template>
+                    </div>
                     <form class="vx-chatify-composer" x-on:submit.prevent="send()" x-on:dragover.prevent="dragging=true" x-on:dragleave.prevent="dragging=false" x-on:drop.prevent="dragging=false;addFiles($event.dataTransfer.files)" :class="dragging ? 'is-dragging' : ''">
                         <label class="vx-chatify-attach-button" title="Attach photos or files" aria-label="Attach photos or files">＋<input type="file" multiple x-ref="fileInput" x-on:change="addFiles($event.target.files);$event.target.value=''" accept="image/*,.pdf,.txt,.doc,.docx,.xls,.xlsx,.csv,.zip"></label>
-                        <textarea x-ref="composerInput" rows="1" x-model="draft" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey){$event.preventDefault();send()}"></textarea>
+                        <textarea x-ref="composerInput" rows="1" x-model="draft" x-on:input="updateMentionQuery()" placeholder="Write a message…" aria-label="Message" maxlength="10000" x-on:keydown.enter="if(!$event.shiftKey){$event.preventDefault();send()}"></textarea>
                         <button type="submit" :disabled="sending || (editingMessage ? !draft.trim() : (!draft.trim() && !files.length))" x-text="sending ? (editingMessage ? 'Saving…' : 'Sending…') : (editingMessage ? 'Save edit' : 'Send')"></button>
                     </form>
                 </div>
@@ -117,7 +122,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, searchRequestId:0, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', mentionQuery:null, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], reactions:{}, searchRequestId:0, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -170,7 +175,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.showMembers=false;this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.mentionQuery=null;this.groupMembers=[];if(t?.attributes?.conversation_type==='group')this.loadMentionMembers(t.id);this.showMembers=false;this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -388,6 +393,36 @@
                             }
                         },
                         removeFile(index) {this.files.splice(index,1);},
+                        async loadMentionMembers(conversationId) {
+                            try {
+                                const data=await this.api('/conversations/'+encodeURIComponent(conversationId)+'/participants');
+                                if(String(this.selected?.id)===String(conversationId))this.groupMembers=this.items(data);
+                            }catch(e){this.groupMembers=[];}
+                        },
+                        updateMentionQuery() {
+                            if(this.selected?.attributes?.conversation_type!=='group'){this.mentionQuery=null;return;}
+                            const before=this.draft.slice(0,this.$refs.composerInput?.selectionStart ?? this.draft.length);
+                            const match=before.match(/(?:^|\\s)@([\\p{L}\\p{N} .'-]{0,32})$/u);
+                            this.mentionQuery=match ? match[1].toLowerCase() : null;
+                        },
+                        mentionCandidates() {
+                            if(this.mentionQuery===null)return [];
+                            return this.groupMembers.filter(m=>!m.attributes?.is_you && (m.relationships?.user?.attributes?.name || '').toLowerCase().includes(this.mentionQuery)).slice(0,8);
+                        },
+                        insertMention(member) {
+                            const name=member.relationships?.user?.attributes?.name;
+                            if(!name)return;
+                            const input=this.$refs.composerInput;
+                            const pos=input?.selectionStart ?? this.draft.length;
+                            const before=this.draft.slice(0,pos);
+                            const match=before.match(/(?:^|\\s)@([\\p{L}\\p{N} .'-]{0,32})$/u);
+                            if(!match)return;
+                            const start=pos-match[0].length;
+                            const prefix=match[0].startsWith(' ') ? ' ' : '';
+                            this.draft=this.draft.slice(0,start)+prefix+'@'+name+' '+this.draft.slice(pos);
+                            this.mentionQuery=null;
+                            this.$nextTick(()=>input?.focus());
+                        },
                         async send() {
                             if(!this.selected || (this.editingMessage ? !this.draft.trim() : (!this.draft.trim() && !this.files.length)) || this.sending) return;
                             this.sending=true;this.error='';

@@ -390,3 +390,10 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-reply-banner small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vx-chatify-reply-banner button{padding:5px 9px;border-radius:8px;color:#6d28d9;font-weight:800}
 .dark .vx-chatify-reply-banner{background:#39244f;color:#f2e9ff;border-color:#5a4274}
+
+
+/* Paginated conversation history */
+.vx-chatify-load-older{align-self:center;display:block;margin:8px auto 16px;padding:7px 13px;border:1px solid #e6d9f3;border-radius:99px;background:#faf7ff;color:#6d28d9;font-size:11px;font-weight:700;cursor:pointer}
+.vx-chatify-load-older:hover{background:#f0e6ff}
+.vx-chatify-load-older:disabled{opacity:.6;cursor:wait}
+.dark .vx-chatify-load-older{background:#382749;color:#e5d5ff;border-color:#604a78}

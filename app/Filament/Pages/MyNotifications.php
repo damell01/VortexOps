@@ -100,8 +100,8 @@ class MyNotifications extends Page
 
     public function chatConversations(): array
     {
-        if (! config('chatify-preview.team_enabled', false) || ! class_exists(\\Chatify\\Models\\Conversation::class)) return [];
-        return \\Chatify\\Models\\Conversation::query()
+        if (! config('chatify-preview.team_enabled', false) || ! class_exists(\Chatify\Models\Conversation::class)) return [];
+        return \Chatify\Models\Conversation::query()
             ->whereHas('participants', fn ($q) => $q->where('user_id', auth()->id()))
             ->orderByDesc('updated_at')->limit(100)->get(['id', 'name', 'type'])
             ->map(fn ($c) => ['id' => (string) $c->id, 'name' => $c->name ?: ($c->type === 'direct' ? 'Direct conversation' : 'Group conversation')])->all();

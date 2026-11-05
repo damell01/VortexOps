@@ -31,7 +31,7 @@
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
                         <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="copyConversationLink()" :title="copiedConversation ? 'Link copied' : 'Copy conversation link'" aria-label="Copy conversation link">🔗</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
-                    <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><button type="button" x-show="messageSearch.trim() && hasOlder" x-on:click="searchHistory()" :disabled="historySearching" x-text="historySearching ? 'Searching…' : 'Search older history'"></button></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
+                    <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" x-on:input.debounce.500ms="searchServer()" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span><button type="button" x-show="messageSearch.trim() && hasOlder" x-on:click="searchHistory()" :disabled="historySearching" x-text="historySearching ? 'Searching…' : 'Search older history'"></button></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p><p class="vx-chatify-native-hint" x-show="!messagesLoading && !messages.length">No messages yet. Start the conversation below.</p><p class="vx-chatify-native-hint" x-show="messageSearch && messages.length && !filteredMessages().length">No matching messages in the history loaded so far. Search older history to continue.</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
                             <div class="vx-chatify-message-group" :class="isMine(message) ? 'is-mine' : ''"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
@@ -92,7 +92,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], searchRequestId:0, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -113,7 +113,7 @@
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && this.label(t).toLowerCase().includes(this.search.toLowerCase())).sort((a,b)=>Number(this.isPinned(b))-Number(this.isPinned(a)));},
-                        filteredMessages() {const q=this.messageSearch.trim().toLowerCase();return q ? this.messages.filter(m=>String(m?.attributes?.body || '').toLowerCase().includes(q)) : this.messages;},
+                        filteredMessages() {return this.messageSearch.trim() ? this.searchResults : this.messages;},
                         totalUnread() {return this.threads.reduce((sum,t)=>sum+this.unread(t),0);},
                         async enableAlerts() {
                             if(!('Notification' in window)) {this.error='Browser notifications are unavailable here.';return;}
@@ -145,7 +145,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -196,6 +196,17 @@
                                 this.$nextTick(()=>{if(this.$refs.messagePane===pane)pane.scrollTop=oldTop+pane.scrollHeight-oldHeight;});
                             }catch(e){if(requestId===this.messageRequestId)this.error=e.message;}
                             finally{this.olderLoading=false;}
+                        },
+                        async searchServer() {
+                            const q=this.messageSearch.trim(),id=String(this.selected?.id || ''),requestId=++this.searchRequestId;
+                            this.searchResults=[];
+                            if(!id || q.length<2)return;
+                            this.historySearching=true;
+                            try {
+                                const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages/search?q='+encodeURIComponent(q)+'&per_page=50');
+                                if(requestId===this.searchRequestId && String(this.selected?.id)===id)this.searchResults=this.items(data);
+                            }catch(e){if(requestId===this.searchRequestId)this.error=e.message;}
+                            finally{if(requestId===this.searchRequestId)this.historySearching=false;}
                         },
                         async searchHistory() {
                             if(!this.selected || this.historySearching || this.olderLoading || !this.hasOlder)return;

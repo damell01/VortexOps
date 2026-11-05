@@ -90,7 +90,7 @@ class MyNotifications extends Page
 
     public function save(): void
     {
-        $clean = [];
+        $clean = (array) (auth()->user()->notification_preferences ?? []);
         foreach ($this->prefs as $key => $p) {
             if (! NotificationCatalog::exists($key)) continue;
             $clean[$key] = ['in_app' => (bool) ($p['in_app'] ?? true), 'email' => (bool) ($p['email'] ?? true)];

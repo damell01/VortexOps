@@ -33,7 +33,7 @@ class SendChatMessageAlerts implements ShouldQueue
 
     public function handle(WebPushService $push): void
     {
-        if (! config('chatify-preview.message_notifications_enabled', false) || ! (config('chatify-preview.team_enabled', false) || config('chatify-preview.enabled', false))) return;
+        if (! config('chatify-preview.message_notifications_enabled', false) || ! config('chatify-preview.team_enabled', false)) return;
         if ($this->recipientId === $this->senderId) return;
         // Re-check membership when the queued job runs, not just when it was created.
         // A removed participant must never receive message content.

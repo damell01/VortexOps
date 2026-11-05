@@ -145,7 +145,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -182,7 +182,7 @@
                             }
                         },
                         async loadOlder() {
-                            if(!this.selected || !this.hasOlder || this.olderLoading)return;
+                            if(!this.selected || !this.hasOlder || this.olderLoading || this.historySearching)return;
                             const id=String(this.selected.id),requestId=this.messageRequestId,page=this.olderPage+1;
                             const pane=this.$refs.messagePane,oldHeight=pane?.scrollHeight || 0,oldTop=pane?.scrollTop || 0;
                             this.olderLoading=true;
@@ -198,7 +198,7 @@
                             finally{this.olderLoading=false;}
                         },
                         async searchHistory() {
-                            if(!this.selected || this.historySearching || !this.hasOlder)return;
+                            if(!this.selected || this.historySearching || this.olderLoading || !this.hasOlder)return;
                             const id=String(this.selected.id),requestId=this.messageRequestId;
                             this.historySearching=true;this.error='';
                             try {

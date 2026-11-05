@@ -61,12 +61,12 @@ class SendChatMessageAlerts implements ShouldQueue
                 && $start !== $end) {
                 $timezone = (string) ($user->timezone ?: config('app.timezone', 'UTC'));
                 try {
-                    $clock = now()->setTimezone(new \\DateTimeZone($timezone))->format('H:i');
+                    $clock = now()->setTimezone(new \DateTimeZone($timezone))->format('H:i');
                     $quiet = $start < $end
                         ? ($clock >= $start && $clock < $end)
                         : ($clock >= $start || $clock < $end);
                     if ($quiet) return;
-                } catch (\\Throwable) {
+                } catch (\Throwable) {
                     // Invalid profile timezone: do not prevent regular alerts.
                 }
             }

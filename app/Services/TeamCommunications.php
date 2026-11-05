@@ -128,7 +128,12 @@ class TeamCommunications
         foreach (['starts_at', 'ends_at'] as $field) $data[$field] = Carbon::createFromFormat('!Y-m-d\TH:i', $data[$field], BusinessTime::zone())->utc();
         $record = $id ? TeamAnnouncement::where('is_preview', true)->findOrFail($id) : new TeamAnnouncement(['created_by' => $user->id, 'is_preview' => true]);
         // Editing an active preview makes it a draft again, requiring an explicit preview action.
-        $record->fill($data + ['status' => 'draft', 'published_at' => null])->save();
+        DB::transaction(function () use ($record, $data) {
+            $record->fill($data + ['status' => 'draft', 'published_at' => null])->save();
+            // A materially edited announcement needs fresh acknowledgments.
+            // Old confirmations must not count toward a new version.
+            $record->acknowledgments()->delete();
+        });
         return $record;
     }
 

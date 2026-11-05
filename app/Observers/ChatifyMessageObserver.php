@@ -28,8 +28,6 @@ class ChatifyMessageObserver
                 SendChatMessageAlerts::dispatch(
                     $recipientId,
                     $senderId,
-                    $sender->name,
-                    (string) ($message->body ?? ''),
                     (string) $conversation->getKey(),
                     (string) $message->getKey(),
                 )->afterCommit();

@@ -31,7 +31,7 @@
                         <button type="button" x-on:click="selected=null; messages=[]; error=''" aria-label="Back to conversations">←</button>
                         <strong x-text="selected ? label(selected) : ''"></strong><button type="button" x-on:click="togglePin()" :aria-pressed="String(selected ? isPinned(selected) : false)" :title="selected && isPinned(selected) ? 'Unpin chat' : 'Pin chat'" aria-label="Pin or unpin chat">📌</button><button type="button" x-on:click="loadMessages()" aria-label="Refresh conversation">↻</button>
                     </div>
-                    <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite">
+                    <div class="vx-chatify-message-search"><input type="search" x-model="messageSearch" placeholder="Find in this conversation…" aria-label="Search messages in conversation"><span x-text="messageSearch ? filteredMessages().length + ' matches' : ''"></span></div><div class="vx-chatify-message-pane" x-ref="messagePane" aria-live="polite"><button type="button" class="vx-chatify-load-older" x-show="hasOlder && !messageSearch" x-on:click="loadOlder()" :disabled="olderLoading" x-text="olderLoading ? 'Loading…' : 'Load older messages'"></button>
                         <p class="vx-chatify-native-hint" x-show="messagesLoading && !messages.length">Loading messages…</p>
                         <template x-for="(message,index) in filteredMessages()" :key="message.id">
                             <div class="vx-chatify-message-group" :class="isMine(message) ? 'is-mine' : ''"><div class="vx-chatify-date-separator" x-show="showDate(message,index)" x-text="formatDate(message.attributes?.created_at)"></div><div class="vx-chatify-message" :class="isMine(message) ? 'is-mine' : ''">
@@ -90,7 +90,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null,
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, olderPage:1, hasOlder:false, olderLoading:false,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -143,18 +143,32 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.messages=[];this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.selected=t;this.messages=[];this.olderPage=1;this.hasOlder=false;this.replyTo=null;this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         async loadMessages() {
                             if(!this.selected || this.messagesLoading) return;
                             const id=this.selected.id;
                             this.messagesLoading=true;
                             try {
-                                const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50');
+                                const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page=1');
                                 if(this.selected?.id!==id) return;
-                                const list=this.items(data); this.messages=list.slice().sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));
+                                const list=this.items(data);const previous=this.olderPage>1?this.messages:[];this.messages=[...new Map([...previous,...list].map(m=>[String(m.id),m])).values()].sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));this.hasOlder=Boolean(data?.links?.next || data?.meta?.current_page<data?.meta?.last_page || (this.olderPage===1 && list.length===50));
                                 this.$nextTick(()=>{const pane=this.$refs.messagePane;if(pane && (!this.lastMessageId || pane.scrollHeight-pane.scrollTop-pane.clientHeight<130)) pane.scrollTop=pane.scrollHeight;this.lastMessageId=this.messages.at(-1)?.id;});
                                 this.error='';
                             } catch(e) {this.error=e.message;} finally {this.messagesLoading=false;}
+                        },
+                        async loadOlder() {
+                            if(!this.selected || !this.hasOlder || this.olderLoading)return;
+                            const id=this.selected.id,page=this.olderPage+1,pane=this.$refs.messagePane,oldHeight=pane?.scrollHeight || 0,oldTop=pane?.scrollTop || 0;
+                            this.olderLoading=true;
+                            try {
+                                const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page='+page);
+                                if(this.selected?.id!==id)return;
+                                const list=this.items(data);
+                                this.messages=[...new Map([...this.messages,...list].map(m=>[String(m.id),m])).values()].sort((a,b)=>new Date(a.attributes?.created_at || 0)-new Date(b.attributes?.created_at || 0));
+                                this.olderPage=page;
+                                this.hasOlder=Boolean(data?.links?.next || data?.meta?.current_page<data?.meta?.last_page || list.length===50);
+                                this.$nextTick(()=>{if(pane)pane.scrollTop=oldTop+pane.scrollHeight-oldHeight;});
+                            }catch(e){this.error=e.message;}finally{this.olderLoading=false;}
                         },
                         replyToMessage(message) {
                             this.replyTo=message;

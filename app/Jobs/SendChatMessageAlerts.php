@@ -49,14 +49,16 @@ class SendChatMessageAlerts implements ShouldQueue
         if (! $participantRecord) return;
         // Do not email or push a message the recipient has already read.
         $message = \Chatify\Models\Message::find($this->messageId);
-        if (! $message || (string) $message->conversation_id !== $this->conversationId) return;
+        if (! $message || (string) $message->conversation_id !== $this->conversationId || (int) $message->user_id !== $this->senderId) return;
         if (method_exists($message, 'isReadByParticipant') && $message->isReadByParticipant($participantRecord)) return;
         $user = User::find($this->recipientId);
         if (! $user || $user->notifications_enabled === false) return;
         $prefs = (array) (($user->notification_preferences ?? [])['team_message'] ?? []);
         $previewAllowed = (bool) ($prefs['preview'] ?? true);
-        $sender = Str::limit(trim(preg_replace('/[\\x00-\\x1F\\x7F]+/', ' ', strip_tags($this->senderName))), 65);
-        $preview = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags($this->messagePreview))), 180);
+        $actualSender = User::find($this->senderId);
+        if (! $actualSender) return;
+        $sender = Str::limit(trim(preg_replace('/[\\x00-\\x1F\\x7F]+/', ' ', strip_tags($actualSender->name))), 65);
+        $preview = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags((string) $message->body))), 180);
         $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
         $body = $previewAllowed ? ($preview !== '' ? $preview : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
         $url = '/admin';

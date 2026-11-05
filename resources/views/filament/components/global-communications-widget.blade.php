@@ -367,7 +367,7 @@
                                 const url=@json(url('/admin/communications/reactions'))+'/'+encodeURIComponent(message.id);
                                 const response=await fetch(url,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]')?.content || ''},body:JSON.stringify({emoji})});
                                 if(!response.ok)throw new Error('Could not update reaction');
-                                await this.loadReactions(message.id);
+                                await this.loadReactions(message.id);this.signalChatUpdate(message.conversation_id || this.selected?.id);
                             }catch(e){this.error=e.message;}
                         },
                         async loadReactionBatch(messages) {
@@ -394,7 +394,7 @@
                             this.sending=true;this.error='';
                             try {
                                 await this.api('/messages/'+encodeURIComponent(message.id)+'?scope=all',{method:'DELETE'});
-                                this.messages=this.messages.filter(m=>String(m.id)!==String(message.id));
+                                this.messages=this.messages.filter(m=>String(m.id)!==String(message.id));this.signalChatUpdate(this.selected.id);
                                 await this.loadMessages();this.load();
                             }catch(e){this.error=e.message;}
                             finally{this.sending=false;}
@@ -453,7 +453,7 @@
                                 if(this.editingMessage) {
                                     if(!this.draft.trim())throw new Error('Edited message cannot be empty.');
                                     await this.api('/messages/'+encodeURIComponent(this.editingMessage.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:this.draft.trim()})});
-                                    this.editingMessage=null;this.draft='';
+                                    this.editingMessage=null;this.draft='';this.signalChatUpdate(conversationId);
                                     await this.loadMessages();this.load();return;
                                 }
                                 const body=new FormData();

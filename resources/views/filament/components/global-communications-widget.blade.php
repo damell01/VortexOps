@@ -80,7 +80,7 @@
                         <template x-for="member in groupMembers" :key="member.id">
                             <div class="vx-chatify-native-thread">
                                 <span class="vx-chatify-native-thread-copy"><strong x-text="member.relationships?.user?.attributes?.name || 'Member'"></strong><small x-text="member.attributes?.role || 'member'"></small></span>
-                                <button type="button" x-show="canManageGroup('remove_members') && !member.attributes?.is_you && member.attributes?.role!=='owner'" x-on:click="removeGroupMember(member)">Remove</button>
+                                <button type="button" x-show="canManageGroup('manage_admins') && !member.attributes?.is_you && member.attributes?.role!=='owner'" x-on:click="changeGroupRole(member)" title="Change group permissions">Role</button><button type="button" x-show="canManageGroup('remove_members') && !member.attributes?.is_you && member.attributes?.role!=='owner'" x-on:click="removeGroupMember(member)">Remove</button>
                             </div>
                         </template>
                     </div>
@@ -278,6 +278,20 @@
                             if(!this.selected)return;
                             try {this.groupMembers=this.items(await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants?per_page=100'));}
                             catch(e){this.error=e.message;}
+                        },
+                        async changeGroupRole(member) {
+                            if(!this.selected || !this.canManageGroup('manage_admins'))return;
+                            const role=window.prompt('Group role: member, moderator, or admin',member.attributes?.role || 'member');
+                            if(role===null)return;
+                            const choice=role.trim().toLowerCase();
+                            if(!['member','moderator','admin'].includes(choice)){this.error='Choose member, moderator, or admin.';return;}
+                            try {
+                                // Scoped admin permissions avoid granting full-admin rights accidentally.
+                                const body={role:choice};
+                                if(choice==='admin')body.permissions={edit_info:true,add_members:true,remove_members:true,manage_admins:false};
+                                await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants/'+encodeURIComponent(member.id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+                                await this.refreshGroupMembers();await this.load();
+                            }catch(e){this.error=e.message;}
                         },
                         async removeGroupMember(member) {
                             if(!this.selected || !this.canManageGroup('remove_members') || !window.confirm('Remove this teammate from the group?'))return;

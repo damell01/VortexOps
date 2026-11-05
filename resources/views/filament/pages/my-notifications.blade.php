@@ -53,6 +53,7 @@
             <label class="switch"><input type="checkbox" wire:model="messagePush" @disabled(! $enabled || ! $inApp)> Push notifications for new messages</label>
             <label class="switch"><input type="checkbox" wire:model="messageEmail" @disabled(! $enabled || ! $email || ! $emailOn)> Email me about unread messages</label>
             <label class="switch"><input type="checkbox" wire:model="messagePreview" @disabled(! $enabled)> Include sender and message preview in alerts</label>
+            <label class="switch"><input type="checkbox" wire:model="messageGroupMentionsOnly" @disabled(! $enabled)> In group chats, alert me only when someone mentions me</label>
             <label class="switch"><input type="checkbox" wire:model="messageQuietHours" @disabled(! $enabled)> Silence message alerts during quiet hours</label>
             <div class="flex flex-wrap gap-3 items-center"><label class="sub">From <input type="time" wire:model="messageQuietStart" @disabled(! $messageQuietHours || ! $enabled) class="rounded-lg border px-2 py-1 dark:bg-gray-800"></label><label class="sub">Until <input type="time" wire:model="messageQuietEnd" @disabled(! $messageQuietHours || ! $enabled) class="rounded-lg border px-2 py-1 dark:bg-gray-800"></label></div>
             @error('messageQuietStart') <p class="sub" role="alert">{{ $message }}</p> @enderror

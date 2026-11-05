@@ -11,7 +11,7 @@ class ChatMessageReactionController
 {
     public function __invoke(Request $request, string $message): JsonResponse
     {
-        abort_unless(config('chatify-preview.enabled', false), 404);
+        abort_unless(config('chatify-preview.enabled', false) || config('chatify-preview.team_enabled', false), 404);
         abort_unless(\App\Services\TeamCommunications::canAccess($request->user()) || config('chatify-preview.team_enabled', false), 403);
         if ($message === 'batch') {
             abort_unless($request->isMethod('get'), 405);

@@ -197,6 +197,24 @@
                             }catch(e){if(requestId===this.messageRequestId)this.error=e.message;}
                             finally{this.olderLoading=false;}
                         },
+                        async searchHistory() {
+                            if(!this.selected || this.historySearching || !this.hasOlder)return;
+                            const id=String(this.selected.id),requestId=this.messageRequestId;
+                            this.historySearching=true;this.error='';
+                            try {
+                                let page=this.olderPage;
+                                for(let count=0;count<10 && this.hasOlder;count++) {
+                                    page++;
+                                    const data=await this.api('/conversations/'+encodeURIComponent(id)+'/messages?per_page=50&page='+page);
+                                    if(String(this.selected?.id)!==id || requestId!==this.messageRequestId)return;
+                                    const list=this.items(data);
+                                    this.messages=this.mergeMessages(this.messages,list);
+                                    this.olderPage=page;
+                                    this.hasOlder=this.pageInfo(data,list.length,page);
+                                }
+                            }catch(e){if(requestId===this.messageRequestId)this.error=e.message;}
+                            finally{this.historySearching=false;}
+                        },
                         beginEdit(message) {
                             if(!this.isMine(message) || !message?.attributes?.body)return;
                             this.editingMessage=message;this.replyTo=null;this.files=[];this.draft=message.attributes.body;

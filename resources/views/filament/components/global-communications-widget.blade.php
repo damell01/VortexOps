@@ -14,10 +14,10 @@
                     </div>
                 </header>
                 <div class="vx-chatify-native-body" x-show="!selected">
-                    <div class="vx-chatify-native-search"><input type="search" x-model="search" placeholder="Search conversations…" aria-label="Search conversations"></div><div class="vx-chatify-inbox-toolbar"><button type="button" x-on:click="unreadOnly=!unreadOnly" :aria-pressed="String(unreadOnly)" :class="unreadOnly ? 'is-active' : ''">Unread only</button><span x-text="totalUnread() ? totalUnread()+' unread' : 'All caught up'"></span></div>
+                    <div class="vx-chatify-native-search"><input type="search" x-model="search" placeholder="Search conversations…" aria-label="Search conversations"></div><div class="vx-chatify-inbox-toolbar"><button type="button" x-on:click="unreadOnly=!unreadOnly" :aria-pressed="String(unreadOnly)" :class="unreadOnly ? 'is-active' : ''">Unread only</button><span x-text="totalUnread() ? totalUnread()+' unread' : 'All caught up'"></span><button type="button" x-on:click="enableAlerts()" :disabled="alertsEnabled" x-text="alertsEnabled ? 'Alerts on' : 'Enable alerts'" title="Browser notifications while the messenger is open"></button></div>
                     <p class="vx-chatify-native-hint" x-show="loading">Loading conversations…</p>
                     <p class="vx-chatify-native-error" x-show="error" x-text="error" role="alert"></p>
-                    <p class="vx-chatify-native-hint" x-show="loaded && !loading && !threads.length">No conversations yet.</p>
+                    <p class="vx-chatify-native-hint" x-show="loaded && !loading && !threads.length">No conversations yet.</p><p class="vx-chatify-native-hint" x-show="loaded && !loading && threads.length && !visibleThreads().length">No conversations match these filters.</p>
                     <template x-for="thread in visibleThreads()" :key="thread.id">
                         <button type="button" class="vx-chatify-native-thread" x-on:click="openThread(thread)">
                             <span class="vx-chatify-native-avatar" x-text="label(thread).charAt(0).toUpperCase()"></span>
@@ -85,7 +85,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[],
+                        messagesLoading:false, draft:'', sending:false, timer:null, showNew:false, users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -102,12 +102,32 @@
                         isMine(m) {return String(m?.relationships?.sender?.data?.id || m?.attributes?.user_id)===String(this.myId);},
                         messageAttachments(m) { const a=m?.attributes || {}; return Array.isArray(a.attachments) && a.attachments.length ? a.attachments.filter(x=>x?.url) : (a.attachment?.url ? [a.attachment] : []); },
                         isImage(a) { return a?.type==='image' || /\.(png|jpe?g|gif|webp|avif|bmp)(\?|$)/i.test(a?.url || '') || /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(a?.original_name || ''); },
-                        init() {try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];}},
+                        init() {try {this.pinnedIds=JSON.parse(localStorage.getItem('vortex-chat-pins-'+this.myId) || '[]');if(!Array.isArray(this.pinnedIds))this.pinnedIds=[];}catch(e){this.pinnedIds=[];} this.alertsEnabled=('Notification' in window && Notification.permission==='granted');},
                         isPinned(t) {return this.pinnedIds.includes(String(t?.id));},
                         togglePin() {if(!this.selected)return;const id=String(this.selected.id);this.pinnedIds=this.isPinned(this.selected)?this.pinnedIds.filter(x=>x!==id):[...this.pinnedIds,id];try{localStorage.setItem('vortex-chat-pins-'+this.myId,JSON.stringify(this.pinnedIds));}catch(e){}},
                         visibleThreads() {return this.threads.filter(t=>(!this.unreadOnly || this.unread(t)>0) && this.label(t).toLowerCase().includes(this.search.toLowerCase())).sort((a,b)=>Number(this.isPinned(b))-Number(this.isPinned(a)));},
                         filteredMessages() {const q=this.messageSearch.trim().toLowerCase();return q ? this.messages.filter(m=>String(m?.attributes?.body || '').toLowerCase().includes(q)) : this.messages;},
                         totalUnread() {return this.threads.reduce((sum,t)=>sum+this.unread(t),0);},
+                        async enableAlerts() {
+                            if(!('Notification' in window)) {this.error='Browser notifications are unavailable here.';return;}
+                            const permission=await Notification.requestPermission();
+                            this.alertsEnabled=permission==='granted';
+                            if(!this.alertsEnabled)this.error='Browser notification permission was not granted.';
+                            this.unreadSnapshot=Object.fromEntries(this.threads.map(t=>[String(t.id),this.unread(t)]));
+                        },
+                        notifyNewUnread(threads) {
+                            const next=Object.fromEntries(threads.map(t=>[String(t.id),this.unread(t)]));
+                            if(this.unreadSnapshot && this.alertsEnabled && 'Notification' in window && Notification.permission==='granted' && document.hidden) {
+                                for(const t of threads) {
+                                    const count=this.unread(t),previous=this.unreadSnapshot[String(t.id)] || 0;
+                                    if(count>previous && this.selected?.id!==t.id) {
+                                        const notice=new Notification('New Vortex Ops message',{body:this.label(t),tag:'vortex-chat-'+t.id});
+                                        notice.onclick=()=>{window.focus();this.open=true;this.openThread(t);notice.close();};
+                                    }
+                                }
+                            }
+                            this.unreadSnapshot=next;
+                        },
                         unread(t) {return Number(t?.attributes?.unread_count || 0);},
                         formatDate(v) {if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime()) ? '' : new Intl.DateTimeFormat(undefined,{dateStyle:'medium'}).format(d);},
                         showDate(m,index) {return index===0 || this.formatDate(this.messages[index-1]?.attributes?.created_at)!==this.formatDate(m?.attributes?.created_at);},
@@ -115,7 +135,7 @@
                         async load() {
                             if(this.loading) return;
                             this.loading=true;this.error='';
-                            try {this.threads=this.items(await this.api('/conversations?per_page=50'));this.loaded=true;}
+                            try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
                         async openThread(t) {this.selected=t;this.messages=[];this.messageSearch='';this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},

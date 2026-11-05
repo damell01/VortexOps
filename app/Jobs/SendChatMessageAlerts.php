@@ -37,6 +37,16 @@ class SendChatMessageAlerts implements ShouldQueue
     {
         if (! config('chatify-preview.message_notifications_enabled', false)) return;
         if ($this->recipientId === $this->senderId) return;
+        // Re-check membership when the queued job runs, not just when it was created.
+        // A removed participant must never receive message content.
+        if (! class_exists(\\Chatify\\Models\\Conversation::class)) return;
+        $conversation = \\Chatify\\Models\\Conversation::find($this->conversationId);
+        if (! $conversation || ! method_exists($conversation, 'participants')) return;
+        $isMember = $conversation->participants()->get()->contains(function ($participant) {
+            $id = $participant instanceof User ? $participant->getKey() : ($participant->user_id ?? null);
+            return (int) $id === $this->recipientId;
+        });
+        if (! $isMember) return;
         $user = User::find($this->recipientId);
         if (! $user || $user->notifications_enabled === false) return;
         $prefs = (array) (($user->notification_preferences ?? [])['team_message'] ?? []);
@@ -46,7 +56,7 @@ class SendChatMessageAlerts implements ShouldQueue
         $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
         $body = $previewAllowed ? ($message !== '' ? $message : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
         $url = '/admin';
-        if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false) {
+        if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false && Cache::add('chat-push:'.$user->id.':'.$this->messageId, true, now()->addDay())) {
             foreach (WebPushSubscription::where('user_id', $user->id)->limit(8)->get() as $device) {
                 try {
                     $push->send($device, [

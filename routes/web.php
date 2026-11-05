@@ -168,6 +168,8 @@ Route::middleware(['web', 'auth', 'throttle:30,1'])->get('/admin/communications/
 
 Route::middleware(['web', 'auth', 'throttle:60,1'])->match(['GET', 'POST'], '/admin/communications/reactions/{message}', \App\Http\Controllers\ChatMessageReactionController::class)->name('communications.reactions');
 
+Route::middleware(['web', 'auth', 'throttle:20,1'])->post('/admin/communications/announcements/{announcement}/acknowledge', \App\Http\Controllers\TeamAnnouncementAcknowledgmentController::class)->whereNumber('announcement')->name('communications.announcements.acknowledge');
+
 // Communications files have no public storage URL; every download rechecks preview access and membership.
 Route::middleware(['web', 'auth', 'throttle:60,1'])->get('/admin/communications/attachments/{attachment}', \App\Http\Controllers\TeamMessageAttachmentController::class)->whereNumber('attachment')->name('communications.attachment');
 

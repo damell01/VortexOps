@@ -141,9 +141,9 @@ class AppServiceProvider extends ServiceProvider
         // MessageResource accesses its conversation. Eager-load that relation in
         // batches so strict lazy-loading protection stays enabled for Vortex Ops.
         // Only register while the owner-only Chatify preview is enabled.
-        if (config('chatify-preview.enabled', false) && class_exists(\\Chatify\\Models\\Message::class)) {
-            \\Chatify\\Models\\Message::addGlobalScope('vortex_chatify_conversation',
-                fn (\\Illuminate\\Database\\Eloquent\\Builder $query) => $query->with('conversation')
+        if (config('chatify-preview.enabled', false) && class_exists(\Chatify\Models\Message::class)) {
+            \Chatify\Models\Message::addGlobalScope('vortex_chatify_conversation',
+                fn (\Illuminate\Database\Eloquent\Builder $query) => $query->with('conversation')
             );
         }
 

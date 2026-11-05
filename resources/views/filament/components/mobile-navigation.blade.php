@@ -19,7 +19,7 @@
         && ! collect($groups['Shows'] ?? [])->contains(fn ($link) => $link[0] === 'Stream Review')) {
         $groups['Shows'][] = ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review')];
     }
-    $navLogo = $navLogo ?? null;
+    // Hide the Fulfillment navigation section for now without changing route permissions.\n    if (! ($fulfillmentOnly ?? false)) {\n        unset($groups['Fulfillment']);\n    }\n    $navLogo = $navLogo ?? null;
     $homeUrl = $homeUrl ?? \App\Filament\Pages\DashboardImproved::getUrl(panel: 'admin');
     $homeLabel = $homeLabel ?? 'Dashboard';
     $icons = ['Shows' => 'heroicon-o-tv', 'Inventory' => 'heroicon-o-cube', 'Fulfillment' => 'heroicon-o-truck', 'Finance' => 'heroicon-o-wallet', 'Payroll' => 'heroicon-o-wallet', 'Reports' => 'heroicon-o-chart-bar', 'Admin' => 'heroicon-o-cog-6-tooth', 'Settings' => 'heroicon-o-cog-6-tooth'];

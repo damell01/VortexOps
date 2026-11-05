@@ -359,3 +359,14 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-date-separator[style*="display: none"]{display:none!important}
 .dark .vx-chatify-date-separator{background:#352644;color:#d2c3e2}
 @media(min-width:1024px){.vx-chatify-native{width:min(530px,calc(100vw - 40px));height:min(700px,calc(100dvh - 105px))}}
+
+
+/* Conversation organization and search */
+.vx-chatify-inbox-toolbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid #f1eafa;font-size:11px;color:#766585}
+.vx-chatify-inbox-toolbar button{border:1px solid #e3d7f1;border-radius:99px;padding:5px 11px;background:white;color:#6d28d9;font-size:11px;font-weight:700;cursor:pointer}
+.vx-chatify-inbox-toolbar button.is-active{background:#6d28d9;color:white}
+.vx-chatify-message-search{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid #eee7f7}
+.vx-chatify-message-search input{flex:1;min-width:0;border:1px solid #e3d7f1;border-radius:9px;padding:8px 10px;background:#faf8fd;color:#261b33;font-size:12px}
+.vx-chatify-message-search span{font-size:11px;color:#766585;white-space:nowrap}
+.dark .vx-chatify-inbox-toolbar,.dark .vx-chatify-message-search{border-color:#403052}
+.dark .vx-chatify-message-search input{background:#30233e;color:#fff;border-color:#5a4274}

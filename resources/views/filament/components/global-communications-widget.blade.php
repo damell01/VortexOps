@@ -175,6 +175,7 @@
                                     this.lastMessageId=this.messages.at(-1)?.id;
                                 });
                                 this.error='';
+                                if(document.visibilityState==='visible')this.api('/conversations/'+encodeURIComponent(id)+'/read',{method:'POST'}).catch(()=>{});
                             } catch(e) {
                                 if(requestId===this.messageRequestId)this.error=e.message;
                             } finally {

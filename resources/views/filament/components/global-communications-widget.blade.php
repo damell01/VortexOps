@@ -96,7 +96,7 @@
                 </div>
                 <div class="vx-chatify-new-overlay" x-show="showNew && !selected" x-cloak>
                     <div class="vx-chatify-conversation-head"><strong>New conversation</strong><button type="button" x-on:click="showNew=false" aria-label="Cancel">✕</button></div>
-                    <input type="search" x-model="userSearch" placeholder="Find a teammate…" aria-label="Find a teammate">
+                    <label class="vx-chatify-native-hint"><input type="checkbox" x-model="creatingGroup"> Create a group chat</label><input type="search" x-model="userSearch" placeholder="Find a teammate…" aria-label="Find a teammate">
                     <div class="vx-chatify-user-list">
                         <template x-for="user in users.filter(u => userName(u).toLowerCase().includes(userSearch.toLowerCase()))" :key="user.id">
                             <label><input type="checkbox" :value="String(user.id)" x-model="recipients"><span x-text="userName(user)"></span></label>
@@ -106,7 +106,7 @@
                         <label>Group by role <select x-model="selectedRole"><option value="">Choose role…</option><template x-for="role in groupRoles" :key="role.id"><option :value="String(role.id)" x-text="role.name"></option></template></select></label>
                         <button type="button" x-on:click="selectRoleMembers()" :disabled="!selectedRole">Select role members</button>
                     </div>
-                    <p class="vx-chatify-native-hint" x-text="recipients.length + ' teammate(s) selected · maximum 49'"></p><input type="text" x-show="recipients.length > 1" x-model="groupName" maxlength="120" placeholder="Group name" aria-label="Group name">
+                    <p class="vx-chatify-native-hint" x-text="recipients.length + ' teammate(s) selected · maximum 49'"></p><input type="text" x-show="creatingGroup || recipients.length > 1" x-model="groupName" maxlength="120" placeholder="Group name" aria-label="Group name">
                     <p class="vx-chatify-native-error" x-show="error" x-text="error"></p>
                     <button type="button" class="vx-chatify-new-create" x-on:click="createConversation()" :disabled="!recipients.length || creating" x-text="creating ? 'Creating…' : 'Start conversation'"></button>
                 </div>
@@ -117,7 +117,7 @@
                 function vortexChatifyWidget() {
                     return {
                         open:false, connected:true, loaded:false, loading:false, error:'', threads:[], search:'', selected:null, messages:[],
-                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], searchRequestId:0, messageRequestId:0,
+                        messagesLoading:false, draft:'', sending:false, timer:null, lastInboxRefresh:0, showNew:false, canCreateGroups:@json(auth()->user()->isAdmin() || auth()->user()->isOwner()), groupRoles:[], roleUsers:[], selectedRole:'', creatingGroup:false, showMembers:false, groupMembers:[], membersToAdd:[], memberSearch:'', users:[], userSearch:'', recipients:[], groupName:'', creating:false, preview:null, files:[], dragging:false, lastMessageId:null, unreadOnly:false, messageSearch:'', pinnedIds:[], alertsEnabled:false, unreadSnapshot:null, replyTo:null, copiedId:null, copiedConversation:false, editingMessage:null, olderPage:1, hasOlder:false, olderLoading:false, historySearching:false, searchResults:[], searchRequestId:0, messageRequestId:0,
                         base:@json(url('/api/chatify/v1')), myId:@json((int) auth()->id()),
                         async api(path, options={}) {
                             const headers={'Accept':'application/json','X-Requested-With':'XMLHttpRequest',...(options.headers || {})};
@@ -375,7 +375,7 @@
                             const role=Number(this.selectedRole);
                             if(!role)return;
                             const matches=this.roleUsers.filter(u=>(u.role_ids || []).map(Number).includes(role)).map(u=>String(u.id));
-                            this.recipients=[...new Set([...this.recipients,...matches])].slice(0,49);
+                            this.recipients=[...new Set([...this.recipients,...matches])].slice(0,49);this.creatingGroup=true;
                             if(this.recipients.length>1 && !this.groupName.trim())this.groupName=this.groupRoles.find(r=>Number(r.id)===role)?.name || 'Team group';
                         },
                         async loadUsers() {
@@ -387,11 +387,11 @@
                             if(this.recipients.length>49){this.error='Select no more than 49 teammates for a group.';return;}
                             this.creating=true;this.error='';
                             try {
-                                const group=this.recipients.length>1;
+                                const group=this.creatingGroup || this.recipients.length>1;
                                 const path=group?'/conversations/group':'/conversations/direct';
                                 const body=group?{name:this.groupName.trim() || 'Group chat',user_ids:this.recipients.map(Number)}:{user_id:Number(this.recipients[0])};
                                 const data=await this.api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-                                this.showNew=false;this.recipients=[];this.groupName='';
+                                this.showNew=false;this.recipients=[];this.groupName='';this.creatingGroup=false;
                                 await this.load();
                                 const t=data?.data;
                                 if(t?.id) await this.openThread(t);

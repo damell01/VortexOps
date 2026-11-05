@@ -336,3 +336,15 @@ html:not(.dark) .vxc-2026 .vxc-message-wrap.is-own .vxc-message{color:#fff}
 .vx-chatify-preview{position:absolute;inset:0;z-index:10;background:rgba(20,13,33,.94);display:flex;align-items:center;justify-content:center;padding:45px 12px 16px}
 .vx-chatify-preview>button{position:absolute;top:12px;right:12px;background:#fff;color:#381b65;border:0;border-radius:9px;padding:8px 12px;cursor:pointer}
 .vx-chatify-preview>img{max-width:100%;max-height:100%;object-fit:contain}
+
+
+/* Native Chatify attachment composer */
+.vx-chatify-composer textarea{flex:1;min-width:0;resize:none;max-height:130px;min-height:42px;padding:11px 12px;border:1px solid #e1d5f0;border-radius:11px;background:#fff;color:#25183b;font-size:13px;line-height:1.5}
+.vx-chatify-attach-button{display:grid;place-items:center;position:relative;flex:none;width:42px;height:42px;border:1px solid #e1d5f0;border-radius:11px;color:#6d28d9;font-size:23px;cursor:pointer}
+.vx-chatify-attach-button input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.vx-chatify-composer.is-dragging{background:#f3eaff;outline:2px dashed #7c3aed}
+.vx-chatify-attachments-selected{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-top:1px solid #eee7f7}
+.vx-chatify-attachments-selected>span{display:inline-flex;align-items:center;gap:8px;max-width:100%;border-radius:9px;padding:5px 8px;background:#f3eaff;color:#51218b;font-size:11px}
+.vx-chatify-attachments-selected>span>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.vx-chatify-attachments-selected button{font-size:17px}
+.dark .vx-chatify-composer textarea{background:#30233e;color:white;border-color:#5a4274}

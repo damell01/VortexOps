@@ -13,6 +13,7 @@ class ChatifyMessageObserver
     {
         // Chatify soft-deletes messages. Remove reactions so deleted content
         // cannot retain stale interaction data indefinitely.
+        if (! \Illuminate\Support\Facades\Schema::hasTable('chat_message_reactions')) return;
         \Illuminate\Support\Facades\DB::table('chat_message_reactions')
             ->where('message_id', (string) $message->getKey())
             ->delete();

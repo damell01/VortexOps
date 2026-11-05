@@ -13,7 +13,7 @@
                         <button type="button" x-on:click="open = false" title="Close messages" aria-label="Close messages"><x-filament::icon icon="heroicon-o-x-mark" /></button>
                     </div>
                 </header>
-                <iframe src="{{ url('/chatify') }}" title="Chatify team messenger" loading="lazy" referrerpolicy="same-origin"></iframe>
+                <iframe src="{{ url('/chatify') }}" title="Chatify team messenger" loading="eager" referrerpolicy="same-origin"></iframe>
             </section>
         </div>
     @else

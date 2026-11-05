@@ -78,7 +78,7 @@ class SendChatMessageAlerts implements ShouldQueue
         $preview = Str::limit(trim(preg_replace('/\\s+/', ' ', strip_tags((string) $message->body))), 180);
         $title = $previewAllowed ? 'New message from '.$sender : 'New team message';
         $body = $previewAllowed ? ($preview !== '' ? $preview : 'Sent an attachment') : 'Open Vortex Ops to read your message.';
-        $url = '/admin';
+        $url = '/admin?chat='.rawurlencode($this->conversationId);
         if (($prefs['push'] ?? false) && $user->notification_in_app_enabled !== false) {
             foreach (WebPushSubscription::where('user_id', $user->id)->limit(8)->get() as $device) {
                 $deliveryKey = 'chat-push:'.$user->id.':'.$device->id.':'.$this->messageId;
@@ -100,7 +100,7 @@ class SendChatMessageAlerts implements ShouldQueue
             $key = 'chat-mail:'.$user->id.':'.hash('sha256', $this->conversationId);
             if (Cache::add($key, true, now()->addMinutes(15))) {
                 try {
-                    Mail::raw($body."\n\nOpen Vortex Ops to reply: ".url('/admin'), function ($mail) use ($user, $title) {
+                    Mail::raw($body."\n\nOpen Vortex Ops to reply: ".url($url), function ($mail) use ($user, $title) {
                         $mail->to($user->email)->subject($title);
                     });
                 } catch (\Throwable $e) {

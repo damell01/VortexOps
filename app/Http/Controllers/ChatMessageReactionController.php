@@ -12,6 +12,12 @@ class ChatMessageReactionController
     public function __invoke(Request $request, string $message): JsonResponse
     {
         abort_unless(config('chatify-preview.enabled', false), 404);
+        if ($message === 'batch') {
+            abort_unless($request->isMethod('get'), 405);
+            $ids = $request->validate(['ids' => ['required', 'array', 'max:50'], 'ids.*' => ['required', 'string', 'max:36']])['ids'];
+            $allowed = Message::query()->whereIn('id', $ids)->whereHas('conversation.participants', fn ($q) => $q->where('user_id', $request->user()->id))->pluck('id');
+            return response()->json(['reactions' => DB::table('chat_message_reactions')->whereIn('message_id', $allowed)->get(['message_id', 'user_id', 'emoji'])->groupBy('message_id')]);
+        }
         $chat = Message::query()->findOrFail($message);
         $conversation = $chat->conversation;
         abort_unless($conversation && $conversation->participants()->where('user_id', $request->user()->id)->exists(), 403);

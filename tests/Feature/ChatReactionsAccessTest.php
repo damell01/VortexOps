@@ -16,6 +16,17 @@ class ChatReactionsAccessTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_team_rollout_reaches_membership_check_without_owner_preview(): void
+    {
+        config([
+            'chatify-preview.enabled' => false,
+            'chatify-preview.team_enabled' => true,
+        ]);
+        $this->actingAs(User::factory()->create())
+            ->getJson('/admin/communications/reactions/nonexistent-message')
+            ->assertNotFound();
+    }
+
     public function test_disabled_preview_rejects_reaction_mutations(): void
     {
         config(['chatify-preview.enabled' => false]);

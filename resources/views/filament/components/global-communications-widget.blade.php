@@ -419,7 +419,7 @@
                             try {
                                 const data=await this.api('/conversations/'+encodeURIComponent(conversationId)+'/participants?per_page=100');
                                 if(String(this.selected?.id)===String(conversationId))this.groupMembers=this.items(data);
-                            }catch(e){this.groupMembers=[];}
+                            }catch(e){if(String(this.selected?.id)===String(conversationId))this.groupMembers=[];}
                         },
                         updateMentionQuery() {
                             if(this.selected?.attributes?.conversation_type!=='group'){this.mentionQuery=null;return;}

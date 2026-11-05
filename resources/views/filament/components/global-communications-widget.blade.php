@@ -158,7 +158,7 @@
                             try {const list=this.items(await this.api('/conversations?per_page=50'));this.notifyNewUnread(list);this.threads=list;this.loaded=true;this.lastInboxRefresh=Date.now();}
                             catch(e) {this.error=e.message;} finally {this.loading=false;}
                         },
-                        async openThread(t) {this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
+                        async openThread(t) {this.showMembers=false;this.selected=t;this.copiedConversation=false;this.messageRequestId++;this.messages=[];this.messagesLoading=false;this.olderPage=1;this.hasOlder=false;this.historySearching=false;this.replyTo=null;this.messageSearch='';this.searchResults=[];this.searchRequestId++;this.lastMessageId=null;this.error='';this.files=[];this.draft='';this.showNew=false;await this.loadMessages();},
                         pageInfo(data, count, page) {
                             const meta=data?.meta || data?.data?.meta || {};
                             const links=data?.links || data?.data?.links || {};
@@ -249,6 +249,34 @@
                         replyToMessage(message) {
                             this.replyTo=message;
                             this.$nextTick(()=>this.$refs.composerInput?.focus());
+                        },
+                        async openGroupMembers() {
+                            if(!this.selected)return;
+                            this.showMembers=true;this.groupMembers=[];
+                            await this.refreshGroupMembers();
+                        },
+                        async refreshGroupMembers() {
+                            if(!this.selected)return;
+                            try {this.groupMembers=this.items(await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants?per_page=100'));}
+                            catch(e){this.error=e.message;}
+                        },
+                        async removeGroupMember(member) {
+                            if(!this.selected || !this.selected.attributes?.is_owner || !window.confirm('Remove this teammate from the group?'))return;
+                            try {
+                                await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants/'+encodeURIComponent(member.id),{method:'DELETE'});
+                                await this.refreshGroupMembers();await this.load();
+                            }catch(e){this.error=e.message;}
+                        },
+                        async addGroupMembers() {
+                            if(!this.selected || !this.selected.attributes?.is_owner)return;
+                            const value=window.prompt('Enter teammate user IDs separated by commas');
+                            if(value===null)return;
+                            const ids=[...new Set(value.split(',').map(v=>v.trim()).filter(v=>/^[0-9]+$/.test(v)).map(Number))];
+                            if(!ids.length || ids.length>49){this.error='Enter 1–49 valid teammate IDs.';return;}
+                            try {
+                                await this.api('/conversations/'+encodeURIComponent(this.selected.id)+'/participants',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_ids:ids})});
+                                await this.refreshGroupMembers();await this.load();
+                            }catch(e){this.error=e.message;}
                         },
                         async renameGroup() {
                             if(!this.selected)return;

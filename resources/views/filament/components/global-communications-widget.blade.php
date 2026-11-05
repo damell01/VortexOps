@@ -1,4 +1,4 @@
-@if(\App\Services\TeamCommunications::canAccess(auth()->user()))
+@if(\App\Services\TeamCommunications::canAccess(auth()->user()) || (config('chatify-preview.team_enabled', false) && auth()->check()))
     @if(config('chatify-preview.enabled', false))
         <div class="vx-chatify-shell" x-data="vortexChatifyWidget()" x-on:keydown.escape.window="close()">
             <button type="button" class="vx-chatify-launch" x-on:click="toggle()" x-bind:aria-expanded="String(open)" aria-controls="vx-chatify-drawer" aria-label="Open messages">

@@ -150,6 +150,7 @@ final class WhatnotApiSync
                 $analyticsCounts[$outcome] = ($analyticsCounts[$outcome] ?? 0) + 1;
             }
             if (($analyticsCounts['failed'] ?? 0) > 0) $summary['errors'][] = 'show analytics: '.$analyticsCounts['failed'].' requests failed';
+            if ($known->count() > self::MAX_ANALYTICS_LOOKUPS) $summary['errors'][] = 'show analytics: '.($known->count() - self::MAX_ANALYTICS_LOOKUPS).' lookups deferred';
             $summary['show_analytics'] = $analyticsCounts;
             $log('Show analytics: '.json_encode($analyticsCounts));
         } catch (\Throwable $e) {

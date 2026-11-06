@@ -118,6 +118,16 @@ final class WhatnotApiLedgerImporter
                     if ($isTip) $counts['tips_ambiguous']++;
                     continue;
                 }
+                // Forward-only cutover: never reconcile or modify scraper rows from
+                // before the configured API ledger start. Historical duplicates
+                // remain untouched unless an explicit backfill is requested.
+                $completedAt = Carbon::parse($entry['completed_date']);
+                if ($backfillFrom === null && ($start === null || $completedAt->lt($start))
+                    && $idMatches->isEmpty()) {
+                    $counts['before_start']++;
+                    if ($isTip) $counts['tips_before_start']++;
+                    continue;
+                }
                 $candidates = $idMatches->isNotEmpty()
                     ? WhatnotLedgerEntry::query()->whereKey($idMatches->all())->get()
                     : $this->scraperMatches($channelId, $entry);

@@ -21,7 +21,7 @@ jobs:
           key: composer-${{ hashFiles('composer.lock') }}
           restore-keys: composer-
       - run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
-      - run: cp .env.example .env
+      - run: cp .env.example .env && php artisan key:generate
       - name: Compile and syntax-check all Blade views
         run: |
           php artisan view:clear

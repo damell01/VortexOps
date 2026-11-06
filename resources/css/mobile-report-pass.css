@@ -353,7 +353,7 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
         border-top: 1px solid rgb(148 163 184 / .2) !important;
     }
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.fi-ta-cell::before {
-        color: var(--vx-text-dim, #64748b) !important;
+        color: var(--vx-muted, #64748b) !important;
         font-size: 12px !important;
         font-weight: 600;
         line-height: 1.4 !important;

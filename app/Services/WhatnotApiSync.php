@@ -97,6 +97,7 @@ final class WhatnotApiSync
             }
         }
         $summary['order_items'] = $items + ['waiting' => max(0, count(array_unique($needsItems)) - self::MAX_ITEM_LOOKUPS)];
+        if ($items['failed'] > 0) $summary['errors'][] = 'order items: '.$items['failed'].' lookups failed';
         $log('Order items: '.json_encode($summary['order_items']));
 
         // 2b. Shipments created in the window → tracking/status on orders.
@@ -113,6 +114,7 @@ final class WhatnotApiSync
                 }
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
             }, maxPages: 40);
+            if (collect($shipCounts)->keys()->contains(fn ($key) => str_starts_with((string) $key, 'http_'))) $summary['errors'][] = 'shipments: one or more shipment item requests failed';
             $summary['shipments'] = $shipCounts;
             $log('Shipments: '.json_encode($shipCounts));
         } catch (\Throwable $e) {
@@ -144,6 +146,7 @@ final class WhatnotApiSync
                 $outcome = $this->analytics->apply($channelId, (array) $response->json(), $dryRun)['outcome'];
                 $analyticsCounts[$outcome] = ($analyticsCounts[$outcome] ?? 0) + 1;
             }
+            if (($analyticsCounts['failed'] ?? 0) > 0) $summary['errors'][] = 'show analytics: '.$analyticsCounts['failed'].' requests failed';
             $summary['show_analytics'] = $analyticsCounts;
             $log('Show analytics: '.json_encode($analyticsCounts));
         } catch (\Throwable $e) {
@@ -153,6 +156,7 @@ final class WhatnotApiSync
         // 4. Financial report → ledger (tips, earnings, refunds).
         try {
             $summary['ledger'] = $this->ledgerStep($connection, $since, $dryRun);
+            if (($summary['ledger']['status'] ?? null) !== 'imported') $summary['errors'][] = 'ledger: financial report not yet imported';
             $log('Ledger: '.json_encode($summary['ledger']));
         } catch (\Throwable $e) {
             $summary['errors'][] = 'ledger: '.$e->getMessage();

@@ -317,7 +317,26 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
 /* Dense audit/report cards must read top to bottom rather than squeeze long
    descriptions, model names and changed-field lists into half-width cells. */
 @media (max-width: 767px) {
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > thead {
+        display: none !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row {
+        height: auto !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
         grid-template-columns: minmax(0, 1fr) !important;
         align-items: start !important;
         gap: 0 !important;
@@ -351,6 +370,12 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable .fi-ta-text-item,
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable .fi-badge {
         font-size: 14px !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable .fi-badge span {
+        min-width: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: normal !important;
     }
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.vx-mobile-actions :is(button, a) {
         min-width: 44px;

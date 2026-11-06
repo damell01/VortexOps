@@ -1,6 +1,21 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
+async function login(page, email: string) {
+    const state = `storage/inventory-changes-auth-${email.replace(/[^a-z0-9]/gi, '_')}.json`;
+    if (fs.existsSync(state)) {
+        await page.context().addCookies(JSON.parse(fs.readFileSync(state, 'utf8')).cookies);
+        await page.goto('/admin');
+        return;
+    }
+    await page.goto('/admin/login');
+    await page.locator('input[type=email]').fill(email);
+    await page.locator('input[type=password]').fill('MockupTest123!');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.locator('input[type=password]')).toHaveCount(0, { timeout: 20000 });
+    await page.context().storageState({ path: state });
+}
+
 for (const scenario of [
     { width: 390, height: 844, dark: true, standalone: true },
     { width: 390, height: 844, dark: false, standalone: false },
@@ -13,10 +28,7 @@ for (const scenario of [
             localStorage.setItem('theme', dark ? 'dark' : 'light');
             Object.defineProperty(navigator, 'standalone', { get: () => standalone });
         }, scenario);
-        await page.goto('/admin/login');
-        await page.locator('input[type=email]').fill('mockup-streamer@example.test');
-        await page.locator('input[type=password]').fill('MockupTest123!');
-        await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+        await login(page, 'mockup-streamer@example.test');
         await expect(page.locator('[data-vx-page=streamer-home]')).toBeVisible();
         const looseAngles = await page.locator('.fi-page-content').evaluate(el => {
             const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -46,11 +58,13 @@ for (const scenario of [
             cleanup.reconcile();
         });
         await dialog.getByRole('button', { name: 'Price changes', exact: true }).click();
+        await expect(dialog.getByRole('button', { name: 'Price changes', exact: true })).toHaveClass(/bg-purple-700/);
         await expect(dialog.getByText('Inventory change fixture 24', { exact: true })).toBeVisible();
         await expect(dialog).toBeVisible();
         if (scenario.standalone) {
             // Chromium has no iOS status bar; emulate its reserved safe-area space.
             await dialog.evaluate(el => { el.style.paddingTop = '47px'; el.style.paddingBottom = '34px'; });
+            expect(await dialog.evaluate(el => getComputedStyle(el).paddingTop)).toBe('47px');
         }
         const scroll = dialog.locator('[data-inventory-changes-scroll]');
         await scroll.evaluate(el => { el.scrollTop = el.scrollHeight; });
@@ -88,11 +102,7 @@ for (const dark of [false, true]) {
     test(`activity logs read as labeled cards on phones (${dark ? 'dark' : 'light'})`, async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 844 });
         await page.addInitScript(dark => localStorage.setItem('theme', dark ? 'dark' : 'light'), dark);
-        await page.goto('/admin/login');
-        await page.locator('input[type=email]').fill(fs.readFileSync('storage/mockup-owner.txt', 'utf8').trim());
-        await page.locator('input[type=password]').fill('MockupTest123!');
-        await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-        await expect(page.locator('input[type=password]')).toHaveCount(0);
+        await login(page, fs.readFileSync('storage/mockup-owner.txt', 'utf8').trim());
         await page.goto('/admin/activity-logs');
         const table = page.locator('[data-vx-readable-log] table.fi-ta-table');
         await expect(table).toHaveClass(/vx-mobile-readable/);
@@ -110,6 +120,8 @@ for (const dark of [false, true]) {
         }
         const clipped = await row.locator('.fi-badge, .fi-ta-text-item').evaluateAll(elements => elements.filter(el => el.scrollWidth > el.clientWidth + 2).map(el => el.textContent));
         expect(clipped).toEqual([]);
+        const boxes = await row.locator('td').evaluateAll(cells => cells.map(cell => cell.getBoundingClientRect()).filter(box => box.width && box.height).sort((a, b) => a.top - b.top).map(box => ({ top: box.top, bottom: box.bottom })));
+        for (let i = 1; i < boxes.length; i++) expect(boxes[i].top).toBeGreaterThanOrEqual(boxes[i - 1].bottom - 1);
         await expect(page.locator('.vx-tabbar a[href*="fulfillment"]')).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
         await page.screenshot({ path: `tests/Browser/output/inventory-changes/activity-log-${dark ? 'dark' : 'light'}.png`, fullPage: true });

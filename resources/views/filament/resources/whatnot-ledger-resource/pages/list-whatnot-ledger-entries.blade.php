@@ -376,7 +376,7 @@
                         <dl class="vxr-dl">
                             <div><dt>Linked show</dt><dd>
                                 @if ($linkedShow)
-                                    <strong>{{ $linkedShow['title'] }}</strong>
+                                    <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $linkedShow['id']]) }}" class="vxr-link" target="_blank" rel="noopener">{{ $linkedShow['title'] }} ↗</a>
                                     <span style="display:block;font-size:12px;color:var(--vxw-muted)">{{ $linkedShow['date'] }} · {{ $linkedShow['source'] }}</span>
                                 @else
                                     <span>Not linked — no verified show match</span>

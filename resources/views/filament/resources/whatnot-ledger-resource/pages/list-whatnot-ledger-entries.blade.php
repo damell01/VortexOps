@@ -367,7 +367,36 @@
                             <span class="vxr-pill {{ $tone ? 'vxr-pill--'.$tone : '' }}">{{ $selected->status }}</span>
                         @endif
                     </div>
-                    @if ($this->canReconcile())
+                    @php
+                        $attribution = $this->selectedAttribution();
+                        $linkedShow = $this->selectedShowDetails();
+                    @endphp
+                    <section class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
+                        <h3 style="font-weight:700;margin-bottom:10px">Show & allocation</h3>
+                        <dl class="vxr-dl">
+                            <div><dt>Linked show</dt><dd>
+                                @if ($linkedShow)
+                                    <strong>{{ $linkedShow['title'] }}</strong>
+                                    <span style="display:block;font-size:12px;color:var(--vxw-muted)">{{ $linkedShow['date'] }} · {{ $linkedShow['source'] }}</span>
+                                @else
+                                    <span>Not linked — no verified show match</span>
+                                @endif
+                            </dd></div>
+                            <div><dt>Allocation status</dt><dd>{{ ucfirst($attribution->status ?? 'Unassigned') }}</dd></div>
+                            <div><dt>Category</dt><dd>{{ ucfirst($attribution->category ?? $this->attributionCategory) }}</dd></div>
+                            <div><dt>Destination</dt><dd>{{ ucfirst($attribution->target ?? 'Unassigned') }}</dd></div>
+                            @if ($attribution?->streamer_id)
+                                <div><dt>Streamer</dt><dd>{{ \App\Models\Streamer::find($attribution->streamer_id)?->name ?? 'Unknown' }}</dd></div>
+                            @endif
+                            @if ($attribution?->business_id)
+                                <div><dt>Business</dt><dd>{{ \App\Models\Business::find($attribution->business_id)?->name ?? 'Unknown' }}</dd></div>
+                            @endif
+                        </dl>
+                        @if ($this->canReconcile())
+                            <button type="button" class="vxr-btn vxr-btn--outline" style="margin-top:12px" wire:click="toggleAttributionEditor">{{ $editingAttribution ? 'Hide allocation editor' : 'Edit allocation' }}</button>
+                        @endif
+                    </section>
+                    @if ($this->canReconcile() && $editingAttribution)
                         @php $attribution = $this->selectedAttribution(); @endphp
                         <section class="vxr-card" style="padding:16px;display:grid;gap:12px">
                             <h3 style="font-weight:700">Categorize & assign transaction</h3>

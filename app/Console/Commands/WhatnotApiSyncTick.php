@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\WhatnotApiConnection;
+use App\Models\WhatnotLedgerEntry;
+use App\Services\LedgerAutoMatcher;
 use App\Services\WhatnotApiOrderApplier;
 use App\Services\WhatnotApiSync;
 use Illuminate\Console\Command;
@@ -55,6 +57,25 @@ final class WhatnotApiSyncTick extends Command
                 // otherwise this is a preview that still records what it saw.
                 $result = $sync->run($connection, (int) config('services.whatnot_seller.sync_days', 3),
                     dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode]);
+                // Newly synced orders may supply the missing exact show evidence
+                // for previously imported tips. Retry safely without touching payroll.
+                if (! $result['dry_run'] && in_array($mode, ['recent', 'finance'], true)) {
+                    $matcher = app(LedgerAutoMatcher::class);
+                    $matched = 0;
+                    $review = 0;
+                    WhatnotLedgerEntry::query()
+                        ->where('whatnot_channel_id', $connection->whatnot_channel_id)
+                        ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                        ->where('created_date', '>=', now()->subDays(14))
+                        ->orderBy('id')
+                        ->chunkById(100, function ($entries) use ($matcher, &$matched, &$review) {
+                            foreach ($entries as $entry) {
+                                if ($matcher->match($entry) === 'matched') $matched++;
+                                else $review++;
+                            }
+                        });
+                    $this->line('Tip attribution retry: '.json_encode(['matched' => $matched, 'needs_review' => $review]));
+                }
                 if ($result['errors']) {
                     $failures++;
                     $this->warn('Channel '.$connection->whatnot_channel_id.': '.implode(' | ', $result['errors']));

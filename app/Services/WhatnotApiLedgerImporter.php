@@ -46,7 +46,7 @@ final class WhatnotApiLedgerImporter
         $rows = $this->parse($csv);
         $start = $this->ledgerStart();
         $counts = ['received' => count($rows), 'created' => 0, 'linked' => 0, 'unchanged' => 0,
-            'ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
+            'ambiguous' => 0, 'resolved_ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
             'show_via_shipment' => 0, 'matched_to_show' => 0,
             'tips_api_with_livestream' => 0, 'tips_api_with_order_id' => 0,
             'tips_linked' => 0, 'tips_ambiguous' => 0, 'tips_before_start' => 0,
@@ -135,6 +135,16 @@ final class WhatnotApiLedgerImporter
                         $counts['tips_nearby_scraper_same_amount']++;
                     } elseif ($nearby->isNotEmpty()) {
                         $counts['tips_nearby_scraper_other_amount']++;
+                    }
+                }
+                if ($candidates->count() > 1) {
+                    // Multiple scraper rows can share an order and amount. Only
+                    // narrow the set when independent type AND time evidence
+                    // identify exactly one record; otherwise require review.
+                    $resolved = $this->uniqueEvidenceMatch($candidates, $entry);
+                    if ($resolved !== null) {
+                        $candidates = collect([$resolved]);
+                        $counts['resolved_ambiguous']++;
                     }
                 }
                 if ($candidates->count() > 1) {
@@ -283,6 +293,20 @@ final class WhatnotApiLedgerImporter
         $entry['raw_data']['_livestream_via'] = 'shipment';
 
         return true;
+    }
+
+    /** Resolve duplicate candidates only with matching transaction type and close timestamps. */
+    private function uniqueEvidenceMatch($candidates, array $entry): ?WhatnotLedgerEntry
+    {
+        $type = strtolower(trim((string) $entry['transaction_type']));
+        $at = Carbon::parse($entry['completed_date']);
+        $matches = $candidates->filter(function (WhatnotLedgerEntry $candidate) use ($type, $at) {
+            if (strtolower(trim((string) $candidate->transaction_type)) !== $type) return false;
+            $completed = $candidate->completed_date;
+            if ($completed === null) return false;
+            return abs($completed->diffInSeconds($at)) <= 180;
+        });
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     /** Scraper rows that are this same transaction. */

@@ -105,9 +105,9 @@ class LedgerAttributionService
         return match (true) {
             str_contains($type, 'tip') => 'tips',
             str_contains($type, 'refund'), str_contains($type, 'chargeback') => 'refunds',
-            str_contains($type, 'adjustment'), str_contains($type, 'correction') => 'correction',
             // Carrier adjustments (and their refunds) are label-cost corrections: shipping.
             str_contains($type, 'shipping'), str_contains($type, 'postage'), str_contains($type, 'carrier') => 'shipping',
+            str_contains($type, 'adjustment'), str_contains($type, 'correction') => 'correction',
             str_contains($type, 'giveaway') => 'giveaways',
             str_contains($type, 'bonus') => 'bonus',
             str_contains($type, 'marketing'), str_contains($type, 'promotion') => 'marketing',

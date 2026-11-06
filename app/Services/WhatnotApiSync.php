@@ -70,10 +70,10 @@ final class WhatnotApiSync
 
         }
 
+        $needsItems = [];
         if ($only === null || in_array('orders', $only, true)) {
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
-        $needsItems = [];
         try {
             $paging = $this->client->eachPage($connection, 'orders', function (array $page) use ($channelId, $dryRun, $since, &$orderCounts, &$needsItems) {
                 $snapshot = $this->snapshots->store($channelId, 'orders', $page);

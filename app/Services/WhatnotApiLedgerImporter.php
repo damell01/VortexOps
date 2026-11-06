@@ -50,7 +50,9 @@ final class WhatnotApiLedgerImporter
             'show_via_shipment' => 0, 'matched_to_show' => 0,
             'tips_api_with_livestream' => 0, 'tips_api_with_order_id' => 0,
             'tips_linked' => 0, 'tips_ambiguous' => 0, 'tips_before_start' => 0,
-            'tips_created' => 0, 'tips_unchanged' => 0, 'tips_attributed' => 0];
+            'tips_created' => 0, 'tips_unchanged' => 0, 'tips_attributed' => 0,
+            'tips_with_known_show' => 0, 'tips_missing_show' => 0,
+            'tips_nearby_scraper_same_amount' => 0, 'tips_nearby_scraper_other_amount' => 0];
         $matcher = app(LedgerAutoMatcher::class);
         $coveredDays = [];
 
@@ -66,6 +68,12 @@ final class WhatnotApiLedgerImporter
                     $counts['tips']++;
                     if (filled($entry['raw_data']['livestream_id'] ?? null)) $counts['tips_api_with_livestream']++;
                     if (filled($entry['whatnot_order_id'])) $counts['tips_api_with_order_id']++;
+                    $live = $entry['raw_data']['livestream_id'] ?? null;
+                    if (is_string($live) && preg_match('/^[a-f0-9-]{32,36}$/i', $live)) {
+                        $known = \App\Models\Show::query()->where('whatnot_channel_id', $channelId)
+                            ->whereRaw('LOWER(whatnot_show_id) = ?', [strtolower($live)])->exists();
+                        $counts[$known ? 'tips_with_known_show' : 'tips_missing_show']++;
+                    }
                 }
                 if ($this->showViaShipment($channelId, $entry)) $counts['show_via_shipment']++;
 
@@ -85,6 +93,23 @@ final class WhatnotApiLedgerImporter
                 }
 
                 $candidates = $this->scraperMatches($channelId, $entry);
+                if ($isTip && $candidates->isEmpty()) {
+                    // Diagnostic only: do not associate tips by approximate time or
+                    // amount. This reveals scraper/API discrepancies safely.
+                    $at = Carbon::parse($entry['completed_date']);
+                    $nearby = WhatnotLedgerEntry::query()
+                        ->where('whatnot_channel_id', $channelId)
+                        ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                        ->where(fn ($q) => $q->whereNull('dedup_key')->orWhere('dedup_key', 'not like', 'wn_api:%'))
+                        ->where(fn ($q) => $q->whereBetween('completed_date', [$at->copy()->subMinutes(30), $at->copy()->addMinutes(30)])
+                            ->orWhereBetween('created_date', [$at->copy()->subMinutes(30), $at->copy()->addMinutes(30)]))
+                        ->get(['amount']);
+                    if ($nearby->contains(fn ($row) => abs((float) $row->amount - (float) $entry['amount']) < 0.005)) {
+                        $counts['tips_nearby_scraper_same_amount']++;
+                    } elseif ($nearby->isNotEmpty()) {
+                        $counts['tips_nearby_scraper_other_amount']++;
+                    }
+                }
                 if ($candidates->count() > 1) {
                     $counts['ambiguous']++;
                     if ($isTip) $counts['tips_ambiguous']++;

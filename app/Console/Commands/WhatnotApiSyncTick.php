@@ -17,7 +17,7 @@ use Throwable;
  */
 final class WhatnotApiSyncTick extends Command
 {
-    protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID}';
+    protected $signature = 'whatnot:api-sync-tick {--channel= : Optional channel ID} {--mode=all : all, recent, analytics, or finance}';
     protected $description = 'Safely capture enabled Whatnot API resources when production API mode is active.';
 
     public function handle(WhatnotApiSync $sync): int
@@ -28,6 +28,17 @@ final class WhatnotApiSyncTick extends Command
             || ! config('services.whatnot_seller.contract_verified', false)) {
             $this->line('Whatnot API scheduled capture is disabled.');
             return self::SUCCESS;
+        }
+        $modes = [
+            'all' => null,
+            'recent' => ['shows', 'orders'],
+            'analytics' => ['analytics', 'shipments'],
+            'finance' => ['ledger', 'overview'],
+        ];
+        $mode = (string) $this->option('mode');
+        if (! array_key_exists($mode, $modes)) {
+            $this->error('Invalid mode. Use all, recent, analytics, or finance.');
+            return self::FAILURE;
         }
         $query = WhatnotApiConnection::query()->where('enabled', true)->where('sync_enabled', true);
         if ($this->option('channel') !== null) {
@@ -43,7 +54,7 @@ final class WhatnotApiSyncTick extends Command
                 // Writes only when WHATNOT_SELLER_APPLY_ENABLED is on too;
                 // otherwise this is a preview that still records what it saw.
                 $result = $sync->run($connection, (int) config('services.whatnot_seller.sync_days', 3),
-                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line));
+                    dryRun: ! WhatnotApiOrderApplier::writesAllowed(), log: fn (string $line) => $this->line($line), only: $modes[$mode]);
                 if ($result['errors']) {
                     $failures++;
                     $this->warn('Channel '.$connection->whatnot_channel_id.': '.implode(' | ', $result['errors']));

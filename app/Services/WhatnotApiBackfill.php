@@ -170,9 +170,10 @@ final class WhatnotApiBackfill
                 $created = $shipment['created_at'] ?? null;
                 if (is_string($created)) $oldest = min($oldest ?? $created, $created);
                 $items = $this->client->call($c, 'shipment_items', $shipment['id'], ['limit' => WhatnotSellerApiClient::MAX_PAGE_SIZE]);
-                $outcome = $items->successful()
-                    ? $this->shipments->import((int) $c->whatnot_channel_id, $shipment, (array) ($items->json('data') ?? []), $dryRun)['outcome']
-                    : 'http_'.$items->status();
+                if (! $items->successful()) {
+                    throw new \RuntimeException('Shipment '.$shipment['id'].' items failed (HTTP '.$items->status().'); backfill cannot be marked complete.');
+                }
+                $outcome = $this->shipments->import((int) $c->whatnot_channel_id, $shipment, (array) ($items->json('data') ?? []), $dryRun)['outcome'];
                 $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
                 if (++$seen % 200 === 0) $log("  shipments: {$seen}");
             }

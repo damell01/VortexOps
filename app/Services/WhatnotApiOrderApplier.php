@@ -125,7 +125,24 @@ final class WhatnotApiOrderApplier
                     continue;
                 }
 
+                // A partial API page can contain a matching ID while other IDs
+                // belong to scraper rows under a different identifier. Until a
+                // complete show-level reconciliation exists, never create extra
+                // sales on a show with scraper-origin orders. Existing canonical
+                // IDs may still be refreshed without duplicating revenue.
+                $hasScraperOrders = WhatnotShowOrder::query()
+                    ->where('show_id', $show->id)
+                    ->whereNotNull('whatnot_order_id')
+                    ->get(['raw_data'])
+                    ->contains(fn ($row) => ($row->raw_data['_source'] ?? null) !== 'seller_api');
                 foreach ($orders as $order) {
+                    if ($hasScraperOrders && ! WhatnotShowOrder::query()
+                        ->where('show_id', $show->id)
+                        ->where('whatnot_order_id', $order['whatnot_order_id'])->exists()) {
+                        $counts['id_format_mismatch']++;
+                        $skippedShows[$show->id] = 'Existing scraper sales require full-show reconciliation before new API orders may be created.';
+                        continue;
+                    }
                     $this->applyOne($show, $order, $dryRun, $counts);
                 }
             }

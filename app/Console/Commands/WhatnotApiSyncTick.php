@@ -33,7 +33,7 @@ final class WhatnotApiSyncTick extends Command
         }
         $modes = [
             'all' => null,
-            'recent' => ['shows', 'orders'],
+            'recent' => ['shows', 'orders', 'items'],
             'analytics' => ['analytics', 'shipments'],
             'finance' => ['ledger', 'overview'],
         ];

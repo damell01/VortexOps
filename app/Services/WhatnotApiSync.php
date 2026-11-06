@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\WhatnotApiConnection;
 use App\Models\WhatnotApiSyncAudit;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 /**
@@ -74,6 +75,9 @@ final class WhatnotApiSync
         if ($only === null || in_array('orders', $only, true)) {
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
+        $cursorKey = 'whatnot-api-orders-cursor:'.$channelId;
+        $startCursor = Cache::get($cursorKey);
+        if (! is_string($startCursor)) $startCursor = null;
         try {
             $paging = $this->client->eachPage($connection, 'orders', function (array $page) use ($channelId, $dryRun, $since, &$orderCounts, &$needsItems) {
                 $snapshot = $this->snapshots->store($channelId, 'orders', $page);
@@ -82,9 +86,16 @@ final class WhatnotApiSync
                 array_push($needsItems, ...$result['needs_items']);
 
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
-            });
+            }, maxPages: 50, startCursor: $startCursor, allowIncomplete: true);
+            if ($paging['ok']) {
+                if (! empty($paging['incomplete']) && is_string($paging['next_cursor'] ?? null)) {
+                    Cache::put($cursorKey, $paging['next_cursor'], now()->addHours(12));
+                } else {
+                    Cache::forget($cursorKey);
+                }
+            }
             if (! $paging['ok']) $summary['errors'][] = 'orders: HTTP '.$paging['http_status'];
-            $summary['orders'] = $orderCounts + ['pages' => $paging['pages']];
+            $summary['orders'] = $orderCounts + ['pages' => $paging['pages'], 'incomplete' => (bool) ($paging['incomplete'] ?? false)];
             $log('Orders: '.json_encode($summary['orders']));
         } catch (\Throwable $e) {
             $summary['errors'][] = 'orders: '.$e->getMessage();

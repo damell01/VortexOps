@@ -198,7 +198,7 @@ final class WhatnotApiSync
         }
         $import = $this->ledger->import((int) $connection->whatnot_channel_id, $report['csv'], $dryRun);
 
-        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null] + $import['counts'];
+        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null, 'accounted_for' => array_sum(array_map(fn ($key) => (int) ($import['counts'][$key] ?? 0), ['created', 'linked', 'unchanged', 'ambiguous', 'before_start', 'covered_day_unmatched', 'invalid']))] + $import['counts'];
     }
 
     /** True when the page reaches back past $since (pages are newest first), so no further page is needed. */

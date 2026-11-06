@@ -126,6 +126,9 @@ class LedgerTips extends Page
         if ($this->business === 'unassigned') {
             return array_values(array_filter($rows, fn ($row) => $row['business_id'] === null));
         }
+        if (ctype_digit($this->streamer)) {
+            $rows = array_values(array_filter($rows, fn ($row) => (int) ($row['streamer_id'] ?? 0) === (int) $this->streamer));
+        }
         return $rows;
     }
 

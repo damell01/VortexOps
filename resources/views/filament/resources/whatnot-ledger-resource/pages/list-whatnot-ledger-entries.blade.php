@@ -201,6 +201,14 @@
         </label>
     </div>
 
+    @php($unallocated = $this->unallocatedAmounts)
+    @if ($unallocated['entries'] > 0)
+        <div class="rounded-xl border p-3 mb-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)" role="status">
+            <strong>Unallocated ledger value: {{ $signed($unallocated['net']) }}</strong>
+            <span class="text-sm"> across {{ number_format($unallocated['entries']) }} transactions in the selected filters. This is a signed net amount, not a loss estimate; pending and rejected allocations are included until approved.</span>
+        </div>
+    @endif
+
     <div class="vxr-stats">
         <x-vxr.stat label="Credits" :value="$money($stats['credits'])" icon="heroicon-o-arrow-up" tone="ok" />
         <x-vxr.stat label="Debits" :value="$money($stats['debits'])" icon="heroicon-o-arrow-down" tone="bad" />

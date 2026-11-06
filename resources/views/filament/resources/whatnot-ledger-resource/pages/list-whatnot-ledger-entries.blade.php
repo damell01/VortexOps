@@ -221,6 +221,20 @@
         </div>
     @endif
 
+    <div class="vxr-card" style="margin-bottom:1rem">
+        <div class="vxr-card-head"><strong>Approved allocations by category</strong></div>
+        <div class="vxr-table-wrap"><table class="vxr-table">
+            <thead><tr><th>Category</th><th>Assigned to</th><th class="num">Transactions</th><th class="num">Net amount</th></tr></thead>
+            <tbody>
+                @forelse ($this->categoryBreakdown as $group)
+                    <tr><td>{{ ucfirst($group->category) }}</td><td>{{ ucfirst($group->target) }}</td><td class="num">{{ number_format($group->entries) }}</td><td class="num">{{ $signed($group->net) }}</td></tr>
+                @empty
+                    <tr><td colspan="4">No approved allocations in the selected filters.</td></tr>
+                @endforelse
+            </tbody>
+        </table></div>
+    </div>
+
     <div class="vxr-grid">
         <div class="vxr-card">
             <div class="vxr-table-wrap">

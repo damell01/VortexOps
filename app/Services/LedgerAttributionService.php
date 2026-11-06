@@ -107,12 +107,12 @@ class LedgerAttributionService
             str_contains($type, 'refund'), str_contains($type, 'chargeback') => 'refunds',
             // Carrier adjustments (and their refunds) are label-cost corrections: shipping.
             str_contains($type, 'shipping'), str_contains($type, 'postage'), str_contains($type, 'carrier') => 'shipping',
-            str_contains($type, 'adjustment'), str_contains($type, 'correction') => 'correction',
             str_contains($type, 'giveaway') => 'giveaways',
             str_contains($type, 'bonus') => 'bonus',
             str_contains($type, 'marketing'), str_contains($type, 'promotion') => 'marketing',
             str_contains($type, 'fee'), str_contains($type, 'commission') => 'fees',
             str_contains($type, 'sale'), str_contains($type, 'earning') => 'sales',
+            str_contains($type, 'adjustment'), str_contains($type, 'correction') => 'correction',
             default => 'other',
         };
     }

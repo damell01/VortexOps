@@ -106,6 +106,14 @@
                     @endforelse
                 </div>
             </section>
+            @php($unresolved = $this->unresolvedTipTotals())
+            @if ($unresolved['entries'] > 0)
+                <div class="vxw-alert vxw-alert--warn" role="status"><div>
+                    <strong>{{ number_format($unresolved['entries']) }} tip entries need show or streamer attribution</strong>
+                    <p>Net ${{ number_format($unresolved['net'], 2) }} remains outside verified per-show and per-streamer totals. Review before payroll allocation.</p>
+                    <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $channel]) }}">Review ledger attribution</a>
+                </div></div>
+            @endif
             <section class="vxw-card">
                 <div class="vxw-card-head"><h2 class="vxw-h2">Tips by show and streamer</h2><span class="vxw-meta">Approved attributions only · selected period</span></div>
                 <div class="vxr-table-wrap"><table class="vxr-table">

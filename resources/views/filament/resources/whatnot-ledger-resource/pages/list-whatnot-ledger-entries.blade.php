@@ -210,6 +210,17 @@
             icon="heroicon-o-clock" tone="warn" note="Status processing or pending" />
     </div>
 
+    @php($allocation = $this->attributionSummary)
+    @if (($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0) > 0)
+        <div class="vxw-alert vxw-alert--warn" role="status">
+            <div>
+                <strong>Ledger entries awaiting allocation review</strong>
+                <p>{{ number_format($allocation['unmatched'] ?? 0) }} unmatched · {{ number_format($allocation['pending'] ?? 0) }} pending approval · {{ number_format($allocation['rejected'] ?? 0) }} rejected. Assign to a show, streamer, or house as appropriate; house expenses do not require a show.</p>
+                <button type="button" class="vxr-link" wire:click="$set('review', 'needs_attribution')">Review entries</button>
+            </div>
+        </div>
+    @endif
+
     <div class="vxr-grid">
         <div class="vxr-card">
             <div class="vxr-table-wrap">

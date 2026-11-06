@@ -101,6 +101,15 @@ final class WhatnotApiVerifier
                 $row['status'] = 'order IDs do not match';
                 $report['problems'][] = "{$show->title}: none of the API's order IDs match the scraper's — applying would skip this show.";
             }
+            if ($ids !== [] && $localIds === []) {
+                $row['order_id_coverage'] = 'no local order IDs available to compare';
+            } elseif ($ids === []) {
+                $row['order_id_coverage'] = 'no API order IDs available to compare';
+            } elseif ($matched === 0) {
+                $row['order_id_coverage'] = 'zero matching IDs';
+            } else {
+                $row['order_id_coverage'] = 'partially or fully matched';
+            }
             $report['shows'][] = $row;
         }
 
@@ -161,8 +170,12 @@ final class WhatnotApiVerifier
     {
         $differs = collect($report['shows'])->where('status', '!=', 'ok')->count();
         $tips = $report['tips'] ?? null;
-        if (is_array($tips) && ($tips['status'] ?? null) === 'compared' && abs($tips['api_tips'] - $tips['ledger_tips']) > self::GROSS_TOLERANCE) {
+        if (is_array($tips) && ($tips['status'] ?? null) === 'compared' && (abs($tips['api_tips'] - $tips['ledger_tips']) > self::GROSS_TOLERANCE || $tips['api_tip_count'] !== $tips['ledger_tip_count'])) {
             $report['problems'][] = "Tips differ: Whatnot \${$tips['api_tips']} ({$tips['api_tip_count']}) vs ledger \${$tips['ledger_tips']} ({$tips['ledger_tip_count']}).";
+        }
+        $unverifiedOrders = collect($report['shows'])->contains(fn ($show) => ($show['order_id_coverage'] ?? '') !== 'partially or fully matched');
+        if ($unverifiedOrders) {
+            $report['problems'][] = 'Order-level reconciliation incomplete: one or more shows have no verifiable matching order IDs.';
         }
         $report['verdict'] = $report['problems'] === [] && $differs === 0
             ? 'Everything compared matches. Safe to turn on WHATNOT_SELLER_APPLY_ENABLED.'

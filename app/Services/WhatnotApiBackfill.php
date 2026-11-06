@@ -48,6 +48,7 @@ final class WhatnotApiBackfill
         if (($state['since'] ?? null) !== $since->toDateString()) $state = ['since' => $since->toDateString(), 'done' => []];
 
         $summary = ['channel_id' => $channelId, 'since' => $since->toDateString(), 'dry_run' => $dryRun, 'steps' => [], 'errors' => []];
+        // A preview must not inherit completion markers from a prior applied run.
         foreach (self::STEPS as $step) {
             if ($only !== null && ! in_array($step, $only, true)) continue;
             if ($only === null && in_array($step, $state['done'] ?? [], true)) {
@@ -59,6 +60,7 @@ final class WhatnotApiBackfill
                 $summary['steps'][$step] = $this->{'step'.ucfirst($step)}($connection, $since, $dryRun, $log);
                 $log("  {$step}: ".json_encode($summary['steps'][$step]));
                 if (! $dryRun) {
+                    $state['done'] = array_values(array_unique($state['done'] ?? []));
                     $state['done'][] = $step;
                     Setting::set($key, json_encode($state));
                 }
@@ -83,7 +85,7 @@ final class WhatnotApiBackfill
     {
         $counts = [];
         foreach (['ended' => true, 'stopped' => true, 'cancelled' => true, 'scheduled' => false] as $status => $stopAtSince) {
-            $this->client->eachPage($c, 'shows', function (array $page) use ($c, $since, $dryRun, $stopAtSince, &$counts) {
+            $pageResult = $this->client->eachPage($c, 'shows', function (array $page) use ($c, $since, $dryRun, $stopAtSince, &$counts) {
                 $oldest = null;
                 foreach ($page['data'] as $show) {
                     if (! is_array($show)) continue;
@@ -95,6 +97,9 @@ final class WhatnotApiBackfill
                 }
                 return ! $stopAtSince || $oldest === null || Carbon::parse($oldest)->gte($since);
             }, ['status' => $status], maxPages: 400);
+            if (! $pageResult['ok']) {
+                throw new \RuntimeException('Show backfill failed for status '.$status.' (HTTP '.($pageResult['http_status'] ?? 'unknown').').');
+            }
         }
         return $counts;
     }
@@ -121,7 +126,7 @@ final class WhatnotApiBackfill
     {
         $counts = [];
         $pages = 0;
-        $this->client->eachPage($c, 'orders', function (array $page) use ($c, $since, $dryRun, $log, &$counts, &$pages) {
+        $pageResult = $this->client->eachPage($c, 'orders', function (array $page) use ($c, $since, $dryRun, $log, &$counts, &$pages) {
             $snapshot = $this->snapshots->store((int) $c->whatnot_channel_id, 'orders', $page);
             $result = $this->orders->apply((int) $c->whatnot_channel_id, $snapshot['id'], $dryRun);
             foreach ($result['counts'] as $k => $n) $counts[$k] = ($counts[$k] ?? 0) + $n;
@@ -129,6 +134,9 @@ final class WhatnotApiBackfill
             $dates = array_filter(array_map(fn ($o) => is_array($o) ? ($o['created_at'] ?? null) : null, $page['data']));
             return $dates === [] || Carbon::parse(min($dates))->gte($since);
         }, maxPages: 5000);
+        if (! $pageResult['ok']) {
+            throw new \RuntimeException('Order backfill stopped on HTTP '.($pageResult['http_status'] ?? 'unknown').'; do not mark complete.');
+        }
         return $counts + ['pages' => $pages];
     }
 
@@ -155,7 +163,7 @@ final class WhatnotApiBackfill
     {
         $counts = [];
         $seen = 0;
-        $this->client->eachPage($c, 'shipments', function (array $page) use ($c, $since, $dryRun, $log, &$counts, &$seen) {
+        $pageResult = $this->client->eachPage($c, 'shipments', function (array $page) use ($c, $since, $dryRun, $log, &$counts, &$seen) {
             $oldest = null;
             foreach ($page['data'] as $shipment) {
                 if (! is_array($shipment) || ! is_string($shipment['id'] ?? null)) continue;
@@ -170,6 +178,9 @@ final class WhatnotApiBackfill
             }
             return $oldest === null || Carbon::parse($oldest)->gte($since);
         }, maxPages: 5000);
+        if (! $pageResult['ok']) {
+            throw new \RuntimeException('Shipment backfill stopped on HTTP '.($pageResult['http_status'] ?? 'unknown').'; do not mark complete.');
+        }
         return $counts;
     }
 

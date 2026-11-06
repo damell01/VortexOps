@@ -53,7 +53,7 @@ final class AuditWhatnotLedgerDuplicates extends Command
                         $a = $rows[$i];
                         $b = $rows[$j];
                         if (!$a->created_date || !$b->created_date ||
-                            abs($a->created_date->diffInSeconds($b->created_date)) !== 18000) continue;
+                            round(abs($a->created_date->diffInSeconds($b->created_date))) !== 18000) continue;
                         $pairs[] = [$a, $b];
                     }
                 }
@@ -65,7 +65,7 @@ final class AuditWhatnotLedgerDuplicates extends Command
                     $summary['five_hour_pairs']++;
                     if (!$a->completed_date || !$b->completed_date) {
                         $summary['five_hour_pairs_with_missing_completed']++;
-                    } elseif (abs($a->completed_date->diffInSeconds($b->completed_date)) === 18000) {
+                    } elseif (round(abs($a->completed_date->diffInSeconds($b->completed_date))) === 18000) {
                         $summary['five_hour_pairs_with_matching_completed_offset']++;
                     }
                     $attributions = DB::table('ledger_attributions')

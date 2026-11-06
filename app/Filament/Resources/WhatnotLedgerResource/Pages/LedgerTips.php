@@ -171,16 +171,17 @@ class LedgerTips extends Page
         if ($this->report() === null) return ['entries' => 0, 'net' => 0.0];
         [$from, $until] = $this->range();
         $row = DB::table('whatnot_ledger_entries as le')
-            ->leftJoin('ledger_attributions as a', function ($join) {
-                $join->on('a.whatnot_ledger_entry_id', '=', 'le.id')
-                    ->where('a.status', '=', 'approved');
-            })
             ->whereRaw('LOWER(TRIM(le.transaction_type)) IN (?, ?)', ['tip', 'tips'])
             ->whereBetween('le.created_date', [$from->copy()->startOfDay(), $until->copy()->endOfDay()])
             ->when(ChannelContext::isScoped(), fn ($q) => $q->where('le.whatnot_channel_id', ChannelContext::currentId()))
             ->when(ctype_digit($this->channel), fn ($q) => $q->where('le.whatnot_channel_id', (int) $this->channel))
             ->when($this->channel === 'unassigned', fn ($q) => $q->whereNull('le.whatnot_channel_id'))
-            ->where(fn ($q) => $q->whereNull('a.id')->orWhereNull('a.show_id')->orWhereNull('a.streamer_id'))
+            ->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as a')
+                    ->whereColumn('a.whatnot_ledger_entry_id', 'le.id')
+                    ->where('a.status', 'approved')
+                    ->whereNotNull('a.show_id')->whereNotNull('a.streamer_id');
+            })
             ->selectRaw('COUNT(DISTINCT le.id) as entries, COALESCE(SUM(le.amount), 0) as net')
             ->first();
         return ['entries' => (int) ($row->entries ?? 0), 'net' => round((float) ($row->net ?? 0), 2)];

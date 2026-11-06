@@ -47,7 +47,10 @@ final class WhatnotApiLedgerImporter
         $start = $this->ledgerStart();
         $counts = ['received' => count($rows), 'created' => 0, 'linked' => 0, 'unchanged' => 0,
             'ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
-            'show_via_shipment' => 0, 'matched_to_show' => 0];
+            'show_via_shipment' => 0, 'matched_to_show' => 0,
+            'tips_api_with_livestream' => 0, 'tips_api_with_order_id' => 0,
+            'tips_linked' => 0, 'tips_ambiguous' => 0, 'tips_before_start' => 0,
+            'tips_created' => 0, 'tips_unchanged' => 0, 'tips_attributed' => 0];
         $matcher = app(LedgerAutoMatcher::class);
         $coveredDays = [];
 
@@ -58,18 +61,25 @@ final class WhatnotApiLedgerImporter
                     $counts['invalid']++;
                     continue;
                 }
-                if (strcasecmp($entry['transaction_type'], 'Tip') === 0) $counts['tips']++;
+                $isTip = strcasecmp($entry['transaction_type'], 'Tip') === 0;
+                if ($isTip) {
+                    $counts['tips']++;
+                    if (filled($entry['raw_data']['livestream_id'] ?? null)) $counts['tips_api_with_livestream']++;
+                    if (filled($entry['whatnot_order_id'])) $counts['tips_api_with_order_id']++;
+                }
                 if ($this->showViaShipment($channelId, $entry)) $counts['show_via_shipment']++;
 
                 $existingApiEntry = WhatnotLedgerEntry::where('whatnot_channel_id', $channelId)
                     ->where('dedup_key', $entry['dedup_key'])->first();
                 if ($existingApiEntry !== null) {
                     $counts['unchanged']++;
+                    if ($isTip) $counts['tips_unchanged']++;
                     // A previous import may have preceded show/order/shipments
                     // backfill. Retry attribution without changing the financial
                     // transaction or overriding a human-approved allocation.
                     if (! $dryRun && $matcher->match($existingApiEntry) === 'matched') {
                         $counts['matched_to_show']++;
+                        if ($isTip) $counts['tips_attributed']++;
                     }
                     continue;
                 }
@@ -77,10 +87,12 @@ final class WhatnotApiLedgerImporter
                 $candidates = $this->scraperMatches($channelId, $entry);
                 if ($candidates->count() > 1) {
                     $counts['ambiguous']++;
+                    if ($isTip) $counts['tips_ambiguous']++;
                     continue;
                 }
                 if ($candidates->count() === 1) {
                     $counts['linked']++;
+                    if ($isTip) $counts['tips_linked']++;
                     if (! $dryRun) {
                         $existing = $candidates->first();
                         $raw = is_array($existing->raw_data) ? $existing->raw_data : [];
@@ -90,7 +102,10 @@ final class WhatnotApiLedgerImporter
                         }
                         $raw['_seller_api_report'] = $entry['raw_data'];
                         $existing->forceFill(['raw_data' => $raw])->save();
-                        if ($matcher->match($existing) === 'matched') $counts['matched_to_show']++;
+                        if ($matcher->match($existing) === 'matched') {
+                            $counts['matched_to_show']++;
+                            if ($isTip) $counts['tips_attributed']++;
+                        }
                     }
                     continue;
                 }
@@ -111,13 +126,18 @@ final class WhatnotApiLedgerImporter
                     }
                 } elseif ($start === null || $completed->lt($start)) {
                     $counts['before_start']++;
+                    if ($isTip) $counts['tips_before_start']++;
                     continue;
                 }
 
                 $counts['created']++;
+                if ($isTip) $counts['tips_created']++;
                 if (! $dryRun) {
                     // Tie it to its show and streamer now, not at the next hourly match.
-                    if ($matcher->match(WhatnotLedgerEntry::create($entry)) === 'matched') $counts['matched_to_show']++;
+                    if ($matcher->match(WhatnotLedgerEntry::create($entry)) === 'matched') {
+                        $counts['matched_to_show']++;
+                        if ($isTip) $counts['tips_attributed']++;
+                    }
                 }
             }
         };

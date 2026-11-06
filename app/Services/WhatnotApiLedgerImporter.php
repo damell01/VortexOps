@@ -61,7 +61,8 @@ final class WhatnotApiLedgerImporter
                 if (strcasecmp($entry['transaction_type'], 'Tip') === 0) $counts['tips']++;
                 if ($this->showViaShipment($channelId, $entry)) $counts['show_via_shipment']++;
 
-                $existingApiEntry = WhatnotLedgerEntry::where('dedup_key', $entry['dedup_key'])->first();
+                $existingApiEntry = WhatnotLedgerEntry::where('whatnot_channel_id', $channelId)
+                    ->where('dedup_key', $entry['dedup_key'])->first();
                 if ($existingApiEntry !== null) {
                     $counts['unchanged']++;
                     // A previous import may have preceded show/order/shipments

@@ -92,7 +92,20 @@ final class WhatnotApiLedgerImporter
                     continue;
                 }
 
-                $candidates = $this->scraperMatches($channelId, $entry);
+                // Prefer an authoritative Seller API transaction ID over any
+                // amount/time heuristic. Scraper imports may already carry
+                // this ID from an earlier reconciliation.
+                $apiId = (string) ($entry['raw_data']['ledger_transaction_id'] ?? '');
+                $idMatches = WhatnotLedgerEntry::query()
+                    ->where('whatnot_channel_id', $channelId)
+                    ->where('raw_data->ledger_transaction_id', $apiId)
+                    ->limit(2)->get();
+                if ($idMatches->count() > 1) {
+                    $counts['ambiguous']++;
+                    if ($isTip) $counts['tips_ambiguous']++;
+                    continue;
+                }
+                $candidates = $idMatches->isNotEmpty() ? $idMatches : $this->scraperMatches($channelId, $entry);
                 if ($isTip && $candidates->isEmpty()) {
                     // Diagnostic only: do not associate tips by approximate time or
                     // amount. This reveals scraper/API discrepancies safely.
@@ -122,6 +135,9 @@ final class WhatnotApiLedgerImporter
                         $existing = $candidates->first();
                         $raw = is_array($existing->raw_data) ? $existing->raw_data : [];
                         $raw['ledger_transaction_id'] = $entry['raw_data']['ledger_transaction_id'];
+                        if (filled($entry['whatnot_order_id']) && ! filled($existing->whatnot_order_id)) {
+                            $existing->whatnot_order_id = $entry['whatnot_order_id'];
+                        }
                         if (! empty($entry['raw_data']['livestream_id']) && empty($raw['livestream_id'])) {
                             $raw['livestream_id'] = $entry['raw_data']['livestream_id'];
                         }

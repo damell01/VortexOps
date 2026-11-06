@@ -338,7 +338,7 @@
                         <nav class="vxled-pages" aria-label="Pages">
                             <button type="button" wire:click="goToPage({{ $this->pageNo - 1 }})" @disabled($this->pageNo <= 1) aria-label="Previous page"><x-filament::icon icon="heroicon-m-chevron-left" /></button>
                             @foreach ($pages as $p)
-                                <button type="button" wire:click="goToPage({{ $p }})" class="{{ $p === $this->pageNo ? 'is-active' : '' }}" @if($p === $this->pageNo) aria-current="page" @endif>{{ $p }}</button>
+                                <button type="button" wire:click="goToPage({{ $p }})" class="{{ $p === $this->pageNo ? 'is-active' : '' }}" aria-current="{{ $p === $this->pageNo ? 'page' : 'false' }}">{{ $p }}</button>
                             @endforeach
                             <button type="button" wire:click="goToPage({{ $this->pageNo + 1 }})" @disabled($this->pageNo >= $lastPage) aria-label="Next page"><x-filament::icon icon="heroicon-m-chevron-right" /></button>
                         </nav>

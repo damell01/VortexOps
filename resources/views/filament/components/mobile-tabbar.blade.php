@@ -13,7 +13,6 @@ $tab('Log show','heroicon-o-clipboard-document-check',fn()=>\App\Filament\Pages\
 $tab('Shows','heroicon-o-tv',fn()=>\App\Filament\Resources\ShowResource::canViewAny(),fn()=>\App\Filament\Resources\ShowResource::getUrl('index')),
 $tab('Inventory','heroicon-o-cube',fn()=>\App\Filament\Pages\InventoryOverview::canAccess(),fn()=>\App\Filament\Pages\InventoryOverview::getUrl()),
 $tab('Payroll','heroicon-o-wallet',fn()=>\App\Filament\Pages\PayrollOverview::canAccess(),fn()=>\App\Filament\Pages\PayrollOverview::getUrl()),
-$tab('Fulfill','heroicon-o-truck',fn()=>\App\Filament\Resources\FulfillmentResource::canViewAny(),fn()=>\App\Filament\Resources\FulfillmentResource::getUrl('index')),
 ]));
 if(auth()->user()?->isStreamerAssistant()) $tabs=[$tab('Dashboard','heroicon-o-home',fn()=>true,fn()=>\App\Filament\Pages\DashboardImproved::getUrl())];
 $current=url()->current();

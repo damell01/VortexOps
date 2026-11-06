@@ -43,9 +43,13 @@ const CLASSES = [
 
 function decorateTable(table) {
     const headers = [...table.querySelectorAll('thead th')]
-        .map((header) => normalise(header.innerText || header.getAttribute('aria-label') || ''));
+        .map((header) => normalise(header.innerText || header.textContent || header.getAttribute('aria-label') || ''));
 
     if (!headers.length) return;
+
+    // Dense audit/report rows need a single reading column on phones.
+    const readableLog = Boolean(table.closest('[data-vx-readable-log]'));
+    table.classList.toggle('vx-mobile-readable', readableLog || headers.filter(Boolean).length >= 6);
 
     table.querySelectorAll('tbody tr').forEach((row) => {
         const cells = [...row.querySelectorAll(':scope > td')];
@@ -67,6 +71,7 @@ function decorateTable(table) {
 
         // Heading: prefer a real name over a code, in header order.
         const titleCell =
+            (readableLog ? meta.find((m) => m.label === 'description') : null) ||
             meta.find((m) => !m.isSelection && !m.isActions && hits(m.label, titleTerms)) ||
             meta.find((m) => !m.isSelection && !m.isActions && m.label && !hits(m.label, tileTerms)) ||
             meta.find((m) => !m.isSelection && !m.isActions);
@@ -91,7 +96,7 @@ function decorateTable(table) {
                 return;
             }
 
-            if (hits(label, tileTerms)) {
+            if (!readableLog && hits(label, tileTerms)) {
                 cell.classList.add('vx-mobile-omit');
                 return;
             }

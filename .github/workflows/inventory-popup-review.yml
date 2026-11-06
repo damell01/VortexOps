@@ -32,8 +32,9 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci && npm run build
+      - run: node scripts/check-readable-mobile-tables.cjs
       - name: Inventory popup and dashboard regression checks
-        run: php artisan test tests/Feature/InventoryRecentChangesTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/InventoryPopupReviewTest.php tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php
+        run: php artisan test tests/Feature/InventoryRecentChangesTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/ActivityLogChangesTest.php tests/Feature/InventoryPopupReviewTest.php tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php
       - run: npx playwright install --with-deps chromium
       - name: Prepare popup browser fixtures
         run: touch /tmp/vortex-popup.sqlite && php artisan migrate:fresh --force && php tests/Browser/inventory-changes-fixtures.php

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 
 for (const scenario of [
     { width: 390, height: 844, dark: true, standalone: true },
@@ -80,5 +81,37 @@ for (const scenario of [
         expect(opens).toBe(4);
         await expect(trigger).toBeEnabled();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+    });
+}
+
+for (const dark of [false, true]) {
+    test(`activity logs read as labeled cards on phones (${dark ? 'dark' : 'light'})`, async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.addInitScript(dark => localStorage.setItem('theme', dark ? 'dark' : 'light'), dark);
+        await page.goto('/admin/login');
+        await page.locator('input[type=email]').fill(fs.readFileSync('storage/mockup-owner.txt', 'utf8').trim());
+        await page.locator('input[type=password]').fill('MockupTest123!');
+        await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+        await expect(page.locator('input[type=password]')).toHaveCount(0);
+        await page.goto('/admin/activity-logs');
+        const table = page.locator('[data-vx-readable-log] table.fi-ta-table');
+        await expect(table).toHaveClass(/vx-mobile-readable/);
+        const description = 'Inventory item price and stock updated after receiving a restocked shipment';
+        const row = table.locator('tr.fi-ta-row').filter({ hasText: description });
+        await expect(row).toBeVisible();
+        expect(await row.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(1);
+        for (const label of ['description', 'model', 'id', 'changed', 'by', 'when']) {
+            const cell = row.locator(`td[data-vx-label="${label}"]`);
+            await expect(cell).toBeVisible();
+            const box = (await cell.boundingBox())!;
+            expect(box.width).toBeGreaterThan(250);
+            expect(box.x).toBeGreaterThanOrEqual(0);
+            expect(box.x + box.width).toBeLessThanOrEqual(392);
+        }
+        const clipped = await row.locator('.fi-badge, .fi-ta-text-item').evaluateAll(elements => elements.filter(el => el.scrollWidth > el.clientWidth + 2).map(el => el.textContent));
+        expect(clipped).toEqual([]);
+        await expect(page.locator('.vx-tabbar a[href*="fulfillment"]')).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 2)).toBe(true);
+        await page.screenshot({ path: `tests/Browser/output/inventory-changes/activity-log-${dark ? 'dark' : 'light'}.png`, fullPage: true });
     });
 }

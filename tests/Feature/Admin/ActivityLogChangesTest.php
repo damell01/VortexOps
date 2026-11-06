@@ -70,10 +70,22 @@ class ActivityLogChangesTest extends TestCase
 
         \Livewire\Livewire::test(ActivityLogResource\Pages\ListActivityLogs::class)
             ->loadTable()
+            ->assertSeeHtml('data-vx-readable-log')
             ->assertCanSeeTableRecords([$mine])
             ->assertCanNotSeeTableRecords([$system])
             ->callAction('toggleSystem')
             ->assertSet('showSystem', true)
             ->assertCanSeeTableRecords([$mine, $system]);
+    }
+
+    public function test_fulfillment_is_not_advertised_in_mobile_quick_navigation(): void
+    {
+        $this->enableAdminModules();
+        $this->actingAs(User::factory()->create(['email' => 'dbellcreations@gmail.com']));
+        \Filament\Facades\Filament::setCurrentPanel(\Filament\Facades\Filament::getPanel('admin'));
+        $html = view('filament.components.mobile-tabbar')->render();
+        $this->assertStringContainsString('Inventory', $html);
+        $this->assertStringNotContainsString('/fulfillment', $html);
+        $this->assertStringNotContainsString('>Fulfill<', $html);
     }
 }

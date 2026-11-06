@@ -1,0 +1,18 @@
+require.cache[require.resolve('canvas')] = { exports: {} };
+const { JSDOM } = require('jsdom');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const table = (id, headers) => `<table id="${id}" class="fi-ta-table"><thead><tr>${headers.map(h => `<th style="display:none">${h}</th>`).join('')}</tr></thead><tbody><tr>${headers.map(h => `<td>${h} value</td>`).join('')}</tr></tbody></table>`;
+const dom = new JSDOM(`<main class="fi-main"><div data-vx-readable-log>${table('audit', ['#', 'Log', 'Description', 'Model', 'ID', 'Changed', 'By', 'When'])}</div>${table('report', ['Name', 'Status', 'Amount', 'Balance', 'Rate', 'Date'])}${table('short', ['Name', 'Stock', 'Price'])}</main>`, { runScripts: 'outside-only', pretendToBeVisual: true });
+const w = dom.window;
+w.eval(fs.readFileSync('resources/js/responsive-data-tables.js', 'utf8'));
+w.decorateTables();
+const audit = w.document.querySelector('#audit');
+assert(audit.classList.contains('vx-mobile-readable'));
+assert.equal(audit.querySelector('.vx-mobile-title').dataset.vxLabel, 'description');
+assert.equal(audit.querySelector('[data-vx-label="id"]').classList.contains('vx-mobile-omit'), false, 'Audit record IDs remain visible');
+assert.equal(audit.querySelector('[data-vx-label="changed"]').textContent, 'Changed value');
+assert(w.document.querySelector('#report').classList.contains('vx-mobile-readable'), 'Dense reports also use a readable phone layout');
+assert.equal(w.document.querySelector('#short').classList.contains('vx-mobile-readable'), false, 'Compact tables retain their existing layout');
+w.close();
+console.log('Readable mobile table labels, audit identifiers and dense report checks passed');

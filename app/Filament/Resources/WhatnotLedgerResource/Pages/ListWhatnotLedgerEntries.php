@@ -447,6 +447,19 @@ class ListWhatnotLedgerEntries extends Page
         return collect((array) $row)->map(fn ($value) => (int) $value)->all();
     }
 
+    /** Approved financial allocations grouped by category and destination, in the current filter scope. */
+    public function getCategoryBreakdownProperty(): array
+    {
+        $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
+        return DB::table('whatnot_ledger_entries as le')
+            ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
+            ->join('ledger_attributions as a', 'a.whatnot_ledger_entry_id', '=', 'le.id')
+            ->where('a.status', 'approved')
+            ->groupBy('a.category', 'a.target')
+            ->selectRaw('a.category, a.target, COUNT(*) as entries, SUM(le.amount) as net')
+            ->orderBy('a.category')->orderBy('a.target')->get()->all();
+    }
+
     /**
      * Money per streamer for the entries matching the current filters, from
      * approved matches (to a show's primary streamer or to a streamer

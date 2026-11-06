@@ -55,8 +55,21 @@ final class WhatnotApiLedgerImporter
             'tips_nearby_scraper_same_amount' => 0, 'tips_nearby_scraper_other_amount' => 0];
         $matcher = app(LedgerAutoMatcher::class);
         $coveredDays = [];
+        // Load previously reconciled IDs once rather than scanning the JSON
+        // column thousands of times (one full-table scan per report row).
+        $linkedByApiId = [];
+        WhatnotLedgerEntry::query()->where('whatnot_channel_id', $channelId)
+            ->whereNotNull('raw_data')->select(['id', 'raw_data'])
+            ->chunkById(1000, function ($entries) use (&$linkedByApiId) {
+                foreach ($entries as $existing) {
+                    $id = $existing->raw_data['ledger_transaction_id'] ?? null;
+                    if (! is_string($id) || $id === '') continue;
+                    $linkedByApiId[$id] ??= collect();
+                    if ($linkedByApiId[$id]->count() < 2) $linkedByApiId[$id]->push($existing->id);
+                }
+            });
 
-        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, &$counts, &$coveredDays) {
+        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, $linkedByApiId, &$counts, &$coveredDays) {
             foreach ($rows as $row) {
                 $entry = $this->toEntry($channelId, $row);
                 if ($entry === null) {
@@ -96,16 +109,17 @@ final class WhatnotApiLedgerImporter
                 // amount/time heuristic. Scraper imports may already carry
                 // this ID from an earlier reconciliation.
                 $apiId = (string) ($entry['raw_data']['ledger_transaction_id'] ?? '');
-                $idMatches = WhatnotLedgerEntry::query()
-                    ->where('whatnot_channel_id', $channelId)
-                    ->where('raw_data->ledger_transaction_id', $apiId)
-                    ->limit(2)->get();
+                $idMatches = $apiId !== '' && isset($linkedByApiId[$apiId])
+                    ? $linkedByApiId[$apiId]
+                    : collect();
                 if ($idMatches->count() > 1) {
                     $counts['ambiguous']++;
                     if ($isTip) $counts['tips_ambiguous']++;
                     continue;
                 }
-                $candidates = $idMatches->isNotEmpty() ? $idMatches : $this->scraperMatches($channelId, $entry);
+                $candidates = $idMatches->isNotEmpty()
+                    ? WhatnotLedgerEntry::query()->whereKey($idMatches->all())->get()
+                    : $this->scraperMatches($channelId, $entry);
                 if ($isTip && $candidates->isEmpty()) {
                     // Diagnostic only: do not associate tips by approximate time or
                     // amount. This reveals scraper/API discrepancies safely.

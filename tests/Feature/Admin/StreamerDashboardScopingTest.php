@@ -74,6 +74,17 @@ class StreamerDashboardScopingTest extends TestCase
             ->assertDontSee('Theirs Show');
     }
 
+    public function test_dashboard_has_no_stray_angle_text_outside_elements(): void
+    {
+        [$user] = $this->scenario();
+        $this->enableAdminModules();
+        $html = Livewire::actingAs($user)
+            ->test(\App\Filament\Pages\DashboardImproved::class)->html();
+        $document = \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR);
+        $stray = (new \Dom\XPath($document))->query('//text()[normalize-space(.)=">" or normalize-space(.)="<"]');
+        $this->assertSame(0, $stray->length, 'Dashboard markup must not render loose angle brackets.');
+    }
+
     public function test_streamer_with_no_linked_profile_sees_no_shows(): void
     {
         $this->scenario();

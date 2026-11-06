@@ -143,6 +143,24 @@
             </label>
         @endif
         <label class="vxr-control">
+            <x-filament::icon icon="heroicon-o-video-camera" />
+            <select wire:model.live="showFilter" aria-label="Filter ledger by show">
+                <option value="">All shows (approved attribution)</option>
+                @foreach ($this->showFilterOptions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
+            <x-filament::icon icon="heroicon-o-user" />
+            <select wire:model.live="streamerFilter" aria-label="Filter ledger by streamer">
+                <option value="">All streamers (approved attribution)</option>
+                @foreach ($this->streamerFilterOptions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-list-bullet" />
             <select wire:model.live="type" aria-label="Transaction type">
                 <option value="">All transaction types</option>
@@ -235,7 +253,7 @@
                                 <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
-                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || trim($search) !== '')
+                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || trim($search) !== '')
                                             Nothing matches these filters.
                                             <button type="button" class="vxr-link" wire:click="clearFilters">Clear filters</button>
                                         @else

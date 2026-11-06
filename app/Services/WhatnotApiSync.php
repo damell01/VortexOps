@@ -198,8 +198,9 @@ final class WhatnotApiSync
             return array_diff_key($report, ['csv' => true]);
         }
         $import = $this->ledger->import((int) $connection->whatnot_channel_id, $report['csv'], $dryRun);
+        $sourceNet = array_reduce($this->ledger->parse($report['csv']), fn ($sum, $row) => $sum + (is_numeric($row['transaction_amount'] ?? null) ? (int) round((float) $row['transaction_amount'] * 100) : 0), 0);
 
-        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null, 'accounted_for' => array_sum(array_map(fn ($key) => (int) ($import['counts'][$key] ?? 0), ['created', 'linked', 'unchanged', 'ambiguous', 'before_start', 'covered_day_unmatched', 'invalid']))] + $import['counts'];
+        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null, 'source_net_cents' => $sourceNet, 'accounted_for' => array_sum(array_map(fn ($key) => (int) ($import['counts'][$key] ?? 0), ['created', 'linked', 'unchanged', 'ambiguous', 'before_start', 'covered_day_unmatched', 'invalid']))] + $import['counts'];
     }
 
     /** True when the page reaches back past $since (pages are newest first), so no further page is needed. */

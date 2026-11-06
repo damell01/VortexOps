@@ -270,7 +270,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($entries as $entry)
+                        @if ($entries->isNotEmpty())
+                        @foreach ($entries as $entry)
                             @php $amt = (float) $entry->amount; @endphp
                             <tr wire:key="led-{{ $entry->id }}" class="is-click {{ $selectedId === $entry->id ? 'is-selected' : '' }}"
                                 wire:click="select({{ $entry->id }})">
@@ -306,7 +307,9 @@
                                 <td><div class="vxled-details" title="{{ $entry->message }}">{{ Str::limit((string) $entry->message, 120) ?: '—' }}</div></td>
                                 <td style="white-space:nowrap">{{ $entry->channel?->name ?? '—' }}</td>
                             </tr>
-                        @empty
+                        @endforeach
+                        @else
+
                             <tr>
                                 <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
@@ -320,7 +323,7 @@
                                     </div>
                                 </td>
                             </tr>
-                        @endforelse
+                        @endif
                     </tbody>
                 </table>
             </div>

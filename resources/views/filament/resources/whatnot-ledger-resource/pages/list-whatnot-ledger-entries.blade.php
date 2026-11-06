@@ -54,6 +54,9 @@
 </style>
 
 <div class="vxr vxled">
+    <div class="mb-3" style="display:flex;justify-content:flex-end">
+        <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" class="vxr-btn vxr-btn--outline">Streamer tip totals &amp; show breakdown</a>
+    </div>
     @php $allocation = $this->attributionSummary; @endphp
     <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
         @foreach([

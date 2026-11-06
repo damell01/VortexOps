@@ -135,7 +135,7 @@ class WhatnotSellerApiClient
             WhatnotApiPagination::assertUnseen($cursor, $seen);
         }
 
-        return ['ok' => true, 'pages' => $maxPages, 'http_status' => 200];
+        throw new RuntimeException('Whatnot pagination limit reached before all pages were retrieved.');
     }
 
     /**

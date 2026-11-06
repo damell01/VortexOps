@@ -161,6 +161,8 @@ final class WhatnotApiSync
             $summary['ledger'] = $this->ledgerStep($connection, $since, $dryRun);
             if (($summary['ledger']['status'] ?? null) !== 'imported') $summary['errors'][] = 'ledger: financial report not yet imported';
             if (isset($summary['ledger']['received'], $summary['ledger']['accounted_for']) && (int) $summary['ledger']['received'] !== (int) $summary['ledger']['accounted_for']) $summary['errors'][] = 'ledger: row counts do not reconcile';
+            if (($summary['ledger']['ambiguous'] ?? 0) > 0) $summary['errors'][] = 'ledger: ambiguous duplicate candidates require manual review';
+            if (($summary['ledger']['invalid'] ?? 0) > 0) $summary['errors'][] = 'ledger: invalid source rows require manual review';
             $log('Ledger: '.json_encode($summary['ledger']));
         } catch (\Throwable $e) {
             $summary['errors'][] = 'ledger: '.$e->getMessage();

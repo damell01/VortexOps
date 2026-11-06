@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class LedgerAttributionService
 {
-    public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'other'];
+    public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'correction', 'other'];
 
     public function suggestedShow(WhatnotLedgerEntry $entry): ?Show
     {
@@ -112,6 +112,7 @@ class LedgerAttributionService
             str_contains($type, 'marketing'), str_contains($type, 'promotion') => 'marketing',
             str_contains($type, 'fee'), str_contains($type, 'commission') => 'fees',
             str_contains($type, 'sale'), str_contains($type, 'earning') => 'sales',
+            str_contains($type, 'adjustment'), str_contains($type, 'correction') => 'correction',
             default => 'other',
         };
     }

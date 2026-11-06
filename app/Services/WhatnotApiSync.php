@@ -51,7 +51,7 @@ final class WhatnotApiSync
         $showCounts = [];
         try {
             foreach (['scheduled' => false, 'ended' => true] as $status => $windowed) {
-                $this->client->eachPage($connection, 'shows', function (array $page) use ($channelId, $dryRun, $since, $windowed, &$showCounts) {
+                $paging = $this->client->eachPage($connection, 'shows', function (array $page) use ($channelId, $dryRun, $since, $windowed, &$showCounts) {
                     foreach ($page['data'] as $show) {
                         if (! is_array($show)) continue;
                         $outcome = $this->shows->import($channelId, $show, $dryRun)['outcome'];
@@ -59,6 +59,7 @@ final class WhatnotApiSync
                     }
                     return ! $windowed || ! $this->pageIsOlderThan($page['data'], 'scheduled_start_at', $since);
                 }, ['status' => $status], maxPages: 20);
+                if (! $paging['ok']) $summary['errors'][] = 'shows ('.$status.'): HTTP '.$paging['http_status'];
             }
             $summary['shows'] = $showCounts;
             $log('Shows: '.json_encode($showCounts));
@@ -97,12 +98,14 @@ final class WhatnotApiSync
             }
         }
         $summary['order_items'] = $items + ['waiting' => max(0, count(array_unique($needsItems)) - self::MAX_ITEM_LOOKUPS)];
+        if ($items['failed'] > 0) $summary['errors'][] = 'order items: '.$items['failed'].' lookups failed';
+        if ($summary['order_items']['waiting'] > 0) $summary['errors'][] = 'order items: '.$summary['order_items']['waiting'].' lookups deferred to another sync';
         $log('Order items: '.json_encode($summary['order_items']));
 
         // 2b. Shipments created in the window → tracking/status on orders.
         $shipCounts = [];
         try {
-            $this->client->eachPage($connection, 'shipments', function (array $page) use ($connection, $channelId, $dryRun, $since, &$shipCounts) {
+            $paging = $this->client->eachPage($connection, 'shipments', function (array $page) use ($connection, $channelId, $dryRun, $since, &$shipCounts) {
                 foreach ($page['data'] as $shipment) {
                     if (! is_array($shipment) || ! is_string($shipment['id'] ?? null)) continue;
                     $items = $this->client->call($connection, 'shipment_items', $shipment['id'], ['limit' => WhatnotSellerApiClient::MAX_PAGE_SIZE]);
@@ -113,6 +116,8 @@ final class WhatnotApiSync
                 }
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
             }, maxPages: 40);
+            if (! $paging['ok']) $summary['errors'][] = 'shipments: HTTP '.$paging['http_status'];
+            if (collect($shipCounts)->keys()->contains(fn ($key) => str_starts_with((string) $key, 'http_'))) $summary['errors'][] = 'shipments: one or more shipment item requests failed';
             $summary['shipments'] = $shipCounts;
             $log('Shipments: '.json_encode($shipCounts));
         } catch (\Throwable $e) {
@@ -144,6 +149,8 @@ final class WhatnotApiSync
                 $outcome = $this->analytics->apply($channelId, (array) $response->json(), $dryRun)['outcome'];
                 $analyticsCounts[$outcome] = ($analyticsCounts[$outcome] ?? 0) + 1;
             }
+            if (($analyticsCounts['failed'] ?? 0) > 0) $summary['errors'][] = 'show analytics: '.$analyticsCounts['failed'].' requests failed';
+            if ($known->count() > self::MAX_ANALYTICS_LOOKUPS) $summary['errors'][] = 'show analytics: '.($known->count() - self::MAX_ANALYTICS_LOOKUPS).' lookups deferred';
             $summary['show_analytics'] = $analyticsCounts;
             $log('Show analytics: '.json_encode($analyticsCounts));
         } catch (\Throwable $e) {
@@ -153,6 +160,10 @@ final class WhatnotApiSync
         // 4. Financial report → ledger (tips, earnings, refunds).
         try {
             $summary['ledger'] = $this->ledgerStep($connection, $since, $dryRun);
+            if (($summary['ledger']['status'] ?? null) !== 'imported') $summary['errors'][] = 'ledger: financial report not yet imported';
+            if (isset($summary['ledger']['received'], $summary['ledger']['accounted_for']) && (int) $summary['ledger']['received'] !== (int) $summary['ledger']['accounted_for']) $summary['errors'][] = 'ledger: row counts do not reconcile';
+            if (($summary['ledger']['ambiguous'] ?? 0) > 0) $summary['errors'][] = 'ledger: ambiguous duplicate candidates require manual review';
+            if (($summary['ledger']['invalid'] ?? 0) > 0) $summary['errors'][] = 'ledger: invalid source rows require manual review';
             $log('Ledger: '.json_encode($summary['ledger']));
         } catch (\Throwable $e) {
             $summary['errors'][] = 'ledger: '.$e->getMessage();
@@ -164,6 +175,7 @@ final class WhatnotApiSync
             $summary['overview'] = $report['status'] === 'completed'
                 ? $this->overview->import($channelId, $report['csv'], $dryRun)
                 : ['status' => $report['status']];
+            if ($report['status'] !== 'completed') $summary['errors'][] = 'overview: report '.$report['status'];
         } catch (\Throwable $e) {
             $summary['errors'][] = 'overview: '.$e->getMessage();
         }
@@ -189,8 +201,9 @@ final class WhatnotApiSync
             return array_diff_key($report, ['csv' => true]);
         }
         $import = $this->ledger->import((int) $connection->whatnot_channel_id, $report['csv'], $dryRun);
+        $sourceNet = array_reduce($this->ledger->parse($report['csv']), fn ($sum, $row) => $sum + (is_numeric($row['transaction_amount'] ?? null) ? (int) round((float) $row['transaction_amount'] * 100) : 0), 0);
 
-        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null] + $import['counts'];
+        return ['status' => 'imported', 'report_id' => $report['report_id'] ?? null, 'source_net_cents' => $sourceNet, 'accounted_for' => array_sum(array_map(fn ($key) => (int) ($import['counts'][$key] ?? 0), ['created', 'linked', 'unchanged', 'ambiguous', 'before_start', 'covered_day_unmatched', 'invalid']))] + $import['counts'];
     }
 
     /** True when the page reaches back past $since (pages are newest first), so no further page is needed. */

@@ -113,9 +113,10 @@ final class WhatnotApiBackfill
             ->pluck('whatnot_show_id');
         foreach ($ids as $i => $id) {
             $response = $this->client->call($c, 'show_analytics', strtolower($id));
-            $outcome = $response->successful()
-                ? $this->analytics->apply((int) $c->whatnot_channel_id, (array) $response->json(), $dryRun)['outcome']
-                : 'http_'.$response->status();
+            if (! $response->successful()) {
+                throw new \RuntimeException('Show analytics '.$id.' failed (HTTP '.$response->status().'); backfill cannot be marked complete.');
+            }
+            $outcome = $this->analytics->apply((int) $c->whatnot_channel_id, (array) $response->json(), $dryRun)['outcome'];
             $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
             if ($i % 50 === 49) $log('  analytics '.($i + 1).'/'.$ids->count());
         }
@@ -150,9 +151,10 @@ final class WhatnotApiBackfill
         foreach ($orderIds as $i => $orderId) {
             if (! preg_match('/^[A-Za-z0-9_-]{1,128}$/', (string) $orderId)) { $counts['invalid_id'] = ($counts['invalid_id'] ?? 0) + 1; continue; }
             $response = $this->client->call($c, 'order_items', (string) $orderId, ['limit' => WhatnotSellerApiClient::MAX_PAGE_SIZE]);
-            $outcome = $response->successful()
-                ? $this->orders->applyItems((int) $c->whatnot_channel_id, (string) $orderId, (array) ($response->json('data') ?? []), $dryRun)
-                : 'http_'.$response->status();
+            if (! $response->successful()) {
+                throw new \RuntimeException('Order '.$orderId.' items failed (HTTP '.$response->status().'); backfill cannot be marked complete.');
+            }
+            $outcome = $this->orders->applyItems((int) $c->whatnot_channel_id, (string) $orderId, (array) ($response->json('data') ?? []), $dryRun);
             $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
             if ($i % 200 === 199) $log('  items '.($i + 1).'/'.$orderIds->count());
         }

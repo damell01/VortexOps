@@ -58,6 +58,12 @@
                         <option value="unassigned">Unassigned business</option>
                     </select>
                 </label>
+                <label class="vxt-filter">Streamer
+                    <select class="vxw-select" wire:model.live="streamer">
+                        <option value="all">All streamers</option>
+                        @foreach ($this->streamers() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                    </select>
+                </label>
                 @if ($period === 'custom')
                     <label class="vxt-filter">From<input class="vxw-input" type="date" wire:model.live="from"></label>
                     <label class="vxt-filter">Through<input class="vxw-input" type="date" wire:model.live="until"></label>
@@ -99,6 +105,34 @@
                         <p class="vxw-meta">No uniquely attributed streamer tips in this period.</p>
                     @endforelse
                 </div>
+            </section>
+            @php($unresolved = $this->unresolvedTipTotals())
+            @if ($unresolved['entries'] > 0)
+                <div class="vxw-alert vxw-alert--warn" role="status"><div>
+                    <strong>{{ number_format($unresolved['entries']) }} tip entries need show or streamer attribution</strong>
+                    <p>Net ${{ number_format($unresolved['net'], 2) }} remains outside verified per-show and per-streamer totals. Review before payroll allocation.</p>
+                    <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review ledger attribution</a>
+                </div></div>
+            @endif
+            <section class="vxw-card">
+                <div class="vxw-card-head"><h2 class="vxw-h2">Tips by show and streamer</h2><div class="vxw-hero-actions"><span class="vxw-meta">Approved attributions only · selected period</span><button type="button" class="vxw-btn vxw-btn--sm" wire:click="exportShowTipsCsv">Export shows CSV</button></div></div>
+                <div class="vxr-table-wrap"><table class="vxr-table">
+                    <thead><tr><th>Show</th><th>Streamer</th><th class="num">Credits</th><th class="num">Corrections</th><th class="num">Net tips</th><th class="num">Transactions</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->showTipTotals() as $item)
+                            <tr>
+                                <td><a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $item->show_id, 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString()]) }}">{{ $item->show_title }} · {{ \Illuminate\Support\Carbon::parse($item->show_date)->format('M j') }}</a></td>
+                                <td>{{ $item->streamer_name ?? 'Unassigned streamer' }}</td>
+                                <td class="num">${{ number_format($item->credits, 2) }}</td>
+                                <td class="num">${{ number_format($item->corrections, 2) }}</td>
+                                <td class="num strong">${{ number_format($item->net, 2) }}</td>
+                                <td class="num">{{ number_format($item->entries) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6">No approved show-level tip attribution for this period. Review unmatched entries in the ledger.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table></div>
             </section>
             <div class="vxt-stats" aria-label="Tip totals">
                 @foreach ([

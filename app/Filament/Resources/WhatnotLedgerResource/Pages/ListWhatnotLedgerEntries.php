@@ -65,6 +65,18 @@ class ListWhatnotLedgerEntries extends Page
     #[Url(as: 'status')]
     public string $status = '';
 
+    #[Url(as: 'category')]
+    public string $categoryFilter = '';
+
+    #[Url(as: 'destination')]
+    public string $destinationFilter = '';
+
+    #[Url(as: 'show')]
+    public string $showFilter = '';
+
+    #[Url(as: 'streamer')]
+    public string $streamerFilter = '';
+
     #[Url(as: 'review')]
     public string $review = 'all';
 
@@ -82,6 +94,7 @@ class ListWhatnotLedgerEntries extends Page
     public int $perPage = 25;
 
     public ?int $selectedId = null;
+    public bool $editingAttribution = false;
     public string $attributionCategory = 'other';
     public string $attributionTarget = 'unassigned';
     public string $attributionShowId = '';
@@ -124,7 +137,7 @@ class ListWhatnotLedgerEntries extends Page
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'review', 'search', 'perPage'], true)) {
+        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'categoryFilter', 'destinationFilter', 'showFilter', 'streamerFilter', 'review', 'search', 'perPage'], true)) {
             if ($property === 'from' || $property === 'until') {
                 $this->preset = 'custom';
             }
@@ -148,6 +161,11 @@ class ListWhatnotLedgerEntries extends Page
         }
         if (! in_array($this->review, ['all', 'needs_attribution', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
+        }
+        if ($this->categoryFilter !== '' && ! in_array($this->categoryFilter, LedgerAttributionService::CATEGORIES, true)) $this->categoryFilter = '';
+        if ($this->destinationFilter !== '' && ! in_array($this->destinationFilter, ['show', 'streamer', 'house', 'unassigned'], true)) $this->destinationFilter = '';
+        foreach (['showFilter', 'streamerFilter'] as $field) {
+            if ($this->{$field} !== '' && (! ctype_digit($this->{$field}) || (int) $this->{$field} < 1)) $this->{$field} = '';
         }
         if ($this->channel !== 'all' && $this->channel !== 'unassigned' && ! ctype_digit($this->channel)) {
             $this->channel = 'all';
@@ -182,6 +200,7 @@ class ListWhatnotLedgerEntries extends Page
     public function select(?int $id): void
     {
         $this->selectedId = $this->selectedId === $id ? null : $id;
+        $this->editingAttribution = false;
         if ($this->selectedId) {
             $existing = $this->selectedAttribution();
             $entry = $this->selected;
@@ -193,6 +212,28 @@ class ListWhatnotLedgerEntries extends Page
             $this->attributionBusinessId = (string) ($existing->business_id ?? '');
             $this->attributionReason = '';
         }
+    }
+
+    public function toggleAttributionEditor(): void
+    {
+        abort_unless($this->canReconcile(), 403);
+        $this->editingAttribution = ! $this->editingAttribution;
+    }
+
+    public function selectedShowDetails(): ?array
+    {
+        $entry = $this->selected;
+        if (! $entry) return null;
+
+        $attribution = $this->selectedAttribution();
+        if ($attribution && $attribution->status === 'approved' && $attribution->show_id) {
+            $show = Show::query()->whereKey($attribution->show_id)
+                ->where('whatnot_channel_id', $entry->whatnot_channel_id)->first();
+            if ($show) return ['id' => $show->id, 'title' => $show->title, 'date' => $show->show_date?->format('M j, Y'), 'source' => 'Approved allocation'];
+        }
+
+        $show = app(LedgerAttributionService::class)->suggestedShow($entry);
+        return $show ? ['id' => $show->id, 'title' => $show->title, 'date' => $show->show_date?->format('M j, Y'), 'source' => 'Verified match · awaiting approval'] : null;
     }
 
     public function canReconcile(): bool
@@ -248,7 +289,7 @@ class ListWhatnotLedgerEntries extends Page
     {
         $this->preset = 'all';
         $this->from = $this->until = null;
-        $this->type = $this->status = $this->search = '';
+        $this->type = $this->status = $this->search = $this->showFilter = $this->streamerFilter = $this->categoryFilter = $this->destinationFilter = '';
         $this->review = 'all';
         $this->pageNo = 1;
     }
@@ -334,6 +375,26 @@ class ListWhatnotLedgerEntries extends Page
                         ->whereColumn('whatnot_show_orders.whatnot_order_id', 'whatnot_ledger_entries.whatnot_order_id')
                         ->whereColumn('shows.whatnot_channel_id', 'whatnot_ledger_entries.whatnot_channel_id');
                 }))
+            ->when($this->categoryFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')->where('la.category', $this->categoryFilter);
+            }))
+            ->when($this->destinationFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')->where('la.target', $this->destinationFilter);
+            }))
+            ->when($this->showFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')->where('la.show_id', (int) $this->showFilter);
+            }))
+            ->when($this->streamerFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')->where('la.streamer_id', (int) $this->streamerFilter);
+            }))
             ->when($this->type !== '', fn (Builder $q) => $q->where('transaction_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
             ->when(trim($this->search) !== '', function (Builder $q) {
@@ -408,6 +469,36 @@ class ListWhatnotLedgerEntries extends Page
             ->first();
 
         return collect((array) $row)->map(fn ($value) => (int) $value)->all();
+    }
+
+    /** Signed value awaiting attribution, using the same ledger filters as the table. */
+    public function getUnallocatedAmountsProperty(): array
+    {
+        $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
+        $row = DB::table('whatnot_ledger_entries as le')
+            ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
+            ->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as a')
+                    ->whereColumn('a.whatnot_ledger_entry_id', 'le.id')
+                    ->where('a.status', 'approved');
+            })
+            ->selectRaw('COUNT(*) as entries, COALESCE(SUM(le.amount), 0) as net')
+            ->first();
+
+        return ['entries' => (int) ($row->entries ?? 0), 'net' => (float) ($row->net ?? 0)];
+    }
+
+    /** Approved financial allocations grouped by category and destination, in the current filter scope. */
+    public function getCategoryBreakdownProperty(): array
+    {
+        $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
+        return DB::table('whatnot_ledger_entries as le')
+            ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
+            ->join('ledger_attributions as a', 'a.whatnot_ledger_entry_id', '=', 'le.id')
+            ->where('a.status', 'approved')
+            ->groupBy('a.category', 'a.target')
+            ->selectRaw('a.category, a.target, COUNT(*) as entries, SUM(le.amount) as net')
+            ->orderBy('a.category')->orderBy('a.target')->get()->all();
     }
 
     /**
@@ -488,6 +579,21 @@ class ListWhatnotLedgerEntries extends Page
         }
 
         return $chips;
+    }
+
+    /** Show and streamer filters only use approved financial attributions. */
+    public function getShowFilterOptionsProperty(): array
+    {
+        return Show::query()
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+            ->when(ctype_digit($this->channel), fn ($q) => $q->where('whatnot_channel_id', (int) $this->channel))
+            ->orderByDesc('show_date')->limit(300)->get(['id', 'title', 'show_date'])
+            ->mapWithKeys(fn ($show) => [$show->id => $show->title.' · '.$show->show_date?->format('M j, Y')])->all();
+    }
+
+    public function getStreamerFilterOptionsProperty(): array
+    {
+        return Streamer::query()->orderBy('name')->pluck('name', 'id')->all();
     }
 
     /** @return array<string, string> */

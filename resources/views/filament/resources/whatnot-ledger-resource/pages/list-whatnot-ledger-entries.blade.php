@@ -54,6 +54,9 @@
 </style>
 
 <div class="vxr vxled">
+    <div class="mb-3" style="display:flex;justify-content:flex-end">
+        <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}" class="vxr-btn vxr-btn--outline">Streamer tip totals &amp; show breakdown</a>
+    </div>
     @php $allocation = $this->attributionSummary; @endphp
     <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
         @foreach([
@@ -143,6 +146,41 @@
             </label>
         @endif
         <label class="vxr-control">
+            <x-filament::icon icon="heroicon-o-video-camera" />
+            <select wire:model.live="showFilter" aria-label="Filter ledger by show">
+                <option value="">All shows (approved attribution)</option>
+                @foreach ($this->showFilterOptions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
+            <x-filament::icon icon="heroicon-o-user" />
+            <select wire:model.live="streamerFilter" aria-label="Filter ledger by streamer">
+                <option value="">All streamers (approved attribution)</option>
+                @foreach ($this->streamerFilterOptions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
+            <select wire:model.live="categoryFilter" aria-label="Ledger category">
+                <option value="">All categories</option>
+                @foreach (\App\Services\LedgerAttributionService::CATEGORIES as $category)
+                    <option value="{{ $category }}">{{ ucfirst($category) }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
+            <select wire:model.live="destinationFilter" aria-label="Ledger allocation destination">
+                <option value="">All destinations</option>
+                <option value="show">Show</option>
+                <option value="streamer">Streamer</option>
+                <option value="house">House</option>
+                <option value="unassigned">Explicitly unassigned</option>
+            </select>
+        </label>
+        <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-list-bullet" />
             <select wire:model.live="type" aria-label="Transaction type">
                 <option value="">All transaction types</option>
@@ -166,6 +204,14 @@
         </label>
     </div>
 
+    @php($unallocated = $this->unallocatedAmounts)
+    @if ($unallocated['entries'] > 0)
+        <div class="rounded-xl border p-3 mb-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)" role="status">
+            <strong>Unallocated ledger value: {{ $signed($unallocated['net']) }}</strong>
+            <span class="text-sm"> across {{ number_format($unallocated['entries']) }} transactions in the selected filters. This is a signed net amount, not a loss estimate; pending and rejected allocations are included until approved.</span>
+        </div>
+    @endif
+
     <div class="vxr-stats">
         <x-vxr.stat label="Credits" :value="$money($stats['credits'])" icon="heroicon-o-arrow-up" tone="ok" />
         <x-vxr.stat label="Debits" :value="$money($stats['debits'])" icon="heroicon-o-arrow-down" tone="bad" />
@@ -173,6 +219,31 @@
             :value-class="$stats['net'] < 0 ? 'vxr-val-bad' : ''" />
         <x-vxr.stat label="Processing" :value="number_format($stats['processing']).' '.Str::plural('transaction', $stats['processing'])"
             icon="heroicon-o-clock" tone="warn" note="Status processing or pending" />
+    </div>
+
+    @php($allocation = $this->attributionSummary)
+    @if (($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0) > 0)
+        <div class="vxw-alert vxw-alert--warn" role="status">
+            <div>
+                <strong>Ledger entries awaiting allocation review</strong>
+                <p>{{ number_format($allocation['unmatched'] ?? 0) }} unmatched · {{ number_format($allocation['pending'] ?? 0) }} pending approval · {{ number_format($allocation['rejected'] ?? 0) }} rejected. Assign to a show, streamer, or house as appropriate; house expenses do not require a show.</p>
+                <button type="button" class="vxr-link" wire:click="$set('review', 'needs_attribution')">Review entries</button>
+            </div>
+        </div>
+    @endif
+
+    <div class="vxr-card" style="margin-bottom:1rem">
+        <div class="vxr-card-head"><strong>Approved allocations by category</strong></div>
+        <div class="vxr-table-wrap"><table class="vxr-table">
+            <thead><tr><th>Category</th><th>Assigned to</th><th class="num">Transactions</th><th class="num">Net amount</th></tr></thead>
+            <tbody>
+                @forelse ($this->categoryBreakdown as $group)
+                    <tr><td>{{ ucfirst($group->category) }}</td><td>{{ ucfirst($group->target) }}</td><td class="num">{{ number_format($group->entries) }}</td><td class="num">{{ $signed($group->net) }}</td></tr>
+                @empty
+                    <tr><td colspan="4">No approved allocations in the selected filters.</td></tr>
+                @endforelse
+            </tbody>
+        </table></div>
     </div>
 
     <div class="vxr-grid">
@@ -235,7 +306,7 @@
                                 <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
-                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || trim($search) !== '')
+                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || $categoryFilter !== '' || $destinationFilter !== '' || trim($search) !== '')
                                             Nothing matches these filters.
                                             <button type="button" class="vxr-link" wire:click="clearFilters">Clear filters</button>
                                         @else
@@ -299,7 +370,36 @@
                             <span class="vxr-pill {{ $tone ? 'vxr-pill--'.$tone : '' }}">{{ $selected->status }}</span>
                         @endif
                     </div>
-                    @if ($this->canReconcile())
+                    @php
+                        $attribution = $this->selectedAttribution();
+                        $linkedShow = $this->selectedShowDetails();
+                    @endphp
+                    <section class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
+                        <h3 style="font-weight:700;margin-bottom:10px">Show & allocation</h3>
+                        <dl class="vxr-dl">
+                            <div><dt>Linked show</dt><dd>
+                                @if ($linkedShow)
+                                    <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $linkedShow['id']]) }}" class="vxr-link" target="_blank" rel="noopener">{{ $linkedShow['title'] }} ↗</a>
+                                    <span style="display:block;font-size:12px;color:var(--vxw-muted)">{{ $linkedShow['date'] }} · {{ $linkedShow['source'] }}</span>
+                                @else
+                                    <span>Not linked — no verified show match</span>
+                                @endif
+                            </dd></div>
+                            <div><dt>Allocation status</dt><dd>{{ ucfirst($attribution->status ?? 'Unassigned') }}</dd></div>
+                            <div><dt>Category</dt><dd>{{ ucfirst($attribution->category ?? $this->attributionCategory) }}</dd></div>
+                            <div><dt>Destination</dt><dd>{{ ucfirst($attribution->target ?? 'Unassigned') }}</dd></div>
+                            @if ($attribution?->streamer_id)
+                                <div><dt>Streamer</dt><dd>{{ \App\Models\Streamer::find($attribution->streamer_id)?->name ?? 'Unknown' }}</dd></div>
+                            @endif
+                            @if ($attribution?->business_id)
+                                <div><dt>Business</dt><dd>{{ \App\Models\Business::find($attribution->business_id)?->name ?? 'Unknown' }}</dd></div>
+                            @endif
+                        </dl>
+                        @if ($this->canReconcile())
+                            <button type="button" class="vxr-btn vxr-btn--outline" style="margin-top:12px" wire:click="toggleAttributionEditor">{{ $editingAttribution ? 'Hide allocation editor' : 'Edit allocation' }}</button>
+                        @endif
+                    </section>
+                    @if ($this->canReconcile() && $editingAttribution)
                         @php $attribution = $this->selectedAttribution(); @endphp
                         <section class="vxr-card" style="padding:16px;display:grid;gap:12px">
                             <h3 style="font-weight:700">Categorize & assign transaction</h3>

@@ -172,32 +172,89 @@ Schedule::command('whatnot:sync-tips-batch --mode=history --limit=2 --apply')
 Schedule::command('ledger:match-shows --limit=100000')->hourlyAt(12)->name('ledger-show-auto-matching')->withoutOverlapping(30)->appendOutputTo(storage_path('logs/ledger-show-matching.log'));
 // Seller API runs separately from the established Playwright scraper. This schedule
 // is inert unless all production-only API gates and per-channel switches are enabled.
-Schedule::command('whatnot:api-sync-tick --mode=recent')
-    ->everyFifteenMinutes()
-    ->name('whatnot-seller-api-recent')
+Schedule::command('whatnot:api-sync-tick --channel=1 --mode=recent')
+    ->cron('*/15 * * * *')
+    ->name('whatnot-api-1-recent')
     ->withoutOverlapping(15)
-    ->skip(fn () => ! app()->environment('production')
-        || ! config('services.whatnot_seller.live_requests_enabled', false)
-        || ! config('services.whatnot_seller.contract_verified', false)
-        || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
-Schedule::command('whatnot:api-sync-tick --mode=analytics')
-    ->everyThirtyMinutes()
-    ->name('whatnot-seller-api-analytics')
-    ->withoutOverlapping(20)
-    ->skip(fn () => ! app()->environment('production')
-        || ! config('services.whatnot_seller.live_requests_enabled', false)
-        || ! config('services.whatnot_seller.contract_verified', false)
-        || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+Schedule::command('whatnot:api-sync-tick --channel=1 --mode=analytics')
+    ->cron('*/30 * * * *')
+    ->name('whatnot-api-1-analytics')
+    ->withoutOverlapping(25)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
-Schedule::command('whatnot:api-sync-tick --mode=finance')
-    ->hourly()
-    ->name('whatnot-seller-api-finance')
-    ->withoutOverlapping(30)
-    ->skip(fn () => ! app()->environment('production')
-        || ! config('services.whatnot_seller.live_requests_enabled', false)
-        || ! config('services.whatnot_seller.contract_verified', false)
-        || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+Schedule::command('whatnot:api-sync-tick --channel=1 --mode=finance')
+    ->cron('0 * * * *')
+    ->name('whatnot-api-1-finance')
+    ->withoutOverlapping(45)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=2 --mode=recent')
+    ->cron('*/15 * * * *')
+    ->name('whatnot-api-2-recent')
+    ->withoutOverlapping(15)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=2 --mode=analytics')
+    ->cron('*/30 * * * *')
+    ->name('whatnot-api-2-analytics')
+    ->withoutOverlapping(25)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=2 --mode=finance')
+    ->cron('0 * * * *')
+    ->name('whatnot-api-2-finance')
+    ->withoutOverlapping(45)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=3 --mode=recent')
+    ->cron('*/15 * * * *')
+    ->name('whatnot-api-3-recent')
+    ->withoutOverlapping(15)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=3 --mode=analytics')
+    ->cron('*/30 * * * *')
+    ->name('whatnot-api-3-analytics')
+    ->withoutOverlapping(25)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=3 --mode=finance')
+    ->cron('0 * * * *')
+    ->name('whatnot-api-3-finance')
+    ->withoutOverlapping(45)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=4 --mode=recent')
+    ->cron('*/15 * * * *')
+    ->name('whatnot-api-4-recent')
+    ->withoutOverlapping(15)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=4 --mode=analytics')
+    ->cron('*/30 * * * *')
+    ->name('whatnot-api-4-analytics')
+    ->withoutOverlapping(25)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
+
+Schedule::command('whatnot:api-sync-tick --channel=4 --mode=finance')
+    ->cron('0 * * * *')
+    ->name('whatnot-api-4-finance')
+    ->withoutOverlapping(45)
+    ->runInBackground()
+    ->skip(fn () => ! app()->environment('production') || ! config('services.whatnot_seller.live_requests_enabled', false) || ! config('services.whatnot_seller.contract_verified', false) || ! config('services.whatnot_seller.sync_scheduler_enabled', false));
 
 // Shipment refresh is read-only to Whatnot, but updates local shipment records.
 // Inert until the existing verified Seller API production gates are enabled.

@@ -111,7 +111,7 @@
                 <div class="vxw-alert vxw-alert--warn" role="status"><div>
                     <strong>{{ number_format($unresolved['entries']) }} tip entries need show or streamer attribution</strong>
                     <p>Net ${{ number_format($unresolved['net'], 2) }} remains outside verified per-show and per-streamer totals. Review before payroll allocation.</p>
-                    <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $channel]) }}">Review ledger attribution</a>
+                    <a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review ledger attribution</a>
                 </div></div>
             @endif
             <section class="vxw-card">

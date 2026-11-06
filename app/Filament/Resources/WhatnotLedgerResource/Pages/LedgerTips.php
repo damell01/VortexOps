@@ -216,7 +216,7 @@ class LedgerTips extends Page
             ->join('shows as sh', 'sh.id', '=', 'a.show_id')
             ->leftJoin('streamers as st', 'st.id', '=', 'a.streamer_id')
             ->where('a.status', 'approved')
-            ->whereIn('le.transaction_type', ['Tip', 'Tips'])
+            ->whereRaw('LOWER(TRIM(le.transaction_type)) IN (?, ?)', ['tip', 'tips'])
             ->whereBetween('le.created_date', [$from->copy()->startOfDay(), $until->copy()->endOfDay()])
             ->whereColumn('sh.whatnot_channel_id', 'le.whatnot_channel_id')
             ->when(ChannelContext::isScoped(), fn ($q) => $q->where('le.whatnot_channel_id', ChannelContext::currentId()))

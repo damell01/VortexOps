@@ -161,6 +161,23 @@
             </select>
         </label>
         <label class="vxr-control">
+            <select wire:model.live="categoryFilter" aria-label="Ledger category">
+                <option value="">All categories</option>
+                @foreach (\App\Services\LedgerAttributionService::CATEGORIES as $category)
+                    <option value="{{ $category }}">{{ ucfirst($category) }}</option>
+                @endforeach
+            </select>
+        </label>
+        <label class="vxr-control">
+            <select wire:model.live="destinationFilter" aria-label="Ledger allocation destination">
+                <option value="">All destinations</option>
+                <option value="show">Show</option>
+                <option value="streamer">Streamer</option>
+                <option value="house">House</option>
+                <option value="unassigned">Explicitly unassigned</option>
+            </select>
+        </label>
+        <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-list-bullet" />
             <select wire:model.live="type" aria-label="Transaction type">
                 <option value="">All transaction types</option>
@@ -253,7 +270,7 @@
                                 <td colspan="{{ $canDelete ? 8 : 7 }}">
                                     <div class="vxr-empty">
                                         <b>No Whatnot ledger entries</b>
-                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || trim($search) !== '')
+                                        @if ($preset !== 'all' || $type !== '' || $status !== '' || $showFilter !== '' || $streamerFilter !== '' || $categoryFilter !== '' || $destinationFilter !== '' || trim($search) !== '')
                                             Nothing matches these filters.
                                             <button type="button" class="vxr-link" wire:click="clearFilters">Clear filters</button>
                                         @else

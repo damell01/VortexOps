@@ -186,6 +186,27 @@ class LedgerTips extends Page
         return ['entries' => (int) ($row->entries ?? 0), 'net' => round((float) ($row->net ?? 0), 2)];
     }
 
+    /** Export the exact approved show-level tip breakdown currently displayed. */
+    public function exportShowTipsCsv(): ?StreamedResponse
+    {
+        if ($this->report() === null) return null;
+        [$from, $until] = $this->range();
+        $rows = $this->showTipTotals();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Show ID', 'Show', 'Show date', 'Streamer', 'Tip credits', 'Tip corrections', 'Net tips', 'Transactions']);
+            foreach ($rows as $row) {
+                fputcsv($out, [$row->show_id, $row->show_title, $row->show_date, $row->streamer_name ?? 'Unassigned',
+                    number_format((float) $row->credits, 2, '.', ''),
+                    number_format((float) $row->corrections, 2, '.', ''),
+                    number_format((float) $row->net, 2, '.', ''), $row->entries]);
+            }
+            fclose($out);
+        }, 'show-tip-breakdown-'.$from->toDateString().'-'.$until->toDateString().'.csv',
+            ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function showTipTotals(): array
     {
         if ($this->report() === null) return [];

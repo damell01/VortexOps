@@ -51,7 +51,7 @@ final class WhatnotApiSync
         $showCounts = [];
         try {
             foreach (['scheduled' => false, 'ended' => true] as $status => $windowed) {
-                $this->client->eachPage($connection, 'shows', function (array $page) use ($channelId, $dryRun, $since, $windowed, &$showCounts) {
+                $paging = $this->client->eachPage($connection, 'shows', function (array $page) use ($channelId, $dryRun, $since, $windowed, &$showCounts) {
                     foreach ($page['data'] as $show) {
                         if (! is_array($show)) continue;
                         $outcome = $this->shows->import($channelId, $show, $dryRun)['outcome'];
@@ -59,6 +59,7 @@ final class WhatnotApiSync
                     }
                     return ! $windowed || ! $this->pageIsOlderThan($page['data'], 'scheduled_start_at', $since);
                 }, ['status' => $status], maxPages: 20);
+                if (! $paging['ok']) $summary['errors'][] = 'shows ('.$status.'): HTTP '.$paging['http_status'];
             }
             $summary['shows'] = $showCounts;
             $log('Shows: '.json_encode($showCounts));
@@ -98,12 +99,13 @@ final class WhatnotApiSync
         }
         $summary['order_items'] = $items + ['waiting' => max(0, count(array_unique($needsItems)) - self::MAX_ITEM_LOOKUPS)];
         if ($items['failed'] > 0) $summary['errors'][] = 'order items: '.$items['failed'].' lookups failed';
+        if ($summary['order_items']['waiting'] > 0) $summary['errors'][] = 'order items: '.$summary['order_items']['waiting'].' lookups deferred to another sync';
         $log('Order items: '.json_encode($summary['order_items']));
 
         // 2b. Shipments created in the window → tracking/status on orders.
         $shipCounts = [];
         try {
-            $this->client->eachPage($connection, 'shipments', function (array $page) use ($connection, $channelId, $dryRun, $since, &$shipCounts) {
+            $paging = $this->client->eachPage($connection, 'shipments', function (array $page) use ($connection, $channelId, $dryRun, $since, &$shipCounts) {
                 foreach ($page['data'] as $shipment) {
                     if (! is_array($shipment) || ! is_string($shipment['id'] ?? null)) continue;
                     $items = $this->client->call($connection, 'shipment_items', $shipment['id'], ['limit' => WhatnotSellerApiClient::MAX_PAGE_SIZE]);
@@ -114,6 +116,7 @@ final class WhatnotApiSync
                 }
                 return ! $this->pageIsOlderThan($page['data'], 'created_at', $since);
             }, maxPages: 40);
+            if (! $paging['ok']) $summary['errors'][] = 'shipments: HTTP '.$paging['http_status'];
             if (collect($shipCounts)->keys()->contains(fn ($key) => str_starts_with((string) $key, 'http_'))) $summary['errors'][] = 'shipments: one or more shipment item requests failed';
             $summary['shipments'] = $shipCounts;
             $log('Shipments: '.json_encode($shipCounts));
@@ -168,6 +171,7 @@ final class WhatnotApiSync
             $summary['overview'] = $report['status'] === 'completed'
                 ? $this->overview->import($channelId, $report['csv'], $dryRun)
                 : ['status' => $report['status']];
+            if ($report['status'] !== 'completed') $summary['errors'][] = 'overview: report '.$report['status'];
         } catch (\Throwable $e) {
             $summary['errors'][] = 'overview: '.$e->getMessage();
         }

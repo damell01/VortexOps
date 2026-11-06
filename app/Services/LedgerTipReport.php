@@ -137,6 +137,7 @@ class LedgerTipReport
             ->orderBy('streamers.name')
             ->get()
             ->map(fn ($row) => [
+                'streamer_id' => (int) $row->streamer_id,
                 'streamer' => $row->streamer_name,
                 'business_id' => $row->business_id,
                 'entries' => (int) $row->entries,

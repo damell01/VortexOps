@@ -21,11 +21,38 @@ jobs:
           key: composer-${{ hashFiles('composer.lock') }}
           restore-keys: composer-
       - run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
-      - run: cp .env.example .env
+      - run: cp .env.example .env && php artisan key:generate
       - name: Compile and syntax-check all Blade views
         run: |
           php artisan view:clear
           php artisan view:cache
           find storage/framework/views -type f -name '*.php' -print0 | xargs -0 -r -n1 php -l
-      - name: Detail, edit and catalog deletion regression checks
-        run: php artisan test tests/Feature/InventoryPopupReviewTest.php tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci && npm run build
+      - run: node scripts/check-readable-mobile-tables.cjs
+      - name: Inventory popup and dashboard regression checks
+        run: php artisan test tests/Feature/InventoryRecentChangesTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/ActivityLogChangesTest.php tests/Feature/InventoryPopupReviewTest.php tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php
+      - name: Check runner Chrome
+        run: google-chrome --version
+      - name: Prepare popup browser fixtures
+        run: touch /tmp/vortex-popup.sqlite && php artisan migrate:fresh --force && php tests/Browser/inventory-changes-fixtures.php
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-popup.sqlite
+          APP_DEBUG: false
+      - name: Check one-tap opening and PWA close controls
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/inventory-popup-server.log 2>&1 &
+          PLAYWRIGHT_CHROMIUM_CHANNEL=chrome npx playwright test --config=playwright.inventory-changes.config.ts
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: /tmp/vortex-popup.sqlite
+          APP_DEBUG: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inventory-changes-browser-screenshots
+          path: tests/Browser/output/inventory-changes

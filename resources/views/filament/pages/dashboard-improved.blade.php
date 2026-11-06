@@ -10,7 +10,11 @@
     <div
         class="space-y-3 sm:space-y-5"
         @if($pageMode === 'streamer') data-vx-page="streamer-dashboard"
-        @elseif($pageMode === 'fulfillment')
+        @elseif($pageMode === 'fulfillment') data-vx-page="fulfillment-dashboard"
+        @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
+        @endif
+    >
+        @if($pageMode === 'fulfillment')
             <div data-vx-workspace="fulfillment" class="space-y-4">
                 <section class="overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-sm dark:border-violet-900 dark:bg-gray-900">
                     <div class="flex flex-wrap items-start justify-between gap-4 bg-gradient-to-r from-violet-50 to-white p-5 dark:from-violet-950/40 dark:to-gray-900 sm:p-6">
@@ -83,9 +87,7 @@
                     </div>
                 </section>
             </div>
-        @elseif($pageMode === 'admin') data-vx-page="admin-dashboard"
         @endif
-    >
         @if($pageMode === 'assistant')
             @include('filament.components.assistant-dashboard')
         @elseif($pageMode === 'streamer')

@@ -128,7 +128,7 @@ class ActivityLogResource extends Resource
             ->emptyStateHeading('No activity yet')
             ->emptyStateDescription('User and system actions are logged here as people work.')
             ->emptyStateIcon('heroicon-o-clock')
-            ->extraAttributes(['data-sticky-header' => 'true'])
+            ->extraAttributes(['data-sticky-header' => 'true', 'data-vx-readable-log' => 'true'])
             ->deferLoading()
             // System entries (no person behind them) only when the page asks for them.
             ->modifyQueryUsing(fn (Builder $query, $livewire) => ($livewire->showSystem ?? true) ? $query : $query->whereNotNull('causer_id'))

@@ -181,6 +181,7 @@ class LedgerTips extends Page
             ->when(ctype_digit($this->channel), fn ($q) => $q->where('le.whatnot_channel_id', (int) $this->channel))
             ->when(ctype_digit($this->streamer), fn ($q) => $q->where('a.streamer_id', (int) $this->streamer))
             ->when(ctype_digit($this->business), fn ($q) => $q->where('st.business_id', (int) $this->business))
+            ->when($this->business === 'unassigned', fn ($q) => $q->whereNull('st.business_id'))
             ->groupBy('sh.id', 'sh.title', 'sh.show_date', 'st.id', 'st.name')
             ->selectRaw('sh.id as show_id, sh.title as show_title, sh.show_date, st.name as streamer_name, COUNT(*) as entries, SUM(CASE WHEN le.amount > 0 THEN le.amount ELSE 0 END) as credits, SUM(CASE WHEN le.amount < 0 THEN -le.amount ELSE 0 END) as corrections, SUM(le.amount) as net')
             ->orderByDesc('sh.show_date')->limit(500)->get()->all();

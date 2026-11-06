@@ -39,13 +39,14 @@ final class WhatnotApiSync
      * @param callable(string):void|null $log
      * @return array<string,mixed>
      */
-    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null): array
+    public function run(WhatnotApiConnection $connection, int $days = 3, bool $dryRun = true, ?callable $log = null, ?array $only = null): array
     {
         $log ??= fn () => null;
         $channelId = (int) $connection->whatnot_channel_id;
         $since = now()->subDays(max(1, $days));
         $summary = ['channel_id' => $channelId, 'days' => $days, 'dry_run' => $dryRun, 'errors' => []];
 
+        if ($only === null || in_array('shows', $only, true)) {
         // 0. Shows: every scheduled show (created ahead of time; reschedules
         // and title changes logged), and shows that ended in the window.
         $showCounts = [];
@@ -67,6 +68,9 @@ final class WhatnotApiSync
             $summary['errors'][] = 'shows: '.$e->getMessage();
         }
 
+        }
+
+        if ($only === null || in_array('orders', $only, true)) {
         // 1. Orders, newest first, until older than the window.
         $orderCounts = [];
         $needsItems = [];
@@ -86,6 +90,9 @@ final class WhatnotApiSync
             $summary['errors'][] = 'orders: '.$e->getMessage();
         }
 
+        }
+
+        if ($only === null || in_array('items', $only, true)) {
         // 2. Line items for orders still missing an item name.
         $items = ['filled' => 0, 'unchanged' => 0, 'no_row' => 0, 'no_items' => 0, 'failed' => 0];
         foreach (array_slice(array_values(array_unique($needsItems)), 0, self::MAX_ITEM_LOOKUPS) as $orderId) {
@@ -102,6 +109,9 @@ final class WhatnotApiSync
         if ($summary['order_items']['waiting'] > 0) $summary['errors'][] = 'order items: '.$summary['order_items']['waiting'].' lookups deferred to another sync';
         $log('Order items: '.json_encode($summary['order_items']));
 
+        }
+
+        if ($only === null || in_array('shipments', $only, true)) {
         // 2b. Shipments created in the window → tracking/status on orders.
         $shipCounts = [];
         try {
@@ -124,6 +134,9 @@ final class WhatnotApiSync
             $summary['errors'][] = 'shipments: '.$e->getMessage();
         }
 
+        }
+
+        if ($only === null || in_array('analytics', $only, true)) {
         // 3. Ended shows in the window that exist here → their analytics.
         $analyticsCounts = [];
         try {
@@ -157,6 +170,9 @@ final class WhatnotApiSync
             $summary['errors'][] = 'show analytics: '.$e->getMessage();
         }
 
+        }
+
+        if ($only === null || in_array('ledger', $only, true)) {
         // 4. Financial report → ledger (tips, earnings, refunds).
         try {
             $summary['ledger'] = $this->ledgerStep($connection, $since, $dryRun);
@@ -169,6 +185,9 @@ final class WhatnotApiSync
             $summary['errors'][] = 'ledger: '.$e->getMessage();
         }
 
+        }
+
+        if ($only === null || in_array('overview', $only, true)) {
         // 5. Daily business overview for the window.
         try {
             $report = $this->reports->fetch($connection, WhatnotApiReports::overview($since->copy()->startOfDay(), now()->startOfHour()));
@@ -178,6 +197,8 @@ final class WhatnotApiSync
             if ($report['status'] !== 'completed') $summary['errors'][] = 'overview: report '.$report['status'];
         } catch (\Throwable $e) {
             $summary['errors'][] = 'overview: '.$e->getMessage();
+        }
+
         }
 
         WhatnotApiSyncAudit::create([

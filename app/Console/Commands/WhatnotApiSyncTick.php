@@ -50,6 +50,7 @@ final class WhatnotApiSyncTick extends Command
         foreach ($query->get() as $connection) {
             $lock = Cache::lock('whatnot-api-sync:'.$connection->whatnot_channel_id, 1800);
             if (! $lock->get()) {
+                $this->warn('Channel '.$connection->whatnot_channel_id.': sync already running or lock still held; skipped.');
                 continue;
             }
             try {

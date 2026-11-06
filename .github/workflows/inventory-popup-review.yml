@@ -35,7 +35,8 @@ jobs:
       - run: node scripts/check-readable-mobile-tables.cjs
       - name: Inventory popup and dashboard regression checks
         run: php artisan test tests/Feature/InventoryRecentChangesTest.php tests/Feature/Admin/StreamerDashboardScopingTest.php tests/Feature/Admin/ActivityLogChangesTest.php tests/Feature/InventoryPopupReviewTest.php tests/Feature/InventoryPriceAlertsTest.php tests/Feature/InventoryPopupSettingsTest.php
-      - run: npx playwright install --with-deps chromium
+      - name: Check runner Chrome
+        run: google-chrome --version
       - name: Prepare popup browser fixtures
         run: touch /tmp/vortex-popup.sqlite && php artisan migrate:fresh --force && php tests/Browser/inventory-changes-fixtures.php
         env:
@@ -45,7 +46,7 @@ jobs:
       - name: Check one-tap opening and PWA close controls
         run: |
           php artisan serve --host=127.0.0.1 --port=8000 > /tmp/inventory-popup-server.log 2>&1 &
-          npx playwright test --config=playwright.inventory-changes.config.ts
+          PLAYWRIGHT_CHROMIUM_CHANNEL=chrome npx playwright test --config=playwright.inventory-changes.config.ts
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: /tmp/vortex-popup.sqlite

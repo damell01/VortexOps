@@ -334,7 +334,8 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
         border-top: 1px solid rgb(148 163 184 / .2) !important;
     }
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.fi-ta-cell::before {
-        font-size: 11px !important;
+        color: var(--vx-text-dim, #64748b) !important;
+        font-size: 12px !important;
         font-weight: 600;
         line-height: 1.4 !important;
     }
@@ -346,6 +347,10 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
         overflow-wrap: anywhere;
         text-align: left !important;
         line-height: 1.5 !important;
+    }
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable .fi-ta-text-item,
+    html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable .fi-badge {
+        font-size: 14px !important;
     }
     html body :is(.fi-main, .fi-modal-window, .vx-report) table.fi-ta-table.vx-mobile-readable > tbody > tr.fi-ta-row > td.vx-mobile-actions :is(button, a) {
         min-width: 44px;

@@ -69,7 +69,12 @@ final class WhatnotApiLedgerImporter
                 }
             });
 
-        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, $linkedByApiId, &$counts, &$coveredDays) {
+        $initialCounts = $counts;
+        $run = function () use ($rows, $channelId, $dryRun, $start, $backfillFrom, $matcher, $linkedByApiId, $initialCounts, &$counts, &$coveredDays) {
+            // A deadlock can retry this whole transaction. Reset attempt-local
+            // counters and cached coverage so reported totals stay accurate.
+            $counts = $initialCounts;
+            $coveredDays = [];
             foreach ($rows as $row) {
                 $entry = $this->toEntry($channelId, $row);
                 if ($entry === null) {
@@ -218,7 +223,7 @@ final class WhatnotApiLedgerImporter
                 }
             }
         };
-        $dryRun ? $run() : DB::transaction($run);
+        $dryRun ? $run() : DB::transaction($run, 5);
 
         return ['counts' => $counts, 'dry_run' => $dryRun];
     }
@@ -256,9 +261,16 @@ final class WhatnotApiLedgerImporter
         }
         try {
             $completed = Carbon::parse((string) $row['transaction_completed_at_utc'], 'UTC')->setTimezone(config('app.timezone'));
-            $placed = filled($row['order_placed_at_utc'] ?? null)
-                ? Carbon::parse((string) $row['order_placed_at_utc'], 'UTC')->setTimezone(config('app.timezone'))
+            $placedRaw = trim((string) ($row['order_placed_at_utc'] ?? ''));
+            $placed = $placedRaw !== ''
+                ? Carbon::parse($placedRaw, 'UTC')->setTimezone(config('app.timezone'))
                 : $completed;
+            // Whatnot sometimes supplies an epoch/zero order timestamp.
+            // Never persist 1970 as a real order placement date; retain the
+            // original value in raw_data for later forensic review.
+            if ($placed->year < 2000 || $placed->gt($completed->copy()->addDay())) {
+                $placed = $completed->copy();
+            }
         } catch (\Throwable) {
             return null;
         }

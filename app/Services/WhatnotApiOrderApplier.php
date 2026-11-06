@@ -121,7 +121,7 @@ final class WhatnotApiOrderApplier
 
                 if ($this->idFormatsDiffer($show, $orders)) {
                     $counts['id_format_mismatch'] += count($orders);
-                    $skippedShows[$show->id] = 'Show already has scraper orders and none of the API order IDs match them; not applied to avoid double counting.';
+                    $skippedShows[$show->id] = 'Show '.$show->id.' (Whatnot '.$whatnotShowId.'): scraper/API order identifiers do not overlap; '.count($orders).' API order(s) withheld pending verified reconciliation.';
                     continue;
                 }
 

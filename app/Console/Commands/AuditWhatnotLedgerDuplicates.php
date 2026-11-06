@@ -4,8 +4,6 @@ namespace App\Console\Commands;
 
 use App\Models\WhatnotLedgerEntry;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 final class AuditWhatnotLedgerDuplicates extends Command
 {
@@ -36,7 +34,7 @@ final class AuditWhatnotLedgerDuplicates extends Command
                 'truncated' => $truncated, 'five_hour_pairs' => 0,
                 'five_hour_pairs_with_matching_completed_offset' => 0,
                 'five_hour_pairs_with_missing_completed' => 0,
-                'pairs_with_attribution' => 0, 'pairs_with_manual_attribution' => 0,
+                'attribution_audit' => 'not_checked',
                 'other_duplicate_groups' => 0, 'examples' => []];
 
             foreach ($groups->take($limit) as $group) {
@@ -53,7 +51,7 @@ final class AuditWhatnotLedgerDuplicates extends Command
                         $a = $rows[$i];
                         $b = $rows[$j];
                         if (!$a->created_date || !$b->created_date ||
-                            round(abs($a->created_date->diffInSeconds($b->created_date))) !== 18000) continue;
+                            abs(abs($a->created_date->diffInSeconds($b->created_date)) - 18000) > 0.5) continue;
                         $pairs[] = [$a, $b];
                     }
                 }
@@ -65,14 +63,9 @@ final class AuditWhatnotLedgerDuplicates extends Command
                     $summary['five_hour_pairs']++;
                     if (!$a->completed_date || !$b->completed_date) {
                         $summary['five_hour_pairs_with_missing_completed']++;
-                    } elseif (round(abs($a->completed_date->diffInSeconds($b->completed_date))) === 18000) {
+                    } elseif (abs(abs($a->completed_date->diffInSeconds($b->completed_date)) - 18000) <= 0.5) {
                         $summary['five_hour_pairs_with_matching_completed_offset']++;
                     }
-                    $attributions = DB::table('ledger_attributions')
-                        ->whereIn('whatnot_ledger_entry_id', [$a->id, $b->id])
-                        ->get(['whatnot_ledger_entry_id', 'status', 'submitted_by', 'show_id', 'streamer_id', 'business_id']);
-                    if ($attributions->isNotEmpty()) $summary['pairs_with_attribution']++;
-                    if ($attributions->contains(fn ($v) => $v->submitted_by !== null)) $summary['pairs_with_manual_attribution']++;
                     if (count($summary['examples']) < $examples) {
                         $summary['examples'][] = [
                             'order' => $group->whatnot_order_id, 'amount' => $group->amount,
@@ -80,14 +73,13 @@ final class AuditWhatnotLedgerDuplicates extends Command
                             'ids' => [$a->id, $b->id],
                             'created' => [$a->created_date?->toDateTimeString(), $b->created_date?->toDateTimeString()],
                             'completed' => [$a->completed_date?->toDateTimeString(), $b->completed_date?->toDateTimeString()],
-                            'attributions' => $attributions->toArray(),
                         ];
                     }
                 }
             }
             $this->line(json_encode($summary, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
-        $this->info('Read-only audit complete. No ledger rows or allocations were modified.');
+        $this->info('Read-only timestamp audit complete. Attribution and payroll dependencies have NOT been checked. No rows were modified.');
         return self::SUCCESS;
     }
 }

@@ -85,7 +85,7 @@ final class WhatnotApiBackfill
     {
         $counts = [];
         foreach (['ended' => true, 'stopped' => true, 'cancelled' => true, 'scheduled' => false] as $status => $stopAtSince) {
-            $this->client->eachPage($c, 'shows', function (array $page) use ($c, $since, $dryRun, $stopAtSince, &$counts) {
+            $pageResult = $this->client->eachPage($c, 'shows', function (array $page) use ($c, $since, $dryRun, $stopAtSince, &$counts) {
                 $oldest = null;
                 foreach ($page['data'] as $show) {
                     if (! is_array($show)) continue;
@@ -97,6 +97,9 @@ final class WhatnotApiBackfill
                 }
                 return ! $stopAtSince || $oldest === null || Carbon::parse($oldest)->gte($since);
             }, ['status' => $status], maxPages: 400);
+            if (! $pageResult['ok']) {
+                throw new \RuntimeException('Show backfill failed for status '.$status.' (HTTP '.($pageResult['http_status'] ?? 'unknown').').');
+            }
         }
         return $counts;
     }

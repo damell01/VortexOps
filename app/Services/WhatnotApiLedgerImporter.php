@@ -61,8 +61,15 @@ final class WhatnotApiLedgerImporter
                 if (strcasecmp($entry['transaction_type'], 'Tip') === 0) $counts['tips']++;
                 if ($this->showViaShipment($channelId, $entry)) $counts['show_via_shipment']++;
 
-                if (WhatnotLedgerEntry::where('dedup_key', $entry['dedup_key'])->exists()) {
+                $existingApiEntry = WhatnotLedgerEntry::where('dedup_key', $entry['dedup_key'])->first();
+                if ($existingApiEntry !== null) {
                     $counts['unchanged']++;
+                    // A previous import may have preceded show/order/shipments
+                    // backfill. Retry attribution without changing the financial
+                    // transaction or overriding a human-approved allocation.
+                    if (! $dryRun && $matcher->match($existingApiEntry) === 'matched') {
+                        $counts['matched_to_show']++;
+                    }
                     continue;
                 }
 

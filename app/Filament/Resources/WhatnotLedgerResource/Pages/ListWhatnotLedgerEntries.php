@@ -447,6 +447,23 @@ class ListWhatnotLedgerEntries extends Page
         return collect((array) $row)->map(fn ($value) => (int) $value)->all();
     }
 
+    /** Signed value awaiting attribution, using the same ledger filters as the table. */
+    public function getUnallocatedAmountsProperty(): array
+    {
+        $ids = $this->filteredQuery()->select('whatnot_ledger_entries.id');
+        $row = DB::table('whatnot_ledger_entries as le')
+            ->joinSub($ids->toBase(), 'filtered', 'filtered.id', '=', 'le.id')
+            ->whereNotExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as a')
+                    ->whereColumn('a.whatnot_ledger_entry_id', 'le.id')
+                    ->where('a.status', 'approved');
+            })
+            ->selectRaw('COUNT(*) as entries, COALESCE(SUM(le.amount), 0) as net')
+            ->first();
+
+        return ['entries' => (int) ($row->entries ?? 0), 'net' => (float) ($row->net ?? 0)];
+    }
+
     /** Approved financial allocations grouped by category and destination, in the current filter scope. */
     public function getCategoryBreakdownProperty(): array
     {

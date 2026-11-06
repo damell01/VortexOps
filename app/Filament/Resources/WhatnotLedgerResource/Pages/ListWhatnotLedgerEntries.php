@@ -94,6 +94,7 @@ class ListWhatnotLedgerEntries extends Page
     public int $perPage = 25;
 
     public ?int $selectedId = null;
+    public bool $editingAttribution = false;
     public string $attributionCategory = 'other';
     public string $attributionTarget = 'unassigned';
     public string $attributionShowId = '';
@@ -199,6 +200,7 @@ class ListWhatnotLedgerEntries extends Page
     public function select(?int $id): void
     {
         $this->selectedId = $this->selectedId === $id ? null : $id;
+        $this->editingAttribution = false;
         if ($this->selectedId) {
             $existing = $this->selectedAttribution();
             $entry = $this->selected;
@@ -210,6 +212,28 @@ class ListWhatnotLedgerEntries extends Page
             $this->attributionBusinessId = (string) ($existing->business_id ?? '');
             $this->attributionReason = '';
         }
+    }
+
+    public function toggleAttributionEditor(): void
+    {
+        abort_unless($this->canReconcile(), 403);
+        $this->editingAttribution = ! $this->editingAttribution;
+    }
+
+    public function selectedShowDetails(): ?array
+    {
+        $entry = $this->selected;
+        if (! $entry) return null;
+
+        $attribution = $this->selectedAttribution();
+        if ($attribution && $attribution->status === 'approved' && $attribution->show_id) {
+            $show = Show::query()->whereKey($attribution->show_id)
+                ->where('whatnot_channel_id', $entry->whatnot_channel_id)->first();
+            if ($show) return ['id' => $show->id, 'title' => $show->title, 'date' => $show->show_date?->format('M j, Y'), 'source' => 'Approved allocation'];
+        }
+
+        $show = app(LedgerAttributionService::class)->suggestedShow($entry);
+        return $show ? ['id' => $show->id, 'title' => $show->title, 'date' => $show->show_date?->format('M j, Y'), 'source' => 'Verified match · awaiting approval'] : null;
     }
 
     public function canReconcile(): bool

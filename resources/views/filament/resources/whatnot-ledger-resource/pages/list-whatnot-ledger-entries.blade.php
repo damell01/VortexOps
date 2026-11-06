@@ -209,7 +209,7 @@
         </label>
     </div>
 
-    @php($unallocated = $this->unallocatedAmounts)
+    @php $unallocated = $this->unallocatedAmounts; @endphp
     @if ($unallocated['entries'] > 0)
         <div class="rounded-xl border p-3 mb-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)" role="status">
             <strong>Unallocated ledger value: {{ $signed($unallocated['net']) }}</strong>
@@ -226,7 +226,7 @@
             icon="heroicon-o-clock" tone="warn" note="Status processing or pending" />
     </div>
 
-    @php($allocation = $this->attributionSummary)
+    @php $allocation = $this->attributionSummary; @endphp
     @if (($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0) > 0)
         <div class="vxw-alert vxw-alert--warn" role="status">
             <div>

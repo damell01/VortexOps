@@ -59,14 +59,17 @@
     </div>
     @php $allocation = $this->attributionSummary; @endphp
     <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
-        @foreach([
-            ['label'=>'Unmatched', 'key'=>'unmatched'],
-            ['label'=>'Pending review', 'key'=>'pending'],
-            ['label'=>'Rejected', 'key'=>'rejected'],
-            ['label'=>'Assigned to shows', 'key'=>'shows'],
-            ['label'=>'Assigned to streamers', 'key'=>'streamers'],
-            ['label'=>'House / business', 'key'=>'house'],
-        ] as $metric)
+        @php
+            $coverageMetrics = [
+                ['label'=>'Unmatched', 'key'=>'unmatched'],
+                ['label'=>'Pending review', 'key'=>'pending'],
+                ['label'=>'Rejected', 'key'=>'rejected'],
+                ['label'=>'Assigned to shows', 'key'=>'shows'],
+                ['label'=>'Assigned to streamers', 'key'=>'streamers'],
+                ['label'=>'House / business', 'key'=>'house'],
+            ];
+        @endphp
+        @foreach ($coverageMetrics as $metric)
             <div class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
                 <div class="text-xs" style="color:var(--vxw-muted)">{{ $metric['label'] }}</div>
                 <div class="mt-1 text-xl font-bold tabular-nums">{{ number_format($allocation[$metric['key']] ?? 0) }}</div>
@@ -121,7 +124,9 @@
                 aria-selected="{{ $channel === $chip['key'] ? 'true' : 'false' }}"
                 wire:click="setChannel('{{ $chip['key'] }}')">
                 {{ $chip['label'] }}
-                @if ($chip['count'])<span class="vxr-count">{{ $chip['count'] }}</span>@endif
+                @if ($chip['count'])
+                    <span class="vxr-count">{{ $chip['count'] }}</span>
+                @endif
             </button>
         @endforeach
     </div>
@@ -332,7 +337,9 @@
                         @foreach ([10, 25, 50] as $n)
                             <option value="{{ $n }}">{{ $n }} per page</option>
                         @endforeach
-                        @if (! in_array($perPage, [10, 25, 50], true))<option value="{{ $perPage }}">{{ $perPage }} per page</option>@endif
+                        @if (! in_array($perPage, [10, 25, 50], true))
+                            <option value="{{ $perPage }}">{{ $perPage }} per page</option>
+                        @endif
                     </select>
                     @if ($lastPage > 1)
                         <nav class="vxled-pages" aria-label="Pages">

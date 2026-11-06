@@ -65,6 +65,12 @@ class ListWhatnotLedgerEntries extends Page
     #[Url(as: 'status')]
     public string $status = '';
 
+    #[Url(as: 'show')]
+    public string $showFilter = '';
+
+    #[Url(as: 'streamer')]
+    public string $streamerFilter = '';
+
     #[Url(as: 'review')]
     public string $review = 'all';
 
@@ -124,7 +130,7 @@ class ListWhatnotLedgerEntries extends Page
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'review', 'search', 'perPage'], true)) {
+        if (in_array($property, ['channel', 'preset', 'from', 'until', 'type', 'status', 'showFilter', 'streamerFilter', 'review', 'search', 'perPage'], true)) {
             if ($property === 'from' || $property === 'until') {
                 $this->preset = 'custom';
             }
@@ -148,6 +154,9 @@ class ListWhatnotLedgerEntries extends Page
         }
         if (! in_array($this->review, ['all', 'needs_attribution', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
+        }
+        foreach (['showFilter', 'streamerFilter'] as $field) {
+            if ($this->{$field} !== '' && (! ctype_digit($this->{$field}) || (int) $this->{$field} < 1)) $this->{$field} = '';
         }
         if ($this->channel !== 'all' && $this->channel !== 'unassigned' && ! ctype_digit($this->channel)) {
             $this->channel = 'all';
@@ -248,7 +257,7 @@ class ListWhatnotLedgerEntries extends Page
     {
         $this->preset = 'all';
         $this->from = $this->until = null;
-        $this->type = $this->status = $this->search = '';
+        $this->type = $this->status = $this->search = $this->showFilter = $this->streamerFilter = '';
         $this->review = 'all';
         $this->pageNo = 1;
     }
@@ -334,6 +343,16 @@ class ListWhatnotLedgerEntries extends Page
                         ->whereColumn('whatnot_show_orders.whatnot_order_id', 'whatnot_ledger_entries.whatnot_order_id')
                         ->whereColumn('shows.whatnot_channel_id', 'whatnot_ledger_entries.whatnot_channel_id');
                 }))
+            ->when($this->showFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')->where('la.show_id', (int) $this->showFilter);
+            }))
+            ->when($this->streamerFilter !== '', fn (Builder $q) => $q->whereExists(function ($sub) {
+                $sub->selectRaw('1')->from('ledger_attributions as la')
+                    ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                    ->where('la.status', 'approved')->where('la.streamer_id', (int) $this->streamerFilter);
+            }))
             ->when($this->type !== '', fn (Builder $q) => $q->where('transaction_type', $this->type))
             ->when($this->status !== '', fn (Builder $q) => $q->where('status', $this->status))
             ->when(trim($this->search) !== '', function (Builder $q) {
@@ -488,6 +507,21 @@ class ListWhatnotLedgerEntries extends Page
         }
 
         return $chips;
+    }
+
+    /** Show and streamer filters only use approved financial attributions. */
+    public function getShowFilterOptionsProperty(): array
+    {
+        return Show::query()
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+            ->when(ctype_digit($this->channel), fn ($q) => $q->where('whatnot_channel_id', (int) $this->channel))
+            ->orderByDesc('show_date')->limit(300)->get(['id', 'title', 'show_date'])
+            ->mapWithKeys(fn ($show) => [$show->id => $show->title.' · '.$show->show_date?->format('M j, Y')])->all();
+    }
+
+    public function getStreamerFilterOptionsProperty(): array
+    {
+        return Streamer::query()->orderBy('name')->pluck('name', 'id')->all();
     }
 
     /** @return array<string, string> */

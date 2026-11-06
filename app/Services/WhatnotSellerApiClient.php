@@ -112,9 +112,9 @@ class WhatnotSellerApiClient
      * @param callable(array $page): bool $onPage  return false to stop
      * @return array{ok:bool, pages:int, http_status:?int}
      */
-    public function eachPage(WhatnotApiConnection $connection, string $endpoint, callable $onPage, array $query = [], int $maxPages = 50, ?string $id = null): array
+    public function eachPage(WhatnotApiConnection $connection, string $endpoint, callable $onPage, array $query = [], int $maxPages = 50, ?string $id = null, ?string $startCursor = null, bool $allowIncomplete = false): array
     {
-        $cursor = null;
+        $cursor = $startCursor;
         $seen = [];
         for ($page = 1; $page <= $maxPages; $page++) {
             $response = $this->call($connection, $endpoint, $id, array_filter($query + ['limit' => self::MAX_PAGE_SIZE, 'cursor' => $cursor], fn ($v) => $v !== null));
@@ -135,6 +135,9 @@ class WhatnotSellerApiClient
             WhatnotApiPagination::assertUnseen($cursor, $seen);
         }
 
+        if ($allowIncomplete) {
+            return ['ok' => true, 'pages' => $maxPages, 'http_status' => 200, 'incomplete' => true, 'next_cursor' => $cursor];
+        }
         throw new RuntimeException('Whatnot pagination limit reached before all pages were retrieved.');
     }
 

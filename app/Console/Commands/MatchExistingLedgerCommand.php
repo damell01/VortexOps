@@ -21,7 +21,7 @@ final class MatchExistingLedgerCommand extends Command
             return self::FAILURE;
         }
         $apply = (bool) $this->option('apply');
-        $counts = ['scanned' => 0, 'verified_show' => 0, 'matched' => 0, 'unmatched' => 0, 'manual' => 0, 'flagged' => 0, 'failed' => 0];
+        $counts = ['scanned' => 0, 'verified_show' => 0, 'matched' => 0, 'unmatched' => 0, 'manual' => 0, 'flagged' => 0, 'failed' => 0, 'already_approved' => 0, 'eligible_new' => 0, 'existing_manual' => 0, 'no_verified_show' => 0];
         $query = WhatnotLedgerEntry::query()->when($channel !== null, fn ($q) => $q->where('whatnot_channel_id', (int) $channel))->orderBy('id');
         $query->chunkById(200, function ($entries) use ($service, $matcher, $apply, &$counts) {
             foreach ($entries as $entry) {
@@ -29,7 +29,24 @@ final class MatchExistingLedgerCommand extends Command
                 try {
                     $show = $service->suggestedShow($entry);
                     if ($show) $counts['verified_show']++;
-                    if (! $apply) continue;
+                    if (! $apply) {
+                        $existing = DB::table('ledger_attributions')
+                            ->where('whatnot_ledger_entry_id', $entry->id)
+                            ->first(['status', 'target', 'show_id', 'submitted_by']);
+                        if ($existing && $existing->submitted_by !== null) {
+                            $counts['existing_manual']++;
+                        } elseif ($show && $existing && $existing->status === 'approved'
+                            && $existing->target === 'show' && (int) $existing->show_id === (int) $show->id) {
+                            $counts['already_approved']++;
+                        } elseif ($show && ! $existing) {
+                            $counts['eligible_new']++;
+                        } elseif (! $show) {
+                            $counts['no_verified_show']++;
+                        } else {
+                            $counts['flagged']++;
+                        }
+                        continue;
+                    }
                     $outcome = $matcher->match($entry);
                     $counts[$outcome] = ($counts[$outcome] ?? 0) + 1;
                 } catch (\Throwable $e) {

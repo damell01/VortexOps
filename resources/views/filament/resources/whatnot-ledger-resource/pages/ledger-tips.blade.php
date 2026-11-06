@@ -115,7 +115,7 @@
                 </div></div>
             @endif
             <section class="vxw-card">
-                <div class="vxw-card-head"><h2 class="vxw-h2">Tips by show and streamer</h2><span class="vxw-meta">Approved attributions only · selected period</span></div>
+                <div class="vxw-card-head"><h2 class="vxw-h2">Tips by show and streamer</h2><div class="vxw-hero-actions"><span class="vxw-meta">Approved attributions only · selected period</span><button type="button" class="vxw-btn vxw-btn--sm" wire:click="exportShowTipsCsv">Export shows CSV</button></div></div>
                 <div class="vxr-table-wrap"><table class="vxr-table">
                     <thead><tr><th>Show</th><th>Streamer</th><th class="num">Credits</th><th class="num">Corrections</th><th class="num">Net tips</th><th class="num">Transactions</th></tr></thead>
                     <tbody>

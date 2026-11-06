@@ -6,6 +6,8 @@ use App\Filament\Resources\WhatnotLedgerResource;
 use App\Models\Business;
 use App\Models\WeeklyPayoutBatch;
 use App\Models\WhatnotChannel;
+use App\Models\Streamer;
+use Illuminate\Support\Facades\DB;
 use App\Services\LedgerTipReport;
 use App\Support\BusinessTime;
 use App\Support\ChannelContext;
@@ -33,6 +35,9 @@ class LedgerTips extends Page
 
     #[Url]
     public string $business = 'all';
+
+    #[Url]
+    public string $streamer = 'all';
 
     #[Url]
     public ?string $from = null;
@@ -67,6 +72,7 @@ class LedgerTips extends Page
             'period' => ['required', 'in:'.implode(',', array_keys(self::PERIODS))],
             'channel' => ['required', 'regex:/^(all|unassigned|[1-9][0-9]*)$/'],
             'business' => ['required', 'regex:/^(all|unassigned|[1-9][0-9]*)$/'],
+            'streamer' => ['required', 'regex:/^(all|[1-9][0-9]*)$/'],
             'from' => ['nullable', 'date_format:Y-m-d', 'required_if:period,custom'],
             'until' => ['nullable', 'date_format:Y-m-d', 'required_if:period,custom', 'after_or_equal:from'],
             'payRun' => ['nullable', 'integer', 'exists:weekly_payout_batches,id', 'required_if:period,pay_period'],
@@ -128,6 +134,7 @@ class LedgerTips extends Page
         $this->period = 'week';
         $this->channel = 'all';
         $this->business = 'all';
+        $this->streamer = 'all';
         $this->from = null;
         $this->until = null;
         $this->payRun = null;
@@ -153,6 +160,32 @@ class LedgerTips extends Page
             }
             fclose($output);
         }, 'ledger-tip-totals-'.$from->toDateString().'-'.$until->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function showTipTotals(): array
+    {
+        if ($this->report() === null) return [];
+        [$from, $until] = $this->range();
+        return DB::table('whatnot_ledger_entries as le')
+            ->join('ledger_attributions as a', 'a.whatnot_ledger_entry_id', '=', 'le.id')
+            ->join('shows as sh', 'sh.id', '=', 'a.show_id')
+            ->leftJoin('streamers as st', 'st.id', '=', 'a.streamer_id')
+            ->where('a.status', 'approved')
+            ->whereIn('le.transaction_type', ['Tip', 'Tips'])
+            ->whereBetween('le.created_date', [$from->copy()->startOfDay(), $until->copy()->endOfDay()])
+            ->whereColumn('sh.whatnot_channel_id', 'le.whatnot_channel_id')
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('le.whatnot_channel_id', ChannelContext::currentId()))
+            ->when(ctype_digit($this->channel), fn ($q) => $q->where('le.whatnot_channel_id', (int) $this->channel))
+            ->when(ctype_digit($this->streamer), fn ($q) => $q->where('a.streamer_id', (int) $this->streamer))
+            ->when(ctype_digit($this->business), fn ($q) => $q->where('st.business_id', (int) $this->business))
+            ->groupBy('sh.id', 'sh.title', 'sh.show_date', 'st.id', 'st.name')
+            ->selectRaw('sh.id as show_id, sh.title as show_title, sh.show_date, st.name as streamer_name, COUNT(*) as entries, SUM(CASE WHEN le.amount > 0 THEN le.amount ELSE 0 END) as credits, SUM(CASE WHEN le.amount < 0 THEN -le.amount ELSE 0 END) as corrections, SUM(le.amount) as net')
+            ->orderByDesc('sh.show_date')->limit(500)->get()->all();
+    }
+
+    public function streamers(): array
+    {
+        return Streamer::query()->orderBy('name')->pluck('name', 'id')->all();
     }
 
     public function channels(): array

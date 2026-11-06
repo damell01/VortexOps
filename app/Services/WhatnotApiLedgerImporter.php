@@ -46,7 +46,7 @@ final class WhatnotApiLedgerImporter
         $rows = $this->parse($csv);
         $start = $this->ledgerStart();
         $counts = ['received' => count($rows), 'created' => 0, 'linked' => 0, 'unchanged' => 0,
-            'ambiguous' => 0, 'resolved_ambiguous' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
+            'ambiguous' => 0, 'resolved_ambiguous' => 0, 'ambiguous_api_id' => 0, 'ambiguous_scraper' => 0, 'before_start' => 0, 'covered_day_unmatched' => 0, 'invalid' => 0, 'tips' => 0,
             'show_via_shipment' => 0, 'matched_to_show' => 0,
             'tips_api_with_livestream' => 0, 'tips_api_with_order_id' => 0,
             'tips_linked' => 0, 'tips_ambiguous' => 0, 'tips_before_start' => 0,
@@ -113,6 +113,7 @@ final class WhatnotApiLedgerImporter
                     ? $linkedByApiId[$apiId]
                     : collect();
                 if ($idMatches->count() > 1) {
+                    $counts['ambiguous_api_id']++;
                     $counts['ambiguous']++;
                     if ($isTip) $counts['tips_ambiguous']++;
                     continue;
@@ -148,6 +149,7 @@ final class WhatnotApiLedgerImporter
                     }
                 }
                 if ($candidates->count() > 1) {
+                    $counts['ambiguous_scraper']++;
                     $counts['ambiguous']++;
                     if ($isTip) $counts['tips_ambiguous']++;
                     continue;

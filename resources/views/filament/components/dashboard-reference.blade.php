@@ -10,13 +10,28 @@
 @endphp
 <div class="vx-dashboard-reference space-y-4" data-vx-page="admin-dashboard">
     <style>
+        /* Compact, content-sized operations workspace. Preserve Filament top navigation. */
+        .vx-dashboard-reference { --vx-dashboard-border: rgba(139,92,246,.19); }
+        .vx-dashboard-reference .vx-dashboard-heading { background:linear-gradient(105deg,rgba(245,243,255,.9),rgba(255,255,255,.45)); border:1px solid var(--vx-dashboard-border); padding:1rem 1.1rem; }
+        .dark .vx-dashboard-reference .vx-dashboard-heading { background:linear-gradient(105deg,rgba(49,26,85,.65),rgba(17,24,39,.3)); }
+        .vx-dashboard-reference .vx-dashboard-main-grid > *, .vx-dashboard-reference .vx-dashboard-secondary-grid > * { align-self:start; }
+        .vx-dashboard-reference .vx-dashboard-main-grid .fi-wi, .vx-dashboard-reference .vx-dashboard-secondary-grid .fi-wi { align-self:start; }
+        .vx-dashboard-reference .fi-wi-stats-overview-stat { background-image:linear-gradient(135deg,rgba(250,245,255,.75),transparent 70%); border-color:var(--vx-dashboard-border); }
+        .dark .vx-dashboard-reference .fi-wi-stats-overview-stat { background-image:linear-gradient(135deg,rgba(91,33,182,.13),transparent 70%); }
+        .vx-dashboard-reference .fi-wi-stats-overview-stat-value { font-size:clamp(1.1rem,1.5vw,1.5rem)!important; font-weight:800; font-variant-numeric:tabular-nums; }
+        .vx-dashboard-reference .vx-dashboard-action { transition:background-color .15s,border-color .15s,box-shadow .15s; }
+        .vx-dashboard-reference .vx-dashboard-action:hover { box-shadow:0 4px 14px rgba(109,40,217,.13); }
+        .vx-dashboard-reference .vx-donut { box-shadow:0 0 0 1px rgba(139,92,246,.12); }
+        @media(max-width:640px){.vx-dashboard-reference .vx-dashboard-heading{padding:.85rem}.vx-dashboard-reference .vx-dashboard-action{flex:1 1 auto;justify-content:center}}
+        @media(prefers-reduced-motion:reduce){.vx-dashboard-reference .vx-dashboard-action{transition:none}}
+
         .vx-dashboard-reference .vx-dashboard-main-grid > *, .vx-dashboard-reference .vx-dashboard-secondary-grid > * { min-width:0; }
-        .vx-dashboard-reference .vx-dashboard-main-grid .fi-wi, .vx-dashboard-reference .vx-dashboard-main-grid .fi-section { height:100%; }
+        .vx-dashboard-reference .vx-dashboard-main-grid .fi-wi, .vx-dashboard-reference .vx-dashboard-main-grid .fi-section { height:auto; }
         .vx-dashboard-reference .vx-dashboard-action:first-child { background:linear-gradient(135deg,#7c3aed,#a21caf);color:white;border-color:#a855f7; }
         .vx-dashboard-reference .fi-wi-stats-overview { gap:.75rem; }
         .vx-dashboard-reference .fi-wi-stats-overview-stat { border:1px solid rgba(139,92,246,.2); }
         .dark .vx-dashboard-reference .fi-wi-stats-overview-stat { border-color:rgba(167,139,250,.25); }
-        .vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { height:100%; }
+        .vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { height:auto; }
         @media(max-width:1279px){.vx-dashboard-reference .vx-dashboard-main-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.vx-dashboard-reference .vx-dashboard-main-grid> :first-child { grid-column:1/-1; }.vx-dashboard-reference .vx-dashboard-secondary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { grid-column:1/-1; }}
         @media(max-width:767px){.vx-dashboard-reference .vx-dashboard-main-grid,.vx-dashboard-reference .vx-dashboard-secondary-grid { grid-template-columns:minmax(0,1fr); }.vx-dashboard-reference .vx-dashboard-main-grid> :first-child,.vx-dashboard-reference .vx-dashboard-secondary-grid .vx-today { grid-column:auto; }}
 
@@ -36,7 +51,7 @@
 
         
         .vx-dashboard-reference .vx-donut{background:conic-gradient(#10b981 0 var(--green),#f59e0b var(--green) var(--amber),#fb7185 var(--amber) 100%)}
-        .vx-dashboard-reference .vx-middle .fi-wi,.vx-dashboard-reference .vx-middle .fi-section{height:100%}
+        .vx-dashboard-reference .vx-middle .fi-wi,.vx-dashboard-reference .vx-middle .fi-section{height:auto}
         /* The widget wrapper carries a navy background in dark mode and is
            stretched to the row's height, so it showed around the card. Let
            the card fill the row instead, matching its neighbours. */
@@ -61,7 +76,7 @@
 
     <x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardShowsKpiWidget::class]" :columns="1" />
 
-    <div class="vx-dashboard-main-grid grid items-stretch gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
+    <div class="vx-dashboard-main-grid grid items-start gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,.95fr)_minmax(0,.95fr)]">
         <div class="min-w-0">        @include('filament.components.dashboard-channel-performance')
         </div>
         <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -80,7 +95,7 @@
         </section>
         <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\DashboardNeedsAttentionWidget::class]" :columns="1" /></div>
     </div>
-    <div class="vx-dashboard-secondary-grid grid items-start gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(240px,.65fr)]">
+    <div class="vx-dashboard-secondary-grid grid items-start gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(220px,.7fr)]">
         <div class="min-w-0"><x-filament-widgets::widgets :widgets="[\App\Filament\Widgets\UpcomingShowsWidget::make(['limit'=>3])]" :columns="1" /></div>
         <section class="vx-interactive-tile min-w-0 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="flex items-start justify-between gap-2"><div><h2 class="text-base font-bold text-gray-950 dark:text-white">Recent Inventory Activity</h2><p class="mt-1 text-xs text-gray-500">Latest stock changes.</p></div>@if(\App\Filament\Resources\InventoryMovementResource::canAccess())<a href="{{ \App\Filament\Resources\InventoryMovementResource::getUrl() }}" class="shrink-0 text-xs font-semibold text-primary-600">View all →</a>@endif</div>

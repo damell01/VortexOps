@@ -1,5 +1,4 @@
 <x-filament-panels::page>
-    <div class="flex flex-wrap items-center gap-3"><livewire:inventory-recent-changes wire:key="inventory-list-recent-changes" /></div>
 <div x-data="{ pendingStock: null }" x-on:livewire:commit.window="pendingStock = null">
 <style>
 .vx-health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.vx-health{border:1px solid var(--vx-border,rgb(229 231 235));border-radius:14px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04);text-align:left;background:white;transition:.15s}.dark .vx-health{background:#101827;border-color:#263248}.vx-health:hover,.vx-health.active{border-color:#7c3aed;box-shadow:0 0 0 1px #7c3aed}.vx-health strong{display:block;font-size:1.65rem}.vx-health{min-height:92px}.vx-health-label{font-weight:700}.vx-health-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px}.vx-health-label{font-size:.76rem;color:var(--vx-muted,#556070)}.vx-health-percent{font-size:.72rem;font-weight:700;color:#7c3aed}
@@ -49,11 +48,77 @@
 .vx-product-tags .vx-stock,.vx-product-tags .vx-type{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;text-align:center;min-height:22px;line-height:1.1;padding:4px 8px;white-space:normal}
 .vx-product-tags .vx-product-meta{margin-left:0}
 .vx-health[wire\\:loading]{cursor:progress}
+
+/* Compact Operations Inventory layout — visual only; Livewire actions and stock queries unchanged. */
+.vx-inventory-list{gap:.7rem!important}
+.vx-inventory-summary{display:grid;grid-template-columns:minmax(170px,1fr) minmax(205px,260px) minmax(420px,1.8fr);align-items:center;gap:12px;border:1px solid #ddd6fe;border-radius:18px;padding:12px 14px;background:linear-gradient(115deg,#faf5ff,#fff 65%);box-shadow:0 2px 10px rgba(76,29,149,.05)}
+.vx-inventory-heading h1{font-size:1.5rem;line-height:1.2;font-weight:850;color:#1e1b4b}.vx-inventory-heading p{font-size:.75rem;color:#64748b;margin-top:3px}
+.vx-inventory-summary section[aria-label="Inventory warehouse selector"]{justify-content:flex-start;min-width:0}.vx-inventory-summary section[aria-label="Inventory warehouse selector"]>div{width:100%;min-width:0}.vx-inventory-summary #vx-warehouse-location{min-width:0!important;width:100%;padding-block:.5rem}
+.vx-inventory-summary .vx-health-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;min-width:0}
+.vx-inventory-summary .vx-health{min-height:64px;padding:8px;border-radius:11px;box-shadow:none}.vx-inventory-summary .vx-health strong{font-size:1.2rem;line-height:1.25}.vx-inventory-summary .vx-health-meta{display:block;margin-top:2px}.vx-inventory-summary .vx-health-label{font-size:.67rem}.vx-inventory-summary .vx-health-percent{display:none}
+.vx-inventory-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;border:1px solid #e9d5ff;border-radius:15px;padding:8px;background:#fff}
+.vx-inventory-actions .vx-inventory-desktop-tools{flex:1;min-width:0}.vx-inventory-actions .vx-inv-shortcuts{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.vx-inventory-actions .vx-inv-shortcuts>a{display:inline-flex;align-items:center;gap:6px;min-height:37px;padding:7px 10px;border-radius:10px;font-size:.75rem;white-space:nowrap}
+.vx-inventory-actions .vx-inv-shortcuts>a svg{width:16px;height:16px;margin:0}
+.vx-inventory-actions>div.flex{margin:0}
+.vx-inventory-actions>div.flex a{padding:7px 10px;font-size:.75rem}
+.vx-inventory-list>section.rounded-2xl{padding:10px!important;border-color:#e9d5ff}
+.vx-inventory-list .vx-inv-toolbar{gap:8px}
+.vx-inventory-list .vx-inv-input{min-height:39px}
+.vx-inventory-list .vx-product-card{border-color:#ddd6fe;box-shadow:0 2px 8px rgba(76,29,149,.05)}
+.vx-inventory-list .vx-product-card:hover{border-color:#8b5cf6;box-shadow:0 8px 20px rgba(76,29,149,.12)}
+.vx-inventory-list .vx-product-image{aspect-ratio:5/4}
+.vx-inventory-list .vx-product-image img{object-fit:contain}
+.vx-inventory-list .vx-card-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:8px}
+.vx-inventory-list .vx-card-action{min-width:0;min-height:35px;font-size:.68rem}
+.vx-inventory-list .vx-card-action:focus-visible,.vx-inventory-list .vx-health:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}
+.dark .vx-inventory-summary{background:linear-gradient(115deg,#201333,#101827 75%);border-color:#5b21b6}.dark .vx-inventory-heading h1{color:#f5f3ff}.dark .vx-inventory-heading p{color:#c4b5fd}.dark .vx-inventory-actions{background:#111827;border-color:#4c1d95}.dark .vx-inventory-list>section.rounded-2xl{border-color:#4c1d95}
+@media(min-width:1650px){.vx-inventory-list .vx-catalog-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(min-width:1950px){.vx-inventory-list .vx-catalog-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:1279px){.vx-inventory-summary{grid-template-columns:minmax(0,1fr) minmax(200px,1fr)}.vx-inventory-summary .vx-health-grid{grid-column:1/-1}}
+@media(max-width:640px){.vx-inventory-mobile-intro{display:none!important}.vx-inventory-summary{grid-template-columns:minmax(0,1fr);padding:10px}.vx-inventory-summary .vx-health-grid{grid-column:auto;grid-template-columns:repeat(4,minmax(0,1fr))}.vx-inventory-summary .vx-health:first-child{display:block}.vx-inventory-summary .vx-health{padding:7px 4px;min-height:60px}.vx-inventory-summary .vx-health strong{font-size:1rem}.vx-inventory-summary .vx-health-label{font-size:.57rem}.vx-inventory-actions .vx-inventory-desktop-tools{display:block!important}.vx-inventory-actions{align-items:stretch}.vx-inventory-actions .vx-inv-shortcuts>a{min-height:42px}.vx-inventory-list .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-inventory-list .vx-card-action{min-height:42px}.vx-inventory-list .vx-catalog-grid{grid-template-columns:repeat(1,minmax(0,1fr))}}
+@media(min-width:480px) and (max-width:719px){.vx-inventory-list .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.vx-inventory-list .vx-product-card{transition:none}.vx-inventory-list .vx-product-card:hover{transform:none}}
+
+.vx-inventory-list .vx-catalog-footer{display:flex;flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 2px}.vx-catalog-pagination{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.vx-catalog-pagination button{min-width:34px;min-height:36px;padding:4px 8px;border:1px solid #ddd6fe;border-radius:9px;background:white;color:#5b21b6;font-weight:700}.vx-catalog-pagination button[aria-current=page]{background:#7c3aed;color:white;border-color:#7c3aed}.vx-catalog-pagination button:disabled{opacity:.4;cursor:not-allowed}.vx-catalog-pagination button:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}.dark .vx-catalog-pagination button{background:#211632;border-color:#6d28d9;color:#e9d5ff}.dark .vx-catalog-pagination button[aria-current=page]{background:#7c3aed;color:white}
+
+/* Override legacy card CSS without altering any of the original action bindings. */
+.vx-inventory-list .vx-product-card .vx-card-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important;padding:8px!important;gap:5px!important}
+.vx-inventory-list .vx-product-card .vx-card-action{flex-direction:row;min-height:38px!important;font-size:.67rem!important;padding:5px 3px!important;gap:3px}
+.vx-inventory-list .vx-product-card .vx-card-action span{overflow-wrap:anywhere!important;word-break:normal}
+.vx-inventory-list .vx-product-card .vx-product-image.has-photo img{object-fit:contain!important;padding:.3rem!important}
+@media(max-width:1023px){.vx-inventory-list .vx-view-toggle{display:inline-flex!important}.vx-inventory-list .vx-inventory-items-panel{display:block!important;max-width:100%;overflow-x:auto}.vx-inventory-list .vx-catalog-view.vx-desktop-hidden{display:none!important}}
+@media(max-width:640px){.vx-inventory-list .vx-product-card .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-list .vx-product-card .vx-card-action{min-height:44px!important}.vx-inventory-list .vx-catalog-view.vx-desktop-hidden{display:none!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
  <div class="vx-inventory-mobile-intro sm:hidden"><h2 class="text-2xl font-bold text-gray-950 dark:text-white">All Inventory</h2><p class="mt-1 text-sm text-gray-500">Find products, check stock and manage inventory.</p></div>
- <section class="vx-inventory-desktop-tools">
+ <header class="vx-inventory-summary">
+    <div class="vx-inventory-heading"><h1>All Inventory</h1><p>Browse and manage products across permitted locations.</p></div>
+    <section class="flex flex-wrap items-center justify-end gap-3" aria-label="Inventory warehouse selector">
+  <div class="sr-only">Warehouse inventory: product counts, stock totals and cards reflect the selected location.</div>
+  <div class="flex w-full items-center gap-2 sm:w-auto">
+   <label for="vx-warehouse-location" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-200">Location</label>
+   <select id="vx-warehouse-location" wire:model.live="inventoryLocation" class="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:min-w-56" aria-label="Choose warehouse for inventory totals">
+    @if($inventoryLocation === '')
+     <option value="" selected hidden>{{ $this->inventoryLocationOptions()[$this->inventoryPageLocationId()] ?? 'Main Warehouse' }}</option>
+    @endif
+    @if((auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user()))<option value="all">All Locations — combined totals</option>@endif
+    @foreach($this->inventoryLocationOptions() as $locationId => $locationName)
+     <option value="{{ $locationId }}">{{ $locationName }}</option>
+    @endforeach
+   </select>
+  </div>
+ </section>
+    <div class="vx-health-grid">
+  @foreach($this->getStats() as $stat)
+   @if($stat['key'])<button type="button" wire:click="filterStock('{{ $stat['key'] }}')" x-on:click="pendingStock = '{{ $stat['key'] }}'" x-bind:class="{ 'active': pendingStock === '{{ $stat['key'] }}' }" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>
+   @else<button type="button" wire:click="filterStock(null)" x-on:click="pendingStock = 'all'" x-bind:class="{ 'active': pendingStock === 'all' }" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>@endif
+  @endforeach
+ </div>
+ </header>
+ <div class="vx-inventory-actions">
+  <livewire:inventory-recent-changes wire:key="inventory-list-recent-changes" /><section class="vx-inventory-desktop-tools">
   {{-- The page header already names the page; this row is just the shortcuts. --}}
   <div>
    <div class="vx-inv-shortcuts">
@@ -76,29 +141,7 @@
   <a href="{{ route('export.inventory-prices') }}" class="inline-flex items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-semibold text-primary-700 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-300"><x-heroicon-o-arrow-down-tray class="h-4 w-4"/>Inventory & Prices (.xlsx)</a>
   @if(\App\Services\InventoryCountReset::canReset(auth()->user()))<x-filament::button color="danger" size="sm" outlined icon="heroicon-o-arrow-path" wire:click="mountAction('resetAllCounts')">Reset all stock</x-filament::button>@endif
  </div>
- @endif
- <section class="flex flex-wrap items-center justify-end gap-3" aria-label="Inventory warehouse selector">
-  <div class="sr-only">Warehouse inventory: product counts, stock totals and cards reflect the selected location.</div>
-  <div class="flex w-full items-center gap-2 sm:w-auto">
-   <label for="vx-warehouse-location" class="shrink-0 text-sm font-semibold text-gray-700 dark:text-gray-200">Location</label>
-   <select id="vx-warehouse-location" wire:model.live="inventoryLocation" class="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white sm:min-w-56" aria-label="Choose warehouse for inventory totals">
-    @if($inventoryLocation === '')
-     <option value="" selected hidden>{{ $this->inventoryLocationOptions()[$this->inventoryPageLocationId()] ?? 'Main Warehouse' }}</option>
-    @endif
-    @if((auth()->user()?->isAdmin() || auth()->user()?->isOwner()) && ! \App\Support\InventoryVisibility::isReadOnlyStreamer(auth()->user()))<option value="all">All Locations — combined totals</option>@endif
-    @foreach($this->inventoryLocationOptions() as $locationId => $locationName)
-     <option value="{{ $locationId }}">{{ $locationName }}</option>
-    @endforeach
-   </select>
-  </div>
- </section>
- <div class="vx-health-grid">
-  @foreach($this->getStats() as $stat)
-   @if($stat['key'])<button type="button" wire:click="filterStock('{{ $stat['key'] }}')" x-on:click="pendingStock = '{{ $stat['key'] }}'" x-bind:class="{ 'active': pendingStock === '{{ $stat['key'] }}' }" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>
-   @else<button type="button" wire:click="filterStock(null)" x-on:click="pendingStock = 'all'" x-bind:class="{ 'active': pendingStock === 'all' }" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><div class="vx-health-meta"><span class="vx-health-label">{{ $stat['label'] }}</span><span class="vx-health-percent">{{ $stat['percentage'] }}</span></div></button>@endif
-  @endforeach
- </div>
-
+ @endif</div>
  <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
   <div class="vx-inv-toolbar">
     <div class="vx-inv-search {{ $viewMode === 'table' ? 'vx-desktop-hidden' : '' }}"><input wire:model.live.debounce.500ms="catalogSearch" class="vx-inv-input" type="search" placeholder="Search products, SKU, UPC, barcode, brand…" /></div>
@@ -192,15 +235,29 @@
      </div>
     </div>
    @endif
-   <div class="vx-catalog-footer">
-    <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
-    @if($this->catalogItems->count() < $this->catalogTotal)
-     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" class="vx-load-more">
-      <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
-      <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
-     </button>
-    @endif
-   </div>
+   @php
+    $catalogPages = max(1, (int) ceil($this->catalogTotal / $catalogVisible));
+    $catalogCurrent = max(1, min($catalogPage, $catalogPages));
+    $catalogFirst = ($catalogCurrent - 1) * $catalogVisible + 1;
+    $catalogLast = min($catalogCurrent * $catalogVisible, $this->catalogTotal);
+   @endphp
+   <nav class="vx-catalog-footer" aria-label="Inventory card pagination">
+    <div class="text-xs text-gray-600 dark:text-gray-300">Showing {{ number_format($catalogFirst) }}–{{ number_format($catalogLast) }} of {{ number_format($this->catalogTotal) }} matching products</div>
+    <div class="vx-catalog-pagination">
+     <button type="button" wire:click="setCatalogPage(1)" @disabled($catalogCurrent <= 1) aria-label="First page">«</button>
+     <button type="button" wire:click="setCatalogPage({{ $catalogCurrent - 1 }})" @disabled($catalogCurrent <= 1) aria-label="Previous page">‹</button>
+     @for($page = max(1, $catalogCurrent - 2); $page <= min($catalogPages, $catalogCurrent + 2); $page++)
+      <button type="button" wire:key="catalog-page-{{ $page }}" wire:click="setCatalogPage({{ $page }})" @if($page === $catalogCurrent) aria-current="page" @endif>{{ $page }}</button>
+     @endfor
+     <button type="button" wire:click="setCatalogPage({{ $catalogCurrent + 1 }})" @disabled($catalogCurrent >= $catalogPages) aria-label="Next page">›</button>
+     <button type="button" wire:click="setCatalogPage({{ $catalogPages }})" @disabled($catalogCurrent >= $catalogPages) aria-label="Last page">»</button>
+    </div>
+    <label class="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300">Items per page
+     <select wire:change="setCatalogPageSize($event.target.value)" class="rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-xs text-gray-900 dark:border-violet-800 dark:bg-gray-900 dark:text-white">
+      @foreach([12, 24, 48] as $size)<option value="{{ $size }}" @selected($catalogVisible === $size)>{{ $size }}</option>@endforeach
+     </select>
+    </label>
+   </nav>
   @else
    <div class="vx-empty"><x-heroicon-o-magnifying-glass class="mx-auto h-8 w-8" /><div class="mt-2 font-semibold text-gray-800 dark:text-gray-200">No matching inventory</div><div class="mt-1 text-sm">Try another search or stock filter.</div></div>
   @endif

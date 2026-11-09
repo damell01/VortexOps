@@ -79,19 +79,27 @@ class LedgerAutoMatcher
                 return 'categorized';
             }
 
-            $primary = $show->streamers()->wherePivot('is_primary', true)->get();
+            $members = $show->streamers()->get(['streamers.id', 'streamers.business_id']);
+            $primary = $members->filter(fn ($m) => (bool) $m->pivot->is_primary)->values();
             $streamer = $primary->count() === 1 ? $primary->first() : null;
+            // A business owns the money only when every streamer on the show
+            // belongs to it; a mixed crew needs a human decision.
+            // (A crew with no business at all is fine: the tip is the streamer's.)
+            $businesses = $members->pluck('business_id')->map(fn ($id) => $id === null ? null : (int) $id)->unique();
+            $businessResolved = $streamer !== null && $businesses->count() === 1;
             // Verified show does not imply a verified recipient. Hold the
             // allocation for review until exactly one primary is assigned.
-            $recipientResolved = $streamer !== null;
+            $recipientResolved = $streamer !== null && $businessResolved;
             $payload = [
                 'category' => $service->suggestedCategory($entry),
                 'target' => 'show', 'show_id' => $show->id,
                 'streamer_id' => $streamer?->id,
-                'business_id' => $streamer?->business_id,
-                'status' => $recipientResolved ? 'approved' : 'pending', 'reason' => $recipientResolved
-                    ? 'Automatic verified source livestream/order evidence + channel match'
-                    : 'Verified show; awaiting exactly one primary streamer',
+                'business_id' => $businessResolved ? $streamer->business_id : null, // null = no business
+                'status' => $recipientResolved ? 'approved' : 'pending', 'reason' => match (true) {
+                    $recipientResolved => 'Automatic verified source livestream/order evidence + channel match',
+                    $streamer === null => 'Verified show; awaiting exactly one primary streamer',
+                    default => 'Verified show; streamers do not all belong to one business',
+                },
                 'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                 'updated_at' => now(),
             ];

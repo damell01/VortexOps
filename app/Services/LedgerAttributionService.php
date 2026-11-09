@@ -101,19 +101,22 @@ class LedgerAttributionService
 
     public function suggestedCategory(WhatnotLedgerEntry $entry): string
     {
-        $type = strtolower(trim((string) $entry->transaction_type));
+        // Whole words only: "Multiple orders" is not a tip, "Coffee" is not a fee.
+        $type = strtolower(str_replace('_', ' ', trim((string) $entry->transaction_type)));
+        $has = fn (string $words): bool => (bool) preg_match('/\\b(?:' . $words . ')\\b/', $type);
+
         return match (true) {
-            str_contains($type, 'tip') => 'tips',
-            str_contains($type, 'payout'), str_contains($type, 'transfer'), str_contains($type, 'withdrawal') => 'payouts',
-            str_contains($type, 'refund'), str_contains($type, 'chargeback') => 'refunds',
-            // Carrier adjustments (and their refunds) are label-cost corrections: shipping.
-            str_contains($type, 'shipping'), str_contains($type, 'postage'), str_contains($type, 'carrier') => 'shipping',
-            str_contains($type, 'giveaway') => 'giveaways',
-            str_contains($type, 'bonus') => 'bonus',
-            str_contains($type, 'marketing'), str_contains($type, 'promotion') => 'marketing',
-            str_contains($type, 'fee'), str_contains($type, 'commission') => 'fees',
-            str_contains($type, 'sale'), str_contains($type, 'earning') => 'sales',
-            str_contains($type, 'adjustment'), str_contains($type, 'correction') => 'correction',
+            $has('tips?') => 'tips',
+            $has('payouts?|transfers?|withdrawals?') => 'payouts',
+            // Carrier adjustments, label costs and their refunds are shipping, not order refunds.
+            $has('shipping|postage|carrier|labels?') => 'shipping',
+            $has('refunds?|refunded|chargebacks?') => 'refunds',
+            $has('giveaways?') => 'giveaways',
+            $has('bonus(?:es)?') => 'bonus',
+            $has('marketing|promotions?|promoted|advertising|advertisement|ads?') => 'marketing',
+            $has('fees?|commissions?') => 'fees',
+            $has('sales?|earnings?|auction|buy it now') => 'sales',
+            $has('adjustments?|corrections?') => 'correction',
             default => 'other',
         };
     }

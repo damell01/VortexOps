@@ -176,8 +176,11 @@ class WhatnotApiOrderApplyTest extends TestCase
         $result = $this->apply($this->snapshot([$this->order('A1'), $this->order('A2')]));
 
         $this->assertSame(1, $result['counts']['updated']);
-        $this->assertSame(1, $result['counts']['created']);
-        $this->assertSame(2, WhatnotShowOrder::count());
+        // A show with scraper sales never gets extra API sales until it is fully
+        // reconciled, so one sale can't be counted twice under two ID formats.
+        $this->assertSame(0, $result['counts']['created']);
+        $this->assertSame(1, $result['counts']['id_format_mismatch']);
+        $this->assertSame(1, WhatnotShowOrder::count());
         $updated = WhatnotShowOrder::where('whatnot_order_id', 'A1')->sole();
         $this->assertSame('completed', $updated->status);
         $this->assertSame('Box', $updated->item_name);

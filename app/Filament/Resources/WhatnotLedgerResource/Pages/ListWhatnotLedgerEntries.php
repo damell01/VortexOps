@@ -528,7 +528,9 @@ class ListWhatnotLedgerEntries extends Page
     public function getLedgerTrendProperty(): array
     {
         $rows = $this->filteredQuery()->toBase()->reorder()
-            ->selectRaw("DATE_FORMAT(whatnot_ledger_entries.created_date, '%Y-%m') as bucket")
+            ->selectRaw(\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite'
+                ? "strftime('%Y-%m', whatnot_ledger_entries.created_date) as bucket"
+                : "DATE_FORMAT(whatnot_ledger_entries.created_date, '%Y-%m') as bucket")
             ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as credits')
             ->selectRaw('ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) as debits')
             ->selectRaw('SUM(amount) as net')

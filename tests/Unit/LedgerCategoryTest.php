@@ -21,6 +21,14 @@ final class LedgerCategoryTest extends TestCase
             'fee adjustment' => ['Commission adjustment', 'fees'],
             'manual correction' => ['Manual correction', 'correction'],
             'order earnings' => ['Order earnings', 'sales'],
+            'api carrier adjustment' => ['CARRIER_ADJUSTMENT', 'shipping'],
+            'shipping label refund' => ['Shipping label refund', 'shipping'],
+            'tip refund stays a tip' => ['Tip refund', 'tips'],
+            'not a tip inside a word' => ['Multiple orders', 'other'],
+            'not a fee inside a word' => ['Coffee', 'other'],
+            'payout' => ['Payout', 'payouts'],
+            'auction sale' => ['auction', 'sales'],
+            'chargeback' => ['Chargeback', 'refunds'],
             'unknown' => ['Unknown', 'other'],
         ];
     }

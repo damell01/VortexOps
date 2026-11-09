@@ -14,14 +14,20 @@ class MatchLedgerEntriesToShows extends Command
     public function handle(LedgerAutoMatcher $matcher): int
     {
         $limit = min(100000, max(1, (int) $this->option('limit')));
-        $stats = ['matched' => 0, 'unmatched' => 0, 'manual' => 0, 'flagged' => 0];
+        $stats = ['matched' => 0, 'categorized' => 0, 'unmatched' => 0, 'manual' => 0, 'flagged' => 0, 'failed' => 0];
         WhatnotLedgerEntry::query()->orderBy('id')->chunkById(500, function ($entries) use ($matcher, &$stats, $limit) {
                 foreach ($entries as $entry) {
                     if (array_sum($stats) >= $limit) return false;
-                    $stats[$matcher->match($entry)]++;
+                    try {
+                        $outcome = $matcher->match($entry);
+                        $stats[$outcome] = ($stats[$outcome] ?? 0) + 1;
+                    } catch (\Throwable $exception) {
+                        $stats['failed']++;
+                        $this->warn('Ledger entry '.$entry->id.' failed: '.$exception->getMessage());
+                    }
                 }
             });
         $this->info('Ledger matching: '.json_encode($stats));
-        return self::SUCCESS;
+        return $stats['failed'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 }

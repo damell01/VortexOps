@@ -159,7 +159,7 @@ class ListWhatnotLedgerEntries extends Page
         if (! in_array($this->perPage, [5, 10, 25, 50], true)) {
             $this->perPage = 25;
         }
-        if (! in_array($this->review, ['all', 'needs_attribution', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
+        if (! in_array($this->review, ['all', 'needs_attribution', 'tips_needs_business', 'tips_missing_order', 'tips_unmatched_order', 'tips_ambiguous_show', 'tips_missing_streamer'], true)) {
             $this->review = 'all';
         }
         if ($this->categoryFilter !== '' && ! in_array($this->categoryFilter, LedgerAttributionService::CATEGORIES, true)) $this->categoryFilter = '';
@@ -327,6 +327,14 @@ class ListWhatnotLedgerEntries extends Page
                     ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
                     ->where('la.status', 'approved');
             }))
+            ->when($this->review === 'tips_needs_business', fn (Builder $q) => $q
+                ->whereRaw('LOWER(TRIM(whatnot_ledger_entries.transaction_type)) IN (?, ?)', ['tip', 'tips'])
+                ->whereNotExists(function ($sub) {
+                    $sub->selectRaw('1')->from('ledger_attributions as la')
+                        ->whereColumn('la.whatnot_ledger_entry_id', 'whatnot_ledger_entries.id')
+                        ->where('la.status', 'approved')
+                        ->whereNotNull('la.business_id');
+                }))
             ->when($this->review === 'tips_missing_order', fn (Builder $q) => $q
                 ->whereRaw('LOWER(TRIM(transaction_type)) IN (?, ?)', ['tip', 'tips'])
                 ->where(fn (Builder $missing) => $missing->whereNull('whatnot_order_id')->orWhereIn('whatnot_order_id', ['', '-'])))

@@ -37,9 +37,29 @@ class LedgerAutoMatcher
                         && $existing->show_id === null
                         && $existing->streamer_id === null ? 'matched' : 'flagged';
                 }
-                if (! $houseMarketing || $existing) {
-                    return 'unmatched';
+                if (! $houseMarketing) {
+                    if ($existing) return 'unmatched';
+                    // A category is not evidence of a show or recipient.
+                    $payload = [
+                        'whatnot_ledger_entry_id' => $entry->id,
+                        'category' => $service->suggestedCategory($entry),
+                        'target' => 'unassigned', 'show_id' => null,
+                        'streamer_id' => null, 'business_id' => null,
+                        'status' => 'pending',
+                        'reason' => 'Automatic category only; awaiting verified show/recipient evidence',
+                        'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
+                        'created_at' => now(), 'updated_at' => now(),
+                    ];
+                    DB::table('ledger_attributions')->insert($payload);
+                    DB::table('ledger_attribution_events')->insert([
+                        'whatnot_ledger_entry_id' => $entry->id, 'actor_id' => null,
+                        'action' => 'auto_categorized', 'before' => null,
+                        'after' => json_encode($payload), 'reason' => $payload['reason'],
+                        'created_at' => now(), 'updated_at' => now(),
+                    ]);
+                    return 'categorized';
                 }
+                if ($existing) return 'unmatched';
                 $payload = [
                     'whatnot_ledger_entry_id' => $entry->id,
                     'category' => 'marketing', 'target' => 'house',
@@ -61,12 +81,17 @@ class LedgerAutoMatcher
 
             $primary = $show->streamers()->wherePivot('is_primary', true)->get();
             $streamer = $primary->count() === 1 ? $primary->first() : null;
+            // Verified show does not imply a verified recipient. Hold the
+            // allocation for review until exactly one primary is assigned.
+            $recipientResolved = $streamer !== null;
             $payload = [
                 'category' => $service->suggestedCategory($entry),
                 'target' => 'show', 'show_id' => $show->id,
                 'streamer_id' => $streamer?->id,
                 'business_id' => $streamer?->business_id,
-                'status' => 'approved', 'reason' => 'Automatic verified source livestream/order evidence + channel match',
+                'status' => $recipientResolved ? 'approved' : 'pending', 'reason' => $recipientResolved
+                    ? 'Automatic verified source livestream/order evidence + channel match'
+                    : 'Verified show; awaiting exactly one primary streamer',
                 'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                 'updated_at' => now(),
             ];

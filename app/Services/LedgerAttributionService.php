@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class LedgerAttributionService
 {
-    public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'correction', 'other'];
+    public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'correction', 'payouts', 'other'];
 
     public function suggestedShow(WhatnotLedgerEntry $entry): ?Show
     {
@@ -104,6 +104,7 @@ class LedgerAttributionService
         $type = strtolower(trim((string) $entry->transaction_type));
         return match (true) {
             str_contains($type, 'tip') => 'tips',
+            str_contains($type, 'payout'), str_contains($type, 'transfer'), str_contains($type, 'withdrawal') => 'payouts',
             str_contains($type, 'refund'), str_contains($type, 'chargeback') => 'refunds',
             // Carrier adjustments (and their refunds) are label-cost corrections: shipping.
             str_contains($type, 'shipping'), str_contains($type, 'postage'), str_contains($type, 'carrier') => 'shipping',
@@ -153,7 +154,7 @@ class LedgerAttributionService
         }
         DB::transaction(function () use ($entry, $data, $actorId, $show, $streamer, $businessId) {
             $before = DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->lockForUpdate()->first();
-            if ($before && $before->status === 'pending' && (int) $before->submitted_by !== $actorId) {
+            if ($before && $before->status === 'pending' && $before->submitted_by !== null && (int) $before->submitted_by !== $actorId) {
                 throw ValidationException::withMessages(['attribution' => 'Another administrator has a pending correction. Review it before submitting another.']);
             }
             $payload = [

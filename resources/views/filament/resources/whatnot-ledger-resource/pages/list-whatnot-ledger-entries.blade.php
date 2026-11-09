@@ -392,6 +392,20 @@
                         $attribution = $this->selectedAttribution();
                         $linkedShow = $this->selectedShowDetails();
                     @endphp
+                    @php $evidence = $this->selectedReviewEvidence(); @endphp
+                    <section class="rounded-xl border border-violet-200 bg-violet-50 p-3 text-sm dark:border-violet-800 dark:bg-violet-950/30" aria-label="Attribution evidence">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="font-bold">Business verification</h3>
+                            <span class="rounded-full border border-violet-300 px-2 py-1 text-xs font-semibold dark:border-violet-700">{{ $evidence['status'] ?? 'Needs review' }}</span>
+                        </div>
+                        <p class="mt-2">{{ $evidence['reason'] ?? 'Inspect this transaction before assigning it.' }}</p>
+                        <dl class="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div><dt class="text-xs font-semibold text-gray-500">Source order</dt><dd class="break-all">{{ $evidence['order'] ?? 'Not provided' }}</dd></div>
+                            <div><dt class="text-xs font-semibold text-gray-500">Candidate show</dt><dd>{{ $evidence['show']['title'] ?? 'No verified suggestion' }}</dd></div>
+                            <div><dt class="text-xs font-semibold text-gray-500">Business assignment</dt><dd>{{ !empty($evidence['business_approved']) ? 'Approved' : 'Not yet approved' }}</dd></div>
+                            <div><dt class="text-xs font-semibold text-gray-500">Review policy</dt><dd>Separate administrator approval required</dd></div>
+                        </dl>
+                    </section>
                     <section class="rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
                         <h3 style="font-weight:700;margin-bottom:10px">Show & allocation</h3>
                         <dl class="vxr-dl">

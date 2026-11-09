@@ -493,6 +493,27 @@ class ListWhatnotLedgerEntries extends Page
         ];
     }
 
+    /**
+     * Monthly ledger movement for the current filters. Aggregate in SQL rather
+     * than loading individual transactions into Livewire.
+     */
+    public function getLedgerTrendProperty(): array
+    {
+        $rows = $this->filteredQuery()->toBase()->reorder()
+            ->selectRaw("DATE_FORMAT(whatnot_ledger_entries.created_date, '%Y-%m') as bucket")
+            ->selectRaw('SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as credits')
+            ->selectRaw('ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)) as debits')
+            ->selectRaw('SUM(amount) as net')
+            ->groupBy('bucket')->orderByDesc('bucket')->limit(12)->get()->reverse()->values();
+
+        return $rows->map(fn ($row) => [
+            'label' => (string) $row->bucket,
+            'credits' => round((float) $row->credits, 2),
+            'debits' => round((float) $row->debits, 2),
+            'net' => round((float) $row->net, 2),
+        ])->all();
+    }
+
     /** Attribution status for the currently filtered ledger rows, without bypassing channel scope. */
     public function getAttributionSummaryProperty(): array
     {

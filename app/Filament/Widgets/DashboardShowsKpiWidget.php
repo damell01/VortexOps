@@ -67,8 +67,11 @@ class DashboardShowsKpiWidget extends BaseWidget
             }
         );
 
-        $valueTrend = count($valueTrend) > 1 ? $valueTrend : [$value, $value];
-        $salesTrend = count($salesTrend) > 1 ? $salesTrend : [$monthGross, $monthGross];
+        // Missing history is not a flat trend: do not synthesize sparkline points.
+        $valueTrend = count($valueTrend) > 1 ? $valueTrend : [];
+        $salesTrend = count(array_filter($salesTrend, fn ($v) => (float) $v !== 0.0)) > 0 ? $salesTrend : [];
+        $netTrend = count(array_filter($netTrend, fn ($v) => (float) $v !== 0.0)) > 0 ? $netTrend : [];
+        $hoursTrend = count(array_filter($hoursTrend, fn ($v) => (float) $v !== 0.0)) > 0 ? $hoursTrend : [];
 
         return [
             Stat::make('Total Inventory Value', '$'.number_format($value, 2))

@@ -96,4 +96,30 @@ class LedgerAttributionTest extends TestCase
         $service->review($entry, $reviewer->id, false);
         $this->assertSame('rejected', DB::table('ledger_attributions')->where('whatnot_ledger_entry_id', $entry->id)->value('status'));
     }
+    public function test_automatic_unassigned_suggestion_cannot_be_approved(): void
+    {
+        $reviewer = User::factory()->create();
+        $entry = WhatnotLedgerEntry::create(['dedup_key' => 'unassigned-approval-guard', 'amount' => -5, 'transaction_type' => 'Refund']);
+        DB::table('ledger_attributions')->insert([
+            'whatnot_ledger_entry_id' => $entry->id, 'category' => 'refunds',
+            'target' => 'unassigned', 'status' => 'pending',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->expectException(ValidationException::class);
+        app(LedgerAttributionService::class)->review($entry, $reviewer->id, true);
+    }
+
+    public function test_automatic_house_suggestion_without_business_cannot_be_approved(): void
+    {
+        $reviewer = User::factory()->create();
+        $entry = WhatnotLedgerEntry::create(['dedup_key' => 'house-approval-guard', 'amount' => -25, 'transaction_type' => 'Marketing']);
+        DB::table('ledger_attributions')->insert([
+            'whatnot_ledger_entry_id' => $entry->id, 'category' => 'marketing',
+            'target' => 'house', 'status' => 'pending',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->expectException(ValidationException::class);
+        app(LedgerAttributionService::class)->review($entry, $reviewer->id, true);
+    }
+
 }

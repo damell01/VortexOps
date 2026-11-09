@@ -24,9 +24,9 @@ final class MatchExistingLedgerCommand extends Command
         $since = $this->option('since');
         $until = $this->option('until');
         foreach (['since' => $since, 'until' => $until] as $name => $date) {
-            if ($date !== null && (! preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', (string) $date) ||
-                ! \\DateTimeImmutable::createFromFormat('!Y-m-d', (string) $date) ||
-                \\DateTimeImmutable::createFromFormat('!Y-m-d', (string) $date)->format('Y-m-d') !== $date)) {
+            if ($date !== null && (! preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $date) ||
+                ! \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $date) ||
+                \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $date)->format('Y-m-d') !== $date)) {
                 $this->error($name.' must be YYYY-MM-DD.');
                 return self::FAILURE;
             }
@@ -40,7 +40,7 @@ final class MatchExistingLedgerCommand extends Command
         $query = WhatnotLedgerEntry::query()
             ->when($channel !== null, fn ($q) => $q->where('whatnot_channel_id', (int) $channel))
             ->when($since !== null, fn ($q) => $q->where('completed_date', '>=', $since.' 00:00:00'))
-            ->when($until !== null, fn ($q) => $q->where('completed_date', '<', \\Illuminate\\Support\\Carbon::parse($until)->addDay()->toDateString().' 00:00:00'))
+            ->when($until !== null, fn ($q) => $q->where('completed_date', '<', \Illuminate\Support\Carbon::parse($until)->addDay()->toDateString().' 00:00:00'))
             ->orderBy('id');
         $query->chunkById(200, function ($entries) use ($service, $matcher, $apply, $limit, &$counts) {
             foreach ($entries as $entry) {

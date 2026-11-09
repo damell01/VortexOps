@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class LedgerAttributionService
 {
-    public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'correction', 'other'];
+    public const CATEGORIES = ['tips', 'sales', 'refunds', 'fees', 'shipping', 'giveaways', 'bonus', 'marketing', 'correction', 'payouts', 'other'];
 
     public function suggestedShow(WhatnotLedgerEntry $entry): ?Show
     {
@@ -104,6 +104,7 @@ class LedgerAttributionService
         $type = strtolower(trim((string) $entry->transaction_type));
         return match (true) {
             str_contains($type, 'tip') => 'tips',
+            str_contains($type, 'payout'), str_contains($type, 'transfer'), str_contains($type, 'withdrawal') => 'payouts',
             str_contains($type, 'refund'), str_contains($type, 'chargeback') => 'refunds',
             // Carrier adjustments (and their refunds) are label-cost corrections: shipping.
             str_contains($type, 'shipping'), str_contains($type, 'postage'), str_contains($type, 'carrier') => 'shipping',

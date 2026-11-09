@@ -906,7 +906,7 @@ class InventoryItemResource extends Resource
                     ->badge()
                     ->color('primary')
                     ->placeholder('')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable()

@@ -103,7 +103,7 @@
     .vxled-analytics > summary{list-style-position:inside;padding:6px 4px}
     .vxled-analytics[open] > summary{margin-bottom:8px}
     .vxled .vxr-head{padding:12px 16px}
-    .vxled-quick-actions{margin:8px 0;padding:10px 12px}
+    .vxled-quick-actions{margin:8px 0;padding:10px 12px}\n    .vxled-more-filters > summary{list-style-position:inside}\n    .vxled-more-filters .vxled-toolbar{border:0;padding:0;box-shadow:none}
     .vxled-quick-actions .vxled-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
     @media(max-width:900px){.vxled-quick-actions .vxled-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:540px){.vxled-quick-actions .vxled-actions{grid-template-columns:minmax(0,1fr)}}
@@ -257,6 +257,14 @@
                 <input type="date" wire:model.live="until" aria-label="Until date">
             </label>
         @endif
+        <label class="vxr-control vxr-search">
+            <x-filament::icon icon="heroicon-o-magnifying-glass" />
+            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Search order or details…" aria-label="Search order or details">
+        </label>
+    </div>
+    <details class="vxled-more-filters mb-3 rounded-xl border p-3" style="border-color:var(--vxw-border);background:var(--vxw-surface)">
+        <summary class="cursor-pointer text-sm font-semibold">More filters — show, streamer, destination, transaction type and status</summary>
+        <div class="vxr-toolbar vxled-toolbar mt-3">
         <label class="vxr-control">
             <x-filament::icon icon="heroicon-o-video-camera" />
             <select wire:model.live="showFilter" aria-label="Filter ledger by show">
@@ -310,11 +318,8 @@
                 @endforeach
             </select>
         </label>
-        <label class="vxr-control vxr-search">
-            <x-filament::icon icon="heroicon-o-magnifying-glass" />
-            <input type="search" wire:model.live.debounce.400ms="search" placeholder="Search order or details…" aria-label="Search order or details">
-        </label>
-    </div>
+        </div>
+    </details>
 
     @php $unallocated = $this->unallocatedAmounts; @endphp
     @if ($unallocated['entries'] > 0)
@@ -430,15 +435,6 @@
         </section>
     </div>
     </details>
-        <section class="vxled-workspace-card vxled-quick-actions">
-            <h2 class="vxled-workspace-title">Review shortcuts</h2>
-            <div class="vxled-actions">
-                <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
-                <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
-                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
-                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
-            </div>
-        </section>
     <details class="vxr-card" style="margin-bottom:1rem">
         <summary class="vxr-card-head cursor-pointer"><strong>Approved allocations by category</strong><span class="text-xs" style="color:var(--vxw-muted)">Expand breakdown ▾</span></summary>
         <div class="vxr-table-wrap"><table class="vxr-table">
@@ -459,6 +455,15 @@
         </div>
         <button type="button" class="vxr-btn vxr-btn--outline" wire:click="$set('review', 'needs_attribution')">Review unassigned &amp; pending</button>
     </div>
+        <section class="vxled-workspace-card vxled-quick-actions">
+            <h2 class="vxled-workspace-title">Review shortcuts</h2>
+            <div class="vxled-actions">
+                <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
+                <button type="button" class="vxled-action" wire:click="$set('review', 'tips_missing_streamer')"><span>Tips missing streamer</span><span aria-hidden="true">›</span></button>
+                <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
+            </div>
+        </section>
     <nav class="vxled-review-tabs" aria-label="Ledger transaction review filters">
         @foreach ([
             'all' => 'All transactions',

@@ -32,7 +32,7 @@
     <div class="vxw vxt" data-vx-page="ledger-tips">
         <div class="vxw-hero">
             <div>
-                <p class="vxw-sub">Review imported Whatnot tips by channel and business before deciding how to pay them.</p>
+                <p class="vxw-sub">See imported tip totals, review unmatched transactions, and inspect verified show and streamer assignments.</p>
                 @if ($range)<p class="vxw-meta">{{ $range[0]->format('M j, Y') }} – {{ $range[1]->format('M j, Y') }} · Ledger created dates · Live imported totals</p>@endif
             </div>
             <a class="vxw-btn" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index') }}">Open ledger <span aria-hidden="true">↗</span></a>
@@ -85,14 +85,51 @@
                 $reviewCount = $reviewRows->sum('entries') + ($report['unassigned_total']['entries'] ?? 0);
                 $reviewNet = $reviewRows->sum('net') + ($report['unassigned_total']['net'] ?? 0);
             @endphp
+            <div class="vxw-meta" style="margin: .5rem 0 1rem">Overview · All amounts are imported ledger totals, not automatic payroll payouts.</div>
+            <div class="vxt-stats" aria-label="Tip totals">
+                @foreach ([
+                    ['Tip credits', 'credits', 'Imported positive amounts', 'accent'],
+                    ['Tip debits / corrections', 'debits', 'Imported negative amounts', 'info'],
+                    ['Net ledger tips', 'net', 'Credits less debits', 'ok'],
+                    ['Transactions', 'entries', 'All imported statuses', 'warn'],
+                ] as [$label, $key, $note, $tone])
+                    <div class="vxr-stat vxr-tone-{{ $tone }}">
+                        <div class="vxr-stat-icon" aria-hidden="true">{{ ['credits' => '+', 'debits' => '−', 'net' => '=', 'entries' => '#'][$key] }}</div>
+                        <div><div class="vxr-stat-label">{{ $label }}</div>
+                            <div class="vxr-stat-value">{{ $key === 'entries' ? number_format($report['total'][$key]) : '$'.number_format($report['total'][$key] / 100, 2) }}</div>
+                            <div class="vxr-stat-note">{{ $note }}</div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
             @if($reviewCount > 0)
                 <div class="vxw-alert vxw-alert--warn" role="status"><div>
-                    <strong>{{ number_format($reviewCount) }} tip transactions need business attribution review</strong>
-                    <p>Net ${{ number_format($reviewNet / 100, 2) }} is not verified for a business. These tips are not automatically allocated or paid.</p>
+                    <strong>{{ number_format($reviewCount) }} tips need business review</strong>
+                    <p>${{ number_format($reviewNet / 100, 2) }} is not yet verified for a business. These tips are not automatically allocated or paid. Review the source orders and approve only confident matches.</p><a class="vxw-btn vxw-btn--sm" href="{{ \\App\\Filament\\Resources\\WhatnotLedgerResource::getUrl('index', ['review' => 'needs_attribution', 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString(), 'channel' => $this->channel]) }}">Review unmatched tips →</a>
                 </div></div>
             @endif
             <section class="vxw-card">
-                <div class="vxw-card-head"><h2 class="vxw-h2">Verified tips by streamer</h2></div>
+                <div class="vxw-card-head"><h2 class="vxw-h2">Verified tips by show</h2><div class="vxw-hero-actions"><span class="vxw-meta">Approved attributions only · selected period</span><button type="button" class="vxw-btn vxw-btn--sm" wire:click="exportShowTipsCsv">Export shows CSV</button></div></div>
+                <div class="vxr-table-wrap"><table class="vxr-table">
+                    <thead><tr><th>Show</th><th>Streamer</th><th class="num">Credits</th><th class="num">Corrections</th><th class="num">Net tips</th><th class="num">Transactions</th></tr></thead>
+                    <tbody>
+                        @forelse ($this->showTipTotals() as $item)
+                            <tr>
+                                <td><a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $item->show_id, 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString()]) }}">{{ $item->show_title }} · {{ \Illuminate\Support\Carbon::parse($item->show_date)->format('M j') }}</a></td>
+                                <td>{{ $item->streamer_name ?? 'Unassigned streamer' }}</td>
+                                <td class="num">${{ number_format($item->credits, 2) }}</td>
+                                <td class="num">${{ number_format($item->corrections, 2) }}</td>
+                                <td class="num strong">${{ number_format($item->net, 2) }}</td>
+                                <td class="num">{{ number_format($item->entries) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6">No approved show-level tip attribution for this period. Review unmatched entries in the ledger.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table></div>
+            </section>
+            <section class="vxw-card">
+                <div class="vxw-card-head"><h2 class="vxw-h2">Verified streamer totals</h2></div>
                 <div class="vxw-card-body">
                     <p class="vxw-meta">Only exact ledger order matches to one show with one assigned streamer. Shared or ambiguous shows are excluded. Read-only; does not change payroll.</p>
                     @forelse ($this->streamerTotals() as $streamerTip)
@@ -115,43 +152,7 @@
                 </div></div>
             @endif
             <section class="vxw-card">
-                <div class="vxw-card-head"><h2 class="vxw-h2">Tips by show and streamer</h2><div class="vxw-hero-actions"><span class="vxw-meta">Approved attributions only · selected period</span><button type="button" class="vxw-btn vxw-btn--sm" wire:click="exportShowTipsCsv">Export shows CSV</button></div></div>
-                <div class="vxr-table-wrap"><table class="vxr-table">
-                    <thead><tr><th>Show</th><th>Streamer</th><th class="num">Credits</th><th class="num">Corrections</th><th class="num">Net tips</th><th class="num">Transactions</th></tr></thead>
-                    <tbody>
-                        @forelse ($this->showTipTotals() as $item)
-                            <tr>
-                                <td><a href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('index', ['show' => $item->show_id, 'period' => 'custom', 'from' => $range[0]->toDateString(), 'until' => $range[1]->toDateString()]) }}">{{ $item->show_title }} · {{ \Illuminate\Support\Carbon::parse($item->show_date)->format('M j') }}</a></td>
-                                <td>{{ $item->streamer_name ?? 'Unassigned streamer' }}</td>
-                                <td class="num">${{ number_format($item->credits, 2) }}</td>
-                                <td class="num">${{ number_format($item->corrections, 2) }}</td>
-                                <td class="num strong">${{ number_format($item->net, 2) }}</td>
-                                <td class="num">{{ number_format($item->entries) }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="6">No approved show-level tip attribution for this period. Review unmatched entries in the ledger.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table></div>
-            </section>
-            <div class="vxt-stats" aria-label="Tip totals">
-                @foreach ([
-                    ['Tip credits', 'credits', 'Imported positive amounts', 'accent'],
-                    ['Tip debits / corrections', 'debits', 'Imported negative amounts', 'info'],
-                    ['Net ledger tips', 'net', 'Credits less debits', 'ok'],
-                    ['Transactions', 'entries', 'All imported statuses', 'warn'],
-                ] as [$label, $key, $note, $tone])
-                    <div class="vxr-stat vxr-tone-{{ $tone }}">
-                        <div class="vxr-stat-icon" aria-hidden="true">{{ ['credits' => '+', 'debits' => '−', 'net' => '=', 'entries' => '#'][$key] }}</div>
-                        <div><div class="vxr-stat-label">{{ $label }}</div>
-                            <div class="vxr-stat-value">{{ $key === 'entries' ? number_format($report['total'][$key]) : '$'.number_format($report['total'][$key] / 100, 2) }}</div>
-                            <div class="vxr-stat-note">{{ $note }}</div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-            <section class="vxw-card">
-                <div class="vxw-card-head"><h2 class="vxw-h2">Channel totals</h2><span class="vxw-meta">For selected filters</span></div>
+                <div class="vxw-card-head"><h2 class="vxw-h2">Channel breakdown</h2><span class="vxw-meta">For selected filters</span></div>
                 <div class="vxw-card-body vxt-channels">
                     @forelse ($channels as $index => $item)
                         <div class="vxt-channel">

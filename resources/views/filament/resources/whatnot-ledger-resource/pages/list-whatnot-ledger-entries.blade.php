@@ -259,8 +259,8 @@
         <x-vxr.stat label="Debits" :value="$money($stats['debits'])" icon="heroicon-o-arrow-down" tone="bad" />
         <x-vxr.stat label="Net Activity" :value="$money($stats['net'])" icon="heroicon-o-equals" tone="accent"
             :value-class="$stats['net'] < 0 ? 'vxr-val-bad' : ''" />
-        <x-vxr.stat label="Processing" :value="number_format($stats['processing']).' '.Str::plural('transaction', $stats['processing'])"
-            icon="heroicon-o-clock" tone="warn" note="Status processing or pending" />
+        <x-vxr.stat label="Transactions" :value="number_format($stats['count'])"
+            icon="heroicon-o-rectangle-stack" tone="accent" :note="number_format($stats['processing']).' processing or pending'" />
     </div>
 
     @php $allocation = $this->attributionSummary; @endphp

@@ -318,6 +318,10 @@ button.vx-chan.off .vx-mascot{filter:grayscale(1) opacity(.5)}
 .vx-backdrop{display:block;position:fixed;inset:0;z-index:109;background:rgba(15,23,42,.5);backdrop-filter:blur(3px)}
 .vx-drawer,.vx-drawer.full{z-index:110;top:50%;left:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(960px,calc(100vw - 40px));height:auto;max-height:calc(100dvh - 48px);border:1px solid var(--vx-line);border-radius:20px;overflow:hidden;box-shadow:0 24px 80px rgba(15,23,42,.3)}
 .vx-drawer>div{max-height:calc(100dvh - 48px)}
+.vx-drawer{height:min(780px,calc(100dvh - 48px));max-height:calc(100dvh - 48px)}
+.vx-drawer>div{height:100%;min-height:0;overflow:hidden}
+.vx-drawer-scroll{height:100%;min-height:0;overflow-y:auto!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.vx-drawer-scroll .vx-drawer-hero{flex-shrink:0}
 .vx-drawer.vx-drawer-off{transform:translate(-50%,-48%);opacity:0}.vx-handle{display:none!important}.vx-drawer-hero{display:block;height:110px}.vx-drawer-x{width:42px;height:42px}.vx-drawer-scroll{min-height:0}.vx-drawer .vx-stats{grid-template-columns:repeat(4,minmax(0,1fr))}.vx-drawer .vx-stats>div:nth-child(4){display:block}
 @media(max-width:640px){.vx-drawer,.vx-drawer.full{width:calc(100vw - 24px);max-height:calc(100dvh - 24px);border-radius:16px}.vx-drawer>div{max-height:calc(100dvh - 24px)}.vx-drawer .vx-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>

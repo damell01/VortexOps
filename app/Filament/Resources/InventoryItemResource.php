@@ -898,6 +898,15 @@ class InventoryItemResource extends Resource
                     ->description(fn ($record) => filled($record->description)
                         ? \Illuminate\Support\Str::limit($record->description, 70)
                         : null),
+                // Recent catalog additions are highlighted without changing stock
+                // availability or requiring a separate notification.
+                TextColumn::make('new_arrival_badge')
+                    ->label('New')
+                    ->getStateUsing(fn ($record) => $record->created_at?->greaterThanOrEqualTo(now()->subDays(7)) ? 'New' : null)
+                    ->badge()
+                    ->color('primary')
+                    ->placeholder('')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable()

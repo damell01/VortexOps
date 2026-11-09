@@ -98,7 +98,7 @@ function installFeedback() {
         const slow = setTimeout(() => { if (!finished) renderFeedback('Working…'); }, 700);
         const finish = () => {
             if (finished) return;
-            finished = true; clearTimeout(slow); pending = Math.max(0, pending - 1);
+            finished = true; pending = Math.max(0, pending - 1);
             if (pending === 0 && !notice?.classList.contains('is-error')) { notice?.remove(); notice = null; }
         };
         succeed(({ json }) => {

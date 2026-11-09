@@ -103,6 +103,10 @@
     .vxled-analytics > summary{list-style-position:inside;padding:6px 4px}
     .vxled-analytics[open] > summary{margin-bottom:8px}
     .vxled .vxr-head{padding:12px 16px}
+    .vxled-quick-actions{margin:8px 0;padding:10px 12px}
+    .vxled-quick-actions .vxled-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
+    @media(max-width:900px){.vxled-quick-actions .vxled-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:540px){.vxled-quick-actions .vxled-actions{grid-template-columns:minmax(0,1fr)}}
     .vxled .vxr-stats{margin-block:8px}
     .vxled .vxled-workspace{gap:8px;margin-bottom:8px}
     .vxled .vxled-visuals{margin:8px 0}
@@ -123,6 +127,25 @@
             <button type="button" class="mt-2 rounded-lg border border-amber-400 px-3 py-1.5 font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40" wire:click="$set('review', 'all')">Show all ledger entries</button>
         </section>
     @endif
+    <div class="vxr-head">
+        <div>
+            <h1 class="vxr-title">Whatnot Ledger</h1>
+            <p class="vxr-subtitle">Reconcile credits, debits and transaction status by channel.</p>
+        </div>
+        <div class="vxr-actions">
+            <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
+            @if ($canDelete && count($checked))
+                <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
+                    wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">
+                    <x-filament::icon icon="heroicon-o-trash" /> Delete selected ({{ count($checked) }})
+                </button>
+            @endif
+            <button type="button" class="vxr-btn vxr-btn--outline" wire:click="exportCsv" title="Download every row the filters select (up to {{ number_format($this::CSV_ROW_LIMIT) }})">
+                <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export CSV
+            </button>
+        </div>
+    </div>
+
     @php $allocation = $this->attributionSummary; @endphp
     <div class="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Ledger attribution coverage">
         @php
@@ -164,24 +187,6 @@
             <p class="mt-2 text-xs" style="color:var(--vxw-muted)">Approved matches only. Entries still unmatched or pending review are counted above, not here.</p>
         </details>
     @endif
-    <div class="vxr-head">
-        <div>
-            <h1 class="vxr-title">Whatnot Ledger</h1>
-            <p class="vxr-subtitle">Reconcile credits, debits and transaction status by channel.</p>
-        </div>
-        <div class="vxr-actions">
-            <a class="vxr-btn vxr-btn--outline" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}">Tip totals</a>
-            @if ($canDelete && count($checked))
-                <button type="button" class="vxr-btn" style="color:var(--vxw-bad)" wire:click="deleteChecked"
-                    wire:confirm="Delete {{ count($checked) }} ledger {{ Str::plural('entry', count($checked)) }}? This cannot be undone.">
-                    <x-filament::icon icon="heroicon-o-trash" /> Delete selected ({{ count($checked) }})
-                </button>
-            @endif
-            <button type="button" class="vxr-btn vxr-btn--outline" wire:click="exportCsv" title="Download every row the filters select (up to {{ number_format($this::CSV_ROW_LIMIT) }})">
-                <x-filament::icon icon="heroicon-o-arrow-down-tray" /> Export CSV
-            </button>
-        </div>
-    </div>
 
     @php
         $ledgerCategoryHelp = [
@@ -425,26 +430,8 @@
         </section>
     </div>
     </details>
-    <div class="vxled-workspace" aria-label="Ledger reconciliation workspace">
-        <section class="vxled-workspace-card">
-            <h2 class="vxled-workspace-title">Allocation overview</h2>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                @foreach ([
-                    ['Unmatched', $allocation['unmatched'] ?? 0],
-                    ['Pending', $allocation['pending'] ?? 0],
-                    ['Rejected', $allocation['rejected'] ?? 0],
-                    ['Assigned to shows', $allocation['shows'] ?? 0],
-                ] as [$label, $value])
-                    <div class="rounded-xl border p-3" style="border-color:var(--vxw-border)">
-                        <p class="text-xs" style="color:var(--vxw-muted)">{{ $label }}</p>
-                        <p class="mt-1 text-xl font-bold tabular-nums">{{ number_format($value) }}</p>
-                    </div>
-                @endforeach
-            </div>
-            <p class="mt-3 text-xs" style="color:var(--vxw-muted)">Automatic matching requires verified order or livestream evidence and one primary streamer. Uncertain matches remain reviewable; historical approvals are protected.</p>
-        </section>
-        <section class="vxled-workspace-card">
-            <h2 class="vxled-workspace-title">Quick actions</h2>
+        <section class="vxled-workspace-card vxled-quick-actions">
+            <h2 class="vxled-workspace-title">Review shortcuts</h2>
             <div class="vxled-actions">
                 <button type="button" class="vxled-action" wire:click="$set('review', 'needs_attribution')"><span>Review unallocated</span><span class="vxled-action-count">{{ number_format(($allocation['unmatched'] ?? 0) + ($allocation['pending'] ?? 0) + ($allocation['rejected'] ?? 0)) }}</span></button>
                 <button type="button" class="vxled-action" wire:click="$set('review', 'unverified_tips')"><span>Unverified show / streamer tips</span><span aria-hidden="true">›</span></button>
@@ -452,7 +439,6 @@
                 <a class="vxled-action" href="{{ \App\Filament\Resources\WhatnotLedgerResource::getUrl('tips') }}"><span>Tip totals &amp; show breakdown</span><span aria-hidden="true">›</span></a>
             </div>
         </section>
-    </div>
     <details class="vxr-card" style="margin-bottom:1rem">
         <summary class="vxr-card-head cursor-pointer"><strong>Approved allocations by category</strong><span class="text-xs" style="color:var(--vxw-muted)">Expand breakdown ▾</span></summary>
         <div class="vxr-table-wrap"><table class="vxr-table">

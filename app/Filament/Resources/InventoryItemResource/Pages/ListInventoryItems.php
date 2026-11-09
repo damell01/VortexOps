@@ -85,7 +85,7 @@ class ListInventoryItems extends ListRecords
     public int $catalogPerPage = 50;
 
     public int $catalogPage = 1;
-    public int $catalogVisible = 40;
+    public int $catalogVisible = 24;
 
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
@@ -195,7 +195,7 @@ class ListInventoryItems extends ListRecords
             ->when($visible !== null, fn ($q) => $q->whereIn('to_location_id', $visible))
             ->latest('created_at')
             ->limit(1)]);
-        return $query->limit($this->catalogVisible)->get();
+        return $query->offset((max(1, $this->catalogPage) - 1) * $this->catalogVisible)->limit($this->catalogVisible)->get();
     }
 
     #[Computed]
@@ -244,7 +244,7 @@ class ListInventoryItems extends ListRecords
     public function updatedCatalogSearch(): void
     {
         $this->clearSelection();
-        $this->catalogVisible = 40;
+        $this->catalogPage = 1;
         unset($this->catalogItems, $this->catalogTotal);
     }
 
@@ -254,9 +254,17 @@ class ListInventoryItems extends ListRecords
         unset($this->catalogItems, $this->catalogTotal);
     }
 
-    public function loadMoreCatalog(): void
+    public function setCatalogPage(int $page): void
     {
-        $this->catalogVisible += 40;
+        $totalPages = max(1, (int) ceil($this->catalogTotal / $this->catalogVisible));
+        $this->catalogPage = max(1, min($page, $totalPages));
+        unset($this->catalogItems);
+    }
+
+    public function setCatalogPageSize(int $size): void
+    {
+        $this->catalogVisible = in_array($size, [12, 24, 48], true) ? $size : 24;
+        $this->catalogPage = 1;
         unset($this->catalogItems);
     }
 

@@ -111,6 +111,23 @@ body:has(.vx-inventory-list) .fi-page-content{gap:.65rem!important}
 @media(min-width:1450px){.vx-inventory-actions{flex-wrap:nowrap!important}.vx-inventory-actions .vx-inventory-desktop-tools{flex:1 1 auto!important}}
 @media(max-width:1279px){.vx-inventory-summary{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}.vx-inventory-summary .vx-health-grid{grid-column:1/-1!important}}
 @media(max-width:640px){.vx-inventory-summary{grid-template-columns:minmax(0,1fr)!important}.vx-inventory-summary .vx-health-grid{grid-column:auto!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-actions .vx-inventory-desktop-tools{flex:1 1 100%!important}}
+
+/* Follow-up to live inventory screenshots: reduce card height without hiding actions. */
+.vx-inventory-list .vx-product-image{aspect-ratio:auto!important;height:132px!important;min-height:0!important}
+.vx-inventory-list .vx-product-image:not(.has-photo) img{width:auto!important;height:auto!important;max-width:98px!important;max-height:98px!important;padding:6px!important;object-fit:contain!important}
+.vx-inventory-list .vx-product-image.has-photo img{width:100%!important;height:100%!important;object-fit:contain!important;padding:5px!important}
+.vx-inventory-list .vx-product-body{padding:9px 10px!important;gap:5px!important}
+.vx-inventory-list .vx-product-title{font-size:.84rem!important;line-height:1.2rem!important}
+.vx-inventory-list .vx-card-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;padding:7px!important}
+.vx-inventory-list .vx-card-action{min-width:0!important;min-height:40px!important;padding:5px 3px!important;gap:4px!important;font-size:.69rem!important;line-height:1.1!important;white-space:normal!important}
+.vx-inventory-list .vx-card-action span{overflow-wrap:normal!important;word-break:normal!important}
+.vx-inventory-list .vx-inventory-actions{margin:0!important}
+.vx-inventory-list .vx-inventory-summary{margin:0!important}
+.vx-inventory-list .vx-catalog-view{margin-top:0!important}
+body:has(.vx-inventory-list) .fi-page-content{gap:.45rem!important}
+body:has(.vx-inventory-list) .fi-header{margin-bottom:0!important;padding-bottom:0!important}
+@media(min-width:1280px){.vx-inventory-list .vx-inventory-summary{grid-template-columns:minmax(155px,.65fr) minmax(220px,.8fr) minmax(0,2.4fr)!important}.vx-inventory-list .vx-inventory-actions{padding:7px!important}}
+@media(max-width:640px){.vx-inventory-list .vx-product-image{height:115px!important}.vx-inventory-list .vx-product-image:not(.has-photo) img{max-height:78px!important;max-width:78px!important}.vx-inventory-list .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-list .vx-card-action{min-height:44px!important;font-size:.7rem!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">

@@ -1,5 +1,5 @@
 {{-- Current month only: one ranked bar per channel, with the value printed on each row. --}}
-<section class="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+<section class="min-w-0 rounded-2xl border border-violet-200 bg-white p-4 shadow-sm dark:border-violet-900 dark:bg-gray-900 sm:p-5"
     x-data="{ metric:'gross', series:@js($dashboardOverview['series']),
         value(s){return s.values[this.metric][0] || 0},
         sorted(){return [...this.series].sort((a,b)=>this.value(b)-this.value(a))},
@@ -7,9 +7,9 @@
         max(){return Math.max(1,...this.series.map(s=>Math.abs(this.value(s))))},
         money(v){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:Math.abs(v)>=1000?0:2}).format(v)}
     }">
-    <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-bold text-gray-950 dark:text-white">Channel Performance</h2><div class="flex flex-wrap gap-1 rounded-xl bg-gray-50 p-1 dark:bg-gray-800" role="group" aria-label="Whatnot revenue">
+    <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-base font-extrabold text-gray-950 dark:text-white">Channel Performance</h2><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Gross and net revenue by channel</p></div><div class="flex flex-wrap gap-1 rounded-xl border border-violet-100 bg-violet-50 p-1 dark:border-violet-900 dark:bg-gray-800" role="group" aria-label="Whatnot revenue">
         @foreach(['gross'=>'Gross revenue','net'=>'Net revenue'] as $key=>$label)
-        <button type="button" @click="metric=@js($key)" :aria-pressed="metric===@js($key)" :class="metric===@js($key) ? 'bg-white text-violet-700 shadow-sm dark:bg-gray-700 dark:text-violet-300' : 'text-gray-500'" class="min-h-9 rounded-lg px-2 py-1 text-[10px] font-semibold">{{ $label }}</button>
+        <button type="button" @click="metric=@js($key)" :aria-pressed="metric===@js($key)" :class="metric===@js($key) ? 'bg-violet-700 text-white shadow-sm dark:bg-violet-600 dark:text-white' : 'text-gray-500'" class="min-h-9 rounded-lg px-3 py-1 text-xs font-semibold">{{ $label }}</button>
         @endforeach
     </div></div>
     <p class="mt-2 text-xs text-gray-500">{{ $dashboardOverview['period'] }} · Whatnot <span x-text="metric === 'gross' ? 'gross sales before fees' : 'net earnings after fees (settled, or Whatnot\'s estimate until a show settles)'">gross sales before fees</span>.</p>
@@ -25,8 +25,8 @@
                     <span class="inline-flex min-w-0 items-center gap-2"><span class="h-2.5 w-2.5 shrink-0 rounded" :style="`background:${s.color}`"></span><span class="truncate font-medium text-gray-800 dark:text-gray-100" x-text="s.name"></span></span>
                     <span class="font-semibold tabular-nums text-gray-950 dark:text-white" x-text="money(value(s))"></span>
                 </div>
-                <div class="mt-1.5 h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
-                    <div class="h-full rounded-full transition-all duration-300" :style="`width:${Math.max(0, value(s)) / max() * 100}%;background:${s.color}`"></div>
+                <div class="mt-1.5 h-3 overflow-hidden rounded-full bg-violet-50 dark:bg-gray-800" aria-hidden="true">
+                    <div class="h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none" :style="`width:${Math.max(0, value(s)) / max() * 100}%;background:${s.color}`"></div>
                 </div>
             </li>
         </template>

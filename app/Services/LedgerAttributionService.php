@@ -197,6 +197,27 @@ class LedgerAttributionService
             if ($row->submitted_by === $actorId) {
                 throw ValidationException::withMessages(['attribution' => 'A different administrator must approve or reject this correction.']);
             }
+            if ($approve) {
+                // An automatically suggested category is not evidence of a recipient.
+                // In particular, a house marketing suggestion without a business
+                // must be explicitly corrected and reviewed before approval.
+                if ($row->target === 'unassigned') {
+                    throw ValidationException::withMessages(['attribution' => 'Assign a verified destination before approval.']);
+                }
+                if ($row->target === 'house' && $row->business_id === null) {
+                    throw ValidationException::withMessages(['attribution' => 'Select the receiving business before approving a house expense.']);
+                }
+                if ($row->target === 'show' && ($row->show_id === null || $row->streamer_id === null)) {
+                    throw ValidationException::withMessages(['attribution' => 'Assign a verified show and its primary streamer before approval.']);
+                }
+                if ($row->target === 'streamer' && $row->streamer_id === null) {
+                    throw ValidationException::withMessages(['attribution' => 'Select a streamer before approval.']);
+                }
+                $isTip = $this->suggestedCategory($entry) === 'tips' || $row->category === 'tips';
+                if ($isTip && ($row->target !== 'show' || $row->show_id === null || $row->streamer_id === null)) {
+                    throw ValidationException::withMessages(['attribution' => 'Tips require a verified show and primary streamer; house and direct streamer allocations are not permitted.']);
+                }
+            }
             $status = $approve ? 'approved' : 'rejected';
             DB::table('ledger_attributions')->where('id', $row->id)->update([
                 'status' => $status, 'reviewed_by' => $actorId, 'reviewed_at' => now(), 'updated_at' => now(),

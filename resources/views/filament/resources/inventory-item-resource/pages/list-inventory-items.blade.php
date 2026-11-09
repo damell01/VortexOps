@@ -81,6 +81,14 @@
 @media(prefers-reduced-motion:reduce){.vx-inventory-list .vx-product-card{transition:none}.vx-inventory-list .vx-product-card:hover{transform:none}}
 
 .vx-inventory-list .vx-catalog-footer{display:flex;flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 2px}.vx-catalog-pagination{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.vx-catalog-pagination button{min-width:34px;min-height:36px;padding:4px 8px;border:1px solid #ddd6fe;border-radius:9px;background:white;color:#5b21b6;font-weight:700}.vx-catalog-pagination button[aria-current=page]{background:#7c3aed;color:white;border-color:#7c3aed}.vx-catalog-pagination button:disabled{opacity:.4;cursor:not-allowed}.vx-catalog-pagination button:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}.dark .vx-catalog-pagination button{background:#211632;border-color:#6d28d9;color:#e9d5ff}.dark .vx-catalog-pagination button[aria-current=page]{background:#7c3aed;color:white}
+
+/* Override legacy card CSS without altering any of the original action bindings. */
+.vx-inventory-list .vx-product-card .vx-card-actions{grid-template-columns:repeat(3,minmax(0,1fr))!important;padding:8px!important;gap:5px!important}
+.vx-inventory-list .vx-product-card .vx-card-action{flex-direction:row;min-height:38px!important;font-size:.67rem!important;padding:5px 3px!important;gap:3px}
+.vx-inventory-list .vx-product-card .vx-card-action span{overflow-wrap:anywhere!important;word-break:normal}
+.vx-inventory-list .vx-product-card .vx-product-image.has-photo img{object-fit:contain!important;padding:.3rem!important}
+@media(max-width:1023px){.vx-inventory-list .vx-view-toggle{display:inline-flex!important}.vx-inventory-list .vx-inventory-items-panel{display:block!important;max-width:100%;overflow-x:auto}.vx-inventory-list .vx-catalog-view.vx-desktop-hidden{display:none!important}}
+@media(max-width:640px){.vx-inventory-list .vx-product-card .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.vx-inventory-list .vx-product-card .vx-card-action{min-height:44px!important}.vx-inventory-list .vx-catalog-view.vx-desktop-hidden{display:none!important}}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">

@@ -202,9 +202,13 @@ class ListWhatnotLedgerEntries extends Page
         $this->selectedId = $this->selectedId === $id ? null : $id;
         $this->editingAttribution = false;
         if ($this->selectedId) {
-            $existing = $this->selectedAttribution();
-            $entry = $this->selected;
-            $suggestedShow = $entry ? app(LedgerAttributionService::class)->suggestedShow($entry) : null;
+            // Fetch the selected entry once; reuse it for its attribution and
+            // suggested show rather than triggering multiple selected lookups.
+            $entry = WhatnotLedgerResource::getEloquentQuery()->whereKey($this->selectedId)->first();
+            $existing = $entry ? $this->selectedAttribution() : null;
+            $suggestedShow = $entry && ! $existing?->show_id
+                ? app(LedgerAttributionService::class)->suggestedShow($entry)
+                : null;
             $this->attributionCategory = $existing->category ?? ($entry ? app(LedgerAttributionService::class)->suggestedCategory($entry) : 'other');
             $this->attributionTarget = $existing->target ?? ($suggestedShow ? 'show' : 'unassigned');
             $this->attributionShowId = (string) ($existing->show_id ?? $suggestedShow?->id ?? '');

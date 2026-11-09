@@ -1,3 +1,29 @@
+# Current approved scope — November 9, 2026
+
+**Active together:** Phase 1 Ledger Tip Totals/attribution review and Phase 3 admin dashboard usability. **Removed:** pack-opening sign-in, password charge, holo login reveal. **Excluded:** barcode scanning feedback. These exclusions supersede older ideas below.
+
+## Workstream A — Ledger
+1. Improve readability and explain unverified business vs streamer/show attribution (initial UI changes committed).
+2. Build review-focused queue using existing ledger attribution and approval workflow; inspect existing filters/actions before changing them.
+3. Display why each match is unresolved, evidence source, candidate business/show/streamer and approval status. Never silently approve weak matches.
+4. Ensure count and net totals reconcile across filters, channels and imported statuses; preserve two-person approval and immutable finalized payroll.
+5. Add targeted tests, accessibility/mobile checks and staging verification.
+
+## Workstream B — Admin dashboard
+1. Compact first screen: prioritized KPI cards, quick actions and needs-attention summary.
+2. Expand/collapse detail panels on deliberate interaction; light mode default, dark mode supported.
+3. Subtle hover/focus transitions and optional stat transitions with reduced-motion support; no distracting foil effects on finance data.
+4. Improve mobile responsive layout, skeletons for actual loading and avoid expensive repeated database queries.
+5. Validate permissions, performance, and browser behavior on staging.
+
+## Future work after A and B
+Inventory expanding item cards (no scanner feedback); fulfillment station status/progress; show analytics timeline; payroll completion confirmation; messaging previews (feature remains off); report filtering/charts.
+
+## Release gates
+No automatic payroll changes, bulk ledger rematches, model or schema changes without review. Stage and verify before production rollout.
+
+---
+
 # VortexOps Interactive UI — Experience Plan
 
 ## Design direction

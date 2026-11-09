@@ -103,7 +103,9 @@
     .vxled-analytics > summary{list-style-position:inside;padding:6px 4px}
     .vxled-analytics[open] > summary{margin-bottom:8px}
     .vxled .vxr-head{padding:12px 16px}
-    .vxled-quick-actions{margin:8px 0;padding:10px 12px}\n    .vxled-more-filters > summary{list-style-position:inside}\n    .vxled-more-filters .vxled-toolbar{border:0;padding:0;box-shadow:none}
+    .vxled-quick-actions{margin:8px 0;padding:10px 12px}
+    .vxled-more-filters > summary{list-style-position:inside}
+    .vxled-more-filters .vxled-toolbar{border:0;padding:0;box-shadow:none}
     .vxled-quick-actions .vxled-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
     @media(max-width:900px){.vxled-quick-actions .vxled-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:540px){.vxled-quick-actions .vxled-actions{grid-template-columns:minmax(0,1fr)}}
@@ -126,6 +128,52 @@
     .vxled .vxr-table-wrap{overflow-x:auto}
     .vxled .vxled-table thead th{position:sticky;top:0;z-index:1}
     @media(max-width:767px){.vxled .vxled-workspace{grid-template-columns:minmax(0,1fr)}.vxled .vxled-visuals{grid-template-columns:minmax(0,1fr)}}
+    /* Compact ledger inspector: a narrow right rail, not a page-covering modal.
+       Use !important to beat shared .vxr-card / .vxr-drawer modal rules. */
+    .vxled .vxled-panel {
+        position: fixed !important;
+        inset: 182px 0 0 auto !important;
+        top: 182px !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: auto !important;
+        transform: none !important;
+        width: min(440px, 38vw) !important;
+        min-width: 360px;
+        max-width: calc(100vw - 24px) !important;
+        height: calc(100dvh - 182px) !important;
+        max-height: calc(100dvh - 182px) !important;
+        border-radius: 16px 0 0 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        box-shadow: -12px 0 38px rgba(24, 12, 55, .18) !important;
+        z-index: 1001 !important;
+    }
+    .vxled .vxled-backdrop {
+        position: fixed;
+        inset: 182px 0 0 0;
+        background: rgba(17, 12, 37, .13) !important;
+        z-index: 1000;
+    }
+    .vxled .vxled-panel .vxr-drawer-head {
+        position: sticky; top: 0; z-index: 3;
+        padding: 12px 16px !important;
+        border-bottom: 1px solid var(--vxw-border) !important;
+        background: var(--vxw-surface) !important;
+    }
+    .vxled .vxled-panel .vxr-card-body { padding: 12px 16px 28px !important; gap: 10px !important; }
+    .vxled .vxled-panel .vxled-panel-amt { font-size: 25px; }
+    .vxled .vxled-panel .vxr-dl > div { gap: 8px; }
+    .vxled .vxled-panel .vxr-dl dd { max-width: 65%; }
+    @media (max-width: 767px) {
+        .vxled .vxled-panel {
+            inset: 0 0 0 auto !important; top: 0 !important; bottom: 0 !important;
+            width: min(440px, 100vw) !important; min-width: 0;
+            max-width: 100vw !important; height: 100dvh !important;
+            max-height: 100dvh !important; border-radius: 0 !important;
+        }
+        .vxled .vxled-backdrop { inset: 0; }
+    }
 </style>
 
 <div class="vxr vxled">

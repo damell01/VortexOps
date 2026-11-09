@@ -24,6 +24,9 @@ class LedgerTips extends Page
 
     protected static ?string $title = 'Ledger tip totals';
 
+    private bool $reportLoaded = false;
+    private ?array $cachedReport = null;
+
     public const PERIODS = ['week' => 'This week', 'last_week' => 'Last week', 'month' => 'This month',
         'last_month' => 'Last month', 'pay_period' => 'Pay period', 'custom' => 'Custom range'];
 
@@ -60,6 +63,8 @@ class LedgerTips extends Page
 
     public function updated(string $property): void
     {
+        $this->reportLoaded = false;
+        $this->cachedReport = null;
         if (in_array($property, ['from', 'until'], true)) {
             $this->period = 'custom';
         }
@@ -102,6 +107,7 @@ class LedgerTips extends Page
 
     public function report(): ?array
     {
+        if ($this->reportLoaded) return $this->cachedReport;
         // Validate public Livewire/URL state before it reaches the query.
         try {
             $this->validateFilters();
@@ -112,7 +118,9 @@ class LedgerTips extends Page
         }
         [$from, $until] = $this->range();
 
-        return app(LedgerTipReport::class)->between($from->toDateString(), $until->toDateString(), $this->channel, $this->business);
+        $this->cachedReport = app(LedgerTipReport::class)->between($from->toDateString(), $until->toDateString(), $this->channel, $this->business);
+        $this->reportLoaded = true;
+        return $this->cachedReport;
     }
 
     public function streamerTotals(): array
@@ -134,6 +142,8 @@ class LedgerTips extends Page
 
     public function resetFilters(): void
     {
+        $this->reportLoaded = false;
+        $this->cachedReport = null;
         $this->period = 'week';
         $this->channel = 'all';
         $this->business = 'all';

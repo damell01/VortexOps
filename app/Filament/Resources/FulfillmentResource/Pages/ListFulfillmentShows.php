@@ -16,6 +16,14 @@ class ListFulfillmentShows extends ListRecords
 
     protected static string $resource = FulfillmentResource::class;
 
+    public function mount(): void
+    {
+        // The show queue now lives on Fulfillment Home (with the long / quick
+        // job filter); a show's order details stay at FulfillmentResource view.
+        $length = request()->query('tableFilters')['is_slow_pack']['value'] ?? null;
+        $this->redirect(\App\Filament\Pages\FulfillmentHome::getUrl($length === null || $length === '' ? [] : ['length' => $length ? 'slow' : 'quick']));
+    }
+
     public function getView(): string
     {
         return 'filament.resources.fulfillment-resource.pages.list-fulfillment-shows';

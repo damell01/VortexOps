@@ -24,6 +24,9 @@ use Livewire\Attributes\Url;
  */
 class FulfillmentStationBoard extends Page
 {
+    /** The page draws its own header. */
+    public function getHeading(): string { return ''; }
+
     protected static ?string $title = 'Station Board';
     protected static ?string $slug = 'fulfillment/station';
     protected static bool $shouldRegisterNavigation = false;

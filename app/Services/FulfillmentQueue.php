@@ -30,16 +30,23 @@ final class FulfillmentQueue
     /** Shows that are fulfillment work: ended, recent, not cancelled, with something to ship. */
     public function readyShowsQuery(): Builder
     {
+        $approvedReport = fn (Builder $log) => $log
+            ->where(fn (Builder $approved) => $approved->where('status', 'admin_approved')->orWhere('approval_status', 'approved'))
+            ->whereHas('items');
         $query = Show::query()
             ->where('is_operational', true)
-            ->readyForAnalytics()
+            ->whereNotIn('status', ['cancelled'])
             ->whereDate('show_date', '>=', today()->subDays(self::WINDOW_DAYS))
-            ->where(function (Builder $work) {
-                $work->whereHas('orders', fn (Builder $orders) => $orders->whereNotNull('buyer_username')->where('buyer_username', '!=', ''))
-                    ->orWhereHas('shipments')
-                    ->orWhereHas('streamerLogEntry', fn (Builder $log) => $log
-                        ->where(fn (Builder $approved) => $approved->where('status', 'admin_approved')->orWhere('approval_status', 'approved'))
-                        ->whereHas('items'));
+            ->where(function (Builder $ready) use ($approvedReport) {
+                // Ended with something to pack...
+                $ready->where(fn (Builder $ended) => $ended->readyForAnalytics()->where(function (Builder $work) use ($approvedReport) {
+                    $work->whereHas('orders', fn (Builder $orders) => $orders->whereNotNull('buyer_username')->where('buyer_username', '!=', ''))
+                        ->orWhereHas('shipments')
+                        ->orWhereHas('streamerLogEntry', $approvedReport);
+                }))
+                    // ...or the streamer's report is approved, which only happens once a show is over
+                    // (this is what the old Fulfillment Center list showed).
+                    ->orWhereHas('streamerLogEntry', $approvedReport);
             });
 
         if (ChannelContext::isScoped()) {
@@ -149,13 +156,15 @@ final class FulfillmentQueue
     }
 
     /** The ready-to-pack queue as plain rows for the Home page. */
-    public function queueRows(?User $viewer, int $limit = 50): Collection
+    /** @param 'all'|'slow'|'quick' $length long jobs (slow-pack shows) or the quick ones */
+    public function queueRows(?User $viewer, int $limit = 50, string $length = 'all'): Collection
     {
         $manager = \App\Support\FulfillmentAccess::isManager($viewer);
         $runs = FulfillmentRun::query()
             ->whereIn('status', FulfillmentRun::OPEN)
             ->whereHas('show', fn (Builder $show) => $show->whereIn('shows.id', $this->readyShowsQuery()->select('shows.id')))
-            ->with(['show:id,title,show_date,start_time,whatnot_channel_id,status', 'show.channel:id,name', 'show.streamers:id,name',
+            ->when(in_array($length, ['slow', 'quick'], true), fn (Builder $q) => $q->whereHas('show', fn (Builder $show) => $show->where('is_slow_pack', $length === 'slow')))
+            ->with(['show:id,title,show_date,start_time,whatnot_channel_id,status,is_slow_pack', 'show.channel:id,name', 'show.streamers:id,name',
                 'show.fulfillmentUsers:id,name', 'station:id,name', 'packers:id,name'])
             ->when(! $manager && $viewer, fn (Builder $q) => $q->whereHas('show.fulfillmentUsers', fn ($u) => $u->where('users.id', $viewer->id)))
             ->orderByRaw("CASE status WHEN 'packing' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END")

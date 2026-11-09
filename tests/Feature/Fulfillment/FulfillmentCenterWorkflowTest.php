@@ -348,6 +348,58 @@ class FulfillmentCenterWorkflowTest extends TestCase
             ->assertSee(route('fulfillment.whiteboard', ['station' => $this->station->id]), false);
     }
 
+    public function test_shipment_tracking_groups_every_stored_status_and_filters_by_group(): void
+    {
+        $show = $this->show(['a' => 1], false);
+        foreach (['pending', null, 'label_created', 'Label Created', 'in_transit', 'Out for delivery', 'shipped', 'Delivered', 'delivered', 'failed', 'Returned to sender', 'cancelled'] as $i => $status) {
+            \App\Models\Shipment::create(['show_id' => $show->id, 'buyer_username' => 'b' . $i, 'status' => $status]);
+        }
+        $this->manager->assignRole('admin');
+        $page = Livewire::actingAs($this->manager)->test(\App\Filament\Pages\ShipmentOverview::class);
+        $totals = $page->instance()->dashboardData()['totals'];
+        $this->assertSame(['created' => 2, 'label' => 2, 'in_transit' => 2, 'shipped' => 1, 'delivered' => 2, 'failed' => 2, 'cancelled' => 1], $totals);
+
+        $page->set('status', 'label');
+        $this->assertEqualsCanonicalizing(['b2', 'b3'], $page->instance()->dashboardData()['rows']->pluck('buyer_username')->all());
+        $page->set('status', 'created');
+        $this->assertEqualsCanonicalizing(['b0', 'b1'], $page->instance()->dashboardData()['rows']->pluck('buyer_username')->all());
+
+        $stats = Livewire::actingAs($this->manager)->test(FulfillmentHome::class)->instance()->stats;
+        $this->assertSame([3, 2], [$stats['in_transit'], $stats['delivered']]); // in transit includes shipped
+    }
+
+    public function test_a_manager_assigns_a_ready_show_from_an_idle_station(): void
+    {
+        $show = $this->show();
+        app(\App\Services\FulfillmentQueue::class)->sync();
+        $run = FulfillmentRun::query()->where('show_id', $show->id)->sole();
+        $idle = FulfillmentStation::query()->where('id', '!=', $this->station->id)->firstOrFail();
+
+        $page = Livewire::actingAs($this->manager)->test(FulfillmentHome::class)
+            ->assertSee('Assign show')
+            ->call('openAssignToStation', $idle->id)
+            ->assertSet('assignStation', $idle->id)->assertSee('Choose a show ready to pack')
+            ->call('saveAssign')->assertHasErrors('assignRunId')
+            ->set('assignRunId', $run->id)->assertSet('assignUsers', [(string) $this->packer->id])
+            ->set('assignUsers', [(string) $this->helper->id])
+            ->call('saveAssign')->assertHasNoErrors();
+        $this->assertSame($idle->id, $run->fresh()->station_id);
+        $this->assertSame([$this->helper->id], $show->fulfillmentUsers()->pluck('users.id')->all());
+
+        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->assertDontSee('Assign show');
+        Livewire::actingAs($this->packer)->test(FulfillmentHome::class)->call('openAssignToStation', $idle->id)->assertForbidden();
+    }
+
+    public function test_station_board_offers_light_and_dark_and_shows_real_order_numbers(): void
+    {
+        $run = $this->started();
+        Livewire::actingAs($this->packer)->test(FulfillmentStationBoard::class, ['runId' => $run->id])
+            ->assertSee('vxf-board', false)->assertDontSee('vxf-dark', false)
+            ->assertSee('Light')->assertSee('Dark')
+            ->assertSee('Order ORD-' . $run->show_id . '-')
+            ->assertDontSee('1 items');
+    }
+
     public function test_pages_render_for_a_manager_and_a_member(): void
     {
         $run = $this->started();

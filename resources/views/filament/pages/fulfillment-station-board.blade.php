@@ -13,7 +13,20 @@
     $pct = $expected ? min(100, round($done / max(1, $expected) * 100)) : ($buyers->count() ? round($packedBuyers / $buyers->count() * 100) : 0);
 @endphp
 @include('fulfillment.dev-banner')
-<div class="vxf">
+<div class="vxf" x-data="{
+        theme: (() => { try { return localStorage.getItem('vxf-board-theme') || 'auto' } catch (e) { return 'auto' } })(),
+        effective() { return this.theme === 'auto' ? (document.documentElement.classList.contains('dark') ? 'dark' : 'light') : this.theme },
+        set(t) { this.theme = t; try { localStorage.setItem('vxf-board-theme', t) } catch (e) {} this.apply() },
+        apply() { const r = document.documentElement; if (this.theme === 'auto') delete r.dataset.vxfBoard; else r.dataset.vxfBoard = this.theme },
+    }" x-init="apply()">
+@if ($run)
+    <div style="display:flex;justify-content:flex-end">
+        <div class="vxf-board-theme" role="group" aria-label="Board colours">
+            <button type="button" @click="set('light')" :aria-pressed="effective() === 'light'"><x-heroicon-o-sun /> Light</button>
+            <button type="button" @click="set('dark')" :aria-pressed="effective() === 'dark'"><x-heroicon-o-moon /> Dark</button>
+        </div>
+    </div>
+@endif
 @if (! $run)
     {{-- Choose a station or a show --}}
     <div class="vxf-head">
@@ -51,7 +64,7 @@
 @elseif ($run->status === 'ready')
     {{-- Before packing: confirm the station and start --}}
     @php $needsReport = \App\Services\FulfillmentQueue::requiresApprovedReport() && ! \App\Services\FulfillmentQueue::reportApproved($show); @endphp
-    <div class="vxf-dark">
+    <div class="vxf-board">
         <div class="vxf-sb__show">
             <div>
                 <p class="vxf-eyebrow">Ready to pack</p>
@@ -94,7 +107,7 @@
 @elseif ($run->isOnStation())
     {{-- Packing --}}
     @php $canWork = $this->canWork(); $paused = $run->status === 'paused'; @endphp
-    <div class="vxf-dark" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="focusScan()" @vxf-scan-done.window="$nextTick(() => focusScan())">
+    <div class="vxf-board" x-data="{ focusScan() { this.$refs.scan?.focus() } }" x-init="focusScan()" @vxf-scan-done.window="$nextTick(() => focusScan())">
         <div class="vxf-sb__show" style="margin-bottom:12px">
             <div style="min-width:0">
                 <p class="vxf-eyebrow">{{ $run->station?->name }} · {{ $paused ? 'Paused' : 'Packing' }}</p>
@@ -108,7 +121,7 @@
                 </div>
             </div>
             <div style="text-align:right;min-width:170px">
-                <div class="vxf-num" style="font-size:26px;font-weight:800;color:#fff">
+                <div class="vxf-num" style="font-size:26px;font-weight:800;color:var(--vxf-ink)">
                     @if ($expected !== null){{ $done }} / {{ $expected }}@else{{ $packedBuyers }} / {{ $buyers->count() }}@endif
                 </div>
                 <div class="vxf-sub">{{ $expected !== null ? 'packages' : 'buyers' }} · {{ $pct }}%</div>
@@ -123,7 +136,7 @@
         <div class="vxf-sb">
             {{-- Buyers A–Z --}}
             <section class="vxf-card" aria-labelledby="vxf-buyers" style="min-width:0">
-                <div class="vxf-card__head"><h2 id="vxf-buyers" style="color:#fff">Buyers A–Z</h2><span class="vxf-sub vxf-num">{{ $packedBuyers }}/{{ $buyers->count() }}</span></div>
+                <div class="vxf-card__head"><h2 id="vxf-buyers" style="color:var(--vxf-ink)">Buyers A–Z</h2><span class="vxf-sub vxf-num">{{ $packedBuyers }}/{{ $buyers->count() }}</span></div>
                 <div style="padding:8px 8px 0"><label class="sr-only" for="vxf-buyer-search">Search buyer</label>
                     <input id="vxf-buyer-search" class="vxf-input" type="search" placeholder="Search buyer or letter…" wire:model.live.debounce.250ms="buyerSearch"></div>
                 <div class="vxf-buyers" role="list">
@@ -135,10 +148,10 @@
                                 <span class="vxf-letter">{{ $b->letter }}</span>
                                 <span style="flex:1;min-width:0">
                                     <span class="vxf-buyer__name">{{ $b->buyer_username }}</span>
-                                    <span class="vxf-sub">{{ $b->packages_count ? $b->packed_packages_count . '/' . $b->packages_count . ' pkg' : $b->item_count . ' items' }} · {{ ['packed' => 'Packed', 'held' => 'On hold', 'packing' => 'Packing'][$b->status] ?? 'Waiting' }}</span>
+                                    <span class="vxf-sub">{{ $b->packages_count ? $b->packed_packages_count . '/' . $b->packages_count . ' pkg' : $b->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $b->item_count) }} · {{ ['packed' => 'Packed', 'held' => 'On hold', 'packing' => 'Packing'][$b->status] ?? 'Waiting' }}</span>
                                 </span>
-                                @if ($b->status === 'packed')<x-heroicon-o-check-circle style="width:20px;height:20px;color:#4ade80" aria-label="Packed" />@endif
-                                @if ($b->status === 'held')<x-heroicon-o-exclamation-triangle style="width:20px;height:20px;color:#fcd34d" aria-label="On hold" />@endif
+                                @if ($b->status === 'packed')<x-heroicon-o-check-circle style="width:20px;height:20px;color:#16a34a" aria-label="Packed" />@endif
+                                @if ($b->status === 'held')<x-heroicon-o-exclamation-triangle style="width:20px;height:20px;color:#d97706" aria-label="On hold" />@endif
                             </button>
                         </div>
                     @empty
@@ -158,7 +171,7 @@
                             <div class="vxf-chips">
                                 <span class="vxf-chip">{{ $current->order_count }} {{ \Illuminate\Support\Str::plural('order', $current->order_count) }}</span>
                                 <span class="vxf-chip">{{ $current->packages_count ?: '—' }} {{ \Illuminate\Support\Str::plural('package', $current->packages_count ?: 2) }}</span>
-                                <span class="vxf-chip">{{ $current->item_count }} items</span>
+                                <span class="vxf-chip">{{ $current->item_count }} {{ \Illuminate\Support\Str::plural('item', (int) $current->item_count) }}</span>
                                 @if ($current->packing_started_at)<span class="vxf-chip">Started {{ $current->packing_started_at->timezone($tz)->format('g:i:s A') }}</span>@endif
                             </div>
                         </div>
@@ -201,7 +214,7 @@
                                     <li wire:key="p-{{ $package->id }}">
                                         <span class="vxf-check {{ $package->status === 'packed' ? 'vxf-check--ok' : '' }}" aria-hidden="true">@if ($package->status === 'packed')<x-heroicon-o-check />@endif</span>
                                         <span style="flex:1;min-width:0"><strong>Package {{ $loop->iteration }}</strong>
-                                            <span class="vxf-sub">{{ $package->shipment?->whatnot_order_id ? 'Order ' . $package->shipment->whatnot_order_id : '' }}{{ $package->shipment?->item_count ? ' · ' . $package->shipment->item_count . ' items' : '' }}{{ $package->packed_at ? ' · packed ' . $package->packed_at->timezone($tz)->format('g:i A') : '' }}</span></span>
+                                            <span class="vxf-sub">{{ $package->order_ids ? 'Order ' . implode(', ', (array) $package->order_ids) : '' }}{{ $package->shipment?->item_count ? ($package->order_ids ? ' · ' : '') . $package->shipment->item_count . ' ' . \Illuminate\Support\Str::plural('item', (int) $package->shipment->item_count) : '' }}{{ $package->packed_at ? ' · packed ' . $package->packed_at->timezone($tz)->format('g:i A') : '' }}</span></span>
                                         @if ($package->status !== 'packed' && $canWork && ! $paused)
                                             <button type="button" class="vxf-btn vxf-btn--sm" wire:click="packPackage({{ $package->id }})">Packed</button>
                                         @endif
@@ -247,15 +260,15 @@
 
         @if ($showFlag)
             <div class="vxf-drawer-backdrop" wire:click="$set('showFlag', false)"></div>
-            <div class="vxf-drawer vxf-dark" style="border-radius:0" role="dialog" aria-modal="true" aria-labelledby="vxf-flag-title" @keydown.escape.window="$wire.set('showFlag', false)">
-                <div class="vxf-drawer__head"><h2 id="vxf-flag-title" style="color:#fff">Flag an issue</h2>
-                    <button type="button" class="vxf-icon-btn" style="color:#fff" wire:click="$set('showFlag', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></div>
+            <div class="vxf-drawer vxf-board" style="border-radius:0" role="dialog" aria-modal="true" aria-labelledby="vxf-flag-title" @keydown.escape.window="$wire.set('showFlag', false)">
+                <div class="vxf-drawer__head"><h2 id="vxf-flag-title" style="color:var(--vxf-ink)">Flag an issue</h2>
+                    <button type="button" class="vxf-icon-btn" style="color:var(--vxf-ink)" wire:click="$set('showFlag', false)" aria-label="Close"><x-heroicon-o-x-mark /></button></div>
                 <div class="vxf-drawer__body">
                     @if ($current)<p style="margin:0"><span class="vxf-letter" style="display:inline-grid">{{ $current->letter }}</span> <strong>{{ $current->buyer_username }}</strong></p>@endif
                     <fieldset style="border:0;margin:0;padding:0"><legend class="vxf-field" style="margin-bottom:6px">What's wrong?</legend>
                         <div class="vxf-grid2">
                             @foreach (\App\Services\FulfillmentFlagService::CATEGORIES as $key => $label)
-                                <label class="vxf-btn" style="justify-content:flex-start;{{ $flagType === $key ? 'border-color:#8b5cf6;background:#2a1f5c' : '' }}"><input type="radio" name="flagType" value="{{ $key }}" wire:model.live="flagType" style="accent-color:#8b5cf6"> {{ $label }}</label>
+                                <label class="vxf-btn" style="justify-content:flex-start;{{ $flagType === $key ? 'border-color:#8b5cf6;background:color-mix(in srgb,#8b5cf6 22%,transparent)' : '' }}"><input type="radio" name="flagType" value="{{ $key }}" wire:model.live="flagType" style="accent-color:#8b5cf6"> {{ $label }}</label>
                             @endforeach
                         </div>
                     </fieldset>

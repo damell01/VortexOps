@@ -32,6 +32,9 @@ class FulfillmentActivity extends Page
 {
     use WithPagination;
 
+    /** The page draws its own header. */
+    public function getHeading(): string { return ''; }
+
     protected static ?string $title = 'Schedule & Activity';
     protected static ?string $slug = 'fulfillment/schedule-activity';
     protected static bool $shouldRegisterNavigation = false;

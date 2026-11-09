@@ -25,14 +25,29 @@ use Livewire\Attributes\Computed;
  */
 class FulfillmentHome extends Page
 {
+    /** The page draws its own header. */
+    public function getHeading(): string { return ''; }
+
     protected static ?string $title = 'Fulfillment';
     protected static ?string $slug = 'fulfillment';
     protected static bool $shouldRegisterNavigation = false;
 
     /** Assign drawer state. */
+    /** Ready queue: all shows, long jobs (slow-pack) or the quick ones. */
+    #[\Livewire\Attributes\Url(as: 'length')]
+    public string $length = 'all';
+
+    public function updatedLength(): void
+    {
+        if (! in_array($this->length, ['all', 'slow', 'quick'], true)) $this->length = 'all';
+        unset($this->queue);
+    }
+
     public ?int $assignRunId = null;
     public array $assignUsers = [];
     public ?int $assignStation = null;
+    /** Opened from an idle station: the manager still has to pick the show. */
+    public bool $assignPickShow = false;
 
     public static function canAccess(): bool
     {
@@ -89,7 +104,7 @@ class FulfillmentHome extends Page
     #[Computed]
     public function queue(): \Illuminate\Support\Collection
     {
-        return app(FulfillmentQueue::class)->queueRows(auth()->user())
+        return app(FulfillmentQueue::class)->queueRows(auth()->user(), 50, $this->length)
             ->loadCount(['flags as open_flags_count' => fn ($q) => $q->where('status', 'open')]);
     }
 
@@ -114,7 +129,23 @@ class FulfillmentHome extends Page
             'remaining' => max(0, $known->sum('expected_packages') - $known->sum('completed_packages')),
             'issues' => DB::table('fulfillment_flags')->where('status', 'open')->count(),
             'working' => TimeEntry::query()->whereIn('user_id', $team)->whereNull('clocked_out_at')->count(),
-        ];
+        ] + $this->shipping();
+    }
+
+    /** In transit / delivered over the last 30 days, grouped the same way as Shipment Tracking. */
+    private function shipping(): array
+    {
+        $out = ['in_transit' => 0, 'delivered' => 0];
+        \App\Models\Shipment::query()
+            ->whereHas('show', fn ($q) => $q->where('show_date', '>=', now()->subDays(30)->toDateString()))
+            ->select('status', DB::raw('COUNT(*) as total'))->groupBy('status')->get()
+            ->each(function ($row) use (&$out) {
+                $bucket = \App\Filament\Pages\ShipmentOverview::bucket($row->status);
+                if (in_array($bucket, ['in_transit', 'shipped'], true)) $out['in_transit'] += (int) $row->total;
+                if ($bucket === 'delivered') $out['delivered'] += (int) $row->total;
+            });
+
+        return $out;
     }
 
     #[Computed]
@@ -162,9 +193,34 @@ class FulfillmentHome extends Page
         $this->resetErrorBag();
     }
 
+    /** "Assign show" on an idle station: choose a ready show for it. */
+    public function openAssignToStation(int $stationId): void
+    {
+        abort_unless($this->isManager(), 403);
+        abort_unless(FulfillmentStation::query()->whereKey($stationId)->where('active', true)->exists(), 404);
+        $this->reset('assignRunId', 'assignUsers');
+        $this->assignStation = $stationId;
+        $this->assignPickShow = true;
+        $this->resetErrorBag();
+    }
+
+    public function updatedAssignRunId(): void
+    {
+        $run = $this->assignRunId ? FulfillmentRun::query()->with('show.fulfillmentUsers:id')->find($this->assignRunId) : null;
+        $this->assignUsers = $run?->show?->fulfillmentUsers->pluck('id')->map(fn ($id) => (string) $id)->all() ?? [];
+    }
+
+    /** Ready shows a manager can put on a station. */
+    public function readyRunOptions(): array
+    {
+        return FulfillmentRun::query()->where('status', FulfillmentRun::READY)->with('show:id,title,show_date')
+            ->get()->sortByDesc(fn ($r) => $r->show?->show_date)
+            ->mapWithKeys(fn ($r) => [$r->id => ($r->show?->show_date?->format('M j') ?? '') . ' · ' . ($r->show?->title ?? 'Show')])->all();
+    }
+
     public function closeAssign(): void
     {
-        $this->reset('assignRunId', 'assignUsers', 'assignStation');
+        $this->reset('assignRunId', 'assignUsers', 'assignStation', 'assignPickShow');
     }
 
     public function saveAssign(): void
@@ -172,6 +228,10 @@ class FulfillmentHome extends Page
         abort_unless($this->isManager(), 403);
         $this->validate([
             'assignRunId' => ['required', 'integer'],
+        ], [
+            'assignRunId.required' => 'Choose a show to assign.',
+        ]);
+        $this->validate([
             'assignUsers' => ['array'],
             'assignUsers.*' => ['integer'],
             'assignStation' => ['nullable', 'integer'],

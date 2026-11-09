@@ -37,13 +37,46 @@ class ShipmentOverview extends Page
             ->orderByDesc('observed_at')->limit(50)->get();
     }
 
+    /** The summary boxes. Every stored status (API codes or scraped text) falls into one. */
+    public const BUCKETS = ['created' => 'Created', 'label' => 'Label ready', 'in_transit' => 'In transit',
+        'shipped' => 'Shipped', 'delivered' => 'Delivered', 'failed' => 'Failed', 'cancelled' => 'Cancelled'];
+
+    /**
+     * Group a stored shipment status. The Seller API importer stores
+     * pending / label_created / shipped / in_transit / delivered / failed /
+     * cancelled; the scraper stores Whatnot's text ("Label Created",
+     * "In Transit", "Out for delivery"...).
+     */
+    public static function bucket(?string $status): string
+    {
+        $s = strtolower(trim((string) preg_replace('/[\s-]+/', '_', trim((string) $status))));
+
+        return match (true) {
+            $s === '' || in_array($s, ['pending', 'created', 'awaiting_label', 'unshipped', 'not_shipped', 'processing'], true) => 'created',
+            str_contains($s, 'cancel') => 'cancelled',
+            str_contains($s, 'fail') || str_contains($s, 'exception') || str_contains($s, 'return') || str_contains($s, 'undeliver') || str_contains($s, 'lost') || str_contains($s, 'stuck') => 'failed',
+            str_contains($s, 'out_for_delivery') || str_contains($s, 'transit') || str_contains($s, 'accepted') => 'in_transit',
+            str_contains($s, 'deliver') => 'delivered',
+            str_contains($s, 'label') => 'label',
+            str_contains($s, 'ship') || str_contains($s, 'dropped') || str_contains($s, 'picked_up') => 'shipped',
+            default => 'created',
+        };
+    }
+
     public function dashboardData(): array
     {
         abort_unless(static::canAccess(), 403);
         $base = Shipment::query()->whereHas('show', fn ($query) =>
             $query->where('show_date', '>=', now()->subDays(max(1, min($this->days, 365)))->toDateString()));
-        $totals = (clone $base)->select('status', DB::raw('COUNT(*) as total'))->groupBy('status')
-            ->pluck('total', 'status');
+        $byStatus = (clone $base)->select('status', DB::raw('COUNT(*) as total'))->groupBy('status')->get();
+        $totals = array_fill_keys(array_keys(self::BUCKETS), 0);
+        $statusesIn = [];
+        foreach ($byStatus as $row) {
+            $bucket = self::bucket($row->status);
+            $totals[$bucket] += (int) $row->total;
+            $statusesIn[$bucket][] = $row->status;
+        }
+        $wanted = array_key_exists($this->status, self::BUCKETS) ? ($statusesIn[$this->status] ?? []) : null;
         $rows = (clone $base)->with('show:id,title,show_date,whatnot_channel_id')
             ->when(trim($this->search) !== '', function ($query) {
                 $term = '%'.addcslashes(trim($this->search), '%_\\').'%';
@@ -53,7 +86,10 @@ class ShipmentOverview extends Page
                         ->orWhereHas('show', fn ($show) => $show->where('title', 'like', $term));
                 });
             })
-            ->when($this->status !== 'all', fn ($query) => $query->where('status', $this->status))
+            ->when($wanted !== null, fn ($query) => $query->where(function ($q) use ($wanted) {
+                $q->whereIn('status', array_values(array_filter($wanted, fn ($v) => $v !== null)) ?: ['__none__']);
+                if (in_array(null, $wanted, true)) $q->orWhereNull('status');
+            }))
             ->latest('updated_at')->limit(150)->get();
         return compact('rows', 'totals');
     }

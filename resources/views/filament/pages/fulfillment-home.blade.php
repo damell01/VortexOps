@@ -2,6 +2,7 @@
 @php
     $manager = $this->isManager();
     $stats = $this->stats;
+    $shipments = \App\Filament\Pages\ShipmentOverview::canAccess() ? \App\Filament\Pages\ShipmentOverview::getUrl() : null;
     $tz = \App\Support\BusinessTime::zone();
     $initials = fn ($name) => collect(preg_split('/\s+/', trim((string) $name)))->filter()->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('');
 @endphp
@@ -21,22 +22,22 @@
 
     <section class="vxf-stats" aria-label="Today at a glance">
         @foreach (array_filter([
-            ['Stations packing', $stats['stations_active'] . ' / ' . $stats['stations_total'], null, 'heroicon-o-squares-2x2'],
-            ['Ready to pack', $stats['ready'], 'shows', 'heroicon-o-inbox-stack'],
-            ['Expected packages', $stats['expected'], $stats['expected_unknown'] ? $stats['expected_unknown'] . ' show(s) pending count' : 'open shows', 'heroicon-o-cube'],
-            ['Packed today', $stats['completed_today'], $stats['buyers_today'] . ' buyers', 'heroicon-o-check-badge'],
-            ['Remaining', $stats['remaining'], 'packages in open shows', 'heroicon-o-clock'],
-            ['Open issues', $stats['issues'], null, 'heroicon-o-flag'],
-            $manager ? ['Working now', $stats['working'], 'clocked in', 'heroicon-o-user-group'] : null,
-        ]) as [$label, $value, $sub, $icon])
-            <div class="vxf-card vxf-stat">
+            ['Active stations', $stats['stations_active'] . ' / ' . $stats['stations_total'], 'packing now', 'heroicon-o-squares-2x2', null],
+            ['Ready to pack', $stats['ready'], \Illuminate\Support\Str::plural('show', $stats['ready']), 'heroicon-o-inbox-stack', null],
+            ['Packages', $stats['expected'], $stats['completed_today'] . ' packed · ' . $stats['remaining'] . ' left' . ($stats['expected_unknown'] ? ' · ' . $stats['expected_unknown'] . ' pending count' : ''), 'heroicon-o-cube', null],
+            $shipments ? ['In transit', $stats['in_transit'], 'last 30 days', 'heroicon-o-truck', $shipments] : null,
+            $shipments ? ['Delivered', $stats['delivered'], 'last 30 days', 'heroicon-o-check-badge', $shipments] : null,
+            ['Open issues', $stats['issues'], null, 'heroicon-o-exclamation-triangle', \App\Filament\Pages\FulfillmentActivity::getUrl(['tab' => 'issues'])],
+            $manager ? ['Working now', $stats['working'], 'clocked in', 'heroicon-o-user-group', null] : null,
+        ]) as [$label, $value, $sub, $icon, $href])
+            @if ($href)<a class="vxf-card vxf-stat vxf-stat--link" href="{{ $href }}">@else<div class="vxf-card vxf-stat">@endif
                 <span class="vxf-stat__icon" aria-hidden="true"><x-dynamic-component :component="$icon" /></span>
                 <div>
                     <p class="vxf-stat__label">{{ $label }}</p>
                     <p class="vxf-stat__value vxf-num">{{ $value }}</p>
                     @if ($sub)<span class="vxf-stat__sub">{{ $sub }}</span>@endif
                 </div>
-            </div>
+            @if ($href)</a>@else</div>@endif
         @endforeach
     </section>
 
@@ -75,7 +76,10 @@
                             </div>
                         @else
                             <p class="vxf-station__meta" style="margin:auto 0">No show assigned.</p>
-                            <div class="vxf-station__foot">
+                            <div class="vxf-station__foot vxf-actions">
+                                @if ($manager)
+                                    <button type="button" class="vxf-btn vxf-btn--sm vxf-btn--primary" wire:click="openAssignToStation({{ $row['station']->id }})"><x-heroicon-o-plus /> Assign show</button>
+                                @endif
                                 <a class="vxf-btn vxf-btn--sm" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['station' => $row['station']->id]) }}">Open station</a>
                             </div>
                         @endif
@@ -90,11 +94,15 @@
     <div class="vxf-cols">
         <section class="vxf-card" aria-labelledby="vxf-queue">
             <div class="vxf-card__head">
-                <h2 id="vxf-queue">{{ $manager ? 'Ready to pack' : 'My shows' }}</h2>
-                <span class="vxf-sub">Ended shows with orders to fulfill</span>
+                <h2 id="vxf-queue">{{ $manager ? 'Ready to pack' : 'My shows' }} <span class="vxf-pill">{{ $this->queue->count() }}</span></h2>
+                <div class="vxf-tabs" role="group" aria-label="Job length">
+                    @foreach (['all' => 'All', 'slow' => 'Long jobs', 'quick' => 'Quick'] as $key => $label)
+                        <button type="button" class="vxf-tab" wire:click="$set('length', '{{ $key }}')" aria-pressed="{{ $length === $key ? 'true' : 'false' }}" aria-selected="{{ $length === $key ? 'true' : 'false' }}">{{ $label }}</button>
+                    @endforeach
+                </div>
             </div>
             @if ($this->queue->isEmpty())
-                <p class="vxf-empty">{{ $manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.' }}</p>
+                <p class="vxf-empty">{{ $length !== 'all' ? 'No ' . ($length === 'slow' ? 'long' : 'quick') . ' jobs waiting.' : ($manager ? 'Nothing waiting. New shows appear here once they end and their orders sync.' : 'No shows are assigned to you right now.') }}</p>
             @else
                 <div class="vxf-table-wrap">
                     <table class="vxf-table">
@@ -105,7 +113,7 @@
                                     $state = ($run->isOnStation() && $run->open_flags_count) ? 'hold' : $run->status;
                                     $needsReport = \App\Services\FulfillmentQueue::requiresApprovedReport() && $run->status === 'ready' && ! \App\Services\FulfillmentQueue::reportApproved($show); @endphp
                                 <tr wire:key="q-{{ $run->id }}">
-                                    <td style="min-width:200px"><strong>{{ $show->title }}</strong><span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></td>
+                                    <td style="min-width:200px"><strong>{{ $show->title }}</strong>@if ($show->is_slow_pack) <span class="vxf-pill vxf-pill--paused" title="Marked as a slow pack">Long job</span>@endif<span class="vxf-sub">{{ $show->channel?->name ?? 'No channel' }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</span></td>
                                     <td class="vxf-num" style="white-space:nowrap">{{ $show->show_date?->format('M j') }}@if ($show->start_time)<span class="vxf-sub">{{ $show->start_time->timezone($tz)->format('g:i A') }}</span>@endif</td>
                                     <td class="vxf-num">{!! $run->order_count !== null ? $run->order_count : '<span class="vxf-unknown">pending</span>' !!}</td>
                                     <td class="vxf-num">{!! $run->expected_packages !== null ? $run->expected_packages : '<span class="vxf-unknown">pending</span>' !!}</td>
@@ -116,6 +124,7 @@
                                         @if ($needsReport)<span class="vxf-sub">Waiting on report approval</span>@endif
                                     </td>
                                     <td style="text-align:right;white-space:nowrap">
+                                        @if (\App\Filament\Resources\FulfillmentResource::canAccess())<a class="vxf-btn vxf-btn--sm vxf-btn--icon" href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show->id]) }}" title="Order details" aria-label="Order details for {{ $show->title }}"><x-heroicon-o-document-text /></a>@endif
                                         @if ($manager)<button type="button" class="vxf-btn vxf-btn--sm" wire:click="openAssign({{ $run->id }})">{{ $people->isEmpty() ? 'Assign' : 'Edit' }}</button>@endif
                                         <a class="vxf-btn vxf-btn--sm vxf-btn--primary" href="{{ \App\Filament\Pages\FulfillmentStationBoard::getUrl(['run' => $run->id]) }}">{{ $run->isOnStation() ? 'Open' : 'Start' }}</a>
                                     </td>
@@ -188,8 +197,8 @@
         </aside>
     </div>
 
-    @if ($assignRunId)
-        @php $assignRun = \App\Models\FulfillmentRun::query()->with('show:id,title')->find($assignRunId); @endphp
+    @if ($assignRunId || $assignPickShow)
+        @php $assignRun = $assignRunId ? \App\Models\FulfillmentRun::query()->with('show:id,title')->find($assignRunId) : null; @endphp
         <div class="vxf-drawer-backdrop" wire:click="closeAssign"></div>
         <div class="vxf-drawer" role="dialog" aria-modal="true" aria-labelledby="vxf-assign-title" x-data x-init="$nextTick(() => $el.querySelector('select')?.focus())" @keydown.escape.window="$wire.closeAssign()">
             <div class="vxf-drawer__head">
@@ -197,7 +206,18 @@
                 <button type="button" class="vxf-icon-btn" wire:click="closeAssign" aria-label="Close"><x-heroicon-o-x-mark /></button>
             </div>
             <div class="vxf-drawer__body">
-                <p style="margin:0;font-weight:700">{{ $assignRun?->show?->title }}</p>
+                @if ($assignPickShow)
+                    <label class="vxf-field">Show
+                        <select class="vxf-select" wire:model.live="assignRunId">
+                            <option value="">Choose a show ready to pack</option>
+                            @foreach ($this->readyRunOptions() as $id => $label)<option value="{{ $id }}">{{ $label }}</option>@endforeach
+                        </select>
+                    </label>
+                    @error('assignRunId')<p class="vxf-alert" role="alert">{{ $message }}</p>@enderror
+                    @if (! $this->readyRunOptions())<p class="vxf-sub">No shows are ready to pack right now.</p>@endif
+                @else
+                    <p style="margin:0;font-weight:700">{{ $assignRun?->show?->title }}</p>
+                @endif
                 <label class="vxf-field">Packers (one by default; add more to share the show)
                     <select class="vxf-select" multiple size="6" wire:model="assignUsers">
                         @foreach ($this->teamOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach

@@ -16,7 +16,6 @@ final class FulfillmentNav
             ['Schedule & Activity', \App\Filament\Pages\FulfillmentActivity::getUrl(panel: 'admin'), 'Fulfillment', 'heroicon-o-calendar-days'],
             ['TV Whiteboard', route('fulfillment.whiteboard'), 'Fulfillment', 'heroicon-o-tv'],
             \App\Filament\Resources\ShowResource\Pages\ReviewShowStreamers::canAccess() ? ['Stream Review', \App\Filament\Resources\ShowResource::getUrl('stream-review'), 'Management', 'heroicon-o-user-group'] : null,
-            \App\Filament\Resources\FulfillmentResource::canAccess() ? ['Order Details', \App\Filament\Resources\FulfillmentResource::getUrl('index'), 'Management', 'heroicon-o-archive-box'] : null,
             \App\Filament\Pages\ShipmentOverview::canAccess() ? ['Shipment Tracking', \App\Filament\Pages\ShipmentOverview::getUrl(panel: 'admin'), 'Management', 'heroicon-o-truck'] : null,
         ]));
     }

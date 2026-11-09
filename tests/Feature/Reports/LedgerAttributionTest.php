@@ -102,7 +102,7 @@ class LedgerAttributionTest extends TestCase
         $entry = WhatnotLedgerEntry::create(['dedup_key' => 'unassigned-approval-guard', 'amount' => -5, 'transaction_type' => 'Refund']);
         DB::table('ledger_attributions')->insert([
             'whatnot_ledger_entry_id' => $entry->id, 'category' => 'refunds',
-            'target' => 'unassigned', 'status' => 'pending',
+            'target' => 'unassigned', 'status' => 'pending', 'reason' => 'Unverified recipient',
             'created_at' => now(), 'updated_at' => now(),
         ]);
         $this->expectException(ValidationException::class);
@@ -115,7 +115,7 @@ class LedgerAttributionTest extends TestCase
         $entry = WhatnotLedgerEntry::create(['dedup_key' => 'house-approval-guard', 'amount' => -25, 'transaction_type' => 'Marketing']);
         DB::table('ledger_attributions')->insert([
             'whatnot_ledger_entry_id' => $entry->id, 'category' => 'marketing',
-            'target' => 'house', 'status' => 'pending',
+            'target' => 'house', 'status' => 'pending', 'reason' => 'Awaiting business assignment',
             'created_at' => now(), 'updated_at' => now(),
         ]);
         $this->expectException(ValidationException::class);

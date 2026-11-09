@@ -26,14 +26,17 @@ class LedgerAutoMatcher
                 $raw = is_array($entry->raw_data) ? $entry->raw_data : [];
                 $hasLivestream = collect(['live_id', 'whatnot_live_id', 'livestream_id', 'source_live_id'])
                     ->contains(fn ($key) => filled($raw[$key] ?? null));
-                $houseMarketing = in_array($type, ['marketing', 'promotion', 'promotions', 'advertising', 'advertisement'], true)
+                $houseCategory = in_array($type, ['marketing', 'promotion', 'promotions', 'advertising', 'advertisement'], true)
+                    ? 'marketing'
+                    : (in_array($type, ['bonus', 'bonuses'], true) ? 'bonus' : null);
+                $houseMarketing = $houseCategory !== null
                     && ! filled($entry->whatnot_order_id)
                     && ! $hasLivestream
                     && (float) $entry->amount < 0;
 
                 if ($existing && $existing->status === 'approved') {
                     return $houseMarketing && $existing->target === 'house'
-                        && $existing->category === 'marketing'
+                        && $existing->category === $houseCategory
                         && $existing->show_id === null
                         && $existing->streamer_id === null ? 'matched' : 'flagged';
                 }
@@ -62,10 +65,10 @@ class LedgerAutoMatcher
                 if ($existing) return 'unmatched';
                 $payload = [
                     'whatnot_ledger_entry_id' => $entry->id,
-                    'category' => 'marketing', 'target' => 'house',
+                    'category' => $houseCategory, 'target' => 'house',
                     'show_id' => null, 'streamer_id' => null, 'business_id' => null,
                     'status' => 'pending',
-                    'reason' => 'Suggested house marketing expense; requires business assignment and human approval',
+                    'reason' => 'Suggested house '.$houseCategory.' expense; requires business assignment and human approval',
                     'submitted_by' => null, 'reviewed_by' => null, 'reviewed_at' => null,
                     'created_at' => now(), 'updated_at' => now(),
                 ];

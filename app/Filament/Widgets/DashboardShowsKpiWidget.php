@@ -21,8 +21,8 @@ class DashboardShowsKpiWidget extends BaseWidget
     {
         $channel = ChannelContext::currentId() ?? 'all';
 
-        [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend] = Cache::remember(
-            "widget:dashboard_business_kpi:v2:{$channel}",
+        [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend, $netTrend, $hoursTrend] = Cache::remember(
+            "widget:dashboard_business_kpi:v3:{$channel}",
             120,
             function () {
                 $products = Product::query()->where('is_active', true)->with('stock')->get();
@@ -49,16 +49,21 @@ class DashboardShowsKpiWidget extends BaseWidget
                 $salesByDay = Show::query()
                     ->inChannelContext()
                     ->whereBetween('show_date', [now()->subDays(6)->startOfDay(), now()->endOfDay()])
-                    ->selectRaw('DATE(show_date) as day, COALESCE(SUM(gross_revenue), 0) as gross_total')
+                    ->selectRaw('DATE(show_date) as day, COALESCE(SUM(gross_revenue), 0) as gross_total, COALESCE(SUM(completed_earnings), 0) as net_total, COALESCE(SUM(show_duration), 0) / 60 as hours_total')
                     ->groupByRaw('DATE(show_date)')
-                    ->pluck('gross_total', 'day');
+                    ->get()->keyBy('day');
 
                 $salesTrend = [];
+                $netTrend = [];
+                $hoursTrend = [];
                 for ($i = 6; $i >= 0; $i--) {
-                    $salesTrend[] = (float) ($salesByDay[now()->subDays($i)->toDateString()] ?? 0);
+                    $daily = $salesByDay->get(now()->subDays($i)->toDateString());
+                    $salesTrend[] = (float) ($daily?->gross_total ?? 0);
+                    $netTrend[] = (float) ($daily?->net_total ?? 0);
+                    $hoursTrend[] = (float) ($daily?->hours_total ?? 0);
                 }
 
-                return [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend];
+                return [$value, $items, $units, $monthGross, $monthNet, $monthHours, $valueTrend, $salesTrend, $netTrend, $hoursTrend];
             }
         );
 
@@ -75,9 +80,9 @@ class DashboardShowsKpiWidget extends BaseWidget
             Stat::make('Whatnot Gross', '$'.number_format($monthGross, 2))
                 ->description('Gross revenue this month')->icon('heroicon-o-banknotes')->chart($salesTrend)->color('warning'),
             Stat::make('Whatnot Net', '$'.number_format($monthNet, 2))
-                ->description('Completed earnings this month')->icon('heroicon-o-currency-dollar')->color('success'),
+                ->description('Completed earnings this month')->icon('heroicon-o-currency-dollar')->chart($netTrend)->color('success'),
             Stat::make('Stream Hours', number_format($monthHours, 1))
-                ->description('Whatnot show duration this month')->icon('heroicon-o-clock')->color('primary'),
+                ->description('Whatnot show duration this month')->icon('heroicon-o-clock')->chart($hoursTrend)->color('primary'),
         ];
     }
 }

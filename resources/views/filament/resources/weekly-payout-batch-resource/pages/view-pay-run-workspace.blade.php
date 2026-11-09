@@ -340,22 +340,48 @@
         </section>
 
         <aside class="vxw-aside">
-            <section class="vxw-card" data-vx-tip-channels>
+            @php
+                // Read-only approved tip attribution; never changes this pay run or distributes unmatched tips.
+                $streamerTips = app(\App\Services\LedgerTipReport::class)->byStreamer(
+                    $run->week_start->toDateString(),
+                    $run->week_end->toDateString()
+                );
+                $streamerTips = collect($streamerTips)->sortByDesc('net')->values();
+                $approvedTipNet = $streamerTips->sum('net');
+                $importedTipNet = array_sum(array_column($tipChannels, 'net'));
+            @endphp
+            <section class="vxw-card" data-vx-tip-streamers>
                 <div class="vxw-card-head">
-                    <h3 class="vxw-h2">Tips by channel</h3>
-                    <span class="vxw-pill">{{ $money(array_sum(array_column($tipChannels, 'net')) / 100) }}</span>
+                    <h3 class="vxw-h2">Verified tips by streamer</h3>
+                    <span class="vxw-pill">{{ $money($approvedTipNet / 100) }}</span>
                 </div>
                 <div class="vxw-card-body">
-                    @if($tipChannels)
+                    @if($streamerTips->isNotEmpty())
                         <dl class="vxw-dl">
-                            @foreach($tipChannels as $channel)
-                                <div><dt>{{ $channel['channel'] }}</dt><dd>{{ $money($channel['net'] / 100) }}</dd></div>
+                            @foreach($streamerTips as $tip)
+                                <div>
+                                    <dt>{{ $tip['streamer'] }} <span class="vxw-meta">({{ number_format($tip['entries']) }} tips)</span></dt>
+                                    <dd>{{ $money($tip['net'] / 100) }}</dd>
+                                </div>
                             @endforeach
                         </dl>
                     @else
-                        <div class="vxw-meta">No tips imported for these dates.</div>
+                        <p class="vxw-meta">No approved streamer tip assignments for this period yet.</p>
                     @endif
-                    <p class="vxw-meta mt-2">Whatnot tips per channel, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}, every business together. For reference only: not split by business or added to pay.</p>
+                    <p class="vxw-meta mt-2">Approved streamer assignments only, {{ $run->week_start?->format('M j') }} – {{ $run->week_end?->format('M j') }}. Read-only reference; these totals are not added to payouts.</p>
+                    <details class="mt-3">
+                        <summary class="vxw-meta cursor-pointer font-semibold">Imported tips by channel and reconciliation</summary>
+                        <div class="mt-2">
+                            <p class="vxw-meta">All-channel imported total: {{ $money($importedTipNet / 100) }}. Verified streamer total: {{ $money($approvedTipNet / 100) }}. These are different attribution scopes; the difference is not necessarily an error.</p>
+                            @if($tipChannels)
+                                <dl class="vxw-dl mt-2">
+                                    @foreach($tipChannels as $channel)
+                                        <div><dt>{{ $channel['channel'] }}</dt><dd>{{ $money($channel['net'] / 100) }}</dd></div>
+                                    @endforeach
+                                </dl>
+                            @endif
+                        </div>
+                    </details>
                 </div>
             </section>
             @if($transfer = \App\Support\BusinessTransfer::forRun($run))

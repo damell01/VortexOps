@@ -72,8 +72,26 @@
     .vxled-pages button.is-active { background: var(--vxw-accent); border-color: var(--vxw-accent); color: #fff; }
     .vxled-pages button[disabled] { opacity: .45; cursor: default; }
     .vxled-pages svg { width: 16px; height: 16px; }
-    /* Transaction details open as a centred modal over the page. */
-    .vxled-panel { position: fixed; z-index: 1000; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 24px)); max-height: min(90vh, 900px); overflow-y: auto; border-radius: 20px; box-shadow: 0 30px 80px -20px rgb(10 10 30 / .45); }
+    /* Right-hand review drawer: preserve the ledger table behind it, give the
+       transaction a full-height reading area, and keep scrolling inside it. */
+    .vxled-panel {
+        position: fixed; z-index: 1000; inset: 0 0 0 auto;
+        top: 0; left: auto; right: 0; transform: none;
+        width: min(860px, 90vw); height: 100dvh; max-height: 100dvh;
+        overflow-y: auto; overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 20px 0 0 20px;
+        box-shadow: -20px 0 70px -20px rgb(10 10 30 / .45);
+    }
+    .vxled-panel .vxr-card-body { padding: 0 24px 32px; }
+    .vxled-panel .vxr-drawer-head {
+        position: sticky; top: 0; z-index: 2;
+        background: var(--vxw-surface); border-bottom: 1px solid var(--vxw-border);
+    }
+    @media (max-width: 767px) {
+        .vxled-panel { width: 100vw; max-width: 100vw; border-radius: 0; }
+        .vxled-panel .vxr-card-body { padding: 0 16px 32px; }
+    }
     .vxled-panel .vxr-drawer-head { padding: 18px 20px 12px; border-bottom: 0; }
     .vxled-panel-amt { font-size: 30px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
     .vxled-panel .vxr-dl dd { text-align: right; overflow-wrap: anywhere; min-width: 0; }

@@ -80,6 +80,8 @@
 @media(max-width:640px){.vx-inventory-mobile-intro{display:none!important}.vx-inventory-summary{grid-template-columns:minmax(0,1fr);padding:10px}.vx-inventory-summary .vx-health-grid{grid-column:auto;grid-template-columns:repeat(4,minmax(0,1fr))}.vx-inventory-summary .vx-health:first-child{display:block}.vx-inventory-summary .vx-health{padding:7px 4px;min-height:60px}.vx-inventory-summary .vx-health strong{font-size:1rem}.vx-inventory-summary .vx-health-label{font-size:.57rem}.vx-inventory-actions .vx-inventory-desktop-tools{display:block!important}.vx-inventory-actions{align-items:stretch}.vx-inventory-actions .vx-inv-shortcuts>a{min-height:42px}.vx-inventory-list .vx-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.vx-inventory-list .vx-card-action{min-height:42px}.vx-inventory-list .vx-catalog-grid{grid-template-columns:repeat(1,minmax(0,1fr))}}
 @media(min-width:480px) and (max-width:719px){.vx-inventory-list .vx-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){.vx-inventory-list .vx-product-card{transition:none}.vx-inventory-list .vx-product-card:hover{transform:none}}
+
+.vx-inventory-list .vx-catalog-footer{display:flex;flex-direction:row;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 2px}.vx-catalog-pagination{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.vx-catalog-pagination button{min-width:34px;min-height:36px;padding:4px 8px;border:1px solid #ddd6fe;border-radius:9px;background:white;color:#5b21b6;font-weight:700}.vx-catalog-pagination button[aria-current=page]{background:#7c3aed;color:white;border-color:#7c3aed}.vx-catalog-pagination button:disabled{opacity:.4;cursor:not-allowed}.vx-catalog-pagination button:focus-visible{outline:2px solid #7c3aed;outline-offset:2px}.dark .vx-catalog-pagination button{background:#211632;border-color:#6d28d9;color:#e9d5ff}.dark .vx-catalog-pagination button[aria-current=page]{background:#7c3aed;color:white}
 </style>
 <div x-data x-on:barcode-scanned.window="if ($wire.quickStockScanTargetId) { $wire.verifyQuickStockBarcode($event.detail.value) } else if ($wire.barcodeScanTargetId) { $wire.saveScannedBarcode($event.detail.value) }"></div>
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
@@ -225,15 +227,29 @@
      </div>
     </div>
    @endif
-   <div class="vx-catalog-footer">
-    <div class="text-xs text-gray-500">Showing {{ number_format($this->catalogItems->count()) }} of {{ number_format($this->catalogTotal) }} matching products</div>
-    @if($this->catalogItems->count() < $this->catalogTotal)
-     <button type="button" wire:click="loadMoreCatalog" wire:loading.attr="disabled" class="vx-load-more">
-      <span wire:loading.remove wire:target="loadMoreCatalog">Load 40 more</span>
-      <span wire:loading wire:target="loadMoreCatalog">Loading…</span>
-     </button>
-    @endif
-   </div>
+   @php
+    $catalogPages = max(1, (int) ceil($this->catalogTotal / $catalogVisible));
+    $catalogCurrent = max(1, min($catalogPage, $catalogPages));
+    $catalogFirst = ($catalogCurrent - 1) * $catalogVisible + 1;
+    $catalogLast = min($catalogCurrent * $catalogVisible, $this->catalogTotal);
+   @endphp
+   <nav class="vx-catalog-footer" aria-label="Inventory card pagination">
+    <div class="text-xs text-gray-600 dark:text-gray-300">Showing {{ number_format($catalogFirst) }}–{{ number_format($catalogLast) }} of {{ number_format($this->catalogTotal) }} matching products</div>
+    <div class="vx-catalog-pagination">
+     <button type="button" wire:click="setCatalogPage(1)" @disabled($catalogCurrent <= 1) aria-label="First page">«</button>
+     <button type="button" wire:click="setCatalogPage({{ $catalogCurrent - 1 }})" @disabled($catalogCurrent <= 1) aria-label="Previous page">‹</button>
+     @for($page = max(1, $catalogCurrent - 2); $page <= min($catalogPages, $catalogCurrent + 2); $page++)
+      <button type="button" wire:key="catalog-page-{{ $page }}" wire:click="setCatalogPage({{ $page }})" @if($page === $catalogCurrent) aria-current="page" @endif>{{ $page }}</button>
+     @endfor
+     <button type="button" wire:click="setCatalogPage({{ $catalogCurrent + 1 }})" @disabled($catalogCurrent >= $catalogPages) aria-label="Next page">›</button>
+     <button type="button" wire:click="setCatalogPage({{ $catalogPages }})" @disabled($catalogCurrent >= $catalogPages) aria-label="Last page">»</button>
+    </div>
+    <label class="flex items-center gap-2 text-xs font-semibold text-gray-600 dark:text-gray-300">Items per page
+     <select wire:change="setCatalogPageSize($event.target.value)" class="rounded-lg border border-violet-200 bg-white px-2 py-1.5 text-xs text-gray-900 dark:border-violet-800 dark:bg-gray-900 dark:text-white">
+      @foreach([12, 24, 48] as $size)<option value="{{ $size }}" @selected($catalogVisible === $size)>{{ $size }}</option>@endforeach
+     </select>
+    </label>
+   </nav>
   @else
    <div class="vx-empty"><x-heroicon-o-magnifying-glass class="mx-auto h-8 w-8" /><div class="mt-2 font-semibold text-gray-800 dark:text-gray-200">No matching inventory</div><div class="mt-1 text-sm">Try another search or stock filter.</div></div>
   @endif
